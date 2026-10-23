@@ -15,13 +15,10 @@ export default async function Page() {
       <AlertNotification
         level="info"
         className="text-2xl font-medium"
-        message="Our site is currently down. We'll be back up in 1-2 hours. Please check our Discord for
+        message="Our site is currently down. We'll be back up in 1-2 hours. Please check our GitHub repository for
         updates."
       />
       <div className="flex items-center justify-center space-x-4">
-        <Link href={siteConfig.links.discord} target="_blank">
-          <Icons.discord className="size-5" />
-        </Link>
         <Link href={siteConfig.links.github} target="_blank">
           <Icons.gitHub className="size-5" />
         </Link>

@@ -4,7 +4,7 @@ Thank you for your interest in contributing to AutoSecOps!
 
 ## Before You Begin
 
-Join our [Discord](https://discord.gg/H4XZwsYzY4) and the `#contributors` channel to get started.
+AutoSecOps is proprietary software owned by SingularityRD (see [License](#license)). Read this guide and the open issues on [SingularityRD/AutoSecOps1](https://github.com/SingularityRD/AutoSecOps1/issues) to get started.
 
 ## What We Accept PRs For
 
@@ -16,7 +16,7 @@ We currently accept pull request contributions for:
 * UI fixes
 * Small, concrete UI improvements or suggestions
 
-For larger or more product-opinionated changes, please open a discussion with us in Discord before starting work.
+For larger or more product-opinionated changes, please open a GitHub issue to discuss the change with us before starting work.
 
 This includes, but is not limited to, changes that touch:
 
@@ -39,20 +39,15 @@ Changes to GitHub Actions, workflows, repository automation, or CI/CD configurat
 
 Please create a GitHub issue before opening a pull request.
 
-You may open a PR alongside an issue for small, clearly scoped fixes, such as integration fixes, API updates, or UI bugs. Use your judgment: if the change is large, touches core product behavior, or is likely to be opinionated, open the issue or Discord discussion first and wait for feedback before implementing.
+You may open a PR alongside an issue for small, clearly scoped fixes, such as integration fixes, API updates, or UI bugs. Use your judgment: if the change is large, touches core product behavior, or is likely to be opinionated, open the issue first and wait for feedback before implementing.
 
 ## Feature Requests
 
-Please open a [GitHub issue](https://github.com/TracecatHQ/tracecat/issues/new/choose) with the `Feature request` template.
-
-You can also join our Discord and discuss the feature request with the community before opening an issue.
+Please open a [GitHub issue](https://github.com/SingularityRD/AutoSecOps1/issues/new/choose) with the `Feature request` template.
 
 ## Bug Reports
 
-If you discover a bug, either:
-
-* Open a [GitHub issue](https://github.com/TracecatHQ/tracecat/issues/new/choose) with the `Bug report` template
-* Post a question in our Discord `#questions` channel
+If you discover a bug, open a [GitHub issue](https://github.com/SingularityRD/AutoSecOps1/issues/new/choose) with the `Bug report` template.
 
 We only accept bug reports that meet the following criteria:
 

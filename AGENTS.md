@@ -83,7 +83,7 @@ changes.
   `${VAR}`, `VAR=`, or a hardcoded literal, so `.env` overrides still work. In
   `.env.example`, use an explicit `true` or `false`, never a blank value, and
   update `tests/unit/test_config.py` when adding deployment env files.
-- Keep `.env.example` focused on settings ordinary open-source and self-hosted
+- Keep `.env.example` focused on settings ordinary self-hosted
   users are expected to configure. Advanced tuning knobs and operator-only
   overrides stay overrideable through deployment configuration instead; being
   supported by config or Compose is not a reason to advertise a variable.

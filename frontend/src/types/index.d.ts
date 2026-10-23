@@ -9,7 +9,6 @@ export type SiteConfig = {
   }
   links: {
     github: string
-    discord: string
     docs: string
     playbooks: string
   }

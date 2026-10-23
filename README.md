@@ -11,17 +11,9 @@
   <br>
 </div>
 
-<div align="center">
-
-![Commits](https://img.shields.io/github/commit-activity/m/TracecatHQ/tracecat?style=for-the-badge&logo=github&color=6E7ED8)
-![License](https://img.shields.io/badge/License-AGPL%203.0-6E7ED8?style=for-the-badge&logo=agpl)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/H4XZwsYzY4)
-
-</div>
-
 ## Introduction
 
-[AutoSecOps](https://tracecat.com) is the open source security automation platform for teams and AI agents. A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
+AutoSecOps is the AI-native security automation platform for teams and AI agents, built and owned by [SingularityRD](https://github.com/SingularityRD). A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
 
 ## Core Features
 
@@ -63,39 +55,26 @@
 ## Other Highlights
 
 - **Pre-built MCP servers**: 50+ AutoSecOps-hosted MCP servers for security operations
-- **MCP client**: connect custom agents any MCP server (remote HTTP / OAuth or local via `npx` / `uvx` commands)
+- **MCP client**: connect custom agents to any MCP server (remote HTTP / OAuth or local via `npx` / `uvx` commands)
 - **Custom registry**: sync custom Python scripts from your Git repo into AutoSecOps
 - **Sandboxed**: run untrusted code and agents within `nsjail` sandboxes or `pid` runtimes
 - **Durable execution**: built on [Temporal](https://temporal.io) for resilience and scale
 - **Variables**: reuse values across workflows and agents
 - **No SSO tax**: SAML / OIDC support
 - **Free audit logs**: exportable into your SIEM
-- **Deploy anywhere**: sign up for AutoSecOps Cloud, or self-host with Docker, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://docs.tracecat.com/self-hosting/air-gapped).
+- **Deploy anywhere**: sign up for AutoSecOps Cloud, or self-host with Docker, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/air-gapped.mdx).
 
-## Enterprise Edition
+## Enterprise Features
 
-- **Multi-tenant**: isoated different teams and dev / prod environments into workspaces
+- **Multi-tenant**: isolate different teams and dev / prod environments into workspaces
 - **Fine-grained access control**: RBAC, ABAC, OAuth2.0 scopes for humans and agents
-- **Human-in-the-loop**: review and approve sensitive tools calls from a unified inbox, Slack, or email
+- **Human-in-the-loop**: review and approve sensitive tool calls from a unified inbox, Slack, or email
 - **Workspace version control**: sync workflows, agents, and table schemas to GitHub, GitLab, Bitbucket, etc.
 - **Metrics and monitoring**: for workflows, agents, and cases
 
-## Open Source vs Enterprise
-
-This repo is available under the [AGPL-3.0 license](https://github.com/TracecatHQ/tracecat/blob/main/LICENSE) except for:
-
-- Code under the `packages/tracecat-ee` directory
-- Code that gates `ee` features
-
-These exceptions are fall under AutoSecOps's paid EE (Enterprise Edition) license. Code that fall under the above exceptions must not be redistributed, sold, used in production, or otherwise commercialized without permission.
-
 > [!NOTE]
-> AutoSecOps Enterprise is available as managed Cloud with US or EU hosting, or as a self-hosted deployment with dedicated support.
-> [Book a demo today](https://www.tracecat.com/contact).
-
-## Community
-
-Have questions? Feedback? Come hang out with us in the [AutoSecOps Community Discord](https://discord.gg/H4XZwsYzY4).
+> AutoSecOps is available as a managed cloud deployment with US or EU hosting, or as a self-hosted deployment with dedicated support.
+> Contact [SingularityRD](https://github.com/SingularityRD) for licensing and deployment options.
 
 ## Tech Stack
 
@@ -106,20 +85,21 @@ Have questions? Feedback? Come hang out with us in the [AutoSecOps Community Dis
 - Database: PostgreSQL
 - Object store: S3-compatible
 
-## Contributors
+## Contributing
 
-Thank you all our amazing contributors for contributing code, integrations, docs, and support. Open source is only possible because of you.
-Check out our [Contribution Guide](CONTRIBUTING.md) for more information.
+Check out the [Contribution Guide](CONTRIBUTING.md) for development setup and conventions.
 
-<a href="https://github.com/TracecatHQ/tracecat/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=TracecatHQ/tracecat" />
-</a>
+## License
 
-<br>
+AutoSecOps is proprietary software owned by SingularityRD. All rights reserved.
+The entire repository, including `packages/tracecat-ee`, is covered by the single SingularityRD proprietary license in [LICENSE](LICENSE).
+Use, copying, modification, or distribution requires a written license agreement with SingularityRD.
+Third-party components remain under their respective licenses.
+
 <br>
 
 <div align="center">
 
-  <sub>**`AutoSecOps`** is distributed under [**AGPL-3.0**](https://github.com/TracecatHQ/tracecat/blob/main/LICENSE)</sub>
+  <sub>**`AutoSecOps`** &copy; SingularityRD. All rights reserved.</sub>
 
 </div>
