@@ -3,7 +3,7 @@ import Image from "next/image"
 import TracecatIcon from "public/icon.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-const CONTACT_US_URL = "https://cal.com/team/tracecat"
+const CONTACT_US_URL = "https://github.com/SingularityRD"
 const SYSTEM_MSG_KINDS = ["beta-ee-contact-us"] as const
 type SystemMessageKind = (typeof SYSTEM_MSG_KINDS)[number]
 

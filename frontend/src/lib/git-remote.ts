@@ -30,7 +30,7 @@ export interface GitRemoteTarget {
 export interface GitRemote {
   gitUrl: string
   host: string
-  /** Repository path without `.git`, e.g. `TracecatHQ/detections`. */
+  /** Repository path without `.git`, e.g. `acme/detections`. */
   path: string
   ref?: string
 }

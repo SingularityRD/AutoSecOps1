@@ -288,10 +288,10 @@ variable "temporal_log_level" {
   default = "warn"
 }
 
-# NOTE: Modifying feature flags requires an AutoSecOps Enterprise license.
+# NOTE: Feature flags enable Enterprise Edition features.
 variable "feature_flags" {
   type        = string
-  description = "Comma separated list of AutoSecOps feature flags to enable. Requires AutoSecOps Enterprise license to modify."
+  description = "Comma separated list of AutoSecOps feature flags to enable."
   default     = ""
 }
 

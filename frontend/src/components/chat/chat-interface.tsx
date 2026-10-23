@@ -195,7 +195,7 @@ export function ChatInterface({
     chat && "backend_id" in chat ? chat.backend_id : "oss"
   const currentBackendName =
     backends.find((backend) => backend.id === currentBackendId)?.name ??
-    (currentBackendId === "oss" ? "Open source" : "Unavailable")
+    (currentBackendId === "oss" ? "Default" : "Unavailable")
   const { updateChat, isUpdating } = useUpdateChat(workspaceId)
 
   useEffect(() => {

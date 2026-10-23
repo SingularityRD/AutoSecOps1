@@ -56,12 +56,12 @@ Slack posts every click and mention to one request URL. Two setups work.
 ```json
 "settings": {
   "event_subscriptions": {
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
     "bot_events": ["app_mention", "entity_details_requested"]
   },
   "interactivity": {
     "is_enabled": true,
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>"
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>"
   }
 }
 ```
@@ -110,7 +110,7 @@ If you already installed the shared skills from examples 001 and 002, keep those
 | Placeholder | Replace with |
 |---|---|
 | `#security-alerts`, `C0123456789` | Your review channel name and its channel ID |
-| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/` | Your host and workspace id, with a trailing slash. This is `case_url_base`. |
+| `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/` | Your host and workspace id, with a trailing slash. This is `case_url_base`. |
 | `https://platform.sublime.security` | Your Sublime API host, if it is not this one |
 | `https://admin.google.com/ac/emaillogsearch` | The mail-log search in your admin console |
 | `DRY-RUN-NO-POST` | Your channel id, only after a dry run has produced a case you have read |

@@ -55,7 +55,7 @@ locals {
     TRACECAT__LOG_FORMAT                              = var.log_format
     TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID              = data.aws_caller_identity.current.account_id
     TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
-    TRACECAT__FEATURE_FLAGS                           = var.feature_flags # Requires AutoSecOps Enterprise license to modify.
+    TRACECAT__FEATURE_FLAGS                           = var.feature_flags
     TRACECAT__EE_MULTI_TENANT                         = var.ee_multi_tenant
     TRACECAT__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
     TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb

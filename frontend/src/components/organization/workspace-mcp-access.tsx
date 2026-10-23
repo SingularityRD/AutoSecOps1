@@ -314,7 +314,7 @@ function IssuedTokenDialog({
           <DialogDescription>
             Copy your token now, it will not be shown again. See the{" "}
             <a
-              href="https://docs.tracecat.com/automations/tracecat-mcp"
+              href="https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/tracecat-mcp.mdx"
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2"

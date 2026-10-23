@@ -29,7 +29,7 @@ Work through the stages below in order. Each stage says when to stop. When you s
 
 | Name | Value |
 |---|---|
-| Workspace case URL | `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` |
+| Workspace case URL | `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` |
 | Triage channel | `#security-alerts`, `C0123456789` |
 | Work Object table | `slack_work_objects` |
 | Enabled regions | discover with `ec2` `describe_regions` in `us-east-1` when you need them |

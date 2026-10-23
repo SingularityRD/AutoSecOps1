@@ -55,12 +55,12 @@ Slack posts every click and mention to one request URL. Two setups work:
 ```json
 "settings": {
   "event_subscriptions": {
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
     "bot_events": ["app_mention", "entity_details_requested"]
   },
   "interactivity": {
     "is_enabled": true,
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>"
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>"
   }
 }
 ```
@@ -109,7 +109,7 @@ If you also run example 001, keep those skills on the same preset. The prompt be
 | Placeholder | Replace with |
 |---|---|
 | `#security-alerts`, `C0123456789` | Your review channel name and its channel ID |
-| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
+| `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
 | `admin@example.com` | The Google Workspace super-admin the service account impersonates |
 | `<siem-query-url>`, `<workspace-token-logs>` | Your log store's query endpoint and the table that holds Workspace `token` events |
 | The people in `skills/org-chart` | Your own reporting lines, on real addresses |

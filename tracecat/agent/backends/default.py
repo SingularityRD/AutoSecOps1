@@ -28,7 +28,7 @@ class DefaultBackend(AgentBackend[AgentWorkflowArgs, AgentOutput]):
     task_queue = config.TRACECAT__AGENT_QUEUE
     priority: ClassVar[Priority] = Priority(priority_key=1)
     retry_policy = RETRY_POLICIES["workflow:fail_fast"]
-    name = "Open source"
+    name = "Default"
     default_harness = "claude_code"
     supported_harnesses = frozenset({"claude_code"})
     history = None

@@ -83,7 +83,7 @@ return a case-ready report. Do not claim a case was updated without a tool resul
 
 ## Sources and ownership
 
-Maintained by AutoSecOps under this repository's license. This is original
+Maintained by SingularityRD under this repository's license. This is original
 AutoSecOps guidance informed by the [AWS incident-response playbook samples](https://github.com/aws-samples/aws-incident-response-playbooks/tree/master/ai-playbooks)
 and the AWS documentation linked in the scenario references. Upstream playbook
 text and command blocks are not bundled here. Verify current service behavior

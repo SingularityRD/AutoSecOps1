@@ -2596,15 +2596,15 @@ Read the `tracecat://platform/dsl-reference` resource for the full DSL specifica
 Read the `tracecat://platform/authoring-guide` resource for worked graph-shape, \
 loop, batching, condition-ladder, and agent-preset guidance.
 
-## Canonical upstream references
+## Canonical references
 Fetch these when you need detail; this prompt does not restate them.
-- https://docs.tracecat.com/automations/core-concepts/expressions
-- https://docs.tracecat.com/automations/core-concepts/functions
-- https://docs.tracecat.com/automations/core-concepts/secrets
-- https://docs.tracecat.com/automations/integrations/oauth-integrations
-- https://docs.tracecat.com/automations/triggers/case-triggers
-- https://docs.tracecat.com/automations/tables
-- https://docs.tracecat.com/cheatsheets/common-mistakes
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/expressions.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/functions.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/secrets.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/integrations/oauth-integrations.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/triggers/case-triggers.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/tables.mdx
+- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/cheatsheets/common-mistakes.mdx
 """
 
 _MCP_INSTRUCTIONS_RENDERED = _render_prompt_text(_MCP_INSTRUCTIONS)

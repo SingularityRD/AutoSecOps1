@@ -1,6 +1,6 @@
 # AutoSecOps docs
 
-This directory contains the docs site published at `docs.tracecat.com`.
+This directory contains the AutoSecOps docs site source. The published source lives at https://github.com/SingularityRD/AutoSecOps1/tree/main/docs.
 
 ## Local preview
 

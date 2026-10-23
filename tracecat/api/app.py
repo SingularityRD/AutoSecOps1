@@ -589,7 +589,7 @@ def create_app(**kwargs) -> FastAPI:
     app = FastAPI(
         title="AutoSecOps API",
         description=(
-            "The open source AI automation platform for security teams and agents."
+            "The AI-native security automation platform for security teams and agents."
         ),
         summary="AutoSecOps API",
         version="1",
@@ -696,7 +696,7 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(mcp_oidc_router)
     app.include_router(feature_flags_router)
     app.include_router(vcs_router)
-    # RBAC routers - user scopes + role listing + user role assignments are always included (OSS)
+    # RBAC routers - user scopes + role listing + user role assignments are always included (core)
     app.include_router(user_scopes_router)
     app.include_router(rbac_roles_read_router)
     app.include_router(rbac_user_assignments_router)

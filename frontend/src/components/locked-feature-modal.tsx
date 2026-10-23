@@ -85,7 +85,7 @@ export function LockedFeatureModal({
                 className="w-full justify-center"
               >
                 <a
-                  href="https://tracecat.com"
+                  href="https://github.com/SingularityRD"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

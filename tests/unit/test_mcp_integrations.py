@@ -8749,7 +8749,7 @@ class TestMCPConnectionVerification:
         integration_service: IntegrationService,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Tool approvals are open source and do not need AGENT_ADDONS."""
+        """Tool approvals are available in all editions and do not need AGENT_ADDONS."""
         monkeypatch.setattr(
             tier_defaults,
             "DEFAULT_ENTITLEMENTS",

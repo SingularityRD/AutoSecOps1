@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracecat"
-description = "The open source AI automation platform for security teams and agents."
+description = "The AI-native security automation platform for security teams and agents."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"

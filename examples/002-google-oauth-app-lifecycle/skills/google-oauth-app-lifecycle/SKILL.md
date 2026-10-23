@@ -32,7 +32,7 @@ Work through the stages in order. Each stage says when to stop. When you stop, r
 
 | Name | Value |
 |---|---|
-| Workspace case URL | `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` |
+| Workspace case URL | `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` |
 | Review channel | the channel the prompt names, and no other |
 | Review table | `google_oauth_app_reviews`, one row per app, keyed on `client_id` |
 | Scope policy table | `oauth_scope_risk`, read only, column `scope` |

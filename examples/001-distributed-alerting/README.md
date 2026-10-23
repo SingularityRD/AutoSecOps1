@@ -50,12 +50,12 @@ Copy the workflow's webhook URL from its webhook trigger. In the Slack app setti
 ```json
 "settings": {
   "event_subscriptions": {
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
     "bot_events": ["app_mention", "entity_details_requested"]
   },
   "interactivity": {
     "is_enabled": true,
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>"
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>"
   }
 }
 ```
@@ -108,7 +108,7 @@ Optional, and you write it yourself. The prompt and skills load a skill with thi
 | Placeholder | Replace with |
 |---|---|
 | `#security-alerts`, `C0123456789` | Your triage channel name and its channel ID |
-| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
+| `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
 | `<your-read-only-audit-role>` | The read-only role your AWS credential assumes |
 | `<siem>`, `<siem-alert-url>` | A short name for your SIEM, and the URL pattern of an alert in it |
 | `<adapt to your SIEM>` | Marks field names, table names and SQL that follow one SIEM's schema. Rewrite them for yours. |

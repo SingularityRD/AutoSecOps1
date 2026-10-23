@@ -99,7 +99,7 @@ async def test_registry_actions_agent_preset_crud_unlocked_without_agent_addons(
     test_role,
     monkeypatch,
 ) -> None:
-    """Agent preset CRUD actions are open source and never locked by agent add-ons."""
+    """Agent preset CRUD actions are available on every plan and never locked by agent add-ons."""
     from tracecat.tiers import defaults as tier_defaults
 
     monkeypatch.setattr(

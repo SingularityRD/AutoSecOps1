@@ -2123,7 +2123,7 @@ describe("ChatSessionPane", () => {
     )
   })
 
-  // Catalog connectors are open source, so the picker always offers the whole
+  // Catalog connectors are not entitlement-gated, so the picker always offers the whole
   // MCP list; narrowing it would hide connectors the run would accept.
   it("offers the whole MCP catalog", () => {
     mockUseVercelChat.mockReturnValue({

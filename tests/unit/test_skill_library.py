@@ -696,7 +696,7 @@ class TestSkillLibraryService:
         library_service: SkillLibraryService,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        # The library is open source; only scopes gate install, bind, and fork.
+        # The library is not entitlement-gated; only scopes gate install, bind, and fork.
         monkeypatch.setattr(
             SkillLibraryService, "has_entitlement", AsyncMock(return_value=False)
         )

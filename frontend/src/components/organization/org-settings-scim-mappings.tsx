@@ -169,8 +169,9 @@ export function OrgSettingsScimMappings({
             </EmptyMedia>
             <EmptyTitle>Connect SCIM first</EmptyTitle>
             <EmptyDescription>
-              Generate a connection token above, then configure AutoSecOps in your
-              identity provider. Groups you push appear here and can be mapped.
+              Generate a connection token above, then configure AutoSecOps in
+              your identity provider. Groups you push appear here and can be
+              mapped.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

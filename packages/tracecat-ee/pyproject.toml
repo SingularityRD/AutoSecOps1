@@ -24,9 +24,9 @@ dependencies = []
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com/"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [project.entry-points."tracecat.workflows.git_sync"]
 ee_impl = "tracecat_ee.store.git_sync:sync_repo_workflows"

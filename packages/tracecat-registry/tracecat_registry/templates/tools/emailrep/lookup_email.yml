@@ -26,7 +26,7 @@ definition:
         method: GET
         headers:
           Key: ${{ SECRETS.emailrep.EMAILREP_API_KEY }}
-          User-Agent: tracecat-emailrep-lookup
+          User-Agent: autosecops-emailrep-lookup
         params:
           summary: ${{ inputs.include_summary }}
   returns: ${{ steps.query_email.result.data }}

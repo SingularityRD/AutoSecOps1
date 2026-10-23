@@ -97,7 +97,7 @@ definition:
                   "tenantDetails: { "
                   "userDetails: { "
                   f"sessionId: {json.dumps(session_id)} emailAddress: null "
-                  f"userAgent: {json.dumps('tracecat')} "
+                  f"userAgent: {json.dumps('autosecops')} "
                   "buildDate: null buildHash: null "
                   f"userTime: {json.dumps(user_time)} "
                   "} "

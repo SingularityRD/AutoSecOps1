@@ -4,7 +4,7 @@ Structural context for any agent working in `docs/`. For the full writing guide 
 
 ## Platform
 
-The docs site is published to [docs.tracecat.com](https://docs.tracecat.com). All files use `.mdx` (Markdown + JSX). Site config lives in `docs/docs.json`.
+The docs site source lives in [`docs/`](https://github.com/SingularityRD/AutoSecOps1/tree/main/docs). All files use `.mdx` (Markdown + JSX). Site config lives in `docs/docs.json`.
 
 ## File format
 

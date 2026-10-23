@@ -558,8 +558,8 @@ function AgentSessionCard({
             </code>
             <CopyButton
               value={correlationId}
-              toastMessage="Copied tracecat correlation ID"
-              tooltipMessage="Copy tracecat correlation ID (agent/<session_id>)"
+              toastMessage="Copied AutoSecOps correlation ID"
+              tooltipMessage="Copy AutoSecOps correlation ID (agent/<session_id>)"
             />
           </span>
           {session.pendingApprovalCount > 0 && (

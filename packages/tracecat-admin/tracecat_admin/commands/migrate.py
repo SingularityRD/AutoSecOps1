@@ -46,7 +46,7 @@ def _run_alembic(args: list[str], db_uri: str | None = None) -> int:
     if not alembic_dir:
         print_error(
             "Could not find alembic directory. "
-            "Ensure tracecat is installed and alembic/ exists."
+            "Ensure the tracecat package is installed and alembic/ exists."
         )
         return 1
 

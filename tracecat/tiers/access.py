@@ -56,7 +56,7 @@ async def is_org_entitled(
 ) -> bool:
     """Check if an organization has a specific entitlement."""
     if not config.TRACECAT__EE_MULTI_TENANT:
-        # Single-tenant mode: use static OSS/self-host defaults instead of DB tiers.
+        # Single-tenant mode: use static single-tenant/self-host defaults instead of DB tiers.
         return bool(
             getattr(tier_defaults.DEFAULT_ENTITLEMENTS, entitlement.value, False)
         )

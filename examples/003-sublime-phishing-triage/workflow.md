@@ -51,7 +51,7 @@ Declare every field below in `expects`, each with its default. The input schema 
 | `backtest_canonical_id` | `str`, `''` | Sublime canonical group id for the backtest lane. |
 | `backtest_case_id` | `str`, `''` | Set only by the detached backtest lane. Non-empty selects that lane, which runs the slow hunt job after the proposal is already in Slack. |
 | `backtest_thread_ts` | `str`, `''` | Slack thread the backtest lane reports its volume into. |
-| `case_url_base` | `str`, `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/` | Base URL for a case link, with a trailing slash. Without this the card cannot carry a working Open case button. |
+| `case_url_base` | `str`, `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/` | Base URL for a case link, with a trailing slash. Without this the card cannot carry a working Open case button. |
 | `limit` | `int`, `2` | Maximum message groups per poll call. |
 | `minutes` | `int`, `8` | New-mail lookback in minutes. 8 gives a 3 minute overlap on a 5 minute schedule. |
 | `payload` | `str`, `''` | Raw Slack block_actions payload as a JSON string. Non-empty selects the click lane. |

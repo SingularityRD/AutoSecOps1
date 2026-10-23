@@ -10,7 +10,9 @@ from __future__ import annotations
 import pytest
 from dedupe_release_notes import dedupe
 
-FOOTER = "**Full changelog**: https://github.com/TracecatHQ/tracecat/compare/a...b"
+FOOTER = (
+    "**Full changelog**: https://github.com/SingularityRD/AutoSecOps1/compare/a...b"
+)
 
 
 def test_a_pull_request_is_kept_in_the_first_section_that_claimed_it() -> None:

@@ -465,7 +465,7 @@ SAML_VERIFY_SSL_METADATA = env_bool("SAML_VERIFY_SSL_METADATA", default=True)
 """Whether to verify SSL certificates for SAML metadata operations."""
 
 # === CORS config === #
-# NOTE: If you are using AutoSecOps self-hosted, please replace with your
+# NOTE: If you are self-hosting AutoSecOps, please replace with your
 # own domain by setting the comma separated TRACECAT__ALLOW_ORIGINS env var.
 TRACECAT__ALLOW_ORIGINS = os.environ.get("TRACECAT__ALLOW_ORIGINS") or None
 
@@ -1457,12 +1457,12 @@ TRACECAT__ALLOWED_ATTACHMENT_MIME_TYPES = {
 }
 """The allowed MIME types for case attachment files."""
 
-# === Enterprise Edition === #
+# === Enterprise features === #
 ENTERPRISE_EDITION = env_bool("ENTERPRISE_EDITION", default=False)
-"""Whether the enterprise edition is enabled."""
+"""Whether enterprise features (the bundled `tracecat_ee` package) are enabled."""
 
 TRACECAT__EE_MULTI_TENANT = env_bool("TRACECAT__EE_MULTI_TENANT", default=False)
-"""Whether multi-tenant features are enabled for Enterprise Edition."""
+"""Whether multi-tenant enterprise features are enabled."""
 
 # === Managed tunnels (Pangolin) === #
 TRACECAT__PANGOLIN_ENDPOINT = os.environ.get("TRACECAT__PANGOLIN_ENDPOINT")

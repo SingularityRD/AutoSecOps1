@@ -1,4 +1,4 @@
-"""AutoSecOps is open source AI automation platform for mission critical workflows."""
+"""AutoSecOps is the AI-native security automation platform for mission-critical workflows."""
 
 __version__ = "1.0.0"
 __pep440_version__ = "1.0.0"

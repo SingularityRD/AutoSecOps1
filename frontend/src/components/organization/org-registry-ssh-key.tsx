@@ -227,8 +227,8 @@ export function OrgRegistrySshKeySection() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          AutoSecOps uses this key to clone the repository. Add the public key to
-          the repository as a read-only deploy key.
+          AutoSecOps uses this key to clone the repository. Add the public key
+          to the repository as a read-only deploy key.
         </p>
       </div>
       <div className="rounded-md border">{body}</div>

@@ -66,9 +66,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.hatch.version]
 path = "tracecat_registry/__init__.py"
