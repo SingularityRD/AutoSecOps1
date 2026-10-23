@@ -1,6 +1,6 @@
 # 001: Distributed alerting with one agent
 
-Socky is one agent preset that triages security alerts. For each alert it investigates, writes a Tracecat case, and posts the case to a Slack channel as a card with a brief and an evidence table. When the records link the activity to an employee, it asks that person "was this you?" with Yes and No buttons and records the answer on the case. It also answers mentions in the case thread.
+Socky is one agent preset that triages security alerts. For each alert it investigates, writes an AutoSecOps case, and posts the case to a Slack channel as a card with a brief and an evidence table. When the records link the activity to an employee, it asks that person "was this you?" with Yes and No buttons and records the answer on the case. It also answers mentions in the case thread.
 
 All values are placeholders.
 
@@ -15,7 +15,7 @@ All values are placeholders.
 
 ## Prerequisites
 
-- A Tracecat workspace with agents, cases and tables.
+- An AutoSecOps workspace with agents, cases and tables.
 - A Slack workspace where you can create and install apps.
 - An alert source that can POST each alert to a webhook.
 - A read-only AWS audit role, if you triage AWS alerts. Store it as the credential the `tools.aws_boto3` actions use.
@@ -40,7 +40,7 @@ All values are placeholders.
 
 1. Go to https://api.slack.com/apps, choose "Create New App", then "From a manifest", and paste `slack-app-manifest.json`.
 2. Install the app to the workspace.
-3. Copy the Bot User OAuth Token. In Tracecat, create a secret named `slack` with the key `SLACK_BOT_TOKEN`.
+3. Copy the Bot User OAuth Token. In AutoSecOps, create a secret named `slack` with the key `SLACK_BOT_TOKEN`.
 4. Invite the app to the triage channel: `/invite @socky`.
 
 ### Part 2: after the workflow is published
@@ -64,7 +64,7 @@ Save. This adds no scopes, so you do not reinstall the app.
 
 ### The Event Subscriptions URL must end in `?echo=true`
 
-This is the most common setup mistake. Slack verifies the URL by sending a `challenge` and expecting it back. With `echo=true` the Tracecat webhook returns the request body, challenge included, in its response. Without it, Slack reports the URL as unverified. The interactivity URL does not need it.
+This is the most common setup mistake. Slack verifies the URL by sending a `challenge` and expecting it back. With `echo=true` the AutoSecOps webhook returns the request body, challenge included, in its response. Without it, Slack reports the URL as unverified. The interactivity URL does not need it.
 
 ### Scopes
 
@@ -108,7 +108,7 @@ Optional, and you write it yourself. The prompt and skills load a skill with thi
 | Placeholder | Replace with |
 |---|---|
 | `#security-alerts`, `C0123456789` | Your triage channel name and its channel ID |
-| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` | Your Tracecat host and workspace ID. Leave `<case_id>`. |
+| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
 | `<your-read-only-audit-role>` | The read-only role your AWS credential assumes |
 | `<siem>`, `<siem-alert-url>` | A short name for your SIEM, and the URL pattern of an alert in it |
 | `<adapt to your SIEM>` | Marks field names, table names and SQL that follow one SIEM's schema. Rewrite them for yours. |

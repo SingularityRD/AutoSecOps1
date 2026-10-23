@@ -34,7 +34,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/publish-images.sh --tag TAG [options]
 
-Break-glass publisher for Tracecat images. It mirrors the GitHub Actions
+Break-glass publisher for AutoSecOps images. It mirrors the GitHub Actions
 Publish images workflow:
 
   1. build each platform image by digest

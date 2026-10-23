@@ -85,14 +85,14 @@ class ExternalGroupMappingRead(Schema):
 
 
 class ExternalGroupMappingCreate(BaseModel):
-    """Request to project an external group into a Tracecat group."""
+    """Request to project an external group into an AutoSecOps group."""
 
     external_group_id: UUID
     group_id: UUID
 
 
 class ScimReviewPerson(Schema):
-    """One person a review lists, with the Tracecat groups the change touches."""
+    """One person a review lists, with the AutoSecOps groups the change touches."""
 
     user_id: UUID
     email: str
@@ -107,7 +107,7 @@ class ScimReviewPeople(Schema):
 
 
 class ScimGroupTransitionRead(Schema):
-    """The combined effect of every proposed change on one Tracecat group."""
+    """The combined effect of every proposed change on one AutoSecOps group."""
 
     group_id: UUID
     group_name: str
@@ -226,9 +226,9 @@ class ScimMeta(ScimModel):
 class ScimUserRequest(ScimModel):
     """An inbound User resource on POST or PUT.
 
-    ``userName`` is the only attribute Tracecat stores as identity; the display
+    ``userName`` is the only attribute AutoSecOps stores as identity; the display
     and name attributes are accepted so providers do not see a validation
-    failure, but nothing here maps onto a Tracecat column.
+    failure, but nothing here maps onto an AutoSecOps column.
     """
 
     schemas: list[str] = Field(default_factory=lambda: [ScimSchema.USER])

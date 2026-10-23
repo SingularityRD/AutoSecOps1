@@ -1,4 +1,4 @@
-"""Helpers for Tracecat-internal proxy tool metadata."""
+"""Helpers for AutoSecOps-internal proxy tool metadata."""
 
 from __future__ import annotations
 
@@ -25,10 +25,10 @@ SDK_CONTENT_BLOCK_TYPES = frozenset(
 
 
 def strip_proxy_tool_metadata(args: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Return tool arguments without Tracecat-internal proxy metadata.
+    """Return tool arguments without AutoSecOps-internal proxy metadata.
 
     Args:
-        args: Tool arguments that may include Tracecat proxy metadata.
+        args: Tool arguments that may include AutoSecOps proxy metadata.
 
     Returns:
         A shallow-copied dict with the internal metadata removed.
@@ -42,7 +42,7 @@ def strip_proxy_tool_metadata(args: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def extract_proxy_tool_call_id(args: dict[str, Any]) -> str | None:
-    """Pop internal Tracecat metadata from proxy tool args and return tool_call_id.
+    """Pop internal AutoSecOps metadata from proxy tool args and return tool_call_id.
 
     Args:
         args: Mutable tool arguments sent through the registry proxy.
@@ -79,7 +79,7 @@ def _build_proxy_tool_metadata_schema() -> dict[str, Any]:
         "properties": {
             PROXY_TOOL_CALL_ID_KEY: {
                 "type": "string",
-                "description": "Internal Tracecat correlation identifier.",
+                "description": "Internal AutoSecOps correlation identifier.",
             }
         },
         "required": [PROXY_TOOL_CALL_ID_KEY],
@@ -90,7 +90,7 @@ def _build_proxy_tool_metadata_schema() -> dict[str, Any]:
 def build_registry_tool_schema(
     parameters_json_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Augment a registry tool schema with optional Tracecat metadata."""
+    """Augment a registry tool schema with optional AutoSecOps metadata."""
     schema: dict[str, Any] = copy.deepcopy(parameters_json_schema)
     if not schema:
         schema = {"type": "object"}

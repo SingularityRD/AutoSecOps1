@@ -1,6 +1,6 @@
 ---
 name: gh-release
-description: Cut a stable GitHub release or prerelease directly from a Tracecat release branch, including the version bump, tag, image verification, and categorized release notes.
+description: Cut a stable GitHub release or prerelease directly from an AutoSecOps release branch, including the version bump, tag, image verification, and categorized release notes.
 argument-hint: "[<tag>] [<commit>]"
 ---
 
@@ -224,11 +224,11 @@ cannot create a tag on the default branch:
 ```sh
 # Stable release:
 gh release create '<tag>' --verify-tag --latest \
-  --title 'Tracecat <tag>' --notes-file "$BODY_FILE"
+  --title 'AutoSecOps <tag>' --notes-file "$BODY_FILE"
 
 # Prerelease:
 gh release create '<tag>' --verify-tag --prerelease --latest=false \
-  --title 'Tracecat <tag>' --notes-file "$BODY_FILE"
+  --title 'AutoSecOps <tag>' --notes-file "$BODY_FILE"
 ```
 
 Run only the command for the approved release type. If the range contains no

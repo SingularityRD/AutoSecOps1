@@ -81,7 +81,7 @@ def _create_uds_transport(socket_path: str) -> StreamableHttpTransport:
 def build_registry_proxy_tool_schema(
     parameters_json_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Augment a registry tool schema with optional internal Tracecat metadata."""
+    """Augment a registry tool schema with optional internal AutoSecOps metadata."""
     return build_registry_tool_schema(parameters_json_schema)
 
 

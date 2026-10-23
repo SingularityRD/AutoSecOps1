@@ -7038,7 +7038,7 @@ async def test_secret_metadata_import_rejects_external_spec_for_local_secret(
     )
     await session.flush()
 
-    with pytest.raises(ValueError, match="stored in Tracecat"):
+    with pytest.raises(ValueError, match="stored in AutoSecOps"):
         await _import_secret_spec(session, svc_role, _aws_secret_spec())
 
 

@@ -1,6 +1,6 @@
 ---
 name: guardduty-case-lifecycle
-description: Load when the prompt hands you a GuardDuty finding to triage, either a finding id with its region and detector or a manual run carrying finding_id or since. Takes the finding from AWS to a triaged Tracecat case and a published Slack alert. You fetch it with boto3, map its family, dedupe it, attach it to a case or create one, and stop when a person has already decided. Otherwise you investigate, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
+description: Load when the prompt hands you a GuardDuty finding to triage, either a finding id with its region and detector or a manual run carrying finding_id or since. Takes the finding from AWS to a triaged AutoSecOps case and a published Slack alert. You fetch it with boto3, map its family, dedupe it, attach it to a case or create one, and stop when a person has already decided. Otherwise you investigate, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
 metadata:
   tools:
     - tools.aws_boto3.call_api

@@ -138,7 +138,7 @@ class SecretsService(BaseOrgService):
         if is_external_reference(secret):
             if params.keys is not None:
                 raise ValueError(
-                    "AWS-backed secrets do not store values in Tracecat. Update the"
+                    "AWS-backed secrets do not store values in AutoSecOps. Update the"
                     " reference or key mapping instead."
                 )
             if params.type is not None and SecretType(params.type) != SecretType(

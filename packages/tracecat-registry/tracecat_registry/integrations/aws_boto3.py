@@ -57,7 +57,7 @@ RoleSessionName = Annotated[
     str | None,
     Doc(
         "Session name recorded in CloudTrail for the chained AssumeRole. "
-        "Defaults to a Tracecat workspace/run derived name."
+        "Defaults to an AutoSecOps workspace/run derived name."
     ),
 ]
 ExternalId = Annotated[
@@ -92,7 +92,7 @@ aws_secret = RegistrySecret(
 - name: `aws`
 - optional_keys:
     Either:
-        - `AWS_ROLE_ARN` (recommended; Tracecat assumes the role on the host)
+        - `AWS_ROLE_ARN` (recommended; AutoSecOps assumes the role on the host)
         - `AWS_ROLE_SESSION_NAME` (optional audit session label)
     Or:
         - `AWS_ACCESS_KEY_ID`
@@ -101,7 +101,7 @@ aws_secret = RegistrySecret(
     And:
         - `AWS_REGION`
 
-Tracecat automatically supplies the workspace-scoped AWS External ID used for
+AutoSecOps automatically supplies the workspace-scoped AWS External ID used for
 cross-account AssumeRole requests and uses a default STS session name when
 `AWS_ROLE_SESSION_NAME` is unset.
 """
@@ -112,7 +112,7 @@ def _get_assume_role_external_id() -> str:
         return external_id
 
     raise SecretNotFoundError(
-        "AWS role assumption requires a Tracecat-provided workspace External ID."
+        "AWS role assumption requires an AutoSecOps-provided workspace External ID."
     )
 
 

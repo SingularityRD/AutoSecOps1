@@ -53,7 +53,7 @@ export function AppearanceSettings() {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">Appearance</h2>
         <p className="text-sm text-muted-foreground">
-          Customize how Tracecat looks on this device.
+          Customize how AutoSecOps looks on this device.
         </p>
       </div>
       <div className="space-y-3">

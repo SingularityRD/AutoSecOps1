@@ -1,7 +1,7 @@
 """Standalone sandbox shim that starts Claude Code and proxies raw stdio.
 
 This shim is intentionally self-contained and stdlib-only so broker-mode
-startup does not depend on importing the wider Tracecat package tree or the
+startup does not depend on importing the wider AutoSecOps package tree or the
 host virtualenv's Python dependencies.
 """
 

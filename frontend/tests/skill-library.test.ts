@@ -61,10 +61,10 @@ describe("groupLibraryProviders", () => {
     expect(cloudflare.repos).toEqual(["cloudflare/skills"])
   })
 
-  it("puts skills without a source under Tracecat", () => {
+  it("puts skills without a source under AutoSecOps", () => {
     const [provider] = groupLibraryProviders([skill("local", null)])
 
-    expect(provider.name).toBe("Tracecat")
+    expect(provider.name).toBe("AutoSecOps")
     expect(provider.repos).toEqual([])
   })
 
@@ -74,12 +74,12 @@ describe("groupLibraryProviders", () => {
       ...skill("aws-incident-response", "AWS"),
       source: {
         group: "AWS",
-        provider: "Tracecat",
+        provider: "AutoSecOps",
         kind: "local",
         repo: null,
         commit: null,
         url: null,
-        license: "AGPL-3.0-only",
+        license: "LicenseRef-Proprietary",
       },
     }
     const [group] = groupLibraryProviders([local, iam])
@@ -98,7 +98,7 @@ describe("libraryMaintainer", () => {
   it.each([
     [undefined, "official"],
     [null, "official"],
-    ["Tracecat", "tracecat"],
+    ["AutoSecOps", "tracecat"],
     ["Someone", "community"],
   ] as const)("classifies %j as %s", (provider, expected) => {
     expect(libraryMaintainer(provider)).toBe(expected)
@@ -132,12 +132,12 @@ function standalone(slug: string): LibrarySkillRead {
     installed: false,
     source: {
       group: null,
-      provider: "Tracecat",
+      provider: "AutoSecOps",
       kind: "local",
       repo: null,
       commit: null,
       url: null,
-      license: "AGPL-3.0-only",
+      license: "LicenseRef-Proprietary",
     },
   }
 }
@@ -214,7 +214,7 @@ describe("libraryEntryPath", () => {
     )
   })
 
-  it("falls back to the Tracecat segment for unsourced skills", () => {
+  it("falls back to the AutoSecOps segment for unsourced skills", () => {
     expect(librarySkillPath("ws", { slug: "triage", source: null })).toBe(
       "/workspaces/ws/skills/library/tracecat/triage"
     )

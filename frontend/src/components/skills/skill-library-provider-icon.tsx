@@ -91,7 +91,7 @@ export function SkillLibraryMaintainerMark({
         <p className="font-medium">{label}</p>
         {maintainer === "tracecat" ? (
           <p className="opacity-80">
-            Ships with Tracecat and updates with each release.
+            Ships with AutoSecOps and updates with each release.
           </p>
         ) : null}
       </TooltipContent>

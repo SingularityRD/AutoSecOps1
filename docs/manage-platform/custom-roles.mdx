@@ -36,7 +36,7 @@ Creating a role requires `org:rbac:create`.
     | Organization | None, Read, Admin, Custom |
     | Actions | None, All namespaces, one namespace, Custom |
 
-    You can grant only scopes you hold yourself. Tracecat refuses the rest with `Cannot grant scopes not held by the caller`.
+    You can grant only scopes you hold yourself. AutoSecOps refuses the rest with `Cannot grant scopes not held by the caller`.
   </Step>
   <Step title="Create the role">
     Click `Create role`. The role appears in the list with its scope count and description. Expand a row to see its scopes.
@@ -51,7 +51,7 @@ A role with any `Organization` scope is an organization role and is assigned org
 
 A custom role's row menu has `Copy role ID`, `Edit role`, and `Delete role`. Preset roles carry a `Preset` badge and have `Copy role ID` only.
 
-Tracecat refuses deleting a role that is in use:
+AutoSecOps refuses deleting a role that is in use:
 
 | Message | Fix |
 | --- | --- |
@@ -63,7 +63,7 @@ Tracecat refuses deleting a role that is in use:
 
 <Steps>
   <Step title="Create the group">
-    Open the Groups tab and click `Create group`. Enter a `Group name` and an optional description, then click `Create group`. This requires `org:rbac:create`. Tracecat refuses a duplicate name with `A group with this name already exists.`
+    Open the Groups tab and click `Create group`. Enter a `Group name` and an optional description, then click `Create group`. This requires `org:rbac:create`. AutoSecOps refuses a duplicate name with `A group with this name already exists.`
   </Step>
   <Step title="Expand the group">
     Click the group's row. It expands to a `Members` section and a `Roles` section.
@@ -86,7 +86,7 @@ Tracecat refuses deleting a role that is in use:
   <Step title="Assign roles">
     In the `Roles` section, select a scope of `Organization` or one workspace, select a role, then click the plus button. This requires `org:rbac:create`.
 
-    A group holds one role per scope. Tracecat refuses a second with `Group already has an assignment for this workspace`.
+    A group holds one role per scope. AutoSecOps refuses a second with `Group already has an assignment for this workspace`.
   </Step>
 </Steps>
 
@@ -121,8 +121,8 @@ On acceptance the invitee receives the role grants and joins the groups.
 | Rule | Detail |
 | --- | --- |
 | Offered groups | `Groups` lists the organization's groups, except groups an identity provider manages. |
-| Scope ceiling | You must hold every scope in the selected groups' roles. Tracecat refuses the rest with `Cannot grant scopes not held by the caller`. |
-| Changes before acceptance | Tracecat skips a group that was deleted or became identity provider-managed, and adds the invitee to the rest. |
+| Scope ceiling | You must hold every scope in the selected groups' roles. AutoSecOps refuses the rest with `Cannot grant scopes not held by the caller`. |
+| Changes before acceptance | AutoSecOps skips a group that was deleted or became identity provider-managed, and adds the invitee to the rest. |
 
 ## Custom scopes
 

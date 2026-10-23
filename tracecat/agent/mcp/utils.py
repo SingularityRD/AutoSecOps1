@@ -130,7 +130,7 @@ def normalize_mcp_tool_name(mcp_tool_name: str) -> str:
 
     MCP tool naming convention: mcp__{server_name}__{tool_name}
 
-    Handles Tracecat registry tools:
+    Handles AutoSecOps registry tools:
     - mcp__tracecat-registry__core__http_request -> core.http_request
     - mcp__tracecat_registry__core__script__run_python -> core.script.run_python
     - mcp.tracecat-registry.core.http_request -> core.http_request

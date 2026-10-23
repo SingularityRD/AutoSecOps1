@@ -42,7 +42,7 @@ def _activity_timeout_error(cause: TemporalTimeoutError) -> ApplicationError:
     # it does not prove that the workload exceeded its own resource limit.
     classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.EXECUTOR_ACTIVITY_TIMED_OUT,
-        message="Tracecat executor activity timed out",
+        message="AutoSecOps executor activity timed out",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=cause,
     )

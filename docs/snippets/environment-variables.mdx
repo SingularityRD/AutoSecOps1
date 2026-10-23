@@ -3,13 +3,13 @@
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
 | `PUBLIC_APP_PORT` | `80` | Port the reverse proxy listens on. |
-| `PUBLIC_APP_URL` | `http://localhost:${PUBLIC_APP_PORT}` | Public URL users visit to reach the Tracecat UI. |
-| `PUBLIC_API_URL` | `${PUBLIC_APP_URL}/api` | Public URL for the Tracecat API, used by the browser and for webhook callbacks. |
+| `PUBLIC_APP_URL` | `http://localhost:${PUBLIC_APP_PORT}` | Public URL users visit to reach the AutoSecOps UI. |
+| `PUBLIC_API_URL` | `${PUBLIC_APP_URL}/api` | Public URL for the AutoSecOps API, used by the browser and for webhook callbacks. |
 | `INTERNAL_API_URL` | `http://api:8000` | Internal URL that other services use to reach the API container. |
 | `TRACECAT__TRUSTED_PROXY_CIDRS` | `127.0.0.1/32` | Space-separated proxy CIDRs that Caddy trusts when deriving the client address from `X-Forwarded-For`. Set this when another proxy or load balancer runs in front of Caddy. |
-| `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` | | Comma-separated IPs or CIDRs, e.g. `10.0.12.34/32,10.42.0.0/16`, that custom LLM providers (LiteLLM, vLLM, Ollama, custom sources) and remote MCP servers may resolve to. Tracecat rejects private, loopback, and link-local destinations with `Host is not allowed` unless they are listed here. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Private endpoints](/agents/llm-providers#private-endpoints). |
+| `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` | | Comma-separated IPs or CIDRs, e.g. `10.0.12.34/32,10.42.0.0/16`, that custom LLM providers (LiteLLM, vLLM, Ollama, custom sources) and remote MCP servers may resolve to. AutoSecOps rejects private, loopback, and link-local destinations with `Host is not allowed` unless they are listed here. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Private endpoints](/agents/llm-providers#private-endpoints). |
 | `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS` | loopback + private ranges | Comma-separated CIDRs of proxies behind which the API runs (Caddy, the UI container, a load balancer). `X-Forwarded-For` entries from these hops are skipped when resolving the client IP for audit logs. |
-| `TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS` | `false` | Break-glass override for the API service. When `true`, Tracecat skips the [platform admin IP allowlist](/manage-platform/ip-allowlist#platform-admin-ip-allowlist) so a locked-out platform admin can recover. Organization allowlists still apply. Remove it after recovery. |
+| `TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS` | `false` | Break-glass override for the API service. When `true`, AutoSecOps skips the [platform admin IP allowlist](/manage-platform/ip-allowlist#platform-admin-ip-allowlist) so a locked-out platform admin can recover. Organization allowlists still apply. Remove it after recovery. |
 
 ### Application
 
@@ -101,7 +101,7 @@ These settings control the [tunnel gateways](/self-hosting/kubernetes#tunnels) t
 | :------- | :------ | :---------- |
 | `TRACECAT__TUNNEL_GATEWAY_BACKEND` | `none` | `kubernetes` to have the `api` service create and reconcile one gateway per tunnel. `none` disables tunnels: they can't be created and tunneled traffic fails. |
 | `TRACECAT__TUNNEL_GATEWAY_NAMESPACE` | `tracecat-tunnels` | Kubernetes namespace for gateway Secrets, Deployments, and Services. |
-| `TRACECAT__TUNNEL_GATEWAY_IMAGE` | `ghcr.io/tracecathq/tracecat-tunnel-gateway:<version>` | Gateway image. Defaults to the running Tracecat version; set `repository@sha256:<digest>` to pin an immutable image. |
+| `TRACECAT__TUNNEL_GATEWAY_IMAGE` | `ghcr.io/tracecathq/tracecat-tunnel-gateway:<version>` | Gateway image. Defaults to the running AutoSecOps version; set `repository@sha256:<digest>` to pin an immutable image. |
 | `TRACECAT__TUNNEL_GATEWAY_BLOCKED_CIDRS` | | Comma-separated CIDRs gateways never dial, such as the cluster's pod and service ranges. |
 | `TRACECAT__TUNNEL_GATEWAY_API_URL` | `TRACECAT__API_URL` | Internal API URL that gateways load their policy from. |
 | `TRACECAT__TUNNEL_GATEWAY_HOST_TEMPLATE` | `tunnel-{tunnel_id}.<TRACECAT__TUNNEL_GATEWAY_NAMESPACE>.svc.cluster.local` | Gateway hostname, with `{tunnel_id}` filled in per tunnel. |
@@ -111,7 +111,7 @@ These settings control the [tunnel gateways](/self-hosting/kubernetes#tunnels) t
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__AGENT_SANDBOX_TIMEOUT` | `10800` | Ceiling in seconds for the `timeout` of `ai.agent`, `ai.action`, and `ai.preset_agent`. Tracecat clamps explicit values between `1800` and this value, and unset means `7200`. A lower ceiling caps both the default and the minimum. Agent chat turns use the `7200` default, capped by this value. |
+| `TRACECAT__AGENT_SANDBOX_TIMEOUT` | `10800` | Ceiling in seconds for the `timeout` of `ai.agent`, `ai.action`, and `ai.preset_agent`. AutoSecOps clamps explicit values between `1800` and this value, and unset means `7200`. A lower ceiling caps both the default and the minimum. Agent chat turns use the `7200` default, capped by this value. |
 | `TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT` | `10860` | Seconds the agent executor worker waits for running agent activities to finish during a planned shutdown. Defaults to `TRACECAT__AGENT_SANDBOX_TIMEOUT` plus `60`. |
 | `TRACECAT__LLM_PROXY_READ_TIMEOUT` | `600` | Seconds the sandbox LLM proxy waits for the next byte from the model gateway before failing the request with `504`. Separate from the agent timeout. |
 | `TRACECAT__AGENT_SANDBOX_MEMORY_MB` | `4096` | Cgroup v2 memory budget in MiB shared by an agent sandbox and its child processes. Requires nsjail and cgroup delegation. The outer container memory limit still applies. See [Resource limits](/self-hosting/security#resource-limits). |

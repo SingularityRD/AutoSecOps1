@@ -62,7 +62,7 @@ def _user_classification(
 def _platform_classification() -> RuntimeErrorClassification:
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the workflow",
+        message="AutoSecOps could not execute the workflow",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
 
@@ -816,7 +816,7 @@ def test_wrapping_applies_retry_delay_only_to_retryable_fallback(
     original_delay = timedelta(seconds=5)
     fallback = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the workflow",
+        message="AutoSecOps could not execute the workflow",
         retry_disposition=retry_disposition,
     )
     original = ApplicationError(

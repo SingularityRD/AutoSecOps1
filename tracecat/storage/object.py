@@ -48,7 +48,7 @@ class ObjectRef(BaseModel):
     """Reference to an externalized object in blob storage.
 
     This is a typed reference that replaces large payloads in workflow context.
-    Only dereference ObjectRef instances created by Tracecat - never arbitrary URIs.
+    Only dereference ObjectRef instances created by AutoSecOps - never arbitrary URIs.
     """
 
     backend: Literal["s3"] = "s3"

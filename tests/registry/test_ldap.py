@@ -30,7 +30,7 @@ def registry_secrets_sandbox(secrets: dict[str, str]):
 LDAP_IMAGE = "osixia/openldap:1.5.0"
 LDAP_DOMAIN = "example.com"
 LDAP_BASE_DN = "dc=example,dc=com"
-LDAP_ORG = "Tracecat"
+LDAP_ORG = "AutoSecOps"
 LDAP_PASSWORD = "admin"
 LDAP_BIND_DN = f"cn=admin,{LDAP_BASE_DN}"
 LDAP_CONTAINER_NAME = f"test-ldap-{test_conftest.WORKER_ID}"
@@ -121,7 +121,7 @@ def _seed_test_user_with_retry(live_ldap_server: dict[str, Any]) -> dict[str, st
         get_info=ldap3.NONE,
     )
     users_dn = f"ou=Users,{LDAP_BASE_DN}"
-    user_dn = f"cn=Tracecat,{users_dn}"
+    user_dn = f"cn=AutoSecOps,{users_dn}"
 
     for attempt in range(LDAP_MAX_RETRIES):
         conn: ldap3.Connection | None = None
@@ -158,7 +158,7 @@ def _seed_test_user_with_retry(live_ldap_server: dict[str, Any]) -> dict[str, st
                 user_dn,
                 ["inetOrgPerson", "organizationalPerson", "person", "top"],
                 {
-                    "cn": "Tracecat",
+                    "cn": "AutoSecOps",
                     "sn": "Test",
                     "uid": "tracecat.test",
                     "mail": "tracecat@example.com",

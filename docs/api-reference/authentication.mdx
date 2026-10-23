@@ -1,11 +1,11 @@
 ---
 title: "Authentication"
-description: "Authenticate Tracecat REST API requests with a service account API key."
+description: "Authenticate AutoSecOps REST API requests with a service account API key."
 ---
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
-The Tracecat REST API uses service account API keys for machine-to-machine access. Personal access tokens (PATs) are not supported for REST API access.
+The AutoSecOps REST API uses service account API keys for machine-to-machine access. Personal access tokens (PATs) are not supported for REST API access.
 
 ## Create an API key
 
@@ -26,7 +26,7 @@ curl https://platform.tracecat.com/api/workspaces \
   --header "Accept: application/json"
 ```
 
-For a self-hosted deployment, replace `https://platform.tracecat.com/api` with your Tracecat API URL.
+For a self-hosted deployment, replace `https://platform.tracecat.com/api` with your AutoSecOps API URL.
 
 Keep API keys in a secret manager or environment variable. Do not expose them in client-side code or commit them to source control.
 

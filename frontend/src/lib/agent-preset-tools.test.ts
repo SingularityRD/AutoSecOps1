@@ -83,7 +83,7 @@ it("uses startsWith filters without expanding grants", () => {
   expect(getBlockedActions(actions, [""])).toEqual([])
 })
 
-it("groups MCP, Tracecat and custom tools, excluding unselectable actions", () => {
+it("groups MCP, AutoSecOps and custom tools, excluding unselectable actions", () => {
   const index = buildToolIndex(
     [
       registryTool("tools.custom.one", {

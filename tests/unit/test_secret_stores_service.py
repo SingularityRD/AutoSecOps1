@@ -460,7 +460,7 @@ async def test_store_and_authorization_lifecycle_guards(
                 )
             )
 
-    # Deleting the alias only removes Tracecat metadata.
+    # Deleting the alias only removes AutoSecOps metadata.
     await secrets.delete_secret(created)
     await stores.revoke_workspace(store, svc_workspace.id)
     assert (await secrets.list_authorized_stores(PageParams())).items == []

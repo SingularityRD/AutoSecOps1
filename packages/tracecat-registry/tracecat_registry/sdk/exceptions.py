@@ -1,4 +1,4 @@
-"""SDK exceptions for Tracecat API errors."""
+"""SDK exceptions for AutoSecOps API errors."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 
 class TracecatSDKError(Exception):
-    """Base exception for all Tracecat SDK errors."""
+    """Base exception for all AutoSecOps SDK errors."""
 
     def __init__(self, message: str) -> None:
         self.message = message

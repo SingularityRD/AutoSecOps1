@@ -1,4 +1,4 @@
-"""Tracecat HTTP clients."""
+"""AutoSecOps HTTP clients."""
 
 from typing import Any
 

@@ -152,7 +152,7 @@ function McpOrganizationsContent() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="items-center text-center">
-        <Image src={TracecatIcon} alt="Tracecat" className="mb-4 size-16" />
+        <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
         <CardTitle>Choose organizations</CardTitle>
         <CardDescription>
           Select the organizations this MCP connection can access. The agent

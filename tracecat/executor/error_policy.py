@@ -61,28 +61,28 @@ def chained_error_classification(
         if isinstance(cause, RegistryArtifactCacheLeaseContentionError):
             return RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.EXECUTOR_REGISTRY_LEASE_CONTENTION,
-                message="Tracecat executor capacity is temporarily unavailable",
+                message="AutoSecOps executor capacity is temporarily unavailable",
                 retry_disposition=RetryDisposition.RETRYABLE,
                 cause=cause,
             )
         if isinstance(cause, RegistryArtifactCacheCapacityError):
             return RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.EXECUTOR_REGISTRY_CAPACITY_EXHAUSTED,
-                message="Tracecat executor artifact capacity is exhausted",
+                message="AutoSecOps executor artifact capacity is exhausted",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
                 cause=cause,
             )
         if isinstance(cause, RegistryArtifactExtractionError):
             return RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.EXECUTOR_REGISTRY_EXTRACTION_FAILED,
-                message="Tracecat could not load the action runtime",
+                message="AutoSecOps could not load the action runtime",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
                 cause=cause,
             )
         if isinstance(cause, SandboxInfrastructureError):
             return RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.EXECUTOR_SANDBOX_INFRASTRUCTURE_FAILED,
-                message="Tracecat could not run the action sandbox",
+                message="AutoSecOps could not run the action sandbox",
                 retry_disposition=RetryDisposition.RETRYABLE,
                 cause=cause,
             )
@@ -177,7 +177,7 @@ def _application_error_classification(
         )
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=retry_disposition,
         cause=error,
     )
@@ -221,7 +221,7 @@ def classify_execute_action_error(
         return _application_error_classification(error)
     return chained_error_classification(error) or RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -233,7 +233,7 @@ def executor_backend_initialization_error_classification(
     """Classify an executor backend initialization failure."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.EXECUTOR_BACKEND_INITIALIZATION_FAILED,
-        message="Tracecat could not initialize the action executor",
+        message="AutoSecOps could not initialize the action executor",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -250,7 +250,7 @@ def result_persistence_error_classification(
             if transport_failure
             else RuntimeErrorKind.RUNTIME_UNCLASSIFIED
         ),
-        message="Tracecat could not persist the action result",
+        message="AutoSecOps could not persist the action result",
         # Preserve today's effective fail-fast behavior. Retry policy changes
         # are intentionally handled separately from attribution.
         retry_disposition=RetryDisposition.NON_RETRYABLE,

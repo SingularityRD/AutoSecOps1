@@ -325,7 +325,7 @@ def nstun_user_net_config_lines(
     internal-address rejects and an explicit public IPv4 allow rule.
 
     Args:
-        policy: Trusted policy selected by Tracecat or its administrator.
+        policy: Trusted policy selected by AutoSecOps or its administrator.
         dns_routes: Resolvers written into the jail's resolv.conf.
         dns_networks: Additional networks allowed on TCP/UDP port 53 only, for
             deployments whose CNI rewrites the resolver address at the socket

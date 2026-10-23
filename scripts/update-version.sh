@@ -227,7 +227,7 @@ tracked_candidate_files() {
         done
 }
 
-# Capture Tracecat-specific version contexts, including files that only carry the
+# Capture AutoSecOps-specific version contexts, including files that only carry the
 # current version string rather than an image tag or raw GitHub URL.
 append_matching_files < <(
     tracked_candidate_files | xargs -0 rg -l \

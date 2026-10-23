@@ -8,7 +8,7 @@ import { siteConfig } from "@/config/site"
 export default async function Page() {
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="Tracecat" className="mb-8 size-16" />
+      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-8 size-16" />
       <h1 className="text-lg font-semibold">
         We&apos;re sorry for the inconvenience.
       </h1>

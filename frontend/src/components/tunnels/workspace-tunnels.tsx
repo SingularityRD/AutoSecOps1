@@ -73,7 +73,7 @@ import { useWorkspaceId } from "@/providers/workspace-id"
 
 const CREATE_TUNNEL_FORM_ID = "create-tunnel-form"
 const KUBERNETES_ONLY_MESSAGE =
-  "This deployment has no tunnel gateway backend, so tunnels can't be created or used. Deploy Tracecat with the Helm chart and enable tunnels."
+  "This deployment has no tunnel gateway backend, so tunnels can't be created or used. Deploy AutoSecOps with the Helm chart and enable tunnels."
 const TUNNEL_NAME_PATTERN = /^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/
 
 /**
@@ -420,7 +420,7 @@ export function WorkspaceTunnels() {
           <AlertDialogHeader>
             <AlertDialogTitle>Rotate gateway key</AlertDialogTitle>
             <AlertDialogDescription>
-              The current key stops working immediately. Tracecat-run gateways
+              The current key stops working immediately. AutoSecOps-run gateways
               restart with the new key; gateways you run yourself must be
               updated.
             </AlertDialogDescription>
@@ -693,7 +693,7 @@ function CreateTunnelDialog({
         <DialogHeader>
           <DialogTitle>Create tunnel</DialogTitle>
           <DialogDescription>
-            Tracecat provisions the Pangolin site, client, and resources for
+            AutoSecOps provisions the Pangolin site, client, and resources for
             each target.
           </DialogDescription>
         </DialogHeader>

@@ -1,1 +1,1 @@
-"""Stress tests for Tracecat."""
+"""Stress tests for AutoSecOps."""

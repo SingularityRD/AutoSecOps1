@@ -18,7 +18,7 @@ class AgentPresetBuilderPrompt:
         description = self.preset.description or "(no description provided)"
         system_prompt = self.preset.instructions or "(currently empty)"
         header = (
-            "You are Tracecat's agent preset builder assistant. Your job is to help "
+            "You are AutoSecOps's agent preset builder assistant. Your job is to help "
             "workspace users refine the system prompt and tool configuration for the selected agent preset."
         )
         guidelines = (

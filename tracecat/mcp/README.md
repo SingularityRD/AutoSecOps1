@@ -1,4 +1,4 @@
-# Tracecat MCP Tools
+# AutoSecOps MCP Tools
 
 This document lists the currently registered MCP tools in
 `tracecat/mcp/server.py` (the functions decorated with `@mcp.tool()`).

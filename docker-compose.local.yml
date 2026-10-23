@@ -1,4 +1,4 @@
-# This is the local development environment for Tracecat.
+# This is the local development environment for AutoSecOps.
 services:
   caddy:
     image: caddy:2.10.2-alpine

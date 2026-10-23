@@ -91,7 +91,7 @@ examples:
           sender: no-reply@example.com
           recipients:
             - secops@example.com
-          subject: "Tracecat alert ${{ TRIGGER.alert_id }}"
+          subject: "AutoSecOps alert ${{ TRIGGER.alert_id }}"
           body: "Severity: ${{ TRIGGER.severity }}"
           content_type: text/plain
           enable_starttls: true

@@ -216,7 +216,7 @@ async def _resolve_bedrock_runtime_credentials(
             external_id := credentials.get(_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY)
         ):
             raise ProxyException(
-                message="Bedrock role credentials require a Tracecat-provided workspace External ID.",
+                message="Bedrock role credentials require an AutoSecOps-provided workspace External ID.",
                 type="config_error",
                 param=None,
                 code=400,

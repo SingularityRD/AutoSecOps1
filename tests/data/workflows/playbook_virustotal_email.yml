@@ -57,4 +57,4 @@ definition:
           ${{ FN.join(ACTIONS.call_virustotal.result.data.data.attributes.tags) -> str }}
           5. File Details
 
-          ~Tracecat
+          ~AutoSecOps

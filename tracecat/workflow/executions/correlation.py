@@ -7,7 +7,7 @@ CASE_TASK_CORRELATION_KIND = "case-task"
 
 
 def build_tracecat_correlation_id(kind: str, value: UUID | str) -> str:
-    """Build a namespaced Tracecat workflow correlation ID."""
+    """Build a namespaced AutoSecOps workflow correlation ID."""
     return f"{kind}:{value}"
 
 

@@ -186,7 +186,7 @@ function toolCountLabel(count: number): string {
 
 /**
  * Unified picker for inspecting always-on capabilities and attaching extra
- * registry tools and MCP integrations to a chat session. Tracecat platform
+ * registry tools and MCP integrations to a chat session. AutoSecOps platform
  * defaults are always on and merged at runtime; this control surfaces them
  * read-only and manages additions on top of that baseline.
  */
@@ -612,7 +612,7 @@ export function ChatToolsPicker({
           </div>
         ) : isWorkspaceChat ? (
           <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-            Tracecat defaults always included
+            AutoSecOps defaults always included
           </div>
         ) : null}
       </PopoverContent>

@@ -1,6 +1,6 @@
 ---
 title: OIDC
-description: "Authenticate into Tracecat using OpenID Connect: register an OIDC client with your IdP, map claims, and enable SSO sign-in across the platform."
+description: "Authenticate into AutoSecOps using OpenID Connect: register an OIDC client with your IdP, map claims, and enable SSO sign-in across the platform."
 ---
 
 ## Configuration
@@ -25,7 +25,7 @@ Set the following variables for your provider:
 
 <Steps>
   <Step title="Create an OIDC application with your identity provider">
-    Register Tracecat as an application with your provider and allow the standard
+    Register AutoSecOps as an application with your provider and allow the standard
     OpenID Connect scopes needed for sign-in.
   </Step>
   <Step title="Configure the redirect URI">
@@ -33,9 +33,9 @@ Set the following variables for your provider:
 
     For the local Docker Compose deployment, use `http://localhost/auth/oauth/callback`.
   </Step>
-  <Step title="Configure environment variables in Tracecat">
-    Add the public Tracecat URL, issuer URL, and client credentials to your `.env`
-    file. Tracecat generates OAuth callback URLs from
+  <Step title="Configure environment variables in AutoSecOps">
+    Add the public AutoSecOps URL, issuer URL, and client credentials to your `.env`
+    file. AutoSecOps generates OAuth callback URLs from
     `TRACECAT__PUBLIC_APP_URL`, so this must match the external URL users visit.
 
     Example:
@@ -48,7 +48,7 @@ Set the following variables for your provider:
     OIDC_SCOPES="openid profile email"
     ```
   </Step>
-  <Step title="Restart Tracecat">
+  <Step title="Restart AutoSecOps">
     Restart the application so the new auth configuration is loaded.
   </Step>
 </Steps>

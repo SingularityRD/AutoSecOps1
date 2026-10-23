@@ -80,7 +80,7 @@ class GitHubAppInstallationProvider(ClientCredentialsOAuthProvider):
         setup_instructions=(
             "Register a GitHub App, install it on the organization or repositories "
             "to automate, and generate a private key. Enter the app's client ID "
-            "(or App ID) and paste the private key (.pem). Tracecat signs a JWT "
+            "(or App ID) and paste the private key (.pem). AutoSecOps signs a JWT "
             "with the key to request short-lived installation access tokens. "
             "Leave the token endpoint as https://api.github.com/app/installations "
             "when the app has one installation; otherwise set it to "
@@ -251,10 +251,10 @@ class GitHubAppUserProvider(AuthorizationCodeOAuthProvider):
         ),
         setup_instructions=(
             "Enter the GitHub App's client ID and a client secret, and add "
-            "Tracecat's redirect URL as a callback URL on the app. User access "
+            "AutoSecOps's redirect URL as a callback URL on the app. User access "
             "tokens are limited to the app's permissions and what the user can "
             "access; scopes are ignored. Keep user access token expiration "
-            "enabled on the app so Tracecat can refresh tokens."
+            "enabled on the app so AutoSecOps can refresh tokens."
         ),
         requires_config=True,
         enabled=True,

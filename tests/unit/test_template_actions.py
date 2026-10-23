@@ -515,7 +515,7 @@ async def test_template_action_runs(
                 "namespace": "integrations.test",
                 "display_group": "Testing",
                 "doc_url": "https://example.com/docs",
-                "author": "Tracecat",
+                "author": "AutoSecOps",
                 "expects": {
                     # Required field
                     "user_id": {
@@ -656,7 +656,7 @@ async def test_template_action_with_enums(
             "namespace": "integrations.test",
             "display_group": "Testing",
             "doc_url": "https://example.com/docs",
-            "author": "Tracecat",
+            "author": "AutoSecOps",
             "expects": {
                 "status": {
                     "type": 'enum["critical", "warning", "info"]',

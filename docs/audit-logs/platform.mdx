@@ -91,7 +91,7 @@ For platform settings updates, `data` is `null`, so the event tells you who made
 
 <AuditEventFields />
 
-Platform events normally carry `null` `organization_id` and `workspace_id` because Tracecat emits them with a platform role.
+Platform events normally carry `null` `organization_id` and `workspace_id` because AutoSecOps emits them with a platform role.
 Organization-scoped sign-in is the exception: its `auth` `sign_in` event reaches both sinks, and the platform copy carries the organization's ID.
 
 Do not filter strictly on null scope to separate platform administration from tenant activity — that drops those sign-in events.

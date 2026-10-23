@@ -1,3 +1,3 @@
-# Tracecat frontend
+# AutoSecOps frontend
 
-Tracecat low-code workflow builder UI.
+AutoSecOps low-code workflow builder UI.

@@ -4247,7 +4247,7 @@ export const tunnelsGetTunnelAvailability = (
 
 /**
  * Create Managed Tunnel
- * Create a tunnel whose Pangolin site, machine client, and resources Tracecat provisions.
+ * Create a tunnel whose Pangolin site, machine client, and resources AutoSecOps provisions.
  *
  * The site credentials and install command are returned only in this response.
  * @param data The data for the request.
@@ -16190,7 +16190,7 @@ export const scimListScimMappings = (
 
 /**
  * Create Scim Mapping
- * Map an external group into a Tracecat group and reconcile immediately.
+ * Map an external group into an AutoSecOps group and reconcile immediately.
  * @param data The data for the request.
  * @param data.requestBody
  * @returns ExternalGroupMappingRead Successful Response

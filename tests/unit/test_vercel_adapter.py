@@ -241,7 +241,7 @@ def test_convert_chat_messages_to_ui_cancelled_marker_carries_tool_call_ids() ->
 
 
 def test_convert_claude_agent_tool_history_uses_effective_input() -> None:
-    """Reloaded UI history matches the input Tracecat actually executed."""
+    """Reloaded UI history matches the input AutoSecOps actually executed."""
     requested_input = {
         "subagent_type": "case-agent",
         "prompt": "List cases",

@@ -408,7 +408,7 @@ class KubernetesGateways:
         return int(deployment.get("status", {}).get("readyReplicas") or 0) > 0
 
     async def existing(self) -> dict[str, set[str]]:
-        """Return the names of Tracecat-managed gateway objects per kind."""
+        """Return the names of AutoSecOps-managed gateway objects per kind."""
         result: dict[str, set[str]] = {}
         for api, plural in _KINDS:
             names = await self.client.list_names(

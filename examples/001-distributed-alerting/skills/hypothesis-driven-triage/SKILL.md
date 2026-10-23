@@ -1,6 +1,6 @@
 ---
 name: hypothesis-driven-triage
-description: Load before the first query when triaging or answering questions on a Tracecat case of AWS GuardDuty findings. Question driven method for triaging a Tracecat case containing one or more related AWS GuardDuty findings. Identify the finding family, ask the decision questions, answer them from the SIEM and prior cases, record what cannot be answered, and set a verdict backed by evidence. Use with business-context (when that skill exists), aws-cloud-incident-response-core, case-output, and the bundled hypothesis-library.md.
+description: Load before the first query when triaging or answering questions on an AutoSecOps case of AWS GuardDuty findings. Question driven method for triaging an AutoSecOps case containing one or more related AWS GuardDuty findings. Identify the finding family, ask the decision questions, answer them from the SIEM and prior cases, record what cannot be answered, and set a verdict backed by evidence. Use with business-context (when that skill exists), aws-cloud-incident-response-core, case-output, and the bundled hypothesis-library.md.
 ---
 
 
@@ -12,7 +12,7 @@ The aim is a verdict a small security team can trust at a glance, backed by the 
 
 1. **Read every finding on the case in full.** Note type, severity, resource, actor, account, region, first and last seen, count, and `service.additionalInfo.sample`. Fetch the raw finding JSON with boto3 as guardduty-case-lifecycle stage 1 describes; when a finding cannot be fetched, say so in `platform_notes` and do not triage a summary.
 2. **Route it with business-context**, if you have that skill. Which deployment (account plus region), which workload class, who owns it, which of the three explanations (Platform, Customer, Neither) could fit, and whether a known benign pattern applies. A pattern matches only when every condition in it is met, not when the name is similar. With no business-context skill, the deployment is `Unknown`, no benign pattern applies, and you say so.
-3. **Check prior cases.** Search Tracecat cases for the same principal, resource, or finding type in the last 30 days. Note how they were closed. A prior benign closure is evidence, not a verdict.
+3. **Check prior cases.** Search AutoSecOps cases for the same principal, resource, or finding type in the last 30 days. Note how they were closed. A prior benign closure is evidence, not a verdict.
 4. **Classify the actor** as human, automation, service, or unknown, following "Classify the actor before you triage" in aws-cloud-incident-response-core: principal type, user agent family, sign in evidence, the same identity across accounts for 30 days, other GuardDuty findings for it over 90 days, and one attempt to resolve it through the identity source of record. This is the first correlation on every case, not an optional pivot.
 5. **Pick the family** in hypothesis-library.md from the finding type. Unknown types use Generic.
 6. **Write 3 to 6 decision questions.** Start from the family list, make each one specific to this case with real names, IPs, pods and UTC times, and drop any whose answer would not change the verdict.

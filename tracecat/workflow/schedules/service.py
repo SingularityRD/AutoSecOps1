@@ -471,7 +471,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         except TracecatNotFoundError as e:
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
-                message="Tracecat could not load the scheduled workflow trigger",
+                message="AutoSecOps could not load the scheduled workflow trigger",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
                 cause=e,
             )
@@ -479,7 +479,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         except Exception as e:
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE,
-                message="Tracecat could not load the scheduled workflow trigger",
+                message="AutoSecOps could not load the scheduled workflow trigger",
                 retry_disposition=RetryDisposition.RETRYABLE,
                 cause=e,
             )

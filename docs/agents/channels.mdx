@@ -11,7 +11,7 @@ The agent replies in the thread, and approval-gated tool calls show `Approve` an
 
 ## Before you start
 
-Slack must be able to reach your Tracecat API at `TRACECAT__PUBLIC_API_URL`.
+Slack must be able to reach your AutoSecOps API at `TRACECAT__PUBLIC_API_URL`.
 
 ## Connect a Slack app
 
@@ -24,7 +24,7 @@ For `New App`:
 1. Click `Copy` next to `Export app manifest`. The manifest includes the endpoint URL, OAuth redirect URL, bot scopes, and `app_mention` event subscription for this preset.
 2. Open [Slack Apps](https://api.slack.com/apps), click `Create New App`, then select `From an app manifest` and paste the manifest.
 3. Install the app to your Slack workspace.
-4. Back in Tracecat, click `Next`.
+4. Back in AutoSecOps, click `Next`.
 
 For `Existing App`, copy the `Endpoint URL` and `OAuth redirect URL` from the connect dialog.
 In Slack, use the endpoint URL as the `Event Subscriptions` request URL with the `app_mention` bot event and as the `Interactivity` request URL, then add the OAuth redirect URL.
@@ -34,7 +34,7 @@ To finish:
 1. Enter the app's `Client ID`, `Client secret`, and `Signing secret` from Slack's `Basic Information` page.
 2. Click `Connect to Slack` and approve the install.
 
-Tracecat shows `Slack integration connected.` when the channel is active.
+AutoSecOps shows `Slack integration connected.` when the channel is active.
 
 ## Chat with the agent
 
@@ -48,7 +48,7 @@ Tools that require approval on the preset pause the agent in Slack too.
 See [Human-in-the-loop](/agents/human-in-the-loop#set-approvals-on-a-preset) to set a tool to `Ask`.
 
 For each pending call, the agent posts an `Approval required` message with the tool name, arguments, and `Approve` and `Deny` buttons.
-After a reviewer clicks a button, Tracecat updates the message with the decision and the reviewer, and the agent continues once every pending call in the batch has a decision.
+After a reviewer clicks a button, AutoSecOps updates the message with the decision and the reviewer, and the agent continues once every pending call in the batch has a decision.
 To edit tool arguments before approving, review the call in the agent inbox instead.
 
 ## Manage the connection

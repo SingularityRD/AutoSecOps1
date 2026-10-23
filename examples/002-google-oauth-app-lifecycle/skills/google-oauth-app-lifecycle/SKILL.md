@@ -1,6 +1,6 @@
 ---
 name: google-oauth-app-lifecycle
-description: Load when the prompt's first line is `OAuth app lifecycle <primary_user>|<client_id>`, followed by one app's grant data as JSON. Takes one Google Workspace OAuth app from the audit log to a triaged Tracecat case and a published Slack card. You read the saved state, stop when nothing changed, read the scope policy, research the publisher once with Exa, assess the grant, find the approving manager, write the case, post or refresh the Work Object card and the manager ask, and keep the google_oauth_app_reviews and slack_work_objects rows current. Also load when the first line is `OAuth decision click <target_user>|<target_client>`, which carries a Slack button decision, or `OAuth thread mention <thread_ts>`, which is a person asking a question in a card's thread and which you answer from the record and from your other skills rather than only looking an app up. Load with oauth-grant-review, third-party-vendor-research, case-writing-style and org-chart.
+description: Load when the prompt's first line is `OAuth app lifecycle <primary_user>|<client_id>`, followed by one app's grant data as JSON. Takes one Google Workspace OAuth app from the audit log to a triaged AutoSecOps case and a published Slack card. You read the saved state, stop when nothing changed, read the scope policy, research the publisher once with Exa, assess the grant, find the approving manager, write the case, post or refresh the Work Object card and the manager ask, and keep the google_oauth_app_reviews and slack_work_objects rows current. Also load when the first line is `OAuth decision click <target_user>|<target_client>`, which carries a Slack button decision, or `OAuth thread mention <thread_ts>`, which is a person asking a question in a card's thread and which you answer from the record and from your other skills rather than only looking an app up. Load with oauth-grant-review, third-party-vendor-research, case-writing-style and org-chart.
 metadata:
   tools:
     - core.table.lookup
@@ -56,7 +56,7 @@ The interaction lane splits `block_id` on `:` and reads part 1 as the person, pa
 
 **The short name.** Take the client ID, remove the constant suffix `.apps.googleusercontent.com`, and replace every remaining `.` with `_`. For example `123456789012-abcdefghijklmnopqrstuvwxyz0123456`, or `12345678901` for a legacy ID. It is 45 characters at most and still unique to the app. Two platform limits force it, and both were measured on 12 Oct 2026:
 
-- **A Tracecat tag name holds 50 characters at most.** `oauth-client-<client_id>` is 85 characters and the create call fails, which leaves the case with no identity key at all. So the tag is the short name with **no prefix**: a 6-character prefix would push the longest short name to 51.
+- **An AutoSecOps tag name holds 50 characters at most.** `oauth-client-<client_id>` is 85 characters and the create call fails, which leaves the case with no identity key at all. So the tag is the short name with **no prefix**: a 6-character prefix would push the longest short name to 51.
 - **Slack rejects a dot in `external_ref.id`** with `invalid_metadata_format`, and every client ID contains dots. So the Work Object ref is `oauth:` followed by the short name.
 
 Use the short name in exactly these two places. The `block_id`, the review row key and every line a person reads keep the **full** client ID.
@@ -65,7 +65,7 @@ Use the short name in exactly these two places. The `block_id`, the review row k
 
 ## Never write a raw Slack ID into a case
 
-Slack turns `<@U07654321XY>` into a person's name when it renders a message. Tracecat does not. A case comment carrying `U07654321XY` or `U01234567AB` is unreadable to the person who opens that case next week, and they cannot look the ID up.
+Slack turns `<@U07654321XY>` into a person's name when it renders a message. AutoSecOps does not. A case comment carrying `U07654321XY` or `U01234567AB` is unreadable to the person who opens that case next week, and they cannot look the ID up.
 
 So the two surfaces take different forms, and you resolve the person once and use both:
 

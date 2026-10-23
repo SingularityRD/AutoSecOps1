@@ -254,7 +254,7 @@ class InferredColumn(BaseModel):
     )
     field_name: str = Field(
         ...,
-        description="Column name created in Tracecat",
+        description="Column name created in AutoSecOps",
     )
     field_type: SqlType = Field(
         ...,

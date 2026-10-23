@@ -263,7 +263,7 @@ export function CreateCustomProviderDialog({
                       </Select>
                     </FormControl>
                     <FormDescription className="text-xs">
-                      Choose how Tracecat authenticates with this provider.
+                      Choose how AutoSecOps authenticates with this provider.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

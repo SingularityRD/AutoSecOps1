@@ -516,7 +516,7 @@ class NsjailExecutor:
                 lines.extend(
                     [
                         "",
-                        "# Action Gateway socket for internal Tracecat SDK calls",
+                        "# Action Gateway socket for internal AutoSecOps SDK calls",
                         f'mount {{ src: "{config.action_gateway_socket}" '
                         f'dst: "{RUN_PYTHON_ACTION_GATEWAY_SOCKET}" '
                         "is_bind: true rw: false }",

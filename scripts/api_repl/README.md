@@ -1,6 +1,6 @@
 # API REPL Script
 
-An interactive Python REPL for sending authenticated API requests to the Tracecat API service.
+An interactive Python REPL for sending authenticated API requests to the AutoSecOps API service.
 
 ## Quick Start
 

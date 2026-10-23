@@ -99,7 +99,7 @@ async def test_run_turn_stamps_tracecat_search_attributes(
     request: pytest.FixtureRequest,
     temporal_start_client: tuple[Client, AsyncMock],
 ) -> None:
-    """Workflow starts carry Tracecat search attributes; triggered-by needs a user."""
+    """Workflow starts carry AutoSecOps search attributes; triggered-by needs a user."""
     role: Role = request.getfixturevalue(role_fixture)
     original_scopes = role.scopes
     service = AgentSessionService(_build_db_session(), role)

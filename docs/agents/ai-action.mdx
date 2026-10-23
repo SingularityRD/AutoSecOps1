@@ -19,11 +19,11 @@ Use `output_type` when a downstream action needs a predictable shape.
 
 - Use a scalar such as `str` or `int` for simple classification or routing.
 - Use a JSON schema object when you need named fields.
-- Tracecat parses valid JSON before storing it in the action result.
+- AutoSecOps parses valid JSON before storing it in the action result.
 
 ## Timeouts
 
-`timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and Tracecat clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
+`timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
 
 ## Reference
 

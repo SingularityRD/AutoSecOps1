@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-We always recommend using the latest version of Tracecat to ensure you get all security updates.
-If possible, do not expose Tracecat's UI and API to the public internet.
+We always recommend using the latest version of AutoSecOps to ensure you get all security updates.
+If possible, do not expose AutoSecOps's UI and API to the public internet.
 If you need to receive webhooks from 3rd party sources, scope ingress on the `/api/webhooks` endpoint to the allowed IP addresses.
 
 We also highly recommend using our `Kubernetes` deployment for production over `Docker Compose` or `AWS Fargate`.
@@ -12,7 +12,7 @@ For more hardening guidelines, check out https://docs.tracecat.com/self-hosting/
 
 ## Security Features
 
-The following security features are available in Tracecat open source:
+The following security features are available in AutoSecOps open source:
 - SAML SSO
 - Audit logs
 - Workspaces to isolate resources
@@ -39,4 +39,4 @@ If you are a security researcher and have discovered a vulnerability, please fol
 
 All reports are reviewed within 24 hours. Timeline for the fix is dependent on the severity of the vulnerability. As part of responsible disclosure, please report any security problems to us before disclosing it publicly.
 
-Bounties and [exclusive Tracecat merch](https://tracecat-shop.fourthwall.com/products/tracecat-bounty-hunter) may be offered depending on the severity of the vulnerability.
+Bounties and [exclusive AutoSecOps merch](https://tracecat-shop.fourthwall.com/products/tracecat-bounty-hunter) may be offered depending on the severity of the vulnerability.

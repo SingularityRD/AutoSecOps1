@@ -78,9 +78,9 @@ class BitbucketGit:
             "GIT_CONFIG_VALUE_3": "never",
             "GIT_CONFIG_KEY_4": "protocol.https.allow",
             "GIT_CONFIG_VALUE_4": "always",
-            "GIT_AUTHOR_NAME": "Tracecat",
+            "GIT_AUTHOR_NAME": "AutoSecOps",
             "GIT_AUTHOR_EMAIL": "sync@tracecat.com",
-            "GIT_COMMITTER_NAME": "Tracecat",
+            "GIT_COMMITTER_NAME": "AutoSecOps",
             "GIT_COMMITTER_EMAIL": "sync@tracecat.com",
         }
 

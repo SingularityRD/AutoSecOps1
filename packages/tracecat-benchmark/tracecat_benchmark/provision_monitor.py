@@ -1,6 +1,6 @@
 """Provision the least-privileged PostgreSQL role used by the load collector.
 
-The provisioning DSN must identify the same database role that creates Tracecat
+The provisioning DSN must identify the same database role that creates AutoSecOps
 workspace tables. It needs permission to create/grant the monitor role and to
 grant access in the selected workspace schema, but this command does not require
 or assume that the role is a PostgreSQL superuser.
@@ -178,7 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PROVISION_DSN_ENV,
         help=(
             "Environment variable containing a provisioning DSN for the same "
-            "database role that creates Tracecat workspace tables."
+            "database role that creates AutoSecOps workspace tables."
         ),
     )
     parser.add_argument(

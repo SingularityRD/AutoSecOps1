@@ -1,4 +1,4 @@
-"""SDK types for Tracecat API responses.
+"""SDK types for AutoSecOps API responses.
 
 These types are independent of the tracecat package and mirror the API schemas.
 """

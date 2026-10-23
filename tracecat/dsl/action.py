@@ -494,7 +494,7 @@ def _materialization_error_classification(
             if retryable
             else RuntimeErrorKind.STORAGE_MATERIALIZATION_INVALID_DATA
         ),
-        message="Tracecat could not retrieve stored workflow data",
+        message="AutoSecOps could not retrieve stored workflow data",
         retry_disposition=(
             RetryDisposition.RETRYABLE if retryable else RetryDisposition.NON_RETRYABLE
         ),
@@ -508,7 +508,7 @@ def _trigger_input_storage_initialization_error_classification(
     """Classify failure to initialize trigger-input object storage."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-        message="Tracecat could not initialize workflow input storage",
+        message="AutoSecOps could not initialize workflow input storage",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -525,7 +525,7 @@ def _trigger_input_persistence_error_classification(
             if retryable
             else RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION
         ),
-        message="Tracecat could not persist normalized workflow inputs",
+        message="AutoSecOps could not persist normalized workflow inputs",
         retry_disposition=(
             RetryDisposition.RETRYABLE if retryable else RetryDisposition.NON_RETRYABLE
         ),
@@ -546,7 +546,7 @@ def _expression_error_classification(
         )
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-        message="Tracecat could not evaluate the workflow expression",
+        message="AutoSecOps could not evaluate the workflow expression",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -563,7 +563,7 @@ def _result_persistence_error_classification(
             if transport_failure
             else RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION
         ),
-        message="Tracecat could not persist the workflow result",
+        message="AutoSecOps could not persist the workflow result",
         retry_disposition=(
             RetryDisposition.RETRYABLE
             if transport_failure
@@ -586,7 +586,7 @@ def _agent_preparation_error_classification(
         )
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_AGENT_PREPARATION_FAILED,
-        message="Tracecat could not prepare the agent action",
+        message="AutoSecOps could not prepare the agent action",
         retry_disposition=RetryDisposition.RETRYABLE,
         cause=error,
     )
@@ -942,7 +942,7 @@ class DSLActivities:
             case _:
                 classification = RuntimeErrorClassification.platform(
                     kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-                    message="Tracecat could not finalize the workflow gather",
+                    message="AutoSecOps could not finalize the workflow gather",
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                 )
                 raise_application_error_from_classification(classification)
@@ -1078,7 +1078,7 @@ class DSLActivities:
         except Exception as e:
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-                message="Tracecat could not normalize the workflow trigger",
+                message="AutoSecOps could not normalize the workflow trigger",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
                 cause=e,
             )
@@ -1183,7 +1183,7 @@ def _subflow_error_classification(error: Exception) -> RuntimeErrorClassificatio
         case _:
             return RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_SUBFLOW_PREPARATION_FAILED,
-                message="Tracecat could not prepare the child workflow",
+                message="AutoSecOps could not prepare the child workflow",
                 retry_disposition=retry_disposition,
                 cause=error,
             )

@@ -294,7 +294,7 @@ export function ScimReviewDialog({
       section: "lose" as const,
       people: review.losing,
       label: `${plural(review.losing.count, "person loses", "people lose")} group access`,
-      hint: "Your IdP doesn't list them in the groups mapped to these Tracecat groups, so they're removed from them.",
+      hint: "Your IdP doesn't list them in the groups mapped to these AutoSecOps groups, so they're removed from them.",
       lines: review.losing.items.map((person) => ({
         key: `lose-${person.user_id}`,
         email: person.email,

@@ -376,10 +376,10 @@ Answers Slack with the stored entity, which fills the details panel. The event's
 
 ## Alert intake workflow
 
-The intake is a second, small workflow with its own webhook. It is not included, so build it yourself. Hand this prompt to a coding agent connected to the Tracecat MCP:
+The intake is a second, small workflow with its own webhook. It is not included, so build it yourself. Hand this prompt to a coding agent connected to the AutoSecOps MCP:
 
 ```text
-Create a Tracecat workflow called "Receive detection events" with a webhook
+Create an AutoSecOps workflow called "Receive detection events" with a webhook
 trigger. <My alert source> will POST one alert per request. Here is a sample
 body: <paste a sample>.
 

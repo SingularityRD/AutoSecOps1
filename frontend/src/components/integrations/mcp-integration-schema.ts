@@ -30,7 +30,7 @@ export const AUTH_TYPES = [
   {
     value: "OAUTH2",
     label: "OAuth 2.0",
-    description: "Use MCP OAuth discovery or a Tracecat OAuth integration",
+    description: "Use MCP OAuth discovery or an AutoSecOps OAuth integration",
   },
   {
     value: "CUSTOM",

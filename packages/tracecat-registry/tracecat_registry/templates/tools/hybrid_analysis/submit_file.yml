@@ -35,7 +35,7 @@ definition:
         headers:
           accept: application/json
           api-key: ${{ SECRETS.hybrid_analysis.HYBRID_ANALYSIS_API_KEY }}
-          user-agent: Tracecat
+          user-agent: AutoSecOps
         files:
           file: ${{ inputs.file }}
         form_data:

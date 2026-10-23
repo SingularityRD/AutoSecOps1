@@ -85,8 +85,8 @@ change is genuinely repo-wide.
 | `functions` | The FN.* inline expression functions |
 | `infra` | Databases, deployments, and cloud infrastructure |
 | `integrations` | Third-party vendor connectors and registry templates |
-| `logging` | Application logging and telemetry: how Tracecat runs |
-| `mcp` | Tracecat's own MCP server |
+| `logging` | Application logging and telemetry: how AutoSecOps runs |
+| `mcp` | AutoSecOps's own MCP server |
 | `rbac` | Roles and permissions |
 | `skills` | Agent skills |
 | `tables` | Workspace tables |
@@ -108,7 +108,7 @@ change is genuinely repo-wide.
   by redeploying the same image, it is `infra`.
 - `audit` is the security audit log: what a workspace records about who did
   what, for someone reviewing it later. `logging` is application telemetry, what
-  an operator reads to debug Tracecat itself. Audit work renders under Security,
+  an operator reads to debug AutoSecOps itself. Audit work renders under Security,
   telemetry under Observability.
 - Vendor names are not scopes. Write `feat(integrations): add Jira issue
   search` and name the vendor in the description. The autolabeler still

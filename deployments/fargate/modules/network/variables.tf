@@ -18,7 +18,7 @@ variable "name_prefix" {
 
 variable "vpc_cidr" {
   type        = string
-  description = "CIDR block for the Tracecat VPC"
+  description = "CIDR block for the AutoSecOps VPC"
   default     = "10.0.0.0/16"
 }
 
@@ -38,10 +38,10 @@ variable "private_subnet_cidrs" {
 
 variable "domain_name" {
   type        = string
-  description = "The domain name to use for Tracecat"
+  description = "The domain name to use for AutoSecOps"
 }
 
 variable "hosted_zone_id" {
   type        = string
-  description = "The hosted zone ID associated with the Tracecat domain"
+  description = "The hosted zone ID associated with the AutoSecOps domain"
 }

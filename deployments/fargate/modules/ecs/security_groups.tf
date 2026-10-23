@@ -90,7 +90,7 @@ resource "aws_security_group" "caddy" {
 
 resource "aws_security_group" "core" {
   name_prefix = "core-"
-  description = "Security group for core Tracecat services"
+  description = "Security group for core AutoSecOps services"
   vpc_id      = var.vpc_id
 
   lifecycle {
@@ -98,7 +98,7 @@ resource "aws_security_group" "core" {
   }
 
   ingress {
-    description = "Allow internal traffic to the Tracecat API service on port 8000"
+    description = "Allow internal traffic to the AutoSecOps API service on port 8000"
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
@@ -106,7 +106,7 @@ resource "aws_security_group" "core" {
   }
 
   ingress {
-    description = "Allow internal traffic to the Tracecat UI service on port 3000"
+    description = "Allow internal traffic to the AutoSecOps UI service on port 3000"
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
@@ -140,7 +140,7 @@ resource "aws_security_group" "core" {
 
 resource "aws_security_group" "core_db" {
   name_prefix = "core-db-"
-  description = "Security group for Tracecat API to RDS communication"
+  description = "Security group for AutoSecOps API to RDS communication"
   vpc_id      = var.vpc_id
 
   lifecycle {

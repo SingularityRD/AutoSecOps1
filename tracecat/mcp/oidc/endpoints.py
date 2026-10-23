@@ -2,7 +2,7 @@
 
 Implements the authorization-code + PKCE flow that FastMCP's ``OIDCProxy``
 uses as its upstream OIDC provider, authenticating users via existing
-Tracecat session cookies.
+AutoSecOps session cookies.
 """
 
 from __future__ import annotations

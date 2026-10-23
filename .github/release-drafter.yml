@@ -26,7 +26,7 @@
 # scopes so new titles converge; the autolabeler also understands every
 # historical spelling so the already-merged backlog still categorizes.
 
-name-template: Tracecat $RESOLVED_VERSION
+name-template: AutoSecOps $RESOLVED_VERSION
 tag-template: $RESOLVED_VERSION
 
 change-template: "- $TITLE (#$NUMBER)"
@@ -38,7 +38,7 @@ exclude-labels:
 
 # Category order is three tiers:
 #   1-3   act on this: a breaking change, a security fix, a deprecation.
-#   4-16  product areas, so a reader can find the part of Tracecat they use.
+#   4-16  product areas, so a reader can find the part of AutoSecOps they use.
 #   17-22 by kind, for everything no area claimed.
 #
 # Inside tier 2, features come before catalogs. A compound scope matches the
@@ -83,7 +83,7 @@ categories:
       - skills
 
   # 7
-  - title: Tracecat MCP
+  - title: AutoSecOps MCP
     labels:
       - mcp
 

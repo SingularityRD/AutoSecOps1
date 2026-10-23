@@ -140,7 +140,7 @@ async def _legacy_missing_error_handler(
     raise_application_error_from_classification(
         RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-            message="Tracecat could not resolve the configured error handler",
+            message="AutoSecOps could not resolve the configured error handler",
             retry_disposition=RetryDisposition.NON_RETRYABLE,
         )
     )

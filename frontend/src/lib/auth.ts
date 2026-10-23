@@ -4,7 +4,7 @@ export const SYSTEM_USER_READ: UserRead = {
   id: "system",
   email: "system@tracecat.com",
   role: "admin",
-  first_name: "Tracecat",
+  first_name: "AutoSecOps",
   last_name: "",
   settings: {},
 }

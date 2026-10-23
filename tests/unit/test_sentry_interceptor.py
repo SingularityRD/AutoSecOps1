@@ -409,7 +409,7 @@ def test_sentry_event_allowlist_drops_unknown_payload_fields() -> None:
             {
                 "type": "RuntimeError",
                 "module": "builtins",
-                "value": "Tracecat platform failure (unclassified)",
+                "value": "AutoSecOps platform failure (unclassified)",
                 "stacktrace": {
                     "frames": [
                         {
@@ -627,7 +627,7 @@ def test_fastapi_integration_captures_sanitized_unhandled_request_failure(
     assert "fingerprint" not in event
     assert "exception" in event
     assert "values" in event["exception"]
-    assert event["exception"]["values"][-1]["value"] == "Tracecat API failure"
+    assert event["exception"]["values"][-1]["value"] == "AutoSecOps API failure"
     assert not {"breadcrumbs", "extra", "request", "user"} & event.keys()
     assert _SENSITIVE_VALUE not in json.dumps(event)
 
@@ -730,7 +730,7 @@ def test_service_task_failure_emits_only_stable_task_name(
     assert "fingerprint" not in event
     assert "exception" in event
     assert "values" in event["exception"]
-    assert event["exception"]["values"][-1]["value"] == "Tracecat API failure"
+    assert event["exception"]["values"][-1]["value"] == "AutoSecOps API failure"
     assert not {"breadcrumbs", "extra", "request", "user"} & event.keys()
     assert _SENSITIVE_VALUE not in json.dumps(event)
 

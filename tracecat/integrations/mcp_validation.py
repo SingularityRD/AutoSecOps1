@@ -227,7 +227,7 @@ def sanitize_mcp_command_args(
     command: str,
     args: list[str] | None,
 ) -> tuple[list[str], frozenset[str]]:
-    """Remove command options reserved for Tracecat's runtime isolation.
+    """Remove command options reserved for AutoSecOps's runtime isolation.
 
     The returned option names are safe to log because option values are never
     included. Parsing stops at the uvx command or an explicit ``--`` separator,

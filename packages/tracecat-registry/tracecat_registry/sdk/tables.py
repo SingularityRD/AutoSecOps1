@@ -1,4 +1,4 @@
-"""Tables SDK client for Tracecat API."""
+"""Tables SDK client for AutoSecOps API."""
 
 from __future__ import annotations
 

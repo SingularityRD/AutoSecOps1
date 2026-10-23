@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracecat-ee"
-description = "Enterprise Edition features for Tracecat"
+description = "Enterprise Edition features for AutoSecOps"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE.md" }
-authors = [{ name = "Tracecat", email = "founders@tracecat.com" }]
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE.md"]
+authors = [{ name = "SingularityRD" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3 :: Only",

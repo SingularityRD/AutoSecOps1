@@ -60,15 +60,15 @@ An online form reads the published Input schema and starts the published workflo
 
    ![Submitted form](/img/triggers/form-submitted.png)
 
-A member without `form:submit` sees the form read-only. An offline form shows `This form isn't accepting requests`. A member who holds `form:read` and no `workspace:read` lands on `/forms` when they open Tracecat.
+A member without `form:submit` sees the form read-only. An offline form shows `This form isn't accepting requests`. A member who holds `form:read` and no `workspace:read` lands on `/forms` when they open AutoSecOps.
 
 ## Activity
 
-The `Activity` tab of a form shows `Views` and `Submissions` counts and lists submissions newest first. Each row shows the submitter, the reference, the run status, and a `Run` link. Expand a submission to read its answers. Tracecat counts one view per user per form every five minutes.
+The `Activity` tab of a form shows `Views` and `Submissions` counts and lists submissions newest first. Each row shows the submitter, the reference, the run status, and a `Run` link. Expand a submission to read its answers. AutoSecOps counts one view per user per form every five minutes.
 
 ![Form activity](/img/triggers/form-activity.png)
 
-Tracecat keeps submissions until you delete them. Deleting a submission removes its stored answers and files and leaves the workflow run and its inputs in place. To delete old submissions on a [schedule](/automations/triggers/schedules), list them with `core.forms.list_submissions` and `submitted_before`, then delete each with `core.forms.delete_submission`. See [Forms actions](/automations/core-actions/form-actions/forms).
+AutoSecOps keeps submissions until you delete them. Deleting a submission removes its stored answers and files and leaves the workflow run and its inputs in place. To delete old submissions on a [schedule](/automations/triggers/schedules), list them with `core.forms.list_submissions` and `submitted_before`, then delete each with `core.forms.delete_submission`. See [Forms actions](/automations/core-actions/form-actions/forms).
 
 ## What the workflow receives
 
@@ -85,20 +85,20 @@ Tracecat keeps submissions until you delete them. Deleting a submission removes 
 }
 ```
 
-An answered field holds its [widget's value](#widgets). An optional field left empty, a conditional field the requester could not see, and a hidden field hold the input's default. An autofill input holds the value Tracecat fills in.
+An answered field holds its [widget's value](#widgets). An optional field left empty, a conditional field the requester could not see, and a hidden field hold the input's default. An autofill input holds the value AutoSecOps fills in.
 
 `ENV.workflow.trigger_type` is `form`. The run records the requester as the user who triggered it and executes with the workflow runner's permissions, as a webhook run does, so a requester needs no workflow or action scopes.
 
 ## Form config
 
-Every key is optional, and Tracecat rejects keys outside this reference. Tracecat refuses to save a config with errors. Saving replaces the whole config and drops YAML comments.
+Every key is optional, and AutoSecOps rejects keys outside this reference. AutoSecOps refuses to save a config with errors. Saving replaces the whole config and drops YAML comments.
 
 | Key | Description |
 | --- | --- |
 | `title` | Form title. Defaults to the workflow title. |
 | `description` | Markdown under the title. Defaults to the workflow description. |
 | `success_message` | Text the requester sees after submitting. |
-| `layout` | Ordered list of entries. Tracecat appends inputs you leave out, in Input schema order. |
+| `layout` | Ordered list of entries. AutoSecOps appends inputs you leave out, in Input schema order. |
 
 Each `layout` entry has exactly one of these keys:
 
@@ -181,7 +181,7 @@ A field without `widget` uses the default widget for its input type. `T | None` 
 
 Input types outside the `Default for` column, such as `dict`, `duration`, `any`, or `str | int`, have no default widget. Set `widget: user` or `widget: file` on a `dict` or `list[dict]` input, or fill the input with `autofill` or its default. An input with a default and no widget stays off the form and takes its default. The `user` widget searches active members of the organization.
 
-A shown field starts with its input's default, so a non-null default must be a valid answer for the field. `user` and `file` fields start empty instead, and Tracecat applies their default on submission. Tracecat doesn't check the defaults of hidden and autofill inputs, or of inputs with no widget, as answers.
+A shown field starts with its input's default, so a non-null default must be a valid answer for the field. `user` and `file` fields start empty instead, and AutoSecOps applies their default on submission. AutoSecOps doesn't check the defaults of hidden and autofill inputs, or of inputs with no widget, as answers.
 
 Integers in a form stay between -9,007,199,254,740,991 and 9,007,199,254,740,991, the range a browser holds exactly. That covers the default of an `int` input, hidden or shown, an integer `visible_if` value, and an answer to an `int` input, including one sent as text or as a whole-number float. Outside the range, a default or `visible_if` value is a config error and an answer fails with `invalid_value`. `float` inputs are unaffected, since a browser holds every float exactly.
 
@@ -189,7 +189,7 @@ Integers in a form stay between -9,007,199,254,740,991 and 9,007,199,254,740,991
 
 `options` is a list of choices. Each choice has a unique `value` and optional `label`, `description`, and `image`.
 
-- For an `enum[...]` or `list[enum[...]]` input, options decorate the enum's values. Each `value` must be an enum value, and Tracecat appends the values you leave out.
+- For an `enum[...]` or `list[enum[...]]` input, options decorate the enum's values. Each `value` must be an enum value, and AutoSecOps appends the values you leave out.
 - For a `str` or `list[str]` input, options define the allowed values. `select`, `multi_select`, and `cards` require them.
 
 The `cards` widget shows each choice as a card with its `image`, `label`, and `description`. An `image` is an inline data URI: `data:image/png;base64,...`, `data:image/jpeg;base64,...`, or `data:image/webp;base64,...`. Each image is at most 100 KB decoded, and the images in one form total at most 1 MB.
@@ -216,7 +216,7 @@ The server re-evaluates every rule on submit and drops values for fields the req
 | `requester.user_id`, `requester.email`, `requester.first_name`, `requester.last_name` | That property of the requester | `str` or `any` |
 | `submission.id` | The submission ID | `str` or `any` |
 
-Tracecat rejects an autofill input sent in `values` with `unknown_field`, so a `requester` value is always a verified Tracecat user.
+AutoSecOps rejects an autofill input sent in `values` with `unknown_field`, so a `requester` value is always a verified AutoSecOps user.
 
 A service account that submits through the API has no user profile, so it has no `requester` values, and a user may have no first or last name. An input whose value is missing takes its default. Without a default it holds `null` if its type takes `null`, such as `str | None`, and otherwise the submission fails with `required`. To record your own end user, add an ordinary input such as `end_user_email` and send it in `values`.
 
@@ -235,7 +235,7 @@ The `file` widget lets requesters attach files. A `dict` input takes one file. A
   max_files: 2
 ```
 
-Tracecat accepts a file when the workspace attachment settings allow its extension and MIME type, it matches `accept`, its content matches its declared type, and it is not empty and at most `TRACECAT__MAX_ATTACHMENT_SIZE_BYTES` (20 MB by default). One requester holds at most 20 uploaded files on one form before submitting. An uploaded file that no submission claims within 24 hours expires. Tracecat deletes expired files every 10 minutes.
+AutoSecOps accepts a file when the workspace attachment settings allow its extension and MIME type, it matches `accept`, its content matches its declared type, and it is not empty and at most `TRACECAT__MAX_ATTACHMENT_SIZE_BYTES` (20 MB by default). One requester holds at most 20 uploaded files on one form before submitting. An uploaded file that no submission claims within 24 hours expires. AutoSecOps deletes expired files every 10 minutes.
 
 Read a file's content in the workflow with [`core.forms.download_file`](/automations/core-actions/form-actions/forms), passing `${{ TRIGGER.quote.id }}` as `file_id`. The requester who uploaded a file can download it before and after submitting. A member with `form:submission:read` can download every submitted file from the `Activity` tab. Deleting a submission, its form, or the form's workflow deletes its files.
 
@@ -255,7 +255,7 @@ Assign `Intake only` (`workspace-intake`) to members who only fill in forms. It 
 
 ## Edit a form in workspace chat
 
-Open the chat panel on a form's page and describe the change, such as `Make model a card picker`. [Workspace chat](/agents/workspace-chat) knows which form is open, edits it with the `core.forms.list_forms`, `core.forms.get_form`, and `core.forms.update_form` tools, and the editor and preview refresh. The [Tracecat MCP](/automations/tracecat-mcp) server exposes the same operations as `list_forms`, `get_form`, and `update_form`.
+Open the chat panel on a form's page and describe the change, such as `Make model a card picker`. [Workspace chat](/agents/workspace-chat) knows which form is open, edits it with the `core.forms.list_forms`, `core.forms.get_form`, and `core.forms.update_form` tools, and the editor and preview refresh. The [AutoSecOps MCP](/automations/tracecat-mcp) server exposes the same operations as `list_forms`, `get_form`, and `update_form`.
 
 ## Git sync
 
@@ -279,7 +279,7 @@ form:
 
 Applying a pull that carries a `form:` block needs `form:create` and `form:update`. Applying a pull that sets a form offline or clears its config needs `form:update`. A dry run needs neither.
 
-A Tracecat instance on a version without Forms writes `definition.yml` without the `form:` block, so the next pull on a newer instance takes that form offline and clears its config. Upgrade every instance that pushes to the repository before you build forms in it.
+An AutoSecOps instance on a version without Forms writes `definition.yml` without the `form:` block, so the next pull on a newer instance takes that form offline and clears its config. Upgrade every instance that pushes to the repository before you build forms in it.
 
 ## REST API
 
@@ -343,13 +343,13 @@ Submit and upload errors return `detail.code` and `detail.message`.
 | `409` | `form_unavailable` | The workflow is unpublished, or the config no longer matches the Input schema. |
 | `409` | `form_changed` | `definition_version` or `config_version` is stale. Render again and resubmit. |
 | `422` | `form_validation_error` | `detail.errors` lists `{field, code, message}`. |
-| `503` | `workflow_start_failed` | The workflow did not start and will not. Tracecat removes the submission and releases its files, so you can retry. When Temporal's answer is lost, such as after a timeout, Tracecat first checks whether the run started; if it did, the submission succeeds. |
-| `503` | `workflow_start_unconfirmed` | Tracecat could not confirm whether the run started, so it keeps the submission. Don't retry until you've checked whether the run happened. |
+| `503` | `workflow_start_failed` | The workflow did not start and will not. AutoSecOps removes the submission and releases its files, so you can retry. When Temporal's answer is lost, such as after a timeout, AutoSecOps first checks whether the run started; if it did, the submission succeeds. |
+| `503` | `workflow_start_unconfirmed` | AutoSecOps could not confirm whether the run started, so it keeps the submission. Don't retry until you've checked whether the run happened. |
 | `400` | `file_invalid` | The file is empty, or its name or content failed validation. |
 | `409` | `file_limit_reached` | You hold the most uploaded files one requester can hold on this form. Submit, or wait for them to expire. |
 | `413` | `file_too_large` | The file is over the size limit. |
 | `415` | `file_type_not_allowed` | The workspace or the field's `accept` does not allow the type. |
 | `422` | `file_field_invalid` | The form has no `file` field with that name. |
-| `503` | `file_upload_failed` | Tracecat could not store the file. Retry. |
+| `503` | `file_upload_failed` | AutoSecOps could not store the file. Retry. |
 
 A field error's `code` is `required`, `unknown_field`, `invalid_value`, `invalid_option`, `invalid_date`, `invalid_user`, `invalid_file`, or `too_many_files`. `invalid_file` means a file ID is not a file you uploaded to that field of this form in the last 24 hours, or a submission already holds it. `too_many_files` means the field got more files than its `max_files`.

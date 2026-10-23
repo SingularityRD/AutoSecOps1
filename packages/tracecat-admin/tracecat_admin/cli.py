@@ -1,4 +1,4 @@
-"""Tracecat Admin CLI - Main entry point."""
+"""AutoSecOps Admin CLI - Main entry point."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from tracecat_admin.commands import (
 
 app = typer.Typer(
     name="tracecat",
-    help="Tracecat Admin CLI - Platform operator tools for Tracecat.",
+    help="AutoSecOps Admin CLI - Platform operator tools for AutoSecOps.",
     no_args_is_help=True,
 )
 
@@ -54,7 +54,7 @@ def main(
         is_eager=True,
     ),
 ) -> None:
-    """Tracecat Admin CLI - Platform operator tools."""
+    """AutoSecOps Admin CLI - Platform operator tools."""
 
 
 # Register command groups

@@ -23,5 +23,5 @@ definition:
         headers:
           accept: application/json
           api-key: ${{ SECRETS.hybrid_analysis.HYBRID_ANALYSIS_API_KEY }}
-          user-agent: Tracecat
+          user-agent: AutoSecOps
   returns: ${{ steps.lookup_file.result.data }}

@@ -65,7 +65,7 @@ class MCPHttpServerConfig(TypedDict):
     """Required: HTTP/SSE endpoint URL for the MCP server."""
 
     headers: NotRequired[dict[str, str]]
-    """Optional: Auth headers (can reference Tracecat secrets).
+    """Optional: Auth headers (can reference AutoSecOps secrets).
 
     Only populated when the config has been resolved at the trusted edge for
     immediate use. Boundary-crossing configs omit this field; the trusted

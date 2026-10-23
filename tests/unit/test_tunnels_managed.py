@@ -335,7 +335,7 @@ class TestManagedTunnels:
 
         status = await service.get_tunnel_status(tunnel)
         assert status.site_online is True
-        # Gateways are not run by Tracecat with the default backend.
+        # Gateways are not run by AutoSecOps with the default backend.
         assert status.gateway_ready is None
 
     async def test_managed_tunnel_gets_gateway_key(

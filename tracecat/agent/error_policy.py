@@ -200,7 +200,7 @@ def registry_lock_invalid_data(
     """
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.REGISTRY_LOCK_INVALID_DATA,
-        message="Tracecat could not resolve the agent's registry actions",
+        message="AutoSecOps could not resolve the agent's registry actions",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -243,7 +243,7 @@ def agent_preparation_failed(
     """Classify trusted workflow failures while preparing an agent run."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_PREPARATION_FAILED,
-        message="Tracecat could not prepare the agent run",
+        message="AutoSecOps could not prepare the agent run",
         retry_disposition=(
             RetryDisposition.RETRYABLE if retryable else RetryDisposition.NON_RETRYABLE
         ),
@@ -259,7 +259,7 @@ def agent_session_initialization_failed(
     """Classify failures establishing trusted durable session state."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_SESSION_INITIALIZATION_FAILED,
-        message="Tracecat could not initialize the agent session",
+        message="AutoSecOps could not initialize the agent session",
         retry_disposition=(
             RetryDisposition.RETRYABLE if retryable else RetryDisposition.NON_RETRYABLE
         ),
@@ -311,7 +311,7 @@ def agent_llm_provider_rejected_request(
 def agent_llm_read_timeout(
     error: BaseException | None = None,
 ) -> RuntimeErrorClassification:
-    """Assign investigation of an ambiguous upstream read stall to Tracecat.
+    """Assign investigation of an ambiguous upstream read stall to AutoSecOps.
 
     Operational ownership is not root-cause attribution: a direct route alone
     cannot distinguish provider, network, or local proxy failures.
@@ -344,7 +344,7 @@ def agent_llm_gateway_auth_failed() -> RuntimeErrorClassification:
     """Classify a rejected internal gateway credential at its trusted source."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_LLM_GATEWAY_AUTH_FAILED,
-        message="Tracecat could not authenticate to the LLM gateway",
+        message="AutoSecOps could not authenticate to the LLM gateway",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
     )
 
@@ -516,7 +516,7 @@ def agent_executor_timed_out(
     """Classify executor activity or runtime deadline exhaustion."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_EXECUTOR_TIMED_OUT,
-        message="Tracecat agent execution timed out",
+        message="AutoSecOps agent execution timed out",
         retry_disposition=RetryDisposition.RETRYABLE,
         cause=error,
     )
@@ -528,7 +528,7 @@ def agent_executor_protocol_failed(
     """Classify invalid or incomplete executor protocol outcomes."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_EXECUTOR_PROTOCOL_FAILED,
-        message="Tracecat agent executor returned an invalid result",
+        message="AutoSecOps agent executor returned an invalid result",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -540,7 +540,7 @@ def agent_workflow_internal_error(
     """Classify the workflow's final invariant fallback."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.AGENT_WORKFLOW_INTERNAL_ERROR,
-        message="Tracecat agent workflow encountered an internal error",
+        message="AutoSecOps agent workflow encountered an internal error",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )

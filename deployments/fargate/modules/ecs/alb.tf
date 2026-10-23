@@ -69,7 +69,7 @@ resource "aws_wafv2_web_acl" "this" {
   count = var.enable_waf ? 1 : 0
 
   name        = "${var.name_prefix}-waf-acl"
-  description = "Default WAF configuration for Tracecat ALB"
+  description = "Default WAF configuration for AutoSecOps ALB"
   scope       = "REGIONAL"
 
   default_action {

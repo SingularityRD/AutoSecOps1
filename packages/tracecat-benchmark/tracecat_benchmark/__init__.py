@@ -2,7 +2,7 @@
 
 Modules:
     models      Typed scenario, result, and artifact models.
-    client      Minimal async client for the public Tracecat API.
+    client      Minimal async client for the public AutoSecOps API.
     fixtures    Load-type workflow fixtures plus idempotent setup.
     runner      Asynchronous API load runner.
     collector   PostgreSQL activity and environment metric collector.

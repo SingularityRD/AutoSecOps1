@@ -1,7 +1,7 @@
-# Tracecat and Temporal environment variables
+# AutoSecOps and Temporal environment variables
 locals {
 
-  # Tracecat version
+  # AutoSecOps version
   tracecat_image_tag            = var.tracecat_image_tag
   tracecat_migrations_image     = coalesce(var.tracecat_migrations_image, var.tracecat_image)
   tracecat_migrations_image_tag = coalesce(var.tracecat_migrations_image_tag, local.tracecat_image_tag)
@@ -13,7 +13,7 @@ locals {
   waf_mcp_oauth_endpoints_pattern_name  = coalesce(var.waf_mcp_oauth_endpoints_pattern_name, "${var.name_prefix}-mcp-oauth-endpoints-pattern")
   waf_mcp_public_endpoint_pattern_name  = coalesce(var.waf_mcp_public_endpoint_pattern_name, "${var.name_prefix}-mcp-public-endpoint-pattern")
 
-  # Tracecat common URLs
+  # AutoSecOps common URLs
   public_app_url   = "https://${var.domain_name}"
   public_api_url   = "https://${var.domain_name}/api"
   internal_api_url = "http://api-service:8000" # Service connect DNS name
@@ -28,7 +28,7 @@ locals {
     TRACECAT__LITELLM_BASE_URL = local.internal_litellm_url
   }
 
-  # Tracecat Postgres env vars
+  # AutoSecOps Postgres env vars
   tracecat_db_configs = {
     TRACECAT__DB_USER              = "postgres"
     TRACECAT__DB_PORT              = "5432"
@@ -55,7 +55,7 @@ locals {
     TRACECAT__LOG_FORMAT                              = var.log_format
     TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID              = data.aws_caller_identity.current.account_id
     TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
-    TRACECAT__FEATURE_FLAGS                           = var.feature_flags # Requires Tracecat Enterprise license to modify.
+    TRACECAT__FEATURE_FLAGS                           = var.feature_flags # Requires AutoSecOps Enterprise license to modify.
     TRACECAT__EE_MULTI_TENANT                         = var.ee_multi_tenant
     TRACECAT__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
     TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb

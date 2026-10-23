@@ -1,4 +1,4 @@
-"""Minimal typed async client for the public Tracecat API.
+"""Minimal typed async client for the public AutoSecOps API.
 
 Only the endpoints the current load types need are wrapped. Everything goes
 through the public, workspace-scoped HTTP API - the runner never talks to
@@ -107,7 +107,7 @@ def _as_bool(value: object) -> bool:
 
 
 class TracecatClient:
-    """Async client scoped to one workspace of one local Tracecat cluster."""
+    """Async client scoped to one workspace of one local AutoSecOps cluster."""
 
     def __init__(
         self,

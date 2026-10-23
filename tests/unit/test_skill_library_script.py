@@ -219,8 +219,8 @@ def test_add_resolves_commit_to_full_sha(
         ),
         pytest.param(_source(), [], ["provider ="], id="official-maintenance"),
         pytest.param(
-            replace(_source(), provider="Tracecat"),
-            ['provider = "Tracecat"'],
+            replace(_source(), provider="AutoSecOps"),
+            ['provider = "AutoSecOps"'],
             [],
             id="other-maintainer",
         ),
@@ -240,7 +240,7 @@ def test_render_sources_round_trips(
 
 
 @pytest.mark.parametrize("operation", [script.cmd_sync, script.cmd_update])
-@pytest.mark.parametrize("keys", [[], ["AWS"], ["Tracecat"]])
+@pytest.mark.parametrize("keys", [[], ["AWS"], ["AutoSecOps"]])
 def test_sync_and_update_preserve_local_content_and_metadata(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -251,11 +251,11 @@ def test_sync_and_update_preserve_local_content_and_metadata(
     manifest = tmp_path / "sources.toml"
     upstream = replace(_source(), group="AWS")
     local = LocalLibrarySource(
-        group="Tracecat",
-        group_summary="Tracecat",
-        group_description="Tracecat skills",
+        group="AutoSecOps",
+        group_summary="AutoSecOps",
+        group_description="AutoSecOps skills",
         provider=None,
-        license="AGPL-3.0-only",
+        license="LicenseRef-Proprietary",
         skills={"response": "skills/response"},
     )
     sources = [upstream, local]
@@ -277,7 +277,7 @@ def test_sync_and_update_preserve_local_content_and_metadata(
     monkeypatch.setattr(script, "download", download)
     operation(keys)
 
-    assert downloads == ([] if keys == ["Tracecat"] else ["example/skills"])
+    assert downloads == ([] if keys == ["AutoSecOps"] else ["example/skills"])
     assert read_tree(root / "response") == local_files
     saved = parse_sources(manifest.read_text())
     assert saved[1] == local
@@ -295,13 +295,13 @@ def test_add_requires_a_description_for_a_new_group(
 def test_render_sources_lists_standalone_skills_last() -> None:
     standalone = LocalLibrarySource(
         group=None,
-        provider="Tracecat",
-        license="AGPL-3.0-only",
+        provider="AutoSecOps",
+        license="LicenseRef-Proprietary",
         skills={"hunt": "skills/hunt"},
         summaries={"hunt": "Run a hunt"},
     )
     rendered = render_sources([standalone, replace(_source(), group="Zeta")])
-    assert rendered.index('group = "Zeta"') < rendered.index('provider = "Tracecat"')
+    assert rendered.index('group = "Zeta"') < rendered.index('provider = "AutoSecOps"')
     assert parse_sources(rendered)[1] == standalone
 
 

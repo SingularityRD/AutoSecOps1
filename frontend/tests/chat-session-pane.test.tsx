@@ -323,7 +323,7 @@ describe("ChatSessionPane", () => {
       input: {
         args: {
           subagent_type: "case-management",
-          description: "List all Tracecat cases",
+          description: "List all AutoSecOps cases",
           prompt: "Please list all the cases we currently have.",
         },
       },

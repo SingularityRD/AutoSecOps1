@@ -83,7 +83,7 @@ def test_search_migration_enables_vector_and_preserves_source_data(
                 conn.execute(text("ALTER EXTENSION vector SET SCHEMA synthetic_vector"))
             wrong_schema = run_alembic(url, "upgrade", "9680c861644a")
             assert wrong_schema.returncode != 0
-            assert "Tracecat requires pgvector" in wrong_schema.stderr
+            assert "AutoSecOps requires pgvector" in wrong_schema.stderr
             assert (
                 "https://docs.tracecat.com/self-hosting/pgvector" in wrong_schema.stderr
             )

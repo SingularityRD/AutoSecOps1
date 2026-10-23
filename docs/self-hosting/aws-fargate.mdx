@@ -1,13 +1,13 @@
 ---
 title: AWS ECS Fargate
-description: "Deploy self-hosted Tracecat to AWS ECS Fargate using Terraform: provision RDS, networking, secrets, and Temporal alongside Tracecat services in your own AWS account."
+description: "Deploy self-hosted AutoSecOps to AWS ECS Fargate using Terraform: provision RDS, networking, secrets, and Temporal alongside AutoSecOps services in your own AWS account."
 ---
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 <Warning>
-  This stack exposes Tracecat to the public internet.
+  This stack exposes AutoSecOps to the public internet.
   We've set the `auth_types` Terraform variable to `saml` by default.
   You must configure SAML before your first login or change `auth_types` to another method.
   See [Security](/self-hosting/security) for additional production hardening recommendations.
@@ -22,7 +22,7 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 ## Clone the repository
 
-Clone the Tracecat repository and navigate to the Fargate deployment directory.
+Clone the AutoSecOps repository and navigate to the Fargate deployment directory.
 
 ```bash
 git clone https://github.com/TracecatHQ/tracecat.git
@@ -75,7 +75,7 @@ terraform apply
 
 Provisioning takes about 10-20 minutes due to RDS and ECS startup.
 
-## Access Tracecat
+## Access AutoSecOps
 
 Once deployed, access your instance at:
 - UI: `https://<domain>`
@@ -86,11 +86,11 @@ Once deployed, access your instance at:
 
 <FirstSuperadmin />
 
-## Updating Tracecat
+## Updating AutoSecOps
 
-To update an existing Tracecat deployment on Fargate:
+To update an existing AutoSecOps deployment on Fargate:
 
-1. Pull the latest Fargate stack from the Tracecat repository to ensure you have the most recent infrastructure changes.
+1. Pull the latest Fargate stack from the AutoSecOps repository to ensure you have the most recent infrastructure changes.
 2. Change the `TF_VAR_tracecat_image_tag` variable to the desired image tag compatible with the stack, or remove the variable to default to the latest image tag.
 3. Run `terraform apply` to apply the updates.
 
@@ -121,8 +121,8 @@ If you are using Temporal Cloud or another external Temporal cluster, set `disab
 
 <AccordionGroup>
   <Accordion title="Is untrusted code execution safe on Fargate?">
-    Fargate does not support the permissions model required by `nsjail`. Tracecat uses a fallback executor without `nsjail` isolation on Fargate.
-    If you need the highest isolation for untrusted code execution (like custom registry actions or `core.script.run_python`), [deploy Tracecat on Kubernetes](/self-hosting/kubernetes), where `nsjail` is enabled by default.
+    Fargate does not support the permissions model required by `nsjail`. AutoSecOps uses a fallback executor without `nsjail` isolation on Fargate.
+    If you need the highest isolation for untrusted code execution (like custom registry actions or `core.script.run_python`), [deploy AutoSecOps on Kubernetes](/self-hosting/kubernetes), where `nsjail` is enabled by default.
   </Accordion>
 
   <Accordion title="What infrastructure does this stack create?">
@@ -136,7 +136,7 @@ If you are using Temporal Cloud or another external Temporal cluster, set `disab
   </Accordion>
 
   <Accordion title="Connecting a VPC-internal LiteLLM, vLLM, or Ollama fails with 'Host is not allowed'">
-    Tracecat rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
+    AutoSecOps rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
     Set `outbound_allowed_private_cidrs` in your Terraform variables to the endpoint's IP or CIDR, e.g. `"10.0.12.34/32"`, and apply.
     See [Private endpoints](/agents/llm-providers#private-endpoints).
   </Accordion>

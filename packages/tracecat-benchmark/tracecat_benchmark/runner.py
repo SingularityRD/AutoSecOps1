@@ -1,4 +1,4 @@
-"""Asynchronous public-API runner for Tracecat workflow load types.
+"""Asynchronous public-API runner for AutoSecOps workflow load types.
 
 Starts workflows through the public admission path
 (`POST /workspaces/{workspace_id}/workflow-executions`) and polls them to a
@@ -906,7 +906,7 @@ def render_summary(scenario: ScenarioConfig, summary: RunSummary) -> str:
         ]
     )
     lines = [
-        "=== Tracecat workflow load test ===",
+        "=== AutoSecOps workflow load test ===",
         f"run id                 {summary.run_id}",
         f"load type             {scenario.load_type.value}",
         f"workflows x branches   {scenario.workflow_count} x {scenario.branch_count}",
@@ -952,7 +952,7 @@ def render_summary(scenario: ScenarioConfig, summary: RunSummary) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tracecat_benchmark.runner",
-        description="Asynchronous public-API runner for Tracecat workflow load types.",
+        description="Asynchronous public-API runner for AutoSecOps workflow load types.",
     )
     parser.add_argument(
         "--base-url",

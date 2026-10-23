@@ -40,7 +40,7 @@ export function isTracecatJsonSchema(
 
 // Helper function to get components as array
 /**
- * Returns the Tracecat components array from the schema.
+ * Returns the AutoSecOps components array from the schema.
  * If the component key is not present or not an array, returns an empty array.
  * Only returns the value if it is an array.
  *
@@ -48,11 +48,11 @@ export function isTracecatJsonSchema(
  * @returns An array of component objects with at least a component_id.
  */
 /**
- * Type guard to check if an object is a valid Tracecat component.
+ * Type guard to check if an object is a valid AutoSecOps component.
  * A valid component must be a non-null object with a string 'component_id' property.
  *
  * @param item - The item to check.
- * @returns True if the item is a valid Tracecat component, false otherwise.
+ * @returns True if the item is a valid AutoSecOps component, false otherwise.
  */
 export function isTracecatComponent(
   item: unknown
@@ -66,9 +66,9 @@ export function isTracecatComponent(
 }
 
 /**
- * Returns the Tracecat components array from the schema.
+ * Returns the AutoSecOps components array from the schema.
  * If the component key is not present or not an array, returns an empty array.
- * Only returns the value if it is an array of valid Tracecat components.
+ * Only returns the value if it is an array of valid AutoSecOps components.
  *
  * @param schema - The TracecatJsonSchema object to extract components from.
  * @returns An array of component objects with at least a component_id.

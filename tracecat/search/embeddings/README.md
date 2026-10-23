@@ -26,7 +26,7 @@ request is still signed separately.
 
 ## Using Ollama or vLLM
 
-The server must already serve one of the supported embedding models. Tracecat
+The server must already serve one of the supported embedding models. AutoSecOps
 never downloads models or turns a chat model into an embedding model.
 
 For Ollama, install the supported model on the Ollama server:
@@ -43,7 +43,7 @@ vllm serve sentence-transformers/all-MiniLM-L6-v2 --runner pooling
 
 Configure the existing Ollama or vLLM provider connection with that server's
 OpenAI-compatible base URL, including `/v1`. API keys are optional for servers
-that do not require authentication. The URL must be reachable from Tracecat's
+that do not require authentication. The URL must be reachable from AutoSecOps's
 backend. Private server addresses must be allowed by the deployment's existing
 `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` policy, as with agent model discovery.
 
@@ -73,7 +73,7 @@ matching model identities, the expected number of finite, nonzero vectors and
 the correct dimensions. Self-hosted calls enforce the same outbound network
 policy as agent discovery and do not follow redirects.
 
-Keep the served weights stable for a given model name. Tracecat cannot detect a
+Keep the served weights stable for a given model name. AutoSecOps cannot detect a
 server replacing weights behind an unchanged model name and URL. Changing the
 endpoint to a new model deployment creates a new configuration and rebuilds.
 

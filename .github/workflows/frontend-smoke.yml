@@ -90,7 +90,7 @@ jobs:
       - name: Build PostgreSQL candidate image
         run: bash scripts/postgres/build-image.sh
 
-      - name: Start Tracecat stack
+      - name: Start AutoSecOps stack
         env:
           TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
@@ -167,7 +167,7 @@ jobs:
           echo "=== PostgreSQL Logs ==="
           docker compose "${compose_files[@]}" logs postgres_db --tail=200
 
-      - name: Stop Tracecat stack
+      - name: Stop AutoSecOps stack
         if: always()
         env:
           TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}

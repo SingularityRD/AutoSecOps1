@@ -431,7 +431,7 @@ def _primary_email_value(value: Any) -> Any:
 
 
 def _require_primary_email_matches(user_name: str, emails: list[Any]) -> None:
-    """Tracecat stores one address per user, so the primary email is the login."""
+    """AutoSecOps stores one address per user, so the primary email is the login."""
     expected = user_name.strip().lower()
     for email in emails:
         if not isinstance(email, str) or email.strip().lower() != expected:
@@ -826,7 +826,7 @@ async def service_provider_config() -> dict[str, Any]:
             {
                 "type": "oauthbearertoken",
                 "name": "OAuth Bearer Token",
-                "description": "Authentication using the Tracecat SCIM connection token.",
+                "description": "Authentication using the AutoSecOps SCIM connection token.",
                 "primary": True,
             }
         ],

@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 <!--
-  Thank you for taking the time to contribute to Tracecat!
+  Thank you for taking the time to contribute to AutoSecOps!
 
   Please provide a clear and concise description of the feature you'd like to see.
 -->

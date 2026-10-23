@@ -217,7 +217,7 @@ async def prepare_git_url(
     """Construct the runtime environment
     Deps:
     In the new pull-model registry, the execution environment is ALL the registries
-    1. Tracecat registry
+    1. AutoSecOps registry
     2. User's custom template registry
     3. User's custom UDF registry (github)
 

@@ -11,7 +11,7 @@ Pick the one that matches who decides when the workflow runs.
 
 | Trigger | Who starts it | Use it for |
 | --- | --- | --- |
-| Case trigger | Tracecat, when a selected case event happens | Enrichment, routing, and notifications that should always run |
+| Case trigger | AutoSecOps, when a selected case event happens | Enrichment, routing, and notifications that should always run |
 | Task workflow | An analyst, from a case task | Response steps that need a human decision, such as resetting credentials |
 | `/` command | An analyst, from a case comment or reply | Ad hoc lookups and actions during an investigation |
 
@@ -37,14 +37,14 @@ Publish the workflow before you turn on its case trigger.
 The tag allowlist limits runs to cases that currently have at least one matching tag, such as `phishing`.
 An empty allowlist runs the workflow for every case.
 
-Tracecat ignores case events caused by workflows, so a workflow that updates a case does not trigger itself or other case-triggered workflows.
+AutoSecOps ignores case events caused by workflows, so a workflow that updates a case does not trigger itself or other case-triggered workflows.
 See [Case triggers](/automations/triggers/case-triggers) for the trigger payload.
 
 ## Run workflows from tasks
 
 Set a workflow on a case task, then select the workflow button on the task row.
 If the workflow has an Input schema, fill in `Configure workflow inputs` and select `Trigger`.
-Otherwise, Tracecat passes generated case inputs.
+Otherwise, AutoSecOps passes generated case inputs.
 
 ![Task trigger](/img/triggers/task-trigger.png)
 
@@ -55,7 +55,7 @@ See [Case tasks](/automations/cases/tasks) to set up tasks and review task runs,
 ## Run workflows from comments
 
 Type `/` in a case comment or reply, select a published workflow, and submit the comment.
-Tracecat removes the `/` command from the saved comment and runs the workflow with the case and comment context.
+AutoSecOps removes the `/` command from the saved comment and runs the workflow with the case and comment context.
 
 ![Comment trigger](/img/triggers/comment-triggers.png)
 

@@ -1,4 +1,4 @@
-"""Temporal transport for the versioned Tracecat runtime error contract.
+"""Temporal transport for the versioned AutoSecOps runtime error contract.
 
 Classified failures travel as ``ErrorTransportDetail`` values: a required
 discriminator, a ``RuntimeErrorClassification``, and an optional

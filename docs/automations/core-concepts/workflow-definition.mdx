@@ -1,6 +1,6 @@
 ---
 title: "Workflow definition"
-description: "YAML reference for Tracecat workflow definitions: triggers, actions, inputs, outputs, control flow, and schema fields used to author and version workflows."
+description: "YAML reference for AutoSecOps workflow definitions: triggers, actions, inputs, outputs, control flow, and schema fields used to author and version workflows."
 ---
 
 import ActionExpressionsSection from "/snippets/action-expressions-section.mdx";
@@ -10,7 +10,7 @@ This page was written for advanced builders who want to review and edit workflow
 
 ## Overview
 
-Workflows in Tracecat are defined as YAML workflow definitions.
+Workflows in AutoSecOps are defined as YAML workflow definitions.
 
 ## Workflow schema
 
@@ -101,7 +101,7 @@ returns:
 ## Actions schema
 
 <ResponseField name="ref" type="string">
-Unique action identifier. It must be unique within the workflow and match Tracecat's slug format.
+Unique action identifier. It must be unique within the workflow and match AutoSecOps's slug format.
 </ResponseField>
 
 <ResponseField name="action" type="string">
@@ -144,7 +144,7 @@ Per-action override for the secrets environment.
 </ResponseField>
 
 <ResponseField name="mask_output" type="boolean">
-Redacts this action's result in workflow execution views and execution API responses. Tracecat keeps object and array structure but replaces each individual value, so JSONPath references remain visible. Downstream actions still receive the original result.
+Redacts this action's result in workflow execution views and execution API responses. AutoSecOps keeps object and array structure but replaces each individual value, so JSONPath references remain visible. Downstream actions still receive the original result.
 </ResponseField>
 
 Example action:

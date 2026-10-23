@@ -4,7 +4,7 @@ This package implements a minimal OIDC authorization server that FastMCP's
 ``OIDCProxy`` uses as its upstream identity provider, replacing the
 dependency on an external BYO OIDC IdP.
 
-The issuer authenticates users via existing Tracecat session cookies and
+The issuer authenticates users via existing AutoSecOps session cookies and
 issues short-lived JWT access tokens scoped to the organizations the user
 granted at sign-in.
 """

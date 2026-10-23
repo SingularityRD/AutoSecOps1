@@ -1,4 +1,4 @@
-"""Base service classes for Tracecat.
+"""Base service classes for AutoSecOps.
 
 Role Semantics
 --------------

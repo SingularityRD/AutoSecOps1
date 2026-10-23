@@ -24,6 +24,6 @@ definition:
         url: ${{ inputs.base_url }}/v0/messages/analyze
         method: POST
         headers:
-          User-Agent: Tracecat-Sublime-EML-Analyzer
+          User-Agent: AutoSecOps-Sublime-EML-Analyzer
         payload: ${{ inputs.payload }}
   returns: ${{ steps.request.result.data }}

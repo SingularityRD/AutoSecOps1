@@ -1,6 +1,6 @@
-"""Tracecat SDK for registry actions.
+"""AutoSecOps SDK for registry actions.
 
-This SDK provides HTTP clients for accessing Tracecat platform features
+This SDK provides HTTP clients for accessing AutoSecOps platform features
 from within UDF actions running in sandboxed environments.
 """
 

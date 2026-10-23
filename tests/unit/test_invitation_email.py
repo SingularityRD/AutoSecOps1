@@ -61,7 +61,7 @@ def test_invitation_email_renders_subject_and_link(
     )
 
     assert message.to == ("invitee@example.com",)
-    assert message.subject == "Join Acme on Tracecat"
+    assert message.subject == "Join Acme on AutoSecOps"
     assert "token-123" in message.text
 
 

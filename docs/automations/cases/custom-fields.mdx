@@ -12,7 +12,7 @@ Every case in the workspace shows the same set of fields under `Fields` in the c
 
 1. Go to `Cases` and open the custom fields view from the header toolbar.
 2. Select `Add field`.
-3. Enter a `Name`. Tracecat derives the field reference from the name and shows it under the input, such as `Analyst verdict` → `analyst_verdict`.
+3. Enter a `Name`. AutoSecOps derives the field reference from the name and shows it under the input, such as `Analyst verdict` → `analyst_verdict`.
 4. Choose a `Data type`.
 5. For `Select` and `Multi-select`, add the allowed `Options`.
 6. Optionally set a default value.
@@ -64,7 +64,7 @@ Pass a `fields` object keyed by field reference to `core.cases.create_case` or `
         - Initial access
 ```
 
-Tracecat rejects keys that do not match an existing field reference.
+AutoSecOps rejects keys that do not match an existing field reference.
 To start a workflow when a field changes, select `fields_changed` in a [case trigger](/automations/cases/workflow-triggers).
 
 ## Related pages

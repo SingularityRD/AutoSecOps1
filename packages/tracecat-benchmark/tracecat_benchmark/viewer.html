@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tracecat load-test benchmarks</title>
+<title>AutoSecOps load-test benchmarks</title>
 <style>
 :root {
   color-scheme: light;
@@ -427,7 +427,7 @@ pre.verbatim {
 <body>
 <header class="masthead">
   <div class="masthead-inner">
-    <h1>Tracecat load-test benchmarks</h1>
+    <h1>AutoSecOps load-test benchmarks</h1>
     <span class="root" id="artifact-root"></span>
   </div>
 </header>
@@ -1572,7 +1572,7 @@ function activitySection(detail) {
   }
   section.appendChild(
     el("div", { class: "tiles" }, [
-      tile("Tracecat actions", fmtCount(metrics.completed_tracecat_actions), fmtNum(metrics.completed_tracecat_actions_per_second, 3) + " /s"),
+      tile("AutoSecOps actions", fmtCount(metrics.completed_tracecat_actions), fmtNum(metrics.completed_tracecat_actions_per_second, 3) + " /s"),
       tile("Temporal activities", fmtCount(metrics.completed_activities), fmtNum(metrics.completed_activities_per_second, 3) + " /s"),
       tile("Measurement window", fmtSeconds(metrics.measurement_window_seconds)),
     ])

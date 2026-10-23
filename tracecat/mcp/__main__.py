@@ -1,4 +1,4 @@
-"""Entry point for the Tracecat MCP server.
+"""Entry point for the AutoSecOps MCP server.
 
 Usage:
     python -m tracecat.mcp

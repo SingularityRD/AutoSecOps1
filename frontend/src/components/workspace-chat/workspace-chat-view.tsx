@@ -233,7 +233,7 @@ export function WorkspaceChatView({ chatId }: { chatId?: string }) {
             entityType="copilot"
             entityId={workspaceId}
             bodyClassName="min-h-0"
-            placeholder="Ask Tracecat..."
+            placeholder="Ask AutoSecOps..."
             surface="workspace-chat"
             onMessagesChange={setMessages}
             onData={handleStreamData}

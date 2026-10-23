@@ -43,7 +43,7 @@ def safe_uuid4() -> UUID:
 
 
 class TracecatUUID[ShortID: str](UUID):
-    """Base class for prefixed Tracecat UUIDs.
+    """Base class for prefixed AutoSecOps UUIDs.
 
     This class serves as a base for specialized UUIDs that have specific prefixes
     for different types of resources (workflows, nodes, etc.).

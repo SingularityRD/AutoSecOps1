@@ -561,7 +561,7 @@ def _error_handler_workflow() -> tuple[DSLWorkflow, DSLRunArgs]:
 def test_scheduler_adapts_non_action_classification_to_error_info() -> None:
     classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.STORAGE_MATERIALIZATION_TRANSPORT_UNAVAILABLE,
-        message="Tracecat could not retrieve stored workflow data",
+        message="AutoSecOps could not retrieve stored workflow data",
         retry_disposition=RetryDisposition.RETRYABLE,
         cause=RuntimeError("storage transport unavailable"),
     )
@@ -922,7 +922,7 @@ async def test_error_handler_failure_preserves_original_terminal_owner() -> None
     )
     handler_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not run the error handler",
+        message="AutoSecOps could not run the error handler",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
     )
     original_error = _capture_application_error(
@@ -986,7 +986,7 @@ async def test_error_handler_lookup_failure_defers_owner_stamp_to_interceptor() 
     )
     lookup_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not resolve the error handler",
+        message="AutoSecOps could not resolve the error handler",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     original_error = _capture_application_error(original_classification)
@@ -1027,7 +1027,7 @@ def test_terminal_platform_owner_wins_for_alert_attribution() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     details = {

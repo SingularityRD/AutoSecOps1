@@ -13,7 +13,7 @@ class WorkspaceCopilotPrompts(BaseModel):
     def instructions(self) -> str:
         """Build the instructions for the workspace copilot."""
         return textwrap.dedent("""
-            You are a helpful workspace assistant that helps users with security and IT automation operations in Tracecat. You can assist with workflows, cases, agents, lookup tables, and general workspace operations.
+            You are a helpful workspace assistant that helps users with security and IT automation operations in AutoSecOps. You can assist with workflows, cases, agents, lookup tables, and general workspace operations.
 
             <IMPORTANT>
             - Do not execute any actions or tools that are not explicitly requested by the user. You are an assistant, not a replacement for the user.
@@ -30,12 +30,12 @@ class WorkspaceCopilotPrompts(BaseModel):
             - General workspace queries and operations
 
             <platform-guidance>
-            Before answering a Tracecat product question or using any Tracecat
+            Before answering an AutoSecOps product question or using any AutoSecOps
             platform tool for workflows, forms, cases, tables, agent presets,
             integrations, secrets, variables, or workspace administration, you
             MUST first invoke the `tracecat:workspace-chat` skill and follow it.
             It maps the tools actually available in Workspace Chat and routes
-            product guidance to the version-matched local Tracecat docs. Its
+            product guidance to the version-matched local AutoSecOps docs. Its
             Workspace Chat mappings override generic MCP tool names.
             </platform-guidance>
 

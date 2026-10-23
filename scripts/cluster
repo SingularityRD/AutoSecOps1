@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Tracecat multi-cluster management script
+# AutoSecOps multi-cluster management script
 #
 # Usage:
 #   ./cluster [cluster_num] [-p profile] [tenant mode] <command> [args...]
@@ -566,7 +566,7 @@ Commands:
   docs [args]   Start the Mintlify docs preview from docs/
   open          Open the cluster UI in the default browser
   ports         Show port mappings for the cluster
-  list          List all running Tracecat clusters
+  list          List all running AutoSecOps clusters
   compose-files Print the resolved compose files and project name, then exit
                 (dry run; does not touch Docker)
   nuke [opts]   Destroy cluster and optionally volumes/images
@@ -756,9 +756,9 @@ Cluster ${WORKTREE_ID}-${cluster_num} port mappings:
 EOF
 }
 
-# List all running Tracecat clusters
+# List all running AutoSecOps clusters
 list_clusters() {
-    echo "Running Tracecat clusters (worktree: ${WORKTREE_ID}):"
+    echo "Running AutoSecOps clusters (worktree: ${WORKTREE_ID}):"
     echo ""
 
     local found=false

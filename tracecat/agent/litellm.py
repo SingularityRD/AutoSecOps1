@@ -1,6 +1,6 @@
 """Launcher for the managed LiteLLM service.
 
-Runs LiteLLM on the Tracecat image while preserving the config path shape that
+Runs LiteLLM on the AutoSecOps image while preserving the config path shape that
 LiteLLM expects for custom auth and callback module resolution.
 
 Shutdown contract: on SIGTERM every uvicorn worker stops accepting requests and
@@ -59,7 +59,7 @@ def get_bind_host() -> str:
 
 
 def main() -> None:
-    """Launch LiteLLM with the Tracecat-managed gateway config."""
+    """Launch LiteLLM with the AutoSecOps-managed gateway config."""
     runtime_config = prepare_runtime_config()
     cmd = [
         "litellm",

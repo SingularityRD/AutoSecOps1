@@ -404,7 +404,7 @@ class SandboxedCLITransport(Transport):
 
     @staticmethod
     def _is_trusted_mcp_bridge_config(config: object) -> bool:
-        """Return whether a config points at Tracecat's local MCP bridge."""
+        """Return whether a config points at AutoSecOps's local MCP bridge."""
         if not isinstance(config, dict) or config.get("type") != "http":
             return False
         url = config.get("url")
@@ -427,11 +427,11 @@ class SandboxedCLITransport(Transport):
     def _trusted_mcp_bridge_config_with_runtime_port(
         config: McpServerConfig, port: int
     ) -> McpServerConfig:
-        """Return trusted Tracecat MCP bridge config updated for this runtime port.
+        """Return trusted AutoSecOps MCP bridge config updated for this runtime port.
 
         The executor builds Claude options with the canonical bridge URL. Direct
         mode uses port 0 so the shim can bind an available port, while jailed mode
-        keeps the fixed sandbox-local port. Only Tracecat's trusted bridge config
+        keeps the fixed sandbox-local port. Only AutoSecOps's trusted bridge config
         should be updated; user-provided external HTTP MCP servers keep their URL.
         """
         if not SandboxedCLITransport._is_trusted_mcp_bridge_config(config):
@@ -509,7 +509,7 @@ class SandboxedCLITransport(Transport):
         self,
         mcp_bridge_port: int,
     ) -> ClaudeAgentOptions:
-        """Return SDK options whose Tracecat bridge URLs use this runtime port."""
+        """Return SDK options whose AutoSecOps bridge URLs use this runtime port."""
         mcp_servers = self._mcp_servers_with_runtime_bridge_port(
             self._options.mcp_servers,
             mcp_bridge_port,
@@ -542,7 +542,7 @@ class SandboxedCLITransport(Transport):
         self,
         options: ClaudeAgentOptions,
     ) -> ClaudeAgentOptions:
-        """Pin Tracecat-owned UV settings at the CLI child-exec boundary."""
+        """Pin AutoSecOps-owned UV settings at the CLI child-exec boundary."""
         uv_state_dir = (
             JAILED_AGENT_UV_STATE_DIR
             if self._use_jailed_paths

@@ -1,11 +1,11 @@
 ---
 title: "Python UDFs"
-description: "Build custom Python actions for Tracecat: declare inputs and outputs, package dependencies, and expose user-defined functions to workflows and agents."
+description: "Build custom Python actions for AutoSecOps: declare inputs and outputs, package dependencies, and expose user-defined functions to workflows and agents."
 ---
 
 import RegistrySecretsAndOAuth from "/snippets/registry-secrets-and-oauth.mdx";
 
-Tracecat makes it easy to turn your Python scripts into actions for agents and workflows. All you need is:
+AutoSecOps makes it easy to turn your Python scripts into actions for agents and workflows. All you need is:
 
 - A single Python decorator, `@registry.register`
 - `from typing import Annotated`
@@ -32,7 +32,7 @@ secret_name = RegistrySecret(
 )
 
 
-# Register the function as a Tracecat UDF
+# Register the function as an AutoSecOps UDF
 @registry.register(
     default_title="Say goodbye secretly",
     description="This is a function that says goodbye",
@@ -113,5 +113,5 @@ Python UDFs can call hosts on a private or on-premises network through a [tunnel
 
 ## Example actions
 
-You can browse all open-source integrations in Tracecat in [tools actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/integrations). Use [template actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/templates/tools) to see how actions are composed, and use [core actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/core) to inspect built-in implementations.
+You can browse all open-source integrations in AutoSecOps in [tools actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/integrations). Use [template actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/templates/tools) to see how actions are composed, and use [core actions](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry/tracecat_registry/core) to inspect built-in implementations.
 For concrete examples, browse the [Slack](https://github.com/TracecatHQ/tracecat/blob/main/packages/tracecat-registry/tracecat_registry/integrations/slack_sdk.py), [AWS Boto3](https://github.com/TracecatHQ/tracecat/blob/main/packages/tracecat-registry/tracecat_registry/integrations/aws_boto3.py), and [FalconPy](https://github.com/TracecatHQ/tracecat/blob/main/packages/tracecat-registry/tracecat_registry/integrations/crowdstrike_falconpy.py) integrations.

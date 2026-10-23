@@ -18,7 +18,7 @@ definition:
         url: https://haveibeenpwned.com/api/v3/breaches
         method: GET
         headers:
-          User-Agent: Tracecat-HIBP-Integration
+          User-Agent: AutoSecOps-HIBP-Integration
         params:
           domain: ${{ inputs.domain_filter }}
   returns: ${{ steps.call_api.result.data }}

@@ -20,7 +20,7 @@ def build_agent_alias(
     workflow_id: WorkflowID | str | None,
     action_ref: str,
 ) -> str:
-    """Construct the Tracecat alias for agent workflows."""
+    """Construct the AutoSecOps alias for agent workflows."""
     workflow_part = _normalize_workflow_id_for_alias(workflow_id)
     action_part = action_ref or "unknown_action"
     return f"agent:{workflow_part}:{action_part}"

@@ -17,7 +17,7 @@ export interface LibraryProvider {
   installedCount: number
 }
 
-const UNSOURCED_PROVIDER = "Tracecat"
+const UNSOURCED_PROVIDER = "AutoSecOps"
 
 /**
  * Return the URL segment for a provider name.
@@ -72,7 +72,7 @@ export type LibrarySkillCategory =
   | "compliance"
 
 /**
- * Icon-only taxonomy for Tracecat's standalone skills; not shown as text or a
+ * Icon-only taxonomy for AutoSecOps's standalone skills; not shown as text or a
  * filter. Third-party standalone skills show their maintainer's logo instead.
  */
 const SKILL_CATEGORIES: Record<string, LibrarySkillCategory> = {}
@@ -95,7 +95,7 @@ export type LibraryMaintainer = "official" | "tracecat" | "community"
  * Classify who maintains a library skill relative to its group.
  *
  * @param provider The source's maintainer; null when the group maintains it.
- * @returns Official, Tracecat, or community.
+ * @returns Official, AutoSecOps, or community.
  */
 export function libraryMaintainer(
   provider: string | null | undefined

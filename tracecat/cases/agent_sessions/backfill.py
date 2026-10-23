@@ -125,7 +125,7 @@ def _is_tracecat_owned_tool(
     name: str,
     trusted_mcp_server_names: frozenset[str],
 ) -> bool:
-    """Reject tools routed through MCP servers Tracecat does not own."""
+    """Reject tools routed through MCP servers AutoSecOps does not own."""
     for separator in ("__", "."):
         if not name.startswith(f"mcp{separator}"):
             continue

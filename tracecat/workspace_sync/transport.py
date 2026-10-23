@@ -488,7 +488,7 @@ class BaseWorkspaceSyncTransport(BaseWorkspaceService):
 
         published_by = current_user.email if current_user else "<unknown>"
         return (
-            "Automated workspace sync from Tracecat\n\n"
+            "Automated workspace sync from AutoSecOps\n\n"
             f"**Workspace:** {workspace.name}\n"
             f"**Published by:** {published_by}"
         )

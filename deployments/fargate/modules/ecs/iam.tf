@@ -67,7 +67,7 @@ resource "aws_iam_policy" "redis_iam_access" {
   })
 }
 
-# S3 access policy for Tracecat blob storage buckets
+# S3 access policy for AutoSecOps blob storage buckets
 resource "aws_iam_policy" "s3_blob_access" {
   name        = "${var.iam_name_prefix}S3BlobStoragePolicy"
   description = "Policy for S3 blob storage access (attachments, registry, skills, workflow, agent)"
@@ -129,7 +129,7 @@ resource "aws_iam_policy" "s3_blob_access" {
 # Secrets access policy
 resource "aws_iam_policy" "secrets_access" {
   name        = "${var.iam_name_prefix}SecretsAccessPolicy"
-  description = "Policy for accessing Tracecat secrets"
+  description = "Policy for accessing AutoSecOps secrets"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -212,7 +212,7 @@ resource "aws_iam_policy" "temporal_payload_encryption_keyring_access" {
 
 resource "aws_iam_policy" "ui_secrets_access" {
   name        = "${var.iam_name_prefix}UISecretsAccessPolicy"
-  description = "Policy for accessing Tracecat UI secrets"
+  description = "Policy for accessing AutoSecOps UI secrets"
 
   policy = jsonencode({
     Version = "2012-10-17"

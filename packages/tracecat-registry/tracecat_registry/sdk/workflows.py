@@ -1,4 +1,4 @@
-"""Workflows SDK client for Tracecat API."""
+"""Workflows SDK client for AutoSecOps API."""
 
 from __future__ import annotations
 

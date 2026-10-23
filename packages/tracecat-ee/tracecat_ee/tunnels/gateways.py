@@ -34,7 +34,7 @@ _RECONCILE_LOCK_KEY = 0x7472_6163_7475_6E6C
 
 
 TUNNELS_REQUIRE_KUBERNETES = (
-    "Tunnels require Tracecat on Kubernetes with tunnel gateways enabled "
+    "Tunnels require AutoSecOps on Kubernetes with tunnel gateways enabled "
     "(TRACECAT__TUNNEL_GATEWAY_BACKEND=kubernetes)"
 )
 
@@ -108,7 +108,7 @@ async def delete_gateway(tunnel_id: uuid.UUID) -> None:
 
 
 async def gateway_ready(tunnel_id: uuid.UUID) -> bool | None:
-    """Whether the tunnel's gateway is ready; ``None`` if Tracecat does not run it."""
+    """Whether the tunnel's gateway is ready; ``None`` if AutoSecOps does not run it."""
     if not kubernetes_enabled():
         return None
     try:

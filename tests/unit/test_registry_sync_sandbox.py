@@ -770,7 +770,7 @@ def test_discovery_script_reports_registry_dependency_conflicts(
         )
 
     if not from_registry:
-        # Tracecat's own import failures keep the generic path, which pages us.
+        # AutoSecOps's own import failures keep the generic path, which pages us.
         with pytest.raises(ImportError):
             run()
         return

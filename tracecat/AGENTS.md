@@ -164,7 +164,7 @@ Common role types:
 - Templates live under
   `packages/tracecat-registry/tracecat_registry/templates/`.
 - Keep template namespaces under `tools.`.
-- Use `${{ }}` expressions with Tracecat operators such as `||` and `&&`, not
+- Use `${{ }}` expressions with AutoSecOps operators such as `||` and `&&`, not
   Python boolean syntax.
 - Use `core.http_request` with `payload` for JSON request bodies.
 - Check `tracecat/expressions/functions.py` before using an `FN.` helper in a

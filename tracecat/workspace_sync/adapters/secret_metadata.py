@@ -364,13 +364,13 @@ class SecretMetadataAdapter(EnvironmentScopedManifestAdapter):
                 if not is_external_reference(secret):
                     message = (
                         f"Secret {spec.name!r} is AWS-backed, but {secret.name!r} "
-                        "is stored in Tracecat in this workspace. Delete or "
+                        "is stored in AutoSecOps in this workspace. Delete or "
                         "rename that secret first."
                     )
             elif is_external_reference(secret):
                 if not _is_compatible_legacy_spec(spec, secret):
                     message = (
-                        f"Secret {spec.name!r} is stored in Tracecat in this "
+                        f"Secret {spec.name!r} is stored in AutoSecOps in this "
                         f"repository, but {secret.name!r} is AWS-backed in this "
                         "workspace. Change its keys, type, or name in this "
                         "workspace instead."
@@ -685,7 +685,7 @@ class SecretMetadataAdapter(EnvironmentScopedManifestAdapter):
         if secret is not None and not is_external_reference(secret):
             raise ValueError(
                 f"Secret metadata sync source id {source_id!r} is AWS-backed, but "
-                f"{secret.name!r} is stored in Tracecat in this workspace. Delete "
+                f"{secret.name!r} is stored in AutoSecOps in this workspace. Delete "
                 "or rename that secret first."
             )
         if SecretType(spec.secret_type or SecretType.CUSTOM.value) != SecretType.CUSTOM:

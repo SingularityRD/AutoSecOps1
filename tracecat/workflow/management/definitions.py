@@ -199,7 +199,7 @@ async def get_workflow_definition_activity(
         )
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.WORKFLOW_DEFINITION_NOT_FOUND,
-            message="Tracecat could not load a published workflow definition",
+            message="AutoSecOps could not load a published workflow definition",
             retry_disposition=RetryDisposition.NON_RETRYABLE,
         )
         raise_application_error_from_classification(classification)
@@ -220,7 +220,7 @@ def _workflow_definition_lookup_error_classification(
     """Classify a platform failure while loading a workflow definition."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_DEFINITION_LOOKUP_UNAVAILABLE,
-        message="Tracecat could not query the published workflow definition",
+        message="AutoSecOps could not query the published workflow definition",
         retry_disposition=RetryDisposition.RETRYABLE,
         cause=error,
     )
@@ -232,7 +232,7 @@ def _workflow_definition_invalid_data_classification(
     """Classify malformed data in a persisted workflow definition."""
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_DEFINITION_INVALID_DATA,
-        message="Tracecat could not load the published workflow definition",
+        message="AutoSecOps could not load the published workflow definition",
         retry_disposition=RetryDisposition.NON_RETRYABLE,
         cause=error,
     )
@@ -253,7 +253,7 @@ async def resolve_registry_lock_activity(
     except BuiltinRegistryHasNoSelectionError as e:
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE,
-            message="Tracecat is still preparing the workflow registry",
+            message="AutoSecOps is still preparing the workflow registry",
             retry_disposition=RetryDisposition.RETRYABLE,
             cause=e,
         )
@@ -269,7 +269,7 @@ async def resolve_registry_lock_activity(
     except (RegistryLockInvalidDataError, ValidationError) as e:
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
-            message="Tracecat could not resolve the workflow registry",
+            message="AutoSecOps could not resolve the workflow registry",
             retry_disposition=RetryDisposition.NON_RETRYABLE,
             cause=e,
         )
@@ -285,7 +285,7 @@ async def resolve_registry_lock_activity(
     except Exception as e:
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE,
-            message="Tracecat could not resolve the workflow registry",
+            message="AutoSecOps could not resolve the workflow registry",
             retry_disposition=RetryDisposition.RETRYABLE,
             cause=e,
         )

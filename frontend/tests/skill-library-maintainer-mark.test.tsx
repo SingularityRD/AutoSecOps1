@@ -19,7 +19,7 @@ describe("SkillLibraryMaintainerMark", () => {
     }
   )
 
-  it.each(["Tracecat", "Someone"])(
+  it.each(["AutoSecOps", "Someone"])(
     "labels a %s-maintained skill",
     (provider) => {
       renderMark(provider)

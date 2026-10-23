@@ -1,13 +1,13 @@
 ---
-title: "Tracecat MCP"
-description: "Drive Tracecat from your own agent harness over MCP: build, edit, and run workflows and cases through Claude, Cursor, ChatGPT, or any MCP client."
+title: "AutoSecOps MCP"
+description: "Drive AutoSecOps from your own agent harness over MCP: build, edit, and run workflows and cases through Claude, Cursor, ChatGPT, or any MCP client."
 ---
 
 import McpInstallation from "/snippets/mcp-installation.mdx";
 import McpTools from "/snippets/mcp-tools.mdx";
 
-Tracecat works best with agentic coding tools (Claude Code, Cursor, Codex, OpenCode).
-Agents connected to Tracecat MCP gain the ability to build and orchestrate core Tracecat resources:
+AutoSecOps works best with agentic coding tools (Claude Code, Cursor, Codex, OpenCode).
+Agents connected to AutoSecOps MCP gain the ability to build and orchestrate core AutoSecOps resources:
 
 - Agents
 - Workflows
@@ -16,7 +16,7 @@ Agents connected to Tracecat MCP gain the ability to build and orchestrate core 
 - Scripts (Python, docker run)
 - Cases (local and remote)
 
-Tracecat MCP turns any coding agent into a security automation architect and engineer.
+AutoSecOps MCP turns any coding agent into a security automation architect and engineer.
 
 ## Setup
 
@@ -27,7 +27,7 @@ Tracecat MCP turns any coding agent into a security automation architect and eng
 OAuth is the default. For clients or environments that cannot complete a browser
 sign-in (CI, headless runners, shared dev containers), authenticate with a
 workspace-scoped personal access token (PAT) instead. PATs work the same on
-self-hosted and Tracecat Cloud.
+self-hosted and AutoSecOps Cloud.
 
 1. In your workspace, go to **Settings → MCP** and create a token. Set a name and
    expiration.
@@ -62,7 +62,7 @@ Review the following examples and ask me if I have a specific one in mind, or if
 
 Once we've selected a post:
 1. Analyze the post to identify the core workflow logic, required data tables, and integration points.
-2. Design and implement the necessary Tracecat workflows and tables.
+2. Design and implement the necessary AutoSecOps workflows and tables.
 3. Question any assumptions in the original post that might not apply to a modern cloud-native environment.
 4. Ask clarifying questions about my specific environment, such as preferred communication channels or existing security stack.
 </Prompt>
@@ -72,7 +72,7 @@ Once we've selected a post:
   icon="clipboard-check"
   actions={["copy"]}
 >
-Audit my existing Tracecat workflows, tables, and cases.
+Audit my existing AutoSecOps workflows, tables, and cases.
 
 Goal:
 1. Suggest improvements for efficiency, reliability, and security.

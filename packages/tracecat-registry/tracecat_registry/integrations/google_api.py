@@ -87,7 +87,7 @@ def _load_service_account_info() -> dict[str, Any]:
 
 
 def _pop_embedded_subject(info: dict[str, Any]) -> str | None:
-    """Remove the Tracecat-specific `subject` key from service account JSON.
+    """Remove the AutoSecOps-specific `subject` key from service account JSON.
 
     Mirrors `GoogleServiceAccountOAuthProvider._extract_subject`: `subject` is not
     part of Google's key schema, so it is always popped before the info dict
@@ -126,7 +126,7 @@ def _get_google_credentials(
     """Resolve Google credentials from the first configured source.
 
     Precedence:
-    1. `access_token` from a Tracecat OAuth integration, used as-is.
+    1. `access_token` from an AutoSecOps OAuth integration, used as-is.
     2. `GOOGLE_API_CREDENTIALS` service account JSON, when `scopes` or `subject`
        are given.
     3. `GOOGLE_SERVICE_TOKEN` from the `google` service account integration.
@@ -309,7 +309,7 @@ AccessToken = Annotated[
     Field(
         ...,
         description=(
-            "OAuth access token from a Tracecat OAuth integration, e.g. "
+            "OAuth access token from an AutoSecOps OAuth integration, e.g. "
             "`${{ SECRETS.google_drive_oauth.GOOGLE_DRIVE_USER_TOKEN }}`. Use "
             "the secret key for the configured grant; a fallback expression is "
             "valid only when both grants are connected. When set it is used "

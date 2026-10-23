@@ -1,6 +1,6 @@
 """Directory synchronization from an external identity provider.
 
-The identity provider owns which users are in which external group; Tracecat
+The identity provider owns which users are in which external group; AutoSecOps
 owns what a group grants. External groups never enter RBAC directly: an
 admin-authored mapping is read live by the IdP arm of the role-path union, so
 no ``group_member`` rows are projected and nothing needs recomputing.
@@ -78,7 +78,7 @@ ScimChangeKind = Literal["gain", "lose", "to_idp", "to_manual"]
 
 @dataclass(frozen=True, slots=True)
 class _GroupTransition:
-    """Every membership change proposed mappings make to one Tracecat group."""
+    """Every membership change proposed mappings make to one AutoSecOps group."""
 
     group_id: UUID
     group_name: str
@@ -90,7 +90,7 @@ class _GroupTransition:
 
 
 class SCIMService(BaseOrgService):
-    """Syncs external directory state into Tracecat groups and membership."""
+    """Syncs external directory state into AutoSecOps groups and membership."""
 
     service_name = "scim"
 
@@ -204,7 +204,7 @@ class SCIMService(BaseOrgService):
         """List this organization's mappings with both sides joined in.
 
         Returns:
-            A bounded page, ordered by external name, Tracecat name, and ID.
+            A bounded page, ordered by external name, AutoSecOps name, and ID.
         """
         return await self._mapping_page(page=page)
 
@@ -417,11 +417,11 @@ class SCIMService(BaseOrgService):
     async def create_mapping(
         self, *, external_group_id: UUID, group_id: UUID
     ) -> ExternalGroupMapping:
-        """Map a synced external group into a Tracecat group.
+        """Map a synced external group into an AutoSecOps group.
 
         Args:
             external_group_id: The synced source group.
-            group_id: The Tracecat group whose scopes its members receive.
+            group_id: The AutoSecOps group whose scopes its members receive.
 
         Returns:
             The stored mapping.
@@ -918,7 +918,7 @@ class SCIMService(BaseOrgService):
         *,
         assume_admitted: bool,
     ) -> list[_GroupTransition]:
-        """Simulate ``apply_mapping_changes`` per touched Tracecat group.
+        """Simulate ``apply_mapping_changes`` per touched AutoSecOps group.
 
         Mirrors its order: groups losing every source freeze first, removals
         run, then any addition purges the group's manual rows.

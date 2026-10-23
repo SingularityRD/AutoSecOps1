@@ -11,7 +11,7 @@ for tool in uv node pnpm; do
 done
 
 if [[ "$(node -p 'process.versions.node.split(".")[0]')" != "22" ]]; then
-  echo "Tracecat requires Node.js 22. Activate it, then rerun setup." >&2
+  echo "AutoSecOps requires Node.js 22. Activate it, then rerun setup." >&2
   exit 1
 fi
 
@@ -26,6 +26,6 @@ pnpm_pid=$!
 wait "$uv_pid"
 wait "$pnpm_pid"
 
-echo "Tracecat dependencies are ready."
+echo "AutoSecOps dependencies are ready."
 echo "Use the Start cluster action when you need local services."
 echo "The cluster command creates development .env settings if they are missing."

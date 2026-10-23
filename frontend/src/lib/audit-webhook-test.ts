@@ -29,5 +29,5 @@ export function getAuditWebhookTestDescription(
   if (result.receiver_status_code != null) {
     return `Receiver returned ${result.receiver_status_code}.`
   }
-  return `Tracecat could not reach the receiver: ${formatErrorCategory(result.error_category)}.`
+  return `AutoSecOps could not reach the receiver: ${formatErrorCategory(result.error_category)}.`
 }

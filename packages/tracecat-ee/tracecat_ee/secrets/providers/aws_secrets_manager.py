@@ -1,6 +1,6 @@
 """Runtime resolver for AWS Secrets Manager backed workspace secrets.
 
-Only this module talks to AWS. It assumes the store role with the Tracecat
+Only this module talks to AWS. It assumes the store role with the AutoSecOps
 workload identity (IRSA / task role) and a persisted external ID, reads the
 ``AWSCURRENT`` version of a full secret ARN, and projects the value onto the
 declared output keys. Remote payloads never reach logs, error messages, or

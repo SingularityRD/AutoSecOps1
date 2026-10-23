@@ -1,17 +1,17 @@
-"""Tracecat execution guidance applied only to activated library skills."""
+"""AutoSecOps execution guidance applied only to activated library skills."""
 
 from tracecat.agent.skill.frontmatter import (
     normalize_skill_markdown,
     split_skill_markdown_frontmatter,
 )
 
-LIBRARY_SKILL_EXECUTION_NOTES = """## Tracecat execution notes
+LIBRARY_SKILL_EXECUTION_NOTES = """## AutoSecOps execution notes
 
 Follow the upstream workflow below using tools authorized for this agent. These
 notes take precedence over upstream setup instructions and command examples.
 
 - Before attempting upstream CLI commands or helper scripts, inspect available
-  Tracecat action and MCP tool schemas and use an equivalent authorized tool.
+  AutoSecOps action and MCP tool schemas and use an equivalent authorized tool.
 - Preserve the intended operation, filters, pagination, confirmation, and
   verification requirements. Never bypass tool permissions or approvals.
 - Do not install upstream plugins, CLIs, or their dependencies in the agent

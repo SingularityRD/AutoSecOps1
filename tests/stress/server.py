@@ -1,5 +1,5 @@
 """
-This is a simple server that is used to test the stress of the Tracecat API.
+This is a simple server that is used to test the stress of the AutoSecOps API.
 
 Use a reverse tunnel like bore.pub to expose this server for testing.
 

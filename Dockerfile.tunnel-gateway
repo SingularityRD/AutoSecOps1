@@ -1,4 +1,4 @@
-# Tunnel gateway: a Pangolin machine client plus the Tracecat gateway proxy.
+# Tunnel gateway: a Pangolin machine client plus the AutoSecOps gateway proxy.
 # Executors send tunneled HTTP(S) traffic to the proxy, which only forwards
 # to the tunnel's allowlisted targets over the Pangolin tunnel.
 FROM python:3.12-slim-bookworm

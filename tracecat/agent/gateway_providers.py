@@ -1,7 +1,7 @@
 """OpenAI-compatible gateway providers that can bypass the managed LiteLLM proxy.
 
 Ollama, vLLM, LiteLLM, and OpenRouter all expose an OpenAI-compatible HTTP
-surface. Tracecat treats them as first-class providers backed by an
+surface. AutoSecOps treats them as first-class providers backed by an
 ``agent-{slug}-credentials`` org secret, discovers their models from
 ``{base_url}/models``, and lets each one either route through the managed
 LiteLLM gateway or forward requests directly upstream (passthrough).
@@ -105,7 +105,7 @@ GATEWAY_PROVIDER_SPECS: dict[str, GatewayProviderSpec] = {
         litellm_prefix="litellm_proxy",
         default_base_url=None,
         # A LiteLLM proxy already speaks the Anthropic Messages API, so
-        # chaining it behind Tracecat's own LiteLLM gateway is redundant.
+        # chaining it behind AutoSecOps's own LiteLLM gateway is redundant.
         default_passthrough=True,
     ),
     "openrouter": GatewayProviderSpec(

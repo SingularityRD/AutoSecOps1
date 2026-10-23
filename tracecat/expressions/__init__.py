@@ -1,1 +1,1 @@
-"""Tracecat expressions module."""
+"""AutoSecOps expressions module."""

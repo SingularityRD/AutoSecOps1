@@ -211,7 +211,7 @@ class SandboxConfig:
         python_path_dirs: Host directories to mount read-only and add to PYTHONPATH.
         bind_mounts: Additional explicit bind mounts for phase-scoped capabilities.
         action_gateway_socket: Optional host-side action gateway Unix socket to
-            bind into nsjail for internal Tracecat SDK calls.
+            bind into nsjail for internal AutoSecOps SDK calls.
     """
 
     network: SandboxNetworkRequest | None = None

@@ -30,7 +30,7 @@ def get_litellm_route_model(
 
     Claude Code speaks to LiteLLM through the Anthropic-compatible
     ``/v1/messages`` surface. LiteLLM chooses the provider route from the
-    incoming ``model`` string before Tracecat's credential hook rewrites the
+    incoming ``model`` string before AutoSecOps's credential hook rewrites the
     final provider-specific model ID, so unqualified model names can fall
     through to the OpenAI catch-all route.
     """

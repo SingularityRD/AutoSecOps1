@@ -7,7 +7,7 @@ import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 
 ## Overview
 
-A Tracecat account authenticates a person, and an organization membership decides what that account can open. Registration and SSO create accounts. Invitations and superadmin provisioning create memberships.
+An AutoSecOps account authenticates a person, and an organization membership decides what that account can open. Registration and SSO create accounts. Invitations and superadmin provisioning create memberships.
 
 ## First login
 
@@ -17,7 +17,7 @@ A Tracecat account authenticates a person, and an organization membership decide
 
 Self-service registration needs `basic` in `TRACECAT__AUTH_TYPES`. Without it the sign-up page shows `Sign up unavailable`. OIDC and SAML create the account on the first successful sign-in.
 
-`TRACECAT__AUTH_ALLOWED_DOMAINS` is a comma-separated list of email domains permitted to create an account, and a blank value permits every domain. Tracecat applies the same list on every OIDC sign-in. SAML sign-in checks the organization's configured domains first. When none are configured, a single-tenant deployment falls back to this list and a multi-tenant deployment rejects the sign-in. An existing basic-auth account signs in with its password regardless of the list.
+`TRACECAT__AUTH_ALLOWED_DOMAINS` is a comma-separated list of email domains permitted to create an account, and a blank value permits every domain. AutoSecOps applies the same list on every OIDC sign-in. SAML sign-in checks the organization's configured domains first. When none are configured, a single-tenant deployment falls back to this list and a multi-tenant deployment rejects the sign-in. An existing basic-auth account signs in with its password regardless of the list.
 
 The first superadmin bypasses the domain list. A blocked email fails with the message `Please enter a valid email address.`
 
@@ -53,11 +53,11 @@ Inviting requires `org:member:invite`, which `organization-owner` and `organizat
   </Step>
 </Steps>
 
-Tracecat rejects an email that is already a member or already holds a pending invitation. You can grant only roles whose scopes you hold yourself.
+AutoSecOps rejects an email that is already a member or already holds a pending invitation. You can grant only roles whose scopes you hold yourself.
 
 ## Share or revoke an invitation
 
-Tracecat emails the invitation when SMTP is configured. Open the invited member's row menu for these actions.
+AutoSecOps emails the invitation when SMTP is configured. Open the invited member's row menu for these actions.
 
 <Frame>
   ![Invited member row menu with copy link, resend email, and revoke actions](/img/manage-platform/users-invitation-actions.png)
@@ -66,7 +66,7 @@ Tracecat emails the invitation when SMTP is configured. Open the invited member'
 | Action | Result |
 | --- | --- |
 | `Copy invitation link` | Copies `<app URL>/invitations/accept?token=<token>`. Without SMTP, send this link to the invitee yourself. |
-| `Resend invitation email` | Sends the email again. Tracecat allows one resend per minute. |
+| `Resend invitation email` | Sends the email again. AutoSecOps allows one resend per minute. |
 | `Revoke invitation` | Cancels the invitation. The link shows `Invitation revoked`. |
 
 ## Accept an invitation

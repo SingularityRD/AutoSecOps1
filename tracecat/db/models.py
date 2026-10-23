@@ -1,4 +1,4 @@
-"""Database models for Tracecat."""
+"""Database models for AutoSecOps."""
 
 from __future__ import annotations
 
@@ -6740,7 +6740,7 @@ class ExternalGroup(Base, TimestampMixin):
     """A group as pushed by the identity provider.
 
     Shadow state only: these rows grant nothing on their own. Scopes reach users
-    through an ExternalGroupMapping into a Tracecat Group.
+    through an ExternalGroupMapping into an AutoSecOps Group.
     """
 
     __tablename__ = "external_group"
@@ -6785,7 +6785,7 @@ class ExternalGroupMember(Base):
 
 
 class ExternalGroupMapping(Base, TimestampMixin):
-    """Admin-authored M:N link projecting an external group into a Tracecat group."""
+    """Admin-authored M:N link projecting an external group into an AutoSecOps group."""
 
     __tablename__ = "external_group_mapping"
     __table_args__ = (
@@ -6812,7 +6812,7 @@ class ExternalGroupMapping(Base, TimestampMixin):
 
 
 # One effective person per target group; shadow membership has no added_at.
-# An IdP group supplies membership in a Tracecat group; admission to the
+# An IdP group supplies membership in an AutoSecOps group; admission to the
 # organization is a precondition, so deprovisioned users reach nothing.
 _group_member_paths = union_all(
     select(GroupMember.group_id, GroupMember.user_id, GroupMember.added_at),

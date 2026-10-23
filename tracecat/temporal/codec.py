@@ -468,7 +468,7 @@ class EncryptionPayloadCodec(PayloadCodec):
 
     @staticmethod
     def _has_encryption_metadata(payload: Payload) -> bool:
-        """Return whether payload metadata looks like Tracecat encrypted metadata."""
+        """Return whether payload metadata looks like AutoSecOps encrypted metadata."""
         return any(
             key in payload.metadata
             for key in _TRACECAT_TEMPORAL_ENCRYPTION_METADATA_KEYS

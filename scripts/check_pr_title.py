@@ -161,7 +161,7 @@ def _check_scope_part(part: str, conventions: Conventions) -> Violation | None:
         f"`{part}` is not a scope. If it names a vendor, write "
         f"`feat({integrations}): add {part.replace('_', ' ').title()} issue "
         "search` and put the vendor in the description. If it names part of "
-        f"Tracecat, use the scope that covers it: "
+        f"AutoSecOps, use the scope that covers it: "
         f"{_quote(conventions.canonical_scopes)}.",
     )
 

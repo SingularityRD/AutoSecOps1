@@ -1156,7 +1156,7 @@ function CustomProviderDialog({
                       </FormLabel>
                       <FormDescription>
                         Recommended for bring-your-own gateways (LiteLLM, vLLM,
-                        etc.). Skips Tracecat&apos;s transforms and forwards
+                        etc.). Skips AutoSecOps&apos;s transforms and forwards
                         requests directly to your endpoint.
                       </FormDescription>
                     </div>

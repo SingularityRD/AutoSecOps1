@@ -198,12 +198,12 @@ def test_parse_sources_rejects_invalid_entries(toml: str, match: str | None) -> 
         parse_sources(toml)
 
 
-def _local_source_toml(provider: str | None = "Tracecat") -> str:
+def _local_source_toml(provider: str | None = "AutoSecOps") -> str:
     owner = f'provider = "{provider}"\n' if provider is not None else ""
     return (
         '[[source]]\nkind = "local"\ngroup = "AWS"\n'
         + owner
-        + 'license = "AGPL-3.0-only"\n[source.skills]\n'
+        + 'license = "LicenseRef-Proprietary"\n[source.skills]\n'
         + 'incident-summary = "skills/incident-summary"\n'
     )
 
@@ -213,7 +213,7 @@ def test_mixed_sources_share_group_and_preserve_ownership() -> None:
     assert upstream.skill_source("triage").group == "AWS"
     provenance = local.skill_source("incident-summary")
     assert provenance.group == "AWS"
-    assert provenance.provider == "Tracecat"
+    assert provenance.provider == "AutoSecOps"
     assert provenance.kind == "local"
     assert provenance.repo is None
     assert provenance.commit is None
@@ -259,7 +259,7 @@ def _standalone_toml(summary: str | None = "Summarize an incident") -> str:
 def test_local_source_without_group_lists_standalone_skills() -> None:
     [source] = parse_sources(_standalone_toml())
     provenance = source.skill_source("incident-summary")
-    assert (provenance.group, provenance.provider) == (None, "Tracecat")
+    assert (provenance.group, provenance.provider) == (None, "AutoSecOps")
     assert provenance.summary == "Summarize an incident"
 
 
@@ -288,7 +288,7 @@ def test_api_allows_an_omitted_provider() -> None:
     source = LibrarySkillSourceRead(
         repo=None,
         commit=None,
-        license="AGPL-3.0-only",
+        license="LicenseRef-Proprietary",
         url=None,
         group="AWS",
         kind="local",
@@ -345,7 +345,7 @@ def test_local_content_can_change_without_upstream_digest(tmp_path: Path) -> Non
     )
 
 
-@pytest.mark.parametrize("provider", ["Tracecat", None])
+@pytest.mark.parametrize("provider", ["AutoSecOps", None])
 def test_local_catalog_source_is_exposed_by_api(
     monkeypatch: pytest.MonkeyPatch,
     provider: str | None,

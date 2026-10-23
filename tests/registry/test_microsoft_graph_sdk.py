@@ -1,6 +1,6 @@
 """Security and protocol boundary tests for the Microsoft Graph SDK wrappers.
 
-These exercise Tracecat-owned boundaries only: credential isolation between the
+These exercise AutoSecOps-owned boundaries only: credential isolation between the
 application and delegated tokens, header ownership, restriction of requests to the
 approved Graph v1.0 roots, continuation URL validation, JSON round-tripping,
 retry safety and bounded pagination. Requests are served by an

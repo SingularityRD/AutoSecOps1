@@ -1,5 +1,5 @@
 <!--
-  Thank you for taking the time to contribute to Tracecat!
+  Thank you for taking the time to contribute to AutoSecOps!
 
   For Work In Progress Pull Requests, please use the Draft PR feature,
   see https://github.blog/2019-02-14-introducing-draft-pull-requests/ for further details.

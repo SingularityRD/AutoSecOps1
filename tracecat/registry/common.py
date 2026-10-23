@@ -22,7 +22,7 @@ async def ensure_org_repositories(session: AsyncSession, role: Role) -> None:
     - Local repository (if enabled via config)
     - Custom remote repository (if configured via org settings)
 
-    Note: Platform registry (base Tracecat registry) is NOT handled here -
+    Note: Platform registry (base AutoSecOps registry) is NOT handled here -
     it's platform-scoped and handled by `sync_platform_registry_on_startup()` separately.
     """
     remote_url = cast(

@@ -34,7 +34,7 @@ _EXPECTED_BLOCKED_SYSCALLS = (
 
 
 def _assert_seccomp_config(config_text: str) -> None:
-    """Assert a generated nsjail config contains Tracecat's seccomp policy."""
+    """Assert a generated nsjail config contains AutoSecOps's seccomp policy."""
     policy = build_untrusted_seccomp_policy()
     assert f'seccomp_string: "{policy}"' in config_text
     for syscall in _EXPECTED_BLOCKED_SYSCALLS:

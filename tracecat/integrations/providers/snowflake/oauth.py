@@ -42,7 +42,7 @@ class SnowflakeACProvider(AuthorizationCodeOAuthProvider):
     authorization_endpoint_help: ClassVar[str | list[str] | None] = [
         "Replace {snowflake-account-host} with your Snowflake account hostname, for example:",
         "https://myorg-myaccount.snowflakecomputing.com/oauth/authorize",
-        "The security integration must allow Tracecat's OAuth callback URL.",
+        "The security integration must allow AutoSecOps's OAuth callback URL.",
     ]
     token_endpoint_help: ClassVar[str | list[str] | None] = [
         "Replace {snowflake-account-host} with your Snowflake account hostname, for example:",

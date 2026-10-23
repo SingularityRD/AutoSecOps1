@@ -295,7 +295,7 @@ class TestWorkspaceChatPrompt:
         normalized_section = " ".join(platform_section.split())
 
         assert "tracecat:workspace-chat" in normalized_section
-        assert "any Tracecat platform tool" in normalized_section
+        assert "any AutoSecOps platform tool" in normalized_section
 
     def test_workflow_skill_order_is_adapter_then_generic(self):
         from tracecat.workspaces.prompts import WorkspaceCopilotPrompts

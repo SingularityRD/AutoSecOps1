@@ -505,7 +505,7 @@ def mint_agent_otel_token(
     """Create a signed JWT for sandbox bridge calls to the host OTel relay.
 
     The token authorizes only the internal agent OTel bridge-to-relay path. It
-    does not grant access to Tracecat APIs or tenant collector credentials.
+    does not grant access to AutoSecOps APIs or tenant collector credentials.
 
     Args:
         workspace_id: Workspace UUID for authorization context.

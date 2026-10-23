@@ -63,7 +63,7 @@ AGENT_RUNTIME_PROTECTED_ENV_VARS = frozenset(
         *(key for key, _relative_path in _AGENT_RUNTIME_UV_PATH_ENV_VARS),
     }
 )
-"""Environment variables reserved for Tracecat's agent runtime isolation."""
+"""Environment variables reserved for AutoSecOps's agent runtime isolation."""
 
 
 def build_agent_runtime_uv_env(uv_state_dir: Path) -> dict[str, str]:
@@ -79,7 +79,7 @@ def build_agent_runtime_uv_env(uv_state_dir: Path) -> dict[str, str]:
 # === Well-known runtime paths (internal to agent worker) === #
 
 AGENT_RUNTIME_DIR = Path("/run/tracecat")
-"""Tracecat-owned runtime namespace for agent sandbox mountpoints and sockets."""
+"""AutoSecOps-owned runtime namespace for agent sandbox mountpoints and sockets."""
 
 TRUSTED_MCP_SOCKET_PATH = AGENT_RUNTIME_DIR / "mcp.sock"
 """Path to the trusted MCP socket (shared across jobs)."""

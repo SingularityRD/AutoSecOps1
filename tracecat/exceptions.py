@@ -1,4 +1,4 @@
-"""Tracecat exceptions
+"""AutoSecOps exceptions
 
 Note
 ----
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class TracecatException(Exception):
-    """Tracecat generic user-facing exception"""
+    """AutoSecOps generic user-facing exception"""
 
     def __init__(self, *args, detail: Any | None = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,31 +33,31 @@ class TracecatException(Exception):
 
 
 class TracecatValidationError(TracecatException):
-    """Tracecat user-facing validation error"""
+    """AutoSecOps user-facing validation error"""
 
 
 class TracecatConflictError(TracecatException):
-    """Tracecat user-facing resource conflict error"""
+    """AutoSecOps user-facing resource conflict error"""
 
 
 class TracecatDSLError(TracecatValidationError):
-    """Tracecat user-facing DSL error"""
+    """AutoSecOps user-facing DSL error"""
 
 
 class TracecatExpressionError(TracecatException):
-    """Tracecat user-facing expression error"""
+    """AutoSecOps user-facing expression error"""
 
 
 class TracecatCredentialsError(TracecatException):
-    """Tracecat user-facing credentials error"""
+    """AutoSecOps user-facing credentials error"""
 
 
 class TracecatCredentialsNotFoundError(TracecatCredentialsError):
-    """Tracecat user-facing credentials not found error"""
+    """AutoSecOps user-facing credentials not found error"""
 
 
 class TracecatAuthorizationError(TracecatException):
-    """Tracecat user-facing authorization error"""
+    """AutoSecOps user-facing authorization error"""
 
 
 class AgentModelNotEnabledError(TracecatAuthorizationError):
@@ -121,11 +121,11 @@ class TracecatRLSViolationError(TracecatAuthorizationError):
 
 
 class TracecatManagementError(TracecatException):
-    """Tracecat user-facing management error"""
+    """AutoSecOps user-facing management error"""
 
 
 class TracecatNotFoundError(TracecatException):
-    """Raised when a resource is not found in the Tracecat database."""
+    """Raised when a resource is not found in the AutoSecOps database."""
 
 
 class WorkflowAliasResolutionError(TracecatNotFoundError):
@@ -133,7 +133,7 @@ class WorkflowAliasResolutionError(TracecatNotFoundError):
 
 
 class TracecatServiceError(TracecatException):
-    """Tracecat generic user-facing service error"""
+    """AutoSecOps generic user-facing service error"""
 
 
 class RegistryError(TracecatException):

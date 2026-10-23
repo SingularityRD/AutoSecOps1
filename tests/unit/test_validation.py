@@ -169,7 +169,7 @@ def test_validator_function_wrap_handler():
         description="This is a test function",
         namespace="test",
         doc_url="https://example.com/docs",
-        author="Tracecat",
+        author="AutoSecOps",
     )
     def f1(
         num: Annotated[
@@ -191,7 +191,7 @@ def test_validator_function_wrap_handler():
         description="This is a test function",
         namespace="test",
         doc_url="https://example.com/docs",
-        author="Tracecat",
+        author="AutoSecOps",
     )
     def f2(
         obj: Annotated[
@@ -215,7 +215,7 @@ def test_validator_function_wrap_handler():
         description="This is a test function",
         namespace="test",
         doc_url="https://example.com/docs",
-        author="Tracecat",
+        author="AutoSecOps",
     )
     def f3(
         obj: Annotated[
@@ -255,7 +255,7 @@ def test_validator_function_wrap_handler():
         description="Test function with deeply nested types",
         namespace="test",
         doc_url="https://example.com/docs",
-        author="Tracecat",
+        author="AutoSecOps",
     )
     def f4(
         complex_obj: Annotated[
@@ -288,7 +288,7 @@ def test_validator_function_wrap_handler():
         description="Test function with tuple and set types",
         namespace="test",
         doc_url="https://example.com/docs",
-        author="Tracecat",
+        author="AutoSecOps",
     )
     def f5(
         nested_collections: Annotated[

@@ -645,7 +645,7 @@ function isToolResultPart(part: AnyToolPart): part is ToolResultPart {
 }
 
 /**
- * The denial recorded on a tool call's result, or null. Tracecat tags a denied
+ * The denial recorded on a tool call's result, or null. AutoSecOps tags a denied
  * call's result with `callProviderMetadata.tracecat.approval = "rejected"`,
  * since the result itself is error text written for the model.
  */

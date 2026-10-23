@@ -1,3 +1,3 @@
-# Tracecat Registry
+# AutoSecOps Registry
 
-Tracecat managed actions and integrations registry.
+AutoSecOps managed actions and integrations registry.

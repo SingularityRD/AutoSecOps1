@@ -21,7 +21,7 @@
 
 ## Introduction
 
-[Tracecat](https://tracecat.com) is the open source security automation platform for teams and AI agents. A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
+[AutoSecOps](https://tracecat.com) is the open source security automation platform for teams and AI agents. A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
 
 ## Core Features
 
@@ -30,31 +30,31 @@
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="img/readme/agents.gif" alt="Building an agent preset in Tracecat: adding VirusTotal tools with an approval gate, reviewing subagents, attaching a skill, and publishing a new version" width="100%"/>
+      <img src="img/readme/agents.gif" alt="Building an agent preset in AutoSecOps: adding VirusTotal tools with an approval gate, reviewing subagents, attaching a skill, and publishing a new version" width="100%"/>
       <p align="center"><b>Agents and skills</b> — build custom agents with prompts, tools, MCP, subagents, and skills</p>
     </td>
     <td width="50%" valign="top">
-      <img src="img/readme/cases.gif" alt="The Tracecat case list, then a case with an agent-written verdict, timeline, IoCs, and evidence" width="100%"/>
+      <img src="img/readme/cases.gif" alt="The AutoSecOps case list, then a case with an agent-written verdict, timeline, IoCs, and evidence" width="100%"/>
       <p align="center"><b>Case management</b> — track, automate, and resolve incidents with agents</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="img/readme/workflows.gif" alt="A workflow DAG in the Tracecat builder, zoomed out to show every step, then an agent step opened for editing" width="100%"/>
+      <img src="img/readme/workflows.gif" alt="A workflow DAG in the AutoSecOps builder, zoomed out to show every step, then an agent step opened for editing" width="100%"/>
       <p align="center"><b>Workflows</b> — execute deterministic logic with resilience and scale on Temporal</p>
     </td>
     <td width="50%" valign="top">
-      <img src="img/readme/tables.gif" alt="Tracecat workspace tables, opening an entities table and an entity observations table" width="100%"/>
+      <img src="img/readme/tables.gif" alt="AutoSecOps workspace tables, opening an entities table and an entity observations table" width="100%"/>
       <p align="center"><b>Tables</b> — store and query structured data</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="img/readme/mcp.gif" alt="A Claude Code session that calls Tracecat MCP tools to list and summarize the open critical cases" width="100%"/>
-      <p align="center"><b>Tracecat MCP</b> — turn prompts into automations from Claude Code, Codex, Copilot, and more</p>
+      <img src="img/readme/mcp.gif" alt="A Claude Code session that calls AutoSecOps MCP tools to list and summarize the open critical cases" width="100%"/>
+      <p align="center"><b>AutoSecOps MCP</b> — turn prompts into automations from Claude Code, Codex, Copilot, and more</p>
     </td>
     <td width="50%" valign="top">
-      <img src="img/readme/integrations.gif" alt="Tracecat credentials, OAuth integrations, and the hosted MCP server catalog" width="100%"/>
+      <img src="img/readme/integrations.gif" alt="AutoSecOps credentials, OAuth integrations, and the hosted MCP server catalog" width="100%"/>
       <p align="center"><b>Integrations</b> — 100+ pre-built connectors and 50+ hosted MCP servers for security tools</p>
     </td>
   </tr>
@@ -62,15 +62,15 @@
 
 ## Other Highlights
 
-- **Pre-built MCP servers**: 50+ Tracecat-hosted MCP servers for security operations
+- **Pre-built MCP servers**: 50+ AutoSecOps-hosted MCP servers for security operations
 - **MCP client**: connect custom agents any MCP server (remote HTTP / OAuth or local via `npx` / `uvx` commands)
-- **Custom registry**: sync custom Python scripts from your Git repo into Tracecat
+- **Custom registry**: sync custom Python scripts from your Git repo into AutoSecOps
 - **Sandboxed**: run untrusted code and agents within `nsjail` sandboxes or `pid` runtimes
 - **Durable execution**: built on [Temporal](https://temporal.io) for resilience and scale
 - **Variables**: reuse values across workflows and agents
 - **No SSO tax**: SAML / OIDC support
 - **Free audit logs**: exportable into your SIEM
-- **Deploy anywhere**: sign up for Tracecat Cloud, or self-host with Docker, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://docs.tracecat.com/self-hosting/air-gapped).
+- **Deploy anywhere**: sign up for AutoSecOps Cloud, or self-host with Docker, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://docs.tracecat.com/self-hosting/air-gapped).
 
 ## Enterprise Edition
 
@@ -87,15 +87,15 @@ This repo is available under the [AGPL-3.0 license](https://github.com/TracecatH
 - Code under the `packages/tracecat-ee` directory
 - Code that gates `ee` features
 
-These exceptions are fall under Tracecat's paid EE (Enterprise Edition) license. Code that fall under the above exceptions must not be redistributed, sold, used in production, or otherwise commercialized without permission.
+These exceptions are fall under AutoSecOps's paid EE (Enterprise Edition) license. Code that fall under the above exceptions must not be redistributed, sold, used in production, or otherwise commercialized without permission.
 
 > [!NOTE]
-> Tracecat Enterprise is available as managed Cloud with US or EU hosting, or as a self-hosted deployment with dedicated support.
+> AutoSecOps Enterprise is available as managed Cloud with US or EU hosting, or as a self-hosted deployment with dedicated support.
 > [Book a demo today](https://www.tracecat.com/contact).
 
 ## Community
 
-Have questions? Feedback? Come hang out with us in the [Tracecat Community Discord](https://discord.gg/H4XZwsYzY4).
+Have questions? Feedback? Come hang out with us in the [AutoSecOps Community Discord](https://discord.gg/H4XZwsYzY4).
 
 ## Tech Stack
 
@@ -120,6 +120,6 @@ Check out our [Contribution Guide](CONTRIBUTING.md) for more information.
 
 <div align="center">
 
-  <sub>**`Tracecat`** is distributed under [**AGPL-3.0**](https://github.com/TracecatHQ/tracecat/blob/main/LICENSE)</sub>
+  <sub>**`AutoSecOps`** is distributed under [**AGPL-3.0**](https://github.com/TracecatHQ/tracecat/blob/main/LICENSE)</sub>
 
 </div>

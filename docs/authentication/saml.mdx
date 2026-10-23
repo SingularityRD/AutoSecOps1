@@ -1,6 +1,6 @@
 ---
 title: SAML SSO
-description: "Authenticate into Tracecat with SAML SSO: configure your identity provider, map attributes, and enable single sign-on for organization-wide access."
+description: "Authenticate into AutoSecOps with SAML SSO: configure your identity provider, map attributes, and enable single sign-on for organization-wide access."
 ---
 
 ## Supported identity providers
@@ -21,14 +21,14 @@ SAML_IDP_METADATA_URL=https://<your-idp-metadata-url>
 
 ## Access policy
 
-After SAML authentication succeeds, Tracecat allows organization access when at least one of the following is true:
+After SAML authentication succeeds, AutoSecOps allows organization access when at least one of the following is true:
 
 - The user already has membership in the organization.
 - The user has a pending invitation for the organization.
 - The user is the first-user superadmin bootstrap account in the default organization.
 - The user is a platform superadmin (owner).
 
-Tracecat only auto-provisions SAML user accounts for:
+AutoSecOps only auto-provisions SAML user accounts for:
 
 - Pending organization invitations.
 - First-user superadmin bootstrap (default organization only).
@@ -37,7 +37,7 @@ If this is a new deployment, make sure `TRACECAT__AUTH_SUPERADMIN_EMAIL` exactly
 
 ## Instructions
 
-Tracecat always requires signed assertions and signed responses.
+AutoSecOps always requires signed assertions and signed responses.
 
 <Info>
     If you are using a self-signed certificate for your metadata URL, configure
@@ -67,11 +67,11 @@ Tracecat always requires signed assertions and signed responses.
         Set the following environment variables in your `.env` file:
         - `SAML_IDP_METADATA_URL`: Okta metadata URL
     </Step>
-    <Step title="Restart Tracecat instance">
-        Restart Tracecat to apply the changes.
+    <Step title="Restart AutoSecOps instance">
+        Restart AutoSecOps to apply the changes.
     </Step>
     <Step title="Test SSO configuration">
-        Navigate to your Tracecat instance and click on the **Login** button.
+        Navigate to your AutoSecOps instance and click on the **Login** button.
         You should be redirected to Okta for authentication.
     </Step>
 </Steps>
@@ -142,11 +142,11 @@ Tracecat always requires signed assertions and signed responses.
         Set the following environment variables in your `.env` file:
         - `SAML_IDP_METADATA_URL`: Metadata download URL
     </Step>
-    <Step title="Restart Tracecat instance">
-        Restart Tracecat to apply the changes.
+    <Step title="Restart AutoSecOps instance">
+        Restart AutoSecOps to apply the changes.
     </Step>
     <Step title="Test SSO configuration">
-        Navigate to your Tracecat instance and click on the **Login** button.
+        Navigate to your AutoSecOps instance and click on the **Login** button.
         You should be redirected to Authentik for authentication.
     </Step>
 </Steps>
@@ -195,11 +195,11 @@ Tracecat always requires signed assertions and signed responses.
         Set the following environment variables in your `.env` file:
         - `SAML_IDP_METADATA_URL`: Metadata download URL
     </Step>
-    <Step title="Restart Tracecat instance">
-        Restart Tracecat to apply the changes.
+    <Step title="Restart AutoSecOps instance">
+        Restart AutoSecOps to apply the changes.
     </Step>
     <Step title="Test SSO configuration">
-        Navigate to your Tracecat instance and click on the **Login** button.
+        Navigate to your AutoSecOps instance and click on the **Login** button.
         You should be redirected to Keycloak for authentication.
     </Step>
 </Steps>
@@ -213,7 +213,7 @@ deployment environment.
 - `SAML_ALLOW_UNSOLICITED`: Whether to allow unsolicited SAML responses (default: `false`)
 - `SAML_ACCEPTED_TIME_DIFF`: Time difference in seconds for SAML authentication (default: `3`)
 
-Tracecat always requires signed assertions and signed responses. These checks are
+AutoSecOps always requires signed assertions and signed responses. These checks are
 not configurable.
 
 ### SSL transport configuration

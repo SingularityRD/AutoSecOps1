@@ -1,4 +1,4 @@
-"""Forms SDK client for Tracecat API."""
+"""Forms SDK client for AutoSecOps API."""
 
 from __future__ import annotations
 

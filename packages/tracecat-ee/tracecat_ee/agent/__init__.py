@@ -1,1 +1,1 @@
-"""Tracecat Enterprise Edition agent features."""
+"""AutoSecOps Enterprise Edition agent features."""

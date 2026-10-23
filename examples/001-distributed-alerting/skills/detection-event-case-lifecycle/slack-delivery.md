@@ -31,7 +31,7 @@ The card and the details panel show the same entity: one object in the shape Sla
       "title": { "text": "<case title>" },
       "display_id": "<case short id, e.g. CASE-0001>",
       "display_type": "Detection triage",
-      "product_name": "Tracecat",
+      "product_name": "AutoSecOps",
       "metadata_last_modified": <now, integer epoch seconds>
     },
     "custom_fields": [ <rows below, blank rows left out> ],
@@ -39,7 +39,7 @@ The card and the details panel show the same entity: one object in the shape Sla
     "fields": {},
     "actions": {
       "primary_actions": [
-        { "text": "Open Tracecat case", "action_id": "gd_open_case", "url": "<case URL>", "accessibility_label": "Open this case in Tracecat" },
+        { "text": "Open AutoSecOps case", "action_id": "gd_open_case", "url": "<case URL>", "accessibility_label": "Open this case in AutoSecOps" },
         { "text": "Open alert in SIEM", "action_id": "gd_open_alert", "url": "<alert link for the first alert id>", "accessibility_label": "Open this alert in the SIEM" }
       ],
       "overflow_actions": []
@@ -69,7 +69,7 @@ The keys stay as they are, `finding_ids` included, because the thread and button
 
 ## Post or refresh the card
 
-**No visible text.** Any text on the card message, even the short id, renders above the card, and the card's `Open Tracecat case` button is the only case link in the thread. `chat_postMessage` accepts metadata alone, so leave `text` out. `chat_update` rejects a missing or empty `text` (`no_text`), so pass a single space, which renders nothing.
+**No visible text.** Any text on the card message, even the short id, renders above the card, and the card's `Open AutoSecOps case` button is the only case link in the thread. `chat_postMessage` accepts metadata alone, so leave `text` out. `chat_update` rejects a missing or empty `text` (`no_text`), so pass a single space, which renders nothing.
 
 1. **No card yet.** Call `tools.slack_sdk.call_method` with `sdk_method` `chat_postMessage`. Pass these params:
    - `channel`: `C0123456789`

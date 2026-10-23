@@ -238,7 +238,7 @@ def test_external_group_is_unique_per_organization(migration_db: str) -> None:
 def test_deleting_external_group_cascades_to_members_and_mappings(
     migration_db: str,
 ) -> None:
-    """Shadow state disappears with its parent; the Tracecat group survives."""
+    """Shadow state disappears with its parent; the AutoSecOps group survives."""
     engine = _engine(migration_db)
     try:
         with engine.begin() as conn:
@@ -284,7 +284,7 @@ def test_deleting_external_group_cascades_to_members_and_mappings(
                     conn.execute(text(f"SELECT count(*) FROM {table}")).scalar_one()
                     == 0
                 )
-            # The mapping's cascade drops the mapping, never the Tracecat group.
+            # The mapping's cascade drops the mapping, never the AutoSecOps group.
             assert (
                 conn.execute(
                     text('SELECT count(*) FROM "group" WHERE id = :g'), {"g": group_id}

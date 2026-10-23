@@ -484,7 +484,7 @@ function PickerBody({
         id: section,
         title: {
           mcp: "MCP servers",
-          tracecat: "Tracecat registry",
+          tracecat: "AutoSecOps registry",
           custom: "Custom registry",
         }[section],
       })

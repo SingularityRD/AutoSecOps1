@@ -50,7 +50,7 @@ ToolId = Annotated[
 
 
 class SkillMetadata(BaseModel):
-    """Tracecat-owned metadata embedded in SKILL.md frontmatter."""
+    """AutoSecOps-owned metadata embedded in SKILL.md frontmatter."""
 
     model_config = ConfigDict(extra="allow")
 

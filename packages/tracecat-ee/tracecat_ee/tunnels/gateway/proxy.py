@@ -18,7 +18,7 @@ Clients pass the token either as ``Proxy-Authorization: Bearer <token>`` or as
 the password of a Basic credential, which is what proxy URLs such as
 ``http://tracecat:<token>@gateway:8080`` send.
 
-The gateway polls the Tracecat API for its tunnel's policy (workspace, allowed
+The gateway polls the AutoSecOps API for its tunnel's policy (workspace, allowed
 targets, enabled state), authenticating with its gateway key. When the tunnel
 is disabled or deleted, its key is rotated, or the policy can't be refreshed
 for ``max_policy_age`` seconds, the gateway rejects new requests and closes
@@ -133,7 +133,7 @@ class GatewayConfig:
 
 @dataclass(frozen=True)
 class GatewayPolicy:
-    """What the gateway may currently do, as last fetched from the Tracecat API."""
+    """What the gateway may currently do, as last fetched from the AutoSecOps API."""
 
     workspace_id: uuid.UUID
     allowed_targets: frozenset[tuple[str, int]]
@@ -390,7 +390,7 @@ class TunnelGateway:
         self._close_disallowed_connections()
 
     async def _refresh_api_addresses(self) -> None:
-        """Track the Tracecat API's addresses so targets can't reach it."""
+        """Track the AutoSecOps API's addresses so targets can't reach it."""
         parts = urlsplit(self.config.api_url)
         if not parts.hostname:
             return

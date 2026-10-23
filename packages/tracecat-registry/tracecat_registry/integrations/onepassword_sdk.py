@@ -31,7 +31,7 @@ authorization or ambient credential discovery.
 async def _get_client() -> Client:
     return await Client.authenticate(
         auth=secrets.get("OP_SERVICE_ACCOUNT_TOKEN"),
-        integration_name="Tracecat",
+        integration_name="AutoSecOps",
         integration_version=__pep440_version__,
     )
 

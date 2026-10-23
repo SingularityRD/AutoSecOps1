@@ -263,7 +263,7 @@ function GitLabConnectionDialog({
                     </FormControl>
                     <FormDescription>
                       Use a GitLab project or group access token with the api
-                      scope. Tracecat stores this token as the GitLab credential
+                      scope. AutoSecOps stores this token as the GitLab credential
                       for workspace sync; prefer it over a personal access token
                       for long-lived sync.
                     </FormDescription>

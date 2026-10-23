@@ -267,7 +267,7 @@ async def resolve_agents_config(
 
 def build_subagent_prompt(instructions: str | None) -> str:
     base = (
-        "If asked about your identity, you are a Tracecat automation subagent. "
+        "If asked about your identity, you are an AutoSecOps automation subagent. "
         "Complete only the delegated subtask and return a concise final result to the parent agent."
     )
     return f"{base}\n\n{instructions}" if instructions else base

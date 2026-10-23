@@ -810,8 +810,8 @@ function MatchesDialog({
           </DialogTitle>
           <DialogDescription>
             {total > 0
-              ? `This commit uses references that Tracecat can't match to ${workspaceName} on its own. Choose what each should use here.`
-              : `This commit uses secret stores that Tracecat can't match to ${workspaceName} on its own.`}
+              ? `This commit uses references that AutoSecOps can't match to ${workspaceName} on its own. Choose what each should use here.`
+              : `This commit uses secret stores that AutoSecOps can't match to ${workspaceName} on its own.`}
             {storeMappingRequirements.length > 0 &&
               " Secret stores are optional: unlinked secrets import without a store."}
           </DialogDescription>

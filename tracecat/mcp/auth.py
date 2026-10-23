@@ -343,7 +343,7 @@ def _merge_fastmcp_token_claims(
 
     FastMCP's OAuth proxy validates tool requests by swapping its own JWT for the
     upstream provider access token. That means downstream callers often see the
-    upstream token claims, which may omit identity data that Tracecat embedded in
+    upstream token claims, which may omit identity data that AutoSecOps embedded in
     the proxy JWT under ``upstream_claims``. Preserve those proxy claims here so
     request-scoped identity helpers can read a consistent claim set.
     """
@@ -505,9 +505,9 @@ _LOGO_SVG_PATH = (
 
 
 def _get_tracecat_logo_markup(fill_color: str = "#1C1C1C") -> str:
-    """Return inline SVG markup for the Tracecat logo mark."""
+    """Return inline SVG markup for the AutoSecOps logo mark."""
     return (
-        '<svg aria-label="Tracecat" width="30" height="30" viewBox="0 0 506 540"'
+        '<svg aria-label="AutoSecOps" width="30" height="30" viewBox="0 0 506 540"'
         f' fill="none" xmlns="http://www.w3.org/2000/svg">'
         f'<path fill-rule="evenodd" clip-rule="evenodd" d="{_LOGO_SVG_PATH}"'
         f' fill="{fill_color}"/></svg>'
@@ -680,7 +680,7 @@ def _build_oidc_consent_html(
     </div>
     <div class="card">
       <h1>Authorize MCP client</h1>
-      <p class="subtitle">This client is requesting access to your Tracecat account.</p>
+      <p class="subtitle">This client is requesting access to your AutoSecOps account.</p>
       <div class="panel">
         <div class="kv-label">Client ID</div>
         <code>{escaped_client_id}</code>
@@ -868,7 +868,7 @@ def _create_oidc_auth() -> OIDCProxy:
             """Extract claims from the internal OIDC issuer's tokens.
 
             The internal issuer already validated that the user exists in the
-            Tracecat DB and resolved their organization, so we only need to
+            AutoSecOps DB and resolved their organization, so we only need to
             decode the id_token to extract claims.
             """
             id_token = idp_tokens.get("id_token")

@@ -268,7 +268,7 @@ async def test_scheduler_unwraps_classified_child_workflow_error_map() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the child action",
+        message="AutoSecOps could not execute the child action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     user_detail = ActionErrorInfo(
@@ -367,7 +367,7 @@ async def test_scheduler_synthesizes_info_from_bare_transport_detail() -> None:
     scheduler = _build_scheduler(total_tasks=1, executor=executor)
     classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     error = _capture_application_error(classification)
@@ -396,7 +396,7 @@ async def test_scheduler_rejects_undiscriminated_classification() -> None:
     )
     fallback_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     invalid_detail = build_error_transport_detail(

@@ -115,7 +115,7 @@ def _is_broken_link_status(status_code: int | None) -> bool:
 def test_action_doc_urls_are_reachable() -> None:
     url_actions = _action_doc_urls()
     timeout = httpx.Timeout(12.0, connect=5.0)
-    headers = {"User-Agent": "Tracecat-CI-Link-Checker/1.0"}
+    headers = {"User-Agent": "AutoSecOps-CI-Link-Checker/1.0"}
 
     async def check_all() -> dict[str, str]:
         semaphore = asyncio.Semaphore(8)

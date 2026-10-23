@@ -90,7 +90,7 @@ class ScimProvisioningService(BaseOrgService):
 
         Args:
             external_id: The provider's stable identifier for the user.
-            email: The user's ``userName``, which Tracecat stores as the email.
+            email: The user's ``userName``, which AutoSecOps stores as the email.
             active: Whether the provider considers the user active. A user
                 pushed inactive is linked but not admitted.
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Start the Pangolin machine client, then the Tracecat gateway proxy.
+# Start the Pangolin machine client, then the AutoSecOps gateway proxy.
 # If either process exits, the container exits so Kubernetes restarts it.
 set -eu
 
@@ -9,7 +9,7 @@ set -eu
 
 # Pangolin overrides DNS to resolve tunnel aliases. Forward everything else to
 # the resolver the container started with (cluster DNS), so the proxy can
-# still reach the Tracecat API.
+# still reach the AutoSecOps API.
 upstream_dns="${PANGOLIN_UPSTREAM_DNS:-$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)}"
 
 pangolin up client \

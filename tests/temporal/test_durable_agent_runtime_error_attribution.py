@@ -449,7 +449,7 @@ _GATEWAY_EXPECTATIONS: tuple[_GatewayExpectation, ...] = (
         _EXECUTION_FAILED,
         _RETRYABLE,
     ),
-    # Tracecat-managed LiteLLM.
+    # AutoSecOps-managed LiteLLM.
     _GatewayExpectation(
         harness.GatewayRoute.MANAGED_LITELLM,
         harness.GatewayFailureMode.HTTP_400,

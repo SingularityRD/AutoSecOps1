@@ -22,7 +22,7 @@ def _workspace_resolution_unavailable(
 ) -> RuntimeErrorClassification:
     return RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE,
-        message="Tracecat could not resolve the workflow workspace",
+        message="AutoSecOps could not resolve the workflow workspace",
         retry_disposition=RetryDisposition.RETRYABLE,
         cause=error,
     )
@@ -41,7 +41,7 @@ async def get_workspace_organization_id_activity(
     if org_id is None:
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
-            message="Tracecat could not resolve the workflow workspace",
+            message="AutoSecOps could not resolve the workflow workspace",
             retry_disposition=RetryDisposition.NON_RETRYABLE,
         )
         raise_application_error_from_classification(classification)

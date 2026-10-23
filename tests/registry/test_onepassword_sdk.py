@@ -50,7 +50,7 @@ async def test_onepassword_client_uses_explicit_service_account_auth(
     assert await onepassword_sdk._get_client() is sentinel
     assert captured == {
         "auth": "service-account-token",
-        "integration_name": "Tracecat",
+        "integration_name": "AutoSecOps",
         "integration_version": onepassword_sdk.__pep440_version__,
     }
 

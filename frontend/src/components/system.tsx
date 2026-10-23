@@ -32,7 +32,7 @@ export function SystemInfoAlert({ kind }: { kind: SystemMessageKind }) {
       <AlertDescription className="text-xs flex items-start gap-2">
         <Image
           src={TracecatIcon}
-          alt="Tracecat"
+          alt="AutoSecOps"
           className="size-3.5 inline-block mt-0.5"
         />
         <span>{SYSTEM_MSG_MAP[kind]}</span>

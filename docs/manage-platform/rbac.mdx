@@ -11,7 +11,7 @@ Open `Members` in the organization sidebar (`/organization/members`) to manage m
 
 ## Built-in roles
 
-Every organization has six preset roles. Tracecat rejects scope changes to a preset role and rejects deleting it.
+Every organization has six preset roles. AutoSecOps rejects scope changes to a preset role and rejects deleting it.
 
 | Role | Level | What it can do | Scopes |
 | --- | --- | --- | --- |
@@ -71,7 +71,7 @@ Changing roles requires `org:rbac:read` to open the dialog, `org:rbac:create` to
     Click the minus button on a direct role.
   </Step>
   <Step title="Save">
-    Click `Done`. Tracecat saves all staged changes together. When the changes remove a role, confirm with `Confirm changes`. `Cancel` discards the staged changes.
+    Click `Done`. AutoSecOps saves all staged changes together. When the changes remove a role, confirm with `Confirm changes`. `Cancel` discards the staged changes.
   </Step>
 </Steps>
 
@@ -84,10 +84,10 @@ A member with no roles stays in the organization with the baseline scopes. Use `
 | Role level | A role that holds any `org:*` scope is an organization role and is assigned organization-wide only. Every other role is a workspace role: assign it on one workspace, or organization-wide to grant it in every workspace. |
 | One role per scope | A user holds one direct role per workspace and one organization-wide. The same limit applies to each group. |
 | Effective scopes | A user's scopes are the union of their direct roles, the roles of every group they belong to, and the baseline scopes. |
-| Granting | You can assign a role only when you hold every scope in it. Tracecat refuses the rest with `Cannot grant scopes not held by the caller`. Platform superusers are exempt. |
-| Membership | You can assign roles and groups only to organization members. Tracecat refuses other users with `User not found in organization`. |
+| Granting | You can assign a role only when you hold every scope in it. AutoSecOps refuses the rest with `Cannot grant scopes not held by the caller`. Platform superusers are exempt. |
+| Membership | You can assign roles and groups only to organization members. AutoSecOps refuses other users with `User not found in organization`. |
 
-Tracecat rejects a role edit that would switch a role between organization and workspace level while it is assigned or offered in a pending invitation.
+AutoSecOps rejects a role edit that would switch a role between organization and workspace level while it is assigned or offered in a pending invitation.
 
 Without Enterprise, you manage access with the preset roles. See [Custom roles and groups](/manage-platform/custom-roles) for custom roles, groups, and scopes.
 

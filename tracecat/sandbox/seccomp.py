@@ -1,4 +1,4 @@
-"""Shared seccomp policies for Tracecat nsjail sandboxes."""
+"""Shared seccomp policies for AutoSecOps nsjail sandboxes."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def build_untrusted_seccomp_policy() -> str:
     """Build a conservative seccomp policy for untrusted Python sandboxes.
 
     The policy intentionally starts with a denylist rather than a full allowlist
-    so Tracecat can harden existing workloads without breaking common Python,
+    so AutoSecOps can harden existing workloads without breaking common Python,
     subprocess, and networking behavior on the first rollout. It blocks
     tracing, cross-process memory inspection, mount and namespace mutation,
     keyring access, module loading, io_uring (a recurring kernel exploit
