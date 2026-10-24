@@ -13,6 +13,11 @@ type Entitlements = {
   workspace_chat: boolean
 }
 
+/** Entitlements every install has without a license; tests needing them off skip. */
+const FREE_ENTITLEMENTS: ReadonlySet<keyof Entitlements> = new Set([
+  "workspace_chat",
+])
+
 async function getEntitlements(
   pageRequest: APIRequestContext
 ): Promise<Entitlements> {
@@ -32,7 +37,8 @@ async function skipIfEntitled(
   if (!entitlements[entitlement]) {
     return
   }
-  if (process.env.CI) {
+  // Free entitlements are on in every install, so CI cannot run with them off.
+  if (process.env.CI && !FREE_ENTITLEMENTS.has(entitlement)) {
     expect(
       entitlements[entitlement],
       "Run these tests against a base (no add-on) entitlement baseline"

@@ -85,7 +85,7 @@ is required. If an RDS allowlist excludes `vector` or `pg_trgm`, an authorized
 administrator must first allow them in `rds.allowed_extensions`. For restricted
 migration roles, an administrator must preinstall the extensions before rerunning
 migrations. See the
-[application database prerequisite and upgrade guide](../postgres/README.md).
+[pgvector setup guide](https://docs.singularityrd.com/self-hosting/pgvector).
 Use the `core_database` connection, not the Temporal RDS connection; Temporal
 does not need either extension.
 
