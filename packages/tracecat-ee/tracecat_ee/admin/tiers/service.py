@@ -260,7 +260,7 @@ class AdminTierService(BasePlatformService):
         if not candidate_org_ids:
             return set()
         if not config.TRACECAT__EE_MULTI_TENANT:
-            if tier_defaults.DEFAULT_ENTITLEMENTS.case_addons:
+            if tier_defaults.get_single_tenant_entitlements().case_addons:
                 return set(candidate_org_ids)
             return set()
 

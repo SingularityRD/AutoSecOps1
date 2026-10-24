@@ -146,7 +146,8 @@ class TierService(BaseService):
     ) -> EffectiveEntitlements:
         """Get effective entitlements (org override or tier default).
 
-        In single-tenant mode, returns static single-tenant/self-host defaults.
+        In single-tenant mode, returns the free baseline plus any entitlements
+        granted by a valid signed license key.
         In multi-tenant mode, uses the org-assigned tier if present,
         otherwise falls back to the active default tier.
 
@@ -155,7 +156,7 @@ class TierService(BaseService):
                 and the organization has no assigned tier.
         """
         if not config.TRACECAT__EE_MULTI_TENANT:
-            return tier_defaults.DEFAULT_ENTITLEMENTS.model_copy()
+            return tier_defaults.get_single_tenant_entitlements()
 
         org_tier, tier = await get_org_tier_and_resolved_tier(self.session, org_id)
         tier_entitlements = tier.entitlements or {}

@@ -186,7 +186,7 @@ async def workspace_db(
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
-        tier_defaults.resolve_oss_default_entitlements(None),
+        tier_defaults.BASELINE_ENTITLEMENTS.model_copy(),
     )
     engine = create_async_engine(
         TEST_DB_CONFIG.test_url,

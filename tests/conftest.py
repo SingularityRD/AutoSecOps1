@@ -1276,6 +1276,8 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     logger.info("Setting up environment variables")
     importlib.reload(config)
     monkeysession.setattr(config, "TRACECAT__APP_ENV", "development")
+    # A developer's .env license key must not change entitlement assertions.
+    monkeysession.setattr(config, "TRACECAT__LICENSE_KEY", None)
     # Keep test baseline behavior for suites that are not exercising entitlement
     # migration logic directly. Explicit entitlement tests can still override this.
     monkeysession.setattr(

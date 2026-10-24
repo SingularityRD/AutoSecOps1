@@ -2,11 +2,14 @@
 
 import re
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import orjson
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -21,6 +24,10 @@ from tracecat.forms.dependencies import check_forms_enabled
 from tracecat.forms.enums import FormErrorCode, FormFieldErrorCode
 from tracecat.forms.exceptions import FormError, form_error_handler
 from tracecat.forms.schemas import FormFieldError
+from tracecat.licensing import keys as license_keys
+from tracecat.licensing import service as license_service
+from tracecat.licensing.token import encode_license
+from tracecat.licensing.types import LicenseClaims
 from tracecat.tiers import defaults as tier_defaults
 
 GATEWAY_APP = create_gateway_app()
@@ -109,22 +116,52 @@ async def test_every_forms_route_needs_the_flag_and_the_entitlement(
 
 
 @pytest.mark.anyio
-async def test_one_forms_token_turns_on_the_flag_and_the_entitlement(
+async def test_single_tenant_forms_need_the_flag_and_a_licensed_entitlement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """On a single-tenant deployment, ``forms`` in the flags is all it takes."""
+    """On a single-tenant deployment the ``forms`` flag alone is not enough.
+
+    The flag still gates the feature, but the ``forms`` entitlement now comes
+    only from a signed license key, never from the flag.
+    """
     role = Role(type="user", organization_id=uuid.uuid4(), service_id="tracecat-api")
     monkeypatch.setattr(config, "TRACECAT__FEATURE_FLAGS", {FeatureFlag.FORMS})
     monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(
+        tier_defaults,
+        "DEFAULT_ENTITLEMENTS",
+        tier_defaults.BASELINE_ENTITLEMENTS.model_copy(),
+    )
+    private_key = Ed25519PrivateKey.generate()
+    monkeypatch.setattr(
+        license_keys,
+        "LICENSE_PUBLIC_KEY_PEM",
+        private_key.public_key().public_bytes(
+            Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
+        ),
+    )
+    license_service._decode_cached.cache_clear()
+    license_service._embedded_public_key.cache_clear()
+    now = datetime.now(UTC)
+    licensed = LicenseClaims(
+        license_id="lic_test",
+        customer="Synthetic Customer",
+        issued_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=30),
+        entitlements=["forms"],
+    )
 
-    for flags, allowed in (("forms", True), ("git-sync", False)):
-        entitlements = tier_defaults.resolve_oss_default_entitlements(flags)
-        monkeypatch.setattr(tier_defaults, "DEFAULT_ENTITLEMENTS", entitlements)
-        if allowed:
+    try:
+        monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", None)
+        with pytest.raises(EntitlementRequired):
             await check_forms_enabled(AsyncMock(), role)
-        else:
-            with pytest.raises(EntitlementRequired):
-                await check_forms_enabled(AsyncMock(), role)
+
+        token = encode_license(licensed, private_key)
+        monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", token)
+        await check_forms_enabled(AsyncMock(), role)
+    finally:
+        license_service._decode_cached.cache_clear()
+        license_service._embedded_public_key.cache_clear()
 
 
 @pytest.mark.anyio

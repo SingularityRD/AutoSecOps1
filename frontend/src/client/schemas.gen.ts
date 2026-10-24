@@ -16875,6 +16875,28 @@ export const $EmbeddingModelRead = {
     "Public metadata needed for status and bounded chunk preparation.",
 } as const
 
+export const $Entitlement = {
+  type: "string",
+  enum: [
+    "custom_registry",
+    "git_sync",
+    "agent_addons",
+    "case_addons",
+    "rbac_addons",
+    "service_accounts",
+    "workspace_chat",
+    "multi_workspace",
+    "watchtower",
+    "external_secret_stores",
+    "agent_channels",
+    "semantic_search",
+    "forms",
+    "tunnels",
+  ],
+  title: "Entitlement",
+  description: "Available feature entitlements.",
+} as const
+
 export const $EntitlementsDict = {
   properties: {
     custom_registry: {
@@ -22240,6 +22262,122 @@ export const $LibrarySkillSourceRead = {
   title: "LibrarySkillSourceRead",
   description:
     "Library group, maintainer, and optional upstream location of a skill.",
+} as const
+
+export const $LicenseErrorCode = {
+  type: "string",
+  enum: ["malformed", "bad_signature", "invalid_claims"],
+  title: "LicenseErrorCode",
+  description: "Why a license key failed verification.",
+} as const
+
+export const $LicenseRead = {
+  properties: {
+    status: {
+      $ref: "#/components/schemas/LicenseStatus",
+    },
+    enforced: {
+      type: "boolean",
+      title: "Enforced",
+      description:
+        "Whether the license controls entitlements. False in multi-tenant mode, where database tiers apply.",
+    },
+    license_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "License Id",
+    },
+    customer: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Customer",
+    },
+    issued_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Issued At",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    grace_ends_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Grace Ends At",
+    },
+    entitlements: {
+      items: {
+        $ref: "#/components/schemas/Entitlement",
+      },
+      type: "array",
+      title: "Entitlements",
+      description: "Paid entitlements the license grants right now",
+    },
+    licensed_entitlements: {
+      items: {
+        type: "string",
+      },
+      type: "array",
+      title: "Licensed Entitlements",
+      description: "Every entitlement key listed in the license",
+    },
+    error: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicenseErrorCode",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+  },
+  type: "object",
+  required: ["status", "enforced"],
+  title: "LicenseRead",
+  description: "License status for the platform admin.",
+} as const
+
+export const $LicenseStatus = {
+  type: "string",
+  enum: ["missing", "valid", "grace", "expired", "invalid"],
+  title: "LicenseStatus",
+  description: "Lifecycle state of the configured license key.",
 } as const
 
 export const $MCPAuthType = {
