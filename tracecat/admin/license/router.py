@@ -6,6 +6,8 @@ from tracecat import config
 from tracecat.admin.license.schemas import LicenseRead
 from tracecat.auth.credentials import SuperuserRole
 from tracecat.licensing.service import get_license_state
+from tracecat.tiers.defaults import BASELINE_ENTITLEMENTS
+from tracecat.tiers.enums import Entitlement
 
 router = APIRouter(prefix="/license", tags=["admin:license"])
 
@@ -25,6 +27,11 @@ async def get_license(role: SuperuserRole) -> LicenseRead:
         expires_at=claims.expires_at if claims else None,
         grace_ends_at=state.grace_ends_at,
         entitlements=sorted(state.granted),
+        included_entitlements=sorted(
+            Entitlement(key)
+            for key, enabled in BASELINE_ENTITLEMENTS.model_dump().items()
+            if enabled
+        ),
         licensed_entitlements=list(claims.entitlements) if claims else [],
         error=state.error,
     )

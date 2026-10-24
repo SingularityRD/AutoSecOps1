@@ -535,6 +535,11 @@ async def test_admin_license_endpoint_reports_missing(
     assert result.status == LicenseStatus.MISSING
     assert result.customer is None
     assert result.entitlements == []
+    # The free baseline is reported separately from licensed entitlements.
+    assert result.included_entitlements == [
+        Entitlement.CUSTOM_REGISTRY,
+        Entitlement.WORKSPACE_CHAT,
+    ]
 
 
 # --- Issuer CLI ---------------------------------------------------------------

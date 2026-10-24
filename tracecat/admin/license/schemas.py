@@ -27,6 +27,11 @@ class LicenseRead(BaseModel):
         default_factory=list,
         description="Paid entitlements the license grants right now",
     )
+    included_entitlements: list[Entitlement] = Field(
+        default_factory=list,
+        description="Free entitlements every single-tenant install gets"
+        " without a license",
+    )
     licensed_entitlements: list[str] = Field(
         default_factory=list,
         description="Every entitlement key listed in the license",

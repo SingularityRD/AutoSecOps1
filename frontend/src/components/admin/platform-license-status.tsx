@@ -3,6 +3,7 @@
 import { AlertTriangleIcon } from "lucide-react"
 import {
   adminLicenseGetLicense,
+  type Entitlement,
   type LicenseRead,
   type LicenseStatus,
 } from "@/client"
@@ -95,6 +96,25 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
   }
 }
 
+function EntitlementBadges({
+  entitlements,
+}: {
+  entitlements: readonly Entitlement[]
+}) {
+  return (
+    <dd className="flex flex-wrap gap-1.5">
+      {entitlements.length === 0 && (
+        <span className="text-muted-foreground">None</span>
+      )}
+      {entitlements.map((entitlement) => (
+        <Badge key={entitlement} variant="outline">
+          {entitlement}
+        </Badge>
+      ))}
+    </dd>
+  )
+}
+
 /**
  * Read-only view of the platform license reported by `GET /admin/license`.
  */
@@ -125,7 +145,13 @@ export function PlatformLicenseStatus() {
     ["Issued", formatDate(license.issued_at)],
     ["Expires", formatDate(license.expires_at)],
   ]
-  const entitlements = license.entitlements ?? []
+  // Free baseline entitlements apply without a license, so list them apart
+  // from the paid ones even when the license key also names them.
+  const includedEntitlements = license.included_entitlements ?? []
+  const includedSet = new Set<Entitlement>(includedEntitlements)
+  const paidEntitlements = (license.entitlements ?? []).filter(
+    (entitlement) => !includedSet.has(entitlement)
+  )
 
   return (
     <div className="space-y-8">
@@ -143,17 +169,14 @@ export function PlatformLicenseStatus() {
             <dd>{value}</dd>
           </div>
         ))}
-        <dt className="text-muted-foreground">Paid entitlements</dt>
-        <dd className="flex flex-wrap gap-1.5">
-          {entitlements.length === 0 && (
-            <span className="text-muted-foreground">None</span>
-          )}
-          {entitlements.map((entitlement) => (
-            <Badge key={entitlement} variant="outline">
-              {entitlement}
-            </Badge>
-          ))}
-        </dd>
+        <dt className="text-muted-foreground">Licensed entitlements</dt>
+        <EntitlementBadges entitlements={paidEntitlements} />
+        {license.enforced && (
+          <>
+            <dt className="text-muted-foreground">Included without license</dt>
+            <EntitlementBadges entitlements={includedEntitlements} />
+          </>
+        )}
       </dl>
     </div>
   )
