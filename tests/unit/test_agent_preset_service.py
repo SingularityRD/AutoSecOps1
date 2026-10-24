@@ -3740,7 +3740,7 @@ class TestAgentPresetService:
         requires_approval: bool,
         cleared: dict[str, bool] | None,
     ) -> None:
-        """Approval rules are open source: create, update, clear and restore need no entitlement."""
+        """Approval rules are available in all editions: create, update, clear and restore need no entitlement."""
         has_entitlement = AsyncMock(return_value=False)
         monkeypatch.setattr(agent_preset_service, "has_entitlement", has_entitlement)
         rules = {"tools.test.test_action": requires_approval}

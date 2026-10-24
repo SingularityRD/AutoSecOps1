@@ -42,7 +42,7 @@ def sanitize_agent_tool_input(
 ) -> dict[str, Any]:
     """Return the effective input for an Agent or Task tool call.
 
-    Tracecat owns subagent model selection and runtime isolation, so model-proposed
+    AutoSecOps owns subagent model selection and runtime isolation, so model-proposed
     values for those fields must not affect execution or appear as effective input
     in user-facing tool-call representations.
     """

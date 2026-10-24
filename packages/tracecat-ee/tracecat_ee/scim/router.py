@@ -214,7 +214,7 @@ async def create_scim_mapping(
     session: AsyncDBSession,
     params: ExternalGroupMappingCreate,
 ) -> ExternalGroupMappingRead:
-    """Map an external group into a Tracecat group and reconcile immediately."""
+    """Map an external group into an AutoSecOps group and reconcile immediately."""
     service = SCIMService(session, role=role)
     try:
         mapping = await service.create_mapping(

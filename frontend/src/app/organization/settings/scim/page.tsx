@@ -54,7 +54,7 @@ export default function ScimSettingsPage() {
         <ScimPageHeader />
         <EntitlementRequiredEmptyState
           title="Not available on your plan"
-          description="SCIM provisioning requires the access control add-on. Contact your Tracecat account team to enable it."
+          description="SCIM provisioning requires the access control add-on. Contact your AutoSecOps account team to enable it."
         />
       </PageShell>
     )

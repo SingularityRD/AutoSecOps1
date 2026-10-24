@@ -38,7 +38,7 @@ from tracecat.query.errors import (
 from tracecat.tables.exceptions import TableRowError
 from tracecat.workflow.executions.enums import TemporalSearchAttr
 
-# All Tracecat search attributes are Keyword-typed.
+# All AutoSecOps search attributes are Keyword-typed.
 _SEARCH_ATTRIBUTE_TYPES: dict[str, IndexedValueType.ValueType] = {
     attr.value: IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD
     for attr in TemporalSearchAttr
@@ -125,7 +125,7 @@ def auth_pool_exhausted_exception_handler(
 
 
 def bootstrap_role(organization_id: OrganizationID | None = None) -> Role:
-    """Role to bootstrap Tracecat services.
+    """Role to bootstrap AutoSecOps services.
 
     Args:
         organization_id: Optional organization ID to scope the bootstrap role to.
@@ -171,7 +171,7 @@ async def get_default_organization_id(session: AsyncSession) -> OrganizationID:
 
 
 def tracecat_exception_handler(request: Request, exc: Exception) -> Response:
-    """Generic exception handler for Tracecat exceptions.
+    """Generic exception handler for AutoSecOps exceptions.
 
     We can customize exceptions to expose only what should be user facing.
     """

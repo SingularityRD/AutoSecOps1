@@ -323,7 +323,7 @@ async def call_paginated_endpoint(
             ...,
             description=(
                 "Response field containing the page items, e.g. `tickets`. "
-                "If omitted, Tracecat infers the only list-valued response field."
+                "If omitted, AutoSecOps infers the only list-valued response field."
             ),
         ),
     ] = None,

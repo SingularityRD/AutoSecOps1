@@ -102,8 +102,8 @@ export function OrgSettingsSecretStores() {
     <div className="space-y-8 pb-8">
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-xl text-sm text-muted-foreground">
-          Tracecat reads secret values from your secret manager when needed.
-          Values are never stored in Tracecat.
+          AutoSecOps reads secret values from your secret manager when needed.
+          Values are never stored in AutoSecOps.
         </p>
         <ScopeGuard scope="org:secret:create">
           <AddStoreMenu
@@ -390,7 +390,7 @@ function StoreRow({
     "Secrets created against this store will not resolve until you enable it again."
   if (confirm === "delete") {
     confirmBody =
-      "Tracecat removes the store and its external ID. Secrets in AWS are not changed. Remove the external ID from the role's trust policy too."
+      "AutoSecOps removes the store and its external ID. Secrets in AWS are not changed. Remove the external ID from the role's trust policy too."
   } else if (referenceCount > 0) {
     confirmBody = `${pluralize(referenceCount, "secret")} stop resolving in every workflow and agent until you enable the store again.`
   }

@@ -1,6 +1,6 @@
 """Functions that create and call tools added to the agent.
 
-This module provides harness-agnostic tool building from the Tracecat registry.
+This module provides harness-agnostic tool building from the AutoSecOps registry.
 Tools use canonical action names (with dots, e.g., 'core.cases.list_cases').
 Harness-specific adapters are responsible for converting to their required format.
 """

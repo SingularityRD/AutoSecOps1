@@ -10,7 +10,7 @@ REPOSITORY_ROOT_ENV: Final = "TRACECAT_LOADTEST_REPO_ROOT"
 
 
 class RepositoryRootError(RuntimeError):
-    """The Tracecat repository root could not be resolved."""
+    """The AutoSecOps repository root could not be resolved."""
 
 
 def _is_repository_root(path: Path) -> bool:
@@ -29,7 +29,7 @@ def resolve_repository_root(start: Path | None = None) -> Path:
         if _is_repository_root(root):
             return root
         raise RepositoryRootError(
-            f"{REPOSITORY_ROOT_ENV} does not identify a Tracecat checkout: {root}"
+            f"{REPOSITORY_ROOT_ENV} does not identify an AutoSecOps checkout: {root}"
         )
 
     current = (start or Path.cwd()).resolve()
@@ -39,6 +39,6 @@ def resolve_repository_root(start: Path | None = None) -> Path:
         if _is_repository_root(candidate):
             return candidate
     raise RepositoryRootError(
-        "could not find a Tracecat checkout from the current directory; "
+        "could not find an AutoSecOps checkout from the current directory; "
         f"set {REPOSITORY_ROOT_ENV}"
     )

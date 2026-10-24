@@ -14,7 +14,7 @@ definition:
         url: https://haveibeenpwned.com/api/v3/latestbreach
         method: GET
         headers:
-          User-Agent: Tracecat-HIBP-Integration
+          User-Agent: AutoSecOps-HIBP-Integration
     - ref: format_response
       action: core.transform.reshape
       args:

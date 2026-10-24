@@ -12,7 +12,7 @@ definition:
   expects:
     base_url:
       type: str | None
-      description: AlertMedia base URL (e.g. https://tracecat.alertmedia.com)
+      description: AlertMedia base URL (e.g. https://your-tenant.alertmedia.com)
       default: null
     ordering:
       type: str

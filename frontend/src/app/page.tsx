@@ -45,14 +45,14 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="relative z-20 flex items-center text-xl font-semibold tracking-wide">
           <Icons.logo className="mr-2 size-6" />
-          <h1>Tracecat</h1>
+          <h1>AutoSecOps</h1>
         </div>
       </div>
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-8 text-center sm:w-[350px]">
           <Image
             src={TracecatIcon}
-            alt="Tracecat"
+            alt="AutoSecOps"
             className="mx-auto size-16"
           />
           <h2 className="text-md flex flex-col gap-2 text-muted-foreground">

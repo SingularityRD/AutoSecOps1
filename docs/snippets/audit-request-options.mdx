@@ -6,11 +6,11 @@
 | Payload attribute | Wraps the complete payload under the configured key. |
 | Verify SSL certificate | Verifies the endpoint certificate. Disable this only for a trusted endpoint that uses a private or self-signed certificate. |
 
-Tracecat encrypts the webhook URL, custom headers, and custom payload at rest.
+AutoSecOps encrypts the webhook URL, custom headers, and custom payload at rest.
 
 Use the payload attribute when your collector expects the event under a specific key. Splunk HTTP Event Collector is the common case: it requires each event wrapped in an `event` field.
 
-Set the payload attribute to `event`, and Tracecat wraps the whole payload:
+Set the payload attribute to `event`, and AutoSecOps wraps the whole payload:
 
 ```json
 {

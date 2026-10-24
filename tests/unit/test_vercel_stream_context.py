@@ -455,7 +455,7 @@ async def test_data_event_emitted_before_tool_parts():
 
 @pytest.mark.anyio
 async def test_approval_request_strips_proxy_metadata_from_streamed_args():
-    """Ensure approval request events do not expose Tracecat proxy metadata."""
+    """Ensure approval request events do not expose AutoSecOps proxy metadata."""
     ctx = VercelStreamContext(message_id="msg_test")
 
     events = [

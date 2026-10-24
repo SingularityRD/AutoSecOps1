@@ -94,7 +94,7 @@ TRACECAT__APP_ENV: Literal["development", "staging", "production"] = cast(
     os.environ.get("TRACECAT__APP_ENV", "development"),
 )
 TRACECAT__SERVICE_NAME = os.environ.get("TRACECAT__SERVICE_NAME") or "tracecat"
-"""Name of the Tracecat service running in this process.
+"""Name of the AutoSecOps service running in this process.
 
 Used to attribute database connections in `pg_stat_activity` via the PostgreSQL
 `application_name` session setting.
@@ -124,7 +124,7 @@ TRACECAT__EMAIL_FROM = (os.environ.get("TRACECAT__EMAIL_FROM") or "").strip() or
 TRACECAT__PLATFORM_OTEL_ENABLED = env_bool(
     "TRACECAT__PLATFORM_OTEL_ENABLED", default=False
 )
-"""Enable Tracecat-operated platform tracing, separate from agent OTel export."""
+"""Enable AutoSecOps-operated platform tracing, separate from agent OTel export."""
 
 TRACECAT__LOOP_MAX_BATCH_SIZE = int(
     os.environ.get("TRACECAT__LOOP_MAX_BATCH_SIZE") or 64
@@ -425,12 +425,12 @@ TRACECAT__SIGNING_SECRET = os.environ.get("TRACECAT__SIGNING_SECRET")
 TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID = os.environ.get(
     "TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID"
 )
-"""AWS account ID for Tracecat workloads that assume customer roles."""
+"""AWS account ID for AutoSecOps workloads that assume customer roles."""
 
 TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN = os.environ.get(
     "TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN"
 )
-"""Dedicated AWS principal ARN used by Tracecat executors for customer AssumeRole."""
+"""Dedicated AWS principal ARN used by AutoSecOps executors for customer AssumeRole."""
 
 # SAML SSO
 
@@ -465,7 +465,7 @@ SAML_VERIFY_SSL_METADATA = env_bool("SAML_VERIFY_SSL_METADATA", default=True)
 """Whether to verify SSL certificates for SAML metadata operations."""
 
 # === CORS config === #
-# NOTE: If you are using Tracecat self-hosted, please replace with your
+# NOTE: If you are self-hosting AutoSecOps, please replace with your
 # own domain by setting the comma separated TRACECAT__ALLOW_ORIGINS env var.
 TRACECAT__ALLOW_ORIGINS = os.environ.get("TRACECAT__ALLOW_ORIGINS") or None
 
@@ -1457,12 +1457,12 @@ TRACECAT__ALLOWED_ATTACHMENT_MIME_TYPES = {
 }
 """The allowed MIME types for case attachment files."""
 
-# === Enterprise Edition === #
+# === Enterprise features === #
 ENTERPRISE_EDITION = env_bool("ENTERPRISE_EDITION", default=False)
-"""Whether the enterprise edition is enabled."""
+"""Whether enterprise features (the bundled `tracecat_ee` package) are enabled."""
 
 TRACECAT__EE_MULTI_TENANT = env_bool("TRACECAT__EE_MULTI_TENANT", default=False)
-"""Whether multi-tenant features are enabled for Enterprise Edition."""
+"""Whether multi-tenant enterprise features are enabled."""
 
 # === Managed tunnels (Pangolin) === #
 TRACECAT__PANGOLIN_ENDPOINT = os.environ.get("TRACECAT__PANGOLIN_ENDPOINT")
@@ -1510,7 +1510,7 @@ TRACECAT__TUNNEL_GATEWAY_BLOCKED_CIDRS = env_networks(
 TRACECAT__TUNNEL_GATEWAY_API_URL = os.environ.get(
     "TRACECAT__TUNNEL_GATEWAY_API_URL", TRACECAT__API_URL
 )
-"""Tracecat API URL that gateways poll for their policy."""
+"""AutoSecOps API URL that gateways poll for their policy."""
 
 TRACECAT__TUNNEL_GATEWAY_TUN_RESOURCE = os.environ.get(
     "TRACECAT__TUNNEL_GATEWAY_TUN_RESOURCE", "squat.ai/tun"

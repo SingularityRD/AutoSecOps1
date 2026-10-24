@@ -1,10 +1,10 @@
 ---
 title: Temporal retention
-description: "Increase Temporal workflow history retention for self-hosted Tracecat on Docker Compose, AWS ECS Fargate, and Kubernetes, and archive closed workflow histories to S3."
+description: "Increase Temporal workflow history retention for self-hosted AutoSecOps on Docker Compose, AWS ECS Fargate, and Kubernetes, and archive closed workflow histories to S3."
 ---
 
 Temporal keeps the event history of a closed workflow execution for the retention period of its namespace, then deletes it.
-Tracecat workflow logs read from that history, so the retention period sets how far back you can inspect past runs in the UI.
+AutoSecOps workflow logs read from that history, so the retention period sets how far back you can inspect past runs in the UI.
 
 The bundled Temporal in Docker Compose and Fargate creates its namespace with 24 hours of retention.
 The Helm chart creates it with 720 hours (30 days).
@@ -93,7 +93,7 @@ Replace `tracecat` with your release name and namespace if they differ.
 
 Archival copies closed workflow event histories and visibility records to S3 so they outlive the retention period.
 This keeps history available for compliance and audits while your retention period stays short enough to keep the Temporal database small.
-Archived history is available through the Temporal CLI and Temporal Web UI, not through Tracecat workflow logs.
+Archived history is available through the Temporal CLI and Temporal Web UI, not through AutoSecOps workflow logs.
 
 Archival is available on the Kubernetes deployment only, because [Temporal does not support archival when running through Docker](https://docs.temporal.io/self-hosted-guide/archival).
 Temporal treats archival as an experimental feature.
@@ -154,7 +154,7 @@ Temporal treats archival as an experimental feature.
       --wait --timeout 10m
     ```
 
-    The `temporal-setup` hook enables archival on the Tracecat namespace and sets the URIs.
+    The `temporal-setup` hook enables archival on the AutoSecOps namespace and sets the URIs.
     A namespace archival URI is immutable once archival is enabled, so pick the bucket and prefix before the first upgrade.
   </Step>
 

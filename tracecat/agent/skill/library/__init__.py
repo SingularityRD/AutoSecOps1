@@ -1,1 +1,1 @@
-"""Tracecat-maintained skills that workspaces opt into by installing."""
+"""AutoSecOps-maintained skills that workspaces opt into by installing."""

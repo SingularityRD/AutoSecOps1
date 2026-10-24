@@ -30,7 +30,7 @@ The card and the details panel show the same object, in the shape Slack's `entit
       "title": { "text": "<case title>" },
       "display_id": "<case short id, e.g. CASE-0144>",
       "display_type": "OAuth app review",
-      "product_name": "Tracecat",
+      "product_name": "AutoSecOps",
       "metadata_last_modified": <now, integer epoch seconds>
     },
     "custom_fields": [ <rows below, blank rows left out> ],
@@ -38,7 +38,7 @@ The card and the details panel show the same object, in the shape Slack's `entit
     "fields": {},
     "actions": {
       "primary_actions": [
-        { "text": "Open Tracecat case", "action_id": "oauth_open_case", "url": "<case URL>", "accessibility_label": "Open this OAuth review in Tracecat" },
+        { "text": "Open AutoSecOps case", "action_id": "oauth_open_case", "url": "<case URL>", "accessibility_label": "Open this OAuth review in AutoSecOps" },
         { "text": "Review in Admin Console", "action_id": "oauth_open_console", "url": "https://admin.google.com/ac/owl/list?tab=configuredApps", "accessibility_label": "Open the connected apps list in the Google Admin console" }
       ],
       "overflow_actions": []
@@ -81,7 +81,7 @@ Two rules decide whether a card appears:
 
 A message that names the app, the risk and a link is **not** a card. If you cannot pass `metadata`, post nothing as the parent, say so in the run line, and stop. A wrong parent message cannot be upgraded into a card later; it has to be deleted by hand.
 
-**No visible text.** Any text on the card message renders above the card, and the card's `Open Tracecat case` button is the only case link in the thread.
+**No visible text.** Any text on the card message renders above the card, and the card's `Open AutoSecOps case` button is the only case link in the thread.
 
 1. **No card yet.** Call `tools.slack_sdk.call_method` with `sdk_method` `chat_postMessage` and these params:
    - `channel`: the channel the prompt names

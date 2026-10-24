@@ -35,7 +35,7 @@ async function skipIfEntitled(
   if (process.env.CI) {
     expect(
       entitlements[entitlement],
-      "Run these tests against an OSS entitlement baseline"
+      "Run these tests against a base (no add-on) entitlement baseline"
     ).toBe(false)
   }
   testInfo.skip(true, `Requires ${entitlement} disabled`)

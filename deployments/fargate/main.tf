@@ -50,7 +50,7 @@ module "ecs" {
   domain_name    = var.domain_name
   hosted_zone_id = var.hosted_zone_id
 
-  # Tracecat version
+  # AutoSecOps version
   tracecat_image                = var.tracecat_image
   tracecat_ui_image             = var.tracecat_ui_image
   tracecat_image_tag            = var.tracecat_image_tag

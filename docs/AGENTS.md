@@ -1,10 +1,10 @@
-# Tracecat Documentation
+# AutoSecOps Documentation
 
 Structural context for any agent working in `docs/`. For the full writing guide (page types, components, code testing, style), use the `/write-docs` skill.
 
 ## Platform
 
-The docs site is published to [docs.tracecat.com](https://docs.tracecat.com). All files use `.mdx` (Markdown + JSX). Site config lives in `docs/docs.json`.
+The docs site source lives in [`docs/`](https://github.com/SingularityRD/AutoSecOps1/tree/main/docs). All files use `.mdx` (Markdown + JSX). Site config lives in `docs/docs.json`.
 
 ## File format
 
@@ -49,9 +49,9 @@ When renaming or moving a page, add a redirect in `docs/docs.json` `redirects` a
 ## Tone and style
 
 - Always use active voice.
-- Name the actor. `A Tracecat-side codec encrypts payloads` beats `Payloads are encrypted`, which hides who does the work and reads as weaker in security pages.
-- State facts positively. Avoid double negatives such as `no path can resume the tool without a recorded decision`; write `every path that resumes the tool requires a recorded decision`. Keep a single negative when it carries the meaning, such as `Tracecat never persists a credential value in workflow state`.
-- Do not lead with what the product lacks when a positive statement covers the same fact. `API tokens are hashed one-way` beats `API tokens are not encrypted, because Tracecat never needs to read one back`.
+- Name the actor. `An AutoSecOps-side codec encrypts payloads` beats `Payloads are encrypted`, which hides who does the work and reads as weaker in security pages.
+- State facts positively. Avoid double negatives such as `no path can resume the tool without a recorded decision`; write `every path that resumes the tool requires a recorded decision`. Keep a single negative when it carries the meaning, such as `AutoSecOps never persists a credential value in workflow state`.
+- Do not lead with what the product lacks when a positive statement covers the same fact. `API tokens are hashed one-way` beats `API tokens are not encrypted, because AutoSecOps never needs to read one back`.
 - Always address the reader directly.
 - If a user explicitly asks for a different voice, follow that request instead of the default.
 - Clarity over cleverness and verbosity: always keep sentences concise, do not add unnecessary words.

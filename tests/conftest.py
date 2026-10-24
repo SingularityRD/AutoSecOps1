@@ -1316,7 +1316,9 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
     # Externalize all results for testing (threshold=0)
     monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", 0)
-    monkeysession.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", ["tracecat.com"])
+    monkeysession.setattr(
+        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", ["autosecops.example"]
+    )
     if os.getenv("TRACECAT__CONTEXT_COMPRESSION_ENABLED"):
         logger.info("Enabling compression for workflow context")
         monkeysession.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", True)
@@ -1393,7 +1395,7 @@ def inprocess_api_server(
     redis_server: None,
     monkeysession: pytest.MonkeyPatch,
 ) -> Iterator[str]:
-    """Run the real Tracecat API on localhost without building the Docker image.
+    """Run the real AutoSecOps API on localhost without building the Docker image.
 
     The API runs in a separate local process instead of a thread so SQLAlchemy's
     async engine/pool is never shared across the pytest and Uvicorn event loops.
@@ -1446,7 +1448,7 @@ def inprocess_api_server(
             process.wait(timeout=10)
         log_file.seek(0)
         logs = log_file.read()[-4000:]
-        raise RuntimeError(f"Tracecat API test server failed. Logs:\n{logs}") from exc
+        raise RuntimeError(f"AutoSecOps API test server failed. Logs:\n{logs}") from exc
     finally:
         if process.poll() is None:
             process.terminate()
@@ -2044,7 +2046,7 @@ async def test_executor_worker_factory(
 
 # ---------------------------------------------------------------------------
 # 3rd party credentials
-# Loaded in either via dotenv or env vars into the mocked Tracecat secrets manager
+# Loaded in either via dotenv or env vars into the mocked AutoSecOps secrets manager
 # ---------------------------------------------------------------------------
 
 ### OpenAI

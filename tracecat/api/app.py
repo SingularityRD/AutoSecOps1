@@ -587,17 +587,16 @@ def create_app(**kwargs) -> FastAPI:
     else:
         allow_origins = ["*"]
     app = FastAPI(
-        title="Tracecat API",
+        title="AutoSecOps API",
         description=(
-            "The open source AI automation platform for security teams and agents."
+            "The AI-native security automation platform for security teams and agents."
         ),
-        summary="Tracecat API",
+        summary="AutoSecOps API",
         version="1",
-        terms_of_service="https://docs.google.com/document/d/e/2PACX-1vQvDe3SoVAPoQc51MgfGCP71IqFYX_rMVEde8zC4qmBCec5f8PLKQRdxa6tsUABT8gWAR9J-EVs2CrQ/pub",
-        contact={"name": "Tracecat Founders", "email": "founders@tracecat.com"},
+        contact={"name": "SingularityRD", "url": "https://github.com/SingularityRD"},
         license_info={
-            "name": "AGPL-3.0",
-            "url": "https://www.gnu.org/licenses/agpl-3.0.html",
+            "name": "Proprietary",
+            "identifier": "LicenseRef-Proprietary",
         },
         openapi_tags=[
             {"name": "public", "description": "Public facing endpoints"},
@@ -697,7 +696,7 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(mcp_oidc_router)
     app.include_router(feature_flags_router)
     app.include_router(vcs_router)
-    # RBAC routers - user scopes + role listing + user role assignments are always included (OSS)
+    # RBAC routers - user scopes + role listing + user role assignments are always included (core)
     app.include_router(user_scopes_router)
     app.include_router(rbac_roles_read_router)
     app.include_router(rbac_user_assignments_router)

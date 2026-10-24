@@ -330,7 +330,7 @@ class OtelRoutingPlan:
     tenant: OtelRoute | None
     """The org's own collector, or None when it resolves no endpoint."""
     platform_endpoint: str | None
-    """Tracecat's internal gateway traces URL, or None when platform tracing is
+    """AutoSecOps's internal gateway traces URL, or None when platform tracing is
     off for this turn. Traces-only and headerless."""
     trace_parent: PlatformTraceParent | None
     """Trusted host span.
@@ -435,7 +435,7 @@ def canonicalize_tenant_trace_body(
     content_type: str,
     trusted_attributes: Mapping[str, str],
 ) -> bytes:
-    """Replace spoofable Tracecat resource keys in the tenant's own payload."""
+    """Replace spoofable AutoSecOps resource keys in the tenant's own payload."""
     if content_type != "application/x-protobuf" or not body:
         return body
 

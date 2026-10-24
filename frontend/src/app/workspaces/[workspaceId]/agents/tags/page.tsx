@@ -28,7 +28,7 @@ export default function AgentTagsPage() {
               size="sm"
             >
               <a
-                href="https://tracecat.com"
+                href="https://github.com/SingularityRD"
                 target="_blank"
                 rel="noopener noreferrer"
               >

@@ -292,7 +292,7 @@ class ExecutorBackend(ABC):
         *,
         user_env_vars: dict[str, str] | None,
     ) -> dict[str, str]:
-        """Build run_python environment with Tracecat SDK context always enabled."""
+        """Build run_python environment with AutoSecOps SDK context always enabled."""
 
         env_vars = dict(user_env_vars or {})
         env_vars.update(

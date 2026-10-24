@@ -72,7 +72,7 @@ tested before relying on it operationally.
 
 ## Dynamic schemas and metadata-backed storage
 
-Tracecat stores schema metadata in public tables and also materializes physical
+AutoSecOps stores schema metadata in public tables and also materializes physical
 tables in workspace schemas. For these migrations:
 
 - Keep physical schema changes and metadata changes compatible across at least

@@ -1,11 +1,11 @@
 ---
 title: "MCP servers"
-description: "Connect MCP servers from the Tracecat catalog, or bring your own remote and stdio servers, and attach them to agents and presets."
+description: "Connect MCP servers from the AutoSecOps catalog, or bring your own remote and stdio servers, and attach them to agents and presets."
 ---
 
 ## Overview
 
-Tracecat supports three ways to connect an MCP server:
+AutoSecOps supports three ways to connect an MCP server:
 
 - Catalog of 50+ preconfigured servers with guided connection setup, including Splunk, SentinelOne Purple AI, CrowdStrike Falcon, Microsoft Sentinel, Elastic, Wiz, GreyNoise, and PagerDuty
 - Remote MCP over URL (`HTTP` or `SSE`)
@@ -13,9 +13,9 @@ Tracecat supports three ways to connect an MCP server:
 
 ## Availability
 
-<Badge icon="github" color="gray" size="lg" shape="pill">Open source</Badge>
+<Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge>
 
-All three connection types are open source. Select the saved integration in the `mcp_integrations` input on `ai.agent`, or attach it to a reusable agent preset. Per-tool approvals on remote MCP integrations, and reviewing them in the agent inbox, are also open source. See [Human-in-the-loop](/agents/human-in-the-loop).
+All three connection types are available on all plans. Select the saved integration in the `mcp_integrations` input on `ai.agent`, or attach it to a reusable agent preset. Per-tool approvals on remote MCP integrations, and reviewing them in the agent inbox, are also available on all plans. See [Human-in-the-loop](/agents/human-in-the-loop).
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
@@ -27,7 +27,7 @@ Approving tool calls from Slack or Microsoft Teams through agent channels is Ent
 
 Use remote MCP when the server is exposed over a URL.
 
-Tracecat rejects server URLs that resolve to private, loopback, or link-local addresses with `Host is not allowed`. For a self-hosted MCP server on your network, add its IP or CIDR to `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS`; see [Private endpoints](/agents/llm-providers#private-endpoints).
+AutoSecOps rejects server URLs that resolve to private, loopback, or link-local addresses with `Host is not allowed`. For a self-hosted MCP server on your network, add its IP or CIDR to `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS`; see [Private endpoints](/agents/llm-providers#private-endpoints).
 
 Authentication modes:
 
@@ -39,7 +39,7 @@ Authentication modes:
 
 ### OAuth for remote MCP
 
-For remote MCP with OAuth, link the MCP integration to an existing OAuth integration. Tracecat refreshes the token and sets the `Authorization` header automatically.
+For remote MCP with OAuth, link the MCP integration to an existing OAuth integration. AutoSecOps refreshes the token and sets the `Authorization` header automatically.
 
 For a custom remote MCP server, first create a custom OAuth provider in [OAuth](/automations/integrations/oauth-integrations), then attach it to the MCP integration.
 
@@ -60,9 +60,9 @@ Remote MCP custom header JSON does not resolve `${{ SECRETS.* }}` or `${{ VARS.*
 
 ## Stdio MCP
 
-Use `stdio` MCP when Tracecat should launch a local command such as `npx`, `uvx`, or a custom binary.
+Use `stdio` MCP when AutoSecOps should launch a local command such as `npx`, `uvx`, or a custom binary.
 
-`stdio` environment variables support Tracecat expressions.
+`stdio` environment variables support AutoSecOps expressions.
 
 ```json
 {
@@ -71,14 +71,14 @@ Use `stdio` MCP when Tracecat should launch a local command such as `npx`, `uvx`
 }
 ```
 
-Tracecat resolves those expressions from the workflow default environment unless overridden in action control flow.
+AutoSecOps resolves those expressions from the workflow default environment unless overridden in action control flow.
 
 ## Secrets and variables in MCP configuration
 
 Expression support differs by MCP integration type:
 
 - `stdio` environment variables support `${{ SECRETS.* }}` and `${{ VARS.* }}`.
-- Remote MCP OAuth mode does not need secret expressions for the bearer token because Tracecat injects the OAuth token automatically.
+- Remote MCP OAuth mode does not need secret expressions for the bearer token because AutoSecOps injects the OAuth token automatically.
 - Remote MCP custom header JSON does not currently resolve `${{ SECRETS.* }}` or `${{ VARS.* }}`.
 
 ## Related pages

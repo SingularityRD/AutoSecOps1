@@ -88,7 +88,7 @@ def _schema_from_output_type(output_type: dict[str, Any]) -> dict[str, Any]:
 def build_output_schema(
     output_type: str | dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Normalize Tracecat's output type into a provider-independent JSON Schema.
+    """Normalize AutoSecOps's output type into a provider-independent JSON Schema.
 
     Accepts raw schemas, provider format wrappers, and primitive type aliases.
     Primitive aliases use the standard object envelope with a ``result`` field.
@@ -117,7 +117,7 @@ def build_output_schema(
 def build_sdk_output_format(
     output_type: str | dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Wrap Tracecat's output schema in Claude SDK's output_format shape."""
+    """Wrap AutoSecOps's output schema in Claude SDK's output_format shape."""
     schema = build_output_schema(output_type)
     if schema is None:
         return None

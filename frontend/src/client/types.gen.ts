@@ -3906,13 +3906,13 @@ export type ContinueRunRequest = {
   kind?: "continue"
   decisions: Array<ApprovalDecision>
   /**
-   * Origin of the approval decision submission. Use 'inbox' for Tracecat UI/API and 'slack' for Slack actions.
+   * Origin of the approval decision submission. Use 'inbox' for AutoSecOps UI/API and 'slack' for Slack actions.
    */
   source?: "inbox" | "slack"
 }
 
 /**
- * Origin of the approval decision submission. Use 'inbox' for Tracecat UI/API and 'slack' for Slack actions.
+ * Origin of the approval decision submission. Use 'inbox' for AutoSecOps UI/API and 'slack' for Slack actions.
  */
 export type source = "inbox" | "slack"
 
@@ -5226,7 +5226,7 @@ export type ExpressionValidationResponse = {
 }
 
 /**
- * Request to project an external group into a Tracecat group.
+ * Request to project an external group into an AutoSecOps group.
  */
 export type ExternalGroupMappingCreate = {
   external_group_id: string
@@ -6496,7 +6496,7 @@ export type InferredColumn = {
    */
   csv_header: string
   /**
-   * Column name created in Tracecat
+   * Column name created in AutoSecOps
    */
   field_name: string
   /**
@@ -7372,7 +7372,7 @@ export type status6 =
   | "superseded"
 
 /**
- * Create a tunnel whose Pangolin site, machine client, and resources Tracecat manages.
+ * Create a tunnel whose Pangolin site, machine client, and resources AutoSecOps manages.
  */
 export type ManagedTunnelCreate = {
   name: string
@@ -7617,7 +7617,7 @@ export type OAuthGrantType = "authorization_code" | "client_credentials"
  * Reference to an externalized object in blob storage.
  *
  * This is a typed reference that replaces large payloads in workflow context.
- * Only dereference ObjectRef instances created by Tracecat - never arbitrary URIs.
+ * Only dereference ObjectRef instances created by AutoSecOps - never arbitrary URIs.
  */
 export type ObjectRef = {
   backend?: "s3"
@@ -9302,7 +9302,7 @@ export type ScimGroupResource = {
 }
 
 /**
- * The combined effect of every proposed change on one Tracecat group.
+ * The combined effect of every proposed change on one AutoSecOps group.
  */
 export type ScimGroupTransitionRead = {
   group_id: string
@@ -9385,7 +9385,7 @@ export type ScimReviewPeople = {
 }
 
 /**
- * One person a review lists, with the Tracecat groups the change touches.
+ * One person a review lists, with the AutoSecOps groups the change touches.
  */
 export type ScimReviewPerson = {
   user_id: string
@@ -9405,9 +9405,9 @@ export type ScimReviewRequest = {
 /**
  * An inbound User resource on POST or PUT.
  *
- * ``userName`` is the only attribute Tracecat stores as identity; the display
+ * ``userName`` is the only attribute AutoSecOps stores as identity; the display
  * and name attributes are accepted so providers do not see a validation
- * failure, but nothing here maps onto a Tracecat column.
+ * failure, but nothing here maps onto an AutoSecOps column.
  */
 export type ScimUserRequest = {
   schemas?: Array<string>
@@ -11416,7 +11416,7 @@ export type TriggerType = "manual" | "scheduled" | "webhook" | "case" | "form"
  */
 export type TunnelAvailabilityRead = {
   /**
-   * False when Tracecat runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.
+   * False when AutoSecOps runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.
    */
   available: boolean
 }

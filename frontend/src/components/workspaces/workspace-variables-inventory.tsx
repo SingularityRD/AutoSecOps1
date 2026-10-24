@@ -155,7 +155,7 @@ export function WorkspaceVariablesInventory() {
             searchPlaceholder="Search variables..."
             selectFilters={selectFilters}
             displayCount={filteredGroups.length}
-            countLabel="variables"
+            countLabel={filteredGroups.length === 1 ? "variable" : "variables"}
           />
 
           <div className="min-h-0 flex-1 overflow-auto">

@@ -3,7 +3,7 @@
 workers = 2
 pooler_mode = "transaction"
 
-# Tracecat uses asyncpg's extended protocol and named prepared statements.
+# AutoSecOps uses asyncpg's extended protocol and named prepared statements.
 prepared_statements = "extended"
 prepared_statements_limit = 500
 

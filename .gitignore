@@ -4,7 +4,7 @@ node_modules/
 # Kubernetes
 *.kube
 
-# Tracecat-related files
+# AutoSecOps-related files
 .tracecat/
 .dev/
 .llm/

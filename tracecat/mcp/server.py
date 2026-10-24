@@ -1,7 +1,7 @@
-"""Standalone MCP server for Tracecat workflow management.
+"""Standalone MCP server for AutoSecOps workflow management.
 
 Exposes workflow operations to external MCP clients (Claude Desktop, Cursor, etc.).
-Users authenticate via their existing Tracecat OIDC login.
+Users authenticate via their existing AutoSecOps OIDC login.
 """
 
 from __future__ import annotations
@@ -361,7 +361,7 @@ type MCPWorkflowUUID = Annotated[
         {
             "type": "string",
             "title": "Workflow ID",
-            "description": "Tracecat workflow UUID or short workflow ID.",
+            "description": "AutoSecOps workflow UUID or short workflow ID.",
         }
     ),
 ]
@@ -1601,7 +1601,7 @@ def _get_context_transport(ctx: Context | None) -> str:
 
 
 def _require_remote_mcp_context(ctx: Context | None, *, tool_name: str) -> None:
-    """Require the tool to be called over Tracecat's remote MCP transport."""
+    """Require the tool to be called over AutoSecOps's remote MCP transport."""
     if ctx is None:
         raise ToolError(f"{tool_name} requires MCP context")
     if _get_context_transport(ctx) != "streamable-http":
@@ -2431,14 +2431,14 @@ def _render_prompt_text(template: str) -> str:
 # ---------------------------------------------------------------------------
 
 _MCP_INSTRUCTIONS = """\
-Tracecat workflow management server.
+AutoSecOps workflow management server.
 
 ## MCP tools
 Use `list_workspaces` to discover available workspaces, then pass \
 `workspace_id` to workspace-scoped tools.
 
 ## MCP tools vs workflow actions
-MCP tools manage Tracecat objects directly. Workflow action names are used only \
+MCP tools manage AutoSecOps objects directly. Workflow action names are used only \
 inside workflow YAML under `definition.actions[*].action`.
 
 - MCP examples: `create_workflow`, `edit_workflow`, `create_case`, \
@@ -2596,15 +2596,16 @@ Read the `tracecat://platform/dsl-reference` resource for the full DSL specifica
 Read the `tracecat://platform/authoring-guide` resource for worked graph-shape, \
 loop, batching, condition-ladder, and agent-preset guidance.
 
-## Canonical upstream references
-Fetch these when you need detail; this prompt does not restate them.
-- https://docs.tracecat.com/automations/core-concepts/expressions
-- https://docs.tracecat.com/automations/core-concepts/functions
-- https://docs.tracecat.com/automations/core-concepts/secrets
-- https://docs.tracecat.com/automations/integrations/oauth-integrations
-- https://docs.tracecat.com/automations/triggers/case-triggers
-- https://docs.tracecat.com/automations/tables
-- https://docs.tracecat.com/cheatsheets/common-mistakes
+## Canonical references
+Read these MCP resources when you need detail; do not fetch external docs URLs.
+- `tracecat://platform/dsl-reference`: expressions, `FN.*` functions, \
+secrets, and case-trigger and form-trigger patterns
+- `tracecat://platform/authoring-guide`: graph shape, conditions and \
+transforms, loops and batching, and agent presets
+- `tracecat://platform/domain-reference`: case, table column, workflow, and \
+trigger enum values
+- `tracecat://workspaces/{workspace_id}/action-catalog`: available actions \
+and secret configuration status
 """
 
 _MCP_INSTRUCTIONS_RENDERED = _render_prompt_text(_MCP_INSTRUCTIONS)
@@ -2643,7 +2644,7 @@ mcp.add_middleware(
 # ---------------------------------------------------------------------------
 
 _DSL_REFERENCE_TEXT = """\
-# Tracecat Workflow DSL Reference
+# AutoSecOps Workflow DSL Reference
 
 This resource covers workflow YAML/DSL syntax and examples. For MCP arguments,
 use each tool schema and docstring.
@@ -3120,16 +3121,16 @@ layout:
 @mcp.resource(
     "tracecat://platform/dsl-reference",
     name="DSL Reference",
-    description="Complete Tracecat workflow DSL specification including YAML structure, expression syntax, built-in functions, and common patterns.",
+    description="Complete AutoSecOps workflow DSL specification including YAML structure, expression syntax, built-in functions, and common patterns.",
     mime_type="text/plain",
 )
 def get_dsl_reference() -> str:
-    """Return the full Tracecat DSL reference documentation."""
+    """Return the full AutoSecOps DSL reference documentation."""
     return _DSL_REFERENCE_TEXT
 
 
 _AUTHORING_GUIDE_TEXT = """\
-# Tracecat Workflow Authoring Guide
+# AutoSecOps Workflow Authoring Guide
 
 `tracecat://platform/dsl-reference` covers syntax. This resource covers the
 judgment calls the syntax leaves open: how to shape the graph, when to loop,
@@ -3290,7 +3291,7 @@ expression for an extra scheduled action and a serialization hop.
   steps need combined results.
 - Use `core.script.run_python` for data-heavy in-process work such as
   batching, joins, dedupe, sorting, grouping, chunked table writes, and batch
-  table uploads. Run-python scripts can import Tracecat modules for
+  table uploads. Run-python scripts can import AutoSecOps modules for
   platform-native helpers.
 - For bulk table writes, prefer one native `core.table.insert_rows` action when
   rows are already shaped (up to 1000 rows per batch). Do not scatter one insert
@@ -3331,7 +3332,7 @@ async def main(items: list[dict]) -> dict:
 ```
 
 Set the `core.script.run_python` action's `allow_network: true` when imported
-helpers call Tracecat APIs.
+helpers call AutoSecOps APIs.
 
 ## Agent preset authoring
 
@@ -3368,16 +3369,16 @@ that one ref only, and tell them the subagent will no longer pick up updates.
 @mcp.resource(
     "tracecat://platform/authoring-guide",
     name="Workflow Authoring Guide",
-    description="Judgment guidance for authoring Tracecat workflows: graph shape, condition and transform selection, loop and batching strategy, and agent preset authoring.",
+    description="Judgment guidance for authoring AutoSecOps workflows: graph shape, condition and transform selection, loop and batching strategy, and agent preset authoring.",
     mime_type="text/plain",
 )
 def get_authoring_guide() -> str:
-    """Return the Tracecat workflow authoring guide."""
+    """Return the AutoSecOps workflow authoring guide."""
     return _AUTHORING_GUIDE_TEXT
 
 
 _DOMAIN_REFERENCE_TEXT = """\
-# Tracecat Domain Reference
+# AutoSecOps Domain Reference
 
 Valid enum values for cases, tables, workflows, and triggers.
 
@@ -5082,7 +5083,7 @@ async def sync_custom_registry(
 
         async with get_async_session_context_manager() as session:
             repos_service = RegistryReposService(session, role)
-            # Tracecat's data model allows at most one custom registry per
+            # AutoSecOps's data model allows at most one custom registry per
             # org today: either a remote git repo (`git+ssh://...`) or, in
             # local-dev deployments, a `local` repo. The MCP tool targets the
             # remote one. Both built-in origins (platform default, local) are
@@ -6418,7 +6419,7 @@ async def _forms_service(
     try:
         _, role = await _resolve_workspace_role(workspace_id)
         if not is_feature_enabled(FeatureFlag.FORMS):
-            raise ToolError("Forms are not enabled on this Tracecat instance")
+            raise ToolError("Forms are not enabled on this AutoSecOps instance")
         async with FormsService.with_session(role=role) as svc:
             if not await svc.has_entitlement(Entitlement.FORMS):
                 raise EntitlementRequired(Entitlement.FORMS.value)

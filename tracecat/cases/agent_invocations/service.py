@@ -41,7 +41,7 @@ def _author_label(
     if comment.workflow_title is not None:
         return f"Workflow: {comment.workflow_title}"
     if user is None:
-        return "Tracecat"
+        return "AutoSecOps"
     display_name = " ".join(part for part in (user.first_name, user.last_name) if part)
     return display_name or user.email
 

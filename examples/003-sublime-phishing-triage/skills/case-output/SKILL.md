@@ -219,7 +219,7 @@ Read the assembled description, the card rows and the brief once more against th
 
 - All nine headings are present, spelled and ordered as above, each with a non-empty body, and no body starts with or contains a `##` heading.
 - `## What was flagged?` holds the findings table with each finding ID linked to the GuardDuty console. The description holds at least one GuardDuty console link.
-- When prior cases exist, the description holds at least one Tracecat case link (the workspace case URL, `/workspaces/<workspace-id>/cases/`).
+- When prior cases exist, the description holds at least one AutoSecOps case link (the workspace case URL, `/workspaces/<workspace-id>/cases/`).
 - No ISO timestamp anywhere in the description: no date written like `2026-09-17T03:47`. Every date and time reads like `17 Sep 2026, 03:47 UTC`, the Due by date included.
 - No identifier ending in `_logs`, and no table, tool, query or field name, anywhere before `## Appendix`, and none in the Appendix either.
 - None of these as whole words before `## Has this happened before?`: "likely benign", "probably", "looks like normal", "definitely", "proven", "playbook step", "check" or "step" followed by a number.

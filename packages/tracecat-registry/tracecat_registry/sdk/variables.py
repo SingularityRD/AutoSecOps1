@@ -1,4 +1,4 @@
-"""Variables SDK client for Tracecat API."""
+"""Variables SDK client for AutoSecOps API."""
 
 from __future__ import annotations
 

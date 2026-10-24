@@ -4,7 +4,7 @@ Covers the dedup contract for `_add_edge` and `_delete_edge`: success and
 error edges between the same source/target pair must coexist independently,
 and deleting one handle must not affect the other.
 
-Regression for https://github.com/TracecatHQ/tracecat/issues/2619.
+Regression for upstream issue 2619.
 """
 
 import uuid

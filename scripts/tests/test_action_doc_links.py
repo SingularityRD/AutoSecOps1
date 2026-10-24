@@ -14,6 +14,10 @@ from tracecat.registry.repository import Repository
 _ALLOWED_UNREACHABLE_STATUS_CODES = {401, 403, 429}
 _MAX_LINK_CHECK_ATTEMPTS = 3
 _TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
+# The AutoSecOps repository is private, so GitHub returns 404 for these docs
+# links to anonymous clients. They resolve for signed-in team members, so the
+# live reachability check skips them instead of reporting them as broken.
+_AUTH_REQUIRED_DOC_URL_PREFIXES = ("https://github.com/SingularityRD/AutoSecOps1/",)
 
 
 def _action_doc_urls() -> dict[str, tuple[str, ...]]:
@@ -53,12 +57,17 @@ def test_action_doc_urls_are_static_http_links() -> None:
     assert not malformed, _format_failures(malformed)
 
 
-def test_ai_actions_link_to_tracecat_docs() -> None:
+def test_ai_actions_link_to_autosecops_docs() -> None:
     repo = Repository()
     repo.init(include_base=True, include_templates=False)
 
-    assert repo.get("ai.agent").doc_url == "https://docs.tracecat.com/agents/ai-agent"
-    assert repo.get("ai.action").doc_url == "https://docs.tracecat.com/agents/ai-action"
+    for action_name, slug in (("ai.agent", "ai-agent"), ("ai.action", "ai-action")):
+        doc_url = repo.get(action_name).doc_url
+        assert doc_url == (
+            "https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/"
+            f"{slug}.mdx"
+        )
+        assert doc_url.startswith(_AUTH_REQUIRED_DOC_URL_PREFIXES)
 
 
 async def _request_url(client: httpx.AsyncClient, url: str) -> int:
@@ -113,9 +122,13 @@ def _is_broken_link_status(status_code: int | None) -> bool:
     reason="live action documentation link check is only enabled in CI",
 )
 def test_action_doc_urls_are_reachable() -> None:
-    url_actions = _action_doc_urls()
+    url_actions = {
+        url: actions
+        for url, actions in _action_doc_urls().items()
+        if not url.startswith(_AUTH_REQUIRED_DOC_URL_PREFIXES)
+    }
     timeout = httpx.Timeout(12.0, connect=5.0)
-    headers = {"User-Agent": "Tracecat-CI-Link-Checker/1.0"}
+    headers = {"User-Agent": "AutoSecOps-CI-Link-Checker/1.0"}
 
     async def check_all() -> dict[str, str]:
         semaphore = asyncio.Semaphore(8)

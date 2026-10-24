@@ -1,1 +1,1 @@
-"""Tracecat artifact package."""
+"""AutoSecOps artifact package."""

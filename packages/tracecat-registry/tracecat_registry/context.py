@@ -39,8 +39,8 @@ class RegistryContext:
         run_id: The workflow run UUID.
         wf_exec_id: The full workflow execution ID (for correlation).
         environment: The execution environment (e.g., "default").
-        api_url: The Tracecat API URL.
-        executor_url: The Tracecat executor service URL (sandbox execution).
+        api_url: The AutoSecOps API URL.
+        executor_url: The AutoSecOps executor service URL (sandbox execution).
         token: The executor JWT for authentication.
     """
 

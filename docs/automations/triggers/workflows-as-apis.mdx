@@ -1,6 +1,6 @@
 ---
 title: "Workflows-as-APIs"
-description: "Call Tracecat workflows as synchronous HTTP APIs: block on the /wait webhook endpoint, read the response envelope, and fetch large results by download link."
+description: "Call AutoSecOps workflows as synchronous HTTP APIs: block on the /wait webhook endpoint, read the response envelope, and fetch large results by download link."
 ---
 
 Use `POST /webhooks/{workflow_id}/{secret}/wait` to run a workflow and receive its `return` value in the response. The request blocks until the workflow finishes. The workflow must be published. The request body becomes `TRIGGER` exactly as with the default webhook.

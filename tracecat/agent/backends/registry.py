@@ -1,4 +1,4 @@
-"""Discover installed agent backends without replacing Tracecat modules."""
+"""Discover installed agent backends without replacing AutoSecOps modules."""
 
 import re
 from collections.abc import Mapping

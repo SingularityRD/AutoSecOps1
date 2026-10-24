@@ -1,4 +1,4 @@
-"""Tracecat authn credentials."""
+"""AutoSecOps authn credentials."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ internal_service_key_header_scheme = APIKeyHeader(
 )
 service_account_api_key_bearer_scheme = HTTPBearer(
     scheme_name="ServiceAccountApiKeyBearer",
-    description="Tracecat service account API key.",
+    description="AutoSecOps service account API key.",
     auto_error=False,
 )
 

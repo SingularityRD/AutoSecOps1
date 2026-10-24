@@ -1,1 +1,1 @@
-"""Runtime contracts shared across Tracecat execution boundaries."""
+"""Runtime contracts shared across AutoSecOps execution boundaries."""

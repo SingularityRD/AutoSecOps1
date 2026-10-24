@@ -1,7 +1,7 @@
 # Static no-op control for the workflow orchestration load test.
 #
 # Fixture setup copies this action once per configured branch and assigns each
-# copy a unique ref. The literal null input contains no Tracecat expression, and
+# copy a unique ref. The literal null input contains no AutoSecOps expression, and
 # every generated action is an independent root. This preserves the normal
 # workflow, Temporal, executor, sandbox, and Action Gateway lifecycle without a
 # database write or meaningful action work.

@@ -190,7 +190,7 @@ def create_expectation_model(
             # Use ... (ellipsis) to indicate a required field in Pydantic
             field_info_kwargs["default"] = ...
 
-        # Handle Tracecat component annotations
+        # Handle AutoSecOps component annotations
         # Check if the field type has component annotations
         # Get the default UI for the field
         non_null_field_type = type_drop_null(field_type)

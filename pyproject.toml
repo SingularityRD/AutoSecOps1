@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracecat"
-description = "The open source AI automation platform for security teams and agents."
+description = "The AI-native security automation platform for security teams and agents."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "AGPL-3.0"
-authors = [{ name = "Tracecat", email = "founders@tracecat.com" }]
+license = "LicenseRef-Proprietary"
+authors = [{ name = "SingularityRD" }]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
@@ -85,9 +85,9 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com/"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD/AutoSecOps1"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.uv.sources]
 tracecat = { workspace = true }
@@ -221,7 +221,7 @@ markers = [
     "live_secret: marks tests that require real environment-backed third-party secrets",
     "ollama: mark tests that require Ollama",
     "temporal: marks tests that require Temporal server",
-    "requires_api: marks tests that require a live Tracecat API endpoint",
+    "requires_api: marks tests that require a live AutoSecOps API endpoint",
     "regression: marks regression tests",
 ]
 

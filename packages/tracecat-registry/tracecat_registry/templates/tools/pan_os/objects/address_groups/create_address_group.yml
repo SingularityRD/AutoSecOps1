@@ -20,7 +20,7 @@ definition:
       default: null
     dynamic_filter:
       type: str | None
-      description: Tag filter for a dynamic address group, e.g. 'tracecat-block'.
+      description: Tag filter for a dynamic address group, e.g. 'autosecops-block'.
       default: null
     description:
       type: str | None

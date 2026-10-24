@@ -1,6 +1,6 @@
 ---
 title: "Actions"
-description: "Learn how Tracecat actions work and how to configure them: action names and types, the action toolbar, success and error paths, and control flow."
+description: "Learn how AutoSecOps actions work and how to configure them: action names and types, the action toolbar, success and error paths, and control flow."
 ---
 
 import ActionExpressionsSection from "/snippets/action-expressions-section.mdx";
@@ -19,12 +19,12 @@ You can view all available actions in the `/actions` page.
 
 ## Action names
 
-Every Tracecat action has a title, namespace, and name.
+Every AutoSecOps action has a title, namespace, and name.
 Actions IDs are defined as `<namespace>.<name>`. For example, `tools.slack.post_message` uses the `tools.slack` namespace and the `post_message` name.
 
 ## Action types
 
-Tracecat actions are defined in either Python UDFs (user-defined functions) or YAML templates (domain-specific language for actions).
+AutoSecOps actions are defined in either Python UDFs (user-defined functions) or YAML templates (domain-specific language for actions).
 
 See [Custom actions](/custom-actions/custom-registry) for more details.
 
@@ -64,7 +64,7 @@ You can configure how an action runs from the "Control flow" tab in the action p
 
 ### Mask output
 
-Use `mask_output` to hide an action's result in workflow execution views and execution API responses. Tracecat keeps the object and array shape, but replaces each individual value with `[REDACTED]`.
+Use `mask_output` to hide an action's result in workflow execution views and execution API responses. AutoSecOps keeps the object and array shape, but replaces each individual value with `[REDACTED]`.
 
 You can still copy JSONPath references from the displayed structure. `mask_output` only affects display; downstream actions can still use the original result with expressions such as `${{ ACTIONS.lookup_user.result.id }}`.
 
@@ -79,7 +79,7 @@ You can still copy JSONPath references from the displayed structure. `mask_outpu
 
 ### Run if
 
-Use `run_if` to execute an action only when a condition evaluates to a truthy value. If the condition is falsy, Tracecat skips the action.
+Use `run_if` to execute an action only when a condition evaluates to a truthy value. If the condition is falsy, AutoSecOps skips the action.
 
 <CodeGroup>
 ```yaml High severity only
@@ -112,7 +112,7 @@ Use `run_if` to execute an action only when a condition evaluates to a truthy va
 
 ### For each
 
-Use `for_each` to run the same action once per item in a collection. If `items` contains `N` values, Tracecat runs the action `N` times.
+Use `for_each` to run the same action once per item in a collection. If `items` contains `N` values, AutoSecOps runs the action `N` times.
 
 Inside the action inputs, reference the current item with `var.<name>`. For example, `for_each: ${{ for var.user in TRIGGER.users }}` runs the action `len(TRIGGER.users)` times, and each run reads the current item from `var.user`.
 
@@ -125,7 +125,7 @@ Inside the action inputs, reference the current item with `var.<name>`. For exam
     sender: no-reply@example.com
     recipients:
       - ${{ var.user.email }}
-    subject: "Tracecat notification"
+    subject: "AutoSecOps notification"
     body: "Hello ${{ var.user.name }}"
 ```
 
@@ -166,19 +166,19 @@ Use `start_delay` to wait a fixed number of seconds before an action starts.
 ### Timeout
 
 Use `timeout` to cap how long the action's function call may run in each attempt.
-Defaults to 300 seconds. Tracecat also caps each function call at `TRACECAT__EXECUTOR_CLIENT_TIMEOUT`, which defaults to 300 seconds (see [Environment variables](/self-hosting/environment-variables)).
+Defaults to 300 seconds. AutoSecOps also caps each function call at `TRACECAT__EXECUTOR_CLIENT_TIMEOUT`, which defaults to 300 seconds (see [Environment variables](/self-hosting/environment-variables)).
 
 The timeout covers only the function call. Platform work such as resolving secrets, loading the action's registry code, and starting the sandbox doesn't count toward it. An attempt that hits the timeout fails with `Action execution timed out after <timeout>s` and is retried if `max_attempts` allows it.
 
-A template action counts as one action: all its steps, including nested templates, share one timeout, which starts when the template starts running. Time between steps, such as starting each step's sandbox, counts toward it. When the timeout runs out, Tracecat stops the running step, skips the remaining steps, and fails the attempt. The `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` cap applies to each step's function call, not to the template as a whole.
+A template action counts as one action: all its steps, including nested templates, share one timeout, which starts when the template starts running. Time between steps, such as starting each step's sandbox, counts toward it. When the timeout runs out, AutoSecOps stops the running step, skips the remaining steps, and fails the attempt. The `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` cap applies to each step's function call, not to the template as a whole.
 
 For `core.script.run_python`, the shorter of `timeout` and the script's `timeout_seconds` applies. The `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` cap doesn't apply.
 
-Each `for_each` iteration gets the full timeout, but all iterations share one attempt that Tracecat caps at the timeout plus 600 seconds. A loop whose iterations run longer than that fails the attempt, and a retry runs every iteration again.
+Each `for_each` iteration gets the full timeout, but all iterations share one attempt that AutoSecOps caps at the timeout plus 600 seconds. A loop whose iterations run longer than that fails the attempt, and a retry runs every iteration again.
 
 For `ai.agent`, `ai.action`, and `ai.preset_agent`, `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours). Chat turns use this default.
 
-Tracecat clamps an explicit value between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds (see [Environment variables](/self-hosting/environment-variables)). Tracecat stores the clamped value instead of rejecting the action. A lower ceiling caps both the default and the minimum.
+AutoSecOps clamps an explicit value between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds (see [Environment variables](/self-hosting/environment-variables)). AutoSecOps stores the clamped value instead of rejecting the action. A lower ceiling caps both the default and the minimum.
 
 A pause for a tool approval does not count toward the timeout, and the resumed run gets the full timeout again.
 
@@ -201,7 +201,7 @@ A run that reaches the timeout fails with `Agent execution timed out after 2700s
 
 ### Max attempts
 
-Use `max_attempts` to control how many times Tracecat retries the action if it fails.
+Use `max_attempts` to control how many times AutoSecOps retries the action if it fails.
 Defaults to 1 attempt.
 
 ## FAQ

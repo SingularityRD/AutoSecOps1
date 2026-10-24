@@ -85,8 +85,8 @@ change is genuinely repo-wide.
 | `functions` | The FN.* inline expression functions |
 | `infra` | Databases, deployments, and cloud infrastructure |
 | `integrations` | Third-party vendor connectors and registry templates |
-| `logging` | Application logging and telemetry: how Tracecat runs |
-| `mcp` | Tracecat's own MCP server |
+| `logging` | Application logging and telemetry: how AutoSecOps runs |
+| `mcp` | AutoSecOps's own MCP server |
 | `rbac` | Roles and permissions |
 | `skills` | Agent skills |
 | `tables` | Workspace tables |
@@ -108,7 +108,7 @@ change is genuinely repo-wide.
   by redeploying the same image, it is `infra`.
 - `audit` is the security audit log: what a workspace records about who did
   what, for someone reviewing it later. `logging` is application telemetry, what
-  an operator reads to debug Tracecat itself. Audit work renders under Security,
+  an operator reads to debug AutoSecOps itself. Audit work renders under Security,
   telemetry under Observability.
 - Vendor names are not scopes. Write `feat(integrations): add Jira issue
   search` and name the vendor in the description. The autolabeler still
@@ -176,10 +176,10 @@ Removing something takes three PRs, usually across three releases:
   old title earned stay put, so `fix(workflows): ...` retitled to `ci: ...`
   keeps `engine` alongside the new `cicd` and lands in two sections. Remove the
   stale ones yourself:
-  `gh api --method DELETE repos/TracecatHQ/tracecat/issues/<pr>/labels/<label>`.
+  `gh api --method DELETE repos/SingularityRD/AutoSecOps1/issues/<pr>/labels/<label>`.
 - `gh pr edit` subcommands fail on this repo because of the Projects-classic
   deprecation. Apply labels with
-  `gh api repos/TracecatHQ/tracecat/issues/<pr-number>/labels -f "labels[]=<label>"`.
+  `gh api repos/SingularityRD/AutoSecOps1/issues/<pr-number>/labels -f "labels[]=<label>"`.
 
 ## Descriptions
 

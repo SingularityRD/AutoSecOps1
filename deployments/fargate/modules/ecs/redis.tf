@@ -55,7 +55,7 @@ resource "aws_elasticache_user_group" "redis" {
 # The replication group (single-node, TLS & KMS encryption are ON by default in Redis 7)
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "${var.name_prefix}-redis"
-  description          = "Tracecat Redis - password-protected app user"
+  description          = "AutoSecOps Redis - password-protected app user"
   engine               = "redis"
   engine_version       = "7.1"
   node_type            = var.redis_node_type # default cache.t3.micro
@@ -74,7 +74,7 @@ resource "aws_elasticache_replication_group" "redis" {
 # Store the complete Redis URL in Secrets Manager so ECS tasks can inject it.
 resource "aws_secretsmanager_secret" "redis_url" {
   name_prefix = "${var.name_prefix}-redis-url-"
-  description = "Tracecat Redis connection URL"
+  description = "AutoSecOps Redis connection URL"
 }
 
 resource "aws_secretsmanager_secret_version" "redis_url" {

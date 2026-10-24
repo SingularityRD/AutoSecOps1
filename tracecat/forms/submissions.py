@@ -222,7 +222,7 @@ class FormSubmissionsService(BaseWorkspaceService):
             )
 
         # Autofilled inputs are never taken from the caller, so a requester
-        # value is a verified Tracecat user or null. Sent, they are unknown keys.
+        # value is a verified AutoSecOps user or null. Sent, they are unknown keys.
         values = _typed_controllers(resolved.fields, inputs.expects, params.values)
         checked = check_values(resolved.blocks, values)
         answers = checked.values
@@ -334,7 +334,7 @@ class FormSubmissionsService(BaseWorkspaceService):
                 if outcome == "unknown":
                     raise FormError(
                         FormErrorCode.WORKFLOW_START_UNCONFIRMED,
-                        "Tracecat could not confirm that the request started. "
+                        "AutoSecOps could not confirm that the request started. "
                         "Check your submissions before trying again.",
                     ) from e
                 raise FormError(

@@ -29,7 +29,7 @@ def register(
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator factory to register a new UDF (User-Defined Function) with additional parameters.
 
-    This method creates a decorator that can be used to register a function as a UDF in the Tracecat system.
+    This method creates a decorator that can be used to register a function as a UDF in the AutoSecOps system.
     It handles the registration process, including metadata assignment, argument validation, and execution wrapping.
 
     Parameters

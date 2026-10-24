@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracecat_registry"
-description = "Tracecat actions and integrations registry."
+description = "AutoSecOps actions and integrations registry."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "AGPL-3.0"
-authors = [{ name = "Tracecat", email = "founders@tracecat.com" }]
+license = "LicenseRef-Proprietary"
+authors = [{ name = "SingularityRD" }]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
@@ -66,9 +66,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.hatch.version]
 path = "tracecat_registry/__init__.py"

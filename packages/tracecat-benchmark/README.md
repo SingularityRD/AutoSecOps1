@@ -1,4 +1,4 @@
-# Tracecat benchmarks
+# AutoSecOps benchmarks
 
 `tracecat-benchmark` is an internal uv workspace package. It owns the reusable
 runner, collector, fixtures, artifact models, matrix orchestration, and
@@ -167,7 +167,7 @@ use PostgreSQL directly, while the worker, executors, and auxiliary services
 connect to PgDog in transaction mode:
 
 ```text
-Tracecat SQLAlchemy pools → PgDog transaction pool → PostgreSQL
+AutoSecOps SQLAlchemy pools → PgDog transaction pool → PostgreSQL
 ```
 
 The checked-in profile gives PgDog 1 CPU / 512 MiB and partitions PostgreSQL
@@ -349,7 +349,7 @@ startup and measurement.
 The load-test Compose layer injects SQLAlchemy pool instrumentation from this
 package into the API, worker, and executor Python processes. Its bootstrap path
 and internal metrics port are fixed harness wiring, not supported application
-configuration or matrix tuning controls. Outside that Compose layer, Tracecat
+configuration or matrix tuning controls. Outside that Compose layer, AutoSecOps
 uses its normal SQLAlchemy pool implementation and exposes no pool-metrics
 endpoint.
 
@@ -381,9 +381,9 @@ Every completed matrix repeat prints a per-action/per-activity table. The
 `Completed/s` column is actual completion throughput over that repeat's
 measured interval; it is not Temporal's task-add or task-dispatch rate.
 `core.*` action names are decoded from `execute_action_activity` inputs, while
-Tracecat's internal Temporal activities remain grouped by their activity type.
+AutoSecOps's internal Temporal activities remain grouped by their activity type.
 If an action input cannot be decoded, its activity still appears, but it is
-clearly marked and excluded from the decoded Tracecat Actions/s aggregate.
+clearly marked and excluded from the decoded AutoSecOps Actions/s aggregate.
 
 The collector brackets the measured interval with worker and executor
 Prometheus snapshots, then waits until the recovery window has ended before
@@ -394,7 +394,7 @@ as open rather than counted in throughput or latency.
 
 The terminal summary reports:
 
-- completed Tracecat Actions/s and all Temporal Activities/s;
+- completed AutoSecOps Actions/s and all Temporal Activities/s;
 - completed, failed, timed-out, canceled, and retried counts by action and
   activity type;
 - p95 schedule-to-start, start-to-close, and schedule-to-close latency for
@@ -410,7 +410,7 @@ Two machine-readable artifacts retain the full distributions:
   recovery; workflow IDs are not retained in the artifact.
 - `temporal_sdk_metrics.json` contains measured-interval counter and histogram
   deltas from the Temporal SDK. Its schedule-to-start timing is retry-aware and
-  queue-level, so it cannot be attributed to an individual Tracecat action.
+  queue-level, so it cannot be attributed to an individual AutoSecOps action.
   Histogram percentiles are reported as bucket upper bounds. These deltas cover
   all work handled by the isolated worker processes during the interval;
   history metrics are the execution-scoped source.

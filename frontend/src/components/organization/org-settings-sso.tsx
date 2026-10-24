@@ -121,8 +121,8 @@ export function OrgSettingsSsoForm() {
               Domain guardrail required
             </AlertTitle>
             <AlertDescription>
-              Domain allowlist must be configured to enable SAML SSO. Contact a
-              Tracecat platform admin to set this up for your organization.
+              Domain allowlist must be configured to enable SAML SSO. Contact an
+              AutoSecOps platform admin to set this up for your organization.
             </AlertDescription>
           </Alert>
         )}

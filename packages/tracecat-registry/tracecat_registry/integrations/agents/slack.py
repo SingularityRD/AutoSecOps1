@@ -317,7 +317,7 @@ async def slackbot(
     event: Annotated[
         dict[str, Any] | None,
         Doc(
-            "Slack app mention event or interaction payload (e.g. for button clicks) passed in via Tracecat webhook TRIGGER. If None, the agent will send a message to the channel."
+            "Slack app mention event or interaction payload (e.g. for button clicks) passed in via AutoSecOps webhook TRIGGER. If None, the agent will send a message to the channel."
         ),
     ],
     prompt: Annotated[

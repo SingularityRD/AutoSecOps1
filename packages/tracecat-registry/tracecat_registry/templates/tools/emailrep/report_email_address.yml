@@ -24,6 +24,6 @@ definition:
         method: POST
         headers:
           Key: ${{ SECRETS.emailrep.EMAILREP_API_KEY }}
-          User-Agent: tracecat-emailrep-report
+          User-Agent: autosecops-emailrep-report
         payload: ${{ inputs.payload }}
   returns: ${{ steps.request.result.data }}

@@ -160,7 +160,7 @@ export function SkillLibraryView() {
           </EmptyMedia>
           <EmptyTitle>No library skills available</EmptyTitle>
           <EmptyDescription>
-            Library skills ship with Tracecat releases.
+            Library skills ship with AutoSecOps releases.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

@@ -9,7 +9,7 @@ from pathlib import Path
 from tracecat import config
 
 CGROUP_PATH_ENV = "TRACECAT__SANDBOX_CGROUP_PATH"
-# UID/GID of apiuser in the Tracecat container image.
+# UID/GID of apiuser in the AutoSecOps container image.
 APIUSER_ID = 1001
 
 

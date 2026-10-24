@@ -29,7 +29,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     def system(cls) -> Self:
         return cls(
             id=uuid.uuid4(),
-            email="system@tracecat.com",
+            email="system@autosecops.example",
             role=UserRole.ADMIN,
             first_name="System",
             last_name="",

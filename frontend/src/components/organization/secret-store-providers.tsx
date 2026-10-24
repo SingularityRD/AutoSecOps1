@@ -40,7 +40,7 @@ type ConfigFieldsProps = {
  */
 export type SecretStoreProviderEntry = {
   label: string
-  /** How Tracecat authenticates, shown in the provider picker. */
+  /** How AutoSecOps authenticates, shown in the provider picker. */
   method: string
   /** Column heading for `summary`, e.g. the store region. */
   locationLabel: string
@@ -77,7 +77,7 @@ export type SecretStoreProviderEntry = {
 
 /**
  * Builds the IAM trust policy an org admin attaches to the store role so the
- * Tracecat principal can assume it with the persisted external ID.
+ * AutoSecOps principal can assume it with the persisted external ID.
  */
 function buildStoreTrustPolicy(store: SecretStoreRead): string {
   return JSON.stringify(
@@ -87,7 +87,8 @@ function buildStoreTrustPolicy(store: SecretStoreRead): string {
         {
           Effect: "Allow",
           Principal: {
-            AWS: store.tracecat_aws_principal_arn ?? "<tracecat-principal-arn>",
+            AWS:
+              store.tracecat_aws_principal_arn ?? "<autosecops-principal-arn>",
           },
           Action: "sts:AssumeRole",
           Condition: {

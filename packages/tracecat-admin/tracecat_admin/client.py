@@ -1,4 +1,4 @@
-"""HTTP client for Tracecat Admin API."""
+"""HTTP client for AutoSecOps Admin API."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class AdminClientError(Exception):
 
 
 class AdminClient:
-    """Async HTTP client for Tracecat Admin API.
+    """Async HTTP client for AutoSecOps Admin API.
 
     Uses service key authentication via x-tracecat-service-key header.
     """

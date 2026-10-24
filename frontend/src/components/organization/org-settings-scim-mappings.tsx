@@ -73,7 +73,7 @@ function ErrorAlert({ title, children }: { title: string; children?: string }) {
 }
 
 /**
- * Map synced IdP groups onto Tracecat groups, one row per IdP group.
+ * Map synced IdP groups onto AutoSecOps groups, one row per IdP group.
  *
  * Every change is a local draft. Pending connections apply drafts on
  * activation; active ones apply them together after one review.
@@ -169,8 +169,9 @@ export function OrgSettingsScimMappings({
             </EmptyMedia>
             <EmptyTitle>Connect SCIM first</EmptyTitle>
             <EmptyDescription>
-              Generate a connection token above, then configure Tracecat in your
-              identity provider. Groups you push appear here and can be mapped.
+              Generate a connection token above, then configure AutoSecOps in
+              your identity provider. Groups you push appear here and can be
+              mapped.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -255,7 +256,7 @@ export function OrgSettingsScimMappings({
             </EmptyMedia>
             <EmptyTitle>No synced groups yet</EmptyTitle>
             <EmptyDescription>
-              Assign groups to the Tracecat application in your identity
+              Assign groups to the AutoSecOps application in your identity
               provider. They appear here once it pushes them.
             </EmptyDescription>
           </EmptyHeader>
@@ -268,7 +269,7 @@ export function OrgSettingsScimMappings({
                 <TableHead>IdP group</TableHead>
                 <TableHead className="w-24">Members</TableHead>
                 <TableHead className="w-8" />
-                <TableHead className="w-[320px]">Tracecat groups</TableHead>
+                <TableHead className="w-[320px]">AutoSecOps groups</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -352,7 +353,7 @@ function RowLine({
   )
 }
 
-/** One picker per IdP group: shows its Tracecat groups, toggles each one. */
+/** One picker per IdP group: shows its AutoSecOps groups, toggles each one. */
 function TargetPicker({
   group,
   targets,
@@ -378,7 +379,7 @@ function TargetPicker({
         <Button
           variant="outline"
           disabled={disabled}
-          aria-label={`Tracecat groups for ${group.display_name}`}
+          aria-label={`AutoSecOps groups for ${group.display_name}`}
           className={cn(
             "h-auto min-h-9 w-full items-start justify-between whitespace-normal px-3 py-[7px] font-normal shadow-none",
             names.length === 0 &&
@@ -407,7 +408,7 @@ function TargetPicker({
       >
         <Command>
           <CommandInput
-            placeholder="Search Tracecat groups"
+            placeholder="Search AutoSecOps groups"
             className="text-sm"
           />
           <CommandList>

@@ -18,12 +18,12 @@ resource "random_id" "agent_bucket_suffix" {
   byte_length = 4
 }
 
-# S3 bucket for Tracecat case attachments
+# S3 bucket for AutoSecOps case attachments
 resource "aws_s3_bucket" "attachments" {
   bucket = "${var.name_prefix}-attachments-${var.tracecat_app_env}-${random_id.attachments_bucket_suffix.hex}"
 
   tags = {
-    Name        = "Tracecat attachments storage"
+    Name        = "AutoSecOps attachments storage"
     Environment = var.tracecat_app_env
     Service     = "tracecat"
     Purpose     = "attachments"
@@ -143,12 +143,12 @@ resource "aws_s3_bucket_cors_configuration" "attachments" {
   }
 }
 
-# S3 bucket for Tracecat registry tarballs
+# S3 bucket for AutoSecOps registry tarballs
 resource "aws_s3_bucket" "registry" {
   bucket = "${var.name_prefix}-registry-${var.tracecat_app_env}-${random_id.registry_bucket_suffix.hex}"
 
   tags = {
-    Name        = "Tracecat registry storage"
+    Name        = "AutoSecOps registry storage"
     Environment = var.tracecat_app_env
     Service     = "tracecat"
     Purpose     = "registry"
@@ -267,12 +267,12 @@ resource "aws_s3_bucket_cors_configuration" "skills" {
   }
 }
 
-# S3 bucket for Tracecat workspace skills
+# S3 bucket for AutoSecOps workspace skills
 resource "aws_s3_bucket" "skills" {
   bucket = "${var.name_prefix}-skills-${var.tracecat_app_env}-${random_id.skills_bucket_suffix.hex}"
 
   tags = {
-    Name        = "Tracecat skills storage"
+    Name        = "AutoSecOps skills storage"
     Environment = var.tracecat_app_env
     Service     = "tracecat"
     Purpose     = "skills"
@@ -424,7 +424,7 @@ resource "aws_s3_bucket" "workflow" {
   bucket = "${var.name_prefix}-workflow-${var.tracecat_app_env}-${random_id.workflow_bucket_suffix.hex}"
 
   tags = {
-    Name        = "Tracecat workflow storage"
+    Name        = "AutoSecOps workflow storage"
     Environment = var.tracecat_app_env
     Service     = "tracecat"
     Purpose     = "workflow"
@@ -532,7 +532,7 @@ resource "aws_s3_bucket" "agent" {
   bucket = "${var.name_prefix}-agent-${var.tracecat_app_env}-${random_id.agent_bucket_suffix.hex}"
 
   tags = {
-    Name        = "Tracecat agent filesystem storage"
+    Name        = "AutoSecOps agent filesystem storage"
     Environment = var.tracecat_app_env
     Service     = "tracecat"
     Purpose     = "agent"

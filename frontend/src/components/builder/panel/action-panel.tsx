@@ -64,6 +64,7 @@ import { getIcon } from "@/components/icons"
 import { JSONSchemaTable } from "@/components/jsonschema-table"
 import { CenteredSpinner } from "@/components/loading/spinner"
 import { AlertNotification } from "@/components/notifications"
+import { getRegistryOriginLabel } from "@/components/registry/utils"
 import { TunnelSelect } from "@/components/tunnels/tunnel-select"
 import {
   Accordion,
@@ -137,6 +138,8 @@ import {
 import { useWorkflowBuilder } from "@/providers/builder"
 import { useWorkflow } from "@/providers/workflow"
 import { useWorkspaceId } from "@/providers/workspace-id"
+
+const NO_PLATFORM_ORIGINS: ReadonlySet<string> = new Set()
 
 const EMPTY_TEMPLATE_EXPRESSION_RE = /^\$\{\{\s*\}\}$/
 
@@ -910,7 +913,12 @@ function ActionPanelContent({
                           <TooltipTrigger asChild>
                             <div className="mt-2 flex items-center text-xs text-muted-foreground">
                               <Database className="mr-1 size-3 stroke-2" />
-                              <span>{registryAction.origin}</span>
+                              <span>
+                                {getRegistryOriginLabel({
+                                  origin: registryAction.origin,
+                                  platformOrigins: NO_PLATFORM_ORIGINS,
+                                })}
+                              </span>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="left" sideOffset={10}>

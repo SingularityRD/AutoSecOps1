@@ -287,14 +287,14 @@ class DSLWorkflow:
     def _initialize_run(self, args: DSLRunArgs) -> None:
         """Initialize fallible workflow runtime state inside the interceptor."""
         wf_info = workflow.info()
-        # Tracecat wf exec id == Temporal wf exec id
+        # AutoSecOps wf exec id == Temporal wf exec id
         self.wf_exec_id = wf_info.workflow_id
-        # Tracecat wf run id == Temporal wf run id
+        # AutoSecOps wf run id == Temporal wf run id
         self.wf_run_id = wf_info.run_id
         if (workspace_id := self.role.workspace_id) is None:
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
-                message="Tracecat could not initialize the workflow workspace",
+                message="AutoSecOps could not initialize the workflow workspace",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
             )
             raise_application_error_from_classification(classification)
@@ -672,7 +672,7 @@ class DSLWorkflow:
                 raise
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-                message="Tracecat could not complete workflow scheduling",
+                message="AutoSecOps could not complete workflow scheduling",
                 retry_disposition=RetryDisposition.NON_RETRYABLE,
                 cause=e,
             )
@@ -714,7 +714,7 @@ class DSLWorkflow:
                 if isinstance(e, TracecatExpressionError)
                 else RuntimeErrorClassification.platform(
                     kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
-                    message="Tracecat could not finalize the workflow return value",
+                    message="AutoSecOps could not finalize the workflow return value",
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                     cause=e,
                 )

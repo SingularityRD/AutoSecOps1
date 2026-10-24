@@ -203,7 +203,7 @@
               {
                 "key": "client_id",
                 "label": "OAuth client ID",
-                "description": "Client ID of an OAuth client created in Splunk Web under Settings > Authentication methods > Splunk OAuth Clients, with <your Tracecat URL>/integrations/callback as a redirect URI.",
+                "description": "Client ID of an OAuth client created in Splunk Web under Settings > Authentication methods > Splunk OAuth Clients, with <your AutoSecOps URL>/integrations/callback as a redirect URI.",
                 "required": true,
                 "secret": false,
                 "target": "oauth_client"
@@ -347,7 +347,7 @@
           {
             "key": "client_id",
             "label": "Google OAuth client ID",
-            "description": "OAuth 2.0 client (Web application) in the Google Cloud project where the Chronicle API and its MCP surface are enabled, with <your Tracecat URL>/integrations/callback as an authorized redirect URI. The authorizing user needs roles/mcp.toolUser.",
+            "description": "OAuth 2.0 client (Web application) in the Google Cloud project where the Chronicle API and its MCP surface are enabled, with <your AutoSecOps URL>/integrations/callback as an authorized redirect URI. The authorizing user needs roles/mcp.toolUser.",
             "required": true,
             "secret": false,
             "target": "oauth_client"
@@ -714,7 +714,7 @@
             "_research": {
               "confidence": "high",
               "docker_only": false,
-              "notes": "Official Jamf-hosted remote MCP server at https://developer.jamf.com/mcp, documented at developer.jamf.com/developer-guide/docs/mcp. Transport is streamable HTTP; first-party client configs (Cursor, Windsurf, Claude Desktop) are just {\"url\": \"https://developer.jamf.com/mcp\"} with no OAuth flow or API key, so auth_type=NONE. Verified 2026-08-26: the server exposes 6 tools — five read-only developer-docs/API-reference tools plus execute-request, which sends a caller-supplied HAR request (URL, method, headers, body) and is flagged destructive/open-world by the server. It is not the tenant-management toolset the retired mcp-hub option exposed, but with credentials supplied by the agent it can reach Jamf APIs; gate execute-request with tool approval where that matters. Tracecat does not map the server's destructiveHint/openWorldHint onto tool defaults.\n\nRETIRED (2026-08-26): the local mcp-hub stdio option was removed. Its git-pinned recipe fails under fresh dependency resolution — the server imports mcp.server.fastmcp, which no longer exists once its unconstrained mcp dependency resolves to 2.x — so cold installs die at startup. The option id remote-http is kept so clients holding a cached catalog keep connecting; Jamf tenant device management (Jamf Pro/Protect/Security Cloud inventory and actions) is not available through it.",
+              "notes": "Official Jamf-hosted remote MCP server at https://developer.jamf.com/mcp, documented at developer.jamf.com/developer-guide/docs/mcp. Transport is streamable HTTP; first-party client configs (Cursor, Windsurf, Claude Desktop) are just {\"url\": \"https://developer.jamf.com/mcp\"} with no OAuth flow or API key, so auth_type=NONE. Verified 2026-08-26: the server exposes 6 tools — five read-only developer-docs/API-reference tools plus execute-request, which sends a caller-supplied HAR request (URL, method, headers, body) and is flagged destructive/open-world by the server. It is not the tenant-management toolset the retired mcp-hub option exposed, but with credentials supplied by the agent it can reach Jamf APIs; gate execute-request with tool approval where that matters. AutoSecOps does not map the server's destructiveHint/openWorldHint onto tool defaults.\n\nRETIRED (2026-08-26): the local mcp-hub stdio option was removed. Its git-pinned recipe fails under fresh dependency resolution — the server imports mcp.server.fastmcp, which no longer exists once its unconstrained mcp dependency resolves to 2.x — so cold installs die at startup. The option id remote-http is kept so clients holding a cached catalog keep connecting; Jamf tenant device management (Jamf Pro/Protect/Security Cloud inventory and actions) is not available through it.",
               "sources": [
                 "https://developer.jamf.com/developer-guide/docs/mcp"
               ]
@@ -1217,7 +1217,7 @@
       "slug": "hashicorp-vault-mcp",
       "docs": "https://github.com/hashicorp/vault-mcp-server",
       "_research": {
-        "notes": "Coming soon. QA (2026-07-15): HashiCorp Vault MCP Server v0.2.0 at commit c67575dc4f98db37f187d62400bd70fe0211a60c was verified using HashiCorp's checksum-published Darwin arm64 binary. It completed MCP initialization and exposed 16 tools. The server works, but its official distributions are precompiled binaries, Docker, and `go install`; Tracecat's stdio catalog only permits npx, uvx, python, python3, or node launchers. HashiCorp also supports self-hosted streamable HTTP, but explicitly recommends local/internal deployment and provides no vendor-hosted endpoint.",
+        "notes": "Coming soon. QA (2026-07-15): HashiCorp Vault MCP Server v0.2.0 at commit c67575dc4f98db37f187d62400bd70fe0211a60c was verified using HashiCorp's checksum-published Darwin arm64 binary. It completed MCP initialization and exposed 16 tools. The server works, but its official distributions are precompiled binaries, Docker, and `go install`; AutoSecOps's stdio catalog only permits npx, uvx, python, python3, or node launchers. HashiCorp also supports self-hosted streamable HTTP, but explicitly recommends local/internal deployment and provides no vendor-hosted endpoint.",
         "sources": [
           "https://github.com/hashicorp/vault-mcp-server",
           "https://releases.hashicorp.com/vault-mcp-server/0.2.0/",
@@ -1442,7 +1442,7 @@
       "slug": "palo-alto-mcp",
       "docs": "https://docs-cortex.paloaltonetworks.com/r/Cortex-XSIAM/Cortex-XSIAM-Enterprise-Documentation/Cortex-MCP-server",
       "_research": {
-        "notes": "Coming soon. QA (2026-07-15): Palo Alto's official Cortex MCP server is obtainable only by downloading a tenant-specific archive from the Cortex console. The archive supports local Poetry/Python or Docker execution and stdio or streamable HTTP, but Palo Alto does not publish the Cortex server as public source, an npx package, or a PyPI package that Tracecat can install. The public PaloAltoNetworks/pan-mcp-relay project is a Prisma AIRS security proxy and is not the Cortex XSIAM/XDR operations server represented by this catalog entry.",
+        "notes": "Coming soon. QA (2026-07-15): Palo Alto's official Cortex MCP server is obtainable only by downloading a tenant-specific archive from the Cortex console. The archive supports local Poetry/Python or Docker execution and stdio or streamable HTTP, but Palo Alto does not publish the Cortex server as public source, an npx package, or a PyPI package that AutoSecOps can install. The public PaloAltoNetworks/pan-mcp-relay project is a Prisma AIRS security proxy and is not the Cortex XSIAM/XDR operations server represented by this catalog entry.",
         "sources": [
           "https://docs-cortex.paloaltonetworks.com/r/Cortex/Cortex-MCP-server/Install-the-Cortex-MCP-server",
           "https://docs-cortex.paloaltonetworks.com/r/Cortex/Cortex-MCP-server/Configure-the-MCP-client",
@@ -1597,7 +1597,7 @@
           {
             "key": "client_id",
             "label": "OAuth client ID",
-            "description": "Client ID of an OAuth inbound integration created in Machine Identity Console > Inbound integrations (OAuth - Authorization code grant, token format JWT) with <your Tracecat URL>/integrations/callback as the redirect URL. Leave \"Allow access only to APIs in selected scope\" cleared so Tracecat can list tools.",
+            "description": "Client ID of an OAuth inbound integration created in Machine Identity Console > Inbound integrations (OAuth - Authorization code grant, token format JWT) with <your AutoSecOps URL>/integrations/callback as the redirect URL. Leave \"Allow access only to APIs in selected scope\" cleared so AutoSecOps can list tools.",
             "required": true,
             "secret": false,
             "target": "oauth_client"
@@ -1614,7 +1614,7 @@
         "_research": {
           "confidence": "high",
           "docker_only": false,
-          "notes": "RETIRED (2026-08-26): the third-party `servicenow-mcp` 0.1.1 stdio recipe was removed. It fails cold installs (the package does not declare httpx, so the import fails), and the published PyPI artifact's entry point (mcp_server_table.main:start) does not match the repository the row cited, so its provenance could not be verified.\n\nServiceNow now ships a first-party, tenant-hosted MCP server created in MCP Server Console and served at https://<instance>.service-now.com/sncapps/mcp-server/mcp/<server-name>. Auth is OAuth 2.0 authorization code with PKCE and JWT tokens. Dynamic client registration is not supported, so an administrator creates an OAuth inbound integration (Machine Identity Console > Inbound integrations, grant type Authorization code, token format JWT) with Tracecat's /integrations/callback redirect URL and supplies the client ID and secret. Authorization and token endpoints are discovered from the instance's own OAuth metadata, so both are left null here.",
+          "notes": "RETIRED (2026-08-26): the third-party `servicenow-mcp` 0.1.1 stdio recipe was removed. It fails cold installs (the package does not declare httpx, so the import fails), and the published PyPI artifact's entry point (mcp_server_table.main:start) does not match the repository the row cited, so its provenance could not be verified.\n\nServiceNow now ships a first-party, tenant-hosted MCP server created in MCP Server Console and served at https://<instance>.service-now.com/sncapps/mcp-server/mcp/<server-name>. Auth is OAuth 2.0 authorization code with PKCE and JWT tokens. Dynamic client registration is not supported, so an administrator creates an OAuth inbound integration (Machine Identity Console > Inbound integrations, grant type Authorization code, token format JWT) with AutoSecOps's /integrations/callback redirect URL and supplies the client ID and secret. Authorization and token endpoints are discovered from the instance's own OAuth metadata, so both are left null here.",
           "sources": [
             "https://www.servicenow.com/docs/r/intelligent-experiences/enable-ai-experiences/connect-mcp-server-client.html",
             "https://www.servicenow.com/docs/r/zurich/intelligent-experiences/create-oauth-inbound-integration-mcp-client.html",
@@ -2046,7 +2046,7 @@
         "_research": {
           "confidence": "high",
           "docker_only": false,
-          "notes": "Vanta ships two official MCP options. The preferred catalog default is the remote HTTP MCP server documented by Vanta's Help Center: US https://mcp.vanta.com/mcp, EU https://mcp.eu.vanta.com/mcp, and AUS https://mcp.aus.vanta.com/mcp. The remote server uses interactive OAuth in the user's Vanta app; Vanta Admin role is required. OAuth endpoints are discovered by the MCP client, so explicit authorization/token endpoint overrides are null. US endpoint is used as the default; users in EU/AUS can configure the URI to the regional endpoint. Discovery metadata on mcp.vanta.com advertises endpoints on sibling hosts (authorize on app.vanta.com, token/register on api.vanta.com), so the US endpoints are pinned here to mark those hosts trusted; regional EU/AUS servers likely use their own sibling hosts and may need their own pins if connected. Vanta also ships an npm STDIO package @vantasdk/vanta-mcp-server, but it requires VANTA_ENV_FILE to point at a JSON credential file containing client_id/client_secret. Tracecat currently stores stdio env as encrypted key/value pairs, not materialized files, so the HTTP variant is the better platform default.",
+          "notes": "Vanta ships two official MCP options. The preferred catalog default is the remote HTTP MCP server documented by Vanta's Help Center: US https://mcp.vanta.com/mcp, EU https://mcp.eu.vanta.com/mcp, and AUS https://mcp.aus.vanta.com/mcp. The remote server uses interactive OAuth in the user's Vanta app; Vanta Admin role is required. OAuth endpoints are discovered by the MCP client, so explicit authorization/token endpoint overrides are null. US endpoint is used as the default; users in EU/AUS can configure the URI to the regional endpoint. Discovery metadata on mcp.vanta.com advertises endpoints on sibling hosts (authorize on app.vanta.com, token/register on api.vanta.com), so the US endpoints are pinned here to mark those hosts trusted; regional EU/AUS servers likely use their own sibling hosts and may need their own pins if connected. Vanta also ships an npm STDIO package @vantasdk/vanta-mcp-server, but it requires VANTA_ENV_FILE to point at a JSON credential file containing client_id/client_secret. AutoSecOps currently stores stdio env as encrypted key/value pairs, not materialized files, so the HTTP variant is the better platform default.",
           "sources": [
             "https://help.vanta.com/en/articles/14094979-connecting-to-vanta-mcp",
             "https://github.com/VantaInc/vanta-mcp-server/",
@@ -2330,7 +2330,7 @@
       "slug": "terraform-mcp",
       "docs": "https://github.com/hashicorp/terraform-mcp-server",
       "_research": {
-        "notes": "Coming soon: the official HashiCorp server is distributed as a Docker image or Go binary, but Tracecat's stdio runner does not currently permit Docker or Go executables.",
+        "notes": "Coming soon: the official HashiCorp server is distributed as a Docker image or Go binary, but AutoSecOps's stdio runner does not currently permit Docker or Go executables.",
         "sources": [
           "https://github.com/hashicorp/terraform-mcp-server",
           "https://developer.hashicorp.com/terraform/mcp-server"
@@ -2653,7 +2653,7 @@
           {
             "key": "client_id",
             "label": "OAuth client ID",
-            "description": "Optional. Client ID of a static OAuth client created in Admin Console > Users & permissions > Third-party access (OAuth) with <your Tracecat URL>/integrations/callback as a redirect URI. Leave blank to use dynamic client registration, which Glean restricts to a greenlist of vetted hosts by default.",
+            "description": "Optional. Client ID of a static OAuth client created in Admin Console > Users & permissions > Third-party access (OAuth) with <your AutoSecOps URL>/integrations/callback as a redirect URI. Leave blank to use dynamic client registration, which Glean restricts to a greenlist of vetted hosts by default.",
             "required": false,
             "secret": false,
             "target": "oauth_client"
@@ -2670,7 +2670,7 @@
         "_research": {
           "confidence": "high",
           "docker_only": false,
-          "notes": "Glean ships a first-party, tenant-hosted remote MCP server (streamable HTTP) served at https://<backend-domain>/mcp/<server-path>. The backend domain is typically <company>-be.glean.com but can be a custom domain, so the whole host is user-supplied rather than templated on an instance name. The built-in server path is `default`; admins can create additional servers with their own paths. Auth is OAuth 2.1 authorization code with PKCE against the Glean OAuth Authorization Server on the same backend host (authorize /oauth/authorize, token /oauth/token, DCR /oauth/register, metadata /.well-known/oauth-authorization-server), so both endpoints are discovered from the tenant and left null here. DCR is on by default but greenlisted to Glean-vetted host applications, so most tenants will need an admin to create a static OAuth client with Tracecat's /integrations/callback redirect URI; the client ID/secret are therefore optional credentials.",
+          "notes": "Glean ships a first-party, tenant-hosted remote MCP server (streamable HTTP) served at https://<backend-domain>/mcp/<server-path>. The backend domain is typically <company>-be.glean.com but can be a custom domain, so the whole host is user-supplied rather than templated on an instance name. The built-in server path is `default`; admins can create additional servers with their own paths. Auth is OAuth 2.1 authorization code with PKCE against the Glean OAuth Authorization Server on the same backend host (authorize /oauth/authorize, token /oauth/token, DCR /oauth/register, metadata /.well-known/oauth-authorization-server), so both endpoints are discovered from the tenant and left null here. DCR is on by default but greenlisted to Glean-vetted host applications, so most tenants will need an admin to create a static OAuth client with AutoSecOps's /integrations/callback redirect URI; the client ID/secret are therefore optional credentials.",
           "sources": [
             "https://docs.glean.com/administration/platform/mcp/about",
             "https://docs.glean.com/administration/platform/mcp/create-mcp-servers",

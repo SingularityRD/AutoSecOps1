@@ -131,10 +131,10 @@ class GitHubAppService(BaseOrgService):
         webhook_secret: SecretStr | None = None,
         client_id: str | None = None,
     ) -> GitHubAppConfig:
-        """Register existing GitHub App credentials that were created outside of Tracecat.
+        """Register existing GitHub App credentials that were created outside of AutoSecOps.
 
         Use this method when you have an existing GitHub App that was created manually
-        in GitHub's settings, and you want to store its credentials in Tracecat.
+        in GitHub's settings, and you want to store its credentials in AutoSecOps.
 
         Args:
             app_id: GitHub App ID

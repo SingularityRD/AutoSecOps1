@@ -8,7 +8,7 @@ import { chainError } from "@/lib/errors"
 
 export * from "@tanstack/react-query"
 
-/** Meta flags Tracecat's query and mutation error pipeline reads. */
+/** Meta flags AutoSecOps's query and mutation error pipeline reads. */
 interface TracecatQueryMeta extends Record<string, unknown> {
   /** Skip the global fallback toast; the caller renders the failure inline. */
   suppressErrorToast?: boolean
@@ -24,7 +24,7 @@ declare module "@tanstack/react-query" {
 }
 
 /**
- * Run a React Query mutation through Tracecat's shared error pipeline.
+ * Run a React Query mutation through AutoSecOps's shared error pipeline.
  *
  * This intentionally mirrors React Query's public signature so existing call
  * sites only need to change their import path while the facade remains in use.

@@ -3210,7 +3210,7 @@ class TestClaudeAgentRuntimeSessionLineFlushing:
             Path("/work/claude-project"),
             Path("/tmp/tracecat agent_session/claude.project"),
             Path("/tmp/tracecat_agent.session+prod@2026/claude project"),
-            Path("/tmp/Tracecat Agent (prod)/claude.project#session"),
+            Path("/tmp/AutoSecOps Agent (prod)/claude.project#session"),
             Path("/tmp/\u7528\u6237/tracecat/claude-project"),
             Path("/tmp/tracecat/emoji-\U0001f680/claude-project"),
             Path("/tmp/tracecat/combining-e\u0301/claude-project"),
@@ -3220,7 +3220,7 @@ class TestClaudeAgentRuntimeSessionLineFlushing:
         ],
     )
     def test_claude_project_dir_name_matches_sdk_sanitizer(self, cwd: Path) -> None:
-        """Tracecat must derive the same short-path project directory as Claude."""
+        """AutoSecOps must derive the same short-path project directory as Claude."""
         from claude_agent_sdk._internal.sessions import _sanitize_path
 
         assert _claude_project_dir_name(cwd) == _sanitize_path(str(cwd))

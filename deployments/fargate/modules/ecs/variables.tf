@@ -18,13 +18,13 @@ variable "name_prefix" {
 
 variable "iam_name_prefix" {
   type        = string
-  description = "Prefix for IAM role and policy names."
+  description = "Prefix for IAM role and policy names and ECS task definition families. Keep \"Tracecat\" on existing stacks; changing it replaces those resources. New installs may set it to \"AutoSecOps\"."
   default     = "Tracecat"
 }
 
 variable "core_db_identifier" {
   type        = string
-  description = "RDS DB instance identifier for the core Tracecat database."
+  description = "RDS DB instance identifier for the core AutoSecOps database."
   default     = "core-database"
 }
 
@@ -113,17 +113,17 @@ variable "enable_waf" {
 
 variable "domain_name" {
   type        = string
-  description = "The domain name to use for Tracecat"
+  description = "The domain name to use for AutoSecOps"
 }
 
 variable "hosted_zone_id" {
   type        = string
-  description = "The hosted zone ID associated with the Tracecat domain"
+  description = "The hosted zone ID associated with the AutoSecOps domain"
 }
 
 variable "acm_certificate_arn" {
   type        = string
-  description = "The ARN of the ACM certificate to use for Tracecat"
+  description = "The ARN of the ACM certificate to use for AutoSecOps"
 }
 
 variable "alb_ssl_policy" {
@@ -153,7 +153,7 @@ variable "auth_min_password_length" {
 
 variable "auth_superadmin_email" {
   type        = string
-  description = "Email address of the superadmin user for Tracecat authentication"
+  description = "Email address of the superadmin user for AutoSecOps authentication"
   default     = null
 }
 
@@ -176,13 +176,13 @@ variable "tracecat_image_tag" {
 
 variable "tracecat_migrations_image" {
   type        = string
-  description = "Docker image repository for the Tracecat migrations init container. Defaults to tracecat_image."
+  description = "Docker image repository for the AutoSecOps migrations init container. Defaults to tracecat_image."
   default     = null
 }
 
 variable "tracecat_migrations_image_tag" {
   type        = string
-  description = "Docker image tag for the Tracecat migrations init container. Defaults to tracecat_image_tag."
+  description = "Docker image tag for the AutoSecOps migrations init container. Defaults to tracecat_image_tag."
   default     = null
 }
 
@@ -208,7 +208,7 @@ variable "temporal_ui_image_tag" {
 
 variable "force_new_deployment" {
   type        = bool
-  description = "Force a new deployment of Tracecat services. Used to update services with new images."
+  description = "Force a new deployment of AutoSecOps services. Used to update services with new images."
   default     = false
 }
 
@@ -250,7 +250,7 @@ variable "temporal_namespace" {
 
 variable "tracecat_app_env" {
   type        = string
-  description = "The environment of the Tracecat application"
+  description = "The environment of the AutoSecOps application"
   default     = "production"
 }
 
@@ -274,7 +274,7 @@ variable "log_level" {
 
 variable "log_format" {
   type        = string
-  description = "Process-wide Tracecat log rendering format"
+  description = "Process-wide AutoSecOps log rendering format"
   default     = "console"
 
   validation {
@@ -288,10 +288,10 @@ variable "temporal_log_level" {
   default = "warn"
 }
 
-# NOTE: Modifying feature flags requires a Tracecat Enterprise license.
+# NOTE: Feature flags enable Enterprise Edition features.
 variable "feature_flags" {
   type        = string
-  description = "Comma separated list of Tracecat feature flags to enable. Requires Tracecat Enterprise license to modify."
+  description = "Comma separated list of AutoSecOps feature flags to enable."
   default     = ""
 }
 
@@ -423,17 +423,17 @@ variable "temporal_payload_encryption_cache_max_items" {
 
 variable "tracecat_db_encryption_key_arn" {
   type        = string
-  description = "The ARN of the secret containing the Tracecat database encryption key"
+  description = "The ARN of the secret containing the AutoSecOps database encryption key"
 }
 
 variable "tracecat_service_key_arn" {
   type        = string
-  description = "The ARN of the secret containing the Tracecat service key"
+  description = "The ARN of the secret containing the AutoSecOps service key"
 }
 
 variable "tracecat_signing_secret_arn" {
   type        = string
-  description = "The ARN of the secret containing the Tracecat signing secret"
+  description = "The ARN of the secret containing the AutoSecOps signing secret"
 }
 
 variable "temporal_payload_encryption_keyring_arn" {
@@ -523,7 +523,7 @@ variable "smtp_user" {
 
 variable "email_from" {
   type        = string
-  description = "The sender address for invitation emails, e.g. Tracecat <no-reply@example.com>"
+  description = "The sender address for invitation emails, e.g. AutoSecOps <no-reply@example.com>"
   default     = ""
 }
 
@@ -975,7 +975,7 @@ variable "mcp_startup_retry_delay_seconds" {
 
 variable "tracecat_db_instance_class" {
   type        = string
-  description = "Instance class for the Tracecat application RDS instance."
+  description = "Instance class for the AutoSecOps application RDS instance."
   default     = "db.t4g.medium"
 }
 
@@ -987,7 +987,7 @@ variable "temporal_db_instance_class" {
 
 variable "tracecat_db_allocated_storage" {
   type        = number
-  description = "Allocated storage in GiB for the Tracecat application RDS instance."
+  description = "Allocated storage in GiB for the AutoSecOps application RDS instance."
   default     = 20
 }
 

@@ -4,7 +4,7 @@ Samples PostgreSQL activity at >=1Hz and captures the surrounding evidence a
 run needs to be interpretable later: the resolved Compose model, effective
 container limits and OOM/restart state, effective PostgreSQL settings, service
 log diagnostic summaries, fixture row correctness and physical-table drift, and
-the Tracecat commit plus container image identifiers.
+the AutoSecOps commit plus container image identifiers.
 
 Normally coordinated by ``just cluster loadtest``. For harness development and
 diagnosis, run it alongside the load runner with the same artifact directory:
@@ -235,7 +235,7 @@ class ComposePublicUrls:
 
 
 class DbPoolLatencyMetrics(TypedDict):
-    """Cumulative latency distribution returned by Tracecat services."""
+    """Cumulative latency distribution returned by AutoSecOps services."""
 
     count: int
     sum_seconds: float
@@ -838,7 +838,7 @@ def _redact_compose_config(
 
 
 def _workspace_schema_name(workspace_id: str) -> str:
-    """Return the exact physical table schema for one Tracecat workspace."""
+    """Return the exact physical table schema for one AutoSecOps workspace."""
     return f"tables_{WorkspaceUUID.new(workspace_id).short()}"
 
 
@@ -907,7 +907,7 @@ class RunnerArtifactsCaptureError(RequiredArtifactCaptureError):
 
 
 class CommitCaptureError(RequiredArtifactCaptureError):
-    """The tested Tracecat commit could not be captured."""
+    """The tested AutoSecOps commit could not be captured."""
 
 
 def _claim_artifact_directory(artifact_dir: Path, run_id: str) -> Path:
@@ -3550,7 +3550,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--temporal-executor-task-queue",
         default=None,
         help=(
-            "Executor queue used to label Tracecat action histories. Required "
+            "Executor queue used to label AutoSecOps action histories. Required "
             "with --activity-metrics-handoff."
         ),
     )

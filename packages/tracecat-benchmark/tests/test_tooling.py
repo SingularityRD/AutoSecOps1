@@ -3152,7 +3152,7 @@ def test_workspace_bootstrap_prints_resolved_id(
     )
 
     assert exit_code == 0
-    assert calls == [("dev@tracecat.com", "password1234")]
+    assert calls == [("dev@autosecops.example", "password1234")]
     assert capsys.readouterr().out.strip() == ("00000000-0000-4000-8000-000000000001")
 
 
@@ -3199,7 +3199,7 @@ def test_fixture_reset_mode_runs_without_collector(
     )
 
     assert exit_code == 0
-    assert calls == [("dev@tracecat.com", "password1234")]
+    assert calls == [("dev@autosecops.example", "password1234")]
     assert capsys.readouterr().out.strip() == (
         "reset fixture table 'scatter_load_rows' in workspace "
         f"{workspace_fingerprint('00000000-0000-4000-8000-000000000001')}"

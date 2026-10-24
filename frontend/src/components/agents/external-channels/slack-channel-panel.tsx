@@ -78,7 +78,7 @@ export function buildSlackManifest({
   return {
     display_information: {
       name: appName,
-      description: "Tracecat external channel agent",
+      description: "AutoSecOps external channel agent",
       background_color: "#111827",
     },
     features: {
@@ -230,7 +230,7 @@ export function SlackChannelPanel({
       buildSlackManifest({
         endpointUrl,
         oauthRedirectUrl,
-        appName: preset?.name ?? "Tracecat",
+        appName: preset?.name ?? "AutoSecOps",
         includeEventSubscriptions: true,
       }),
       null,
@@ -535,7 +535,7 @@ export function SlackChannelPanel({
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      In Tracecat
+                      In AutoSecOps
                     </p>
                     <SetupListItem
                       index={1}
@@ -584,13 +584,13 @@ export function SlackChannelPanel({
                     <SetupListItem
                       index={3}
                       title="Install the app"
-                      description="Install to your workspace. You will add Event Subscriptions after connecting app credentials in Tracecat."
+                      description="Install to your workspace. You will add Event Subscriptions after connecting app credentials in AutoSecOps."
                     />
                   </div>
 
                   <div className="space-y-2">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Back in Tracecat
+                      Back in AutoSecOps
                     </p>
                     <SetupListItem
                       index={4}

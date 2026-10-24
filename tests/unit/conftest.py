@@ -40,7 +40,7 @@ def smtp_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "TRACECAT__SMTP_USER", "relay")
     monkeypatch.setattr(config, "TRACECAT__SMTP_PASSWORD", "secret")
     monkeypatch.setattr(
-        config, "TRACECAT__EMAIL_FROM", "Tracecat <no-reply@example.com>"
+        config, "TRACECAT__EMAIL_FROM", "AutoSecOps <no-reply@example.com>"
     )
 
 

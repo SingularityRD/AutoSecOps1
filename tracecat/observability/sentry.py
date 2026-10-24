@@ -1,4 +1,4 @@
-"""Privacy-bounded Sentry configuration for Tracecat services."""
+"""Privacy-bounded Sentry configuration for AutoSecOps services."""
 
 import os
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
@@ -592,7 +592,7 @@ def _sanitize_platform_event(event: Event, hint: Hint) -> Event | None:
     kind = tags.get(SentryTag.ERROR_KIND, "unclassified")
     return _sanitize_event(
         event,
-        safe_value=f"Tracecat platform failure ({kind})",
+        safe_value=f"AutoSecOps platform failure ({kind})",
         allowed_event_fields=_WORKER_ALLOWED_EVENT_FIELDS,
         allowed_tags=_WORKER_ALLOWED_TAGS,
         allowed_context_fields=_WORKER_ALLOWED_CONTEXT_FIELDS,
@@ -623,7 +623,7 @@ def _sanitize_api_event(
     event["tags"] = dict(tags)
     sanitized = _sanitize_event(
         event,
-        safe_value="Tracecat API failure",
+        safe_value="AutoSecOps API failure",
         allowed_event_fields=_API_ALLOWED_EVENT_FIELDS,
         allowed_tags=_API_ALLOWED_TAGS,
         allowed_context_fields=_API_ALLOWED_CONTEXT_FIELDS,

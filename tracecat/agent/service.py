@@ -1143,7 +1143,7 @@ class AgentManagementService(BaseOrgService):
 
     @contextlib.contextmanager
     def _credentials_sandbox(self, credentials: dict[str, str]) -> Iterator[None]:
-        """Expose provider credentials to both Tracecat and registry contexts."""
+        """Expose provider credentials to both AutoSecOps and registry contexts."""
         secrets_token = registry_secrets.set_context(credentials)
         try:
             with secrets_manager.env_sandbox(credentials):

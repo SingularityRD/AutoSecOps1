@@ -41,7 +41,7 @@ UNAUTHORIZED_EXCEPTION = HTTPException(
 
 scim_bearer_scheme = HTTPBearer(
     scheme_name="ScimConnectionBearer",
-    description="Tracecat SCIM connection token.",
+    description="AutoSecOps SCIM connection token.",
     auto_error=False,
 )
 

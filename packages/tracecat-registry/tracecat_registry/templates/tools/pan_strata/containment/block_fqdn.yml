@@ -16,7 +16,7 @@ definition:
       description: Fully qualified domain name to block.
     address_group:
       type: str
-      description: Static address group that a deny rule references, e.g. tracecat-blocklist.
+      description: Static address group that a deny rule references, e.g. autosecops-blocklist.
     folder:
       type: str | None
       description: Folder that contains the configuration, e.g. Shared or All Firewalls. Provide exactly one of folder, snippet, or device.

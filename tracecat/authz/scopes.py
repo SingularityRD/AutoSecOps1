@@ -1,4 +1,4 @@
-"""RBAC scope definitions for Tracecat.
+"""RBAC scope definitions for AutoSecOps.
 
 This module defines the default scope sets for preset roles.
 

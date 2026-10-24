@@ -250,7 +250,7 @@ function SkillManifestPreview({
 }) {
   const parsed = extractMarkdownFrontmatter(markdown)
   const source = skill.source
-  const sourceName = source?.group ?? source?.provider ?? "Tracecat"
+  const sourceName = source?.group ?? source?.provider ?? "AutoSecOps"
   return (
     <>
       {source ? (

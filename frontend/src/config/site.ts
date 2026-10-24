@@ -2,20 +2,19 @@ import { env } from "@/env.mjs"
 import type { SiteConfig } from "@/types"
 
 export const siteConfig: SiteConfig = {
-  name: "Tracecat",
-  author: "Tracecat",
+  name: "AutoSecOps",
+  author: "AutoSecOps",
   description:
-    "The open source AI automation platform for security teams and agents.",
+    "The AI-native security automation platform for security teams and agents.",
   keywords: ["Next.js", "React", "Tailwind CSS", "Radix UI", "shadcn/ui"],
   url: {
     base: env.NEXT_PUBLIC_APP_URL,
-    author: "Tracecat",
+    author: "AutoSecOps",
   },
   links: {
-    github: "https://github.com/TracecatHQ/tracecat",
-    discord: "https://discord.gg/n3GF4qxFU8",
-    docs: "https://docs.tracecat.com",
-    playbooks: "https://github.com/TracecatHQ/tracecat/tree/main/playbooks",
+    github: "https://github.com/SingularityRD/AutoSecOps1",
+    docs: "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs",
+    playbooks: "https://github.com/SingularityRD/AutoSecOps1",
   },
   ogImage: `${env.NEXT_PUBLIC_APP_URL}/og.jpg`,
 }

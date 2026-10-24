@@ -1,6 +1,6 @@
 """Credential resolution and request shaping for `tools.google_api`.
 
-Covers the Tracecat-owned credential boundary: which of the three configured
+Covers the AutoSecOps-owned credential boundary: which of the three configured
 sources `_get_google_credentials` picks, and how `call_api` shapes the request
 before it reaches `googleapiclient`.
 """

@@ -1,4 +1,4 @@
-/** Chat UI variants backed by the shared Tracecat chat stream. */
+/** Chat UI variants backed by the shared AutoSecOps chat stream. */
 export type ChatSurface = "regular" | "workspace-chat"
 
 /** Product capabilities enabled for a chat stream projection. */

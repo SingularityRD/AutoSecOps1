@@ -1,13 +1,13 @@
 ---
 title: Tunnels
-description: "Connect Tracecat to private and on-premises services, such as an internal Splunk, through Pangolin tunnels restricted to exact hosts and ports."
+description: "Connect AutoSecOps to private and on-premises services, such as an internal Splunk, through Pangolin tunnels restricted to exact hosts and ports."
 icon: lock
 keywords: ["tunnel", "Pangolin", "on-premises", "private network", "zero trust", "Newt", "proxy"]
 ---
 
 ## Overview
 
-A tunnel lets actions in one workspace reach hosts on a private network without opening inbound firewall ports. Tracecat uses [Pangolin](https://docs.pangolin.net):
+A tunnel lets actions in one workspace reach hosts on a private network without opening inbound firewall ports. AutoSecOps uses [Pangolin](https://docs.pangolin.net):
 
 - A site connector (Newt) runs inside your network and opens an outbound tunnel to the Pangolin server.
 - Pangolin grants the tunnel's machine client access to each allowed target, on its listed TCP ports only. UDP and ICMP are off.
@@ -21,17 +21,17 @@ Actions use a tunnel when you select it on the action or as the workflow's defau
 
 - The `tunnels` Enterprise entitlement.
 - `tunnel:read` to list tunnels and check status, and `tunnel:create`, `tunnel:update`, or `tunnel:delete` to manage them. Workspace admins and organization owners and admins hold all four; workspace viewers hold `tunnel:read`.
-- A Pangolin server: Pangolin Cloud for Tracecat Cloud, or your own Pangolin deployment for self-hosted Tracecat. See [Configure Pangolin for self-hosted Tracecat](#configure-pangolin-for-self-hosted-tracecat).
+- A Pangolin server: Pangolin Cloud or your own Pangolin deployment. See [Configure Pangolin for self-hosted AutoSecOps](#configure-pangolin-for-self-hosted-autosecops).
 
 ## Set up a tunnel from start to finish
 
-This guide takes you from nothing to a workflow that calls an internal URL, using an on-premises Splunk at `https://splunk.internal:8089` as the example. On Tracecat Cloud you only run the site connector inside your network; Tracecat runs the gateway.
+This guide takes you from nothing to a workflow that calls an internal URL, using an on-premises Splunk at `https://splunk.internal:8089` as the example.
 
 ### Before you start
 
 - The `tunnels` entitlement and the `tunnel:create` scope in the workspace.
 - The internal hostname or IP address and TCP port of each service, such as `splunk.internal:8089`.
-- A Linux host inside your network, with Docker or the ability to run a binary, that can resolve and reach every service. It needs outbound access to the Pangolin endpoint, `https://app.pangolin.net` on Tracecat Cloud, and no inbound ports. The connector uses TCP 443 and UDP 51820 to the Pangolin endpoint.
+- A Linux host inside your network, with Docker or the ability to run a binary, that can resolve and reach every service. It needs outbound access to the Pangolin endpoint, such as `https://app.pangolin.net` for Pangolin Cloud, and no inbound ports. The connector uses TCP 443 and UDP 51820 to the Pangolin endpoint.
 - The PEM-encoded CA certificate if an internal CA signs the service's certificate.
 
 <Steps>
@@ -43,7 +43,7 @@ This guide takes you from nothing to a workflow that calls an internal URL, usin
     </Frame>
   </Step>
   <Step title="Copy the site connector credentials">
-    Tracecat shows the site connector command once. It contains the site ID, the site secret, and the Pangolin endpoint. Copy it, and store the secret in your secrets manager.
+    AutoSecOps shows the site connector command once. It contains the site ID, the site secret, and the Pangolin endpoint. Copy it, and store the secret in your secrets manager.
 
     <Frame>
       <img src="/img/manage-platform/tunnels-install-command.png" alt="One-time site connector command" />
@@ -63,7 +63,7 @@ This guide takes you from nothing to a workflow that calls an internal URL, usin
     Without Docker, install the `newt` binary from the [Newt releases](https://github.com/fosrl/newt/releases) and run the copied command, `newt --id <site_id> --secret <site_secret> --endpoint https://app.pangolin.net`, under a service manager such as systemd so it restarts with the host.
   </Step>
   <Step title="Check the tunnel status">
-    Back on the **Tunnels** page, the tunnel shows **Site online** once the connector connects and **Gateway ready** once Tracecat's gateway for the tunnel is running. Both must be green before actions can use the tunnel.
+    Back on the **Tunnels** page, the tunnel shows **Site online** once the connector connects and **Gateway ready** once AutoSecOps's gateway for the tunnel is running. Both must be green before actions can use the tunnel.
 
     <Frame>
       <img src="/img/manage-platform/tunnels-status.png" alt="Tunnel status on the Tunnels page" />
@@ -149,7 +149,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
 
     `host` is an exact hostname or IP address; wildcards and CIDR ranges are rejected. Each target takes 1 to 64 unique ports, and a tunnel takes up to 100 targets.
 
-    Tracecat creates a Pangolin site, one machine client for the tunnel, and one private resource per target granted only to that client. If any step fails, Tracecat deletes what it created and returns `502`.
+    AutoSecOps creates a Pangolin site, one machine client for the tunnel, and one private resource per target granted only to that client. If any step fails, AutoSecOps deletes what it created and returns `502`.
   </Step>
   <Step title="Save the site credentials">
     The `201` response returns the site credentials once:
@@ -164,7 +164,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
     }
     ```
 
-    Store `site_secret` in your secrets manager. Tracecat does not return it again.
+    Store `site_secret` in your secrets manager. AutoSecOps does not return it again.
   </Step>
   <Step title="Install the site connector">
     Run the connector on a host inside your network that can reach every target:
@@ -191,7 +191,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
 
 ## Bring your own Pangolin
 
-If you already run Pangolin and manage the site, resources, and access yourself, create a machine client in Pangolin, grant it only the resources Tracecat needs, and register it:
+If you already run Pangolin and manage the site, resources, and access yourself, create a machine client in Pangolin, grant it only the resources AutoSecOps needs, and register it:
 
 ```bash
 curl -X POST "https://<tracecat-host>/api/tunnels?workspace_id=<workspace_id>" \
@@ -206,7 +206,7 @@ curl -X POST "https://<tracecat-host>/api/tunnels?workspace_id=<workspace_id>" \
   }'
 ```
 
-`endpoint` must use `https`. Tracecat encrypts `client_secret` and never returns it. Keep `allowed_targets` in step with the Pangolin resources; Tracecat enforces both, so a port must appear in each.
+`endpoint` must use `https`. AutoSecOps encrypts `client_secret` and never returns it. Keep `allowed_targets` in step with the Pangolin resources; AutoSecOps enforces both, so a port must appear in each.
 
 ## Route actions through a tunnel
 
@@ -223,7 +223,7 @@ actions:
       method: POST
 ```
 
-Tracecat checks that the tunnel exists in the workspace and that your organization has the `tunnels` entitlement when you save, publish, and run the workflow. At runtime, the executor issues a short-lived token for the tunnel, sets `HTTP_PROXY` and `HTTPS_PROXY` to the tunnel's gateway, and limits the action's network to that gateway. The action fails if the tunnel is disabled or its gateway isn't available; it never falls back to direct egress. The gateway's allowed targets decide which hosts the action may reach, including private addresses.
+AutoSecOps checks that the tunnel exists in the workspace and that your organization has the `tunnels` entitlement when you save, publish, and run the workflow. At runtime, the executor issues a short-lived token for the tunnel, sets `HTTP_PROXY` and `HTTPS_PROXY` to the tunnel's gateway, and limits the action's network to that gateway. The action fails if the tunnel is disabled or its gateway isn't available; it never falls back to direct egress. The gateway's allowed targets decide which hosts the action may reach, including private addresses.
 
 Subflows, scatter, gather, loops, AI agent actions, and `core.script.run_python` reject an explicit `tunnel` and ignore the workflow default.
 
@@ -251,11 +251,11 @@ Nothing else changes. Agents, tools, and MCP servers without a tunnel keep conne
     <Frame>
       <img src="/img/manage-platform/tunnels-mcp-server.png" alt="Use tunnel (optional) set to onprem in the Edit MCP server dialog" />
     </Frame>
-    If the server's host and port aren't an allowed target of the tunnel, Tracecat rejects the save.
+    If the server's host and port aren't an allowed target of the tunnel, AutoSecOps rejects the save.
   </Step>
   <Step title="Use the server in an agent">
     Add the server to an agent as usual. Every agent and chat that uses the server goes through the tunnel. That includes connection tests, tool discovery, OAuth sign-in and token refresh, and tool calls.
-    An OAuth server behind a tunnel must sign in through its own OAuth flow. Tracecat rejects reusing an OAuth connection from another integration, because that connection's token refresh doesn't go through the tunnel. MCP servers that share an OAuth connection must use the same tunnel.
+    An OAuth server behind a tunnel must sign in through its own OAuth flow. AutoSecOps rejects reusing an OAuth connection from another integration, because that connection's token refresh doesn't go through the tunnel. MCP servers that share an OAuth connection must use the same tunnel.
   </Step>
 </Steps>
 
@@ -310,7 +310,7 @@ Only the listed tools use a tunnel. An action's `tunnel` field and the workflow'
     On the **Tunnels** page, open the tunnel's menu and click **Delete**.
   </Step>
   <Step title="Remove the tunnel where it's used">
-    If the tunnel is still in use, Tracecat lists every MCP server, agent, and workflow that uses it, and **Delete** stays disabled. For each agent and workflow, the list also shows which tool or action uses the tunnel. Click each one to open it, then remove the tunnel or pick another one.
+    If the tunnel is still in use, AutoSecOps lists every MCP server, agent, and workflow that uses it, and **Delete** stays disabled. For each agent and workflow, the list also shows which tool or action uses the tunnel. Click each one to open it, then remove the tunnel or pick another one.
     <Frame>
       <img src="/img/manage-platform/tunnels-delete-in-use.png" alt="Delete dialog listing an MCP server, an agent, and a workflow that use the tunnel" />
     </Frame>
@@ -322,10 +322,10 @@ Only the listed tools use a tunnel. An action's `tunnel` field and the workflow'
 
 ## Run the tunnel gateway
 
-Each tunnel has one gateway that forwards traffic through Pangolin. Tracecat Cloud runs gateways for you. If you self-host, the Helm chart runs them on Kubernetes; see [Tunnels](/self-hosting/kubernetes#tunnels).
+Each tunnel has one gateway that forwards traffic through Pangolin. The Helm chart runs gateways on Kubernetes; see [Tunnels](/self-hosting/kubernetes#tunnels).
 
 <Note>
-  Tunnels require Kubernetes. On Docker Compose and AWS ECS Fargate, `TRACECAT__TUNNEL_GATEWAY_BACKEND` is `none`. Tracecat rejects creating a tunnel or issuing a gateway key there. Any action, agent tool, or MCP server set to use a tunnel fails instead of connecting directly.
+  Tunnels require Kubernetes. On Docker Compose and AWS ECS Fargate, `TRACECAT__TUNNEL_GATEWAY_BACKEND` is `none`. AutoSecOps rejects creating a tunnel or issuing a gateway key there. Any action, agent tool, or MCP server set to use a tunnel fails instead of connecting directly.
 </Note>
 
 ## Use TLS with private services
@@ -338,7 +338,7 @@ If an internal CA signs the certificate, add the CA to the workspace:
 
 <Steps>
   <Step title="Create a CA certificate credential">
-    In the workspace, open **Credentials** and select **Add credential**. Name the secret `ca_cert`, set **Type** to **CA certificate**, paste the PEM-encoded CA certificate, and select **Create secret**. Tracecat stores it as the `CA_CERTIFICATE` key.
+    In the workspace, open **Credentials** and select **Add credential**. Name the secret `ca_cert`, set **Type** to **CA certificate**, paste the PEM-encoded CA certificate, and select **Create secret**. AutoSecOps stores it as the `CA_CERTIFICATE` key.
 
     <Frame>
       <img src="/img/manage-platform/tunnels-ca-certificate.png" alt="Create a CA certificate credential" />
@@ -358,11 +358,11 @@ Plain `http://` requests are encrypted inside the Pangolin tunnel, but not betwe
 - List tunnels with `GET /tunnels` and read one with `GET /tunnels/{tunnel_id}`.
 - Rename, describe, or disable a tunnel with `PATCH /tunnels/{tunnel_id}`. Managed tunnels reject changes to `endpoint`, `client_id`, `client_secret`, and `allowed_targets`; create a new managed tunnel to change targets. Agents and workflows refer to a tunnel by name, so a rename returns `409` with code `tunnel_in_use` while any of them still use it.
 - See what uses a tunnel in the `referenced_by` field of `GET /tunnels/{tunnel_id}`. It lists MCP servers, agents, and workflows that use the tunnel, limited to those you can view. Older agent versions pinned by a workflow aren't listed; if one still uses a deleted tunnel, that tool call fails with a "Tunnel not found" error.
-- Delete a tunnel with `DELETE /tunnels/{tunnel_id}`. A tunnel that is still in use returns `409` with code `tunnel_in_use` and the same `referenced_by` list; remove it from those resources first. For managed tunnels, Tracecat deletes the Pangolin resources, machine client, and site first. If Pangolin cleanup fails, the request returns `502` and keeps the tunnel so you can retry. Stop the site connector afterwards.
+- Delete a tunnel with `DELETE /tunnels/{tunnel_id}`. A tunnel that is still in use returns `409` with code `tunnel_in_use` and the same `referenced_by` list; remove it from those resources first. For managed tunnels, AutoSecOps deletes the Pangolin resources, machine client, and site first. If Pangolin cleanup fails, the request returns `502` and keeps the tunnel so you can retry. Stop the site connector afterwards.
 
-## Configure Pangolin for self-hosted Tracecat
+## Configure Pangolin for self-hosted AutoSecOps
 
-Tracecat Cloud manages Pangolin for you, so this section applies only to self-hosted Tracecat. Managed tunnels provision Pangolin through its Integration API.
+Managed tunnels provision Pangolin through its Integration API.
 
 <Steps>
   <Step title="Enable the Integration API">
@@ -375,7 +375,7 @@ Tracecat Cloud manages Pangolin for you, so this section applies only to self-ho
     - Clients: pick client defaults, create, get, and delete.
     - Private resources: create, get, delete, and list resource clients.
   </Step>
-  <Step title="Set the Tracecat environment variables">
+  <Step title="Set the AutoSecOps environment variables">
     Set these on the `api` service and restart it:
 
     ```bash

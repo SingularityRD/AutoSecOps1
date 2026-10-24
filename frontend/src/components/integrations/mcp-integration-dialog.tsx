@@ -1603,7 +1603,7 @@ export function MCPIntegrationDialog({
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select OAuth flow">
                                         {field.value === "existing_integration"
-                                          ? "Tracecat OAuth integration"
+                                          ? "AutoSecOps OAuth integration"
                                           : field.value === "oauth_client"
                                             ? "OAuth client credentials"
                                             : "MCP OAuth discovery"}
@@ -1620,7 +1620,7 @@ export function MCPIntegrationDialog({
                                               OAuth client credentials
                                             </span>
                                             <span className="text-xs text-muted-foreground">
-                                              Create a Tracecat OAuth
+                                              Create an AutoSecOps OAuth
                                               integration from this client ID
                                               and secret.
                                             </span>
@@ -1643,11 +1643,11 @@ export function MCPIntegrationDialog({
                                       </SelectItem>
                                       <SelectItem
                                         value="existing_integration"
-                                        textValue="Tracecat OAuth integration"
+                                        textValue="AutoSecOps OAuth integration"
                                       >
                                         <div className="flex flex-col gap-1">
                                           <span className="text-sm font-medium">
-                                            Tracecat OAuth integration
+                                            AutoSecOps OAuth integration
                                           </span>
                                           <span className="text-xs text-muted-foreground">
                                             Use an OAuth integration with a

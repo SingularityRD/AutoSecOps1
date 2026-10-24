@@ -2,13 +2,13 @@
 
 - Status: Tooling implemented; experiment pending
 - Last updated: 2026-07-30
-- Target: An isolated local Tracecat cluster with a resource-constrained
+- Target: An isolated local AutoSecOps cluster with a resource-constrained
   PostgreSQL container
 
 ## Decision this test should support
 
 Establish a safe aggregate database-connection budget for high-fan-out
-scatter/gather workloads, and verify that Tracecat queues or rejects excess work
+scatter/gather workloads, and verify that AutoSecOps queues or rejects excess work
 in a bounded, recoverable way.
 
 The headline product target: a burst of up to 10,000 concurrent actions,
@@ -74,7 +74,7 @@ Current implementation references:
 
 ## Goals
 
-- Reproduce database pressure from realistic Tracecat scatter/gather workflows.
+- Reproduce database pressure from realistic AutoSecOps scatter/gather workflows.
 - Find the concurrency at which the current configuration first degrades or
   fails.
 - Separate database connection exhaustion from PostgreSQL CPU/memory pressure,
@@ -128,7 +128,7 @@ Run this only in a fresh numbered cluster owned by the load-test worktree.
 - Check `docker compose ls --filter name=tracecat` and `just cluster list`
   before starting.
 - Allocate a new Compose project, ports, PostgreSQL volume, Temporal database,
-  and synthetic Tracecat workspace.
+  and synthetic AutoSecOps workspace.
 - Do not alter, stop, or reuse an existing developer cluster.
 - Do not use `docker compose down -v`, `docker volume rm`, `just cluster rm`, or
   another volume-deleting command. Stop the test with `just cluster <n> down`
@@ -370,7 +370,7 @@ retained cluster without the matrix's temporary environment.
      and PostgreSQL logs, never raw log lines;
    - runner results, post-measurement per-execution compact failure diagnostics,
      and the exact scenario configuration;
-   - the Tracecat commit and container image identifiers.
+   - the AutoSecOps commit and container image identifiers.
 
    API, worker, executor, and PostgreSQL logs are required evidence. Optional
    service-log flags may add services to that set but must not replace any
@@ -421,7 +421,7 @@ retained cluster without the matrix's temporary environment.
    activity counter and histogram deltas, including retry-aware queue-level
    schedule-to-start timing. After recovery sampling ends, fetch the measured
    root and child workflow histories and aggregate completed Activities/s,
-   decoded Tracecat Actions/s, outcomes, retries, schedule-to-start,
+   decoded AutoSecOps Actions/s, outcomes, retries, schedule-to-start,
    start-to-close, and schedule-to-close latency by activity/action type.
    History reads must not compete with the measured workload. Raw workflow
    execution IDs stay in a mode-0600 temporary runner/collector handoff and are
@@ -479,7 +479,7 @@ retained cluster without the matrix's temporary environment.
    underlying runner and provisioner modes remain independently callable for
    component diagnosis, but they are not part of the normal operator workflow.
 
-   The provisioning DSN must use the same database role that creates Tracecat
+   The provisioning DSN must use the same database role that creates AutoSecOps
    workspace tables. It needs permission to create/grant the monitor role and
    create/grant access in that workspace schema; it need not be a superuser.
    The command creates the physical `tables_*` schema before the collector
@@ -685,16 +685,16 @@ Sample at least once per second:
 - transaction commit/rollback and deadlock deltas
 - connection-slot, statement-timeout, and resource errors
 
-Tracecat services label engine connections through the PostgreSQL
+AutoSecOps services label engine connections through the PostgreSQL
 `application_name` setting, so `pg_stat_activity` samples are attributable from
 the first run. The collector uses separate labels for its monitoring and
 readiness-probe connections.
 
-### Tracecat and Temporal
+### AutoSecOps and Temporal
 
 - SQLAlchemy pool timeouts and checkout latency, if instrumented
 - API 5xx responses and executor/action failures
-- completed Temporal Activities/s and decoded Tracecat Actions/s by type
+- completed Temporal Activities/s and decoded AutoSecOps Actions/s by type
 - activity completion, failure, timeout, cancellation, and retry counts
 - successful-activity p50, p95, and p99 schedule-to-start, start-to-close, and
   schedule-to-close latency

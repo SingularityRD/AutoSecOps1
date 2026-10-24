@@ -1,4 +1,4 @@
-"""Tracecat identifiers module.
+"""AutoSecOps identifiers module.
 
 
 Thinking

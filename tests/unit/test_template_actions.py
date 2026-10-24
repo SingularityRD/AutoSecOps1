@@ -479,13 +479,17 @@ def test_template_action_definition_validates_self_reference():
     "test_args,expected,should_raise",
     [
         (
-            {"user_id": "john@tracecat.com", "service_source": "custom", "limit": 99},
-            ["john@tracecat.com", "custom", 99],
+            {
+                "user_id": "john@autosecops.example",
+                "service_source": "custom",
+                "limit": 99,
+            },
+            ["john@autosecops.example", "custom", 99],
             False,
         ),
         (
-            {"user_id": "john@tracecat.com"},
-            ["john@tracecat.com", "elastic", 100],
+            {"user_id": "john@autosecops.example"},
+            ["john@autosecops.example", "elastic", 100],
             False,
         ),
         (
@@ -515,7 +519,7 @@ async def test_template_action_runs(
                 "namespace": "integrations.test",
                 "display_group": "Testing",
                 "doc_url": "https://example.com/docs",
-                "author": "Tracecat",
+                "author": "AutoSecOps",
                 "expects": {
                     # Required field
                     "user_id": {
@@ -656,7 +660,7 @@ async def test_template_action_with_enums(
             "namespace": "integrations.test",
             "display_group": "Testing",
             "doc_url": "https://example.com/docs",
-            "author": "Tracecat",
+            "author": "AutoSecOps",
             "expects": {
                 "status": {
                     "type": 'enum["critical", "warning", "info"]',

@@ -132,7 +132,7 @@ export function AppMenu({ workspaceId }: { workspaceId: string }) {
               size="default"
               className="data-[state=open]:bg-foreground/5 dark:data-[state=open]:bg-foreground/10 pl-0"
             >
-              <img src="/icon.png" alt="Tracecat" className="size-6 ml-0.5" />
+              <img src="/icon.png" alt="AutoSecOps" className="size-6 ml-0.5" />
               <span className="truncate font-semibold text-sidebar-foreground">
                 {activeWorkspace?.name || "Select workspace"}
               </span>

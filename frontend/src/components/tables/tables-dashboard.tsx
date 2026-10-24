@@ -155,7 +155,7 @@ export function TablesDashboard() {
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search tables..."
           displayCount={filteredTables.length}
-          countLabel="tables"
+          countLabel={filteredTables.length === 1 ? "table" : "tables"}
         />
 
         <div className="min-h-0 flex-1 overflow-auto">

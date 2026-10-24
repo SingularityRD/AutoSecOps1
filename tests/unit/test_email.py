@@ -54,7 +54,7 @@ def _set_smtp_config(
             "smtp.example.com",
             "relay",
             "secret",
-            "Tracecat <no-reply@example.com>",
+            "AutoSecOps <no-reply@example.com>",
             True,
         ),
     ],
@@ -82,7 +82,7 @@ def test_from_config_returns_configured_transport(
         host="smtp.example.com",
         user="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     transport = SMTPTransport.from_config()
@@ -92,7 +92,7 @@ def test_from_config_returns_configured_transport(
     assert transport.port == 587
     assert transport.username == "relay"
     assert transport.password == "secret"
-    assert transport.from_addr == "Tracecat <no-reply@example.com>"
+    assert transport.from_addr == "AutoSecOps <no-reply@example.com>"
 
 
 def _outbound(to: str = "invitee@example.com") -> OutboundEmail:
@@ -119,7 +119,7 @@ async def test_smtp_transport_send_builds_mime_and_selects_tls(
         port=port,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     await transport.send(_outbound())
@@ -138,7 +138,7 @@ async def test_smtp_transport_send_builds_mime_and_selects_tls(
         "start_tls": start_tls,
         "timeout": OPERATION_TIMEOUT_SECONDS,
     }
-    assert mime["From"] == "Tracecat <no-reply@example.com>"
+    assert mime["From"] == "AutoSecOps <no-reply@example.com>"
     assert mime["To"] == "invitee@example.com"
     assert mime["Subject"] == "Invitation"
 
@@ -157,7 +157,7 @@ async def test_smtp_transport_send_hides_host_and_recipient_on_failure(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     with pytest.raises(EmailDeliveryError) as exc_info:
@@ -189,7 +189,7 @@ async def test_partial_recipient_refusal_is_reported_as_failure(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     with pytest.raises(EmailDeliveryError) as exc_info:
@@ -222,7 +222,7 @@ async def test_send_succeeds_when_no_recipient_is_refused(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     await transport.send(_outbound())
@@ -255,7 +255,7 @@ async def test_smtp_transport_marks_pre_send_failures_retryable(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     with pytest.raises(EmailDeliveryError) as exc_info:
@@ -275,7 +275,7 @@ async def test_invalid_sender_header_is_retryable_and_never_connects(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>\r\nBcc: attacker@example.com",
+        from_addr="AutoSecOps <no-reply@example.com>\r\nBcc: attacker@example.com",
     )
 
     with pytest.raises(EmailDeliveryError) as exc_info:
@@ -312,7 +312,7 @@ async def test_smtp_transport_send_is_bounded_by_the_deadline(
         port=587,
         username="relay",
         password="secret",
-        from_addr="Tracecat <no-reply@example.com>",
+        from_addr="AutoSecOps <no-reply@example.com>",
     )
 
     with pytest.raises(EmailDeliveryError) as exc_info:

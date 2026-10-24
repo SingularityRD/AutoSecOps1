@@ -289,7 +289,7 @@ describe("validateForm / validateEnvMap", () => {
 
   it("rejects a reserved key", () => {
     expect(validateEnvMap({ OTEL_EXPORTER_OTLP_HEADERS: "x" })).toEqual([
-      "OTEL_EXPORTER_OTLP_HEADERS is managed by Tracecat.",
+      "OTEL_EXPORTER_OTLP_HEADERS is managed by AutoSecOps.",
     ])
   })
 
@@ -418,7 +418,7 @@ describe("validateForm / validateEnvMap", () => {
     "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
   ])("rejects relay-managed protocol key %s", (key) => {
     expect(validateEnvMap({ [key]: "http/protobuf" })).toEqual([
-      `${key} is managed by Tracecat.`,
+      `${key} is managed by AutoSecOps.`,
     ])
   })
 })

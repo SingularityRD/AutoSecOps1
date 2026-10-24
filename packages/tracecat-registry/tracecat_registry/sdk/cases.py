@@ -1,4 +1,4 @@
-"""Cases SDK client for Tracecat API."""
+"""Cases SDK client for AutoSecOps API."""
 
 from __future__ import annotations
 

@@ -3,7 +3,7 @@ title: "AI preset agent"
 description: "Save reusable agent configurations with instructions, tools, skills, and MCP integrations, then run them from workflows and workspace chat."
 ---
 
-<Badge icon="github" color="gray" size="lg" shape="pill">Open source</Badge>
+<Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge>
 
 Agent presets save a model, instructions, tools, skills, and MCP integrations under a slug.
 Open `Agents` from the workspace navigation to create one, then run it from a workflow with `ai.preset_agent`.
@@ -39,7 +39,7 @@ An MCP server is one checkbox for the whole server.
 
 The dialog counts the selected tools against the limit, such as `16 of 128 tools`.
 Registry actions from the preset and its skills count toward the limit. MCP tools do not.
-Tracecat rejects a save over the limit with a message such as `This agent has 160 tools; the limit is 128.`
+AutoSecOps rejects a save over the limit with a message such as `This agent has 160 tools; the limit is 128.`
 
 Each tool has an `Auto` or `Ask` toggle. See [Human-in-the-loop](/agents/human-in-the-loop#set-approvals-on-a-preset) to require approval before a tool runs.
 
@@ -97,7 +97,7 @@ test or an eval.
 
 ## Availability
 
-Open source includes presets, [`tool_approvals` and the agent inbox](/agents/human-in-the-loop) for reviewing tool calls before they run, [skills](/agents/skills), [secrets and variables](/agents/secrets-variables) in preset instructions, and the MCP catalog connectors.
+All plans include presets, [`tool_approvals` and the agent inbox](/agents/human-in-the-loop) for reviewing tool calls before they run, [skills](/agents/skills), [secrets and variables](/agents/secrets-variables) in preset instructions, and the MCP catalog connectors.
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 

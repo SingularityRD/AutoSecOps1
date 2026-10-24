@@ -8,7 +8,7 @@ test.describe("workspace first run", () => {
     await expectWorkspaceLanding(page)
   })
 
-  test("core OSS workspace navigation is visible", async ({ page }) => {
+  test("core workspace navigation is visible", async ({ page }) => {
     for (const item of [
       "Workflows",
       "Cases",

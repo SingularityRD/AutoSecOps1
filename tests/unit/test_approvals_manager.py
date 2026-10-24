@@ -408,7 +408,7 @@ class TestRecordApprovalRequestsActivity:
         svc_role: Role,
         mock_agent_session: AgentSession,
     ) -> None:
-        """Test recording approval args removes Tracecat-internal metadata."""
+        """Test recording approval args removes AutoSecOps-internal metadata."""
         approvals = [
             ToolApprovalPayload(
                 tool_call_id="call_123",

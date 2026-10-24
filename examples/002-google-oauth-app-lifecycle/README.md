@@ -1,6 +1,6 @@
 # 002: Google OAuth app lifecycle
 
-Socky is one agent preset that reviews third-party Google OAuth apps as they are connected. A workflow polls Workspace token activity, starts one Socky run per app, writes a Tracecat case, and posts a Slack card that asks the person's manager whether they need it. Security can revoke one person's token from the thread, with a recorded reason. Socky also answers questions in the card's thread.
+Socky is one agent preset that reviews third-party Google OAuth apps as they are connected. A workflow polls Workspace token activity, starts one Socky run per app, writes an AutoSecOps case, and posts a Slack card that asks the person's manager whether they need it. Security can revoke one person's token from the thread, with a recorded reason. Socky also answers questions in the card's thread.
 
 All values are placeholders. The skills in this folder were exported from a working workspace and sanitised: real people, Slack IDs, channel IDs, client IDs and hostnames were replaced.
 
@@ -17,12 +17,12 @@ This example can sit next to [001: Distributed alerting](../001-distributed-aler
 
 ## Prerequisites
 
-- A Tracecat workspace with agents, cases and tables.
+- An AutoSecOps workspace with agents, cases and tables.
 - A Slack workspace where you can create and install apps, or the Socky app from example 001.
 - Google Workspace audit logs in a log store you can query for `token` `request` and `authorize` events.
 - A Google service account with domain-wide delegation, and a super-admin address it impersonates. The only write it makes is `tokens.delete`.
 - An Exa API key. It is Socky's only web tool, used to research who publishes an app.
-- A model provider configured in Tracecat.
+- A model provider configured in AutoSecOps.
 
 ## Setup order
 
@@ -43,7 +43,7 @@ Same app as example 001. If that app is already installed, skip part 1.
 
 1. Go to https://api.slack.com/apps, choose "Create New App", then "From a manifest", and paste `slack-app-manifest.json`.
 2. Install the app to the workspace.
-3. Copy the Bot User OAuth Token. In Tracecat, create a secret named `slack` with the key `SLACK_BOT_TOKEN`.
+3. Copy the Bot User OAuth Token. In AutoSecOps, create a secret named `slack` with the key `SLACK_BOT_TOKEN`.
 4. Invite the app to the review channel: `/invite @socky`.
 
 ### Part 2: after the workflow is published
@@ -55,12 +55,12 @@ Slack posts every click and mention to one request URL. Two setups work:
 ```json
 "settings": {
   "event_subscriptions": {
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>?echo=true",
     "bot_events": ["app_mention", "entity_details_requested"]
   },
   "interactivity": {
     "is_enabled": true,
-    "request_url": "https://<your-tracecat-host>/api/webhooks/<workflow-id>/<webhook-secret>"
+    "request_url": "https://<your-autosecops-host>/api/webhooks/<workflow-id>/<webhook-secret>"
   }
 }
 ```
@@ -71,7 +71,7 @@ Save. This adds no scopes, so you do not reinstall the app.
 
 ### The Event Subscriptions URL must end in `?echo=true`
 
-This is the most common setup mistake. Slack verifies the URL by sending a `challenge` and expecting it back. With `echo=true` the Tracecat webhook returns the request body, challenge included, in its response. Without it, Slack reports the URL as unverified. The interactivity URL does not need it.
+This is the most common setup mistake. Slack verifies the URL by sending a `challenge` and expecting it back. With `echo=true` the AutoSecOps webhook returns the request body, challenge included, in its response. Without it, Slack reports the URL as unverified. The interactivity URL does not need it.
 
 ### Scopes
 
@@ -109,7 +109,7 @@ If you also run example 001, keep those skills on the same preset. The prompt be
 | Placeholder | Replace with |
 |---|---|
 | `#security-alerts`, `C0123456789` | Your review channel name and its channel ID |
-| `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` | Your Tracecat host and workspace ID. Leave `<case_id>`. |
+| `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` | Your AutoSecOps host and workspace ID. Leave `<case_id>`. |
 | `admin@example.com` | The Google Workspace super-admin the service account impersonates |
 | `<siem-query-url>`, `<workspace-token-logs>` | Your log store's query endpoint and the table that holds Workspace `token` events |
 | The people in `skills/org-chart` | Your own reporting lines, on real addresses |

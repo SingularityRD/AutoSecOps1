@@ -77,7 +77,7 @@ async def org(session: AsyncSession) -> Organization:
     session.add(
         User(
             id=uuid.uuid4(),
-            email=f"seed-{uuid.uuid4().hex[:8]}@tracecat.com",
+            email=f"seed-{uuid.uuid4().hex[:8]}@autosecops.example",
             hashed_password="x",
         )
     )
@@ -148,7 +148,7 @@ async def test_provision_creates_user_and_admits_them(
     active_connection: None,
 ) -> None:
     """A new email becomes an account that is present in the organization."""
-    email = f"new-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"new-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     provisioned = await service.provision_user(external_id="idp-1", email=email)
 
@@ -174,7 +174,7 @@ async def test_provision_links_existing_account_by_email(
     session: AsyncSession, org: Organization, service: ScimProvisioningService
 ) -> None:
     """An email that already has an account is linked, never duplicated."""
-    email = f"existing-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"existing-{uuid.uuid4().hex[:8]}@autosecops.example"
     existing = User(id=uuid.uuid4(), email=email, hashed_password="x")
     session.add(existing)
     await session.flush()
@@ -194,7 +194,7 @@ async def test_provision_links_case_insensitively(
     session: AsyncSession, org: Organization, service: ScimProvisioningService
 ) -> None:
     """The provider's casing does not create a second account."""
-    email = f"casing-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"casing-{uuid.uuid4().hex[:8]}@autosecops.example"
     existing = User(id=uuid.uuid4(), email=email, hashed_password="x")
     session.add(existing)
     await session.flush()
@@ -210,7 +210,7 @@ async def test_repeated_provision_is_idempotent(
     session: AsyncSession, org: Organization, service: ScimProvisioningService
 ) -> None:
     """A retried POST links rather than conflicting, and leaves one linkage."""
-    email = f"retry-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"retry-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     first = await service.provision_user(external_id="idp-4", email=email)
     second = await service.provision_user(external_id="idp-4", email=email)
@@ -236,7 +236,7 @@ async def test_inactive_user_is_linked_but_not_admitted(
     active_connection: None,
 ) -> None:
     """A user pushed inactive gets no role assignment, so no org presence."""
-    email = f"inactive-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"inactive-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     provisioned = await service.provision_user(
         external_id="idp-5", email=email, active=False
@@ -259,7 +259,7 @@ async def test_pending_invitation_is_revoked_on_provisioning(
     Accepting it afterwards would grant whatever the inviter chose, which can
     outrank what SCIM granted.
     """
-    email = f"invited-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"invited-{uuid.uuid4().hex[:8]}@autosecops.example"
     await seed_system_roles_for_org(session, org.id)
     admin_role_id = (
         await session.execute(
@@ -305,7 +305,7 @@ async def test_provision_grants_membership_without_a_role(
     active_connection: None,
 ) -> None:
     """Provisioning grants only membership, leaving the direct role slot free."""
-    email = f"member-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"member-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     provisioned = await service.provision_user(external_id="idp-7", email=email)
 
@@ -334,7 +334,7 @@ async def test_existing_higher_role_is_not_downgraded(
     active_connection: None,
 ) -> None:
     """An admin an operator promoted keeps that role when the provider re-pushes."""
-    email = f"admin-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"admin-{uuid.uuid4().hex[:8]}@autosecops.example"
     user = User(id=uuid.uuid4(), email=email, hashed_password="x")
     session.add(user)
     await session.flush()
@@ -376,7 +376,8 @@ async def test_existing_higher_role_is_not_downgraded(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "email", ["a@b@tracecat.com", "has space@tracecat.com", "@tracecat.com"]
+    "email",
+    ["a@b@autosecops.example", "has space@autosecops.example", "@autosecops.example"],
 )
 async def test_malformed_username_is_rejected(
     service: ScimProvisioningService, email: str
@@ -398,9 +399,9 @@ async def test_rename_revokes_an_invitation_to_the_new_address(
     """A renamed user cannot pick up an invitation that outranks the directory."""
     provisioned = await service.provision_user(
         external_id="idp-rename",
-        email=f"before-{uuid.uuid4().hex[:8]}@tracecat.com",
+        email=f"before-{uuid.uuid4().hex[:8]}@autosecops.example",
     )
-    renamed = f"after-{uuid.uuid4().hex[:8]}@tracecat.com"
+    renamed = f"after-{uuid.uuid4().hex[:8]}@autosecops.example"
     invitation = Invitation(
         id=uuid.uuid4(),
         organization_id=org.id,
@@ -465,7 +466,7 @@ async def test_pending_connection_links_without_admitting(
     pending_connection: None,
 ) -> None:
     """A connection awaiting review collects the directory but grants nothing."""
-    email = f"pending-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"pending-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     provisioned = await service.provision_user(external_id="idp-pending", email=email)
 
@@ -491,7 +492,7 @@ async def test_inactive_duplicate_removes_existing_admission(
     active_connection: None,
 ) -> None:
     first = await service.provision_user(
-        external_id="duplicate", email="duplicate-inactive@tracecat.com"
+        external_id="duplicate", email="duplicate-inactive@autosecops.example"
     )
     user_id = first.user.id
     assert await _is_member(session, user_id=user_id, organization_id=org.id)
@@ -521,7 +522,7 @@ async def test_reactivation_revokes_invitation_before_it_can_grant_roles(
     active_connection: None,
 ) -> None:
     provisioned = await service.provision_user(
-        external_id="reactivate", email="reactivate-invite@tracecat.com"
+        external_id="reactivate", email="reactivate-invite@autosecops.example"
     )
     user_id, email = provisioned.user.id, provisioned.user.email
     await seed_system_roles_for_org(session, org.id)
@@ -563,7 +564,7 @@ async def test_provisioning_does_not_apply_login_ip_policy(
     login_check = AsyncMock(side_effect=HTTPException(403, "IP denied"))
     monkeypatch.setattr(UserManager, "_enforce_login_ip_allowlist", login_check)
     provisioned = await service.provision_user(
-        external_id="ip-policy-user", email="ip-policy-user@tracecat.com"
+        external_id="ip-policy-user", email="ip-policy-user@autosecops.example"
     )
     assert provisioned.created
     login_check.assert_not_awaited()

@@ -20,7 +20,7 @@ definition:
         Example: "5f3a1b2c3d4e5f6a7b8c9d0e"
     base_url:
       type: str | None
-      description: Splunk base URL (e.g. https://localhost:8089 or https://tracecat.splunkcloud.com:8089).
+      description: Splunk base URL (e.g. https://localhost:8089 or https://example.splunkcloud.com:8089).
       default: null
     owner:
       type: str

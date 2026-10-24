@@ -485,7 +485,7 @@ async def create_saml_client(
         "service": {
             "sp": {
                 "name": "tracecat_saml_sp",
-                "description": "Tracecat SAML SSO Service Provider",
+                "description": "AutoSecOps SAML SSO Service Provider",
                 "endpoints": {
                     "assertion_consumer_service": [
                         (

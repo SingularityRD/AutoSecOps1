@@ -1,4 +1,4 @@
-"""Workflow storage abstractions for Tracecat."""
+"""Workflow storage abstractions for AutoSecOps."""
 
 from __future__ import annotations
 

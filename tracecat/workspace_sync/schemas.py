@@ -110,7 +110,7 @@ def workspace_manifest_from_json(content: str) -> WorkspaceManifest:
         raise ValueError(
             "This Git repository uses an outdated workspace format. "
             "Pull no longer supports versions/ repositories; run a new Push "
-            "from an updated Tracecat instance to reconcile it."
+            "from an updated AutoSecOps instance to reconcile it."
         )
     return WorkspaceManifest.model_validate(raw)
 
@@ -307,7 +307,7 @@ class AgentPresetResourceSpec(BaseModel):
     library_skills: list[str] = Field(
         default_factory=list,
         exclude_if=lambda value: not value,
-        description="Tracecat library skill slugs; must be installed on import.",
+        description="AutoSecOps library skill slugs; must be installed on import.",
     )
     retries: int = Field(
         default=3,
@@ -636,7 +636,7 @@ class SecretMetadataResourceSpec(BaseModel):
     )
     source: SecretSource | None = Field(
         default=None,
-        description="Where the values live. Omitted for secrets stored in Tracecat.",
+        description="Where the values live. Omitted for secrets stored in AutoSecOps.",
     )
     store: str | None = Field(
         default=None,

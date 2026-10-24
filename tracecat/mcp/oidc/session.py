@@ -1,6 +1,6 @@
 """Session and organization resolution for the internal OIDC issuer.
 
-Reuses the existing Tracecat session cookie and org resolution patterns
+Reuses the existing AutoSecOps session cookie and org resolution patterns
 without duplicating the underlying auth logic.
 """
 
@@ -63,7 +63,7 @@ async def resolve_authorize_session(
     request: Request,
     user: User | None,
 ) -> SessionResult | SessionNeedsAction:
-    """Resolve a Tracecat user and their active organization from the session.
+    """Resolve an AutoSecOps user and their active organization from the session.
 
     Args:
         request: The authorize request, used for the active-org cookie.

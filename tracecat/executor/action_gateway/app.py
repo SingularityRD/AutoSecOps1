@@ -231,7 +231,7 @@ def create_app(**kwargs) -> FastAPI:
         Depends(enforce_agent_script_gateway_access),
     ]
     app = FastAPI(
-        title="Tracecat Action Gateway",
+        title="AutoSecOps Action Gateway",
         version="0",
         default_response_class=ORJSONResponse,
         dependencies=dependencies,

@@ -25,11 +25,11 @@ import { cn } from "@/lib/utils"
 /** Search appears once the store list no longer fits at a glance. */
 const SEARCH_THRESHOLD = 6
 
-/** `null` means the secret is stored in Tracecat. */
+/** `null` means the secret is stored in AutoSecOps. */
 export type SecretSourceValue = string | null
 
 /**
- * Picks where a secret lives: Tracecat, or one specific authorized external
+ * Picks where a secret lives: AutoSecOps, or one specific authorized external
  * store. Stores are grouped under their provider, so one choice sets both.
  */
 export function SecretSourcePicker({
@@ -77,7 +77,7 @@ export function SecretSourcePicker({
             <Image src={TracecatIcon} alt="" className="size-4 rounded-sm" />
           )}
           <span className="min-w-0 flex-1 truncate text-left">
-            {selected ? selected.name : "Tracecat"}
+            {selected ? selected.name : "AutoSecOps"}
             {selected && (
               <span className="text-muted-foreground">
                 {" "}
@@ -104,7 +104,7 @@ export function SecretSourcePicker({
               className="gap-2"
             >
               <Image src={TracecatIcon} alt="" className="size-4 rounded-sm" />
-              <span className="flex-1">Tracecat</span>
+              <span className="flex-1">AutoSecOps</span>
               <CheckIcon
                 className={cn("size-4", value !== null && "invisible")}
               />

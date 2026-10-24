@@ -14,7 +14,7 @@ Security model:
 
 Key design:
 - Runtime executes a standalone shim script from the per-job /run/tracecat/job directory
-- Shim mode avoids Tracecat package mounts entirely
+- Shim mode avoids AutoSecOps package mounts entirely
 - Control socket at /run/tracecat/control.sock
 - LLM socket at /run/tracecat/llm.sock (proxied to LLM gateway)
 """
@@ -416,7 +416,7 @@ def build_agent_nsjail_config(
             "# Temporary filesystems",
             'mount { dst: "/tmp" fstype: "tmpfs" rw: true options: "size=256M" }',
             "",
-            "# Tracecat job mountpoint namespace",
+            "# AutoSecOps job mountpoint namespace",
             "# The tmpfs only backs files placed directly under this directory;",
             "# job data and its UV-managed state are separate host bind mounts.",
             f'mount {{ dst: "{AGENT_RUNTIME_DIR}" fstype: "tmpfs" rw: true options: "size=1M" }}',

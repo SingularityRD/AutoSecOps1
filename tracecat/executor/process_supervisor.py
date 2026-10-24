@@ -6,7 +6,7 @@ it. Closing the control pipe asks that monitor to kill and reap its complete
 child tree before the outer process exits.
 
 This module intentionally uses only the Python standard library so invoking it
-does not import the Tracecat application in an untrusted action process.
+does not import the AutoSecOps application in an untrusted action process.
 """
 
 from __future__ import annotations

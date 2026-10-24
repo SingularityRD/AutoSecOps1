@@ -122,7 +122,7 @@ def test_legacy_executor_unavailable_kind_deserializes_as_unclassified() -> None
             "schema": "tracecat.error.v1",
             "owner": "platform",
             "kind": "agent.executor.unavailable",
-            "message": "Tracecat agent executor is unavailable",
+            "message": "AutoSecOps agent executor is unavailable",
             "retry_disposition": "retryable",
         }
     )
@@ -514,14 +514,14 @@ async def test_llm_diagnostics_survive_temporal_payload_and_activity_wrapper() -
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_PREPARATION_FAILED,
             RetryDisposition.NON_RETRYABLE,
-            "Tracecat could not prepare the agent run",
+            "AutoSecOps could not prepare the agent run",
         ),
         (
             KeyError("tool policy"),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_PREPARATION_FAILED,
             RetryDisposition.NON_RETRYABLE,
-            "Tracecat could not prepare the agent run",
+            "AutoSecOps could not prepare the agent run",
         ),
     ],
 )
@@ -581,7 +581,7 @@ async def test_mcp_timeout_survives_temporal_failure_transport() -> None:
             ),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_PREPARATION_FAILED,
-            "Tracecat could not prepare the agent run",
+            "AutoSecOps could not prepare the agent run",
         ),
         (
             AgentToolResolutionError(
@@ -616,7 +616,7 @@ async def test_mcp_timeout_survives_temporal_failure_transport() -> None:
             AgentToolResolutionError(failed_actions=frozenset({"core.http_request"})),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_PREPARATION_FAILED,
-            "Tracecat could not prepare the agent run",
+            "AutoSecOps could not prepare the agent run",
         ),
         (
             AgentToolLimitExceededError(requested=101, limit=100),
@@ -628,7 +628,7 @@ async def test_mcp_timeout_survives_temporal_failure_transport() -> None:
             ValueError("raw registry detail"),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_PREPARATION_FAILED,
-            "Tracecat could not prepare the agent run",
+            "AutoSecOps could not prepare the agent run",
         ),
     ],
 )
@@ -670,4 +670,4 @@ def test_agent_preparation_error_is_platform_preparation_failure() -> None:
     assert failure.classification.owner is RuntimeErrorOwner.PLATFORM
     assert failure.classification.kind is RuntimeErrorKind.AGENT_PREPARATION_FAILED
     assert failure.classification.retry_disposition is RetryDisposition.NON_RETRYABLE
-    assert failure.message == "Tracecat could not prepare the agent run"
+    assert failure.message == "AutoSecOps could not prepare the agent run"

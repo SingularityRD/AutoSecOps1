@@ -68,7 +68,7 @@ async def get_github_app_manifest(
                 "3. Go to Developer settings > GitHub Apps > New GitHub App",
                 "4. Click 'Create GitHub App from manifest'",
                 "5. Paste the manifest JSON and click 'Create'",
-                "6. GitHub will redirect back to Tracecat to complete the setup automatically",
+                "6. GitHub will redirect back to AutoSecOps to complete the setup automatically",
             ],
         )
 

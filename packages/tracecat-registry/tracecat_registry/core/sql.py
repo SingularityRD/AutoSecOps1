@@ -39,7 +39,7 @@ class SQLConnectionValidationError(Exception):
 
 
 def _validate_connection_url(connection_url: URL) -> None:
-    """Validate that the connection URL does not point to Tracecat's internal database.
+    """Validate that the connection URL does not point to AutoSecOps's internal database.
 
     We only compare against the configured internal database endpoint/port and never
     surface credentials from the internal URI to the user.
@@ -51,7 +51,7 @@ def _validate_connection_url(connection_url: URL) -> None:
         connection_url: SQLAlchemy URL object
 
     Raises:
-        SQLConnectionValidationError: If connection attempts to access Tracecat's database
+        SQLConnectionValidationError: If connection attempts to access AutoSecOps's database
     """
     # Parse internal database URL
     try:
@@ -88,7 +88,7 @@ def _validate_connection_url(connection_url: URL) -> None:
             user_port = connection_url.port or 5432
             if user_port == internal_port:
                 raise SQLConnectionValidationError(
-                    "Cannot connect to Tracecat's internal database endpoint. Use an external database connection URL instead."
+                    "Cannot connect to AutoSecOps's internal database endpoint. Use an external database connection URL instead."
                 )
 
 
@@ -130,7 +130,7 @@ async def execute_query(
         str,
         Doc(
             "SQL query to execute. Use :param_name syntax for bound parameters. "
-            "Do NOT use Tracecat expressions in the query string.",
+            "Do NOT use AutoSecOps expressions in the query string.",
         ),
     ],
     bound_params: Annotated[

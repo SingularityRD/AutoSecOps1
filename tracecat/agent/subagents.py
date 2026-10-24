@@ -110,7 +110,7 @@ class ResolvedAgentsConfig(BaseModel):
 
 
 def validate_subagent_alias(alias: str) -> None:
-    """Reject aliases reserved by Claude or Tracecat runtime semantics."""
+    """Reject aliases reserved by Claude or AutoSecOps runtime semantics."""
     try:
         normalized_alias = _AGENT_ALIAS_ADAPTER.validate_python(alias)
     except ValidationError as err:

@@ -846,7 +846,7 @@ class SlackChannelHandler:
                     "thread_ts": context.thread_ts,
                     "text": (
                         "Received the approval decision, but failed to continue the run. "
-                        "Please retry from the Tracecat UI."
+                        "Please retry from the AutoSecOps UI."
                     ),
                 },
             )

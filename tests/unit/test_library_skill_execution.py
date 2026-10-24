@@ -43,10 +43,10 @@ def test_staging_preserves_upstream_content_and_frontmatter(
     normalized = markdown.decode().replace("\r\n", "\n")
     assert parse_skill_markdown(activated.decode()) == parse_skill_markdown(normalized)
     assert activated.decode().endswith(normalized.split("\n---\n", 1)[1])
-    assert activated.index(b"## Tracecat execution notes") < activated.index(
+    assert activated.index(b"## AutoSecOps execution notes") < activated.index(
         b"# Upstream procedure"
     )
-    assert activated.count(b"## Tracecat execution notes") == 1
+    assert activated.count(b"## AutoSecOps execution notes") == 1
     assert b"core.script.run_python" in activated
     assert b"Never bypass tool permissions or approvals" in activated
     assert skill.files == original

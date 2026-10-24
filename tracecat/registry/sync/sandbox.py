@@ -267,8 +267,8 @@ def main(
     validate=False,
     organization_id=None,
 ):
-    # Registry site-packages precede Tracecat's, so a conflicting dependency
-    # version can break Tracecat's own imports. Retrying cannot fix that.
+    # Registry site-packages precede AutoSecOps's, so a conflicting dependency
+    # version can break AutoSecOps's own imports. Retrying cannot fix that.
     try:
         from tracecat.registry.sync.entrypoint import (
             load_and_serialize_installed_actions,
@@ -279,7 +279,7 @@ def main(
             raise
         return {
             "error": (
-                "Registry dependencies conflict with Tracecat's runtime: "
+                "Registry dependencies conflict with AutoSecOps's runtime: "
                 f"{type(exc).__name__}: {exc}"
             ),
             "error_code": "import_failed",
@@ -297,7 +297,7 @@ def main(
         )
     except Exception as exc:
         error = SyncResultError.from_exception(exc)
-        # Import failures in Tracecat's own code stay generic so they page us.
+        # Import failures in AutoSecOps's own code stay generic so they page us.
         if (
             error.error_code is None
             and isinstance(exc, (ImportError, AttributeError))

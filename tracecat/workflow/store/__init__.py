@@ -1,1 +1,1 @@
-"""Workflow store functionality for Tracecat."""
+"""Workflow store functionality for AutoSecOps."""

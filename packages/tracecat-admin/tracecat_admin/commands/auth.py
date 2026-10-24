@@ -49,7 +49,7 @@ def login(
         ),
     ],
 ) -> None:
-    """Login to Tracecat."""
+    """Login to AutoSecOps."""
     config = get_config()
     try:
         with httpx.Client(base_url=config.api_url, timeout=30.0) as client:
@@ -84,7 +84,7 @@ def login(
 
 @app.command()
 def logout() -> None:
-    """Logout from Tracecat."""
+    """Logout from AutoSecOps."""
     clear_cookies()
     print_success("Logged out")
 

@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracecat-ee"
-description = "Enterprise Edition features for Tracecat"
+description = "Enterprise Edition features for AutoSecOps"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE.md" }
-authors = [{ name = "Tracecat", email = "founders@tracecat.com" }]
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE.md"]
+authors = [{ name = "SingularityRD" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3 :: Only",
@@ -23,9 +24,9 @@ dependencies = []
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com/"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [project.entry-points."tracecat.workflows.git_sync"]
 ee_impl = "tracecat_ee.store.git_sync:sync_repo_workflows"

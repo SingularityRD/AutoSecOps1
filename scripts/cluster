@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Tracecat multi-cluster management script
+# AutoSecOps multi-cluster management script
 #
 # Usage:
 #   ./cluster [cluster_num] [-p profile] [tenant mode] <command> [args...]
@@ -548,7 +548,7 @@ Commands:
                 Reuses existing cluster for this worktree if one is running.
                 Use --new/-n to force a new cluster instead.
                 Use --single-tenant or --multi-tenant to override tenant mode.
-                Seeds test@tracecat.com superuser, dev@tracecat.com tenant
+                Seeds test@autosecops.example superuser, dev@autosecops.example tenant
                 user, and all default tier entitlements by default for the dev
                 profile. Use --no-seed to skip.
                 Use --default-tier-entitlements all|none|a,b to override.
@@ -566,7 +566,7 @@ Commands:
   docs [args]   Start the Mintlify docs preview from docs/
   open          Open the cluster UI in the default browser
   ports         Show port mappings for the cluster
-  list          List all running Tracecat clusters
+  list          List all running AutoSecOps clusters
   compose-files Print the resolved compose files and project name, then exit
                 (dry run; does not touch Docker)
   nuke [opts]   Destroy cluster and optionally volumes/images
@@ -756,9 +756,9 @@ Cluster ${WORKTREE_ID}-${cluster_num} port mappings:
 EOF
 }
 
-# List all running Tracecat clusters
+# List all running AutoSecOps clusters
 list_clusters() {
-    echo "Running Tracecat clusters (worktree: ${WORKTREE_ID}):"
+    echo "Running AutoSecOps clusters (worktree: ${WORKTREE_ID}):"
     echo ""
 
     local found=false
@@ -1348,8 +1348,8 @@ if [[ "$COMMAND" == "up" || "$COMMAND" == "seed" ]] \
     && [[ ! -f "$ENV_FILE" ]] \
     && [[ -f "$ENV_SCRIPT" ]]; then
     echo "No .env file found. Running env.sh to create one with dev defaults..."
-    # Pass dev defaults: production=n, url=localhost, ssl=n, email=test@tracecat.com
-    (cd "$REPO_ROOT" && bash "$ENV_SCRIPT" <<< $'n\n\nn\ntest@tracecat.com')
+    # Pass dev defaults: production=n, url=localhost, ssl=n, email=test@autosecops.example
+    (cd "$REPO_ROOT" && bash "$ENV_SCRIPT" <<< $'n\n\nn\ntest@autosecops.example')
 
     # Auto-populate all feature flags for dev environment
     FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from tracecat.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
@@ -1479,9 +1479,9 @@ seed_dev_user() {
         return 1
     fi
 
-    local seed_email="${TRACECAT__DEV_USER_EMAIL:-dev@tracecat.com}"
+    local seed_email="${TRACECAT__DEV_USER_EMAIL:-dev@autosecops.example}"
     local seed_password="${TRACECAT__DEV_USER_PASSWORD:-password1234}"
-    local seed_superuser_email="${TRACECAT__DEV_SUPERUSER_EMAIL:-test@tracecat.com}"
+    local seed_superuser_email="${TRACECAT__DEV_SUPERUSER_EMAIL:-test@autosecops.example}"
     local seed_superuser_password="${TRACECAT__DEV_SUPERUSER_PASSWORD:-password1234}"
     local seed_org_role="${TRACECAT__DEV_ORG_ROLE:-organization-owner}"
     local seed_workspace_role="${TRACECAT__DEV_WORKSPACE_ROLE:-workspace-admin}"

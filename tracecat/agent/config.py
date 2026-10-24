@@ -9,7 +9,7 @@ from tracecat.agent.schemas import (
 )
 
 MODEL_CONFIGS = {
-    # Maps the provider model name to the Tracecat model config.
+    # Maps the provider model name to the AutoSecOps model config.
     "gpt-4o-mini": ModelConfig(
         name="gpt-4o-mini",
         provider="openai",
@@ -195,7 +195,7 @@ PROVIDER_CREDENTIAL_CONFIGS = {
                 key="AWS_ROLE_ARN",
                 label="Role ARN",
                 type="text",
-                description="Recommended. Tracecat assumes this role for Bedrock and injects the workspace-scoped external ID automatically.",
+                description="Recommended. AutoSecOps assumes this role for Bedrock and injects the workspace-scoped external ID automatically.",
                 required=False,
             ),
             ProviderCredentialField(
@@ -317,7 +317,7 @@ PROVIDER_CREDENTIAL_CONFIGS = {
                 key="CUSTOM_MODEL_PROVIDER_PASSTHROUGH",
                 label="Passthrough",
                 type="boolean",
-                description="When enabled, Tracecat bypasses the managed LLM gateway and forwards requests directly to the custom provider base URL.",
+                description="When enabled, AutoSecOps bypasses the managed LLM gateway and forwards requests directly to the custom provider base URL.",
                 required=False,
                 default="false",
             ),
@@ -331,7 +331,7 @@ PROVIDER_CREDENTIAL_CONFIGS = {
                 key="OLLAMA_BASE_URL",
                 label="Base URL",
                 type="text",
-                description="OpenAI-compatible base URL of your Ollama server, including /v1. Use a host reachable from the Tracecat services rather than localhost when running in containers.",
+                description="OpenAI-compatible base URL of your Ollama server, including /v1. Use a host reachable from the AutoSecOps services rather than localhost when running in containers.",
                 default=OLLAMA_DEFAULT_BASE_URL,
             ),
             ProviderCredentialField(

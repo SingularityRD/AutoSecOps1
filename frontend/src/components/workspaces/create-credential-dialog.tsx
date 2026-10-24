@@ -1439,7 +1439,7 @@ export function CreateCredentialDialog({
                                   <AlertDescription className="space-y-3 text-xs">
                                     <p>
                                       Set <code>AWS_ROLE_ARN</code> to the role
-                                      in the target AWS account. Tracecat
+                                      in the target AWS account. AutoSecOps
                                       assumes it with the principal and External
                                       ID below.{" "}
                                       <code>AWS_ROLE_SESSION_NAME</code> is not
@@ -1447,7 +1447,7 @@ export function CreateCredentialDialog({
                                     </p>
                                     <dl className="grid gap-2 md:grid-cols-[140px_1fr]">
                                       <dt className="text-muted-foreground">
-                                        Tracecat account
+                                        AutoSecOps account
                                       </dt>
                                       <dd className="break-all font-mono text-foreground">
                                         {

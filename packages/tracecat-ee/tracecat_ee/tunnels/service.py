@@ -181,7 +181,7 @@ class TunnelsService(BaseWorkspaceService):
             allowed_targets=serialize_targets(params.allowed_targets),
             enabled=params.enabled,
         )
-        # Tracecat runs the gateway, so it needs a key from the start.
+        # AutoSecOps runs the gateway, so it needs a key from the start.
         tunnel.encrypted_gateway_key = self._encrypt_secret(generate_gateway_key())
         self.session.add(tunnel)
         await self.session.commit()

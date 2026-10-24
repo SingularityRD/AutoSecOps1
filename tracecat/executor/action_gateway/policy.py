@@ -18,7 +18,7 @@ def _agent_script_gateway_disabled_error() -> HTTPException:
                 "code": "agent_script_gateway_disabled",
                 "message": (
                     "The Action Gateway is not available in agent-authored scripts. "
-                    "Write plain Python; use your tools to run Tracecat actions."
+                    "Write plain Python; use your tools to run AutoSecOps actions."
                 ),
                 "required_scopes": [],
                 "missing_scopes": [],

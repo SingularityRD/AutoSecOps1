@@ -122,7 +122,7 @@ export interface AgentPresetDocumentInput {
   subagents: AgentPresetSubagentEntry[]
   /** Attached skills with their version pins, sorted by name then version. */
   skills: AgentPresetSkillEntry[]
-  /** Attached Tracecat library skill slugs, deduplicated and sorted. */
+  /** Attached AutoSecOps library skill slugs, deduplicated and sorted. */
   librarySkills: string[]
   /** Retry budget. */
   retries: number

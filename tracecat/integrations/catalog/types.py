@@ -23,8 +23,8 @@ class PlatformMCPCatalogEntry:
     """Runtime platform MCP catalog row.
 
     Internal, already-validated data assembled from the trust-boundary
-    ``Raw*`` models. Display metadata is safe to ship in OSS. Connect recipes
-    are populated only from the private catalog overlay.
+    ``Raw*`` models. Display metadata is safe to ship in the base product.
+    Connect recipes are populated only from the private catalog overlay.
     """
 
     id: uuid.UUID

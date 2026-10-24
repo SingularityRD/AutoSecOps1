@@ -61,7 +61,7 @@ def render_invitation_email(
     )
     header_safe_name = "".join(char for char in organization_name if char.isprintable())
 
-    subject = f"Join {header_safe_name} on Tracecat"
+    subject = f"Join {header_safe_name} on AutoSecOps"
     body = (
         "Accept the invitation to join the organization and get started. "
         "If you don't have an account, you'll have to create one before "
@@ -77,8 +77,8 @@ def render_invitation_email(
       <tr>
         <td align="center">
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border:1px solid #e6e6ea;border-radius:10px;">
-            <tr><td style="padding:32px 32px 0 32px;"><img src="{logo_url}" width="36" height="36" alt="Tracecat" style="display:block;border-radius:9px;" /></td></tr>
-            <tr><td style="padding:24px 32px 0 32px;font-size:22px;font-weight:600;line-height:1.25;letter-spacing:-0.01em;color:#111114;">Join {safe_name} on Tracecat</td></tr>
+            <tr><td style="padding:32px 32px 0 32px;"><img src="{logo_url}" width="36" height="36" alt="AutoSecOps" style="display:block;border-radius:9px;" /></td></tr>
+            <tr><td style="padding:24px 32px 0 32px;font-size:22px;font-weight:600;line-height:1.25;letter-spacing:-0.01em;color:#111114;">Join {safe_name} on AutoSecOps</td></tr>
             <tr><td style="padding:12px 32px 0 32px;font-size:15px;line-height:1.55;color:#3c3c43;">{body}</td></tr>
             {grants_html}
             <tr><td style="padding:28px 32px 0 32px;">
@@ -95,7 +95,7 @@ def render_invitation_email(
   </body>
 </html>"""
     text = f"""\
-Join {organization_name} on Tracecat
+Join {organization_name} on AutoSecOps
 
 {body}
 

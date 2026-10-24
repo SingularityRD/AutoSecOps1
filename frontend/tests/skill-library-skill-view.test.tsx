@@ -91,12 +91,12 @@ describe("SkillLibrarySkillView", () => {
         ...SKILL,
         source: {
           group: "AWS",
-          provider: "Tracecat",
+          provider: "AutoSecOps",
           kind: "local",
           repo: null,
           commit: null,
           url: null,
-          license: "AGPL-3.0-only",
+          license: "LicenseRef-Proprietary",
         },
       },
       librarySkillIsLoading: false,
@@ -104,7 +104,7 @@ describe("SkillLibrarySkillView", () => {
     })
     render(<SkillLibrarySkillView slug="security-alert-triage" />)
     expect(screen.getByText("AWS")).toBeInTheDocument()
-    expect(screen.getByText("Maintained by Tracecat")).toBeInTheDocument()
+    expect(screen.getByText("Maintained by AutoSecOps")).toBeInTheDocument()
     expect(
       screen.queryByRole("link", { name: /elastic\/agent-skills/ })
     ).not.toBeInTheDocument()
@@ -116,19 +116,19 @@ describe("SkillLibrarySkillView", () => {
         ...SKILL,
         source: {
           group: null,
-          provider: "Tracecat",
+          provider: "AutoSecOps",
           kind: "local",
           repo: null,
           commit: null,
           url: null,
-          license: "AGPL-3.0-only",
+          license: "LicenseRef-Proprietary",
         },
       },
       librarySkillIsLoading: false,
       librarySkillError: null,
     })
     render(<SkillLibrarySkillView slug="security-alert-triage" />)
-    expect(screen.getByText("Tracecat")).toBeInTheDocument()
+    expect(screen.getByText("AutoSecOps")).toBeInTheDocument()
     expect(screen.queryByText(/maintained by/i)).not.toBeInTheDocument()
   })
 

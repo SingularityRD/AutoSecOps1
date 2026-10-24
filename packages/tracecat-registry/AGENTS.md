@@ -1,4 +1,4 @@
-# Tracecat registry agent notes
+# AutoSecOps registry agent notes
 
 Guidance for work under `packages/tracecat-registry/`, especially templates and integration wrappers.
 
@@ -35,7 +35,7 @@ do not break their public inputs or outputs without an explicitly planned migrat
   no per-endpoint address exists in the vendor's own inventory. If primary
   sources are incomplete or conflict, surface the gap during planning instead of
   guessing. See "Documentation links" below.
-- Strongly prefer YAML templates that call Tracecat's core HTTP actions for REST
+- Strongly prefer YAML templates that call AutoSecOps's core HTTP actions for REST
   APIs. If research finds a maintained official Python SDK, ask the user during
   planning whether to use it. If approved, add generic direct and paginated SDK UDFs
   plus YAML endpoint templates over those wrappers.
@@ -416,7 +416,7 @@ SDK-backed or not.
       raise AttributeError(f"Unknown SDK method: {service}.{method_name}")
   ```
 - Keep API semantics in the official SDK or provider. Wrapper-side validation is
-  limited to Tracecat-owned protocol boundaries such as bounding pagination and
+  limited to AutoSecOps-owned protocol boundaries such as bounding pagination and
   producing JSON-serializable results. Do not duplicate the provider's request
   validation, enums, required-field checks, URL validation, method allowlists, or
   error interpretation.
@@ -472,7 +472,7 @@ SDK-backed or not.
   builders or `FN.merge`. Neither is needed any more; do not reintroduce them for this purpose.
 - Pruning applies to `params` and `headers` only. `payload` and `form_data` are **not**
   pruned, because a JSON `null` is a meaningful value in a request body and the vendor —
-  not Tracecat — decides what it means. When an endpoint's optional body fields cannot be
+  not AutoSecOps — decides what it means. When an endpoint's optional body fields cannot be
   sent as `null`, keep a generic `payload` and say so in the description; do not add a step
   to strip them.
 - Null-pruning is a `core.http_request` behaviour and does not reach SDK-backed templates. SDK
@@ -488,14 +488,14 @@ SDK-backed or not.
 - Add live or sandbox provider tests only when a reliable environment exists and the
   user explicitly chooses that coverage during planning.
 - Generic registry and template validation remains required. Narrow unit tests are
-  allowed for Tracecat-owned platform security or protocol boundaries, such as
+  allowed for AutoSecOps-owned platform security or protocol boundaries, such as
   credential isolation, preventing host filesystem or subprocess access, blocking
   ambient credential discovery, and shared protocol machinery. Generic SDK wrapper
   dispatch, bounded pagination, waiter handling, and JSON serialization are
   wrapper-owned protocol boundaries: when fixing one, add a narrow regression test
   using the pinned SDK's real runtime type or contract rather than a mock with
   assumed behavior. Provider request or URL validation is not a platform-boundary
-  exception merely because Tracecat implements it.
+  exception merely because AutoSecOps implements it.
 
 ### Integration assets
 

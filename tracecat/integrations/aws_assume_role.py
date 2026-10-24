@@ -6,7 +6,7 @@ from tracecat import config
 
 
 def get_tracecat_aws_account_id() -> str:
-    """Return the AWS account ID used by Tracecat workloads."""
+    """Return the AWS account ID used by AutoSecOps workloads."""
     if account_id := config.TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID:
         return account_id
     raise ValueError("TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID is not configured")

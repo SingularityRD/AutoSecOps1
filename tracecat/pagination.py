@@ -1,4 +1,4 @@
-"""Cursor-based pagination utilities for Tracecat.
+"""Cursor-based pagination utilities for AutoSecOps.
 
 The primary API is :func:`paginate`. Callers provide a scoped SQLAlchemy
 ``Select``, an explicit total ordering, and :class:`PageParams`; the module owns

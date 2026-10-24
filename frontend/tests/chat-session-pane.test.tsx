@@ -323,7 +323,7 @@ describe("ChatSessionPane", () => {
       input: {
         args: {
           subagent_type: "case-management",
-          description: "List all Tracecat cases",
+          description: "List all AutoSecOps cases",
           prompt: "Please list all the cases we currently have.",
         },
       },
@@ -2123,7 +2123,7 @@ describe("ChatSessionPane", () => {
     )
   })
 
-  // Catalog connectors are open source, so the picker always offers the whole
+  // Catalog connectors are not entitlement-gated, so the picker always offers the whole
   // MCP list; narrowing it would hide connectors the run would accept.
   it("offers the whole MCP catalog", () => {
     mockUseVercelChat.mockReturnValue({

@@ -461,7 +461,7 @@ export function useAppInfo(_orgSlug?: string | null) {
         return await resp.json()
       } catch (_error) {
         throw new Error(
-          "Unable to fetch authentication settings. This could be a network issue with the Tracecat API."
+          "Unable to fetch authentication settings. This could be a network issue with the AutoSecOps API."
         )
       }
     },

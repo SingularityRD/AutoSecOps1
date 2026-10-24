@@ -3116,7 +3116,7 @@ export function AgentPresetSkillsPanel({
       { error: skillsError, title: "Unable to load workspace skills" },
       {
         error: librarySkillsError,
-        title: "Unable to load the Tracecat library",
+        title: "Unable to load the AutoSecOps library",
       },
     ].map(({ error, title }) =>
       error ? (
@@ -3222,7 +3222,7 @@ export function AgentPresetSkillsPanel({
             ))}
           </CommandGroup>
           {availableLibrarySkillsToAdd.length > 0 ? (
-            <CommandGroup heading="Tracecat library">
+            <CommandGroup heading="AutoSecOps library">
               {availableLibrarySkillsToAdd.map((skill) => (
                 <CommandItem
                   key={skill.slug}
@@ -3262,7 +3262,7 @@ function AgentPresetLibrarySkillRow({
   const source = skill?.source ?? null
   const group = source?.group
   const providerSlug = libraryProviderSlug(
-    group ?? source?.provider ?? "Tracecat"
+    group ?? source?.provider ?? "AutoSecOps"
   )
   const description = skill?.description?.trim()
   return (
@@ -3294,7 +3294,7 @@ function AgentPresetLibrarySkillRow({
           ) : null}
         </HoverCard>
         <span className="shrink-0 truncate text-xs text-muted-foreground">
-          {group ?? source?.provider ?? "Tracecat library"}
+          {group ?? source?.provider ?? "AutoSecOps library"}
         </span>
       </div>
       <Button

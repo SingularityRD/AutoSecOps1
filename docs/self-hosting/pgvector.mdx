@@ -1,17 +1,17 @@
 ---
 title: Set up pgvector
-description: Install pgvector for the Tracecat application database and resolve migration errors.
+description: Install pgvector for the AutoSecOps application database and resolve migration errors.
 ---
 
-Tracecat requires pgvector 0.8.0 or newer in the `public` schema of your application database, even when semantic search is disabled. The Temporal database does not need pgvector.
+AutoSecOps requires pgvector 0.8.0 or newer in the `public` schema of your application database, even when semantic search is disabled. The Temporal database does not need pgvector.
 
-There are two setup steps: install the extension files on the PostgreSQL server, then enable the extension in the application database. Tracecat's migration performs the second step automatically if its database role has permission.
+There are two setup steps: install the extension files on the PostgreSQL server, then enable the extension in the application database. AutoSecOps's migration performs the second step automatically if its database role has permission.
 
 ## Install the server files
 
 | Your deployment | What you need to do |
 | --- | --- |
-| Bundled Docker Compose database | The Tracecat PostgreSQL image includes pgvector. Run `docker compose up` as usual. |
+| Bundled Docker Compose database | The AutoSecOps PostgreSQL image includes pgvector. Run `docker compose up` as usual. |
 | Your own PostgreSQL server or custom image | Download and install pgvector on the database server using the instructions below. Match your PostgreSQL version, operating system, and CPU architecture. |
 | CloudNativePG on Kubernetes | Mount the CloudNativePG pgvector extension image and enable `vector` with a `Database` resource. See [CloudNativePG](/self-hosting/kubernetes#cloudnativepg). |
 | Managed PostgreSQL, including Amazon RDS | Choose an engine version that supplies pgvector 0.8.0 or newer. Use your provider's extension controls; you do not install operating-system packages yourself. |
@@ -29,7 +29,7 @@ When upgrading an existing database, keep a backup and preserve a compatible Pos
 
 ## Enable the extension
 
-Connect to the Tracecat application database and check what the server provides:
+Connect to the AutoSecOps application database and check what the server provides:
 
 ```sql
 SELECT name, default_version, installed_version
@@ -39,7 +39,7 @@ WHERE name = 'vector';
 
 If the query returns no rows, install the server files or select a managed engine that supports pgvector. A null `installed_version` means the files are available but the extension is not enabled in this database.
 
-Tracecat's migration runs:
+AutoSecOps's migration runs:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
@@ -58,4 +58,4 @@ Pgvector setup failures include a link to this page in the migration logs.
 | Version is below 0.8.0 | Follow the [pgvector upgrade instructions](https://github.com/pgvector/pgvector#upgrading), then retry. |
 | Extension is outside `public` | Ask your database administrator to review and correct the extension schema before retrying. |
 
-After correcting the prerequisite, rerun your deployment's migration step. The migration does not upgrade or relocate an existing extension, and downgrading Tracecat retains it.
+After correcting the prerequisite, rerun your deployment's migration step. The migration does not upgrade or relocate an existing extension, and downgrading AutoSecOps retains it.

@@ -71,6 +71,9 @@ const NODE_STACK_OFFSET = 120
 
 const defaultNodeWidth = 172
 const defaultNodeHeight = 36
+// Selector node is h-96 (384px); reserve space for the bottom-center toolbar
+const selectorNodeHeight = 384
+const selectorBottomReserve = 80
 
 const fitViewOptions: FitViewOptions = {
   minZoom: 0.75,
@@ -168,7 +171,8 @@ export const WorkflowCanvas = React.forwardRef<
   })
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null)
-  const { setViewport, getNode, screenToFlowPosition } = useReactFlow()
+  const { setViewport, getNode, getViewport, screenToFlowPosition } =
+    useReactFlow()
   const { toast } = useToast()
   const { workspaceId, workflowId } = useWorkflow()
   const { selectedNodeId, setSelectedNodeId } = useWorkflowBuilder()
@@ -475,7 +479,16 @@ export const WorkflowCanvas = React.forwardRef<
   const dropSelectorNode = useCallback(
     (event: MouseEvent | TouchEvent) => {
       const x = (event as MouseEvent).clientX - defaultNodeWidth / 2
-      const y = (event as MouseEvent).clientY - defaultNodeHeight / 2
+      let y = (event as MouseEvent).clientY - defaultNodeHeight / 2
+      // Keep the selector above the bottom toolbar so its results stay clickable
+      const paneRect = containerRef.current?.getBoundingClientRect()
+      if (paneRect) {
+        const maxTop =
+          paneRect.bottom -
+          selectorBottomReserve -
+          selectorNodeHeight * getViewport().zoom
+        y = Math.max(paneRect.top, Math.min(y, maxTop))
+      }
       const id = getId()
       const newNode: SelectorNodeType = {
         id,
@@ -491,7 +504,7 @@ export const WorkflowCanvas = React.forwardRef<
       openContextMenuId.current = id
       return newNode
     },
-    [screenToFlowPosition]
+    [screenToFlowPosition, getViewport]
   ) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onConnectEnd = useCallback(

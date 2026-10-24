@@ -1,1 +1,1 @@
-"""Redis client module for Tracecat."""
+"""Redis client module for AutoSecOps."""

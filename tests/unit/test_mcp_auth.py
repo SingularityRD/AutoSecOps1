@@ -127,7 +127,7 @@ def test_oidc_consent_html_escapes_values() -> None:
     assert "profile&quot;admin&quot;" in page
     assert 'name="txn_id" value="txn-&quot;id&quot;"' in page
     assert 'name="csrf_token" value="csrf-&quot;token&quot;"' in page
-    assert 'aria-label="Tracecat"' in page
+    assert 'aria-label="AutoSecOps"' in page
 
 
 def test_create_mcp_auth_uses_oidc_mode(

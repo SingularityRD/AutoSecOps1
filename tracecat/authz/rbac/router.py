@@ -1,7 +1,7 @@
-"""RBAC API routers - OSS endpoints.
+"""RBAC API routers - core endpoints.
 
-Read-only role listing is exposed here; write operations are in the Enterprise
-Edition RBAC router (`tracecat_ee.rbac.router`).
+Read-only role listing is exposed here; write operations are in the enterprise
+RBAC router (`tracecat_ee.rbac.router`).
 """
 
 from typing import Annotated
@@ -38,7 +38,7 @@ from tracecat.exceptions import (
 )
 
 # =============================================================================
-# User Scopes Schemas (kept here for OSS endpoint)
+# User Scopes Schemas (kept here for core endpoint)
 # =============================================================================
 
 
@@ -51,7 +51,7 @@ class UserScopesRead(BaseModel):
 
 
 # =============================================================================
-# User Scopes Router (OSS - needed for ScopeProvider)
+# User Scopes Router (core - needed for ScopeProvider)
 # =============================================================================
 
 user_scopes_router = APIRouter(prefix="/users/me", tags=["users"])

@@ -1,6 +1,6 @@
 """Benchmark-only SQLAlchemy pool instrumentation.
 
-The benchmark Compose override loads this module before Tracecat imports its
+The benchmark Compose override loads this module before AutoSecOps imports its
 database engine. Normal application processes never import it and keep
 SQLAlchemy's default pool implementation.
 """

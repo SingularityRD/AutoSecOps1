@@ -1,6 +1,6 @@
 ---
 title: "Workflows"
-description: "Learn how Tracecat workflows work and how to manage them: run them manually, draft and publish definitions, tag and rename, and configure workflow settings."
+description: "Learn how AutoSecOps workflows work and how to manage them: run them manually, draft and publish definitions, tag and rename, and configure workflow settings."
 ---
 
 import CoreActionsPointer from "/snippets/core-actions-pointer.mdx";
@@ -9,7 +9,7 @@ import CoreActionsPointer from "/snippets/core-actions-pointer.mdx";
 
 ## Creating workflows
 
-View and create workflows in the Tracecat UI under the `/workflows` page.
+View and create workflows in the AutoSecOps UI under the `/workflows` page.
 
 ![Create new workflow](/img/automations/workflows/create-new-workflow.png)
 
@@ -116,7 +116,7 @@ Define the input schema as YAML or JSON-compatible YAML, where each top-level ke
 
 Each input supports these fields:
 
-- `type` is a Tracecat type expression such as `str`, `int`, `bool`, `float`, `datetime`, `duration`, `list[int]`, `dict[str, Any]`, `str | None`, or `enum["low", "high"]`
+- `type` is an AutoSecOps type expression such as `str`, `int`, `bool`, `float`, `datetime`, `duration`, `list[int]`, `dict[str, Any]`, `str | None`, or `enum["low", "high"]`
 - `description` is an optional description of the input
 - `default` is an optional default value; if you set it, the input becomes optional
 
@@ -140,7 +140,7 @@ my_union:
 
 Workflows return `null` by default.
 You can specify a return value for the workflow as an output schema.
-Output schemas support all Tracecat expressions.
+Output schemas support all AutoSecOps expressions.
 
 For example, assume a workflow has three actions `whoami`, `location`, and `contact`.
 
@@ -164,9 +164,9 @@ Actions without an environment override will use the default environment to pull
 
 ## Export / import workflows
 
-<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise</Badge> users should use Tracecat's [Git sync](/manage-platform/git-sync) feature to push and pull their workflow definitions directly from a remote Git repository.
+<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise</Badge> users should use AutoSecOps's [Git sync](/manage-platform/git-sync) feature to push and pull their workflow definitions directly from a remote Git repository.
 
-<Badge icon="github" color="gray" size="lg" shape="pill">Open Source</Badge> users can export and import workflows directly from the Tracecat UI.
+<Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge> You can export and import workflows directly from the AutoSecOps UI.
 Exported workflows are called workflow definitions and are saved as YAML files.
 Right click on a workflow in the `/workflows` page to export the draft or published workflow definition:
 
@@ -182,7 +182,7 @@ Exported workflows can be imported via the "Create new" button in the `/workflow
 The Temporal UI exposes all your workflow runs. Do not expose it to the public internet unless you have OIDC SSO enabled.
 </Danger>
 
-<Badge icon="github" color="gray" size="lg" shape="pill">Open Source</Badge> Open up the Temporal UI to view and control all workflow runs.
+<Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge> Open up the Temporal UI to view and control all workflow runs.
 
 <AccordionGroup>
   <Accordion title="Docker Compose" icon="docker">
@@ -201,7 +201,7 @@ The Temporal UI exposes all your workflow runs. Do not expose it to the public i
   </Accordion>
 </AccordionGroup>
 
-<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise</Badge> You can view, cancel, terminate, and reset all workflow runs directly from the Tracecat UI under the `/runs` page.
+<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise</Badge> You can view, cancel, terminate, and reset all workflow runs directly from the AutoSecOps UI under the `/runs` page.
 
 ![Reset terminate cancel runs](/img/automations/workflows/reset-terminate-cancel-runs.png)
 

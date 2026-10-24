@@ -234,8 +234,8 @@ def _build_prompt_fragment(manifest: ArtifactWorkingSetManifest) -> str:
         "manifest. Each artifact entry points at hydrated content when available; "
         "`metadata.projection_path` points at the lightweight artifact projection. "
         "These files are writable scratch only: editing them does not update "
-        "Tracecat, and `commit_available` is false. To persist a small semantic "
-        "change, use the existing Tracecat domain tools.\n\n"
+        "AutoSecOps, and `commit_available` is false. To persist a small semantic "
+        "change, use the existing AutoSecOps domain tools.\n\n"
         f"{artifacts}\n"
         "</TracecatArtifacts>"
     )

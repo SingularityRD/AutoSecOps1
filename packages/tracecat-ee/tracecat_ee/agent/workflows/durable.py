@@ -567,9 +567,9 @@ class DurableAgentWorkflow:
         self.organization_id = organization_id
 
     def _upsert_tracecat_search_attributes(self) -> None:
-        """Ensure direct agent runs have core Tracecat search attributes.
+        """Ensure direct agent runs have core AutoSecOps search attributes.
 
-        For workflows started with existing Tracecat attributes (e.g. DSL child
+        For workflows started with existing AutoSecOps attributes (e.g. DSL child
         workflows), this only fills missing keys from role/defaults and does
         not overwrite existing values.
         """

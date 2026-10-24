@@ -1,6 +1,6 @@
 ---
 name: detection-event-case-lifecycle
-description: Load when the prompt starts with "Detection event <alert_id>" followed by the alert as JSON. Takes one detection event from the SIEM (in either the API shape or the webhook shape) to a triaged Tracecat case and a published Slack alert. You read the alert from the prompt, dedupe it, attach it to a case or create one, and stop when the alert is already published or a person has already decided. Otherwise you investigate the underlying events in the SIEM, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
+description: Load when the prompt starts with "Detection event <alert_id>" followed by the alert as JSON. Takes one detection event from the SIEM (in either the API shape or the webhook shape) to a triaged AutoSecOps case and a published Slack alert. You read the alert from the prompt, dedupe it, attach it to a case or create one, and stop when the alert is already published or a person has already decided. Otherwise you investigate the underlying events in the SIEM, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
 metadata:
   tools:
     - tools.aws_boto3.call_api
@@ -29,7 +29,7 @@ Work through the stages below in order. Each stage says when to stop. When you s
 
 | Name | Value |
 |---|---|
-| Workspace case URL | `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` |
+| Workspace case URL | `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` |
 | Triage channel | `#security-alerts`, `C0123456789` |
 | Work Object table | `slack_work_objects` |
 | Alert link | the alert's `resultLink` when it has one, else `<siem-alert-url>` built from the alert id |

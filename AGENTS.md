@@ -1,4 +1,4 @@
-# Tracecat agent notes
+# AutoSecOps agent notes
 
 Repo-wide guidance only. Nested `AGENTS.md` files load when you work under
 their directory and carry the detailed rules:
@@ -34,7 +34,7 @@ keep using `docker compose` against it or use `just cluster` for this worktree.
 
 - Prefer `just cluster` (`up -d`, `up -d --seed`, `ps`, `logs -f api`,
   `restart api`, `attach api`, `db`, `ports`) over raw `docker compose` for
-  Tracecat services, logs, and restarts.
+  AutoSecOps services, logs, and restarts.
 - Never remove volumes with `docker compose down -v`, `docker volume rm`,
   `just cluster rm`, or similar unless the user explicitly asks for it and
   confirms data loss is acceptable.
@@ -83,7 +83,7 @@ changes.
   `${VAR}`, `VAR=`, or a hardcoded literal, so `.env` overrides still work. In
   `.env.example`, use an explicit `true` or `false`, never a blank value, and
   update `tests/unit/test_config.py` when adding deployment env files.
-- Keep `.env.example` focused on settings ordinary open-source and self-hosted
+- Keep `.env.example` focused on settings ordinary self-hosted
   users are expected to configure. Advanced tuning knobs and operator-only
   overrides stay overrideable through deployment configuration instead; being
   supported by config or Compose is not a reason to advertise a variable.

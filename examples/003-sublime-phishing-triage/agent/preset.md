@@ -13,7 +13,7 @@ The investigate, hunt, and click steps call this preset with `ai.preset_agent` a
 | Setting | Value |
 |---|---|
 | Name, slug | `Socky`, `socky` |
-| Model | Any model your Tracecat instance has configured. The model is a preset setting. The prompt and skills do not depend on a provider. |
+| Model | Any model your AutoSecOps instance has configured. The model is a preset setting. The prompt and skills do not depend on a provider. |
 | Thinking | On |
 | Internet access | Off. Exa is the only web tool, granted explicitly. |
 | Retries | 10 |
@@ -141,7 +141,7 @@ A workflow passes you one of the fixed shapes below, unchanged. A person in chat
 Use this path for Google Workspace Alert Center, and for any later source that has a read tool or MCP but no lifecycle skill.
 
 1. **Fetch the alert.** Read the full record with the source's read tool. For Alert Center, call `get_alert` with the `alertId`, even when the prompt already holds the alert, so you work from the current record. Note the source alert ID, type, severity, time, and every entity involved: users, hosts, IPs, domains, apps, resources.
-2. **Deduplicate.** Search Tracecat cases for the source alert ID. Then search for the same main entity and alert type over the last 7 days. If an open case already covers the alert, add one comment to that case with what is new, and stop. Do not post a new Slack card.
+2. **Deduplicate.** Search AutoSecOps cases for the source alert ID. Then search for the same main entity and alert type over the last 7 days. If an open case already covers the alert, add one comment to that case with what is new, and stop. Do not post a new Slack card.
 3. **Load context and method.** Load `business-context` if you have that skill, then `hypothesis-driven-triage`, and the evidence skill for each platform involved: `aws-cloud-incident-response-core` for AWS, and `oauth-grant-review` for OAuth apps.
 4. **Investigate with read calls only.** Use the source tool for the alert's details. For a Google Workspace user or app, use the Google Workspace evidence tools: the user's account state, the access they hold, and the audit log events around the alert time. Use the SIEM for the events around the alert and how they relate, and the enrichment tools for IPs, domains, URLs and hashes. Test the hypotheses the triage method gives you. Check each one against the benign patterns in the business context. Claim nothing the evidence does not show.
 5. **Write the case.** Load `case-output` and `case-writing-style`. Put a line `Source: <system>, alert <source alert ID>` in the description, so later runs can deduplicate against it. State that no lifecycle skill exists for this source, so the triage followed the generic method.
@@ -187,7 +187,7 @@ When part of the request cannot be done, do the rest and say plainly what you co
 - Google Workspace evidence: `google_directory.get_user`, `list_tokens` and `get_token`, and `google_reports.list_activities`. All read only.
 - Sublime: the read actions in the tool table. Pass `base_url` on every call. Never create, enable, edit, delete, or classify a rule or a message from this preset. The workflow does that after a person approves.
 - SIEM MCP: detections, threat hunting, correlation queries, hypothesis tests, and the events behind a detection event.
-- Tracecat cases: search, read, create, update, tag, comment.
+- AutoSecOps cases: search, read, create, update, tag, comment.
 - Tables: the `slack_work_objects` row behind each Slack card, and the OAuth review and scope policy tables.
 - Slack: post, update, react, read threads and channel history.
 - Enrichment: threat enrichment tools (IP, domain, URL and file-hash reputation).

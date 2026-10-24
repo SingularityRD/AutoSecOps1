@@ -1,10 +1,10 @@
-# Contributing to Tracecat
+# Contributing to AutoSecOps
 
-Thank you for your interest in contributing to Tracecat!
+Thank you for your interest in contributing to AutoSecOps!
 
 ## Before You Begin
 
-Join our [Discord](https://discord.gg/H4XZwsYzY4) and the `#contributors` channel to get started.
+AutoSecOps is proprietary software owned by SingularityRD (see [License](#license)). Read this guide and the open issues on [SingularityRD/AutoSecOps1](https://github.com/SingularityRD/AutoSecOps1/issues) to get started.
 
 ## What We Accept PRs For
 
@@ -12,11 +12,11 @@ We currently accept pull request contributions for:
 
 * Integration updates, fixes, or additions
 * API updates, fixes, or additions
-* Updates to the Tracecat MCP server
+* Updates to the AutoSecOps MCP server
 * UI fixes
 * Small, concrete UI improvements or suggestions
 
-For larger or more product-opinionated changes, please open a discussion with us in Discord before starting work.
+For larger or more product-opinionated changes, please open a GitHub issue to discuss the change with us before starting work.
 
 This includes, but is not limited to, changes that touch:
 
@@ -39,26 +39,21 @@ Changes to GitHub Actions, workflows, repository automation, or CI/CD configurat
 
 Please create a GitHub issue before opening a pull request.
 
-You may open a PR alongside an issue for small, clearly scoped fixes, such as integration fixes, API updates, or UI bugs. Use your judgment: if the change is large, touches core product behavior, or is likely to be opinionated, open the issue or Discord discussion first and wait for feedback before implementing.
+You may open a PR alongside an issue for small, clearly scoped fixes, such as integration fixes, API updates, or UI bugs. Use your judgment: if the change is large, touches core product behavior, or is likely to be opinionated, open the issue first and wait for feedback before implementing.
 
 ## Feature Requests
 
-Please open a [GitHub issue](https://github.com/TracecatHQ/tracecat/issues/new/choose) with the `Feature request` template.
-
-You can also join our Discord and discuss the feature request with the community before opening an issue.
+Please open a [GitHub issue](https://github.com/SingularityRD/AutoSecOps1/issues/new/choose) with the `Feature request` template.
 
 ## Bug Reports
 
-If you discover a bug, either:
-
-* Open a [GitHub issue](https://github.com/TracecatHQ/tracecat/issues/new/choose) with the `Bug report` template
-* Post a question in our Discord `#questions` channel
+If you discover a bug, open a [GitHub issue](https://github.com/SingularityRD/AutoSecOps1/issues/new/choose) with the `Bug report` template.
 
 We only accept bug reports that meet the following criteria:
 
 * Has a clear, descriptive title
 * Includes a clear reproducible example
-* Clearly states the Tracecat version
+* Clearly states the AutoSecOps version
 * Clearly states the environment where the bug was encountered, such as local, VM, AWS, Kubernetes, or another setup
 * Explains when the bug started occurring
 * Notes whether the behavior was working previously
@@ -79,7 +74,7 @@ just cluster up -d --seed
 This starts the development environment and seeds a test user:
 
 ```txt
-test@tracecat.com / password1234
+test@autosecops.example / password1234
 ```
 
 You can then access the application at http://localhost:80.
@@ -153,8 +148,8 @@ Add a scope whenever the change belongs to one product area. Leave it off only w
 | `functions` | The FN.* inline expression functions |
 | `infra` | Databases, deployments, and cloud infrastructure |
 | `integrations` | Third-party vendor connectors and registry templates |
-| `logging` | Application logging and telemetry: how Tracecat runs |
-| `mcp` | Tracecat's own MCP server |
+| `logging` | Application logging and telemetry: how AutoSecOps runs |
+| `mcp` | AutoSecOps's own MCP server |
 | `rbac` | Roles and permissions |
 | `skills` | Agent skills |
 | `tables` | Workspace tables |
@@ -169,7 +164,7 @@ Seven distinctions cover most of the doubt:
 - `enterprise` says who may use a change, not what the change is, so it never decides the section. Pair it with the area: `feat(enterprise+cases)` lands in Case management, and a bare `feat(enterprise)` falls to Features.
 - `engine` is what runs; `infra` is what it runs on. If the change could ship by redeploying the same image, it is `infra`.
 - `workflows` is not a scope, because it reads as GitHub Actions to one person and as the workflow engine to another. A GitHub Actions change is a bare `ci:` with no scope; a workflow-engine change is `engine`.
-- `audit` is the security audit log: what a workspace records about who did what, for someone reviewing it later. `logging` is application telemetry, what an operator reads to debug Tracecat itself. Audit work renders under Security, telemetry under Observability.
+- `audit` is the security audit log: what a workspace records about who did what, for someone reviewing it later. `logging` is application telemetry, what an operator reads to debug AutoSecOps itself. Audit work renders under Security, telemetry under Observability.
 - Vendor names are not scopes. Write `feat(integrations): add Jira issue search` and name the vendor in the description, where it is readable and searchable.
 
 At most two scopes, joined with `+`, as in `feat(cases+actions): add a case linking action`. A change lands in the highest-ranked section its labels match, so that example appears under Case management, not Core actions: the reader cares that case management gained something, not which package it was built from. Needing three scopes usually means the pull request should be split.
@@ -194,7 +189,7 @@ Routine bumps and Low, Moderate, or High severity advisories are `build(deps):`.
 
 ## Release Process
 
-Tracecat follows [Semantic Versioning](https://semver.org/). Version numbers are release trains, not a measure of how much changed: every regular release bumps the minor, and the release-notes sections say what is inside.
+AutoSecOps follows [Semantic Versioning](https://semver.org/). Version numbers are release trains, not a measure of how much changed: every regular release bumps the minor, and the release-notes sections say what is inside.
 
 ### Version shapes
 
@@ -202,7 +197,7 @@ Tracecat follows [Semantic Versioning](https://semver.org/). Version numbers are
 |-----|------------|----------|
 | `1.X.0-alpha.N` | A build of `main` before the train is frozen. Features still land between alphas. Nothing is promised. | `main` |
 | `1.X.0-alpha.N.M` | A hotfix of alpha `N`: cherry-picked fixes only, no new migrations, database-schema changes, backfills, or registry actions. | `release/1.X.0-alpha.N` |
-| `1.X.0-rc.N` | The train is frozen and only fixes may land. Used when a change needs validation outside Tracecat Cloud before it ships. Most trains skip this stage. | `release/1.X` |
+| `1.X.0-rc.N` | The train is frozen and only fixes may land. Used when a change needs validation in self-hosted deployments before it ships. Most trains skip this stage. | `release/1.X` |
 | `1.X.0` | The stable train. | `release/1.X` |
 | `1.X.Y` | A hotfix on a shipped train: cherry-picked fixes only, no new migrations or registry actions. | `release/1.X` |
 | `2.0.0-alpha.N`, `2.0.0` | A major. Same shape as a minor. | as above |
@@ -219,7 +214,7 @@ Tags are bare versions with no leading `v`. Ordering follows semver:
 - **New alpha lines start from `main`.** Before freeze, cut each `1.X.0-alpha.N` on `release/1.X.0-alpha.N` from a merged `main` commit. Version bumps and tags stay on that branch. Once a train freezes, `main` continues toward the next train; cutting a release does not advance `main`.
 - **Alpha hotfixes reuse their alpha branch.** Cherry-pick fixes from `main` onto `release/1.X.0-alpha.N` and tag successive `alpha.N.M` releases there. For example, `1.1.0-alpha.1.1` and `1.1.0-alpha.1.2` both belong on `release/1.1.0-alpha.1`; never create a branch per hotfix. These hotfixes require a published alpha on that line, not a stable release. Both alpha hotfixes and stable patches exclude new migrations, database-schema changes, backfills, and new registry actions, including dependencies of a proposed fix.
 - **One long-lived branch per frozen train.** Create `release/1.X` at freeze. It carries release candidates, the stable tag, and every `1.X.Y`. It is never deleted, and it is never merged back; fixes land on `main` first and are cherry-picked onto the branch. A patch reuses the existing train branch, rather than branching from newer `main` code.
-- **Alpha releases are deployed to Tracecat’s own environments ahead of stable releases.** Self-hosted deployments should use stable version tags.
+- **Alpha releases are deployed to AutoSecOps’s own environments ahead of stable releases.** Self-hosted deployments should use stable version tags.
 - **Breaking changes decide the next number.** A `!` in a pull request title marks a change that breaks a self-hoster without a deprecation path, such as dropping a migration chain, changing the Compose topology in a way that needs manual steps, or removing an API without the three-step deprecation above. Any such change in a train makes it the next major. Deprecations announced under that process ride minors.
 
 ### Cutting a release
@@ -238,8 +233,8 @@ Release notes cover the range from the previous published version of the same tr
 
 ## License
 
-This project is licensed under the open source, copyleft [GNU Affero General Public License v3.0](LICENSE).
+AutoSecOps is proprietary software owned by SingularityRD. See [LICENSE](LICENSE).
 
-By contributing to this project, you agree that your contributions will be licensed under the same license.
+External contributions are accepted only under a signed contributor agreement with SingularityRD. Contact SingularityRD before opening a pull request if you have not signed one.
 
-Thank you for taking the time to contribute to Tracecat!
+Thank you for taking the time to contribute to AutoSecOps!

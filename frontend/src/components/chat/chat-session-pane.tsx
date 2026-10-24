@@ -153,7 +153,7 @@ class SubmitAbandonedError extends Error {
   }
 }
 
-/** The installed running-composer slot; Tracecat leaves the composer disabled. */
+/** The installed running-composer slot; AutoSecOps leaves the composer disabled. */
 const useRunningComposer =
   extensions.useRunningComposer ??
   ((): RunningComposer | undefined => undefined)
@@ -1105,7 +1105,7 @@ export function ChatSessionPane({
       await retryTurn(retryMessageId)
     } catch {
       toast({
-        title: "Couldn't reach Tracecat",
+        title: "Couldn't reach AutoSecOps",
         description: "Retry once the connection is back.",
       })
     } finally {

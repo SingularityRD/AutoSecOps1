@@ -1103,7 +1103,7 @@ class MutableToolPart:
     def _result_metadata(
         self, extra: ProviderMetadata | None
     ) -> ProviderMetadata | None:
-        """Merge the completion time into the result's Tracecat metadata."""
+        """Merge the completion time into the result's AutoSecOps metadata."""
         if self.completed_at is None:
             return extra
         tracecat = {

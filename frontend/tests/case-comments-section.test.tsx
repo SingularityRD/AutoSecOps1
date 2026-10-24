@@ -1607,7 +1607,7 @@ describe("CommentSection", () => {
         name: "Agent avatar for Snapshot reply agent",
       })
     ).toBeInTheDocument()
-    expect(screen.getByText("Tracecat")).toBeInTheDocument()
+    expect(screen.getByText("AutoSecOps")).toBeInTheDocument()
     expect(screen.getByText("Automated workflow")).toBeInTheDocument()
     expect(
       screen.queryByRole("button", {

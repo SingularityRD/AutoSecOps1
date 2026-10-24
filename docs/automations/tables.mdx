@@ -1,6 +1,6 @@
 ---
 title: "Tables"
-description: "Store and manage structured data inside Tracecat: define tables, query rows from workflows and agents, and link records to cases and workflow runs."
+description: "Store and manage structured data inside AutoSecOps: define tables, query rows from workflows and agents, and link records to cases and workflow runs."
 ---
 
 ## Tables
@@ -171,7 +171,7 @@ On plans without vector search, the status badge and the `Enable vector search` 
     ![Confirm vector search](/img/tables/confirm-vector-search.png)
   </Step>
   <Step title="Wait for the index">
-    The status badge in the page header reads `Indexing` while Tracecat indexes the rows, then `Ready`.
+    The status badge in the page header reads `Indexing` while AutoSecOps indexes the rows, then `Ready`.
     Hover over the badge to see the embedding model and how many rows are ready, pending, failed, or empty.
 
     ![Vector search status](/img/tables/vector-search-status.png)
@@ -191,7 +191,7 @@ On plans without vector search, the status badge and the `Enable vector search` 
 </Steps>
 
 Repeat the first two steps to add more columns.
-To remove a column, select `Disable vector search` from the same menu; Tracecat rebuilds the index for the remaining columns.
+To remove a column, select `Disable vector search` from the same menu; AutoSecOps rebuilds the index for the remaining columns.
 
 `core.table.search` takes these arguments:
 

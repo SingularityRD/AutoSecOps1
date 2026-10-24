@@ -16,7 +16,7 @@ definition:
       # Generic: these are partial updates and the body is not null-pruned, so a
       # literal map would send null for every unset field and could clear it.
       type: dict[str, Any]
-      description: 'API-native request body. Send only the fields to update. Documented fields: incidentId (required), comments, incidentStatus (0 Active, 1 Auto Cleared, 2 Manually Cleared, 3 System Cleared), externalTicketType (Low, Medium, or High), externalTicketId, externalTicketState (New, Assigned, In Progress, or Closed), externalAssignedUser. Example: {"incidentId": "2209", "incidentStatus": "2", "comments": "Closed by Tracecat"}.'
+      description: 'API-native request body. Send only the fields to update. Documented fields: incidentId (required), comments, incidentStatus (0 Active, 1 Auto Cleared, 2 Manually Cleared, 3 System Cleared), externalTicketType (Low, Medium, or High), externalTicketId, externalTicketState (New, Assigned, In Progress, or Closed), externalAssignedUser. Example: {"incidentId": "2209", "incidentStatus": "2", "comments": "Closed by AutoSecOps"}.'
     base_url:
       type: str | None
       description: FortiSIEM Supervisor URL, e.g. https://fortisiem.example.com. Falls back to the workspace variable fortisiem.base_url.

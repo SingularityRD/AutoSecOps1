@@ -3,7 +3,7 @@
 # =============================================================================
 
 output "tracecat_endpoints" {
-  description = "Key endpoints for accessing the Tracecat UI and API"
+  description = "Key endpoints for accessing the AutoSecOps UI and API"
   value = {
     ui_url      = module.ecs.public_app_url
     api_url     = module.ecs.public_api_url
@@ -16,17 +16,17 @@ output "tracecat_endpoints" {
 # =============================================================================
 
 output "tracecat_image_tag" {
-  description = "The version of Tracecat used"
+  description = "The version of AutoSecOps used"
   value       = module.ecs.tracecat_image_tag
 }
 
 output "tracecat_migrations_image" {
-  description = "The Tracecat migrations init container image repository"
+  description = "The AutoSecOps migrations init container image repository"
   value       = module.ecs.tracecat_migrations_image
 }
 
 output "tracecat_migrations_image_tag" {
-  description = "The Tracecat migrations init container image tag"
+  description = "The AutoSecOps migrations init container image tag"
   value       = module.ecs.tracecat_migrations_image_tag
 }
 
@@ -41,12 +41,12 @@ output "ecs_cluster_arn" {
 }
 
 output "public_app_url" {
-  description = "The public URL of the Tracecat application"
+  description = "The public URL of the AutoSecOps application"
   value       = module.ecs.public_app_url
 }
 
 output "public_api_url" {
-  description = "The public URL of the Tracecat API"
+  description = "The public URL of the AutoSecOps API"
   value       = module.ecs.public_api_url
 }
 

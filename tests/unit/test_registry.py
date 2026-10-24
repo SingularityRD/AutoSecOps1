@@ -99,7 +99,7 @@ async def test_registry_actions_agent_preset_crud_unlocked_without_agent_addons(
     test_role,
     monkeypatch,
 ) -> None:
-    """Agent preset CRUD actions are open source and never locked by agent add-ons."""
+    """Agent preset CRUD actions are available on every plan and never locked by agent add-ons."""
     from tracecat.tiers import defaults as tier_defaults
 
     monkeypatch.setattr(
@@ -165,7 +165,7 @@ def mock_package(tmp_path):
                     description="This is a test function",
                     namespace="test",
                     doc_url="https://example.com/docs",
-                    author="Tracecat",
+                    author="AutoSecOps",
                 )
                 def test_function(num: int) -> int:
                     return num
@@ -213,7 +213,7 @@ def test_udf_validate_args(mock_package):
     assert udf.description == "This is a test function"
     assert udf.namespace == "test"
     assert udf.doc_url == "https://example.com/docs"
-    assert udf.author == "Tracecat"
+    assert udf.author == "AutoSecOps"
     assert (
         repo.get("test.deprecated_function").deprecated == "This function is deprecated"
     )
@@ -252,7 +252,7 @@ def test_validate_args_mode_parameter(tmp_path):
                     description="Test function with datetime",
                     namespace="test",
                     doc_url="https://example.com/docs",
-                    author="Tracecat",
+                    author="AutoSecOps",
                 )
                 def datetime_test(dt: datetime, uid: UUID) -> dict:
                     return {"dt": dt, "uid": uid}

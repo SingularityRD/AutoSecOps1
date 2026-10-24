@@ -1,7 +1,7 @@
 import type { AgentOtelConfig } from "@/client"
 
 /**
- * Claude Code OTel env vars Tracecat manages itself; users may not set them.
+ * Claude Code OTel env vars AutoSecOps manages itself; users may not set them.
  * Mirrors `RESERVED` in tracecat/agent/otel_config.py.
  */
 const RESERVED_ENV_VARS = new Set([
@@ -611,7 +611,7 @@ export function validateEnvMap(
 
   for (const [key, value] of Object.entries(env)) {
     if (RESERVED_ENV_VARS.has(key)) {
-      issues.push(`${key} is managed by Tracecat.`)
+      issues.push(`${key} is managed by AutoSecOps.`)
       continue
     }
     const spec = OTEL_ENV_SPEC_BY_KEY.get(key)

@@ -174,12 +174,12 @@ function renderScim() {
   )
 }
 
-const PICKER = "Tracecat groups for IdP team"
+const PICKER = "AutoSecOps groups for IdP team"
 
 async function toggleTarget(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: PICKER }))
   await user.type(
-    screen.getByPlaceholderText("Search Tracecat groups"),
+    screen.getByPlaceholderText("Search AutoSecOps groups"),
     "target"
   )
   await user.click(screen.getByRole("option", { name: "Target team" }))
@@ -247,7 +247,7 @@ test("drafts stop at the review cap", () => {
   for (const group of externalGroups) {
     fireEvent.click(
       screen.getByRole("button", {
-        name: `Tracecat groups for ${group.display_name}`,
+        name: `AutoSecOps groups for ${group.display_name}`,
       })
     )
     fireEvent.click(screen.getByRole("option", { name: "Target team" }))
@@ -259,7 +259,7 @@ test("drafts stop at the review cap", () => {
     screen.getByText(/100 drafts apply when you activate/)
   ).toBeInTheDocument()
   expect(
-    screen.getByRole("button", { name: "Tracecat groups for IdP team 100" })
+    screen.getByRole("button", { name: "AutoSecOps groups for IdP team 100" })
   ).not.toHaveTextContent("Target team")
 }, 30_000)
 

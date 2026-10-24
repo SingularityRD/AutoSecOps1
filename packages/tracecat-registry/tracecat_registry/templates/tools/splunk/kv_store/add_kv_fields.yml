@@ -23,7 +23,7 @@ definition:
         Example: [{"name": "username", "type": "string"}, {"name": "age", "type": "number"}]
     base_url:
       type: str | None
-      description: Splunk base URL (e.g. https://localhost:8089 or https://tracecat.splunkcloud.com:8089).
+      description: Splunk base URL (e.g. https://localhost:8089 or https://example.splunkcloud.com:8089).
       default: null
     owner:
       type: str

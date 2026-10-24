@@ -1,3 +1,3 @@
-"""Tracecat Enterprise Edition features."""
+"""AutoSecOps Enterprise Edition features."""
 
 __version__ = "0.1.0"

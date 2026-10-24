@@ -687,7 +687,7 @@ class WorkspaceSyncService(SyncMappingService):
                     error_type="parse",
                     message=(
                         "This Git repository uses an outdated workspace format. "
-                        "Run a new Push from an updated Tracecat instance before "
+                        "Run a new Push from an updated AutoSecOps instance before "
                         "Pulling."
                     ),
                     details={"code": "workspace_format_outdated"},

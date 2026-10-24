@@ -50,7 +50,7 @@ from tracecat.settings.schemas import GitSettingsUpdate
 GIT_SSH_URL = "git+ssh://git@github.com/TracecatHQ/internal-registry.git"
 KNOWN_GOOD_REMOTE_COMMIT_SHA = "e2bfd94c35c93f8052c2b97ff542961596ddd3f8"
 PLACEHOLDER_TARBALL_URI = "s3://test/test.tar.gz"
-TEST_USER_EMAIL = "test@tracecat.com"
+TEST_USER_EMAIL = "test@autosecops.example"
 TEST_USER_PASSWORD = "password1234"
 
 

@@ -1,18 +1,18 @@
 ---
 title: "OAuth token expressions"
-description: "Reference OAuth provider IDs and managed tokens in Tracecat expressions."
+description: "Reference OAuth provider IDs and managed tokens in AutoSecOps expressions."
 ---
 
 OAuth expressions use the provider's exact ID, not its display name.
 
-- Built-in providers use stable lowercase IDs assigned by Tracecat, with
+- Built-in providers use stable lowercase IDs assigned by AutoSecOps, with
   underscores between words, such as `slack`, `google_drive`, and
   `microsoft_sentinel`.
 - Custom providers use an ID derived from the provider name, or from the
-  requested ID when you create one through the API. Tracecat slugifies it with
+  requested ID when you create one through the API. AutoSecOps slugifies it with
   underscores and prepends `custom_`. `My Security API` becomes
   `custom_my_security_api`. If that ID is already used for the same grant type,
-  Tracecat appends `_1`, `_2`, and so on.
+  AutoSecOps appends `_1`, `_2`, and so on.
 
 Append `_oauth` to the exact provider ID for the secret name. For the key,
 uppercase the complete provider ID, preserve its underscores and any numeric
@@ -50,7 +50,7 @@ ${{ SECRETS.microsoft_sentinel_oauth.MICROSOFT_SENTINEL_USER_TOKEN || SECRETS.mi
 </Warning>
 
 <Info>
-  Tracecat refreshes expiring authorization-code tokens when the provider
+  AutoSecOps refreshes expiring authorization-code tokens when the provider
   issued a refresh token, and reacquires client-credentials tokens with the
   stored client credentials. The expression resolves only to the current
   access-token string, which may be a JWT or an opaque token, not the refresh

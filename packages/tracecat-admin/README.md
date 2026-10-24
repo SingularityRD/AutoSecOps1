@@ -1,6 +1,6 @@
-# Tracecat Admin CLI
+# AutoSecOps Admin CLI
 
-CLI tool for Tracecat platform operators to manage infrastructure and control plane operations.
+CLI tool for AutoSecOps platform operators to manage infrastructure and control plane operations.
 
 ## Installation
 
@@ -18,7 +18,7 @@ The CLI uses environment variables for configuration:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `TRACECAT__API_URL` | Tracecat API URL (default: `http://localhost:8000`) | No |
+| `TRACECAT__API_URL` | AutoSecOps API URL (default: `http://localhost:8000`) | No |
 | `TRACECAT__SERVICE_KEY` | Service key for API authentication | Yes (for API commands) |
 | `TRACECAT__DB_URI` | Database URI for direct DB operations | Yes (for bootstrap/migrate) |
 

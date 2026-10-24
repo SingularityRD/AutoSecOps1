@@ -339,7 +339,7 @@ class ContinueRunRequest(BaseModel):
         default="inbox",
         description=(
             "Origin of the approval decision submission. "
-            "Use 'inbox' for Tracecat UI/API and 'slack' for Slack actions."
+            "Use 'inbox' for AutoSecOps UI/API and 'slack' for Slack actions."
         ),
     )
 

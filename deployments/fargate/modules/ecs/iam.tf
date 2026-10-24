@@ -67,7 +67,7 @@ resource "aws_iam_policy" "redis_iam_access" {
   })
 }
 
-# S3 access policy for Tracecat blob storage buckets
+# S3 access policy for AutoSecOps blob storage buckets
 resource "aws_iam_policy" "s3_blob_access" {
   name        = "${var.iam_name_prefix}S3BlobStoragePolicy"
   description = "Policy for S3 blob storage access (attachments, registry, skills, workflow, agent)"

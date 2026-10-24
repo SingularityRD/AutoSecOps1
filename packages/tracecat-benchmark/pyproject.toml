@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "tracecat-benchmark"
 version = "0.1.0"
-description = "Internal end-to-end benchmarking tooling for Tracecat"
+description = "Internal end-to-end benchmarking tooling for AutoSecOps"
 readme = "README.md"
 requires-python = ">=3.12"
-license = "AGPL-3.0"
-authors = [{ name = "Tracecat", email = "founders@tracecat.com" }]
+license = "LicenseRef-Proprietary"
+authors = [{ name = "SingularityRD" }]
 dependencies = [
     "asyncpg==0.29.0",
     "httpx==0.28.1",

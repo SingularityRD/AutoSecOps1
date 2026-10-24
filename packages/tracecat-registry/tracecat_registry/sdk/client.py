@@ -1,4 +1,4 @@
-"""Base HTTP client for Tracecat API."""
+"""Base HTTP client for AutoSecOps API."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ class TracecatClient:
         )
         if not self._action_gateway_socket:
             raise RuntimeError(
-                "TRACECAT__ACTION_GATEWAY_SOCKET is required for Tracecat SDK calls"
+                "TRACECAT__ACTION_GATEWAY_SOCKET is required for AutoSecOps SDK calls"
             )
 
         self._token = token or os.environ.get("TRACECAT__EXECUTOR_TOKEN", "")

@@ -1,6 +1,6 @@
 ---
 title: TLS and certificates
-description: "Configure HTTPS for self-hosted Tracecat: automatic Let's Encrypt certificates with Caddy, custom certificates, and trusting internal CAs for outbound connections."
+description: "Configure HTTPS for self-hosted AutoSecOps: automatic Let's Encrypt certificates with Caddy, custom certificates, and trusting internal CAs for outbound connections."
 ---
 
 This page covers Docker Compose deployments.
@@ -8,7 +8,7 @@ On [Kubernetes](/self-hosting/kubernetes) and [AWS Fargate](/self-hosting/aws-fa
 
 ## Inbound HTTPS with Caddy
 
-Tracecat ships with [Caddy](https://caddyserver.com/) as a reverse proxy.
+AutoSecOps ships with [Caddy](https://caddyserver.com/) as a reverse proxy.
 Caddy automatically provisions and renews TLS certificates from Let's Encrypt when configured with a domain name.
 
 <Steps>
@@ -84,7 +84,7 @@ Point the load balancer's HTTPS listener at Caddy's HTTP port (80), and redirect
 ## Browsers force HTTPS
 
 If the browser fails with `ERR_CONNECTION_REFUSED` while `curl` over HTTP works, your deployment is serving plain HTTP but the browser is trying to reach it over HTTPS.
-This is expected browser behavior, not a Tracecat or Caddy error: modern browsers automatically upgrade requests to a public hostname to HTTPS (through HSTS, the "Always use secure connections" setting, or a prior HTTPS visit).
+This is expected browser behavior, not an AutoSecOps or Caddy error: modern browsers automatically upgrade requests to a public hostname to HTTPS (through HSTS, the "Always use secure connections" setting, or a prior HTTPS visit).
 Because the default stack exposes only port 80 with no TLS, the HTTPS request is refused.
 
 The Caddy logs confirm HTTP-only mode:
@@ -98,8 +98,8 @@ Configure [inbound HTTPS](#inbound-https-with-caddy) instead.
 
 ## Trust an internal CA for outbound connections
 
-Tracecat containers do not inherit the host's trust store.
-If Tracecat calls services with certificates signed by an internal CA — a custom LLM provider, an internal Jira, an on-prem API — those connections fail TLS verification even when `curl` on the host succeeds.
+AutoSecOps containers do not inherit the host's trust store.
+If AutoSecOps calls services with certificates signed by an internal CA — a custom LLM provider, an internal Jira, an on-prem API — those connections fail TLS verification even when `curl` on the host succeeds.
 
 ### Per-action: CA certificate secret
 

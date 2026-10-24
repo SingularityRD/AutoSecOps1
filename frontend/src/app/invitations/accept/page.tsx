@@ -195,7 +195,7 @@ function AcceptInvitationContent() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <Image src={TracecatIcon} alt="Tracecat" className="mb-4 size-16" />
+          <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
           <CardTitle>You&apos;ve been invited!</CardTitle>
           <CardDescription>
             {invitation.inviter_name ? (

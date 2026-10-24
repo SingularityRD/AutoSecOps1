@@ -189,11 +189,11 @@ PAGES: list[dict[str, Any]] = [
 
             - Use a scalar such as `str` or `int` for simple classification or routing.
             - Use a JSON schema object when you need named fields.
-            - Tracecat parses valid JSON before storing it in the action result.
+            - AutoSecOps parses valid JSON before storing it in the action result.
 
             ## Timeouts
 
-            `timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and Tracecat clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
+            `timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
 
             ## Reference
             """
@@ -216,14 +216,14 @@ PAGES: list[dict[str, Any]] = [
     {
         "slug": "ai-agent",
         "title": "AI agent",
-        "description": "Run tool-calling agents with Tracecat actions, MCP servers, structured outputs, approvals, and reusable presets.",
+        "description": "Run tool-calling agents with AutoSecOps actions, MCP servers, structured outputs, approvals, and reusable presets.",
         "body": dedent(
             """
             Use `ai.agent` when the model needs tool calls. You give the agent a prompt, instructions, and an allowlist of actions it can call during the run.
 
             ## Capabilities
 
-            - `ai.agent`: Prompt plus tool calls. Use `actions` for Tracecat actions and `mcp_integrations` for saved MCP servers.
+            - `ai.agent`: Prompt plus tool calls. Use `actions` for AutoSecOps actions and `mcp_integrations` for saved MCP servers.
             - `ai.preset_agent`: Prompt plus a saved agent configuration. Use this when you want reusable instructions, tools, skills, and MCP integrations across workflows.
             - `tool_approvals`: Require approval before selected tools run.
             - `max_tool_calls` and `max_requests`: Bound how much work the agent can do in a single run.
@@ -237,11 +237,11 @@ PAGES: list[dict[str, Any]] = [
 
             ## MCP servers
 
-            <Badge icon="github" color="gray" size="lg" shape="pill">Open source</Badge>
+            <Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge>
 
             `ai.agent` can call tools from saved MCP integrations. Bring your own remote or `stdio` MCP server, or connect one from the catalog of 50+ preconfigured MCP servers with guided connection setup, including Splunk, SentinelOne Purple AI, CrowdStrike Falcon, Microsoft Sentinel, Elastic, Wiz, GreyNoise, and PagerDuty. Select the saved integration in the action's `mcp_integrations` input, or save it on an agent preset with reusable instructions and tools and run it with `ai.preset_agent`.
 
-            Tool approvals and the agent inbox are open source. Require approval for specific tools with `tool_approvals`, or mark MCP tools as requiring approval on the integration, then review pending approvals in the agent inbox. See [Human-in-the-loop](/agents/human-in-the-loop).
+            Tool approvals and the agent inbox are available on all plans. Require approval for specific tools with `tool_approvals`, or mark MCP tools as requiring approval on the integration, then review pending approvals in the agent inbox. See [Human-in-the-loop](/agents/human-in-the-loop).
 
             <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
@@ -253,7 +253,7 @@ PAGES: list[dict[str, Any]] = [
 
             ## Timeouts
 
-            The action's `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours), and Tracecat clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. A lower ceiling caps both the default and the minimum.
+            The action's `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. A lower ceiling caps both the default and the minimum.
 
             A pause for a tool approval does not count toward the timeout, and the resumed run gets the full timeout again. With the default timeout, a run that reaches it fails with `Agent execution timed out after 7200s`.
 
@@ -292,7 +292,7 @@ PAGES: list[dict[str, Any]] = [
             <AccordionGroup>
               <Accordion title="When should I use ai.action, ai.agent, or ai.preset_agent?">
                 - Use `ai.action` when you only need one model response and no tools.
-                - Use `ai.agent` when the model must call Tracecat actions or saved MCP integrations during the run.
+                - Use `ai.agent` when the model must call AutoSecOps actions or saved MCP integrations during the run.
                 - Use `ai.preset_agent` when you want a reusable configuration with shared instructions, skills, tools, or MCP integrations.
 
                 <CodeGroup>
@@ -329,7 +329,7 @@ PAGES: list[dict[str, Any]] = [
               </Accordion>
 
               <Accordion title="How do I use MCP servers with ai.agent?">
-                Connect a server from the MCP catalog or add a custom remote or `stdio` MCP server, then select the saved integration in the `mcp_integrations` input. Both paths are available in open source.
+                Connect a server from the MCP catalog or add a custom remote or `stdio` MCP server, then select the saved integration in the `mcp_integrations` input. Both paths are available on all plans.
               </Accordion>
             </AccordionGroup>
             """

@@ -16,7 +16,7 @@ definition:
       description: IP addresses to tag.
     tags:
       type: list[str]
-      description: Tags to register, e.g. tracecat-block.
+      description: Tags to register, e.g. autosecops-block.
     timeout:
       type: int | None
       description: Seconds until the tag expires (PAN-OS 9.0 or later). Omit for no expiry.

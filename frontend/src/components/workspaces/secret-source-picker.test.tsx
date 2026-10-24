@@ -50,7 +50,7 @@ test("lists each enabled store under its provider and selects one", async () => 
 
   await user.click(screen.getByRole("combobox"))
   expect(screen.getByText("AWS Secrets Manager")).toBeInTheDocument()
-  expect(screen.getByRole("option", { name: /Tracecat/ })).toBeInTheDocument()
+  expect(screen.getByRole("option", { name: /AutoSecOps/ })).toBeInTheDocument()
   expect(screen.queryByText("legacy-secrets")).not.toBeInTheDocument()
   expect(
     screen.queryByPlaceholderText("Search stores or regions")
@@ -122,7 +122,7 @@ test("explains when authorized stores are disabled or in setup", async () => {
   expect(screen.queryByText(/No stores are authorized/)).not.toBeInTheDocument()
 })
 
-test("resets to Tracecat when the selected store is no longer enabled", () => {
+test("resets to AutoSecOps when the selected store is no longer enabled", () => {
   mockStores = [store("eu-secrets", "eu-west-2", false)]
   const onChange = jest.fn()
   render(

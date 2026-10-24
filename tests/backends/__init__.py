@@ -1,6 +1,6 @@
 """Backend testing module.
 
-Tests for Tracecat's executor backends including:
+Tests for AutoSecOps's executor backends including:
 - Parity tests (correctness across backends)
 - Isolation tests (sandbox security)
 - Benchmark tests (performance measurement)

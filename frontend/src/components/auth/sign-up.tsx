@@ -114,7 +114,11 @@ export function SignUp({
       >
         <div className="flex w-full flex-1 flex-col justify-center gap-2 px-8 sm:max-w-md">
           <CardHeader className="items-center space-y-2 text-center">
-            <Image src={TracecatIcon} alt="Tracecat" className="mb-8 size-16" />
+            <Image
+              src={TracecatIcon}
+              alt="AutoSecOps"
+              className="mb-8 size-16"
+            />
             <CardTitle className="text-2xl">Sign up unavailable</CardTitle>
             <CardDescription>
               Password sign-up is disabled. Continue with sign in.
@@ -139,7 +143,7 @@ export function SignUp({
     >
       <div className="flex w-full flex-1 flex-col justify-center gap-2 px-8 sm:max-w-md">
         <CardHeader className="items-center space-y-2 text-center">
-          <Image src={TracecatIcon} alt="Tracecat" className="mb-8 size-16" />
+          <Image src={TracecatIcon} alt="AutoSecOps" className="mb-8 size-16" />
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
             Enter your email below to create an account

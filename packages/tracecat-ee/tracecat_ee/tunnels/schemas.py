@@ -248,7 +248,7 @@ class TunnelAvailabilityRead(BaseModel):
 
     available: bool = Field(
         ...,
-        description="False when Tracecat runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.",
+        description="False when AutoSecOps runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.",
     )
 
 
@@ -272,7 +272,7 @@ class TunnelGatewayPolicyRead(BaseModel):
 
 
 class ManagedTunnelCreate(BaseModel):
-    """Create a tunnel whose Pangolin site, machine client, and resources Tracecat manages."""
+    """Create a tunnel whose Pangolin site, machine client, and resources AutoSecOps manages."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -301,8 +301,8 @@ class TunnelStatusRead(BaseModel):
     managed: bool
     site_online: bool | None
     gateway_ready: bool | None = None
-    """Whether the Tracecat-run gateway has a ready pod. ``None`` when gateways
-    are run outside Tracecat or the gateway has not been created yet."""
+    """Whether the AutoSecOps-run gateway has a ready pod. ``None`` when gateways
+    are run outside AutoSecOps or the gateway has not been created yet."""
 
 
 def serialize_targets(targets: list[TunnelTarget]) -> list[dict[str, Any]]:

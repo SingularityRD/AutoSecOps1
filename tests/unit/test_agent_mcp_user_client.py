@@ -492,7 +492,7 @@ def test_create_transport_lowercased_headers_survive_inbound_merge() -> None:
 # Regression: lowercasing only wins fastmcp's `inbound | self.headers` union
 # when our own credential is an Authorization header. Servers authenticating
 # via non-Authorization headers (e.g. Wiz client-credentials sends
-# Wiz-Client-Id/Secret) never collide, so the inbound Tracecat session JWT
+# Wiz-Client-Id/Secret) never collide, so the inbound AutoSecOps session JWT
 # reached the third-party server and Wiz rejected the request with a 401.
 # _create_transport now installs a client factory that strips the forwarded
 # token unless our configured headers deliberately set Authorization.

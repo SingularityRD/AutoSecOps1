@@ -33,7 +33,7 @@ data "aws_secretsmanager_secret" "user_auth_secret" {
 
 ### Optional secrets
 
-# Tracecat authentication
+# AutoSecOps authentication
 
 data "aws_secretsmanager_secret" "oauth_client_id" {
   count = var.oauth_client_id_arn != null ? 1 : 0
@@ -84,7 +84,7 @@ data "aws_secretsmanager_secret" "temporal_api_key" {
 
 ### Retrieve secret values
 
-# Tracecat secrets
+# AutoSecOps secrets
 
 data "aws_secretsmanager_secret_version" "tracecat_db_encryption_key" {
   secret_id = data.aws_secretsmanager_secret.tracecat_db_encryption_key.id
@@ -181,7 +181,7 @@ locals {
 resource "aws_secretsmanager_secret" "sentry_dsn" {
   count       = local.sentry_dsn_enabled ? 1 : 0
   name_prefix = "${var.name_prefix}-sentry-dsn-"
-  description = "Tracecat Sentry DSN"
+  description = "AutoSecOps Sentry DSN"
 }
 
 resource "aws_secretsmanager_secret_version" "sentry_dsn" {

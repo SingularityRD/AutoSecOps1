@@ -136,7 +136,7 @@ async def create_managed_tunnel(
     session: AsyncDBSession,
     params: ManagedTunnelCreate,
 ) -> ManagedTunnelCreated:
-    """Create a tunnel whose Pangolin site, machine client, and resources Tracecat provisions.
+    """Create a tunnel whose Pangolin site, machine client, and resources AutoSecOps provisions.
 
     The site credentials and install command are returned only in this response.
     """

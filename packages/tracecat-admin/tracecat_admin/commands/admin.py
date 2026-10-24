@@ -224,7 +224,7 @@ def create_dev_user(
             help="Dev user email address",
             envvar="TRACECAT__DEV_USER_EMAIL",
         ),
-    ] = "dev@tracecat.com",
+    ] = "dev@autosecops.example",
     password: Annotated[
         str,
         typer.Option(
@@ -241,7 +241,7 @@ def create_dev_user(
             help="Dev platform superuser email address",
             envvar="TRACECAT__DEV_SUPERUSER_EMAIL",
         ),
-    ] = "test@tracecat.com",
+    ] = "test@autosecops.example",
     superuser_password: Annotated[
         str,
         typer.Option(

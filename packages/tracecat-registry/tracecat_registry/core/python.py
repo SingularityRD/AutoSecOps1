@@ -65,7 +65,7 @@ async def run_python(
     - Resource limits (memory, CPU, file size)
     - Read-only rootfs with minimal Python 3.12 + uv environment
     - Full subprocess.run support for running external commands
-    - Tracecat registry SDK imports and execution context preconfigured
+    - AutoSecOps registry SDK imports and execution context preconfigured
 
     The script must contain at least one function. If multiple functions are defined,
     one must be named 'main', which will be called. If only one function is defined,
@@ -74,7 +74,7 @@ async def run_python(
     The input 'inputs' dictionary's items are passed as function arguments to the main function.
     The function's return value is the output of this operation.
 
-    Tracecat SDK clients are available synchronously through:
+    AutoSecOps SDK clients are available synchronously through:
         from tracecat_registry import ctx
 
     For example:

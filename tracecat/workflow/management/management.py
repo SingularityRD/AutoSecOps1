@@ -924,7 +924,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
     async def create_workflow_from_dsl(
         self, dsl_data: dict[str, Any], *, skip_secret_validation: bool = False
     ) -> WorkflowDSLCreateResponse:
-        """Create a new workflow from a Tracecat DSL data object."""
+        """Create a new workflow from an AutoSecOps DSL data object."""
 
         construction_errors: list[DSLValidationResult] = []
         dsl: DSLInput | None = None

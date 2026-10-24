@@ -396,7 +396,7 @@ async def test_encryption_codec_decode_fails_closed_on_tampered_payload(
     tamper: Callable[[dict[str, bytes], bytes], tuple[dict[str, bytes], bytes]],
     match: str,
 ) -> None:
-    """Tracecat-encrypted payloads fail closed when metadata is missing or tampered,
+    """AutoSecOps-encrypted payloads fail closed when metadata is missing or tampered,
     the ciphertext is modified, or the workspace ID is swapped to another workspace."""
     _enable_encryption(monkeypatch)
     codec = EncryptionPayloadCodec(enabled=True)

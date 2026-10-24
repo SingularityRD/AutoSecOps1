@@ -444,7 +444,7 @@ class SandboxService:
                 When provided, package caches are scoped to the workspace,
                 preventing cross-workspace package poisoning attacks.
             action_gateway_socket: Optional host-side action gateway Unix socket.
-                Internal Tracecat SDK calls use this socket even when outbound
+                Internal AutoSecOps SDK calls use this socket even when outbound
                 network access is disabled.
 
         Returns:

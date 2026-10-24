@@ -286,7 +286,7 @@ class AgentCatalogService(BaseService):
                 provider_name = "Organization catalog"
             else:
                 origin = "platform"
-                provider_name = "Tracecat catalog"
+                provider_name = "AutoSecOps catalog"
 
             candidates.setdefault(ModelKey(model_provider, model_name), []).append(
                 CatalogMappingCandidate(

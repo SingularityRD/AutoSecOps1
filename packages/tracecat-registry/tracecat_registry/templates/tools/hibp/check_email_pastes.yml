@@ -21,5 +21,5 @@ definition:
         method: GET
         headers:
           hibp-api-key: ${{ SECRETS.hibp.HIBP_API_KEY }}
-          User-Agent: Tracecat-HIBP-Integration
+          User-Agent: AutoSecOps-HIBP-Integration
   returns: ${{ steps.call_api.result.data }}

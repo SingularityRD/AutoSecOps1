@@ -3,7 +3,7 @@ import Image from "next/image"
 import TracecatIcon from "public/icon.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-const CONTACT_US_URL = "https://cal.com/team/tracecat"
+const CONTACT_US_URL = "https://github.com/SingularityRD"
 const SYSTEM_MSG_KINDS = ["beta-ee-contact-us"] as const
 type SystemMessageKind = (typeof SYSTEM_MSG_KINDS)[number]
 
@@ -32,7 +32,7 @@ export function SystemInfoAlert({ kind }: { kind: SystemMessageKind }) {
       <AlertDescription className="text-xs flex items-start gap-2">
         <Image
           src={TracecatIcon}
-          alt="Tracecat"
+          alt="AutoSecOps"
           className="size-3.5 inline-block mt-0.5"
         />
         <span>{SYSTEM_MSG_MAP[kind]}</span>

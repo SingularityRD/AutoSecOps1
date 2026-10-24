@@ -1,13 +1,13 @@
 ---
 title: "Custom registry"
-description: "Sync custom Python and YAML actions into Tracecat through your own registry: version, share, and reuse organization-specific automations across workspaces."
+description: "Sync custom Python and YAML actions into AutoSecOps through your own registry: version, share, and reuse organization-specific automations across workspaces."
 ---
 
-You can build your own actions and use them in agents and workflows through Tracecat's custom registry feature.
+You can build your own actions and use them in agents and workflows through AutoSecOps's custom registry feature.
 
 ## Why use a custom registry
 
-- Version control your code separate from Tracecat
+- Version control your code separate from AutoSecOps
 - Reuse your custom actions in multiple agents and workflows
 - Easily update your custom actions across all agents and workflows
 
@@ -20,14 +20,14 @@ You must have the "Organization Admin" role to add and manage the custom registr
 
 <Steps>
   <Step title="Clone the custom registry starter kit">
-    Clone the [custom registry starter kit](https://github.com/TracecatHQ/custom-integrations-starter-kit) from GitHub.
+    Clone the custom registry starter kit from GitHub.
 
     <Frame>
       ![Clone GitHub template](/img/custom-actions/clone-github-template.png)
     </Frame>
   </Step>
   <Step title="Add an SSH key">
-    Tracecat clones the repository over SSH.
+    AutoSecOps clones the repository over SSH.
     Generate an Ed25519 SSH key pair without a passphrase and add the public key to the repository as a read-only deploy key (GitHub: repository Settings -> Deploy keys).
 
     ```bash
@@ -35,18 +35,18 @@ You must have the "Organization Admin" role to add and manage the custom registr
     ```
 
     <Note>
-      The custom registry only supports Ed25519 SSH keys. Tracecat rejects RSA, ECDSA, and other key types.
+      The custom registry only supports Ed25519 SSH keys. AutoSecOps rejects RSA, ECDSA, and other key types.
     </Note>
 
     Go to Organization settings -> Custom registry -> Repository, click "Add SSH key" in the SSH key section, and paste the private key.
-    The name is fixed to `github-ssh-key` and the environment to `default`. Tracecat looks the registry key up by this exact name, whichever Git host you use.
+    The name is fixed to `github-ssh-key` and the environment to `default`. AutoSecOps looks the registry key up by this exact name, whichever Git host you use.
     To rotate the key, click "Replace SSH key" in the same section.
 
     <Frame>
       ![SSH key dialog](/img/custom-actions/github-ssh-key.png)
     </Frame>
   </Step>
-  <Step title="Add registry to Tracecat">
+  <Step title="Add registry to AutoSecOps">
     Go to Organization settings -> Custom registry -> Repository.
 
     Set the remote repository URL, repository package name, and allowed Git domains, then click "Save repository settings".
@@ -84,13 +84,13 @@ Open the row menu to act on a version.
 - "Sync this commit" syncs a commit you have not synced yet.
 - "Promote" makes an already-synced version the current one. Promote an earlier version to roll back.
 - "Compare..." shows the actions added, removed, and modified between two versions.
-- "Delete" removes a synced version. Tracecat blocks deletion of the current version and of any version that published workflows use.
+- "Delete" removes a synced version. AutoSecOps blocks deletion of the current version and of any version that published workflows use.
 
 Synced versions whose commit no longer appears in the commit list are grouped under "Other synced versions" below the table, with the same row menu.
 
 ## How custom registry works
 
-When you sync a registry, Tracecat:
+When you sync a registry, AutoSecOps:
 
 - Pulls the latest code from the remote repository
 - Converts the package and its dependencies into a tarball using `uv`
@@ -99,7 +99,7 @@ When you sync a registry, Tracecat:
 
 <Info>
   Published workflows run actions synced at the time of publication.
-  When triggered, the Tracecat executor pulls the pinned version of the platform registry and custom registry tarballs from S3.
+  When triggered, the AutoSecOps executor pulls the pinned version of the platform registry and custom registry tarballs from S3.
 
   You must republish a workflow to use the latest platform and custom actions.
   Even if there were no changes to the workflow itself.
@@ -107,20 +107,20 @@ When you sync a registry, Tracecat:
 
 ## Dependency conflicts
 
-When Tracecat syncs your registry, it imports your actions alongside Tracecat's own runtime packages, and your registry's dependencies take precedence.
-If your registry pins a package that Tracecat also uses to an incompatible version, the sync fails with a dependency conflict error.
+When AutoSecOps syncs your registry, it imports your actions alongside AutoSecOps's own runtime packages, and your registry's dependencies take precedence.
+If your registry pins a package that AutoSecOps also uses to an incompatible version, the sync fails with a dependency conflict error.
 
 To fix it:
 
-- Remove the pin, or widen it to include the version Tracecat uses. Tracecat's pinned versions are in [`uv.lock`](https://github.com/TracecatHQ/tracecat/blob/main/uv.lock); switch to your release's tag to see the versions you run.
+- Remove the pin, or widen it to include the version AutoSecOps uses. AutoSecOps's pinned versions are in [`uv.lock`](https://github.com/SingularityRD/AutoSecOps1/blob/main/uv.lock); switch to your release's tag to see the versions you run.
 - If a transitive dependency adds the pin, run `uv tree --invert --package <package>` to find which dependency pulls it in.
-- Avoid upper bounds on shared packages, so your registry keeps syncing when Tracecat upgrades them.
+- Avoid upper bounds on shared packages, so your registry keeps syncing when AutoSecOps upgrades them.
 
 ## FAQ
 
 <AccordionGroup>
-  <Accordion title="Does Tracecat support self-hosted Git repositories?">
-    Yes. Tracecat works with Gitlab and GitHub Enterprise.
+  <Accordion title="Does AutoSecOps support self-hosted Git repositories?">
+    Yes. AutoSecOps works with Gitlab and GitHub Enterprise.
   </Accordion>
 
   <Accordion title="Can I rename my custom Python package name?">
@@ -139,11 +139,11 @@ To fix it:
 
   <Accordion title="How can I add new Python dependencies?">
     You must specify new dependencies in the `dependencies` section of the `pyproject.toml` file.
-    Keep versions compatible with Tracecat's runtime packages. See [dependency conflicts](#dependency-conflicts).
+    Keep versions compatible with AutoSecOps's runtime packages. See [dependency conflicts](#dependency-conflicts).
   </Accordion>
 
   <Accordion title="Can I test actions without syncing on every change?">
-    Yes. For local Docker deployments, you can hot reload custom actions into Tracecat with a local registry.
+    Yes. For local Docker deployments, you can hot reload custom actions into AutoSecOps with a local registry.
     See [local development](/custom-actions/local-development) for more details.
   </Accordion>
 </AccordionGroup>

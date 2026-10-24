@@ -1,4 +1,4 @@
-"""Trusted MCP server for Tracecat agent.
+"""Trusted MCP server for AutoSecOps agent.
 
 This FastMCP server exposes a token-scoped catalog of concrete registry,
 internal, and user MCP tools. It runs outside the sandbox with full network

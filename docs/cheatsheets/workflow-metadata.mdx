@@ -1,6 +1,6 @@
 ---
 title: "Workflow metadata"
-description: "Quick reference for the ENV fields available in Tracecat expressions: workflow run identifiers, timestamps, trigger type, and Workflow environment."
+description: "Quick reference for the ENV fields available in AutoSecOps expressions: workflow run identifiers, timestamps, trigger type, and Workflow environment."
 ---
 
 ## Fields
@@ -10,7 +10,7 @@ Wrap a field in `${{ ... }}` to use it in an expression.
 | Field | Description |
 | --- | --- |
 | `ENV.workflow.start_time` | Wall-clock time the run started |
-| `ENV.workflow.time_anchor` | Anchor timestamp Tracecat uses for deterministic replay |
+| `ENV.workflow.time_anchor` | Anchor timestamp AutoSecOps uses for deterministic replay |
 | `ENV.workflow.dispatch_type` | `push` when the caller supplied the workflow definition, `pull` when the run fetched the committed definition |
 | `ENV.workflow.execution_id` | Unique ID of this workflow execution |
 | `ENV.workflow.run_id` | UUID of this execution's current run attempt |

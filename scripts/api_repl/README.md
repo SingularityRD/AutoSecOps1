@@ -1,6 +1,6 @@
 # API REPL Script
 
-An interactive Python REPL for sending authenticated API requests to the Tracecat API service.
+An interactive Python REPL for sending authenticated API requests to the AutoSecOps API service.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ python scripts/api_repl.py
 The script uses environment variables for configuration:
 
 - `TRACECAT__PUBLIC_API_URL` - API base URL (default: `http://localhost/api`)
-- `TRACECAT__TEST_USER_EMAIL` - Test user email (default: `test@tracecat.com`)
+- `TRACECAT__TEST_USER_EMAIL` - Test user email (default: `test@autosecops.example`)
 - `TRACECAT__TEST_USER_PASSWORD` - Test user password (default: `password1234`)
 - `TRACECAT__SERVICE_KEY` - Service key for internal API calls (optional)
 

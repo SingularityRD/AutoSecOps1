@@ -2,9 +2,9 @@
  * Build-time extension points for the UI.
  *
  * `src/extensions/index.ts` exports the {@link FrontendExtensions} a build
- * uses. Tracecat's is empty. A build that extends the UI replaces the
+ * uses. AutoSecOps's is empty. A build that extends the UI replaces the
  * `src/extensions/` directory before `next build`, and every slot it leaves
- * out keeps Tracecat's behavior.
+ * out keeps AutoSecOps's behavior.
  */
 import type { UIMessage } from "ai"
 import type { ReactNode } from "react"

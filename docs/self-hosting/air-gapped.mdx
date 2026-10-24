@@ -1,14 +1,14 @@
 ---
 title: Air-gapped deployment
-description: "Run Tracecat on Kubernetes with zero runtime internet connectivity, internal dependencies, and self-hosted LLM inference."
+description: "Run AutoSecOps on Kubernetes with zero runtime internet connectivity, internal dependencies, and self-hosted LLM inference."
 mode: wide
 ---
 
 <Info>
-  Every Tracecat feature works in self-hosted and air-gapped deployments. We ship a feature to Tracecat Cloud only when it can also run on-premises.
+  Every AutoSecOps feature works in self-hosted and air-gapped deployments.
 </Info>
 
-Tracecat supports fully air-gapped operation on production Kubernetes. Use internet access during preparation to stage every required artifact, then run Tracecat with zero internet connectivity.
+AutoSecOps supports fully air-gapped operation on production Kubernetes. Use internet access during preparation to stage every required artifact, then run AutoSecOps with zero internet connectivity.
 
 ## Reference architecture
 
@@ -17,13 +17,13 @@ The inference service can run inside Kubernetes or on an adjacent private GPU cl
 ```mermaid
 flowchart TB
   subgraph preparation["Connected preparation"]
-    artifacts["Helm chart · Tracecat and inference images<br/>model weights · tokenizer · configuration"]
+    artifacts["Helm chart · AutoSecOps and inference images<br/>model weights · tokenizer · configuration"]
   end
 
   subgraph runtime["Disconnected runtime · zero internet routes"]
     direction TB
     registry["Internal OCI registry<br/>and model store"]
-    tracecat["Tracecat on Kubernetes<br/>API · UI · workers · executors"]
+    tracecat["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
     dependencies["Internal dependencies<br/>state · identity · integrations · telemetry"]
     litellm["Bundled LiteLLM"]
     inference["vLLM or Ollama<br/>in-cluster or adjacent DGX Spark"]
@@ -39,7 +39,7 @@ flowchart TB
 
 ## Prepare while connected
 
-- Mirror the Tracecat OCI chart and every referenced container image into an internal OCI registry.
+- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry.
 - Stage the inference image, model weights, tokenizer, and model configuration in internal repositories.
 - Provision internal PostgreSQL, Redis, S3-compatible storage, Temporal, identity, DNS, TLS, secrets, telemetry, and integration endpoints. Validate image pulls and model discovery before removing egress.
 

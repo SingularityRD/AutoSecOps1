@@ -45,7 +45,7 @@ const mockUseVercelChatResult = {
   status: "ready" as ChatStatus,
 }
 
-// Tracecat installs no running composer; tests opt in through this mock.
+// AutoSecOps installs no running composer; tests opt in through this mock.
 const mockUseRunningComposer = jest.fn(
   (_context: RunningComposerContext): RunningComposer | undefined => undefined
 )
@@ -190,7 +190,7 @@ function renderChatSessionPane(
         <ChatSessionPane
           workspaceId="workspace-1"
           modelInfo={{ name: "gpt-test", provider: "openai" }}
-          placeholder="Ask Tracecat..."
+          placeholder="Ask AutoSecOps..."
           inputDisabledPlaceholder="Creating chat..."
           surface="workspace-chat"
           toolsEnabled={false}
@@ -264,7 +264,7 @@ describe("ChatSessionPane optimistic first send", () => {
       optimisticBeforeSend: true,
     })
 
-    const input = screen.getByPlaceholderText("Ask Tracecat...")
+    const input = screen.getByPlaceholderText("Ask AutoSecOps...")
     fireEvent.change(input, {
       target: { value: "Summarize this workspace" },
     })
@@ -293,7 +293,7 @@ describe("ChatSessionPane optimistic first send", () => {
       optimisticBeforeSend: true,
     })
 
-    const input = screen.getByPlaceholderText("Ask Tracecat...")
+    const input = screen.getByPlaceholderText("Ask AutoSecOps...")
     fireEvent.change(input, {
       target: { value: "Try again" },
     })
@@ -321,7 +321,7 @@ describe("ChatSessionPane optimistic first send", () => {
     }
     const { rerenderChatSessionPane } = renderChatSessionPane(props)
 
-    const input = screen.getByPlaceholderText("Ask Tracecat...")
+    const input = screen.getByPlaceholderText("Ask AutoSecOps...")
     fireEvent.change(input, {
       target: { value: "Repeat this" },
     })
@@ -420,7 +420,7 @@ function livePaused(): Promise<UIMessage> {
 
 /**
  * The live transcript of an approved batch the user stopped: the paused turn,
- * the approval submission, then the continuation's bubble. Tracecat streams the
+ * the approval submission, then the continuation's bubble. AutoSecOps streams the
  * continuation under the paused turn's bubble id and opens each late result
  * with its tool input, as its Vercel adapter does.
  */
@@ -589,7 +589,7 @@ describe("ChatSessionPane stopped approved calls", () => {
 
 /**
  * Back the pane's Retry with the AI SDK's own regenerate. Returns the message
- * each request carries: Tracecat's transport sends the request's last one.
+ * each request carries: AutoSecOps's transport sends the request's last one.
  */
 function retryRequests(messages: UIMessage[]): UIMessage[] {
   const sent: UIMessage[] = []
@@ -1020,7 +1020,7 @@ function renderServerBackedPane() {
         chat={chat}
         workspaceId="workspace-1"
         modelInfo={{ name: "gpt-test", provider: "openai" }}
-        placeholder="Ask Tracecat..."
+        placeholder="Ask AutoSecOps..."
         surface="workspace-chat"
         toolsEnabled={false}
       />
@@ -1227,7 +1227,7 @@ describe("ChatSessionPane running composer", () => {
   it("keeps the composer disabled while a turn runs without one", () => {
     renderChatSessionPane()
 
-    expect(screen.getByPlaceholderText("Ask Tracecat...")).toBeDisabled()
+    expect(screen.getByPlaceholderText("Ask AutoSecOps...")).toBeDisabled()
     expect(mockUseRunningComposer).toHaveBeenCalledWith(
       expect.objectContaining({ running: true, capabilities: {} })
     )
@@ -1304,7 +1304,7 @@ describe("ChatSessionPane running composer", () => {
     mockUseVercelChatResult.status = "ready"
     renderChatSessionPane({ chat: serverChat([]) })
 
-    const input = screen.getByPlaceholderText("Ask Tracecat...")
+    const input = screen.getByPlaceholderText("Ask AutoSecOps...")
     fireEvent.change(input, { target: { value: "Hello" } })
     fireEvent.keyDown(input, { key: "Enter" })
 

@@ -60,10 +60,10 @@ class _ArtifactBuildRequest:
 
 
 def _release_tag_key(version: str) -> tuple[int, int, int, int, int, int, int]:
-    """Return a sortable key for Tracecat release/image tag versions."""
+    """Return a sortable key for AutoSecOps release/image tag versions."""
     match = _RELEASE_TAG_PATTERN.fullmatch(version)
     if match is None:
-        raise InvalidVersion(f"Invalid Tracecat release tag: {version!r}")
+        raise InvalidVersion(f"Invalid AutoSecOps release tag: {version!r}")
 
     stage = match.group("stage") or "final"
     number = int(match.group("number") or 0)

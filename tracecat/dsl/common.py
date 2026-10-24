@@ -1,4 +1,4 @@
-"""Tracecat DSL Common Module."""
+"""AutoSecOps DSL Common Module."""
 
 from __future__ import annotations
 
@@ -1473,7 +1473,7 @@ NON_RETRYABLE_ERROR_TYPES = [
     RuntimeError.__name__,
     # Pydantic
     ValidationError.__name__,
-    # Tracecat
+    # AutoSecOps
     TracecatException.__name__,
     TracecatExpressionError.__name__,
     TracecatValidationError.__name__,

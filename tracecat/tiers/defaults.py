@@ -1,4 +1,4 @@
-"""Default limits and entitlements for OSS/self-hosted deployments."""
+"""Default limits and entitlements for single-tenant/self-hosted deployments."""
 
 from __future__ import annotations
 
@@ -36,24 +36,24 @@ def _parse_feature_flags(feature_flags_env: str) -> set[str]:
     }
 
 
-# Default entitlements for OSS/single-tenant deployments.
+# Default entitlements for single-tenant/self-hosted deployments.
 def resolve_oss_default_entitlements(
     feature_flags_env: str | None,
 ) -> EffectiveEntitlements:
-    """Resolve OSS default entitlements from legacy feature flags.
+    """Resolve single-tenant default entitlements from legacy feature flags.
 
-    Fresh OSS installs start with custom registry and workspace chat enabled.
-    Existing OSS deployments can preserve prior behavior by mapping enabled
-    feature flags to their corresponding entitlement groups.
+    Fresh single-tenant installs start with custom registry and workspace chat
+    enabled. Existing single-tenant deployments can preserve prior behavior by
+    mapping enabled feature flags to their corresponding entitlement groups.
 
     Agent presets, skills, MCP catalog connectors, tool approvals, and the agent
-    inbox are open source; ``agent_addons`` only gates agent folders, tags, and
-    case agent runs. Agent channels (Slack and Microsoft Teams, including approvals
-    from those channels) are closed source and gated by ``agent_channels``; the
-    legacy ``agent-channels`` feature flag maps to it. Semantic table search is
-    closed source and gated by ``semantic_search``. Forms are gated by ``forms``;
-    the ``forms`` feature flag maps to it, so one token turns on both the flag
-    and the entitlement on single-tenant deployments.
+    inbox are not entitlement-gated; ``agent_addons`` only gates agent folders,
+    tags, and case agent runs. Agent channels (Slack and Microsoft Teams, including
+    approvals from those channels) are gated by ``agent_channels``; the legacy
+    ``agent-channels`` feature flag maps to it. Semantic table search is gated by
+    ``semantic_search``. Forms are gated by ``forms``; the ``forms`` feature flag
+    maps to it, so one token turns on both the flag and the entitlement on
+    single-tenant deployments.
 
     Multi-workspace is disabled on both paths. Existing workspaces remain
     accessible; the entitlement only gates creation beyond the first workspace.

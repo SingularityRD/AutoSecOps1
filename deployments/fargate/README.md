@@ -1,6 +1,6 @@
-# Tracecat AWS ECS Fargate stack
+# AutoSecOps AWS ECS Fargate stack
 
-Terraform stack for Tracecat on AWS ECS Fargate (`>1.0.0-beta.xx`).
+Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).
 
 ## Services
 
@@ -26,9 +26,9 @@ Terraform stack for Tracecat on AWS ECS Fargate (`>1.0.0-beta.xx`).
 
 > [!NOTE]
 > Fargate does not support the permissions model required by `nsjail`, so `core.script.run_python` and executor code paths run without `nsjail` isolation.
-> Tracecat uses `unsafe_pid_executor` fallback in this mode. It attempts PID namespace isolation with `unshare --pid`, but this is typically unavailable on Fargate.
+> AutoSecOps uses `unsafe_pid_executor` fallback in this mode. It attempts PID namespace isolation with `unshare --pid`, but this is typically unavailable on Fargate.
 > As a result, script execution uses subprocess isolation without nsjail-level mount/network/cgroup controls.
-> If you need highest isolation for untrusted code execution, deploy Tracecat on Kubernetes with the Helm chart, where `nsjail` is enabled by default.
+> If you need highest isolation for untrusted code execution, deploy AutoSecOps on Kubernetes with the Helm chart, where `nsjail` is enabled by default.
 
 - `TRACECAT__EXECUTOR_BACKEND=direct` (executor + agent-executor)
 
@@ -51,7 +51,7 @@ Terraform stack for Tracecat on AWS ECS Fargate (`>1.0.0-beta.xx`).
 
 For the bundled Fargate `temporalio/auto-setup` deployment, `temporal_db_force_ssl` now defaults to `false`. This disables `rds.force_ssl` only on the Temporal RDS instance, requires a DB reboot when changed, and permits non-TLS connections for the bundled Temporal service.
 
-If you are connecting Tracecat to Temporal Cloud or another external Temporal cluster, this setting is typically irrelevant because you should also set `disable_temporal_autosetup=true` and not create the bundled Temporal RDS instance. If you do manage your own Temporal PostgreSQL outside the bundled Fargate auto-setup path and your deployment supports TLS correctly, set `temporal_db_force_ssl=true`.
+If you are connecting AutoSecOps to Temporal Cloud or another external Temporal cluster, this setting is typically irrelevant because you should also set `disable_temporal_autosetup=true` and not create the bundled Temporal RDS instance. If you do manage your own Temporal PostgreSQL outside the bundled Fargate auto-setup path and your deployment supports TLS correctly, set `temporal_db_force_ssl=true`.
 
 ## Quick start
 

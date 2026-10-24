@@ -1,4 +1,4 @@
-"""Tracecat authn sandbox."""
+"""AutoSecOps authn sandbox."""
 
 from __future__ import annotations
 

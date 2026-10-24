@@ -1,6 +1,6 @@
 ---
 title: Docker Compose
-description: "Deploy self-hosted Tracecat using Docker Compose: bring up the API, executor, worker, frontend, Postgres, and Temporal stack on a single host in minutes."
+description: "Deploy self-hosted AutoSecOps using Docker Compose: bring up the API, executor, worker, frontend, Postgres, and Temporal stack on a single host in minutes."
 ---
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
@@ -10,7 +10,7 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
   Docker Compose deployments default to basic email / password authentication.
   Production deployments should use [OIDC](/authentication/oidc) or [SAML](/authentication/saml) SSO.
   See [Security](/self-hosting/security) for additional production hardening recommendations.
-  Tracecat SAML SSO always requires signed assertions and signed responses.
+  AutoSecOps SAML SSO always requires signed assertions and signed responses.
 </Warning>
 
 ## Prerequisites
@@ -46,7 +46,7 @@ After running `env.sh`, you'll be prompted to input the following:
 
 ## Download Caddyfile
 
-Tracecat uses Caddy as a reverse proxy.
+AutoSecOps uses Caddy as a reverse proxy.
 You'll need to download the following `Caddyfile` to configure this service.
 
 ```bash
@@ -65,16 +65,16 @@ curl -o docker-compose.yml https://raw.githubusercontent.com/TracecatHQ/tracecat
   The legacy `ephemeral` value remains a compatibility alias for `nsjail`.
 </Warning>
 
-## Start Tracecat
+## Start AutoSecOps
 
-For the direct backend, run the command below to start Tracecat and all related services.
+For the direct backend, run the command below to start AutoSecOps and all related services.
 Make sure your `docker-compose.yml` and generated `.env` files are in the same directory.
 
 ```bash
 docker compose up
 ```
 
-For nsjail, download `docker-compose.sandbox.yml` from the same Tracecat release as your image and place it beside `docker-compose.yml`. Start with both files so the overlay supplies the container permissions and cgroup bootstrap:
+For nsjail, download `docker-compose.sandbox.yml` from the same AutoSecOps release as your image and place it beside `docker-compose.yml`. Start with both files so the overlay supplies the container permissions and cgroup bootstrap:
 
 ```bash
 TRACECAT__EXECUTOR_BACKEND=nsjail docker compose \
@@ -83,7 +83,7 @@ TRACECAT__EXECUTOR_BACKEND=nsjail docker compose \
 
 If you build locally with `docker-compose.local.yml`, substitute that file for `docker-compose.yml` in the command.
 
-## Access Tracecat
+## Access AutoSecOps
 
 Once deployed, access your instance at:
 - UI: `http://localhost:${PUBLIC_APP_PORT}`
@@ -100,10 +100,10 @@ Once deployed, access your instance at:
 
 <FirstSuperadmin />
 
-## Updating Tracecat
+## Updating AutoSecOps
 
 <Warning>
-  Be careful when updating Tracecat.
+  Be careful when updating AutoSecOps.
   Do not accidentally overwrite or lose your existing `TRACECAT__SERVICE_KEY`, `TRACECAT__SIGNING_SECRET`, `TRACECAT__DB_ENCRYPTION_KEY`, and `USER_AUTH_SECRET` secrets.
   Losing these secrets will break your credentials and webhooks.
 </Warning>
@@ -122,7 +122,7 @@ curl -o docker-compose.yml https://raw.githubusercontent.com/TracecatHQ/tracecat
 # 4. Download the latest Caddyfile
 curl -o Caddyfile https://raw.githubusercontent.com/TracecatHQ/tracecat/<version>/Caddyfile
 
-# 5. Restart Tracecat with the updated configuration
+# 5. Restart AutoSecOps with the updated configuration
 docker compose up -d
 ```
 
@@ -225,23 +225,23 @@ docker stack services tracecat
 For an overview of all services and networking, see [Architecture](/self-hosting/architecture).
 
 <AccordionGroup>
-  <Accordion title="Does Tracecat support Windows?">
+  <Accordion title="Does AutoSecOps support Windows?">
     Yes but don't forget to set `PUBLIC_APP_URL` to `127.0.0.1` instead of `localhost` in your `.env` file.
   </Accordion>
 
-  <Accordion title="Does Tracecat support WSL?">
+  <Accordion title="Does AutoSecOps support WSL?">
     Yes but you'll need to set `PUBLIC_APP_URL` to the WSL IP address instead of `localhost`.
     Run `ip addr` to find your WSL IP address (usually 172.x.x.x).
   </Accordion>
 
   <Accordion title="Connecting LiteLLM, vLLM, or Ollama fails with 'Host is not allowed'">
-    Tracecat rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
+    AutoSecOps rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
     Set `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` in your `.env` file to the gateway's IP or CIDR, e.g. `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32`, then run `docker compose up -d` to restart the services.
     See [Private endpoints](/agents/llm-providers#private-endpoints).
   </Accordion>
 
   <Accordion title="I can see the landing page but not the login page">
-    This suggests that the Tracecat UI is healthy but is unable to communicate with the Tracecat API.
+    This suggests that the AutoSecOps UI is healthy but is unable to communicate with the AutoSecOps API.
 
     - Check that the `api` service is healthy
     - Check that this is not a CORS issue (see next FAQ)
@@ -250,10 +250,10 @@ For an overview of all services and networking, see [Architecture](/self-hosting
   </Accordion>
 
   <Accordion title="What is the CORS issue?">
-    You must configure `PUBLIC_APP_URL` and `PUBLIC_API_URL` to the same domain that your browser is accessing the Tracecat UI from.
-    Tracecat strictly enforces CORS to prevent XSS attacks.
+    You must configure `PUBLIC_APP_URL` and `PUBLIC_API_URL` to the same domain that your browser is accessing the AutoSecOps UI from.
+    AutoSecOps strictly enforces CORS to prevent XSS attacks.
 
-    This error occurs when your browser cannot connect to Tracecat API via `PUBLIC_APP_URL`.
+    This error occurs when your browser cannot connect to AutoSecOps API via `PUBLIC_APP_URL`.
     Please check the following:
 
     - Do not set `PUBLIC_APP_URL` to `0.0.0.0`. Browsers cannot connect to this address. Use `localhost`, `127.0.0.1`, or your machine's actual IP address instead.
@@ -264,7 +264,7 @@ For an overview of all services and networking, see [Architecture](/self-hosting
     - View container logs: `docker compose logs api` and `docker compose logs temporal`.
     - Check firewall and port forwarding if using a reverse proxy.
 
-    For example, if you've deployed Tracecat into a VM and exposed it to your browser as `https://my-tracecat-instance.com`,
+    For example, if you've deployed AutoSecOps into a VM and exposed it to your browser as `https://my-tracecat-instance.com`,
     you must set:
     - `PUBLIC_APP_URL` to `https://my-tracecat-instance.com`
     - `PUBLIC_API_URL` to `https://my-tracecat-instance.com/api`

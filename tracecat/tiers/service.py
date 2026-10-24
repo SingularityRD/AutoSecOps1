@@ -91,7 +91,7 @@ class TierService(BaseService):
     async def get_effective_limits(self, org_id: OrganizationID) -> EffectiveLimits:
         """Get effective limits (org override or tier default).
 
-        In single-tenant mode, returns static OSS/self-host defaults.
+        In single-tenant mode, returns static single-tenant/self-host defaults.
         In multi-tenant mode, uses the org-assigned tier if present,
         otherwise falls back to the active default tier.
 
@@ -146,7 +146,7 @@ class TierService(BaseService):
     ) -> EffectiveEntitlements:
         """Get effective entitlements (org override or tier default).
 
-        In single-tenant mode, returns static OSS/self-host defaults.
+        In single-tenant mode, returns static single-tenant/self-host defaults.
         In multi-tenant mode, uses the org-assigned tier if present,
         otherwise falls back to the active default tier.
 

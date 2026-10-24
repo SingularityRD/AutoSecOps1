@@ -99,7 +99,7 @@ def _raise_permit_resolution_error(error: Exception) -> Never:
             if invalid_cap
             else RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE
         ),
-        message="Tracecat could not resolve a workflow concurrency permit",
+        message="AutoSecOps could not resolve a workflow concurrency permit",
         retry_disposition=(
             RetryDisposition.NON_RETRYABLE
             if invalid_cap
@@ -265,7 +265,7 @@ async def get_tier_limits_activity(
                 if invalid_data
                 else RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE
             ),
-            message="Tracecat could not resolve workflow tier limits",
+            message="AutoSecOps could not resolve workflow tier limits",
             retry_disposition=(
                 RetryDisposition.NON_RETRYABLE
                 if invalid_data

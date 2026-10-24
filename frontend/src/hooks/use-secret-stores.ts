@@ -32,7 +32,7 @@ const ORG_SECRET_STORES_KEY = ["organization-secret-stores"]
 
 /**
  * Organization-level management of external secret stores (AWS Secrets
- * Manager). Tracecat stores role/region metadata and a persisted external ID;
+ * Manager). AutoSecOps stores role/region metadata and a persisted external ID;
  * it never stores AWS credentials or remote values.
  */
 export function useOrgSecretStores() {

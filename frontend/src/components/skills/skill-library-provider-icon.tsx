@@ -21,6 +21,7 @@ const PROVIDER_ICONS: Record<
   feedly: mcpCatalogProviderIcons.feedly_mcp,
   "google-secops": mcpCatalogProviderIcons.google_cloud_secops_mcp,
   splunk: mcpCatalogProviderIcons.splunk_mcp,
+  autosecops: Icons.logo,
   tracecat: Icons.logo,
 }
 
@@ -91,7 +92,7 @@ export function SkillLibraryMaintainerMark({
         <p className="font-medium">{label}</p>
         {maintainer === "tracecat" ? (
           <p className="opacity-80">
-            Ships with Tracecat and updates with each release.
+            Ships with AutoSecOps and updates with each release.
           </p>
         ) : null}
       </TooltipContent>

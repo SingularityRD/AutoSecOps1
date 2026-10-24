@@ -29,7 +29,7 @@ export const CHECK_ERROR_MESSAGES: Record<
   },
   assume_role_failed: {
     label: "Cannot assume role",
-    hint: "Tracecat could not assume the store's IAM role. Check that the role's trust policy allows the Tracecat principal and includes the store's external ID.",
+    hint: "AutoSecOps could not assume the store's IAM role. Check that the role's trust policy allows the AutoSecOps principal and includes the store's external ID.",
   },
   access_denied: {
     label: "Access denied",
@@ -163,7 +163,7 @@ export function AwsSecretReferenceCheckButton({
 }) {
   let label = "Check access"
   let icon: React.ReactNode = null
-  let title = "Check that Tracecat can read this secret"
+  let title = "Check that AutoSecOps can read this secret"
   if (state.status === "checking") {
     label = "Checking…"
     icon = <Loader2Icon className="size-3.5 animate-spin" />

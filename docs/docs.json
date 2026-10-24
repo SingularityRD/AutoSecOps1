@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "aspen",
-  "name": "Tracecat Docs",
+  "name": "AutoSecOps Docs",
   "colors": {
     "primary": "#6E7ED8",
     "light": "#8E9BE1",
@@ -420,7 +420,7 @@
           },
           {
             "group": "Endpoints",
-            "openapi": "https://platform.tracecat.com/api/openapi.json"
+            "openapi": "api-reference/openapi.json"
           }
         ]
       }
@@ -617,16 +617,9 @@
     "family": "Instrument Sans"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Discord",
-        "href": "https://discord.com/invite/H4XZwsYzY4"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Talk to us",
-      "href": "https://tracecat.com/contact"
+      "type": "github",
+      "href": "https://github.com/SingularityRD/AutoSecOps1"
     }
   },
   "contextual": {
@@ -643,7 +636,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/TracecatHQ/tracecat"
+      "github": "https://github.com/SingularityRD/AutoSecOps1"
     }
   }
 }

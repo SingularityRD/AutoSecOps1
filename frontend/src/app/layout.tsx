@@ -25,7 +25,9 @@ if (process.env.NEXT_PUBLIC_APP_ENV === "production") {
   // Remark: Is there a more elegant way to do this?
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   PHProvider = require("@/providers/posthog").PHProvider
-  console.log("PostHog initialized for production environment.")
+  if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+    console.log("PostHog initialized for production environment.")
+  }
 }
 export const metadata: Metadata = {
   title: siteConfig.name,

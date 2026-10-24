@@ -21,7 +21,7 @@ Changes apply to every case, including open cases.
 
 ## Close a case in the UI
 
-When you change a case to `Closed` or `Resolved` and a required value is missing, Tracecat opens a `Close case` or `Resolve case` dialog with every required field and dropdown.
+When you change a case to `Closed` or `Resolved` and a required value is missing, AutoSecOps opens a `Close case` or `Resolve case` dialog with every required field and dropdown.
 Values that are already set are prefilled.
 Fill in the missing values to finish the status change.
 
@@ -29,7 +29,7 @@ Fill in the missing values to finish the status change.
 
 ## Close a case from a workflow
 
-Tracecat checks the same requirements when `core.cases.update_case` sets `status` to `closed` or `resolved`.
+AutoSecOps checks the same requirements when `core.cases.update_case` sets `status` to `closed` or `resolved`.
 Pass the required values in the same call:
 
 ```yaml
@@ -50,7 +50,7 @@ The case keeps its previous status.
 
 ## What counts as a value
 
-Tracecat treats `null`, whitespace-only text, empty lists, and empty objects as missing.
+AutoSecOps treats `null`, whitespace-only text, empty lists, and empty objects as missing.
 `false` and `0` count as values, so a required `Boolean` or `Integer` field accepts them.
 Changes to other statuses, such as `On hold`, skip the check.
 

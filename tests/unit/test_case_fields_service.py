@@ -270,7 +270,7 @@ class TestCaseFieldsService:
     async def test_create_field_rejects_internal_namespace_prefix(
         self, case_fields_service: CaseFieldsService
     ) -> None:
-        """The internal Tracecat namespace prefix should be reserved."""
+        """The internal AutoSecOps namespace prefix should be reserved."""
         with pytest.raises(ValueError, match="reserved for internal use"):
             await case_fields_service.create_field(
                 CaseFieldCreate(name="__tc_shadow", type=SqlType.TEXT)

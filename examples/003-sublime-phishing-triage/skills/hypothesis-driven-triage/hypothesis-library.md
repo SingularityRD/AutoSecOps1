@@ -14,7 +14,7 @@ The source names in this table are examples from one SIEM schema: `<adapt to you
 | Source control, product audit and other webhooks | the catch-all log table, filtered by source type |
 | Kubernetes audit | `kubernetes_audit_logs` if it has rows; otherwise not in the SIEM |
 | Tenant and workload run attribution (traces, job systems) | Pod to tenant: not in the SIEM, ask platform. Tenant that was calling AWS at a given time: `aws_cloudtrail_logs`, the shared workload role's AssumeRole events, where `requestParameters.roleSessionName` follows your organisation's session naming pattern (business-context) |
-| Earlier cases for the same principal, resource, or type | Tracecat case search, last 30 days |
+| Earlier cases for the same principal, resource, or type | AutoSecOps case search, last 30 days |
 | Other GuardDuty findings for the same identity, 90 days | `aws_guardduty_logs`, matching the session name, principal, or access key in the raw record |
 | SSO username to a named person | First the employee list in business-context (name and email), matched by email local part or first initial plus surname; state the pattern used. Then IAM Identity Center or IdP sign in logs, if ingested: run one count query for the username first. When no IdP sign in source with these usernames is ingested, say "not ingested" once |
 | What normal looks like for a person, role, or schedule | business-context, baselines section; if it is not there, the answer is "no baseline recorded", not "abnormal" |

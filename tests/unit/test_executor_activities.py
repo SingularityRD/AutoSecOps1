@@ -488,7 +488,7 @@ class TestExecuteActionActivity:
     ) -> None:
         classification = RuntimeErrorClassification.platform(
             kind=RuntimeErrorKind.EXECUTOR_REGISTRY_CAPACITY_EXHAUSTED,
-            message="Tracecat executor artifact capacity is exhausted",
+            message="AutoSecOps executor artifact capacity is exhausted",
             retry_disposition=RetryDisposition.NON_RETRYABLE,
         )
         activity_mocks.dispatch.side_effect = ApplicationError(

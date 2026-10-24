@@ -27,8 +27,8 @@ aws-iam = "plugins/aws-core/skills/aws-iam"
 [[source]]
 kind = "local"
 group = "AWS"
-provider = "Tracecat"
-license = "AGPL-3.0-only"
+provider = "AutoSecOps"
+license = "LicenseRef-Proprietary"
 
 [source.skills]
 aws-incident-response = "skills/aws-incident-response"

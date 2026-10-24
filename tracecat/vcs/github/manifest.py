@@ -62,7 +62,7 @@ def generate_github_app_manifest() -> GitHubAppManifest:
         webhook_active = True
 
     return GitHubAppManifest(
-        name="Tracecat Workflows",
+        name="AutoSecOps Workflows",
         url=public_app_url,
         hook_attributes={
             "url": webhook_url,
@@ -72,7 +72,7 @@ def generate_github_app_manifest() -> GitHubAppManifest:
         # This needs to redirect to the UI instead of the API
         callback_urls=[f"{public_app_url}/organization/vcs/github/install"],
         setup_url=f"{public_app_url}/organization/vcs",
-        description="GitHub App for Tracecat to manage workflow synchronization with Git repositories. This app enables automated pull request creation for workflow changes.",
+        description="GitHub App for AutoSecOps to manage workflow synchronization with Git repositories. This app enables automated pull request creation for workflow changes.",
         public=False,
         default_permissions={
             "contents": "write",

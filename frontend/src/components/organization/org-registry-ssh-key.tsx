@@ -90,7 +90,7 @@ export function OrgRegistrySshKeySection() {
         toast({
           title: "SSH key removed but the new key was not saved",
           description:
-            "Add an SSH key so Tracecat can sync the repository again.",
+            "Add an SSH key so AutoSecOps can sync the repository again.",
           variant: "destructive",
         })
       }
@@ -214,7 +214,7 @@ export function OrgRegistrySshKeySection() {
             <CreateSSHKeyDialog
               handler={handleCreate}
               title="Add SSH key"
-              description="Paste the private key. Tracecat uses it to clone the custom registry repository."
+              description="Paste the private key. AutoSecOps uses it to clone the custom registry repository."
               submitLabel="Add SSH key"
               fieldConfig={sshKeyFieldConfig}
             >
@@ -227,8 +227,8 @@ export function OrgRegistrySshKeySection() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Tracecat uses this key to clone the repository. Add the public key to
-          the repository as a read-only deploy key.
+          AutoSecOps uses this key to clone the repository. Add the public key
+          to the repository as a read-only deploy key.
         </p>
       </div>
       <div className="rounded-md border">{body}</div>
@@ -239,7 +239,7 @@ export function OrgRegistrySshKeySection() {
           onOpenChange={setReplaceOpen}
           handler={handleCreate}
           title="Replace SSH key"
-          description="Paste the new private key. Tracecat removes the current key when you save."
+          description="Paste the new private key. AutoSecOps removes the current key when you save."
           submitLabel="Replace SSH key"
           fieldConfig={sshKeyFieldConfig}
         />
@@ -260,7 +260,7 @@ export function OrgRegistrySshKeySection() {
               This permanently removes{" "}
               <span className="font-mono">{keyPendingRemove?.name ?? ""}</span>.
               {keyPendingRemove && isRegistryKey(keyPendingRemove)
-                ? " Tracecat can't sync the repository until you add a new key."
+                ? " AutoSecOps can't sync the repository until you add a new key."
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>

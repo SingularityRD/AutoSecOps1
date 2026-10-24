@@ -59,7 +59,7 @@ NATIONAL_CLOUDS: dict[str, NationalClouds] = {
     "dod-graph.microsoft.us": NationalClouds.US_DoD,
     "microsoftgraph.chinacloudapi.cn": NationalClouds.China,
 }
-"""Graph hosts Tracecat will talk to, keyed by host name.
+"""Graph hosts AutoSecOps will talk to, keyed by host name.
 
 Deliberately narrower than `msgraph_core.NationalClouds`, which still carries the
 retired `graph.microsoft.de` endpoint.

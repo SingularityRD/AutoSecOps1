@@ -1,9 +1,9 @@
 ---
 title: "Skills"
-description: "Create, publish, and attach Tracecat skills to preset agents so reusable instructions and files are available during agent runs."
+description: "Create, publish, and attach AutoSecOps skills to preset agents so reusable instructions and files are available during agent runs."
 ---
 
-<Badge icon="github" color="gray" size="lg" shape="pill">Open source</Badge>
+<Badge icon="circle-check" color="gray" size="lg" shape="pill">All plans</Badge>
 
 Skills let you package reusable agent instructions and supporting files.
 Attach published skill versions to a preset agent when the agent needs the same playbook, reference material, or helper files across runs.
@@ -16,7 +16,7 @@ Click `Create new`, then choose `Skill` to start with an empty working copy or `
 ![Skills list](/img/agents/skills-list.png)
 
 Skill names use lowercase letters, numbers, and single hyphens.
-Tracecat seeds new skills with a root `SKILL.md` file.
+AutoSecOps seeds new skills with a root `SKILL.md` file.
 
 ## Write SKILL.md
 
@@ -35,7 +35,7 @@ Use this skill when you need to enrich IP addresses, domains, URLs, or file
 hashes during alert triage.
 ```
 
-Tracecat uses the frontmatter `name` as the published skill name.
+AutoSecOps uses the frontmatter `name` as the published skill name.
 Keep published skill names unique among skills attached to the same preset agent.
 Write the body as instructions the agent can follow during a run.
 
@@ -117,13 +117,13 @@ Each row shows the skill name and its version.
 Hover the name to read the description, or click it to open the skill.
 
 Only published skills can be attached.
-When a preset agent runs, Tracecat resolves each attached skill to that skill's current
+When a preset agent runs, AutoSecOps resolves each attached skill to that skill's current
 published version, so publishing a new version takes effect on the next run without
 editing the preset.
 
 ## How agents load skills
 
-When a preset agent runs, Tracecat stages the resolved skill versions into the agent runtime.
+When a preset agent runs, AutoSecOps stages the resolved skill versions into the agent runtime.
 The agent can discover the skill by its `SKILL.md` metadata and use the bundled files during the run.
 
 Use skills for reusable agent behavior.

@@ -322,7 +322,7 @@ function WorkspaceAccessDenied() {
 
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="Tracecat" className="mb-4 size-16" />
+      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
       <h1 className="text-2xl font-semibold tracking-tight">Access denied</h1>
       <span className="text-center text-muted-foreground">
         You don&apos;t have permission to access this workspace.
@@ -397,7 +397,7 @@ function NoWorkspaces() {
 
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="Tracecat" className="mb-4 size-16" />
+      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
       <h1 className="text-2xl font-semibold tracking-tight">No workspaces</h1>
       <span className="text-center text-muted-foreground">
         {canCreateWorkspace

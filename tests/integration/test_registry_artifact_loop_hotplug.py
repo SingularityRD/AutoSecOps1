@@ -6,7 +6,7 @@ private ``/dev``. This privileged integration test constrains a disposable
 executor container to one visible loop block node, occupies it, and proves
 that the legacy ``mount -o loop`` path fails for a second image.
 
-The companion regression exercises Tracecat's product mount path against the
+The companion regression exercises AutoSecOps's product mount path against the
 same condition as the real non-root ``apiuser``. It requires the product path
 to synchronize the missing node and successfully mount the second image.
 
@@ -376,7 +376,7 @@ def _chown_tree(root: Path, uid: int, gid: int) -> None:
 
 
 async def _run_loop_hotplug_child() -> None:
-    """Reproduce the missing-node failure and probe Tracecat's mount path."""
+    """Reproduce the missing-node failure and probe AutoSecOps's mount path."""
     if _dev_filesystem_type() != "tmpfs":
         payload = _empty_payload(
             skipped="container /dev is not an isolated tmpfs; refusing to modify it"

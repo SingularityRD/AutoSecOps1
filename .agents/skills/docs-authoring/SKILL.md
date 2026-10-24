@@ -61,7 +61,7 @@ While writing:
 
 Use Chrome DevTools or the available browser DevTools MCP to navigate the local app, set a stable viewport, seed realistic demo data when needed, and capture screenshots.
 
-For Tracecat-style local work:
+For AutoSecOps-style local work:
 
 ```bash
 docker compose ls --filter name=tracecat

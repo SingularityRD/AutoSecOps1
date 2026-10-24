@@ -1,6 +1,6 @@
 ---
 name: guardduty-case-lifecycle
-description: Load when the prompt hands you a GuardDuty finding to triage, either a finding id with its region and detector or a manual run carrying finding_id or since. Takes the finding from AWS to a triaged Tracecat case and a published Slack alert. You fetch it with boto3, map its family, dedupe it, attach it to a case or create one, and stop when a person has already decided. Otherwise you investigate, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
+description: Load when the prompt hands you a GuardDuty finding to triage, either a finding id with its region and detector or a manual run carrying finding_id or since. Takes the finding from AWS to a triaged AutoSecOps case and a published Slack alert. You fetch it with boto3, map its family, dedupe it, attach it to a case or create one, and stop when a person has already decided. Otherwise you investigate, write the case, post or refresh the Work Object card, the brief, the evidence table and the owner ask, and keep the slack_work_objects row current. Load with business-context (when that skill exists), hypothesis-driven-triage, aws-cloud-incident-response-core and case-output.
 metadata:
   tools:
     - tools.aws_boto3.call_api
@@ -29,7 +29,7 @@ Work through the stages below in order. Each stage says when to stop. When you s
 
 | Name | Value |
 |---|---|
-| Workspace case URL | `https://<your-tracecat-host>/workspaces/<workspace-id>/cases/<case_id>` |
+| Workspace case URL | `https://<your-autosecops-host>/workspaces/<workspace-id>/cases/<case_id>` |
 | Triage channel | `#security-alerts`, `C0123456789` |
 | Work Object table | `slack_work_objects` |
 | Enabled regions | discover with `ec2` `describe_regions` in `us-east-1` when you need them |

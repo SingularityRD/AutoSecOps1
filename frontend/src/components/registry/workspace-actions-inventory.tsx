@@ -678,7 +678,7 @@ const RegistryGroupHeader = memo(function RegistryGroupHeader({
   isExpanded: boolean
   onToggle: (origin: string) => void
 }) {
-  const primaryLabel = group.kind === "tracecat" ? group.origin : group.label
+  const primaryLabel = group.label
   const showSecondaryOrigin = primaryLabel !== group.origin
   return (
     <button

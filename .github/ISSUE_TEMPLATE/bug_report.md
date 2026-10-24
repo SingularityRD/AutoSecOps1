@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 <!--
-  Thank you for taking the time to contribute to Tracecat!
+  Thank you for taking the time to contribute to AutoSecOps!
 
   Please provide a clear and concise description of the bug.
   If you're reporting a bug with a specific feature, please include a self-contained, [minimal, reproducible, example](https://stackoverflow.com/help/minimal-reproducible-example) with your use case.
@@ -18,7 +18,7 @@ assignees: ""
 A clear and concise description of what the bug is.
 
 **Provide logs**
-If applicable, please provide logs from the relevant Tracecat container (`api`, `worker`, `executor`, `ui`) or browser console (e.g. `Chrome DevTools`).
+If applicable, please provide logs from the relevant AutoSecOps container (`api`, `worker`, `executor`, `ui`) or browser console (e.g. `Chrome DevTools`).
 
 **To reproduce**
 Please add a self-contained, [minimal, reproducible, example](https://stackoverflow.com/help/minimal-reproducible-example) with your use case.
@@ -39,9 +39,9 @@ If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
 
-- Tracecat version (e.g. `1.0.0`)
+- AutoSecOps version (e.g. `1.0.0`)
 - OS (e.g. Ubuntu 20.03 on WSL2)
-- Where did you deploy Tracecat? (VM, AWS EC2, etc.)
+- Where did you deploy AutoSecOps? (VM, AWS EC2, etc.)
 - CPU architecture
 - Browser type (e.g. Chrome, Safari, Edge, etc.) and version
 - Docker / Podman version

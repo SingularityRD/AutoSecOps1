@@ -1,11 +1,11 @@
 ---
 title: Architecture
-description: "Architecture overview for self-hosted Tracecat: services, networking, authentication boundaries, and dependencies between API, executor, worker, LiteLLM, and frontend."
+description: "Architecture overview for self-hosted AutoSecOps: services, networking, authentication boundaries, and dependencies between API, executor, worker, LiteLLM, and frontend."
 ---
 
 ## Services
 
-Use PostgreSQL 15 or newer for the Tracecat application database. The bundled
+Use PostgreSQL 15 or newer for the AutoSecOps application database. The bundled
 Docker Compose database uses PostgreSQL 16.
 
 The Docker Compose stack runs 16 containers. Only `caddy` is exposed externally; all other ports are internal to the Docker network.
@@ -55,7 +55,7 @@ Agent workers and agent executors follow the same Temporal-based pattern for AI 
 
 ### LiteLLM request path
 
-The `litellm` container runs Tracecat's managed LiteLLM gateway on port 4000. It is an internal service, not a public API endpoint. When an agent workflow reaches a model call, `agent-executor` sends the request to `http://litellm:4000` by default. The LiteLLM gateway validates the request, resolves the selected model provider, injects the provider credentials, and forwards the request upstream. This keeps provider credentials out of the sandboxed agent process while giving all managed model requests one internal routing point. Custom provider configurations can bypass the managed gateway when passthrough mode is enabled. Otherwise, root agents and subagents use the internal LiteLLM gateway.
+The `litellm` container runs AutoSecOps's managed LiteLLM gateway on port 4000. It is an internal service, not a public API endpoint. When an agent workflow reaches a model call, `agent-executor` sends the request to `http://litellm:4000` by default. The LiteLLM gateway validates the request, resolves the selected model provider, injects the provider credentials, and forwards the request upstream. This keeps provider credentials out of the sandboxed agent process while giving all managed model requests one internal routing point. Custom provider configurations can bypass the managed gateway when passthrough mode is enabled. Otherwise, root agents and subagents use the internal LiteLLM gateway.
 
 ### Docker networks
 
@@ -106,12 +106,12 @@ See [SAML configuration](/authentication/saml) for provider-specific setup instr
   </Accordion>
 
   <Accordion title="Can I use any S3-compatible bucket?">
-    Yes. Tracecat has been tested with Amazon S3, MinIO, SeaweedFS, and RustFS.
+    Yes. AutoSecOps has been tested with Amazon S3, MinIO, SeaweedFS, and RustFS.
   </Accordion>
 
-  <Accordion title="How do I connect Tracecat MCP from my IDE?">
+  <Accordion title="How do I connect AutoSecOps MCP from my IDE?">
     Point your IDE's MCP configuration to `<PUBLIC_APP_URL>/mcp`. Authentication uses a built-in OIDC provider — your agent will be redirected to sign in through the browser on first connection.
 
-    See [Tracecat MCP](/automations/tracecat-mcp#setup) for IDE-specific setup instructions.
+    See [AutoSecOps MCP](/automations/tracecat-mcp#setup) for IDE-specific setup instructions.
   </Accordion>
 </AccordionGroup>

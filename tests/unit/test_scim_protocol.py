@@ -70,7 +70,7 @@ def workflow_bucket() -> Iterator[None]:
 def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point auth at the test session and allow synthetic provisioning addresses."""
     monkeypatch.setattr(
-        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"tracecat.com", "example.com"}
+        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"autosecops.example", "example.com"}
     )
 
     @asynccontextmanager
@@ -93,7 +93,7 @@ async def org(session: AsyncSession) -> Organization:
     session.add(
         User(
             id=uuid.uuid4(),
-            email=f"seed-{uuid.uuid4().hex[:8]}@tracecat.com",
+            email=f"seed-{uuid.uuid4().hex[:8]}@autosecops.example",
             hashed_password="x",
         )
     )
@@ -235,7 +235,7 @@ async def test_post_user_provisions(
     client: httpx.AsyncClient, org: Organization
 ) -> None:
     """A pushed user is created and returned as a SCIM User resource."""
-    email = f"alice-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"alice-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     response = await _post_user(client, email, externalId="idp-alice")
 
@@ -253,7 +253,7 @@ async def test_duplicate_post_links_rather_than_conflicting(
     client: httpx.AsyncClient, org: Organization
 ) -> None:
     """A repeated POST is the provider retrying, so it links to the same user."""
-    email = f"bob-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"bob-{uuid.uuid4().hex[:8]}@autosecops.example"
 
     first = await _post_user(client, email, externalId="idp-bob")
     second = await _post_user(client, email, externalId="idp-bob")
@@ -268,7 +268,7 @@ async def test_filter_matches_username_case_insensitively(
     client: httpx.AsyncClient, org: Organization
 ) -> None:
     """Okta queries before creating; a case-sensitive match would duplicate."""
-    email = f"carol-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"carol-{uuid.uuid4().hex[:8]}@autosecops.example"
     await _post_user(client, email)
 
     response = await client.get(
@@ -290,7 +290,7 @@ async def test_filter_with_no_match_returns_empty_list(
 ) -> None:
     """An unknown user is an empty ListResponse, never a 404."""
     response = await client.get(
-        "/scim/v2/Users", params={"filter": 'userName eq "nobody@tracecat.com"'}
+        "/scim/v2/Users", params={"filter": 'userName eq "nobody@autosecops.example"'}
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -314,7 +314,7 @@ async def test_unsupported_filter_is_a_scim_error(
 
 @pytest.mark.anyio
 async def test_get_user_by_id(client: httpx.AsyncClient, org: Organization) -> None:
-    email = f"dave-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"dave-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
 
     response = await client.get(f"/scim/v2/Users/{created['id']}")
@@ -366,7 +366,7 @@ async def test_patch_active_false_deprovisions(
     object_value: bool,
 ) -> None:
     """``active=false`` revokes access to this tenant."""
-    email = f"erin-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"erin-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
     user_id = uuid.UUID(created["id"])
     assert await _resource_is_member(
@@ -397,7 +397,7 @@ async def test_patch_azure_shape_deprovisions(
     client: httpx.AsyncClient, session: AsyncSession, org: Organization
 ) -> None:
     """Azure sends no path and a dictionary body; Okta sends a path."""
-    email = f"frank-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"frank-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
     user_id = uuid.UUID(created["id"])
 
@@ -419,7 +419,7 @@ async def test_patch_azure_shape_deprovisions(
 async def test_put_active_false_deprovisions(
     client: httpx.AsyncClient, session: AsyncSession, org: Organization
 ) -> None:
-    email = f"grace-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"grace-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
     user_id = uuid.UUID(created["id"])
 
@@ -442,7 +442,7 @@ async def test_put_active_false_deprovisions(
 async def test_delete_user_deprovisions(
     client: httpx.AsyncClient, session: AsyncSession, org: Organization
 ) -> None:
-    email = f"heidi-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"heidi-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
     user_id = uuid.UUID(created["id"])
 
@@ -459,7 +459,7 @@ async def test_delete_already_removed_user_is_204(
     client: httpx.AsyncClient, org: Organization
 ) -> None:
     """Deprovisioning is idempotent to the provider, which retries."""
-    email = f"ivan-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"ivan-{uuid.uuid4().hex[:8]}@autosecops.example"
     created = (await _post_user(client, email)).json()
 
     first = await client.delete(f"/scim/v2/Users/{created['id']}")
@@ -555,7 +555,7 @@ async def test_group_membership_projects_into_tracecat_group(
     prefix: str,
 ) -> None:
     """A mapped IdP group grants membership, and removal revokes it."""
-    email = f"judy-{uuid.uuid4().hex[:8]}@tracecat.com"
+    email = f"judy-{uuid.uuid4().hex[:8]}@autosecops.example"
     user_id = uuid.UUID((await _post_user(client, email)).json()["id"])
 
     created = await client.post(
@@ -653,14 +653,14 @@ async def test_put_group_replaces_member_list(
 ) -> None:
     """PUT is a wholesale replacement of the provider's member list."""
     first = uuid.UUID(
-        (await _post_user(client, f"k-{uuid.uuid4().hex[:8]}@tracecat.com")).json()[
-            "id"
-        ]
+        (
+            await _post_user(client, f"k-{uuid.uuid4().hex[:8]}@autosecops.example")
+        ).json()["id"]
     )
     second = uuid.UUID(
-        (await _post_user(client, f"l-{uuid.uuid4().hex[:8]}@tracecat.com")).json()[
-            "id"
-        ]
+        (
+            await _post_user(client, f"l-{uuid.uuid4().hex[:8]}@autosecops.example")
+        ).json()["id"]
     )
     created = await client.post(
         "/scim/v2/Groups",
@@ -725,7 +725,7 @@ async def test_other_tenants_user_is_not_visible(
     )
     outsider = User(
         id=uuid.uuid4(),
-        email=f"outsider-{uuid.uuid4().hex[:8]}@tracecat.com",
+        email=f"outsider-{uuid.uuid4().hex[:8]}@autosecops.example",
         hashed_password="x",
     )
     session.add_all([other_org, outsider])
@@ -1164,7 +1164,7 @@ async def test_group_list_batches_memberships(
     client: httpx.AsyncClient, org: Organization, session: AsyncSession
 ) -> None:
     users = [
-        (await _post_user(client, f"batch-{i}@tracecat.com")).json()["id"]
+        (await _post_user(client, f"batch-{i}@autosecops.example")).json()["id"]
         for i in range(2)
     ]
     groups = [
@@ -1314,7 +1314,7 @@ async def test_user_rename_updates_the_account_email(
 ) -> None:
     """The provider owns logins at the organization's domains, so a rename sticks."""
     email = f"original-{uuid.uuid4().hex}@example.com"
-    renamed = f"Renamed-{uuid.uuid4().hex}@tracecat.com"
+    renamed = f"Renamed-{uuid.uuid4().hex}@autosecops.example"
     created = await _post_user(client, email)
     resource_id = created.json()["id"]
     before = (await client.get(f"/scim/v2/Users/{resource_id}")).json()
@@ -1357,7 +1357,7 @@ async def test_user_patch_updates_external_id_and_ignores_profile_fields(
 ) -> None:
     """Providers reconcile identifiers and profile attributes through PATCH."""
     created = await _post_user(
-        client, f"patch-{uuid.uuid4().hex}@tracecat.com", externalId="idp-before"
+        client, f"patch-{uuid.uuid4().hex}@autosecops.example", externalId="idp-before"
     )
     resource_id = created.json()["id"]
 
@@ -1382,7 +1382,7 @@ async def test_user_patch_rejects_an_unusable_external_id(
     client: httpx.AsyncClient, value: object
 ) -> None:
     """A blank or non-string identifier would orphan the provider's link."""
-    created = await _post_user(client, f"patch-{uuid.uuid4().hex}@tracecat.com")
+    created = await _post_user(client, f"patch-{uuid.uuid4().hex}@autosecops.example")
     resource_id = created.json()["id"]
 
     response = await client.patch(
@@ -1398,7 +1398,7 @@ async def test_user_patch_rejects_an_empty_operations_list(
     client: httpx.AsyncClient,
 ) -> None:
     """RFC 7644 §3.5.2 requires at least one operation."""
-    created = await _post_user(client, f"patch-{uuid.uuid4().hex}@tracecat.com")
+    created = await _post_user(client, f"patch-{uuid.uuid4().hex}@autosecops.example")
 
     response = await client.patch(
         f"/scim/v2/Users/{created.json()['id']}", json={"Operations": []}
@@ -1412,7 +1412,7 @@ async def test_blank_external_id_on_put_is_treated_as_absent(
     client: httpx.AsyncClient,
 ) -> None:
     """Providers send "" for an unset identifier; it must not replace the link."""
-    email = f"blank-{uuid.uuid4().hex}@tracecat.com"
+    email = f"blank-{uuid.uuid4().hex}@autosecops.example"
     created = await _post_user(client, email, externalId="idp-kept")
     resource_id = created.json()["id"]
 
@@ -1498,7 +1498,7 @@ async def test_user_create_rejects_superuser(
     """One org's IdP cannot link or admit a platform superuser."""
     superuser = User(
         id=uuid.uuid4(),
-        email=f"super-{uuid.uuid4().hex[:8]}@tracecat.com",
+        email=f"super-{uuid.uuid4().hex[:8]}@autosecops.example",
         hashed_password="x",
         is_superuser=True,
     )
@@ -1523,7 +1523,7 @@ async def test_user_rename_rejects_superuser(
 ) -> None:
     """One org's IdP cannot move a platform superuser's email."""
     email = f"super-{uuid.uuid4().hex}@example.com"
-    renamed = f"taken-{uuid.uuid4().hex}@tracecat.com"
+    renamed = f"taken-{uuid.uuid4().hex}@autosecops.example"
     created = await _post_user(client, email)
     resource_id = created.json()["id"]
     user = (

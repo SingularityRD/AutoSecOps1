@@ -1,6 +1,6 @@
 """Agent approval system - core enums only.
 
-Models and service have been moved to Enterprise Edition (tracecat_ee).
+Models and service have been moved to the enterprise package (tracecat_ee).
 """
 
 from tracecat.agent.approvals.enums import ApprovalStatus

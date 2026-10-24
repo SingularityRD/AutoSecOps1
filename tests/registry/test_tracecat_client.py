@@ -1,4 +1,4 @@
-"""Tests for the base Tracecat SDK client."""
+"""Tests for the base AutoSecOps SDK client."""
 
 from __future__ import annotations
 

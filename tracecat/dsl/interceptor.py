@@ -127,7 +127,7 @@ class _RuntimeErrorAttributionWorkflowInterceptor(WorkflowInboundInterceptor):
 
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-                message="Tracecat encountered an unclassified runtime failure",
+                message="AutoSecOps encountered an unclassified runtime failure",
                 retry_disposition=_unclassified_retry_disposition(error),
                 cause=error,
             )

@@ -409,7 +409,7 @@ async def create_dev_user(
     *,
     email: str,
     password: str,
-    superuser_email: str = "test@tracecat.com",
+    superuser_email: str = "test@autosecops.example",
     superuser_password: str = "password1234",
     default_tier_entitlements: str = "all",
     org_role: str = "organization-owner",

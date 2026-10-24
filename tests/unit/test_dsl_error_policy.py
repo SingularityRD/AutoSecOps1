@@ -71,7 +71,7 @@ def test_workflow_error_keeps_one_classification_per_action() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     user_detail = _action_error_info(user_classification, ref="user_action")
@@ -125,7 +125,7 @@ def test_workflow_error_map_platform_entry_survives_terminal_aggregation() -> No
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the child action",
+        message="AutoSecOps could not execute the child action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     user_detail = _action_error_info(user_classification, ref="user_child")
@@ -176,7 +176,7 @@ def test_workflow_error_selects_one_classification_from_one_aggregate() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     user_detail = _action_error_info(user_classification, ref="fanout[0]")
@@ -207,7 +207,7 @@ def test_child_failure_aggregate_selects_one_classification_per_child() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     child_error = _capture_application_error(
@@ -253,7 +253,7 @@ def test_child_failure_aggregate_includes_every_classified_child() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the child action",
+        message="AutoSecOps could not execute the child action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
 
@@ -479,7 +479,7 @@ def test_terminal_cancellation_preserves_every_causal_classification() -> None:
     )
     platform_classification = RuntimeErrorClassification.platform(
         kind=RuntimeErrorKind.RUNTIME_UNCLASSIFIED,
-        message="Tracecat could not execute the action",
+        message="AutoSecOps could not execute the action",
         retry_disposition=RetryDisposition.RETRYABLE,
     )
     user_detail = _action_error_info(user_classification, ref="user_action")

@@ -32,7 +32,7 @@ export function getRegistryOriginLabel(params: {
   const { origin, platformOrigins, customOrigin } = params
 
   if (isTracecatRegistryOrigin(origin, platformOrigins)) {
-    return "Tracecat"
+    return "AutoSecOps"
   }
 
   if (customOrigin && origin === customOrigin) {

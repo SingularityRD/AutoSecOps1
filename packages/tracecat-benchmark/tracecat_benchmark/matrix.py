@@ -1,4 +1,4 @@
-"""CSV-driven orchestration for isolated Tracecat workflow load tests.
+"""CSV-driven orchestration for isolated AutoSecOps workflow load tests.
 
 This module is invoked through ``just cluster loadtest``. It owns the complete
 local lifecycle for a matrix:
@@ -1654,7 +1654,7 @@ def _print_activity_summary(artifact_dir: Path) -> None:
     throughput = Text()
     throughput.append("Completed throughput · ", style="bold")
     throughput.append(
-        f"decoded Tracecat actions {history['completed_tracecat_actions']:,} "
+        f"decoded AutoSecOps actions {history['completed_tracecat_actions']:,} "
         f"({history['completed_tracecat_actions_per_second']:,.2f}/s)"
     )
     throughput.append(" · ")
@@ -1669,7 +1669,7 @@ def _print_activity_summary(artifact_dir: Path) -> None:
         title_justify="left",
         header_style="bold cyan",
     )
-    table.add_column("Tracecat action / Temporal activity", overflow="fold", ratio=3)
+    table.add_column("AutoSecOps action / Temporal activity", overflow="fold", ratio=3)
     table.add_column("Outcomes", overflow="fold", ratio=2)
     table.add_column("Completed/s", justify="right", no_wrap=True)
     table.add_column("Successful latency p95", overflow="fold", ratio=2)
@@ -1764,7 +1764,7 @@ def _print_activity_summary(artifact_dir: Path) -> None:
     console.print(sdk_table)
     console.print(
         "SDK timing includes retry-aware queue behavior, but it cannot be "
-        "attributed to an individual Tracecat action name.",
+        "attributed to an individual AutoSecOps action name.",
         style="dim",
     )
     if any(histogram["counter_reset_detected"] for histogram in histograms):
@@ -1847,7 +1847,7 @@ def _print_plan(
             "PgDog transaction pool → PostgreSQL"
         )
     else:
-        console.print("[bold cyan]Database path:[/] Tracecat → PostgreSQL")
+        console.print("[bold cyan]Database path:[/] AutoSecOps → PostgreSQL")
     console.print(matrix_table)
 
     override_count = sum(len(case.environment_overrides) for case in selected_cases)
@@ -2069,7 +2069,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cluster loadtest",
         description=(
-            "Run a CSV load-test matrix on one fresh isolated Tracecat cluster."
+            "Run a CSV load-test matrix on one fresh isolated AutoSecOps cluster."
         ),
     )
     parser.add_argument(
@@ -2102,7 +2102,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pgdog",
         action="store_true",
         help=(
-            "Route transaction-friendly Tracecat worker services through the "
+            "Route transaction-friendly AutoSecOps worker services through the "
             "load-test PgDog transaction pool."
         ),
     )

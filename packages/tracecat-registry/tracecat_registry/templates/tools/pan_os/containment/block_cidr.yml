@@ -16,7 +16,7 @@ definition:
       description: IPv4 or IPv6 network in CIDR notation to block.
     address_group:
       type: str
-      description: Static address group that a deny rule references, e.g. tracecat-blocklist.
+      description: Static address group that a deny rule references, e.g. autosecops-blocklist.
     name_prefix:
       type: str
       description: Prefix for generated address object names.

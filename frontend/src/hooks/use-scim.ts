@@ -181,7 +181,7 @@ export function useScimDirectorySummary({
 }
 
 /**
- * List and edit the rules projecting IdP groups onto Tracecat groups.
+ * List and edit the rules projecting IdP groups onto AutoSecOps groups.
  *
  * Creating a mapping is idempotent server-side: a duplicate returns the
  * existing row rather than an error.

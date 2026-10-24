@@ -6,7 +6,7 @@ The measured interval uses two complementary sources:
   after measured load. Their deltas preserve retry-aware worker and queue
   timing without adding a high-frequency scrape to the benchmark.
 * Temporal histories are read only after recovery. They provide authoritative
-  logical completion outcomes and let Tracecat's generic
+  logical completion outcomes and let AutoSecOps's generic
   ``execute_action_activity`` be grouped by the registry action in its input.
 
 Only aggregate measurements are returned. Workflow execution IDs and activity
@@ -966,7 +966,7 @@ def build_temporal_sdk_metrics(
             "The baseline is captured after warm-up and before measured submissions.",
             "The final snapshot is captured immediately after measured load and before recovery or history queries.",
             "Deltas sum all configured process replicas for each service during the measured interval.",
-            "Schedule-to-start is a task-queue metric and is intentionally not attributed to a Tracecat action name.",
+            "Schedule-to-start is a task-queue metric and is intentionally not attributed to an AutoSecOps action name.",
             "Histogram percentiles are reported as observed bucket upper bounds.",
         ],
     )

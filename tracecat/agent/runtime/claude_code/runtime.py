@@ -292,13 +292,13 @@ COMMAND_LINE_TOOLS_PROMPT = (
     "<CommandLineTools>\n"
     "- `python3`: Python 3 is installed in the runtime environment. Use it "
     "through Bash for local scripting and data processing; no separate "
-    "Tracecat action or MCP tool is needed.\n"
+    "AutoSecOps action or MCP tool is needed.\n"
     "- `duckdb`: The runtime shell includes the DuckDB CLI. Use it for local "
     "SQL and tabular data inspection over files such as CSV, JSON, Parquet, "
     "and DuckDB database files. The CLI is configured with the `json`, "
     "`httpfs`, `inet`, and `fts` extensions for JSON, HTTP/S3, IP address, "
     "and full-text search workflows. This is a local "
-    "command-line capability, not a Tracecat action or MCP tool.\n"
+    "command-line capability, not an AutoSecOps action or MCP tool.\n"
     "</CommandLineTools>"
 )
 
@@ -724,7 +724,7 @@ class ClaudeAgentRuntime:
         tool_input: dict[str, Any],
         tool_use_id: str,
     ) -> dict[str, Any]:
-        """Attach Tracecat-internal tool metadata to proxy tool input."""
+        """Attach AutoSecOps-internal tool metadata to proxy tool input."""
         return {
             **tool_input,
             PROXY_TOOL_METADATA_KEY: {
@@ -1403,7 +1403,7 @@ class ClaudeAgentRuntime:
     ) -> str:
         """Build the system prompt for the agent."""
         base = (
-            "If asked about your identity, you are a Tracecat automation assistant."
+            "If asked about your identity, you are an AutoSecOps automation assistant."
             f"\n\n{COMMAND_LINE_TOOLS_PROMPT}"
         )
 
@@ -1703,7 +1703,7 @@ class ClaudeAgentRuntime:
         )
 
     async def _handle_system_message(self, message: SystemMessage) -> None:
-        """Handle SDK system events that need side effects in Tracecat."""
+        """Handle SDK system events that need side effects in AutoSecOps."""
         await self._emit_new_session_lines()
 
         # init: emitted once at session start; surfaces MCP server connection

@@ -1,15 +1,15 @@
 output "tracecat_image_tag" {
-  description = "The version of Tracecat used"
+  description = "The version of AutoSecOps used"
   value       = local.tracecat_image_tag
 }
 
 output "tracecat_migrations_image" {
-  description = "The Tracecat migrations init container image repository"
+  description = "The AutoSecOps migrations init container image repository"
   value       = local.tracecat_migrations_image
 }
 
 output "tracecat_migrations_image_tag" {
-  description = "The Tracecat migrations init container image tag"
+  description = "The AutoSecOps migrations init container image tag"
   value       = local.tracecat_migrations_image_tag
 }
 

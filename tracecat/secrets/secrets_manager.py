@@ -1,4 +1,4 @@
-"""Tracecat secrets management."""
+"""AutoSecOps secrets management."""
 
 from __future__ import annotations
 

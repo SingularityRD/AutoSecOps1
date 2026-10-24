@@ -33,7 +33,7 @@ definition:
         method: GET
         headers:
           hibp-api-key: ${{ SECRETS.hibp.HIBP_API_KEY }}
-          User-Agent: Tracecat-HIBP-Integration
+          User-Agent: AutoSecOps-HIBP-Integration
         params:
           truncateResponse: ${{ FN.lowercase(str(inputs.truncate_response)) }}
           includeUnverified: ${{ FN.lowercase(str(inputs.include_unverified)) }}

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Interactive REPL for authenticated API requests to Tracecat API.
+"""Interactive REPL for authenticated API requests to AutoSecOps API.
 
 This script creates an authenticated session using test credentials and provides
-an interactive Python REPL where you can send API requests to the Tracecat API service.
+an interactive Python REPL where you can send API requests to the AutoSecOps API service.
 
 Usage:
     python scripts/api_repl.py
@@ -39,7 +39,7 @@ console = Console()
 
 def print_banner(base_url: str, email: str) -> None:
     """Print welcome banner with available variables."""
-    banner = f"""[bold cyan]Tracecat API REPL[/bold cyan]
+    banner = f"""[bold cyan]AutoSecOps API REPL[/bold cyan]
 
 [green]✓[/green] Authenticated as: [yellow]{email}[/yellow]
 [green]✓[/green] Base URL: [yellow]{base_url}[/yellow]
@@ -66,7 +66,7 @@ def create_authenticated_session() -> tuple[requests.Session, str, dict[str, Any
         Tuple of (session, base_url, user_info)
     """
     base_url = os.environ.get("TRACECAT__PUBLIC_API_URL", "http://localhost/api")
-    email = os.environ.get("TRACECAT__TEST_USER_EMAIL", "test@tracecat.com")
+    email = os.environ.get("TRACECAT__TEST_USER_EMAIL", "test@autosecops.example")
     password = os.environ.get("TRACECAT__TEST_USER_PASSWORD", "password1234")
 
     console.print("[yellow]Initializing session...[/yellow]")

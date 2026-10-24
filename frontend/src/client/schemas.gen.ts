@@ -6793,11 +6793,11 @@ export const $AwsAssumeRoleAccessRead = {
   properties: {
     tracecat_aws_account_id: {
       type: "string",
-      title: "Tracecat Aws Account Id",
+      title: "AutoSecOps AWS Account ID",
     },
     tracecat_aws_principal_arn: {
       type: "string",
-      title: "Tracecat Aws Principal Arn",
+      title: "AutoSecOps AWS Principal ARN",
     },
     external_id: {
       type: "string",
@@ -13921,7 +13921,7 @@ export const $ContinueRunRequest = {
       enum: ["inbox", "slack"],
       title: "Source",
       description:
-        "Origin of the approval decision submission. Use 'inbox' for Tracecat UI/API and 'slack' for Slack actions.",
+        "Origin of the approval decision submission. Use 'inbox' for AutoSecOps UI/API and 'slack' for Slack actions.",
       default: "inbox",
     },
   },
@@ -17439,7 +17439,7 @@ export const $ExternalGroupMappingCreate = {
   type: "object",
   required: ["external_group_id", "group_id"],
   title: "ExternalGroupMappingCreate",
-  description: "Request to project an external group into a Tracecat group.",
+  description: "Request to project an external group into an AutoSecOps group.",
 } as const
 
 export const $ExternalGroupMappingRead = {
@@ -21085,7 +21085,7 @@ export const $InferredColumn = {
     field_name: {
       type: "string",
       title: "Field Name",
-      description: "Column name created in Tracecat",
+      description: "Column name created in AutoSecOps",
     },
     field_type: {
       $ref: "#/components/schemas/SqlType",
@@ -24168,7 +24168,7 @@ export const $ManagedTunnelCreate = {
   required: ["name", "allowed_targets"],
   title: "ManagedTunnelCreate",
   description:
-    "Create a tunnel whose Pangolin site, machine client, and resources Tracecat manages.",
+    "Create a tunnel whose Pangolin site, machine client, and resources AutoSecOps manages.",
 } as const
 
 export const $ManagedTunnelCreated = {
@@ -24873,7 +24873,7 @@ export const $ObjectRef = {
   description: `Reference to an externalized object in blob storage.
 
 This is a typed reference that replaces large payloads in workflow context.
-Only dereference ObjectRef instances created by Tracecat - never arbitrary URIs.`,
+Only dereference ObjectRef instances created by AutoSecOps - never arbitrary URIs.`,
 } as const
 
 export const $OrClause = {
@@ -30563,7 +30563,7 @@ export const $ScimGroupTransitionRead = {
   ],
   title: "ScimGroupTransitionRead",
   description:
-    "The combined effect of every proposed change on one Tracecat group.",
+    "The combined effect of every proposed change on one AutoSecOps group.",
 } as const
 
 export const $ScimListResponse = {
@@ -30815,7 +30815,7 @@ export const $ScimReviewPerson = {
   required: ["user_id", "email"],
   title: "ScimReviewPerson",
   description:
-    "One person a review lists, with the Tracecat groups the change touches.",
+    "One person a review lists, with the AutoSecOps groups the change touches.",
 } as const
 
 export const $ScimReviewRequest = {
@@ -30914,9 +30914,9 @@ export const $ScimUserRequest = {
   title: "ScimUserRequest",
   description: `An inbound User resource on POST or PUT.
 
-\`\`userName\`\` is the only attribute Tracecat stores as identity; the display
+\`\`userName\`\` is the only attribute AutoSecOps stores as identity; the display
 and name attributes are accepted so providers do not see a validation
-failure, but nothing here maps onto a Tracecat column.`,
+failure, but nothing here maps onto an AutoSecOps column.`,
 } as const
 
 export const $ScimUserResource = {
@@ -31933,7 +31933,7 @@ export const $SecretStoreRead = {
           type: "null",
         },
       ],
-      title: "Tracecat Aws Account Id",
+      title: "AutoSecOps AWS Account ID",
     },
     tracecat_aws_principal_arn: {
       anyOf: [
@@ -31944,7 +31944,7 @@ export const $SecretStoreRead = {
           type: "null",
         },
       ],
-      title: "Tracecat Aws Principal Arn",
+      title: "AutoSecOps AWS Principal ARN",
     },
     aws_partition: {
       anyOf: [
@@ -37505,7 +37505,7 @@ export const $TunnelAvailabilityRead = {
       type: "boolean",
       title: "Available",
       description:
-        "False when Tracecat runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.",
+        "False when AutoSecOps runs without the Kubernetes gateway backend, e.g. on Docker Compose or Fargate.",
     },
   },
   type: "object",
