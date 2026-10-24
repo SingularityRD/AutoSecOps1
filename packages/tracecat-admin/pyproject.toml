@@ -41,8 +41,8 @@ dev = [
 tracecat = "tracecat_admin.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/SingularityRD"
-Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Homepage = "https://docs.singularityrd.com"
+Documentation = "https://docs.singularityrd.com"
 Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.hatch.version]

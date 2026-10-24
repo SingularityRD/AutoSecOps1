@@ -12,9 +12,9 @@ export const siteConfig: SiteConfig = {
     author: "AutoSecOps",
   },
   links: {
-    github: "https://github.com/SingularityRD/AutoSecOps1",
-    docs: "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs",
-    playbooks: "https://github.com/SingularityRD/AutoSecOps1",
+    docs: "https://docs.singularityrd.com",
+    support: "mailto:support@singularityrd.com",
+    sales: "mailto:sales@singularityrd.com",
   },
   ogImage: `${env.NEXT_PUBLIC_APP_URL}/og.jpg`,
 }

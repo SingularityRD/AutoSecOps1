@@ -593,7 +593,11 @@ def create_app(**kwargs) -> FastAPI:
         ),
         summary="AutoSecOps API",
         version="1",
-        contact={"name": "SingularityRD", "url": "https://github.com/SingularityRD"},
+        contact={
+            "name": "SingularityRD",
+            "url": "https://docs.singularityrd.com",
+            "email": "support@singularityrd.com",
+        },
         license_info={
             "name": "Proprietary",
             "identifier": "LicenseRef-Proprietary",

@@ -8,7 +8,7 @@ If you need to receive webhooks from 3rd party sources, scope ingress on the `/a
 
 We also highly recommend using our `Kubernetes` deployment for production over `Docker Compose` or `AWS Fargate`.
 
-For more hardening guidelines, check out the [self-hosting security guide](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/security.mdx).
+For more hardening guidelines, check out the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security).
 
 ## Security Features
 
@@ -22,7 +22,7 @@ The following security features are available in AutoSecOps:
 > The `direct` executor backend does not provide the supported `nsjail` boundary for ordinary workflow actions.
 > Use `TRACECAT__EXECUTOR_BACKEND=nsjail` for supported action isolation.
 > The legacy `ephemeral` value remains a compatibility alias for `nsjail`.
-> See the [self-hosting security guide](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/security.mdx#nsjail-sandbox-recommended-for-production) for deployment requirements.
+> See the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security#nsjail-sandbox-recommended-for-production) for deployment requirements.
 
 ## Reporting Vulnerabilities
 
@@ -30,11 +30,29 @@ The following security features are available in AutoSecOps:
 > `nsjail` is the recommended executor runtime for production deployments. We do not accept reports related to "breakout" in the `pid` runtime using the `UnsafePidExecutor`.
 > `nsjail` is enabled by default for Helm chart / Kubernetes deployments only and must be explicitly enabled in other deployment options.
 
-If you are a security researcher and have discovered a vulnerability, please follow the steps below:
+Report security vulnerabilities privately by email to [security@singularityrd.com](mailto:security@singularityrd.com).
+Do not open a public issue, discussion, or pull request for a security problem.
 
-1. Open a new private [security advisory](https://github.com/SingularityRD/AutoSecOps1/security/advisories/new) on the `SingularityRD/AutoSecOps1` GitHub repository. Do not open a public issue for security problems.
-2. The SingularityRD security team will get back to you as soon as possible.
-3. We will review the vulnerability and determine if it is a valid security issue.
-4. If it is a valid security issue, we will work with you to reproduce and fix it.
+Include as much of the following as you can:
 
-All reports are reviewed within 24 hours. Timeline for the fix is dependent on the severity of the vulnerability. As part of responsible disclosure, please report any security problems to us before disclosing it publicly.
+- The affected AutoSecOps version and deployment option (Docker Compose, AWS Fargate, or Kubernetes).
+- The affected component, endpoint, or feature.
+- A description of the vulnerability and its impact.
+- Step-by-step instructions or a proof of concept to reproduce it.
+- Any relevant logs, screenshots, or configuration, with secrets and customer data removed.
+- Whether and how you would like to be credited.
+
+What to expect:
+
+1. We will acknowledge your report.
+2. The SingularityRD security team will review the report and determine whether it is a valid security issue.
+3. If it is valid, we will work with you to reproduce and fix it, and keep you informed of progress.
+4. The timeline for a fix depends on the severity of the vulnerability.
+
+As part of responsible disclosure, please give us a reasonable opportunity to fix the issue before you disclose it publicly.
+
+## Contact
+
+- Security vulnerabilities: [security@singularityrd.com](mailto:security@singularityrd.com)
+- Product support: [support@singularityrd.com](mailto:support@singularityrd.com)
+- Documentation: [docs.singularityrd.com](https://docs.singularityrd.com)

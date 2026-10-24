@@ -34,7 +34,7 @@ LEGACY_PRESET_VERSION_SCHEMA_EXTRA: dict[str, Any] = {
     default_title="AI agent",
     description="AI agent with tool calling capabilities. Returns the output and full message history.",
     display_group="AI",
-    doc_url="https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/ai-agent.mdx",
+    doc_url="https://docs.singularityrd.com/agents/ai-agent",
     namespace="ai",
 )
 async def agent(
@@ -190,7 +190,7 @@ async def preset_agent(
     default_title="AI action",
     description="Call an LLM with a given prompt and model.",
     display_group="AI",
-    doc_url="https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/ai-action.mdx",
+    doc_url="https://docs.singularityrd.com/agents/ai-action",
     namespace="ai",
 )
 async def action(

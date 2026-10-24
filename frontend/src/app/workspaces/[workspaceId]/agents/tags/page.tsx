@@ -27,12 +27,8 @@ export default function AgentTagsPage() {
               className="text-muted-foreground"
               size="sm"
             >
-              <a
-                href="https://github.com/SingularityRD"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Learn more <ArrowUpRight className="size-4" />
+              <a href="mailto:sales@singularityrd.com">
+                Contact sales <ArrowUpRight className="size-4" />
               </a>
             </Button>
           </EntitlementRequiredEmptyState>

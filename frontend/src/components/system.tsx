@@ -3,7 +3,7 @@ import Image from "next/image"
 import TracecatIcon from "public/icon.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-const CONTACT_US_URL = "https://github.com/SingularityRD"
+const CONTACT_US_URL = "mailto:sales@singularityrd.com"
 const SYSTEM_MSG_KINDS = ["beta-ee-contact-us"] as const
 type SystemMessageKind = (typeof SYSTEM_MSG_KINDS)[number]
 
@@ -14,8 +14,6 @@ const SYSTEM_MSG_MAP: Record<SystemMessageKind, React.ReactNode> = {
       Please{" "}
       <a
         href={CONTACT_US_URL}
-        target="_blank"
-        rel="noopener noreferrer"
         className="underline hover:text-sky-800 dark:hover:text-sky-100 inline-flex items-center gap-1"
       >
         contact us

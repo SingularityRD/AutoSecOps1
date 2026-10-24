@@ -618,8 +618,9 @@
   },
   "navbar": {
     "primary": {
-      "type": "github",
-      "href": "https://github.com/SingularityRD/AutoSecOps1"
+      "type": "button",
+      "label": "Contact sales",
+      "href": "mailto:sales@singularityrd.com"
     }
   },
   "contextual": {
@@ -633,10 +634,5 @@
       "cursor",
       "vscode"
     ]
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/SingularityRD/AutoSecOps1"
-    }
   }
 }

@@ -8,9 +8,9 @@ export type SiteConfig = {
     author: string
   }
   links: {
-    github: string
     docs: string
-    playbooks: string
+    support: string
+    sales: string
   }
   ogImage: string
 }

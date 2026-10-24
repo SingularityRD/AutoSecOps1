@@ -63,11 +63,7 @@ def test_ai_actions_link_to_autosecops_docs() -> None:
 
     for action_name, slug in (("ai.agent", "ai-agent"), ("ai.action", "ai-action")):
         doc_url = repo.get(action_name).doc_url
-        assert doc_url == (
-            "https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/"
-            f"{slug}.mdx"
-        )
-        assert doc_url.startswith(_AUTH_REQUIRED_DOC_URL_PREFIXES)
+        assert doc_url == f"https://docs.singularityrd.com/agents/{slug}"
 
 
 async def _request_url(client: httpx.AsyncClient, url: str) -> int:
