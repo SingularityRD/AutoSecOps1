@@ -17,7 +17,7 @@ MOCK
 chmod +x "$scratch/curl"
 export PATH="$scratch:$PATH" GITHUB_ACTOR=synthetic GITHUB_TOKEN=synthetic
 for variant in 1 1-bookworm; do
-    image="ghcr.io/tracecathq/tracecat-postgres:$variant"
+    image="ghcr.io/singularityrd/autosecops-postgres:$variant"
     REGISTRY_STATUS=404 bash "$repo_root/scripts/postgres/check-unpublished-image.sh" "$image"
     for status in 200 401 403 429 500; do
         if REGISTRY_STATUS=$status bash "$repo_root/scripts/postgres/check-unpublished-image.sh" "$image"; then

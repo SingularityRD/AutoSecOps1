@@ -6,7 +6,7 @@ SCRIPT_NAME=$(basename "$0")
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 REGISTRY=${REGISTRY:-ghcr.io}
-IMAGE_NAMESPACE=${IMAGE_NAMESPACE:-tracecathq}
+IMAGE_NAMESPACE=${IMAGE_NAMESPACE:-singularityrd}
 SOURCE_URL=${SOURCE_URL:-https://github.com/SingularityRD/AutoSecOps1}
 PLATFORMS_CSV=${PLATFORMS:-linux/amd64,linux/arm64}
 IMAGE_SELECTION=all
@@ -49,7 +49,7 @@ Options:
   --image api|ui|all        Image set to publish. Default: all.
   --platforms CSV           Platforms to build. Default: linux/amd64,linux/arm64.
   --registry REGISTRY       Registry host. Default: ghcr.io.
-  --namespace NAMESPACE     Image namespace. Default: tracecathq.
+  --namespace NAMESPACE     Image namespace. Default: singularityrd.
   --builder NAME            Docker buildx builder to use.
   --latest                  Always add the latest tag.
   --no-latest               Do not add the latest tag.
@@ -293,10 +293,10 @@ resolve_tags() {
 image_ref_for_key() {
   case "$1" in
     api)
-      printf '%s/%s/tracecat\n' "$REGISTRY" "$IMAGE_NAMESPACE"
+      printf '%s/%s/autosecops\n' "$REGISTRY" "$IMAGE_NAMESPACE"
       ;;
     ui)
-      printf '%s/%s/tracecat-ui\n' "$REGISTRY" "$IMAGE_NAMESPACE"
+      printf '%s/%s/autosecops-ui\n' "$REGISTRY" "$IMAGE_NAMESPACE"
       ;;
     *)
       abort "Internal error: unknown image key $1"
@@ -476,7 +476,7 @@ main() {
   confirm_publish
   preflight
 
-  CLEANUP_DIGEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tracecat-publish-images.XXXXXX")
+  CLEANUP_DIGEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/autosecops-publish-images.XXXXXX")
   digest_dir="$CLEANUP_DIGEST_DIR"
   trap 'rm -rf "$CLEANUP_DIGEST_DIR"' EXIT
 

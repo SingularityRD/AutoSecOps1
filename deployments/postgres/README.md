@@ -9,7 +9,7 @@ database does not need either extension.
 ## Docker Compose POCs: automatic pgvector setup
 
 Run `docker compose up` as usual. All three Compose files default to the versioned
-`ghcr.io/tracecathq/tracecat-postgres` image. No extra Compose file, local build,
+`ghcr.io/singularityrd/autosecops-postgres` image. No extra Compose file, local build,
 startup download, or manual SQL command is needed.
 
 ```text

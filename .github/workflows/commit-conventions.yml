@@ -17,7 +17,7 @@ concurrency:
 jobs:
   pr-title:
     name: PR title
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -34,7 +34,7 @@ jobs:
 
       # The checker is stdlib-only, but `tomllib` needs 3.11 or newer.
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -48,7 +48,7 @@ jobs:
 
   sync:
     name: Config drift
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -70,7 +70,7 @@ jobs:
             uv.lock
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
