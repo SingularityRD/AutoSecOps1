@@ -5,6 +5,7 @@ import {
   getIcon,
   getIconSource,
   getModelProviderIconId,
+  Icons,
   MicrosoftGraphIcon,
   MicrosoftIcon,
   MicrosoftOutlookIcon,
@@ -387,5 +388,27 @@ describe("Core and AI action icon mappings", () => {
     const container = renderIcon(getIcon("core.http_paginate"))
     expect(container.querySelector("svg.lucide-globe")).not.toBeNull()
     expect(container.firstElementChild).toHaveClass("bg-emerald-500/10")
+  })
+})
+
+describe("Icons.logo", () => {
+  it("renders the AutoSecOps mark in currentColor with a masked orbit gap", () => {
+    const container = renderIcon(<Icons.logo className="size-6" />)
+    const svg = container.querySelector("svg")
+    expect(svg).toHaveAttribute("viewBox", "0 0 540 540")
+    expect(svg).toHaveClass("size-6")
+
+    const mask = container.querySelector("mask")
+    expect(mask).not.toBeNull()
+    const masked = container.querySelector(`g[mask="url(#${mask?.id})"]`)
+    expect(masked).toHaveAttribute("stroke", "currentColor")
+    expect(masked?.querySelectorAll("circle")).toHaveLength(2)
+
+    const orbit = svg?.querySelector(":scope > path")
+    expect(orbit).toHaveAttribute("fill", "currentColor")
+    expect(mask?.querySelector("path")).toHaveAttribute(
+      "d",
+      orbit?.getAttribute("d")
+    )
   })
 })
