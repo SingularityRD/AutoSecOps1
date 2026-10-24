@@ -237,12 +237,12 @@ tracked_candidate_files() {
 # install files bundled in it, and name the extraction directory after the
 # version (autosecops-<version>).
 append_matching_files < <(
-    tracked_candidate_files | xargs -0 rg -l \
+    tracked_candidate_files | xargs -0 -r grep -l -E -- \
         "\\$\\{TRACECAT__IMAGE_TAG:-${VERSION_SEARCH_PATTERN}\\}|variable \"tracecat_image_tag\"|${AUTOSECOPS_IMAGE_PATTERN}:${VERSION_SEARCH_PATTERN}|autosecops-${VERSION_SEARCH_PATTERN}|TF_VAR_tracecat_image_tag=${VERSION_SEARCH_PATTERN}"
 )
 
 append_matching_files < <(
-    tracked_candidate_files | xargs -0 rg -l --fixed-strings \
+    tracked_candidate_files | xargs -0 -r grep -l --fixed-strings -- \
         "$CURRENT_VERSION"
 )
 
