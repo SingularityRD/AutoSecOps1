@@ -1,0 +1,4 @@
+interface:
+  display_name: "AutoSecOps Workspace Chat"
+  short_description: "Use AutoSecOps safely from Workspace Chat."
+  default_prompt: "Use $tracecat-workspace-chat to answer an AutoSecOps platform question."

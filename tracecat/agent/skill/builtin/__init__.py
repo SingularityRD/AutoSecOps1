@@ -6,12 +6,19 @@ stages platform skills as a skill-only Claude plugin, outside workspace skills.
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from tracecat.agent.skill.types import SkillOrigin
 
 PLATFORM_SKILL_PLUGIN_NAME = "tracecat"
 PLATFORM_SKILL_PLUGIN_DIR = "platform-skills"
+PLATFORM_SKILLS_SOURCE_DIR = Path(__file__).parent / "skills"
+"""Vendored skill sources; the image copies them to ``TRACECAT__COPILOT_SKILLS_DIR``.
+
+The image build also injects ``references/docs`` into the workspace-chat skill,
+so this source tree lacks those generated docs.
+"""
 
 
 @dataclass(frozen=True, slots=True)
