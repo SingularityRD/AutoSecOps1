@@ -106,7 +106,7 @@ while true; do
     if [ "$new_ip" != "0.0.0.0" ]; then
         break
     fi
-    echo -e "${RED}Cannot use 0.0.0.0 as address.\nSee https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/docker-compose.mdx#faq ${NC}"
+    echo -e "${RED}Cannot use 0.0.0.0 as address.\nSee https://docs.singularityrd.com/self-hosting/docker-compose#faq ${NC}"
 done
 
 # Extract hostname and port from the input
