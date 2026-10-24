@@ -7,7 +7,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 REGISTRY=${REGISTRY:-ghcr.io}
 IMAGE_NAMESPACE=${IMAGE_NAMESPACE:-tracecathq}
-SOURCE_URL=${SOURCE_URL:-https://github.com/TracecatHQ/tracecat}
+SOURCE_URL=${SOURCE_URL:-https://github.com/SingularityRD/AutoSecOps1}
 PLATFORMS_CSV=${PLATFORMS:-linux/amd64,linux/arm64}
 IMAGE_SELECTION=all
 BUILDER=

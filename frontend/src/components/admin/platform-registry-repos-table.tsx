@@ -22,6 +22,8 @@ import { useAdminRegistryStatus, useAdminRegistrySync } from "@/hooks/use-admin"
 import { getApiErrorDetail } from "@/lib/errors"
 import { getRelativeTime } from "@/lib/event-history"
 
+const TRACECAT_REGISTRY_ORIGIN = "tracecat_registry"
+
 export function PlatformRegistryReposTable() {
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const { status, isLoading, refetch } = useAdminRegistryStatus()
@@ -73,7 +75,9 @@ export function PlatformRegistryReposTable() {
           ),
           cell: ({ row }) => (
             <div className="text-xs font-medium">
-              {row.getValue<RepositoryStatus["name"]>("name")}
+              {row.original.origin === TRACECAT_REGISTRY_ORIGIN
+                ? "AutoSecOps registry"
+                : row.getValue<RepositoryStatus["name"]>("name")}
             </div>
           ),
           enableSorting: true,

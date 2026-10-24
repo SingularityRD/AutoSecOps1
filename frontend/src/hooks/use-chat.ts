@@ -188,6 +188,13 @@ export function parseChatError(error: unknown): string {
             return parsedMessage.trim()
           }
         }
+        // FastAPI HTTP errors arrive as `{"detail": "..."}`.
+        if (parsed && typeof parsed === "object" && "detail" in parsed) {
+          const detail = (parsed as { detail?: unknown }).detail
+          if (typeof detail === "string" && detail.trim()) {
+            return detail.trim()
+          }
+        }
       } catch {
         // message wasn't JSON; fall through to raw text
       }

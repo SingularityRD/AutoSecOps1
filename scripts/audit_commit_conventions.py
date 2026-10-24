@@ -42,7 +42,7 @@ from commit_conventions import (  # noqa: E402
     load_conventions,
 )
 
-DEFAULT_REPO: Final = "TracecatHQ/tracecat"
+DEFAULT_REPO: Final = "SingularityRD/AutoSecOps1"
 DEFAULT_LIMIT: Final = 500
 
 RELEASE_DRAFTER_PATH: Final = (

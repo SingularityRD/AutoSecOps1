@@ -549,8 +549,12 @@ class SecretStoreRead(BaseModel):
     config: SecretStoreConfig
     enabled: bool
     all_workspaces: bool
-    tracecat_aws_account_id: str | None = None
-    tracecat_aws_principal_arn: str | None = None
+    tracecat_aws_account_id: str | None = Field(
+        default=None, title="AutoSecOps AWS Account ID"
+    )
+    tracecat_aws_principal_arn: str | None = Field(
+        default=None, title="AutoSecOps AWS Principal ARN"
+    )
     aws_partition: str | None = Field(
         default=None,
         description="AWS partition of the store region, when botocore knows it.",
@@ -746,6 +750,6 @@ class SecretDefinition(BaseModel):
 class AwsAssumeRoleAccessRead(BaseModel):
     """Workspace-scoped AWS AssumeRole details shown in the credentials UI."""
 
-    tracecat_aws_account_id: str
-    tracecat_aws_principal_arn: str
+    tracecat_aws_account_id: str = Field(title="AutoSecOps AWS Account ID")
+    tracecat_aws_principal_arn: str = Field(title="AutoSecOps AWS Principal ARN")
     external_id: str

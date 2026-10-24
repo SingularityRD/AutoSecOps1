@@ -21,6 +21,7 @@ const PROVIDER_ICONS: Record<
   feedly: mcpCatalogProviderIcons.feedly_mcp,
   "google-secops": mcpCatalogProviderIcons.google_cloud_secops_mcp,
   splunk: mcpCatalogProviderIcons.splunk_mcp,
+  autosecops: Icons.logo,
   tracecat: Icons.logo,
 }
 

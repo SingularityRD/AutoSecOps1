@@ -75,5 +75,5 @@ definition:
         verify_ssl: ${{ inputs.verify_ssl }}
         headers:
           Authorization: ApiKey ${{ SECRETS.elastic_security.ELASTIC_API_KEY }}
-          kbn-xsrf: tracecat
+          kbn-xsrf: autosecops
   returns: ${{ steps.request.result }}

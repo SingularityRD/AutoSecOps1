@@ -6793,11 +6793,11 @@ export const $AwsAssumeRoleAccessRead = {
   properties: {
     tracecat_aws_account_id: {
       type: "string",
-      title: "Tracecat Aws Account Id",
+      title: "AutoSecOps AWS Account ID",
     },
     tracecat_aws_principal_arn: {
       type: "string",
-      title: "Tracecat Aws Principal Arn",
+      title: "AutoSecOps AWS Principal ARN",
     },
     external_id: {
       type: "string",
@@ -31933,7 +31933,7 @@ export const $SecretStoreRead = {
           type: "null",
         },
       ],
-      title: "Tracecat Aws Account Id",
+      title: "AutoSecOps AWS Account ID",
     },
     tracecat_aws_principal_arn: {
       anyOf: [
@@ -31944,7 +31944,7 @@ export const $SecretStoreRead = {
           type: "null",
         },
       ],
-      title: "Tracecat Aws Principal Arn",
+      title: "AutoSecOps AWS Principal ARN",
     },
     aws_partition: {
       anyOf: [

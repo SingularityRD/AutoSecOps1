@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
   ResizableHandle,
@@ -26,6 +26,7 @@ import {
   type WorkflowExecutionReadCompact,
 } from "@/lib/event-history"
 import { useCompactWorkflowExecution } from "@/lib/hooks"
+import { useWorkflow } from "@/providers/workflow"
 
 const defaultLayout = [15, 24, 61]
 
@@ -34,6 +35,13 @@ export default function ExecutionPage() {
     workflowId: string
     executionId: string
   }>()
+  const { workflow } = useWorkflow()
+
+  useEffect(() => {
+    document.title = workflow?.title
+      ? `Workflow runs | ${workflow.title}`
+      : "Workflow runs"
+  }, [workflow])
 
   if (!params) {
     return (

@@ -52,7 +52,7 @@ The Compose startup hook provisions only the bundled database. For an external
 application database, the schema migration enables pgvector if its role has
 permission; otherwise an administrator must enable it first. Compose retains its
 existing bundled-database dependency; this change does not add external-database
-routing. See the [pgvector setup guide](https://docs.tracecat.com/self-hosting/pgvector)
+routing. See the [pgvector setup guide](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/pgvector.mdx)
 for server installation and migration troubleshooting.
 
 ### Image publication

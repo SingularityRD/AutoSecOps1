@@ -420,7 +420,7 @@
           },
           {
             "group": "Endpoints",
-            "openapi": "https://platform.tracecat.com/api/openapi.json"
+            "openapi": "api-reference/openapi.json"
           }
         ]
       }

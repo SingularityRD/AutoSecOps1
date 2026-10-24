@@ -16,7 +16,7 @@ definition:
       description: IPv4 or IPv6 network in CIDR notation to block, e.g. 198.51.100.0/24.
     address_group:
       type: str
-      description: Static address group that a deny rule references, e.g. tracecat-blocklist.
+      description: Static address group that a deny rule references, e.g. autosecops-blocklist.
     folder:
       type: str | None
       description: Folder that contains the configuration, e.g. Shared or All Firewalls. Provide exactly one of folder, snippet, or device.

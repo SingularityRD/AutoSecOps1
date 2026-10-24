@@ -82,6 +82,6 @@ definition:
             content_type: ${{ inputs.content_type }}
         headers:
           Authorization: ApiKey ${{ SECRETS.elastic_security.ELASTIC_API_KEY }}
-          kbn-xsrf: tracecat
+          kbn-xsrf: autosecops
         verify_ssl: ${{ inputs.verify_ssl }}
   returns: ${{ steps.request.result.data }}

@@ -14,7 +14,7 @@ complete a browser sign-in, authenticate with a
     Sign in with OAuth:
 
     ```bash
-    claude mcp add -t http tracecat https://<your-autosecops-host>/mcp
+    claude mcp add -t http autosecops https://<your-autosecops-host>/mcp
     claude
     /mcp
     ```
@@ -24,7 +24,7 @@ complete a browser sign-in, authenticate with a
     quotes** so the variable (not the token) is written to the saved config:
 
     ```bash
-    claude mcp add --transport http tracecat https://<your-autosecops-host>/mcp \
+    claude mcp add --transport http autosecops https://<your-autosecops-host>/mcp \
       --header 'Authorization: Bearer ${TRACECAT_MCP_PAT}'
     ```
   </Tab>
@@ -34,15 +34,15 @@ complete a browser sign-in, authenticate with a
     Sign in with OAuth:
 
     ```bash
-    codex mcp add tracecat --url https://<your-autosecops-host>/mcp
-    codex mcp login tracecat
+    codex mcp add autosecops --url https://<your-autosecops-host>/mcp
+    codex mcp login autosecops
     ```
 
     Or authenticate with a [personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens).
     Set `TRACECAT_MCP_PAT` in your environment, then reference it by name:
 
     ```bash
-    codex mcp add tracecat --url https://<your-autosecops-host>/mcp \
+    codex mcp add autosecops --url https://<your-autosecops-host>/mcp \
       --bearer-token-env-var TRACECAT_MCP_PAT
     ```
   </Tab>
@@ -52,14 +52,14 @@ complete a browser sign-in, authenticate with a
     ```bash
     copilot
     /mcp add
-    # Server Name: tracecat
+    # Server Name: autosecops
     # Server Type: HTTP
     # URL: https://<your-autosecops-host>/mcp
     # Tools: *
     ```
 
     Complete the OAuth sign-in from an interactive `copilot` session. A non-interactive
-    run (`copilot -p`) does not wait for sign-in — it skips the `tracecat` tools until
+    run (`copilot -p`) does not wait for sign-in — it skips the `autosecops` tools until
     you have authenticated once interactively.
 
     Follow [GitHub Copilot MCP setup](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) for the latest CLI prompts.
@@ -69,7 +69,7 @@ complete a browser sign-in, authenticate with a
     ```json
     {
       "mcpServers": {
-        "tracecat": {
+        "autosecops": {
           "type": "http",
           "url": "https://<your-autosecops-host>/mcp",
           "tools": ["*"]
@@ -96,7 +96,7 @@ complete a browser sign-in, authenticate with a
     ```json
     {
       "mcpServers": {
-        "tracecat": {
+        "autosecops": {
           "url": "https://<your-autosecops-host>/mcp"
         }
       }

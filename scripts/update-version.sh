@@ -58,7 +58,7 @@ escape_sed_replacement() {
 # Version discovery is scoped to this checkout's tracked files, so a git work
 # tree is required.
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "Error: $0 must be run inside the tracecat git checkout"
+    echo "Error: $0 must be run inside the AutoSecOps git checkout"
     exit 1
 fi
 

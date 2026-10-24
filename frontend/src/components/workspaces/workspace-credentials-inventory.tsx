@@ -266,7 +266,9 @@ export function WorkspaceCredentialsInventory() {
               searchPlaceholder="Search credentials..."
               selectFilters={selectFilters}
               displayCount={filteredGroups.length}
-              countLabel="credentials"
+              countLabel={
+                filteredGroups.length === 1 ? "credential" : "credentials"
+              }
             />
 
             <ScrollArea className="flex-1 min-h-0 [&>[data-radix-scroll-area-viewport]]:[scrollbar-width:none] [&>[data-radix-scroll-area-viewport]::-webkit-scrollbar]:hidden [&>[data-orientation=vertical]]:!hidden [&>[data-orientation=horizontal]]:!hidden">
