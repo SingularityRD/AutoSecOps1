@@ -172,7 +172,7 @@ describe("standalone library skills", () => {
 
   it("nests a standalone preview under its maintainer", () => {
     expect(librarySkillPath("ws", standalone("malware-triage"))).toBe(
-      "/workspaces/ws/skills/library/tracecat/malware-triage"
+      "/workspaces/ws/skills/library/autosecops/malware-triage"
     )
   })
 })
@@ -216,7 +216,7 @@ describe("libraryEntryPath", () => {
 
   it("falls back to the AutoSecOps segment for unsourced skills", () => {
     expect(librarySkillPath("ws", { slug: "triage", source: null })).toBe(
-      "/workspaces/ws/skills/library/tracecat/triage"
+      "/workspaces/ws/skills/library/autosecops/triage"
     )
   })
 })

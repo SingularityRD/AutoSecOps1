@@ -53,12 +53,16 @@ def test_action_doc_urls_are_static_http_links() -> None:
     assert not malformed, _format_failures(malformed)
 
 
-def test_ai_actions_link_to_tracecat_docs() -> None:
+def test_ai_actions_link_to_autosecops_docs() -> None:
     repo = Repository()
     repo.init(include_base=True, include_templates=False)
 
-    assert repo.get("ai.agent").doc_url == "https://docs.tracecat.com/agents/ai-agent"
-    assert repo.get("ai.action").doc_url == "https://docs.tracecat.com/agents/ai-action"
+    assert repo.get("ai.agent").doc_url == (
+        "https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/ai-agent.mdx"
+    )
+    assert repo.get("ai.action").doc_url == (
+        "https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/agents/ai-action.mdx"
+    )
 
 
 async def _request_url(client: httpx.AsyncClient, url: str) -> int:

@@ -2598,13 +2598,14 @@ loop, batching, condition-ladder, and agent-preset guidance.
 
 ## Canonical references
 Fetch these when you need detail; this prompt does not restate them.
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/expressions.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/functions.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/core-concepts/secrets.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/integrations/oauth-integrations.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/triggers/case-triggers.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/automations/tables.mdx
-- https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/cheatsheets/common-mistakes.mdx
+Paths are relative to https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/
+- automations/core-concepts/expressions.mdx
+- automations/core-concepts/functions.mdx
+- automations/core-concepts/secrets.mdx
+- automations/integrations/oauth-integrations.mdx
+- automations/triggers/case-triggers.mdx
+- automations/tables.mdx
+- cheatsheets/common-mistakes.mdx
 """
 
 _MCP_INSTRUCTIONS_RENDERED = _render_prompt_text(_MCP_INSTRUCTIONS)
