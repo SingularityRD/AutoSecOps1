@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { act, render, screen } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import type { CaseReadMinimal } from "@/client"
@@ -145,7 +145,9 @@ describe("CaseRelatedCasesDrawer", () => {
     expect(window.open).not.toHaveBeenCalled()
 
     await user.keyboard("{Escape}")
-    expect(screen.queryByRole("link", { name: /Open case/ })).toBeNull()
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: /Open case/ })).toBeNull()
+    )
   })
 
   it("opens the case in a new tab on Ctrl-click instead of pinning", async () => {
