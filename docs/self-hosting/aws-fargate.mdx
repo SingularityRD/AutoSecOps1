@@ -20,14 +20,25 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 - A public [Route53 hosted zone](https://aws.amazon.com/route53/) (domain and hosted zone ID)
 - `openssl` and AWS CLI (if using the helper secret script)
 
-## Clone the repository
+## Extract the Terraform stack
 
-Clone the AutoSecOps repository and navigate to the Fargate deployment directory.
+Every AutoSecOps image ships the Fargate Terraform stack in `/opt/autosecops/fargate`.
+Copy it out of the image version you deploy into an empty directory:
 
 ```bash
-git clone https://github.com/SingularityRD/AutoSecOps1.git
-cd AutoSecOps1/deployments/fargate
+# 1. Pull the AutoSecOps image
+docker pull ghcr.io/singularityrd/autosecops:1.0.0
+
+# 2. Copy the Terraform stack out of the image without starting it
+mkdir autosecops-fargate
+id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
+docker cp "$id":/opt/autosecops/fargate/. autosecops-fargate/
+docker rm "$id"
+
+cd autosecops-fargate
 ```
+
+If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
 
 ## Create core secrets
 
@@ -90,16 +101,25 @@ Once deployed, access your instance at:
 
 To update an existing AutoSecOps deployment on Fargate:
 
-1. Pull the latest Fargate stack from the AutoSecOps repository to ensure you have the most recent infrastructure changes.
-2. Change the `TF_VAR_tracecat_image_tag` variable to the desired image tag compatible with the stack, or remove the variable to default to the latest image tag.
-3. Run `terraform apply` to apply the updates.
+1. Extract the Terraform stack from the image version you are updating to into a new directory.
+2. Copy your Terraform state into it, along with any `.tfvars` or override files you created. Skip the state file if you use a remote backend.
+3. Set `TF_VAR_tracecat_image_tag` to the same image version and run `terraform apply`.
 
 ```bash
-cd AutoSecOps1/deployments/fargate
-git pull origin main
+# 1. Extract the new stack next to the current one
+docker pull ghcr.io/singularityrd/autosecops:<version>
+mkdir autosecops-fargate-<version>
+id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
+docker cp "$id":/opt/autosecops/fargate/. autosecops-fargate-<version>/
+docker rm "$id"
 
-# Set variables as before, then update the image tag
-export TF_VAR_tracecat_image_tag=1.0.0
+# 2. Carry over your Terraform state
+cp autosecops-fargate/terraform.tfstate autosecops-fargate-<version>/
+cd autosecops-fargate-<version>
+
+# 3. Set variables as before, then update the image tag
+terraform init
+export TF_VAR_tracecat_image_tag=<version>
 
 terraform apply
 ```

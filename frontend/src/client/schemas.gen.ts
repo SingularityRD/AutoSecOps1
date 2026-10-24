@@ -22348,6 +22348,15 @@ export const $LicenseRead = {
       title: "Entitlements",
       description: "Paid entitlements the license grants right now",
     },
+    included_entitlements: {
+      items: {
+        $ref: "#/components/schemas/Entitlement",
+      },
+      type: "array",
+      title: "Included Entitlements",
+      description:
+        "Free entitlements every single-tenant install gets without a license",
+    },
     licensed_entitlements: {
       items: {
         type: "string",

@@ -3,6 +3,18 @@ import os
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Exact, pinned CDN assets for the API docs pages (`/docs` and `/redoc`).
+# The docs routes in `tracecat.api.docs` load these same URLs, so the CSP and
+# the rendered HTML cannot drift apart when FastAPI changes its defaults.
+SWAGGER_UI_JS_URL = (
+    "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"
+)
+SWAGGER_UI_CSS_URL = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css"
+REDOC_JS_URL = "https://cdn.jsdelivr.net/npm/redoc@2.5.4/bundles/redoc.standalone.js"
+
+_SCRIPT_SRC = f"script-src 'self' 'unsafe-inline' {SWAGGER_UI_JS_URL} {REDOC_JS_URL}"
+_STYLE_SRC = f"style-src 'self' 'unsafe-inline' {SWAGGER_UI_CSS_URL}"
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -15,8 +27,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "frame-ancestors 'none'",
                 "img-src 'self' data:",
                 "object-src 'none'",
-                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
+                _SCRIPT_SRC,
+                _STYLE_SRC,
             ]
         else:
             csp_directives = [
@@ -26,8 +38,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "frame-ancestors 'none'",
                 "img-src 'self' data:",
                 "object-src 'none'",
-                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css",
+                _SCRIPT_SRC,
+                _STYLE_SRC,
             ]
         headers = {
             "Strict-Transport-Security": "max-age=7776000; includeSubDomains",

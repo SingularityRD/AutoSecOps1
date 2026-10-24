@@ -9,9 +9,14 @@ import { expectWorkspaceLanding, getWorkspaceId } from "./utils/auth"
 
 type Entitlements = {
   git_sync: boolean
-  agent_addons: boolean
+  case_addons: boolean
   workspace_chat: boolean
 }
+
+/** Entitlements every install has without a license; tests needing them off skip. */
+const FREE_ENTITLEMENTS: ReadonlySet<keyof Entitlements> = new Set([
+  "workspace_chat",
+])
 
 async function getEntitlements(
   pageRequest: APIRequestContext
@@ -32,7 +37,8 @@ async function skipIfEntitled(
   if (!entitlements[entitlement]) {
     return
   }
-  if (process.env.CI) {
+  // Free entitlements are on in every install, so CI cannot run with them off.
+  if (process.env.CI && !FREE_ENTITLEMENTS.has(entitlement)) {
     expect(
       entitlements[entitlement],
       "Run these tests against a base (no add-on) entitlement baseline"
@@ -62,24 +68,25 @@ test.describe("entitlement gates", () => {
     await expect(page).not.toHaveURL(/\/chat(\/|$|\?)/)
   })
 
-  test("direct inbox route renders the entitlement empty state", async ({
+  // The inbox itself is open to every plan. Filtering it to one case's agent
+  // runs (the `caseId` deep link from a case page) requires case add-ons, so
+  // without them the page ignores the filter and shows the full inbox.
+  test("inbox case filter deep link is ignored without case add-ons", async ({
     page,
   }, testInfo) => {
-    await skipIfEntitled(page.request, testInfo, "agent_addons")
+    await skipIfEntitled(page.request, testInfo, "case_addons")
 
     await page.goto("/workspaces")
     const workspaceId = await getWorkspaceId(page)
 
-    await page.goto(`/workspaces/${workspaceId}/inbox`, {
-      waitUntil: "domcontentloaded",
-    })
+    await page.goto(
+      `/workspaces/${workspaceId}/inbox?caseId=11111111-1111-4111-8111-111111111111`,
+      { waitUntil: "domcontentloaded" }
+    )
 
-    await expect(page.getByText("Enterprise only")).toBeVisible()
-    await expect(
-      page.getByText(
-        "Advanced AI agents (human-in-the-loop and subagents) are only available on enterprise plans."
-      )
-    ).toBeVisible()
+    await expect(page.getByPlaceholder("Search sessions...")).toBeVisible()
+    await expect(page.getByText("Enterprise only")).toHaveCount(0)
+    await expect(page.getByText("Filtered by case")).toHaveCount(0)
   })
 
   test("direct Git sync route renders the entitlement empty state", async ({

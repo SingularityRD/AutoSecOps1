@@ -6883,6 +6883,10 @@ export type LicenseRead = {
    */
   entitlements?: Array<Entitlement>
   /**
+   * Free entitlements every single-tenant install gets without a license
+   */
+  included_entitlements?: Array<Entitlement>
+  /**
    * Every entitlement key listed in the license
    */
   licensed_entitlements?: Array<string>

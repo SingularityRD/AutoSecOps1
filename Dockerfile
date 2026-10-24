@@ -429,6 +429,11 @@ COPY --chmod=0644 \
     ./Caddyfile \
     /opt/autosecops/install/
 
+# Ship the AWS ECS Fargate Terraform stack the same way, outside the Docker
+# Compose install directory (see docs/self-hosting/aws-fargate.mdx).
+# .dockerignore keeps local Terraform state, plugins, and tfvars out of it.
+COPY ./deployments/fargate /opt/autosecops/fargate/
+
 # Verification
 RUN nsjail --help > /dev/null 2>&1 && echo "nsjail available"
 
