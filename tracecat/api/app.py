@@ -85,6 +85,7 @@ from tracecat.api.common import (
     tracecat_exception_handler,
     without_inputs,
 )
+from tracecat.api.docs import install_api_docs
 from tracecat.api.lifespan import LifespanTaskSupervisor
 from tracecat.auth.credentials import authenticated_user_only, require_superuser
 from tracecat.auth.dependencies import (
@@ -621,8 +622,12 @@ def create_app(**kwargs) -> FastAPI:
         lifespan=lifespan,
         default_response_class=ORJSONResponse,
         root_path=config.TRACECAT__API_ROOT_PATH,
+        # Registered by install_api_docs() with CSP-allowed asset URLs.
+        docs_url=None,
+        redoc_url=None,
         **kwargs,
     )
+    install_api_docs(app)
     app.state.logger = logger
 
     # Routers
