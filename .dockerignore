@@ -8,6 +8,24 @@ frontend/node_modules
 
 # Deployments (terraform, etc)
 deployments
+# The production image ships the Fargate Terraform stack (see Dockerfile), so
+# keep its sources but never local Terraform state, plugins, or variable files.
+!deployments/fargate
+deployments/fargate/**/.terraform
+deployments/fargate/**/.terraform.lock.hcl
+deployments/fargate/**/*.tfstate
+deployments/fargate/**/*.tfstate.*
+deployments/fargate/**/*.tfvars
+deployments/fargate/**/*.tfvars.json
+deployments/fargate/**/*.tfplan
+deployments/fargate/**/tfplan
+deployments/fargate/**/crash*.log
+deployments/fargate/**/override.tf
+deployments/fargate/**/override.tf.json
+deployments/fargate/**/*_override.tf
+deployments/fargate/**/*_override.tf.json
+deployments/fargate/**/.terraformrc
+deployments/fargate/**/terraform.rc
 
 # Python
 __pycache__
