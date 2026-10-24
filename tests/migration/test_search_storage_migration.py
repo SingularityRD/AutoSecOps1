@@ -76,9 +76,7 @@ def test_search_migration_enables_vector_and_preserves_source_data(
             denied = run_alembic(url, "upgrade", "9680c861644a", role=restricted_role)
             assert denied.returncode != 0
             assert "permission denied to create extension" in denied.stderr
-            assert (
-                "https://docs.singularityrd.com/self-hosting/pgvector" in denied.stderr
-            )
+            assert "https://docs.tracecat.com/self-hosting/pgvector" in denied.stderr
         else:
             with engine.begin() as conn:
                 conn.execute(text("CREATE SCHEMA synthetic_vector"))
@@ -87,8 +85,7 @@ def test_search_migration_enables_vector_and_preserves_source_data(
             assert wrong_schema.returncode != 0
             assert "requires pgvector >= 0.8.0" in wrong_schema.stderr
             assert (
-                "https://docs.singularityrd.com/self-hosting/pgvector"
-                in wrong_schema.stderr
+                "https://docs.tracecat.com/self-hosting/pgvector" in wrong_schema.stderr
             )
             with engine.begin() as conn:
                 conn.execute(text("ALTER EXTENSION vector SET SCHEMA public"))
