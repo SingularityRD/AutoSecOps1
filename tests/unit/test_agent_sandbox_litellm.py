@@ -1793,6 +1793,7 @@ def _run_nsjail_harness_in_docker_or_skip(
                 "      - SYS_ADMIN",
                 "    security_opt:",
                 "      - seccomp:unconfined",
+                "      - apparmor:unconfined",
                 "      - systempaths=unconfined",
                 *ulimit_lines,
                 *device_lines,
