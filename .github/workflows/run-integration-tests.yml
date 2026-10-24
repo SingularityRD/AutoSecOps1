@@ -15,6 +15,11 @@ concurrency:
 
 jobs:
   plan-run:
+    # The suite needs the internal-registry-ci environment, its
+    # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key, and a private registry repository
+    # the key can read. Skip every job cleanly until an operator has provisioned
+    # them and set the INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
+    if: vars.INTERNAL_REGISTRY_CI_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -111,7 +116,7 @@ jobs:
           version: "0.13.4"
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -136,8 +141,8 @@ jobs:
     needs: [plan-run, ssh-sanity] # only start if key check passed
     if: needs.plan-run.outputs.should_run == 'true' && needs.ssh-sanity.result == 'success'
     environment: internal-registry-ci
-    runs-on: blacksmith-8vcpu-ubuntu-2204
-    timeout-minutes: 30
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -153,17 +158,12 @@ jobs:
             uv.lock
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
-      - name: Disable IPv6 (Blacksmith VMs lack IPv6 routing)
-        run: |
-          sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-          sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-
-      - name: Set up Docker builder
-        uses: useblacksmith/setup-docker-builder@78f41686563c732ccc097f7baac2f092f67538f0 # v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Run environment setup script
         run: |
@@ -179,6 +179,8 @@ jobs:
           target: production
           load: true
           tags: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          # Reuse the amd64 layers the nightly image publish caches on main.
+          cache-from: type=gha,scope=api-linux-amd64
 
       - name: Test production image sandboxes on native AMD64
         timeout-minutes: 5

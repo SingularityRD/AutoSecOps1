@@ -44,6 +44,7 @@ from tracecat_ee.watchtower.router import router as watchtower_router
 from tracecat import __version__ as APP_VERSION
 from tracecat import config
 from tracecat.admin.agent.router import router as admin_agent_router
+from tracecat.admin.license.router import router as admin_license_router
 from tracecat.admin.maintenance.router import router as admin_maintenance_router
 from tracecat.admin.registry.router import router as admin_registry_router
 from tracecat.agent.access.router import router as agent_model_access_router
@@ -208,6 +209,7 @@ from tracecat.storage.blob import (
 from tracecat.tables.exceptions import TableRowError
 from tracecat.tables.router import router as tables_router
 from tracecat.tags.router import router as tags_router
+from tracecat.tiers.defaults import log_license_startup
 from tracecat.variables.router import router as variables_router
 from tracecat.vcs.router import org_router as vcs_router
 from tracecat.webhooks.router import router as webhook_router
@@ -321,6 +323,7 @@ async def lifespan(app: FastAPI):
         "Feature flags", feature_flags=[f.value for f in config.TRACECAT__FEATURE_FLAGS]
     )
     logger.info("RLS mode", rls_mode=config.TRACECAT__RLS_MODE.value)
+    log_license_startup()
     logger.info("API startup complete")
 
     yield
@@ -593,7 +596,11 @@ def create_app(**kwargs) -> FastAPI:
         ),
         summary="AutoSecOps API",
         version="1",
-        contact={"name": "SingularityRD", "url": "https://github.com/SingularityRD"},
+        contact={
+            "name": "SingularityRD",
+            "url": "https://docs.singularityrd.com",
+            "email": "support@singularityrd.com",
+        },
         license_info={
             "name": "Proprietary",
             "identifier": "LicenseRef-Proprietary",
@@ -665,6 +672,7 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(watchtower_router)
     app.include_router(admin_router)
     app.include_router(admin_agent_router, prefix="/admin")
+    app.include_router(admin_license_router, prefix="/admin")
     app.include_router(admin_maintenance_router, prefix="/admin")
     app.include_router(admin_registry_router, prefix="/admin")
     _include_workspace_scoped_router(app, inbox_router)

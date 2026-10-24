@@ -5035,6 +5035,25 @@ export type model =
   | "sentence-transformers/all-MiniLM-L6-v2"
 
 /**
+ * Available feature entitlements.
+ */
+export type Entitlement =
+  | "custom_registry"
+  | "git_sync"
+  | "agent_addons"
+  | "case_addons"
+  | "rbac_addons"
+  | "service_accounts"
+  | "workspace_chat"
+  | "multi_workspace"
+  | "watchtower"
+  | "external_secret_stores"
+  | "agent_channels"
+  | "semantic_search"
+  | "forms"
+  | "tunnels"
+
+/**
  * TypedDict for tier entitlements stored in JSONB.
  *
  * All keys are optional (total=False) to support partial overrides.
@@ -6839,6 +6858,46 @@ export type LibrarySkillSourceRead = {
 }
 
 export type kind = "upstream" | "local"
+
+/**
+ * Why a license key failed verification.
+ */
+export type LicenseErrorCode = "malformed" | "bad_signature" | "invalid_claims"
+
+/**
+ * License status for the platform admin.
+ */
+export type LicenseRead = {
+  status: LicenseStatus
+  /**
+   * Whether the license controls entitlements. False in multi-tenant mode, where database tiers apply.
+   */
+  enforced: boolean
+  license_id?: string | null
+  customer?: string | null
+  issued_at?: string | null
+  expires_at?: string | null
+  grace_ends_at?: string | null
+  /**
+   * Paid entitlements the license grants right now
+   */
+  entitlements?: Array<Entitlement>
+  /**
+   * Every entitlement key listed in the license
+   */
+  licensed_entitlements?: Array<string>
+  error?: LicenseErrorCode | null
+}
+
+/**
+ * Lifecycle state of the configured license key.
+ */
+export type LicenseStatus =
+  | "missing"
+  | "valid"
+  | "grace"
+  | "expired"
+  | "invalid"
 
 /**
  * Authentication type for MCP integrations.
@@ -16040,6 +16099,8 @@ export type AdminAgentListPlatformCatalogData = {
 
 export type AdminAgentListPlatformCatalogResponse = AgentCatalogListResponse
 
+export type AdminLicenseGetLicenseResponse = LicenseRead
+
 export type AdminMaintenanceStartCaseAgentSessionInteractionBackfillResponse =
   CaseAgentSessionInteractionBackfillStartResponse
 
@@ -23117,6 +23178,16 @@ export type $OpenApiTs = {
          * Validation Error
          */
         422: HTTPValidationError
+      }
+    }
+  }
+  "/admin/license": {
+    get: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: LicenseRead
       }
     }
   }

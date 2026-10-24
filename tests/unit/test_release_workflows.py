@@ -151,7 +151,7 @@ def test_manifest_publishes_exactly_the_validated_tags(
 ) -> None:
     result, _ = run_image_guard(tmp_path, ref=version)
     assert result.returncode == 0
-    repository = "ghcr.io/tracecathq/tracecat"
+    repository = "ghcr.io/singularityrd/autosecops"
     tags = [f"{repository}:{version}"]
 
     workflow = yaml.safe_load(IMAGE_WORKFLOW.read_text())
@@ -218,7 +218,7 @@ def test_promotion_updates_all_images_from_the_same_stable_tag(
     docker = tmp_path / "docker"
     docker.write_text(
         '#!/bin/bash\nprintf "%s\\n" "$@" >> "$CAPTURE_ARGS"\n'
-        'if [[ "$FAIL_API" == true && "$*" == *"/tracecat:latest"* ]]; then\n'
+        'if [[ "$FAIL_API" == true && "$*" == *"/autosecops:latest"* ]]; then\n'
         "  exit 1\n"
         "fi\n"
     )
@@ -239,9 +239,9 @@ def test_promotion_updates_all_images_from_the_same_stable_tag(
     )
     assert (result.returncode != 0) == fail_api, result.stderr
     images = (
-        ["tracecat"]
+        ["autosecops"]
         if fail_api
-        else ["tracecat", "tracecat-ui", "tracecat-tunnel-gateway"]
+        else ["autosecops", "autosecops-ui", "autosecops-tunnel-gateway"]
     )
     assert args_file.read_text().splitlines() == [
         arg
@@ -251,7 +251,7 @@ def test_promotion_updates_all_images_from_the_same_stable_tag(
             "imagetools",
             "create",
             "--tag",
-            f"ghcr.io/tracecathq/{image}:latest",
-            f"ghcr.io/tracecathq/{image}:{version}",
+            f"ghcr.io/singularityrd/{image}:latest",
+            f"ghcr.io/singularityrd/{image}:{version}",
         )
     ]

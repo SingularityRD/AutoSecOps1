@@ -35,7 +35,7 @@ env:
 
 jobs:
   test-custom-registry-install:
-    runs-on: blacksmith-8vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -52,7 +52,7 @@ jobs:
             uv.lock
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -67,7 +67,7 @@ jobs:
           .venv/bin/python -c "import custom_actions"
 
   test-all:
-    runs-on: blacksmith-8vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     strategy:
       matrix:
@@ -92,14 +92,9 @@ jobs:
             uv.lock
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
-
-      - name: Disable IPv6 (Blacksmith VMs lack IPv6 routing)
-        run: |
-          sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-          sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 
       - name: Run environment setup script
         run: |

@@ -45,8 +45,7 @@ import { getBaseUrl } from "@/lib/api"
 import { formatRelative } from "@/lib/time"
 import { cn } from "@/lib/utils"
 
-const SCIM_DOCS_URL =
-  "https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/authentication/scim.mdx"
+const SCIM_DOCS_URL = "https://docs.singularityrd.com/authentication/scim"
 
 /**
  * Absolute SCIM base URL an administrator pastes into their IdP.

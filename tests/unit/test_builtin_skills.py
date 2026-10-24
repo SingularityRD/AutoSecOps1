@@ -17,30 +17,28 @@ import yaml
 
 from tracecat import config
 from tracecat.agent.executor.activity import SandboxedAgentExecutor
-from tracecat.agent.skill.builtin import PLATFORM_SKILLS
+from tracecat.agent.skill.builtin import PLATFORM_SKILLS, PLATFORM_SKILLS_SOURCE_DIR
 from tracecat.agent.skill.frontmatter import parse_skill_markdown
 from tracecat.agent.skill.schemas import SkillCreate
 from tracecat.agent.skill.types import SkillOrigin
 
-VENDORED_SKILLS_ROOT = Path(config.TRACECAT__COPILOT_SKILLS_DIR)
-VENDORED_SKILLS_SKIP_REASON = (
-    f"No vendored workspace-chat skills at {config.TRACECAT__COPILOT_SKILLS_DIR}. "
-    "The `plugin-skills` Dockerfile stage copies them in at image build time, so "
-    "a source checkout does not carry them. Set TRACECAT__COPILOT_SKILLS_DIR to "
-    "a populated directory to run these checks locally."
-)
+IMAGE_SKILLS_ROOT = Path(config.TRACECAT__COPILOT_SKILLS_DIR)
+
+
+def _has_all_skills(root: Path) -> bool:
+    from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+
+    return all((root / name).is_dir() for name in BUILTIN_WORKSPACE_CHAT_SKILLS)
 
 
 def require_vendored_skills() -> Path:
-    """Return the vendored tree or skip checks that require its content."""
-    from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
-
-    if any(
-        not (VENDORED_SKILLS_ROOT / name).is_dir()
-        for name in BUILTIN_WORKSPACE_CHAT_SKILLS
-    ):
-        pytest.skip(VENDORED_SKILLS_SKIP_REASON)
-    return VENDORED_SKILLS_ROOT
+    """Return the image skill tree, or the in-repo sources outside the image."""
+    if _has_all_skills(IMAGE_SKILLS_ROOT):
+        return IMAGE_SKILLS_ROOT
+    assert _has_all_skills(PLATFORM_SKILLS_SOURCE_DIR), (
+        f"Vendored platform skills missing from {PLATFORM_SKILLS_SOURCE_DIR}"
+    )
+    return PLATFORM_SKILLS_SOURCE_DIR
 
 
 class TestSkillOrigin:
@@ -67,7 +65,7 @@ class TestBuiltinSkillsConstant:
 
 
 class TestVendoredSkillContent:
-    """Content checks against the skills vendored from tracecat-plugins."""
+    """Content checks against the vendored platform skills."""
 
     def test_frontmatter_name_matches_directory(self):
         from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
@@ -108,9 +106,28 @@ class TestVendoredSkillContent:
                     f"TODO placeholder found in {markdown}"
                 )
 
+    def test_customer_visible_prose_uses_product_brand(self):
+        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+
+        root = require_vendored_skills()
+        for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
+            for document in (root / name).rglob("*"):
+                if document.suffix not in {".md", ".yaml"}:
+                    continue
+                content = document.read_text(encoding="utf-8")
+                # Lowercase ``tracecat`` forms are identifiers and stay.
+                assert re.search(r"\bTracecat\b", content) is None, document
+                assert "tracecat.com" not in content, document
+                assert "github.com/TracecatHQ" not in content, document
+
     def test_workspace_chat_adapter_contains_local_docs(self):
         root = require_vendored_skills()
         docs_root = root / "tracecat-workspace-chat" / "references" / "docs"
+        if not docs_root.is_dir():
+            pytest.skip(
+                "Docs are injected by the `plugin-skills` Dockerfile stage; set "
+                "TRACECAT__COPILOT_SKILLS_DIR to an image-built tree to check them."
+            )
 
         assert (docs_root / "docs.json").is_file()
         assert (docs_root / "agents" / "workspace-chat.mdx").is_file()

@@ -43,6 +43,8 @@ services:
       - SYS_ADMIN
     security_opt:
       - seccomp:unconfined
+      # Docker's default AppArmor profile denies the cgroup remount.
+      - apparmor:unconfined
       - systempaths=unconfined
     devices:
       - /dev/net/tun:/dev/net/tun

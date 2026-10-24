@@ -15,7 +15,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
 
   api:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     container_name: api
     restart: unless-stopped
     networks:
@@ -68,6 +68,7 @@ services:
       OIDC_SCOPES: ${OIDC_SCOPES}
       USER_AUTH_SECRET: ${USER_AUTH_SECRET}
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+      TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
       TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
       TRACECAT__LITELLM_BASE_URL: ${TRACECAT__LITELLM_BASE_URL:-http://litellm:4000}
       TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS: ${TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS:-}
@@ -124,7 +125,7 @@ services:
       start_period: 10s
 
   worker:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
     networks:
       - core
@@ -156,6 +157,7 @@ services:
       TRACECAT__DB_AUTH_MAX_OVERFLOW: ${TRACECAT__DB_AUTH_MAX_OVERFLOW:-5}
       TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET} # Sensitive
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+      TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
       TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
       TRACECAT__CONTEXT_COMPRESSION_ENABLED: ${TRACECAT__CONTEXT_COMPRESSION_ENABLED:-false}
       TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB: ${TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB:-16}
@@ -206,7 +208,7 @@ services:
         condition: service_healthy
 
   executor:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
 
     # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
@@ -244,6 +246,7 @@ services:
       TRACECAT__DB_AUTH_MAX_OVERFLOW: ${TRACECAT__DB_AUTH_MAX_OVERFLOW:-5}
       TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET} # Sensitive
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+      TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
       TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
       TRACECAT__API_URL: ${TRACECAT__API_URL:-http://api:8000}
       # Compression (must match worker for codec compatibility)
@@ -324,7 +327,7 @@ services:
         condition: service_healthy
 
   agent-worker:
-      image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+      image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
       restart: unless-stopped
       networks:
         - core
@@ -353,6 +356,7 @@ services:
         TRACECAT__DB_AUTH_MAX_OVERFLOW: ${TRACECAT__DB_AUTH_MAX_OVERFLOW:-5}
         TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET} # Sensitive
         TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+        TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
         TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
         TRACECAT__API_URL: ${TRACECAT__API_URL:-http://api:8000}
         # Compression (must match worker for codec compatibility)
@@ -406,7 +410,7 @@ services:
           condition: service_healthy
 
   litellm:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
     networks:
       - core
@@ -439,7 +443,7 @@ services:
       start_period: 10s
 
   agent-executor:
-      image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+      image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
       restart: unless-stopped
 
       # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
@@ -476,6 +480,7 @@ services:
         TRACECAT__DB_AUTH_MAX_OVERFLOW: ${TRACECAT__DB_AUTH_MAX_OVERFLOW:-5}
         TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET} # Sensitive
         TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+        TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
         TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
         TRACECAT__API_URL: ${TRACECAT__API_URL:-http://api:8000}
         TRACECAT__LITELLM_BASE_URL: ${TRACECAT__LITELLM_BASE_URL:-http://litellm:4000}
@@ -561,7 +566,7 @@ services:
           condition: service_healthy
 
   mcp:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     restart: on-failure:3
     networks:
       - core
@@ -583,6 +588,7 @@ services:
       TRACECAT__DB_AUTH_MAX_OVERFLOW: ${TRACECAT__DB_AUTH_MAX_OVERFLOW:-5}
       TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET}
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+      TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
       TRACECAT__EE_MULTI_TENANT: ${TRACECAT__EE_MULTI_TENANT:-false}
       REDIS_URL: ${REDIS_URL}
       # Internal OIDC issuer (on the API server)
@@ -620,7 +626,7 @@ services:
         condition: service_healthy
 
   ui:
-    image: ghcr.io/tracecathq/tracecat-ui:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops-ui:${TRACECAT__IMAGE_TAG:-1.0.0}
     container_name: ui
     restart: unless-stopped
     networks:
@@ -638,7 +644,7 @@ services:
       - api
 
   postgres_db:
-    image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/tracecathq/tracecat-postgres:1}
+    image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}
     container_name: postgres_db
     command: ["postgres"]
     restart: unless-stopped
@@ -659,7 +665,7 @@ services:
       start_period: 180s
 
   migrations:
-    image: ghcr.io/tracecathq/tracecat:${TRACECAT__IMAGE_TAG:-1.0.0}
+    image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}
     container_name: migrations
     restart: "no"
     networks:
@@ -671,6 +677,7 @@ services:
       TRACECAT__DB_URI: ${TRACECAT__DB_URI}
       TRACECAT__DB_SSLMODE: ${TRACECAT__DB_SSLMODE}
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
+      TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
     command: ["python3", "-m", "alembic", "upgrade", "head"]
     depends_on:
       postgres_db:

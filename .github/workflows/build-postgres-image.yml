@@ -155,7 +155,7 @@ jobs:
           image=$(cat "/tmp/postgres-images/postgres-$VARIANT-amd64/name")
           suffix=""
           if [[ "$VARIANT" == bookworm ]]; then suffix="-bookworm"; fi
-          [[ "$image" =~ ^ghcr.io/tracecathq/tracecat-postgres:[1-9][0-9]*$suffix$ ]]
+          [[ "$image" =~ ^ghcr.io/singularityrd/autosecops-postgres:[1-9][0-9]*$suffix$ ]]
           # The workflow concurrency group serializes trusted main publishers.
           # Only a confirmed missing manifest permits a new revision to publish.
           bash scripts/postgres/check-unpublished-image.sh "$image"

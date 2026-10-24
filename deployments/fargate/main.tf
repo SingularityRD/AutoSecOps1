@@ -77,6 +77,7 @@ module "ecs" {
   log_format                                    = var.log_format
   temporal_log_level                            = var.temporal_log_level
   feature_flags                                 = var.feature_flags
+  license_key                                   = var.license_key
   ee_multi_tenant                               = var.ee_multi_tenant
   context_compression_enabled                   = var.context_compression_enabled
   context_compression_threshold_kb              = var.context_compression_threshold_kb

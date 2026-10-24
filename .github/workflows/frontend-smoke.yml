@@ -18,8 +18,8 @@ jobs:
         fromJSON(vars.TRUSTED_CI_ACTORS_JSON || '[]'),
         github.triggering_actor || github.actor
       )
-    runs-on: blacksmith-8vcpu-ubuntu-2204
-    timeout-minutes: 45
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -36,7 +36,7 @@ jobs:
             uv.lock
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -51,13 +51,8 @@ jobs:
           version: 10
           run_install: false
 
-      - name: Set up Docker builder
-        uses: useblacksmith/setup-docker-builder@78f41686563c732ccc097f7baac2f092f67538f0 # v1
-
-      - name: Disable IPv6
-        run: |
-          sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-          sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Configure environment
         run: |
@@ -79,6 +74,8 @@ jobs:
           target: production
           load: true
           tags: tracecat-ci:frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          # Reuse the amd64 layers the nightly image publish caches on main.
+          cache-from: type=gha,scope=api-linux-amd64
 
       - name: Build UI image
         env:

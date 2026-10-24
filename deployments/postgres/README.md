@@ -9,7 +9,7 @@ database does not need either extension.
 ## Docker Compose POCs: automatic pgvector setup
 
 Run `docker compose up` as usual. All three Compose files default to the versioned
-`ghcr.io/tracecathq/tracecat-postgres` image. No extra Compose file, local build,
+`ghcr.io/singularityrd/autosecops-postgres` image. No extra Compose file, local build,
 startup download, or manual SQL command is needed.
 
 ```text
@@ -52,7 +52,7 @@ The Compose startup hook provisions only the bundled database. For an external
 application database, the schema migration enables pgvector if its role has
 permission; otherwise an administrator must enable it first. Compose retains its
 existing bundled-database dependency; this change does not add external-database
-routing. See the [pgvector setup guide](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/pgvector.mdx)
+routing. See the [pgvector setup guide](https://docs.singularityrd.com/self-hosting/pgvector)
 for server installation and migration troubleshooting.
 
 ### Image publication

@@ -6,7 +6,8 @@
     "description": "The AI-native security automation platform for security teams and agents.",
     "contact": {
       "name": "SingularityRD",
-      "url": "https://github.com/SingularityRD"
+      "url": "https://docs.singularityrd.com/",
+      "email": "support@singularityrd.com"
     },
     "license": {
       "name": "Proprietary",

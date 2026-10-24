@@ -3,6 +3,7 @@
 import {
   BookOpenIcon,
   BuildingIcon,
+  KeyRoundIcon,
   LayersIcon,
   LogOutIcon,
   LogsIcon,
@@ -58,6 +59,12 @@ export function AdminSidebar({
       url: "/admin/tiers",
       icon: LayersIcon,
       isActive: pathname?.includes("/admin/tiers"),
+    },
+    {
+      title: "License",
+      url: "/admin/license",
+      icon: KeyRoundIcon,
+      isActive: pathname?.includes("/admin/license"),
     },
     {
       title: "Agent",

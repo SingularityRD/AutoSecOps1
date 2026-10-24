@@ -161,12 +161,12 @@ variable "auth_superadmin_email" {
 
 variable "tracecat_image" {
   type    = string
-  default = "ghcr.io/tracecathq/tracecat"
+  default = "ghcr.io/singularityrd/autosecops"
 }
 
 variable "tracecat_ui_image" {
   type    = string
-  default = "ghcr.io/tracecathq/tracecat-ui"
+  default = "ghcr.io/singularityrd/autosecops-ui"
 }
 
 variable "tracecat_image_tag" {
@@ -288,11 +288,18 @@ variable "temporal_log_level" {
   default = "warn"
 }
 
-# NOTE: Feature flags enable Enterprise Edition features.
+# NOTE: Feature flags toggle optional behavior. Paid features need license_key.
 variable "feature_flags" {
   type        = string
   description = "Comma separated list of AutoSecOps feature flags to enable."
   default     = ""
+}
+
+variable "license_key" {
+  type        = string
+  description = "Signed AutoSecOps license key. Enables paid entitlements on single-tenant installs."
+  default     = null
+  sensitive   = true
 }
 
 variable "ee_multi_tenant" {

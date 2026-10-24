@@ -85,8 +85,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/SingularityRD/AutoSecOps1"
-Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Homepage = "https://docs.singularityrd.com"
+Documentation = "https://docs.singularityrd.com"
 Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.uv.sources]

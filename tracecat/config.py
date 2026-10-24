@@ -1464,6 +1464,12 @@ ENTERPRISE_EDITION = env_bool("ENTERPRISE_EDITION", default=False)
 TRACECAT__EE_MULTI_TENANT = env_bool("TRACECAT__EE_MULTI_TENANT", default=False)
 """Whether multi-tenant enterprise features are enabled."""
 
+TRACECAT__LICENSE_KEY = (os.environ.get("TRACECAT__LICENSE_KEY") or "").strip() or None
+"""Signed license key that unlocks paid entitlements on single-tenant installs.
+
+Ignored in multi-tenant mode, where entitlements come from database tiers.
+"""
+
 # === Managed tunnels (Pangolin) === #
 TRACECAT__PANGOLIN_ENDPOINT = os.environ.get("TRACECAT__PANGOLIN_ENDPOINT")
 """Pangolin server URL that sites and machine clients connect to, e.g. Pangolin Cloud."""
@@ -1495,7 +1501,7 @@ TRACECAT__TUNNEL_GATEWAY_NAMESPACE = os.environ.get(
 
 TRACECAT__TUNNEL_GATEWAY_IMAGE = os.environ.get(
     "TRACECAT__TUNNEL_GATEWAY_IMAGE",
-    f"ghcr.io/tracecathq/tracecat-tunnel-gateway:{__version__}",
+    f"ghcr.io/singularityrd/autosecops-tunnel-gateway:{__version__}",
 )
 """Container image for tunnel gateways created by the ``kubernetes`` backend.
 

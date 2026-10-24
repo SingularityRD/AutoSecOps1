@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 
+from tracecat import config
+from tracecat.licensing.service import get_license_state
+from tracecat.logger import logger
+from tracecat.tiers.enums import Entitlement
 from tracecat.tiers.schemas import EffectiveEntitlements, EffectiveLimits
 
 DEFAULT_TIER_DISPLAY_NAME = "Default"
@@ -17,15 +21,62 @@ DEFAULT_LIMITS = EffectiveLimits(
     max_concurrent_actions=None,
 )
 
+BASELINE_ENTITLEMENTS = EffectiveEntitlements(
+    custom_registry=True,
+    git_sync=False,
+    agent_addons=False,
+    case_addons=False,
+    rbac_addons=False,
+    service_accounts=False,
+    workspace_chat=True,
+    multi_workspace=False,
+    watchtower=False,
+    external_secret_stores=False,
+    agent_channels=False,
+    semantic_search=False,
+    forms=False,
+    tunnels=False,
+)
+"""Free entitlements every single-tenant install gets without a license.
 
-_AGENT_ADDON_FLAGS = ("agent-approvals", "agent-presets")
-_CASE_ADDON_FLAGS = ("case-dropdowns", "case-durations", "case-tasks", "case-triggers")
-_RBAC_FLAGS = ("rbac",)
+Multi-workspace is off: existing workspaces remain accessible; the entitlement
+only gates creation beyond the first workspace.
+"""
+
+DEFAULT_ENTITLEMENTS = BASELINE_ENTITLEMENTS.model_copy()
+"""Single-tenant baseline that a license extends.
+
+Tests patch this attribute to simulate a different baseline; production code
+reads entitlements through ``get_single_tenant_entitlements()``.
+"""
+
+# Legacy TRACECAT__FEATURE_FLAGS tokens that used to grant paid entitlements on
+# single-tenant installs. They no longer do; they only trigger an upgrade warning.
+_LEGACY_ENTITLEMENT_FLAGS: dict[str, Entitlement] = {
+    "git-sync": Entitlement.GIT_SYNC,
+    "agent-approvals": Entitlement.AGENT_ADDONS,
+    "agent-presets": Entitlement.AGENT_ADDONS,
+    "case-dropdowns": Entitlement.CASE_ADDONS,
+    "case-durations": Entitlement.CASE_ADDONS,
+    "case-tasks": Entitlement.CASE_ADDONS,
+    "case-triggers": Entitlement.CASE_ADDONS,
+    "rbac": Entitlement.RBAC_ADDONS,
+    "agent-channels": Entitlement.AGENT_CHANNELS,
+    "forms": Entitlement.FORMS,
+}
 
 
-def get_legacy_feature_flags_env() -> str | None:
-    """Get legacy feature flags from TRACECAT__FEATURE_FLAGS."""
-    return os.environ.get("TRACECAT__FEATURE_FLAGS")
+def get_single_tenant_entitlements() -> EffectiveEntitlements:
+    """Resolve entitlements for a single-tenant install.
+
+    The result is the free baseline plus whatever a valid (or in-grace) signed
+    license grants. ``TRACECAT__FEATURE_FLAGS`` never grants entitlements.
+    """
+    baseline = DEFAULT_ENTITLEMENTS
+    granted = get_license_state().granted
+    if not granted:
+        return baseline.model_copy()
+    return baseline.model_copy(update=dict.fromkeys((e.value for e in granted), True))
 
 
 def _parse_feature_flags(feature_flags_env: str) -> set[str]:
@@ -36,88 +87,45 @@ def _parse_feature_flags(feature_flags_env: str) -> set[str]:
     }
 
 
-# Default entitlements for single-tenant/self-hosted deployments.
-def resolve_oss_default_entitlements(
-    feature_flags_env: str | None,
-) -> EffectiveEntitlements:
-    """Resolve single-tenant default entitlements from legacy feature flags.
-
-    Fresh single-tenant installs start with custom registry and workspace chat
-    enabled. Existing single-tenant deployments can preserve prior behavior by
-    mapping enabled feature flags to their corresponding entitlement groups.
-
-    Agent presets, skills, MCP catalog connectors, tool approvals, and the agent
-    inbox are not entitlement-gated; ``agent_addons`` only gates agent folders,
-    tags, and case agent runs. Agent channels (Slack and Microsoft Teams, including
-    approvals from those channels) are gated by ``agent_channels``; the legacy
-    ``agent-channels`` feature flag maps to it. Semantic table search is gated by
-    ``semantic_search``. Forms are gated by ``forms``; the ``forms`` feature flag
-    maps to it, so one token turns on both the flag and the entitlement on
-    single-tenant deployments.
-
-    Multi-workspace is disabled on both paths. Existing workspaces remain
-    accessible; the entitlement only gates creation beyond the first workspace.
-    """
-    # Fresh install path.
+def legacy_flag_entitlements(feature_flags_env: str | None) -> set[Entitlement]:
+    """Return the entitlements that legacy feature flags used to grant."""
     if not feature_flags_env:
-        return EffectiveEntitlements(
-            custom_registry=True,
-            git_sync=False,
-            agent_addons=False,
-            case_addons=False,
-            rbac_addons=False,
-            service_accounts=False,
-            workspace_chat=True,
-            multi_workspace=False,
-            watchtower=False,
-            external_secret_stores=False,
-            agent_channels=False,
-            semantic_search=False,
-            forms=False,
-            tunnels=False,
-        )
+        return set()
+    flags = _parse_feature_flags(feature_flags_env)
+    return {
+        entitlement
+        for flag, entitlement in _LEGACY_ENTITLEMENT_FLAGS.items()
+        if flag in flags
+    }
 
-    # Existing install path: map legacy feature flags to entitlement groups.
-    normalized_flags = _parse_feature_flags(feature_flags_env)
-    git_sync_enabled = "git-sync" in normalized_flags
 
-    agent_addons_enabled = False
-    for flag in _AGENT_ADDON_FLAGS:
-        if flag in normalized_flags:
-            agent_addons_enabled = True
-            break
+def warn_on_legacy_entitlement_flags() -> None:
+    """Warn when feature flags ask for paid entitlements a license does not grant.
 
-    case_addons_enabled = False
-    for flag in _CASE_ADDON_FLAGS:
-        if flag in normalized_flags:
-            case_addons_enabled = True
-            break
-
-    agent_channels_enabled = "agent-channels" in normalized_flags
-    forms_enabled = "forms" in normalized_flags
-
-    rbac_enabled = False
-    for flag in _RBAC_FLAGS:
-        if flag in normalized_flags:
-            rbac_enabled = True
-            break
-
-    return EffectiveEntitlements(
-        custom_registry=True,
-        git_sync=git_sync_enabled,
-        agent_addons=agent_addons_enabled,
-        case_addons=case_addons_enabled,
-        rbac_addons=rbac_enabled,
-        service_accounts=False,
-        workspace_chat=True,
-        multi_workspace=False,
-        watchtower=False,
-        external_secret_stores=False,
-        agent_channels=agent_channels_enabled,
-        semantic_search=False,
-        forms=forms_enabled,
-        tunnels=False,
+    Before signed licenses, single-tenant installs mapped flags such as
+    ``git-sync`` to paid entitlements. Upgraded installs that still set them
+    see this warning instead of silently losing access.
+    """
+    requested = legacy_flag_entitlements(os.environ.get("TRACECAT__FEATURE_FLAGS"))
+    missing = requested - get_license_state().granted
+    if not missing:
+        return
+    logger.warning(
+        "TRACECAT__FEATURE_FLAGS no longer grants paid entitlements; install a"
+        " license key with TRACECAT__LICENSE_KEY to enable them",
+        entitlements=sorted(e.value for e in missing),
     )
 
 
-DEFAULT_ENTITLEMENTS = resolve_oss_default_entitlements(get_legacy_feature_flags_env())
+def log_license_startup() -> None:
+    """Log license status and legacy-flag warnings once at API startup."""
+    if config.TRACECAT__EE_MULTI_TENANT:
+        if config.TRACECAT__LICENSE_KEY:
+            logger.info(
+                "TRACECAT__LICENSE_KEY is ignored in multi-tenant mode;"
+                " entitlements come from database tiers"
+            )
+        return
+    # The first evaluation in a process logs the license state.
+    get_license_state()
+    warn_on_legacy_entitlement_flags()

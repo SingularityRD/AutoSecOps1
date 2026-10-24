@@ -56,9 +56,14 @@ async def is_org_entitled(
 ) -> bool:
     """Check if an organization has a specific entitlement."""
     if not config.TRACECAT__EE_MULTI_TENANT:
-        # Single-tenant mode: use static single-tenant/self-host defaults instead of DB tiers.
+        # Single-tenant mode: free baseline plus signed-license entitlements
+        # instead of DB tiers. getattr maps the enum value to its schema field.
         return bool(
-            getattr(tier_defaults.DEFAULT_ENTITLEMENTS, entitlement.value, False)
+            getattr(
+                tier_defaults.get_single_tenant_entitlements(),
+                entitlement.value,
+                False,
+            )
         )
 
     org_tier, tier = await get_org_tier_and_resolved_tier(session, org_id)

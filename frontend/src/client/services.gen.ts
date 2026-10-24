@@ -55,6 +55,7 @@ import type {
   AdminGetTierResponse,
   AdminGetUserData,
   AdminGetUserResponse,
+  AdminLicenseGetLicenseResponse,
   AdminListOrganizationDomainsData,
   AdminListOrganizationDomainsResponse,
   AdminListOrganizationInvitationsData,
@@ -9598,6 +9599,20 @@ export const adminAgentListPlatformCatalog = (
     },
   })
 }
+
+/**
+ * Get License
+ * Get the status of the configured license key.
+ * @returns LicenseRead Successful Response
+ * @throws ApiError
+ */
+export const adminLicenseGetLicense =
+  (): CancelablePromise<AdminLicenseGetLicenseResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/admin/license",
+    })
+  }
 
 /**
  * Start Case Agent Session Interaction Backfill

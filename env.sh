@@ -48,7 +48,7 @@ fi
 # Create .env file
 
 if [ ! -e ".env.example" ] ; then
-  echo "${RED}No .env.example file found in current directory: $(pwd). Please download .env.example from the AutoSecOps GitHub repo and rerun the env.sh script."
+  echo "${RED}No .env.example file found in current directory: $(pwd). Copy .env.example from /opt/autosecops/install in the AutoSecOps image (see the Docker Compose self-hosting docs) and rerun the env.sh script."
   exit 1
 fi
 env_file=".env"
@@ -106,7 +106,7 @@ while true; do
     if [ "$new_ip" != "0.0.0.0" ]; then
         break
     fi
-    echo -e "${RED}Cannot use 0.0.0.0 as address.\nSee https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/docker-compose.mdx#faq ${NC}"
+    echo -e "${RED}Cannot use 0.0.0.0 as address.\nSee https://docs.singularityrd.com/self-hosting/docker-compose#faq ${NC}"
 done
 
 # Extract hostname and port from the input

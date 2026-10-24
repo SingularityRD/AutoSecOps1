@@ -225,36 +225,29 @@ RUN chmod u-s /usr/bin/mount /usr/bin/umount && \
 WORKDIR /app
 
 # ====================
-# Stage 4: Fetch workspace-chat copilot skills
+# Stage 4: Stage workspace-chat copilot skills
 # ====================
 FROM base AS plugin-skills
 
-ARG TRACECAT_PLUGINS_REF=0140783181f0afcb69961661fa1474402ca46a4e
-ARG TRACECAT_PLUGINS_ARCHIVE_SHA256=408928d337e7330d10fd099d07c818d724def925eb6b77eaf0cb6ace2777f5dd
+# Platform skills are vendored in this repository (derived from
+# TracecatHQ/tracecat-plugins, see the NOTICE file there), so the image build
+# does not depend on an upstream download. Only the skill directories are
+# copied; the runtime expects exactly these three under /skills/<name>/.
+COPY ./tracecat/agent/skill/builtin/skills /tmp/platform-skills
 
-# Pinned to a tracecat-plugins commit on main. Bump both values when the
-# vendored skills change so the trusted payload is verified before extraction.
 RUN set -eux; \
-    mkdir -p /skills /tmp/tracecat-plugins; \
-    curl -fsSL \
-        "https://github.com/TracecatHQ/tracecat-plugins/archive/${TRACECAT_PLUGINS_REF}.tar.gz" \
-        -o /tmp/tracecat-plugins.tar.gz; \
-    echo "${TRACECAT_PLUGINS_ARCHIVE_SHA256}  /tmp/tracecat-plugins.tar.gz" \
-        | sha256sum -c -; \
-    tar -xzf /tmp/tracecat-plugins.tar.gz \
-        -C /tmp/tracecat-plugins \
-        --strip-components=1; \
+    mkdir -p /skills; \
     for skill in \
         tracecat-workspace-chat \
         tracecat-automation-best-practices \
         tracecat-slackbot-best-practices; do \
-        source="/tmp/tracecat-plugins/plugins/tracecat/skills/${skill}"; \
+        source="/tmp/platform-skills/${skill}"; \
         test -d "${source}"; \
         test -f "${source}/SKILL.md"; \
         cp -a "${source}" /skills/; \
     done; \
     test "$(find /skills -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 3; \
-    rm -rf /tmp/tracecat-plugins /tmp/tracecat-plugins.tar.gz
+    rm -rf /tmp/platform-skills
 
 # Workspace Chat reads platform guidance from docs built from this same commit.
 # Keep source structure so docs.json and MDX imports remain useful navigation.
@@ -421,6 +414,20 @@ FROM production-app AS production
 # Carry only the generated builtin registry metadata in the image so platform
 # registry startup can update the DB without rediscovering actions on the hot path.
 COPY --from=registry-manifest --chown=apiuser:apiuser /app/.registry-artifacts /app/.registry-artifacts
+
+# Ship the Docker Compose install files with the image so self-hosted installs
+# and upgrades extract them from the exact release they pull (see
+# docs/self-hosting/docker-compose.mdx). Only templates belong here: never copy
+# a real .env or any other file that holds secrets. Copy the scripts first:
+# --chmod also applies to the directories a COPY creates, so the 0755 copy
+# keeps /opt/autosecops/install traversable.
+COPY --chmod=0755 ./env.sh ./env-migration.sh /opt/autosecops/install/
+COPY --chmod=0644 \
+    ./docker-compose.yml \
+    ./docker-compose.sandbox.yml \
+    ./.env.example \
+    ./Caddyfile \
+    /opt/autosecops/install/
 
 # Verification
 RUN nsjail --help > /dev/null 2>&1 && echo "nsjail available"

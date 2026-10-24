@@ -13,7 +13,7 @@
 
 ## Introduction
 
-AutoSecOps is the AI-native security automation platform for teams and AI agents, built and owned by [SingularityRD](https://github.com/SingularityRD). A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
+AutoSecOps is the AI-native security automation platform for teams and AI agents, built and owned by SingularityRD. A unified platform with everything AI-native security teams need to build agents and automate cyber defense.
 
 ## Core Features
 
@@ -62,7 +62,7 @@ AutoSecOps is the AI-native security automation platform for teams and AI agents
 - **Variables**: reuse values across workflows and agents
 - **No SSO tax**: SAML / OIDC support
 - **Free audit logs**: exportable into your SIEM
-- **Deploy anywhere**: self-host with Docker Compose, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/air-gapped.mdx).
+- **Deploy anywhere**: self-host with Docker Compose, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://docs.singularityrd.com/self-hosting/air-gapped).
 
 ## Enterprise Features
 
@@ -73,8 +73,15 @@ AutoSecOps is the AI-native security automation platform for teams and AI agents
 - **Metrics and monitoring**: for workflows, agents, and cases
 
 > [!NOTE]
-> AutoSecOps is deployed self-hosted on your own infrastructure with Docker Compose, AWS Fargate, or Kubernetes. See the [self-hosting docs](https://github.com/SingularityRD/AutoSecOps1/tree/main/docs/self-hosting).
-> Contact [SingularityRD](https://github.com/SingularityRD) for licensing and deployment options.
+> AutoSecOps is deployed self-hosted on your own infrastructure with Docker Compose, AWS Fargate, or Kubernetes. See the [self-hosting docs](https://docs.singularityrd.com/self-hosting/docker-compose).
+> Contact [sales@singularityrd.com](mailto:sales@singularityrd.com) for licensing and deployment options.
+
+## Documentation and support
+
+- **Documentation**: [docs.singularityrd.com](https://docs.singularityrd.com)
+- **Support**: [support@singularityrd.com](mailto:support@singularityrd.com)
+- **Sales, licensing, and upgrades**: [sales@singularityrd.com](mailto:sales@singularityrd.com)
+- **Security vulnerabilities**: [security@singularityrd.com](mailto:security@singularityrd.com). See [SECURITY.md](SECURITY.md).
 
 ## Tech Stack
 

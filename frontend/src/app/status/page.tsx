@@ -1,7 +1,5 @@
 import Image from "next/image"
-import Link from "next/link"
 import TracecatIcon from "public/icon.png"
-import { Icons } from "@/components/icons"
 import { AlertNotification } from "@/components/notifications"
 import { siteConfig } from "@/config/site"
 
@@ -15,13 +13,16 @@ export default async function Page() {
       <AlertNotification
         level="info"
         className="text-2xl font-medium"
-        message="Our site is currently down. We'll be back up in 1-2 hours. Please check our GitHub repository for
+        message="Our site is currently down. We'll be back up in 1-2 hours. Please contact support@singularityrd.com for
         updates."
       />
       <div className="flex items-center justify-center space-x-4">
-        <Link href={siteConfig.links.github} target="_blank">
-          <Icons.gitHub className="size-5" />
-        </Link>
+        <a
+          href={siteConfig.links.support}
+          className="text-sm text-muted-foreground underline"
+        >
+          Contact support
+        </a>
       </div>
     </main>
   )

@@ -109,7 +109,9 @@ def test_alpha_hotfix_replaces_complete_tags_in_tracked_files(checkout: Path) ->
     # Different old versions exercise pattern replacement, not just literal replacement.
     content = (
         "${TRACECAT__IMAGE_TAG:-1.2.0-alpha.1.9}\n"
-        "https://raw.githubusercontent.com/TracecatHQ/tracecat/1.2.0-alpha.1.9/file\n"
+        "docker pull ghcr.io/singularityrd/autosecops:1.2.0-alpha.1.9\n"
+        "image: ghcr.io/singularityrd/autosecops-ui:1.2.0-alpha.1.9\n"
+        'docker cp "$id":/opt/autosecops/install/. autosecops-1.2.0-alpha.1.9/\n'
         "https://github.com/TracecatHQ/tracecat/blob/1.2.0-alpha.1.9/file\n"
         "`1.2.0-alpha.1.9`\n"
         "TF_VAR_tracecat_image_tag=1.2.0-alpha.1.9\n"
@@ -126,6 +128,35 @@ def test_alpha_hotfix_replaces_complete_tags_in_tracked_files(checkout: Path) ->
     assert doc.read_text() == content.replace(
         "1.2.0-alpha.1.9", "1.2.0-alpha.1.2"
     ).replace("1.2.0-alpha.1.1", "1.2.0-alpha.1.2")
+
+
+def test_only_release_pins_are_replaced(checkout: Path) -> None:
+    seed_versions(checkout, "1.0.0", "1.0.0")
+    # These share the release number without pinning the release.
+    unrelated = (
+        'required_version = ">= 1.0.0"\n'
+        "https://www.conventionalcommits.org/en/v1.0.0/\n"
+        "Example: `affects=package1,package2@1.0.0`\n"
+        "Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).\n"
+        "image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}\n"
+    )
+    pinned = (
+        "docker pull ghcr.io/singularityrd/autosecops:1.0.0\n"
+        "mkdir -p autosecops-1.0.0\n"
+        "image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}\n"
+        "Current version: 1.0.0.\n"
+    )
+    tf = checkout / "deployments/main.tf"
+    tf.parent.mkdir()
+    tf.write_text(unrelated + pinned)
+    subprocess.run(
+        ["git", "add", "--", "deployments/main.tf"], cwd=checkout, check=True
+    )
+
+    result = update(checkout, "1.0.1")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert tf.read_text() == unrelated + pinned.replace("1.0.0", "1.0.1")
 
 
 @pytest.mark.parametrize(

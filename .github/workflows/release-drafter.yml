@@ -17,7 +17,7 @@ jobs:
   # says it should carry. It only ever adds, so re-running is a no-op.
   backfill:
     if: github.event_name == 'push'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -143,7 +143,7 @@ jobs:
     # stop the draft from updating.
     needs: backfill
     if: ${{ !cancelled() && github.event_name == 'push' }}
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -154,7 +154,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python 3.12
-        uses: useblacksmith/setup-python@943b05a7c4ca70c2360391137527a37bee33fb1d # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
@@ -225,7 +225,7 @@ jobs:
   # land on main.
   autolabel:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: read

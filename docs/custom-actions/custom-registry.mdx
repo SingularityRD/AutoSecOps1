@@ -112,7 +112,7 @@ If your registry pins a package that AutoSecOps also uses to an incompatible ver
 
 To fix it:
 
-- Remove the pin, or widen it to include the version AutoSecOps uses. AutoSecOps's pinned versions are in [`uv.lock`](https://github.com/SingularityRD/AutoSecOps1/blob/main/uv.lock); switch to your release's tag to see the versions you run.
+- Remove the pin, or widen it to include the version AutoSecOps uses. AutoSecOps's pinned versions are in `uv.lock`; switch to your release's tag to see the versions you run.
 - If a transitive dependency adds the pin, run `uv tree --invert --package <package>` to find which dependency pulls it in.
 - Avoid upper bounds on shared packages, so your registry keeps syncing when AutoSecOps upgrades them.
 
