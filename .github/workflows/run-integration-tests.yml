@@ -2,8 +2,9 @@ name: Integration Tests
 
 on:
   schedule:
-    # GitHub cron is UTC. Run hourly; plan-run enforces 10:00-18:00 America/New_York.
-    - cron: "0 14-23 * * 1-5"
+    # GitHub cron is UTC. Run once each weekday; plan-run enforces 10:00-18:00
+    # America/New_York, and 16:00 UTC falls inside that window all year.
+    - cron: "0 16 * * 1-5"
   workflow_dispatch:
 
 permissions:

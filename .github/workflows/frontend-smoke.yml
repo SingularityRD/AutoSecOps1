@@ -3,8 +3,8 @@ name: Frontend Smoke
 on:
   workflow_dispatch:
   schedule:
-    # Runs at 08:00 and 17:00 EST, Monday through Friday.
-    - cron: "0 13,22 * * 1-5"
+    # Runs at 08:00 EST, Monday through Friday.
+    - cron: "0 13 * * 1-5"
 
 permissions:
   contents: read
