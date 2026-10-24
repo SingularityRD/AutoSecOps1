@@ -35,6 +35,7 @@ from tracecat.agent.gateway import (
     get_provider_credentials,
     user_api_key_auth,
 )
+from tracecat.agent.gateway_providers import GATEWAY_PROVIDER_SPECS
 from tracecat.agent.sandbox.llm_proxy import _http_error_classification
 from tracecat.agent.tokens import verify_llm_token
 from tracecat.exceptions import AgentModelNotEnabledError, TracecatAuthorizationError
@@ -326,6 +327,14 @@ def test_litellm_config_routes_provider_placeholders_before_catch_all() -> None:
     assert resolved_model("azure/*") == "azure/*"
     assert resolved_model("azure_ai/*") == "azure_ai/*"
     assert resolved_model("mistral/*") == "mistral/*"
+    # Every gateway provider prefix needs its own route; otherwise the
+    # catch-all wraps it as hosted_vllm/<prefix>/... and the upstream rejects
+    # the still-prefixed model ID.
+    for spec in GATEWAY_PROVIDER_SPECS.values():
+        if spec.litellm_prefix is None:
+            continue
+        model = f"{spec.litellm_prefix}/vendor/model-name"
+        assert resolved_model(model) == model
     # Unqualified names fall through to the hosted_vllm catch-all so custom
     # providers bridge to Chat Completions instead of the Responses API.
     assert resolved_model("custom") == "hosted_vllm/custom"
