@@ -18,8 +18,8 @@ variable "name_prefix" {
 
 variable "iam_name_prefix" {
   type        = string
-  description = "Prefix for IAM role and policy names."
-  default     = "AutoSecOps"
+  description = "Prefix for IAM role and policy names and ECS task definition families. Keep \"Tracecat\" on existing stacks; changing it replaces those resources. New installs may set it to \"AutoSecOps\"."
+  default     = "Tracecat"
 }
 
 variable "core_db_identifier" {

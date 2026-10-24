@@ -2597,15 +2597,15 @@ Read the `tracecat://platform/authoring-guide` resource for worked graph-shape, 
 loop, batching, condition-ladder, and agent-preset guidance.
 
 ## Canonical references
-Fetch these when you need detail; this prompt does not restate them.
-Paths are relative to https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/
-- automations/core-concepts/expressions.mdx
-- automations/core-concepts/functions.mdx
-- automations/core-concepts/secrets.mdx
-- automations/integrations/oauth-integrations.mdx
-- automations/triggers/case-triggers.mdx
-- automations/tables.mdx
-- cheatsheets/common-mistakes.mdx
+Read these MCP resources when you need detail; do not fetch external docs URLs.
+- `tracecat://platform/dsl-reference`: expressions, `FN.*` functions, \
+secrets, and case-trigger and form-trigger patterns
+- `tracecat://platform/authoring-guide`: graph shape, conditions and \
+transforms, loops and batching, and agent presets
+- `tracecat://platform/domain-reference`: case, table column, workflow, and \
+trigger enum values
+- `tracecat://workspaces/{workspace_id}/action-catalog`: available actions \
+and secret configuration status
 """
 
 _MCP_INSTRUCTIONS_RENDERED = _render_prompt_text(_MCP_INSTRUCTIONS)

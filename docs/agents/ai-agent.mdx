@@ -175,6 +175,14 @@ Default: `null`.
 
 </ParamField>
 
+<ParamField path="tool_tunnels" type="map[string, string] | null">
+
+Workspace tunnel name keyed by action name (e.g. 'tools.sublime_security.list_messages'). Calls to that tool go through the tunnel.
+
+Default: `null`.
+
+</ParamField>
+
 #### Examples
 
 **Investigate an alert with tools**
