@@ -91,7 +91,7 @@ from .repository import resolve_repository_root
 
 DEFAULT_ARTIFACT_ROOT: Final = "/tmp/tracecat-load-test"
 # Defaults match the synthetic users seeded by `scripts/cluster up -d`.
-DEFAULT_EMAIL: Final = "dev@tracecat.com"
+DEFAULT_EMAIL: Final = "dev@autosecops.example"
 DEFAULT_PASSWORD: Final = "password1234"
 DEFAULT_WORKSPACE_NAME: Final = "load-test"
 WARMUP_BRANCH_COUNT: Final = 2

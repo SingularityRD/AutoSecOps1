@@ -79,9 +79,9 @@ class BitbucketGit:
             "GIT_CONFIG_KEY_4": "protocol.https.allow",
             "GIT_CONFIG_VALUE_4": "always",
             "GIT_AUTHOR_NAME": "AutoSecOps",
-            "GIT_AUTHOR_EMAIL": "sync@tracecat.com",
+            "GIT_AUTHOR_EMAIL": "sync@autosecops.example",
             "GIT_COMMITTER_NAME": "AutoSecOps",
-            "GIT_COMMITTER_EMAIL": "sync@tracecat.com",
+            "GIT_COMMITTER_EMAIL": "sync@autosecops.example",
         }
 
         if ca_file := os.environ.get("SSL_CERT_FILE"):

@@ -74,7 +74,7 @@ just cluster up -d --seed
 This starts the development environment and seeds a test user:
 
 ```txt
-test@tracecat.com / password1234
+test@autosecops.example / password1234
 ```
 
 You can then access the application at http://localhost:80.

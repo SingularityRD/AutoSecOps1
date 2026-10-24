@@ -66,7 +66,7 @@ def create_authenticated_session() -> tuple[requests.Session, str, dict[str, Any
         Tuple of (session, base_url, user_info)
     """
     base_url = os.environ.get("TRACECAT__PUBLIC_API_URL", "http://localhost/api")
-    email = os.environ.get("TRACECAT__TEST_USER_EMAIL", "test@tracecat.com")
+    email = os.environ.get("TRACECAT__TEST_USER_EMAIL", "test@autosecops.example")
     password = os.environ.get("TRACECAT__TEST_USER_PASSWORD", "password1234")
 
     console.print("[yellow]Initializing session...[/yellow]")

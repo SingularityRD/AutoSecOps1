@@ -106,7 +106,7 @@ jobs:
           echo "y
           localhost
           n
-          test@tracecat.com" | bash env.sh
+          test@autosecops.example" | bash env.sh
 
       - name: Check automatic Compose pgvector wiring
         run: bash scripts/tests/test_pgvector_compose.sh

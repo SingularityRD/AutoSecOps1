@@ -2,7 +2,7 @@ import { ApiError, type UserRead, usersUsersCurrentUser } from "@/client"
 
 export const SYSTEM_USER_READ: UserRead = {
   id: "system",
-  email: "system@tracecat.com",
+  email: "system@autosecops.example",
   role: "admin",
   first_name: "AutoSecOps",
   last_name: "",

@@ -1,11 +1,11 @@
 import { type APIRequestContext, expect, type Page } from "@playwright/test"
 
 export const TENANT_USER_EMAIL =
-  process.env.SMOKE_TENANT_EMAIL ?? "dev@tracecat.com"
+  process.env.SMOKE_TENANT_EMAIL ?? "dev@autosecops.example"
 export const TENANT_USER_PASSWORD =
   process.env.SMOKE_TENANT_PASSWORD ?? "password1234"
 export const SUPERUSER_EMAIL =
-  process.env.SMOKE_SUPERUSER_EMAIL ?? "test@tracecat.com"
+  process.env.SMOKE_SUPERUSER_EMAIL ?? "test@autosecops.example"
 export const SUPERUSER_PASSWORD =
   process.env.SMOKE_SUPERUSER_PASSWORD ?? "password1234"
 export const DEFAULT_SMOKE_PASSWORD =

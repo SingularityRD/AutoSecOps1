@@ -1316,7 +1316,9 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
     # Externalize all results for testing (threshold=0)
     monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", 0)
-    monkeysession.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", ["tracecat.com"])
+    monkeysession.setattr(
+        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", ["autosecops.example"]
+    )
     if os.getenv("TRACECAT__CONTEXT_COMPRESSION_ENABLED"):
         logger.info("Enabling compression for workflow context")
         monkeysession.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", True)

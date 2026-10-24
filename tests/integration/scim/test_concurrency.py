@@ -371,7 +371,7 @@ async def test_source_delete_and_mapping_have_controlled_outcomes(
 async def test_duplicate_first_provisioning_links_the_winning_account(
     cohort: Cohort, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    email = f"duplicate-{uuid.uuid4().hex}@tracecat.com"
+    email = f"duplicate-{uuid.uuid4().hex}@autosecops.example"
     ready, both_ready = 0, asyncio.Event()
     original_create = SQLAlchemyUserDatabase.create
 

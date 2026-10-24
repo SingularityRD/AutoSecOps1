@@ -307,7 +307,7 @@ async def test_scim_writes_emit_their_audit_events(
             session, role=admin_role
         ).provision_user(
             external_id=f"idp-{uuid.uuid4().hex[:8]}",
-            email=f"scim-{uuid.uuid4().hex[:8]}@tracecat.com",
+            email=f"scim-{uuid.uuid4().hex[:8]}@autosecops.example",
         )
         scim = SCIMService(session, role=admin_role)
         await ScimConnectionService(session, role=admin_role).issue_token()

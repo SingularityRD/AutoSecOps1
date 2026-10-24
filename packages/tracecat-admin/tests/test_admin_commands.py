@@ -276,7 +276,7 @@ class TestCreateDevUser:
                 "--password",
                 "password1234",
                 "--superuser-email",
-                "test@tracecat.com",
+                "test@autosecops.example",
                 "--superuser-password",
                 "password1234",
                 "--default-tier-entitlements",
@@ -290,7 +290,8 @@ class TestCreateDevUser:
 
         assert result.exit_code == 0
         assert (
-            "[dev-seed] Created platform superuser 'test@tracecat.com'" in result.stdout
+            "[dev-seed] Created platform superuser 'test@autosecops.example'"
+            in result.stdout
         )
         assert "[dev-seed] Created dev user 'dev@example.com'" in result.stdout
         assert (
@@ -300,7 +301,7 @@ class TestCreateDevUser:
         assert captured == {
             "email": "dev@example.com",
             "password": "password1234",
-            "superuser_email": "test@tracecat.com",
+            "superuser_email": "test@autosecops.example",
             "superuser_password": "password1234",
             "default_tier_entitlements": "custom_registry,case_addons",
             "org_role": "organization-admin",

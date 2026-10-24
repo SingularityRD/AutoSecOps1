@@ -503,7 +503,7 @@ def test_eval_templated_object_inline_fails_if_not_str():
         ("TRIGGER.data.people[*].age", [30, 40, 50]),
         ("TRIGGER.data.people[*].name", ["Alice", "Bob", "Charlie"]),
         ("TRIGGER.data.people[*].gender", ["female", "male"]),
-        # ('TRIGGER.data.["user@tracecat.com"].name', "Bob"), TODO: Add support for object key indexing
+        # ('TRIGGER.data.["user@autosecops.example"].name', "Bob"), TODO: Add support for object key indexing
         # Test direct indexing expressions
         ## List indexing
         ("ACTIONS.test_list[0]", "hello"),
@@ -699,7 +699,7 @@ def test_expression_parser(expr, expected):
                         "age": 50,
                     },
                 ],
-                "user@tracecat.com": {
+                "user@autosecops.example": {
                     "name": "Bob",
                 },
                 "numbers": [1, 2, 3],

@@ -29,8 +29,8 @@ definition:
         - call_virustotal
       args:
         recipients:
-          - daryl@tracecat.com
-          - chris@tracecat.com
+          - daryl@autosecops.example
+          - chris@autosecops.example
         subject: Malware report for ${{ TRIGGER.hash }}
         body: >
           Dear Team,

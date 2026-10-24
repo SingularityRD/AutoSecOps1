@@ -64,7 +64,7 @@ jobs:
           echo "y
           localhost
           n
-          test@tracecat.com" | bash env.sh
+          test@autosecops.example" | bash env.sh
 
       - name: Install dependencies
         run: |
@@ -112,9 +112,9 @@ jobs:
 
           TRACECAT__DB_URI="postgresql+psycopg://postgres:postgres@localhost:5432/postgres" \
             uv run --no-sync tracecat admin create-dev-user \
-              --email dev@tracecat.com \
+              --email dev@autosecops.example \
               --password password1234 \
-              --superuser-email test@tracecat.com \
+              --superuser-email test@autosecops.example \
               --superuser-password password1234 \
               --default-tier-entitlements custom_registry \
               --org-role organization-owner \
