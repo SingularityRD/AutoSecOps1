@@ -197,7 +197,7 @@ AutoSecOps follows [Semantic Versioning](https://semver.org/). Version numbers a
 |-----|------------|----------|
 | `1.X.0-alpha.N` | A build of `main` before the train is frozen. Features still land between alphas. Nothing is promised. | `main` |
 | `1.X.0-alpha.N.M` | A hotfix of alpha `N`: cherry-picked fixes only, no new migrations, database-schema changes, backfills, or registry actions. | `release/1.X.0-alpha.N` |
-| `1.X.0-rc.N` | The train is frozen and only fixes may land. Used when a change needs validation outside AutoSecOps Cloud before it ships. Most trains skip this stage. | `release/1.X` |
+| `1.X.0-rc.N` | The train is frozen and only fixes may land. Used when a change needs validation in self-hosted deployments before it ships. Most trains skip this stage. | `release/1.X` |
 | `1.X.0` | The stable train. | `release/1.X` |
 | `1.X.Y` | A hotfix on a shipped train: cherry-picked fixes only, no new migrations or registry actions. | `release/1.X` |
 | `2.0.0-alpha.N`, `2.0.0` | A major. Same shape as a minor. | as above |
@@ -235,6 +235,6 @@ Release notes cover the range from the previous published version of the same tr
 
 AutoSecOps is proprietary software owned by SingularityRD. See [LICENSE](LICENSE).
 
-By contributing to this project, you agree that SingularityRD owns all rights to your contributions.
+External contributions are accepted only under a signed contributor agreement with SingularityRD. Contact SingularityRD before opening a pull request if you have not signed one.
 
 Thank you for taking the time to contribute to AutoSecOps!

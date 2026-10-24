@@ -21,17 +21,17 @@ Actions use a tunnel when you select it on the action or as the workflow's defau
 
 - The `tunnels` Enterprise entitlement.
 - `tunnel:read` to list tunnels and check status, and `tunnel:create`, `tunnel:update`, or `tunnel:delete` to manage them. Workspace admins and organization owners and admins hold all four; workspace viewers hold `tunnel:read`.
-- A Pangolin server: Pangolin Cloud for AutoSecOps Cloud, or your own Pangolin deployment for self-hosted AutoSecOps. See [Configure Pangolin for self-hosted AutoSecOps](#configure-pangolin-for-self-hosted-autosecops).
+- A Pangolin server: Pangolin Cloud or your own Pangolin deployment. See [Configure Pangolin for self-hosted AutoSecOps](#configure-pangolin-for-self-hosted-autosecops).
 
 ## Set up a tunnel from start to finish
 
-This guide takes you from nothing to a workflow that calls an internal URL, using an on-premises Splunk at `https://splunk.internal:8089` as the example. On AutoSecOps Cloud you only run the site connector inside your network; AutoSecOps runs the gateway.
+This guide takes you from nothing to a workflow that calls an internal URL, using an on-premises Splunk at `https://splunk.internal:8089` as the example.
 
 ### Before you start
 
 - The `tunnels` entitlement and the `tunnel:create` scope in the workspace.
 - The internal hostname or IP address and TCP port of each service, such as `splunk.internal:8089`.
-- A Linux host inside your network, with Docker or the ability to run a binary, that can resolve and reach every service. It needs outbound access to the Pangolin endpoint, `https://app.pangolin.net` on AutoSecOps Cloud, and no inbound ports. The connector uses TCP 443 and UDP 51820 to the Pangolin endpoint.
+- A Linux host inside your network, with Docker or the ability to run a binary, that can resolve and reach every service. It needs outbound access to the Pangolin endpoint, such as `https://app.pangolin.net` for Pangolin Cloud, and no inbound ports. The connector uses TCP 443 and UDP 51820 to the Pangolin endpoint.
 - The PEM-encoded CA certificate if an internal CA signs the service's certificate.
 
 <Steps>
@@ -322,7 +322,7 @@ Only the listed tools use a tunnel. An action's `tunnel` field and the workflow'
 
 ## Run the tunnel gateway
 
-Each tunnel has one gateway that forwards traffic through Pangolin. AutoSecOps Cloud runs gateways for you. If you self-host, the Helm chart runs them on Kubernetes; see [Tunnels](/self-hosting/kubernetes#tunnels).
+Each tunnel has one gateway that forwards traffic through Pangolin. The Helm chart runs gateways on Kubernetes; see [Tunnels](/self-hosting/kubernetes#tunnels).
 
 <Note>
   Tunnels require Kubernetes. On Docker Compose and AWS ECS Fargate, `TRACECAT__TUNNEL_GATEWAY_BACKEND` is `none`. AutoSecOps rejects creating a tunnel or issuing a gateway key there. Any action, agent tool, or MCP server set to use a tunnel fails instead of connecting directly.
@@ -362,7 +362,7 @@ Plain `http://` requests are encrypted inside the Pangolin tunnel, but not betwe
 
 ## Configure Pangolin for self-hosted AutoSecOps
 
-AutoSecOps Cloud manages Pangolin for you, so this section applies only to self-hosted AutoSecOps. Managed tunnels provision Pangolin through its Integration API.
+Managed tunnels provision Pangolin through its Integration API.
 
 <Steps>
   <Step title="Enable the Integration API">

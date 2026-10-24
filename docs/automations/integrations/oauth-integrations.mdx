@@ -40,7 +40,7 @@ Delegated access (`authorization_code`) requires a redirect URI registered in th
 <PUBLIC_APP_URL>/integrations/callback
 ```
 
-`PUBLIC_APP_URL` is the URL you use to reach the AutoSecOps UI (`https://platform.tracecat.com/integrations/callback` on AutoSecOps Cloud). Self-hosted deployments set it through the `TRACECAT__PUBLIC_APP_URL` environment variable; see [Environment variables](/self-hosting/environment-variables). The integration's configuration dialog also shows the exact value with a copy button.
+`PUBLIC_APP_URL` is the URL you use to reach the AutoSecOps UI, so the redirect URI looks like `https://<your-autosecops-host>/integrations/callback`. Self-hosted deployments set it through the `TRACECAT__PUBLIC_APP_URL` environment variable; see [Environment variables](/self-hosting/environment-variables). The integration's configuration dialog also shows the exact value with a copy button.
 
 Register the URI as a Web platform redirect URI (reply URL) in the provider's app registration before you connect. If it is missing or does not match exactly, the provider rejects the login flow. Microsoft Entra ID reports this as `AADSTS900971: No reply address provided` or `AADSTS50011: The redirect URI specified in the request does not match`.
 
@@ -72,9 +72,9 @@ Remote MCP integrations can use an existing OAuth integration. For custom remote
   <Accordion title="How do I contribute a built-in OAuth provider?">
     Out-of-the-box providers are implemented in the AutoSecOps app and get stable IDs (for example `slack`, `google_drive`) without the UI `custom_` rule.
 
-    1. Subclass `AuthorizationCodeOAuthProvider` or `ClientCredentialsOAuthProvider` under [`tracecat/integrations/providers/`](https://github.com/TracecatHQ/tracecat/tree/main/tracecat/integrations/providers). See [`slack/oauth.py`](https://github.com/TracecatHQ/tracecat/blob/main/tracecat/integrations/providers/slack/oauth.py) for a full example.
-    2. Register the class in [`_PROVIDER_CLASSES`](https://github.com/TracecatHQ/tracecat/blob/main/tracecat/integrations/providers/__init__.py).
-    3. Keep the [registry package](https://github.com/TracecatHQ/tracecat/tree/main/packages/tracecat-registry) aligned: same `provider_id` and `grant_type` in `RegistryOAuthSecret` (Python) and `type: oauth` entries (YAML) so actions resolve the same integration as the UI.
+    1. Subclass `AuthorizationCodeOAuthProvider` or `ClientCredentialsOAuthProvider` under [`tracecat/integrations/providers/`](https://github.com/SingularityRD/AutoSecOps1/tree/main/tracecat/integrations/providers). See [`slack/oauth.py`](https://github.com/SingularityRD/AutoSecOps1/blob/main/tracecat/integrations/providers/slack/oauth.py) for a full example.
+    2. Register the class in [`_PROVIDER_CLASSES`](https://github.com/SingularityRD/AutoSecOps1/blob/main/tracecat/integrations/providers/__init__.py).
+    3. Keep the [registry package](https://github.com/SingularityRD/AutoSecOps1/tree/main/packages/tracecat-registry) aligned: same `provider_id` and `grant_type` in `RegistryOAuthSecret` (Python) and `type: oauth` entries (YAML) so actions resolve the same integration as the UI.
   </Accordion>
 </AccordionGroup>
 

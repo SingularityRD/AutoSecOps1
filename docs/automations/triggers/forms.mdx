@@ -311,7 +311,7 @@ Responses return `workflow_id` as a short `wf_...` ID, and requests accept eithe
 Send the answers keyed by field `name`, with the `definition_version` and `config_version` from `render`. Send each value as the workflow receives it (see [Widgets](#widgets)), except that a `user` field takes a `user_id` from the users endpoint and a `file` field takes an uploaded file's `id`. A field with `multiple` set to `true` takes a list.
 
 ```bash
-curl -X POST "https://platform.tracecat.com/api/workspaces/<WORKSPACE_ID>/forms/<FORM_ID>/submissions" \
+curl -X POST "https://<your-autosecops-host>/api/workspaces/<WORKSPACE_ID>/forms/<FORM_ID>/submissions" \
   --header "Authorization: Bearer <SERVICE_ACCOUNT_API_KEY>" \
   --header "Content-Type: application/json" \
   --data '{"definition_version": 12, "config_version": "<CONFIG_VERSION>", "values": {"model": "pro", "justification": "Current laptop is five years old"}}'
@@ -326,7 +326,7 @@ Without `form:submission:read`, a caller reads only their own submissions: `answ
 Upload each file before you submit, as `multipart/form-data` with one `file` part. Name the `file` field in the `field` query parameter. A `201` response is the file object; send its `id` as the field's value.
 
 ```bash
-curl -X POST "https://platform.tracecat.com/api/workspaces/<WORKSPACE_ID>/forms/<FORM_ID>/files?field=quote" \
+curl -X POST "https://<your-autosecops-host>/api/workspaces/<WORKSPACE_ID>/forms/<FORM_ID>/files?field=quote" \
   --header "Authorization: Bearer <SERVICE_ACCOUNT_API_KEY>" \
   --form "file=@quote.pdf;type=application/pdf"
 ```

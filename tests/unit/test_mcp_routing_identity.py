@@ -285,8 +285,8 @@ async def test_display_name_approval_fails_before_tool_preparation(
 @pytest.mark.parametrize(
     ("name", "requested_slug", "separator", "expected"),
     [
-        ("tracecat registry", None, "-", "user-tracecat-registry"),
-        ("tracecat registry team", None, "-", "user-tracecat-registry-team"),
+        ("Tracecat Registry", None, "-", "user-tracecat-registry"),
+        ("Tracecat Registry Team", None, "-", "user-tracecat-registry-team"),
         ("Example", "tracecat-registry", "-", "user-tracecat-registry"),
         ("Example", "tracecat_registry", "_", "user-tracecat_registry"),
         ("Example", "tracecat_registry_team", "_", "user-tracecat_registry_team"),
@@ -339,7 +339,7 @@ async def test_escaped_integration_slug_remains_unique(
     slug_taken = AsyncMock(side_effect=[True, False])
     monkeypatch.setattr(service, "_mcp_integration_slug_taken", slug_taken)
     assert (
-        await service._generate_mcp_integration_slug(name="tracecat registry")
+        await service._generate_mcp_integration_slug(name="Tracecat Registry")
         == "user-tracecat-registry-1"
     )
     assert [call.args[0] for call in slug_taken.await_args_list] == [

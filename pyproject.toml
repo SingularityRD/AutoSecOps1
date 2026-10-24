@@ -85,9 +85,9 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://tracecat.com"
-Documentation = "https://docs.tracecat.com/"
-Repository = "https://github.com/TracecatHQ/tracecat"
+Homepage = "https://github.com/SingularityRD/AutoSecOps1"
+Documentation = "https://github.com/SingularityRD/AutoSecOps1/tree/main/docs"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.uv.sources]
 tracecat = { workspace = true }

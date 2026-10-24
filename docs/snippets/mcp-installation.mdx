@@ -1,5 +1,5 @@
-If you are **self-hosted**, replace `https://platform.tracecat.com` with your
-`PUBLIC_APP_URL` (e.g. `http://localhost` or `https://tracecat.example.com`).
+Replace `https://<your-autosecops-host>` with your `PUBLIC_APP_URL`
+(e.g. `http://localhost` or `https://autosecops.example.com`).
 
 Authentication uses a built-in OIDC provider—your agent is redirected to sign in
 through the browser on first connection. If you belong to more than one
@@ -14,7 +14,7 @@ complete a browser sign-in, authenticate with a
     Sign in with OAuth:
 
     ```bash
-    claude mcp add -t http tracecat https://platform.tracecat.com/mcp
+    claude mcp add -t http tracecat https://<your-autosecops-host>/mcp
     claude
     /mcp
     ```
@@ -24,7 +24,7 @@ complete a browser sign-in, authenticate with a
     quotes** so the variable (not the token) is written to the saved config:
 
     ```bash
-    claude mcp add --transport http tracecat https://platform.tracecat.com/mcp \
+    claude mcp add --transport http tracecat https://<your-autosecops-host>/mcp \
       --header 'Authorization: Bearer ${TRACECAT_MCP_PAT}'
     ```
   </Tab>
@@ -34,7 +34,7 @@ complete a browser sign-in, authenticate with a
     Sign in with OAuth:
 
     ```bash
-    codex mcp add tracecat --url https://platform.tracecat.com/mcp
+    codex mcp add tracecat --url https://<your-autosecops-host>/mcp
     codex mcp login tracecat
     ```
 
@@ -42,7 +42,7 @@ complete a browser sign-in, authenticate with a
     Set `TRACECAT_MCP_PAT` in your environment, then reference it by name:
 
     ```bash
-    codex mcp add tracecat --url https://platform.tracecat.com/mcp \
+    codex mcp add tracecat --url https://<your-autosecops-host>/mcp \
       --bearer-token-env-var TRACECAT_MCP_PAT
     ```
   </Tab>
@@ -54,7 +54,7 @@ complete a browser sign-in, authenticate with a
     /mcp add
     # Server Name: tracecat
     # Server Type: HTTP
-    # URL: https://platform.tracecat.com/mcp
+    # URL: https://<your-autosecops-host>/mcp
     # Tools: *
     ```
 
@@ -71,7 +71,7 @@ complete a browser sign-in, authenticate with a
       "mcpServers": {
         "tracecat": {
           "type": "http",
-          "url": "https://platform.tracecat.com/mcp",
+          "url": "https://<your-autosecops-host>/mcp",
           "tools": ["*"]
         }
       }
@@ -91,14 +91,13 @@ complete a browser sign-in, authenticate with a
 
   <Tab title="Cursor" icon="https://cdn.simpleicons.org/cursor">
 
-    On AutoSecOps Cloud, click [Add AutoSecOps to Cursor](https://cursor.com/en-US/install-mcp?name=tracecat&config=eyJ1cmwiOiJodHRwczovL3BsYXRmb3JtLnRyYWNlY2F0LmNvbS9tY3AifQ)
-    to add it in one click. Otherwise configure `.cursor/mcp.json` manually:
+    Configure `.cursor/mcp.json`:
 
     ```json
     {
       "mcpServers": {
         "tracecat": {
-          "url": "https://platform.tracecat.com/mcp"
+          "url": "https://<your-autosecops-host>/mcp"
         }
       }
     }

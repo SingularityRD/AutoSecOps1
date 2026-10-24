@@ -14,7 +14,7 @@ AutoSecOps's security design rests on seven control areas:
 - Change management: roll back custom integrations to any commit, and review and revert workspace configuration — workflows, agents, skills, tables, and case fields — in your own Git repository.
 - Dependencies: lockfile-pinned core registry dependencies, per-commit builds of custom registry dependencies, and sandboxed execution for both.
 
-This page covers AutoSecOps Cloud and hardened self-hosted deployments.
+This page covers hardened self-hosted deployments.
 
 AutoSecOps runs customer-authored code and agents on multi-tenant infrastructure, so it sandboxes every execution path. That code then acts with privileged access to your systems, so AutoSecOps encrypts credentials at rest, resolves them at execution time, and attaches them through trusted proxies rather than handing them to a model.
 
@@ -542,7 +542,6 @@ See [Custom registry](/custom-actions/custom-registry) for how to declare depend
 
 | Profile | Isolation contract | Intended use |
 | --- | --- | --- |
-| AutoSecOps Cloud | AutoSecOps manages the secure agent profile and trusted brokers.<br/>AutoSecOps also manages the network boundary and sandbox lifecycle. | Managed production workloads. |
 | Self-hosted Kubernetes | Helm supports nsjail and cgroup-backed isolation.<br/>Apply the required executor security context and capacity settings. | Production workloads that run untrusted code or agents. |
 | AWS Fargate | Fargate lacks the kernel capabilities required by nsjail.<br/>AutoSecOps uses a reduced-isolation executor profile. | Trusted Fargate workloads.<br/>Use Kubernetes for the full sandbox boundary. |
 | macOS or Windows development | The direct backend lacks the Linux nsjail boundary. | Local development with trusted code only. |

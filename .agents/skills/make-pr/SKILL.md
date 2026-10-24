@@ -176,10 +176,10 @@ Removing something takes three PRs, usually across three releases:
   old title earned stay put, so `fix(workflows): ...` retitled to `ci: ...`
   keeps `engine` alongside the new `cicd` and lands in two sections. Remove the
   stale ones yourself:
-  `gh api --method DELETE repos/TracecatHQ/tracecat/issues/<pr>/labels/<label>`.
+  `gh api --method DELETE repos/SingularityRD/AutoSecOps1/issues/<pr>/labels/<label>`.
 - `gh pr edit` subcommands fail on this repo because of the Projects-classic
   deprecation. Apply labels with
-  `gh api repos/TracecatHQ/tracecat/issues/<pr-number>/labels -f "labels[]=<label>"`.
+  `gh api repos/SingularityRD/AutoSecOps1/issues/<pr-number>/labels -f "labels[]=<label>"`.
 
 ## Descriptions
 

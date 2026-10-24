@@ -21,12 +21,12 @@ Create a workspace service account for access to one workspace, or an organizati
 Pass the API key as a bearer token in the `Authorization` header:
 
 ```bash
-curl https://platform.tracecat.com/api/workspaces \
+curl https://<your-autosecops-host>/api/workspaces \
   --header "Authorization: Bearer <SERVICE_ACCOUNT_API_KEY>" \
   --header "Accept: application/json"
 ```
 
-For a self-hosted deployment, replace `https://platform.tracecat.com/api` with your AutoSecOps API URL.
+Replace `https://<your-autosecops-host>/api` with your AutoSecOps API URL.
 
 Keep API keys in a secret manager or environment variable. Do not expose them in client-side code or commit them to source control.
 

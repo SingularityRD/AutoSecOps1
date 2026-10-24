@@ -701,4 +701,4 @@ template: |
 
   $CONTRIBUTORS
 
-  **Full changelog**: https://github.com/TracecatHQ/tracecat/compare/$PREVIOUS_TAG...$RESOLVED_VERSION
+  **Full changelog**: https://github.com/SingularityRD/AutoSecOps1/compare/$PREVIOUS_TAG...$RESOLVED_VERSION

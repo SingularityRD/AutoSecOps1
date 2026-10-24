@@ -62,7 +62,7 @@ AutoSecOps is the AI-native security automation platform for teams and AI agents
 - **Variables**: reuse values across workflows and agents
 - **No SSO tax**: SAML / OIDC support
 - **Free audit logs**: exportable into your SIEM
-- **Deploy anywhere**: sign up for AutoSecOps Cloud, or self-host with Docker, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/air-gapped.mdx).
+- **Deploy anywhere**: self-host with Docker Compose, AWS Fargate, or Kubernetes. Runs fully [air-gapped](https://github.com/SingularityRD/AutoSecOps1/blob/main/docs/self-hosting/air-gapped.mdx).
 
 ## Enterprise Features
 
@@ -73,7 +73,7 @@ AutoSecOps is the AI-native security automation platform for teams and AI agents
 - **Metrics and monitoring**: for workflows, agents, and cases
 
 > [!NOTE]
-> AutoSecOps is available as a managed cloud deployment with US or EU hosting, or as a self-hosted deployment with dedicated support.
+> AutoSecOps is deployed self-hosted on your own infrastructure with Docker Compose, AWS Fargate, or Kubernetes. See the [self-hosting docs](https://github.com/SingularityRD/AutoSecOps1/tree/main/docs/self-hosting).
 > Contact [SingularityRD](https://github.com/SingularityRD) for licensing and deployment options.
 
 ## Tech Stack
