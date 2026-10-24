@@ -422,6 +422,20 @@ FROM production-app AS production
 # registry startup can update the DB without rediscovering actions on the hot path.
 COPY --from=registry-manifest --chown=apiuser:apiuser /app/.registry-artifacts /app/.registry-artifacts
 
+# Ship the Docker Compose install files with the image so self-hosted installs
+# and upgrades extract them from the exact release they pull (see
+# docs/self-hosting/docker-compose.mdx). Only templates belong here: never copy
+# a real .env or any other file that holds secrets. Copy the scripts first:
+# --chmod also applies to the directories a COPY creates, so the 0755 copy
+# keeps /opt/autosecops/install traversable.
+COPY --chmod=0755 ./env.sh ./env-migration.sh /opt/autosecops/install/
+COPY --chmod=0644 \
+    ./docker-compose.yml \
+    ./docker-compose.sandbox.yml \
+    ./.env.example \
+    ./Caddyfile \
+    /opt/autosecops/install/
+
 # Verification
 RUN nsjail --help > /dev/null 2>&1 && echo "nsjail available"
 

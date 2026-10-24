@@ -21,20 +21,32 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 ## Core secrets
 
-The `env.sh` script (next step) generates these automatically. If you need to generate them manually:
+The `env.sh` script (below) generates these automatically. If you need to generate them manually:
 
 <GenerateSecrets />
 
-## Download configuration files
+## Extract configuration files
+
+Every AutoSecOps image ships the Docker Compose install files in `/opt/autosecops/install`: `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, and `env-migration.sh`.
+Copy them out of the image version you deploy into an empty directory:
 
 ```bash
-# 1. Download the env.sh installation script
-curl -o env.sh https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/env.sh
+# 1. Pull the AutoSecOps image
+docker pull ghcr.io/singularityrd/autosecops:1.0.0
 
-# 2. Download the .env.example template file (env.sh needs this to generate your .env file)
-curl -o .env.example https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/.env.example
+# 2. Copy the install files out of the image without starting it
+id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
+docker cp "$id":/opt/autosecops/install/. .
+docker rm "$id"
+```
 
-# 3. Make the env.sh script executable and run it
+If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
+
+AutoSecOps uses Caddy as a reverse proxy, configured by the extracted `Caddyfile`.
+
+## Generate the .env file
+
+```bash
 chmod +x env.sh && ./env.sh
 ```
 
@@ -43,21 +55,6 @@ After running `env.sh`, you'll be prompted to input the following:
 - Set `PUBLIC_APP_URL`. Defaults to `localhost`.
 - Require PostgreSQL SSL mode? Defaults to `n`.
 - Required field: Enter email address for the first user (superadmin).
-
-## Download Caddyfile
-
-AutoSecOps uses Caddy as a reverse proxy.
-You'll need to download the following `Caddyfile` to configure this service.
-
-```bash
-curl -o Caddyfile https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/Caddyfile
-```
-
-## Download Docker Compose file
-
-```bash
-curl -o docker-compose.yml https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/docker-compose.yml
-```
 
 <Warning>
   Docker Compose defaults to the `direct` executor backend, which does not sandbox ordinary workflow actions.
@@ -74,7 +71,7 @@ Make sure your `docker-compose.yml` and generated `.env` files are in the same d
 docker compose up
 ```
 
-For nsjail, download `docker-compose.sandbox.yml` from the same AutoSecOps release as your image and place it beside `docker-compose.yml`. Start with both files so the overlay supplies the container permissions and cgroup bootstrap:
+For nsjail, use the `docker-compose.sandbox.yml` you extracted beside `docker-compose.yml`; it comes from the same AutoSecOps release as your image. Start with both files so the overlay supplies the container permissions and cgroup bootstrap:
 
 ```bash
 TRACECAT__EXECUTOR_BACKEND=nsjail docker compose \
@@ -108,23 +105,33 @@ Once deployed, access your instance at:
   Losing these secrets will break your credentials and webhooks.
 </Warning>
 
-```bash
-# 1. Download the latest env migration script and env template
-curl -o env-migration.sh https://raw.githubusercontent.com/TracecatHQ/tracecat/<version>/env-migration.sh
-curl -o .env.example https://raw.githubusercontent.com/TracecatHQ/tracecat/<version>/.env.example
+Replace `<version>` with the AutoSecOps version you are upgrading to. The commands extract the new install files into a separate directory first, so nothing in your deployment directory changes until you copy a file over.
 
-# 2. Make the migration script executable and update your existing .env
+```bash
+# 1. Pull the new image and extract its install files into ./autosecops-<version>
+docker pull ghcr.io/singularityrd/autosecops:<version>
+mkdir -p autosecops-<version>
+id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
+docker cp "$id":/opt/autosecops/install/. autosecops-<version>/
+docker rm "$id"
+
+# 2. Copy the env migration script and env template, then update your existing .env
+cp autosecops-<version>/env-migration.sh autosecops-<version>/.env.example .
 chmod +x env-migration.sh && ./env-migration.sh
 
-# 3. Download the latest Docker Compose file
-curl -o docker-compose.yml https://raw.githubusercontent.com/TracecatHQ/tracecat/<version>/docker-compose.yml
+# 3. Back up and replace the Docker Compose files
+cp docker-compose.yml docker-compose.yml.bak
+cp autosecops-<version>/docker-compose.yml autosecops-<version>/docker-compose.sandbox.yml .
 
-# 4. Download the latest Caddyfile
-curl -o Caddyfile https://raw.githubusercontent.com/TracecatHQ/tracecat/<version>/Caddyfile
+# 4. Back up and replace the Caddyfile
+cp Caddyfile Caddyfile.bak
+cp autosecops-<version>/Caddyfile .
 
 # 5. Restart AutoSecOps with the updated configuration
 docker compose up -d
 ```
+
+If you pinned `TRACECAT__IMAGE_TAG` in `.env`, set it to the new version before step 5.
 
 The migration script creates a backup of your existing `.env` before rewriting it.
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.

@@ -161,12 +161,12 @@ variable "auth_superadmin_email" {
 
 variable "tracecat_image" {
   type    = string
-  default = "ghcr.io/tracecathq/tracecat"
+  default = "ghcr.io/singularityrd/autosecops"
 }
 
 variable "tracecat_ui_image" {
   type    = string
-  default = "ghcr.io/tracecathq/tracecat-ui"
+  default = "ghcr.io/singularityrd/autosecops-ui"
 }
 
 variable "tracecat_image_tag" {

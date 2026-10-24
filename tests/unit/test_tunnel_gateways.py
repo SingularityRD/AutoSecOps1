@@ -49,7 +49,7 @@ from tracecat.sandbox.types import SandboxNetworkPolicy
 TUNNEL_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 SETTINGS = GatewaySettings(
     namespace="tracecat-tunnels",
-    image="ghcr.io/tracecathq/tracecat-tunnel-gateway:test",
+    image="ghcr.io/singularityrd/autosecops-tunnel-gateway:test",
     api_url="http://api:8000",
 )
 

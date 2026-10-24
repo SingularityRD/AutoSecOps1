@@ -650,7 +650,7 @@ services:
       - api
 
   postgres_db:
-    image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/tracecathq/tracecat-postgres:1}
+    image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}
     container_name: postgres_db
     command: ["postgres"]
     restart: unless-stopped

@@ -14,52 +14,59 @@ Updates and data migrations can be tricky business. Follow the steps below caref
 ## Docker Compose
 
 <Steps>
-  <Step title="Download latest environment variables migration script and template">
-    Fetch the latest environment variables migration script `env-migration.sh`
-    and template `.env.example` to ensure compatibility with the new AutoSecOps
-    version.
+  <Step title="Extract the install files from the new image">
+    Every AutoSecOps image ships its Docker Compose install files in
+    `/opt/autosecops/install`. Pull the version you are upgrading to and copy
+    them into a separate directory, so nothing in your deployment directory
+    changes yet.
 
     ```
-    curl -o env-migration.sh https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/env-migration.sh
-    curl -o .env.example https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/.env.example
+    docker pull ghcr.io/singularityrd/autosecops:1.0.0
+    mkdir -p autosecops-1.0.0
+    id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
+    docker cp "$id":/opt/autosecops/install/. autosecops-1.0.0/
+    docker rm "$id"
     ```
 
   </Step>
   <Step title="Execute environment variables migration">
-    Run the environment variables migration script to update your existing
-    `.env` file with any new or changed variables.
+    Copy the environment variables migration script `env-migration.sh` and
+    template `.env.example` into your deployment directory, then run the
+    script to update your existing `.env` file with any new or changed
+    variables.
 
     ```
+    cp autosecops-1.0.0/env-migration.sh autosecops-1.0.0/.env.example .
     chmod +x env-migration.sh && ./env-migration.sh
     ```
 
   </Step>
-  <Step title="Update Docker Compose Configuration">
+  <Step title="Update Docker Compose configuration">
     <Warning>
       If you modified `docker-compose.yml` or `Caddyfile`, make copies before
       you continue. The commands below overwrite both files and discard your
       local changes.
     </Warning>
 
-    Download the latest Docker Compose file.
+    Replace the Docker Compose files with the ones from the new image.
 
     ```
-    # Back up your existing docker-compose.yml first; the download below overwrites it
+    # Back up your existing docker-compose.yml first; the copy below overwrites it
     cp docker-compose.yml docker-compose.yml.bak
-    curl -o docker-compose.yml https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/docker-compose.yml
+    cp autosecops-1.0.0/docker-compose.yml autosecops-1.0.0/docker-compose.sandbox.yml .
     ```
   </Step>
   <Step title="Update Caddyfile">
-    Download the latest Caddyfile.
+    Replace the Caddyfile with the one from the new image.
 
     ```
-    # Back up your existing Caddyfile first; the download below overwrites it
+    # Back up your existing Caddyfile first; the copy below overwrites it
     cp Caddyfile Caddyfile.bak
-    curl -o Caddyfile https://raw.githubusercontent.com/TracecatHQ/tracecat/1.1.0/Caddyfile
+    cp autosecops-1.0.0/Caddyfile .
     ```
   </Step>
   <Step title="Restart AutoSecOps">
-    Run `docker compose up` using the new Docker Compose and `.env` files.
+    Run `docker compose up -d` using the new Docker Compose and `.env` files.
   </Step>
 </Steps>
 

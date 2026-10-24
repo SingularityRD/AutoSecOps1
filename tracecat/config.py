@@ -1495,7 +1495,7 @@ TRACECAT__TUNNEL_GATEWAY_NAMESPACE = os.environ.get(
 
 TRACECAT__TUNNEL_GATEWAY_IMAGE = os.environ.get(
     "TRACECAT__TUNNEL_GATEWAY_IMAGE",
-    f"ghcr.io/tracecathq/tracecat-tunnel-gateway:{__version__}",
+    f"ghcr.io/singularityrd/autosecops-tunnel-gateway:{__version__}",
 )
 """Container image for tunnel gateways created by the ``kubernetes`` backend.
 

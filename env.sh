@@ -48,7 +48,7 @@ fi
 # Create .env file
 
 if [ ! -e ".env.example" ] ; then
-  echo "${RED}No .env.example file found in current directory: $(pwd). Please download .env.example from the AutoSecOps GitHub repo and rerun the env.sh script."
+  echo "${RED}No .env.example file found in current directory: $(pwd). Copy .env.example from /opt/autosecops/install in the AutoSecOps image (see the Docker Compose self-hosting docs) and rerun the env.sh script."
   exit 1
 fi
 env_file=".env"

@@ -26,6 +26,10 @@ usage() {
 PUBLIC_SUFFIX_PATTERN='(alpha|a|beta|b|rc|dev|post)\.[0-9]+'
 PUBLIC_VERSION_PATTERN="[0-9]+\.[0-9]+\.[0-9]+((-${PUBLIC_SUFFIX_PATTERN}){0,2}|-alpha\.[0-9]+\.[0-9]+)"
 VERSION_SEARCH_PATTERN='[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+(\.[0-9]+)?){0,2}'
+# Backend and UI image repositories. The pgvector image (autosecops-postgres) has
+# its own major-version tag and the tunnel gateway tag follows __version__ at
+# runtime, so neither is pinned here.
+AUTOSECOPS_IMAGE_PATTERN='ghcr\.io/singularityrd/autosecops(-ui)?'
 
 to_python_version() {
     local python_version=$1
@@ -228,10 +232,13 @@ tracked_candidate_files() {
 }
 
 # Capture AutoSecOps-specific version contexts, including files that only carry the
-# current version string rather than an image tag or raw GitHub URL.
+# current version string rather than an image tag. Docs pin the backend image
+# (ghcr.io/singularityrd/autosecops:<version>) in the commands that extract the
+# install files bundled in it, and name the extraction directory after the
+# version (autosecops-<version>).
 append_matching_files < <(
     tracked_candidate_files | xargs -0 rg -l \
-        "\\$\\{TRACECAT__IMAGE_TAG:-${VERSION_SEARCH_PATTERN}\\}|variable \"tracecat_image_tag\"|raw\\.githubusercontent\\.com/TracecatHQ/tracecat/${VERSION_SEARCH_PATTERN}/|TF_VAR_tracecat_image_tag=${VERSION_SEARCH_PATTERN}"
+        "\\$\\{TRACECAT__IMAGE_TAG:-${VERSION_SEARCH_PATTERN}\\}|variable \"tracecat_image_tag\"|${AUTOSECOPS_IMAGE_PATTERN}:${VERSION_SEARCH_PATTERN}|autosecops-${VERSION_SEARCH_PATTERN}|TF_VAR_tracecat_image_tag=${VERSION_SEARCH_PATTERN}"
 )
 
 append_matching_files < <(
@@ -284,12 +291,17 @@ update_release_tag_file() {
     escaped_current_version=$(escape_version_regex "$CURRENT_VERSION")
     escaped_new_version=$(escape_sed_replacement "$NEW_VERSION")
 
-    run_sed_in_place "s/$escaped_current_version/$escaped_new_version/g" "$file" && \
+    # Replace the literal current version, but not inside another version or
+    # reference (v1.0.0, >1.0.0-beta.xx, 11.0.0, package@1.0.0) or a Terraform
+    # required_version constraint: those share the number without pinning a
+    # release.
+    run_sed_in_place "/required_version/!s/(^|[^0-9A-Za-z.>@])$escaped_current_version/\\1$escaped_new_version/g" "$file" && \
     run_sed_in_place "s#(/blob/)${VERSION_SEARCH_PATTERN}/#\\1${escaped_new_version}/#g" "$file" && \
     run_sed_in_place "s/\`${VERSION_SEARCH_PATTERN}\`/\`${escaped_new_version}\`/g" "$file" && \
     run_sed_in_place "s/(\\$\\{TRACECAT__IMAGE_TAG:-)${VERSION_SEARCH_PATTERN}(\\})/\\1${escaped_new_version}\\4/g" "$file" && \
     run_sed_in_place '/variable "tracecat_image_tag"/,/\}/ s/(default[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$escaped_new_version"'"/' "$file" && \
-    run_sed_in_place "s#(raw\\.githubusercontent\\.com/TracecatHQ/tracecat/)${VERSION_SEARCH_PATTERN}/#\\1${escaped_new_version}/#g" "$file" && \
+    run_sed_in_place "s#(${AUTOSECOPS_IMAGE_PATTERN}:)${VERSION_SEARCH_PATTERN}#\\1${escaped_new_version}#g" "$file" && \
+    run_sed_in_place "s#(autosecops-)${VERSION_SEARCH_PATTERN}#\\1${escaped_new_version}#g" "$file" && \
     run_sed_in_place "s/(TF_VAR_tracecat_image_tag=)${VERSION_SEARCH_PATTERN}/\\1${escaped_new_version}/g" "$file" && \
     echo "✓ Updated $file" || echo "✗ Failed to update $file"
 }
