@@ -2,8 +2,8 @@ name: Test action documentation links
 
 on:
   schedule:
-    # Runs daily at 10:17 UTC.
-    - cron: "17 10 * * *"
+    # Runs weekly, Mondays at 10:17 UTC.
+    - cron: "17 10 * * 1"
 
 permissions:
   contents: read
