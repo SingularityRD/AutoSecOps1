@@ -116,6 +116,10 @@ gen-tool-docs:
 gen-functions-docs:
 	uv run python scripts/generate_functions_docs.py
 
+# Regenerate the third-party license notices shipped in the images
+gen-notices:
+	uv run python scripts/third_party_notices.py
+
 # Validate a PR title against .github/commit-conventions.toml
 check-pr-title $title:
 	PR_TITLE="$title" uv run python scripts/check_pr_title.py

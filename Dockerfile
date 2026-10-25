@@ -389,7 +389,7 @@ RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
 COPY --chown=apiuser:apiuser ./tracecat /app/tracecat
 COPY --chown=apiuser:apiuser ./packages /app/packages
 COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/tracecat/copilot-skills/
-COPY --chown=apiuser:apiuser ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./alembic.ini /app/
+COPY --chown=apiuser:apiuser ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
 COPY --chown=apiuser:apiuser ./alembic /app/alembic
 
 RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \

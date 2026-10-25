@@ -90,6 +90,25 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 
 With `TRACECAT__EE_MULTI_TENANT=true`, AutoSecOps ignores the license key and resolves entitlements from the tiers that platform admins assign to organizations.
 
+## Third-party notices
+
+AutoSecOps includes open source components that ship under their own licenses.
+Each image carries the license texts for the components it contains:
+
+| Image | Path |
+|---|---|
+| `autosecops` (API and workers) | `/app/THIRD_PARTY_NOTICES.md` |
+| `autosecops-tunnel-gateway` | `/app/THIRD_PARTY_NOTICES.md` |
+| `autosecops-ui` | `/app/THIRD_PARTY_NOTICES.md` |
+
+To read the notices without starting a deployment, copy the file out of the image:
+
+```bash
+docker create --name aso-notices ghcr.io/singularityrd/autosecops:<version>
+docker cp aso-notices:/app/THIRD_PARTY_NOTICES.md .
+docker rm aso-notices
+```
+
 ## Related pages
 
 - See [Environment variables](/self-hosting/environment-variables) for every setting you can pass alongside the license key.
