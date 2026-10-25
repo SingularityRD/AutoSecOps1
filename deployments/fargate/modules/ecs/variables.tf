@@ -260,6 +260,19 @@ variable "outbound_allowed_private_cidrs" {
   default     = ""
 }
 
+variable "outbound_proxy_url" {
+  type        = string
+  description = "Corporate HTTP(S) forward proxy for outbound MCP and LLM requests, e.g. http://user:password@proxy.internal:3128. Empty connects directly. Credentials land in the task definition environment."
+  default     = ""
+  sensitive   = true
+}
+
+variable "outbound_no_proxy" {
+  type        = string
+  description = "Comma-separated hostnames, IPs, or CIDRs that bypass outbound_proxy_url and connect directly."
+  default     = ""
+}
+
 variable "audit_trusted_proxy_cidrs" {
   type        = string
   description = "Comma-separated CIDRs the API treats as its own proxy hops when resolving audit client IPs. Empty uses the built-in private-range default."

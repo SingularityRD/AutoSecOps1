@@ -77,6 +77,8 @@ def install_outbound_http_policy() -> None:
     factory, so installing here also protects protocol switches and streams.
     Disable LiteLLM's explicit environment proxy mounts too: those transports
     would take precedence over the guarded default transport.
+    The guarded transport applies TRACECAT__OUTBOUND_PROXY_URL itself, so
+    LiteLLM needs no proxy settings of its own.
     This compatibility shim is covered against the pinned LiteLLM version.
     """
     AsyncHTTPHandler._create_async_transport = staticmethod(_create_guarded_transport)
