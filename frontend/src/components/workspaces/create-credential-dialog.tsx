@@ -1,6 +1,5 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import type { DialogProps } from "@radix-ui/react-dialog"
 import {
   Braces,
@@ -67,6 +66,7 @@ import {
 import { useEntitlements } from "@/hooks/use-entitlements"
 import { useAwsAssumeRoleAccess, useWorkspaceSecrets } from "@/lib/hooks"
 import { cn, copyToClipboard } from "@/lib/utils"
+import { zodOutputResolver } from "@/lib/zod-form"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
 const pemCertificateRegex =
@@ -287,7 +287,9 @@ const createSecretSchema = z
       .trim()
       .min(1, "Name is required.")
       .max(100, "Name must be 100 characters or fewer.")
-      .default(""),
+      // `prefault` runs the fallback through the checks above (Zod 3
+      // `.default()` semantics), so a missing name still fails validation.
+      .prefault(""),
     description: z.string().max(255).default(""),
     environment: z
       .string()
@@ -493,8 +495,8 @@ export function CreateCredentialDialog({
   })
 
   // Form handling
-  const methods = useForm<CreateSecretForm>({
-    resolver: zodResolver(createSecretSchema),
+  const methods = useForm<CreateSecretForm, unknown, CreateSecretForm>({
+    resolver: zodOutputResolver(createSecretSchema),
     defaultValues: {
       name: "",
       description: "",

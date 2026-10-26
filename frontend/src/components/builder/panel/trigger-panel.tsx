@@ -409,21 +409,23 @@ export function WebhookControls({
   const [confirmRevokeDialogOpen, setConfirmRevokeDialogOpen] = useState(false)
   const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false)
 
-  const form = useForm<WebhookForm>({
-    resolver: zodResolver(webhookFormSchema),
-    mode: "onChange",
-    reValidateMode: "onChange",
-    values: {
-      status: webhook.status,
-      methods: webhook.methods ?? ["POST"],
-      allowlisted_cidrs:
-        webhook.allowlisted_cidrs?.map((cidr) => ({
-          id: cidr,
-          text: cidr,
-        })) ?? [],
-      include_headers: webhook.include_headers ?? false,
-    },
-  })
+  const form = useForm<z.input<typeof webhookFormSchema>, unknown, WebhookForm>(
+    {
+      resolver: zodResolver(webhookFormSchema),
+      mode: "onChange",
+      reValidateMode: "onChange",
+      values: {
+        status: webhook.status,
+        methods: webhook.methods ?? ["POST"],
+        allowlisted_cidrs:
+          webhook.allowlisted_cidrs?.map((cidr) => ({
+            id: cidr,
+            text: cidr,
+          })) ?? [],
+        include_headers: webhook.include_headers ?? false,
+      },
+    }
+  )
 
   const handleAllowlistedCidrsChange = useCallback(
     async (newTags: Tag[] | undefined) => {
@@ -771,7 +773,7 @@ export function WebhookControls({
                 <CustomTagInput
                   {...field}
                   placeholder="Enter an IP address or CIDR. Allow all IPs by default."
-                  tags={field.value}
+                  tags={field.value ?? []}
                   setTags={(newTags) =>
                     handleAllowlistedCidrsChange(
                       Array.isArray(newTags) ? newTags : []
@@ -1698,7 +1700,11 @@ export function CreateScheduleDialog({ workflowId }: { workflowId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [startDatePickerOpen, setStartDatePickerOpen] = useState(false)
   const [endDatePickerOpen, setEndDatePickerOpen] = useState(false)
-  const form = useForm<ScheduleInputs>({
+  const form = useForm<
+    z.input<typeof scheduleInputsSchema>,
+    unknown,
+    ScheduleInputs
+  >({
     resolver: zodResolver(scheduleInputsSchema),
     defaultValues: {
       mode: "interval",

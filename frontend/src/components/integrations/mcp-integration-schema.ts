@@ -269,8 +269,8 @@ const mcpIntegrationFormObjectSchema = z.object({
     "oauth_client",
     "existing_integration",
   ]),
-  oauth_integration_id: z.string().uuid().optional().or(z.literal("")),
-  tunnel_id: z.string().uuid().optional().or(z.literal("")),
+  oauth_integration_id: z.string().guid().optional().or(z.literal("")),
+  tunnel_id: z.string().guid().optional().or(z.literal("")),
   oauth_client_credentials: z.string().trim().optional().or(z.literal("")),
   custom_credentials: z.string().trim().optional().or(z.literal("")),
   // Stdio-type fields
@@ -282,7 +282,7 @@ const mcpIntegrationFormObjectSchema = z.object({
   ),
   stdio_env: z.string().trim().optional().or(z.literal("")),
   // General fields
-  timeout: z.coerce.number().int().min(1).max(300).optional(),
+  timeout: z.coerce.number<number>().int().min(1).max(300).optional(),
   catalog_slug: z.string().optional().or(z.literal("")),
   connection_option_id: z.string().optional().or(z.literal("")),
 })
@@ -438,19 +438,20 @@ export function buildMcpIntegrationFormSchema(
       )
       // URL-typed stdio env vars (declared `type: "url"` by the catalog) must
       // carry an http(s):// scheme so they don't fail deep inside the MCP server.
-      .refine(
-        (data) =>
-          data.server_type !== "stdio" ||
-          !data.stdio_env ||
-          invalidUrlEnvKeys(data.stdio_env, urlEnvKeys).length === 0,
-        (data) => ({
-          message: `Must start with http:// or https://: ${invalidUrlEnvKeys(
-            data.stdio_env ?? "",
-            urlEnvKeys
-          ).join(", ")}`,
+      .superRefine((data, ctx) => {
+        if (data.server_type !== "stdio" || !data.stdio_env) {
+          return
+        }
+        const invalidKeys = invalidUrlEnvKeys(data.stdio_env, urlEnvKeys)
+        if (invalidKeys.length === 0) {
+          return
+        }
+        ctx.addIssue({
+          code: "custom",
+          message: `Must start with http:// or https://: ${invalidKeys.join(", ")}`,
           path: ["stdio_env"],
         })
-      )
+      })
   )
 }
 

@@ -59,7 +59,7 @@ export function OrgSettingsCustomRegistryForm() {
     updateGitSettingsIsPending,
   } = useOrgGitSettings()
 
-  const form = useForm<GitFormValues>({
+  const form = useForm<z.input<typeof gitFormSchema>, unknown, GitFormValues>({
     resolver: zodResolver(gitFormSchema),
     values: {
       git_allowed_domains: gitSettings?.git_allowed_domains?.map(

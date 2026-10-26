@@ -76,7 +76,7 @@ const inviteFormSchema = z.object({
     .array(
       z.object({
         scope: z.string().min(1, "Select a scope"),
-        role_id: z.string().uuid("Select a role"),
+        role_id: z.string().guid("Select a role"),
       })
     )
     .min(1, "Add at least one role grant")

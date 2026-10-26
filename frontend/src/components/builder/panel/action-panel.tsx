@@ -381,7 +381,11 @@ function ActionPanelContent({
   // server-backed baseFormValues; hydration from drafts happens via effects.
   // Agent timeout bounds are deployment-specific; the server clamps
   // out-of-range values on save, so the form doesn't duplicate them.
-  const methods = useForm<ActionFormSchema>({
+  const methods = useForm<
+    z.input<typeof actionFormSchema>,
+    unknown,
+    ActionFormSchema
+  >({
     resolver: zodResolver(actionFormSchema),
     defaultValues: baseFormValues,
   })

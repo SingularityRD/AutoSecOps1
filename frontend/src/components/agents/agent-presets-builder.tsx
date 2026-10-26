@@ -1,6 +1,5 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import { DotFilledIcon } from "@radix-ui/react-icons"
 import {
   AlertCircle,
@@ -185,6 +184,7 @@ import {
 } from "@/lib/hooks"
 import { libraryProviderSlug, librarySkillPath } from "@/lib/skill-library"
 import { cn, slugify } from "@/lib/utils"
+import { zodOutputResolver } from "@/lib/zod-form"
 import {
   type AgentPresetDetailActionsState,
   useAgentPresetDetailContext,
@@ -230,7 +230,9 @@ export const agentPresetSchema = z
     catalog_id: z.string().optional(),
     model_provider: z.string().trim().min(1, "Model provider is required"),
     model_name: z.string().trim().min(1, "Model name is required"),
-    base_url: z.union([z.string().url(), z.literal(""), z.undefined()]),
+    // Zod 4 only treats a key as omittable when its schema is optional; a
+    // union with `z.undefined()` no longer accepts a missing key.
+    base_url: z.union([z.string().url(), z.literal("")]).optional(),
     outputTypeKind: z.enum(["none", "data-type", "json"]),
     outputTypeDataType: z.string().optional(),
     outputTypeJson: z.string().optional(),
@@ -267,8 +269,8 @@ export const agentPresetSchema = z
       .default([]),
     toolTunnels: z.record(z.string(), z.string()).default({}),
     retries: z.coerce
-      .number({ invalid_type_error: "Retries must be a number" })
-      .int()
+      .number<number>({ error: "Retries must be a number" })
+      .int({ error: "Retries must be a number" })
       .min(0, "Retries must be 0 or more"),
     enableThinking: z.boolean().default(true),
     enableInternetAccess: z.boolean().default(false),
@@ -365,6 +367,12 @@ export const agentPresetSchema = z
 
 /** Editable fields for the agent preset builder. */
 export type AgentPresetFormValues = z.infer<typeof agentPresetSchema>
+/** Form handle shared by the preset editor panels. */
+export type AgentPresetForm = UseFormReturn<
+  AgentPresetFormValues,
+  unknown,
+  AgentPresetFormValues
+>
 type SubagentFormValue = AgentPresetFormValues["subagents"][number]
 type SkillBindingFormValue = AgentPresetFormValues["skills"][number]
 type ToolApprovalFormValue = AgentPresetFormValues["toolApprovals"][number]
@@ -1182,7 +1190,7 @@ function getAgentPresetSubmitLabel({
 }
 
 function syncFormModelSelection(
-  form: UseFormReturn<AgentPresetFormValues>,
+  form: AgentPresetForm,
   option: EnabledModelOption,
   shouldDirty: boolean
 ) {
@@ -1262,8 +1270,8 @@ function AgentPresetForm({
   const [railDrill, setRailDrill] = useState<AgentPresetRailDrill | null>(null)
   const { hasEntitlement, hasEntitlementData } = useEntitlements()
   const channelsEnabled = hasEntitlement("agent_channels")
-  const form = useForm<AgentPresetFormValues>({
-    resolver: zodResolver(agentPresetSchema),
+  const form = useForm<AgentPresetFormValues, unknown, AgentPresetFormValues>({
+    resolver: zodOutputResolver(agentPresetSchema),
     mode: "onBlur",
     defaultValues: preset ? presetToFormValues(preset) : DEFAULT_FORM_VALUES,
   })
@@ -1768,7 +1776,7 @@ function AgentPresetDocumentPanel({
   isSaving,
   fullWidth,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
   /** Match the setup rail's insets instead of a centered reading column. */
   fullWidth: boolean
@@ -1985,7 +1993,7 @@ function AgentPresetRail({
   preset: AgentPresetRead | null
   workspaceId: string
   agentPresets: AgentPresetReadMinimal[]
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
   registryActions?: RegistryActionReadMinimal[]
   registryLoading: boolean
@@ -2187,7 +2195,7 @@ function AgentPresetSettingsRows({
   hasStdioMcp,
   onOpenOutput,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
   enabledModelOptions: EnabledModelOption[]
   enabledModelsLoaded: boolean
@@ -2512,7 +2520,7 @@ function useLiveToolPolicy({
   maxTools,
 }: {
   workspaceId: string
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   savedSkillIds?: string[]
   savedNamespaces?: string[] | null
   savedSkillActions?: string[] | null
@@ -2586,7 +2594,7 @@ export function AgentPresetConfigurationPanel({
   workspaceId: string
   savedSkillIds?: string[]
   savedNamespaces?: string[] | null
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
   registryActions?: RegistryActionReadMinimal[]
   registryLoading: boolean
@@ -2630,7 +2638,7 @@ export function AgentPresetSubagentsPanel({
   onAddSubagent,
   onOpenSubagent,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
   parentPreset: AgentPresetRead | null
   agentPresets: AgentPresetReadMinimal[]
@@ -2846,7 +2854,7 @@ export function AgentPresetSubagentDetail({
   agentPresets,
   onRemove,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   index: number
   isSaving: boolean
   parentPreset: AgentPresetRead | null
@@ -3026,7 +3034,7 @@ export function AgentPresetSkillsPanel({
   onAddSkillBinding,
   onRemoveSkillBinding,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   workspaceId: string
   isSaving: boolean
   skillFields: Array<{ id: string }>
@@ -3321,7 +3329,7 @@ function AgentPresetSkillBindingRow({
   savedBinding,
   onRemove,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   workspaceId: string
   index: number
   isSaving: boolean
@@ -3395,7 +3403,7 @@ function AgentPresetSkillBindingRow({
  * and leaving the form clean when a switch is undone.
  */
 function useOutputKindChange(
-  form: UseFormReturn<AgentPresetFormValues>,
+  form: AgentPresetForm,
   dataType: string | undefined
 ) {
   const rememberedDataType = useRef(dataType)
@@ -3428,7 +3436,7 @@ export function AgentPresetStructuredOutputPanel({
   form,
   isSaving,
 }: {
-  form: UseFormReturn<AgentPresetFormValues>
+  form: AgentPresetForm
   isSaving: boolean
 }) {
   const outputTypeKind = useWatch({

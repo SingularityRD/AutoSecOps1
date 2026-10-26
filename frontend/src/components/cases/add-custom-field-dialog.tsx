@@ -163,7 +163,11 @@ export function AddCustomFieldDialog({
   const { caseFields } = useCaseFields(workspaceId, open)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<CaseFieldFormValues>({
+  const form = useForm<
+    z.input<typeof caseFieldFormSchema>,
+    unknown,
+    CaseFieldFormValues
+  >({
     resolver: zodResolver(caseFieldFormSchema),
     defaultValues: {
       displayName: "",
@@ -549,7 +553,7 @@ function DefaultValueInput({
   options,
 }: {
   type: SqlTypeCreatable | undefined
-  field: ControllerRenderProps<CaseFieldFormValues, "default">
+  field: ControllerRenderProps<z.input<typeof caseFieldFormSchema>, "default">
   options?: string[]
 }) {
   const resolvedType: SqlTypeCreatable = type ?? "TEXT"

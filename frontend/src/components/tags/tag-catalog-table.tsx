@@ -53,7 +53,7 @@ const updateTagSchema = z.object({
     )
     .optional(),
   color: z.preprocess(
-    (value) => {
+    (value: string | null | undefined) => {
       if (value === "" || value === null || value === undefined) {
         return undefined
       }
@@ -306,7 +306,7 @@ function EditTagDialogContent({
   isUpdating?: boolean
   onClose: () => void
 }) {
-  const methods = useForm<TagUpdate>({
+  const methods = useForm<z.input<typeof updateTagSchema>, unknown, TagUpdate>({
     resolver: zodResolver(updateTagSchema),
     defaultValues: {
       name: tag.name,

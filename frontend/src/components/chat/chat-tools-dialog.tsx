@@ -40,7 +40,11 @@ export function ChatToolsDialog({
   // cache the server tools so the reference stays stable
   const serverTools = useMemo<string[]>(() => chat?.tools ?? [], [chat?.tools])
 
-  const form = useForm<ChatToolsSchema>({
+  const form = useForm<
+    z.input<typeof chatToolsSchema>,
+    unknown,
+    ChatToolsSchema
+  >({
     resolver: zodResolver(chatToolsSchema),
     values: { tools: serverTools },
   })

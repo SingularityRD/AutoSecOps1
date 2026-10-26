@@ -36,19 +36,24 @@ import { useWorkspaceId } from "@/providers/workspace-id"
 const BYTES_PER_MB = 1024 * 1024
 const FILE_SIZE_LIMIT_MB = 5
 
+/** Returns whether the file is a CSV within the upload size limit. */
+function isAcceptedCsvFile(file: File): boolean {
+  if (file.size > FILE_SIZE_LIMIT_MB * BYTES_PER_MB) {
+    return false
+  }
+  const lowerName = file.name?.toLowerCase() ?? ""
+  return file.type === "text/csv" || lowerName.endsWith(".csv")
+}
+
 const tableImportSchema = z.object({
-  file: z.instanceof(File).refine(
-    (file) => {
-      if (file.size > FILE_SIZE_LIMIT_MB * BYTES_PER_MB) {
-        return false
-      }
-      const lowerName = file.name?.toLowerCase() ?? ""
-      return file.type === "text/csv" || lowerName.endsWith(".csv")
-    },
-    (file) => ({
-      message: `Please upload a CSV file under 5MB. Current file size: ${(file.size / BYTES_PER_MB).toFixed(2)}MB`,
-    })
-  ),
+  file: z.instanceof(File).superRefine((file, ctx) => {
+    if (!isAcceptedCsvFile(file)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Please upload a CSV file under 5MB. Current file size: ${(file.size / BYTES_PER_MB).toFixed(2)}MB`,
+      })
+    }
+  }),
   tableName: z
     .string()
     .trim()
@@ -81,7 +86,11 @@ export function TableImportTableDialog({
   const { importTable, importTableIsPending } = useImportTableFromCsv()
   const [csvPreview, setCsvPreview] = useState<CsvPreviewData | null>(null)
   const [isParsing, setIsParsing] = useState(false)
-  const form = useForm<TableImportFormValues>({
+  const form = useForm<
+    z.input<typeof tableImportSchema>,
+    unknown,
+    TableImportFormValues
+  >({
     resolver: zodResolver(tableImportSchema),
     defaultValues: {
       tableName: "",

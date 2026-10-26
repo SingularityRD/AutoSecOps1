@@ -55,15 +55,19 @@ function isBlankInput(value: unknown): boolean {
  * which a plain union of the two would swap for a generic one.
  */
 function optionalInput(rule: z.ZodType): z.ZodType {
-  return z.unknown().transform((value, ctx) => {
-    if (isBlankInput(value)) return undefined
-    const result = rule.safeParse(value)
-    if (result.success) return result.data
-    for (const issue of result.error.issues) {
-      ctx.addIssue({ code: "custom", message: issue.message })
-    }
-    return z.NEVER
-  })
+  // Optional so a missing key parses as blank, as it did with Zod 3.
+  return z
+    .unknown()
+    .optional()
+    .transform((value, ctx) => {
+      if (isBlankInput(value)) return undefined
+      const result = rule.safeParse(value)
+      if (result.success) return result.data
+      for (const issue of result.error.issues) {
+        ctx.addIssue({ code: "custom", message: issue.message })
+      }
+      return z.NEVER
+    })
 }
 
 /** What a column's input holds before the user touches it. */

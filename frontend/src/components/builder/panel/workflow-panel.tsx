@@ -569,14 +569,15 @@ function WorkflowSettingsPanel({
     } else {
       console.warn("Validation failed:", result.error)
       // Set form errors with field name and message
-      Object.entries(result.error.formErrors.fieldErrors).forEach(
-        ([fieldName, error]) => {
-          methods.setError(fieldName as keyof WorkflowUpdateForm, {
-            type: "validation",
-            message: error[0] || "Invalid value",
-          })
-        }
-      )
+      const fieldErrors: Partial<Record<string, string[]>> = z.flattenError(
+        result.error
+      ).fieldErrors
+      Object.entries(fieldErrors).forEach(([fieldName, error]) => {
+        methods.setError(fieldName as keyof WorkflowUpdateForm, {
+          type: "validation",
+          message: error?.[0] || "Invalid value",
+        })
+      })
     }
   }, [methods, onSubmit, workflowUpdateFormSchema])
 

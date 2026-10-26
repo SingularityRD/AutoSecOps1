@@ -237,6 +237,7 @@ export function jsonSchemaToZod(schema: JSONSchema7): z.ZodTypeAny {
     return z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]])
   }
 
-  // Fallback
-  return z.unknown()
+  // Fallback. Optional so a missing object property is accepted, as it was
+  // with Zod 3 (Zod 4 rejects missing keys unless the schema is optional).
+  return z.unknown().optional()
 }

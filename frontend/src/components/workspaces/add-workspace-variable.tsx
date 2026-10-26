@@ -4,12 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import type { DialogProps } from "@radix-ui/react-dialog"
 import { BracketsIcon, PlusCircle, Trash2Icon } from "lucide-react"
 import React, { type PropsWithChildren } from "react"
-import {
-  type ArrayPath,
-  type FieldPath,
-  useFieldArray,
-  useForm,
-} from "react-hook-form"
+import { type FieldPath, useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
 import type { VariableCreate } from "@/client"
 import { Button } from "@/components/ui/button"
@@ -70,7 +65,11 @@ export function NewVariableDialog({
     listEnabled: false,
   })
 
-  const methods = useForm<CreateVariableFormData>({
+  const methods = useForm<
+    z.input<typeof createVariableFormSchema>,
+    unknown,
+    CreateVariableFormData
+  >({
     resolver: zodResolver(createVariableFormSchema),
     defaultValues: {
       name: "",
@@ -111,10 +110,12 @@ export function NewVariableDialog({
     })
   }
   const inputKey = "values"
-  const typedKey = inputKey as FieldPath<CreateVariableFormData>
-  const { fields, append, remove } = useFieldArray<CreateVariableFormData>({
+  const typedKey = inputKey as FieldPath<
+    z.input<typeof createVariableFormSchema>
+  >
+  const { fields, append, remove } = useFieldArray({
     control,
-    name: inputKey as ArrayPath<CreateVariableFormData>,
+    name: inputKey,
   })
 
   return (

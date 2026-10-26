@@ -1,6 +1,5 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import type { DialogProps } from "@radix-ui/react-dialog"
 import {
   AlertTriangleIcon,
@@ -49,6 +48,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import { useWorkspaceSecrets, type WorkspaceSecretListItem } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { zodOutputResolver } from "@/lib/zod-form"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
 interface EditCredentialsDialogProps
@@ -201,8 +201,8 @@ export function EditCredentialsDialog({
     selectedSecret?.type === "mtls" || selectedSecret?.type === "ca_cert"
   const isOktaCredentialForm = isOktaCredential(selectedSecret)
 
-  const methods = useForm<EditSecretForm>({
-    resolver: zodResolver(updateSecretSchema),
+  const methods = useForm<EditSecretForm, unknown, EditSecretForm>({
+    resolver: zodOutputResolver(updateSecretSchema),
     defaultValues: {
       name: "",
       description: "",
