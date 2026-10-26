@@ -793,6 +793,10 @@ export const UDFIcons: Record<string, (props: CustomIconProps) => JSX.Element> =
       BriefcaseBusiness,
       "bg-purple-500/10 text-purple-600 dark:text-purple-400"
     ),
+    "tools.robodr": createColoredLucideRenderer(
+      ShieldAlert,
+      "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+    ),
     "tools.shodan": createColoredLucideRenderer(
       Server,
       "bg-sky-500/10 text-sky-600 dark:text-sky-400"
