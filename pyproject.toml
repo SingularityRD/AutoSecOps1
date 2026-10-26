@@ -115,10 +115,14 @@ constraint-dependencies = [
     # Chardet 7.x is incompatible with PolyFile 0.5.6 binary detection.
     "chardet==6.0.0.post1",
     "fickling==0.1.12",
+    # Security fix for CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907.
+    "filelock==4.2.1",
     "mako==1.4.2",
     "pillow==13.0.0",
     "pyasn1==0.6.4",
     "python-multipart==0.0.31",
+    # Security fix for GHSA-xmj3-9gf7-h52w.
+    "setuptools==84.1.0",
     "urllib3==2.8.0",
     "virtualenv==21.14.9",
 ]
