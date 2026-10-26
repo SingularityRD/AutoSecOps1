@@ -177,11 +177,11 @@ NEW_PYTHON_VERSION=$(to_python_version "$NEW_VERSION") || {
     exit 1
 }
 
-# List of files to update
+# List of files to update. CONTRIBUTING.md is not listed: it documents version
+# formats with backticked examples, and no example there pins the release.
 FILES=(
     "autosecops/__init__.py"
     "packages/autosecops-registry/autosecops_registry/__init__.py"
-    "CONTRIBUTING.md"
     ".github/ISSUE_TEMPLATE/bug_report.md"
 )
 
