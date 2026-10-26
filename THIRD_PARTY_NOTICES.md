@@ -105,7 +105,7 @@ hand.
 | fastmcp | 3.2.0 | Apache-2.0 |
 | fastuuid | 0.14.0 | BSD License |
 | fickling | 0.1.12 | GNU Lesser General Public License v3 or later (LGPLv3+) |
-| filelock | 3.32.5 | MIT |
+| filelock | 4.2.1 | MIT |
 | frozenlist | 1.8.0 | Apache-2.0 |
 | fsspec | 2026.7.0 | BSD-3-Clause |
 | google-api-core | 2.34.0 | Apache Software License |
@@ -272,7 +272,7 @@ hand.
 | s3transfer | 0.14.0 | Apache Software License |
 | SecretStorage | 3.5.0 | BSD-3-Clause |
 | sentry-sdk | 2.24.1 | BSD License |
-| setuptools | 84.0.0 | MIT |
+| setuptools | 84.1.0 | MIT |
 | shellingham | 1.5.4 | ISC License (ISCL) |
 | six | 1.17.0 | MIT License |
 | slack_sdk | 3.42.0 | MIT License |
@@ -7966,7 +7966,7 @@ permanent authorization for you to choose that version for the
 Library.
 ```
 
-### filelock 3.32.5
+### filelock 4.2.1
 
 - License: MIT
 - Homepage: https://github.com/tox-dev/py-filelock
@@ -29343,7 +29343,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### setuptools 84.0.0
+### setuptools 84.1.0
 
 - License: MIT
 - Homepage: https://github.com/pypa/setuptools

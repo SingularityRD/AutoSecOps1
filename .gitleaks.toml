@@ -1,8 +1,56 @@
-[allowlist]
+# Without [extend], a gitleaks config replaces the built-in rules instead of
+# adding to them, which leaves the pre-commit hook with no rules at all.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Microsoft OAuth documentation links"
 paths = [
     '''autosecops/integrations/providers/microsoft\.py''',
     '''autosecops/integrations/providers/microsoft_teams\.py''',
 ]
-
-# Or allowlist the specific pattern:
 regexes = ['''learn\.microsoft\.com.*oauth2.*grant.*flow''']
+
+[[allowlists]]
+description = "Code that names a key or pattern instead of holding a value"
+regexTarget = "line"
+regexes = [
+    '''key=self\._encryption_key''',
+    '''pattern=AWS_SECRET_ID_PATTERN''',
+    '''(private|embedded)_key: (ed25519\.)?Ed25519PrivateKey''',
+]
+
+[[allowlists]]
+description = "Truncated placeholder values in documentation"
+regexTarget = "line"
+regexes = [
+    '''# SecretString: sk-live-abc123$''',
+    '''\.MEUCIQDx\.\.\."?$''',
+]
+
+[[allowlists]]
+# These files hold PEM placeholders that the private-key rule matches. A
+# targetRules scope would be tighter, but gitleaks 8.25 does not apply it to
+# rules loaded through [extend].
+description = "Synthetic PEM placeholders in UI hints and tests"
+paths = [
+    '''frontend/src/components/organization/org-vcs-github-manual-form\.tsx''',
+    '''frontend/src/components/workspaces/create-credential-dialog\.tsx''',
+    '''frontend/src/components/workspaces/edit-workspace-secret\.tsx''',
+    '''frontend/tests/org-vcs-github-manual-form\.test\.tsx''',
+    '''tests/unit/test_sanitization\.py''',
+]
+
+[[allowlists]]
+description = "Synthetic values in unit tests"
+regexTarget = "line"
+paths = ['''tests/unit/.*\.py''']
+condition = "AND"
+regexes = [
+    '''"my_secret\.TEST_API_KEY_1"''',
+    '''"id_token": "header\.''',
+    '''"sk-secret-key-12345"''',
+    '''cache_key ?= ?"(abcdef123456|0123456789abcdef)"''',
+    '''"sk_live_CANARY_''',
+    ''':123456789012:secret:other-XyZ123"''',
+]

@@ -762,7 +762,7 @@ hand.
 | tslib | 2.8.1 | 0BSD |
 | typescript | 5.9.2 | Apache-2.0 |
 | ufo | 1.6.1 | MIT |
-| undici | 7.30.0 | MIT |
+| undici | 7.30.1 | MIT |
 | undici-types | 6.21.0 | MIT |
 | unified | 11.0.5 | MIT |
 | unist-util-find-after | 5.0.0 | MIT |
@@ -27713,7 +27713,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### undici 7.30.0
+### undici 7.30.1
 
 - License: MIT
 - Homepage: https://undici.nodejs.org

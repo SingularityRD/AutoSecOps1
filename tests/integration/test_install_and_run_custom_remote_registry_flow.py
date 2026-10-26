@@ -2,7 +2,7 @@
 
 This checks the full "happy path" in production mode:
 1. Login with test credentials
-2. Get or create a RegistryRepository record that points to the internal-registry repo
+2. Get or create a RegistryRepository record that points to a private registry repo
 3. Create GitHub SSH deploy key secret for repository access
 4. Sync the repo, which clones via git+ssh and installs with `uv add`
 5. Verify the action is registered in the repository
@@ -47,8 +47,14 @@ from autosecops.secrets.schemas import SecretCreate
 from autosecops.settings.schemas import GitSettingsUpdate
 from tests.shared import generate_test_exec_id, to_data
 
-GIT_SSH_URL = "git+ssh://git@github.com/TracecatHQ/internal-registry.git"
-KNOWN_GOOD_REMOTE_COMMIT_SHA = "e2bfd94c35c93f8052c2b97ff542961596ddd3f8"
+# The private registry repository and the commit to install come from the
+# environment, so the test only targets a repository the operator controls.
+# That commit must provide `custom_actions` with the `autosecops.math.add_300`
+# action, e.g. git+ssh://git@github.com/<owner>/<repo>.git.
+GIT_SSH_URL = os.environ.get("AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL", "")
+KNOWN_GOOD_REMOTE_COMMIT_SHA = os.environ.get(
+    "AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA", ""
+)
 PLACEHOLDER_TARBALL_URI = "s3://test/test.tar.gz"
 TEST_USER_EMAIL = "test@autosecops.example"
 TEST_USER_PASSWORD = "password1234"
@@ -270,6 +276,13 @@ def _sync_builtin_platform_registry(
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(
+    not (GIT_SSH_URL and KNOWN_GOOD_REMOTE_COMMIT_SHA),
+    reason=(
+        "Set AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL and "
+        "AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA to test a private registry"
+    ),
+)
 async def test_remote_custom_registry_repo() -> None:
     """
     End-to-end assertion that the worker can:

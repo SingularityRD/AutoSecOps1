@@ -32,7 +32,10 @@ from tests.integration.test_case_search_reads import (
     capture_search_queries,
     population_counts,
 )
-from tests.integration.test_case_text_search_postgres import load_search_migration
+from tests.integration.test_case_text_search_postgres import (
+    load_search_migration,
+    renamed_helper_sql,
+)
 from tests.unit.test_case_aggregation import add_case
 
 pytest_plugins = ["tests.unit.test_case_aggregation"]
@@ -48,17 +51,17 @@ async def lexical_service(aggregate_service: CasesService) -> CasesService:
     )
     migration = load_search_migration()
     for command in migration._FUNCTION_SQL_COMMANDS:
-        await session.execute(sa.text(command))
+        await session.execute(sa.text(renamed_helper_sql(command)))
     for name, expression in migration._INDEXES:
         await session.execute(
             sa.text(
-                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({expression})'
+                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({renamed_helper_sql(expression)})'
             )
         )
     for name, predicate in migration._FALLBACK_INDEXES:
         await session.execute(
             sa.text(
-                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {predicate}'
+                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {renamed_helper_sql(predicate)}'
             )
         )
     return aggregate_service
@@ -467,17 +470,17 @@ async def timeout_service() -> AsyncIterator[CasesService]:
             )
             migration = load_search_migration()
             for command in migration._FUNCTION_SQL_COMMANDS:
-                await session.execute(sa.text(command))
+                await session.execute(sa.text(renamed_helper_sql(command)))
             for name, expression in migration._INDEXES:
                 await session.execute(
                     sa.text(
-                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({expression})'
+                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({renamed_helper_sql(expression)})'
                     )
                 )
             for name, predicate in migration._FALLBACK_INDEXES:
                 await session.execute(
                     sa.text(
-                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {predicate}'
+                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {renamed_helper_sql(predicate)}'
                     )
                 )
             await text_case(service, "PowerShell encoded")

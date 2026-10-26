@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "custom_actions"
+version = "0.1.0"
+description = "Minimal custom integrations repository used as a CI fixture."
+requires-python = ">=3.12"
+# AutoSecOps installs custom repositories next to autosecops_registry, so a
+# custom repository does not declare it as a dependency.
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["custom_actions"]

@@ -663,7 +663,7 @@ services:
       - api
 
   postgres_db:
-    image: ${AUTOSECOPS__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}
+    image: ${AUTOSECOPS__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:2}
     command: ["postgres"]
     restart: unless-stopped
     ports:
