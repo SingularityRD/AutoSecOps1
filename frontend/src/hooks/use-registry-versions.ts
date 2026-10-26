@@ -1,11 +1,11 @@
 "use client"
 
 import {
+  type autosecops__registry__repositories__schemas__RegistryVersionRead,
   registryRepositoriesCompareRegistryVersions,
   registryRepositoriesDeleteRegistryVersion,
   registryRepositoriesListRepositoryVersions,
   registryRepositoriesPromoteRegistryVersion,
-  type tracecat__registry__repositories__schemas__RegistryVersionRead,
   type VersionDiff,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
@@ -13,7 +13,7 @@ import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 type RegistryVersionRead =
-  tracecat__registry__repositories__schemas__RegistryVersionRead
+  autosecops__registry__repositories__schemas__RegistryVersionRead
 
 /** Versions of one registry repository with promote and delete mutations. */
 export function useRegistryVersions(repositoryId: string | null) {

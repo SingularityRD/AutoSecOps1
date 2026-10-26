@@ -3,7 +3,7 @@
 import type { Row } from "@tanstack/react-table"
 import { CheckIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
 import { useCallback, useState } from "react"
-import type { tracecat__admin__registry__schemas__RegistryVersionRead } from "@/client"
+import type { autosecops__admin__registry__schemas__RegistryVersionRead } from "@/client"
 import {
   DataTable,
   DataTableColumnHeader,
@@ -31,7 +31,7 @@ import {
 import { getRelativeTime } from "@/lib/event-history"
 
 type RegistryVersionRead =
-  tracecat__admin__registry__schemas__RegistryVersionRead
+  autosecops__admin__registry__schemas__RegistryVersionRead
 
 export function PlatformRegistryVersionsTable() {
   const [promotingId, setPromotingId] = useState<string | null>(null)

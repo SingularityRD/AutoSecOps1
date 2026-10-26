@@ -1,7 +1,7 @@
 "use client"
 
 import type {
-  tracecat__registry__repositories__schemas__RegistryVersionRead,
+  autosecops__registry__repositories__schemas__RegistryVersionRead,
   VersionDiff,
 } from "@/client"
 import { Spinner } from "@/components/loading/spinner"
@@ -19,7 +19,7 @@ import {
 export interface DiffViewProps {
   diff: VersionDiff | null
   diffLoading: boolean
-  versions: tracecat__registry__repositories__schemas__RegistryVersionRead[]
+  versions: autosecops__registry__repositories__schemas__RegistryVersionRead[]
   compareBaseId: string | null
   compareToId: string | null
   onBaseChange: (id: string | null) => void

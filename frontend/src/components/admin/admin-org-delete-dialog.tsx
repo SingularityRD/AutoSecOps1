@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { tracecat_ee__admin__organizations__schemas__OrgRead as OrgRead } from "@/client"
+import type { autosecops_ee__admin__organizations__schemas__OrgRead as OrgRead } from "@/client"
 import {
   AlertDialog,
   AlertDialogAction,
