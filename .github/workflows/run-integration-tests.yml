@@ -18,7 +18,8 @@ jobs:
   plan-run:
     # The suite needs the internal-registry-ci environment, its
     # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key, and a private registry repository
-    # the key can read. Skip every job cleanly until an operator has provisioned
+    # the key can read, named owner/repo in the INTERNAL_REGISTRY_REPOSITORY
+    # Actions variable. Skip every job cleanly until an operator has provisioned
     # them and set the INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
     if: vars.INTERNAL_REGISTRY_CI_ENABLED == 'true'
     runs-on: ubuntu-latest
@@ -125,13 +126,21 @@ jobs:
       #
       # A) Strict git connectivity (fastest, no deps):
       - name: Verify git over SSH
-        run: git ls-remote git@github.com:TracecatHQ/internal-registry.git HEAD
+        env:
+          INTERNAL_REGISTRY_REPOSITORY: ${{ vars.INTERNAL_REGISTRY_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$INTERNAL_REGISTRY_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::Set the INTERNAL_REGISTRY_REPOSITORY Actions variable to the private registry repository (owner/repo) that CUSTOM_REPO_SSH_PRIVATE_KEY can read."
+            exit 1
+          fi
+          git ls-remote "git@github.com:${INTERNAL_REGISTRY_REPOSITORY}.git" HEAD
       #
       # B) End-to-end install smoke-test (still <10 s):
       #- name: Smoke-test pip install via SSH
       #  run: |
       #    uv pip install --no-deps --quiet \
-      #      "git+ssh://git@github.com/TracecatHQ/internal-registry.git@main"
+      #      "git+ssh://git@github.com/${INTERNAL_REGISTRY_REPOSITORY}.git@main"
       #    python -c "import importlib, sys; print('import ok:', bool(importlib.import_module('internal_registry', package=None))); sys.exit(0)"
 
   # ──────────────────────────────────────────────────────────────────
@@ -167,6 +176,10 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Run environment setup script
+        env:
+          # CI services are throwaway and tests connect with the well-known
+          # development credentials, so keep them even in production mode.
+          AUTOSECOPS_DEV_CREDENTIALS: "true"
         run: |
           echo "y
           localhost

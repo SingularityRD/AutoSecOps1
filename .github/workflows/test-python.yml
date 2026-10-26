@@ -56,10 +56,35 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The upstream starter kit is not mirrored under SingularityRD. Set the
+      # CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY Actions variable (owner/repo
+      # of a public starter kit that ships a `custom_actions` package) to run
+      # this check; until then the job passes with a notice.
+      - name: Resolve custom registry starter
+        id: starter-kit
+        env:
+          STARTER_KIT_REPOSITORY: ${{ vars.CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$STARTER_KIT_REPOSITORY" ]; then
+            echo "::notice::Skipping custom registry install test: CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY is not set."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "$STARTER_KIT_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY must be owner/repo."
+            exit 1
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
       - name: Clone custom registry starter
-        run: git clone https://github.com/TracecatHQ/custom-integrations-starter-kit
+        if: steps.starter-kit.outputs.enabled == 'true'
+        env:
+          STARTER_KIT_REPOSITORY: ${{ vars.CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY }}
+        run: git clone --depth 1 "https://github.com/${STARTER_KIT_REPOSITORY}" custom-integrations-starter-kit
 
       - name: Install dependencies
+        if: steps.starter-kit.outputs.enabled == 'true'
         working-directory: custom-integrations-starter-kit
         run: |
           uv venv
@@ -97,6 +122,10 @@ jobs:
           python-version: "3.12"
 
       - name: Run environment setup script
+        env:
+          # CI services are throwaway and tests connect with the well-known
+          # development credentials, so keep them even in production mode.
+          AUTOSECOPS_DEV_CREDENTIALS: "true"
         run: |
           echo "y
           localhost
