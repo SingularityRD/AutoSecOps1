@@ -180,6 +180,14 @@ class AgentPresetCreate(AgentPresetBase):
     slug: PresetSlug | None = None
 
 
+class RobotSocPresetInstall(Schema):
+    """Model selection for installing the Robot SOC preset."""
+
+    model_name: PresetModelWriteField
+    model_provider: PresetModelWriteField
+    catalog_id: uuid.UUID | None = Field(default=None)
+
+
 class AgentPresetMoveToFolder(BaseModel):
     """Payload for moving an agent preset to a folder."""
 
@@ -562,3 +570,11 @@ class AgentPresetVersionDiff(BaseModel):
     tool_tunnel_changes: list[ToolTunnelFieldChange] = Field(default_factory=list)
     skill_changes: list[AgentPresetSkillBindingChange] = Field(default_factory=list)
     total_changes: int = 0
+
+
+class RobotSocPresetInstallRead(Schema):
+    """Result of installing the Robot SOC preset."""
+
+    created: bool
+    """False when the workspace already had a ``robot-soc`` preset."""
+    preset: AgentPresetRead

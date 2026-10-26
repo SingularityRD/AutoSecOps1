@@ -4,6 +4,10 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from autosecops import config
 from autosecops.agent.folders.service import AgentFolderService
+from autosecops.agent.preset.robot_soc import (
+    robot_soc_preset_create,
+    seed_robot_soc_preset,
+)
 from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
     AgentPresetMoveToFolder,
@@ -17,6 +21,8 @@ from autosecops.agent.preset.schemas import (
     AgentPresetVersionRead,
     AgentPresetVersionReadMinimal,
     AgentPresetWorkflowReference,
+    RobotSocPresetInstall,
+    RobotSocPresetInstallRead,
 )
 from autosecops.agent.preset.service import AgentPresetService
 from autosecops.agent.preset.workflow_references import (
@@ -136,6 +142,44 @@ async def create_agent_preset(
     try:
         preset = await service.create_preset(params)
         return await service.build_preset_read(preset)
+    except TracecatValidationError as exc:
+        raise _validation_error(exc) from exc
+
+
+@router.post(
+    "/robot-soc",
+    response_model=RobotSocPresetInstallRead,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "model": AgentPresetValidationErrorResponse,
+            "description": "RoboDR tools or library skills are unavailable",
+        },
+    },
+)
+@require_scope("agent:create")
+async def install_robot_soc_preset(
+    *,
+    params: RobotSocPresetInstall,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> RobotSocPresetInstallRead:
+    """Install the Robot SOC preset in this workspace. Idempotent.
+
+    An existing ``robot-soc`` preset is returned unchanged.
+    """
+    service = AgentPresetService(session, role=role)
+    try:
+        preset, created = await seed_robot_soc_preset(
+            service,
+            robot_soc_preset_create(
+                model_name=params.model_name,
+                model_provider=params.model_provider,
+                catalog_id=params.catalog_id,
+            ),
+        )
+        return RobotSocPresetInstallRead(
+            created=created, preset=await service.build_preset_read(preset)
+        )
     except TracecatValidationError as exc:
         raise _validation_error(exc) from exc
 
