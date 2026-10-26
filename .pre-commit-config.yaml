@@ -15,11 +15,12 @@ repos:
         args:
           - --unsafe
         exclude: ^deployments/helm/.*/templates/
-      # Synced skill files stay byte-identical to upstream (just skill-library check).
+      # Synced skill files and vendored API docs assets stay byte-identical to
+      # upstream (just skill-library check; test_api_docs.py pins the hashes).
       - id: end-of-file-fixer
-        exclude: ^autosecops/agent/skill/library/skills/
+        exclude: ^autosecops/(agent/skill/library/skills|api/static/docs)/
       - id: trailing-whitespace
-        exclude: (\.patch$|^autosecops/agent/skill/library/skills/)
+        exclude: (\.patch$|^autosecops/(agent/skill/library/skills|api/static/docs)/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
     hooks:

@@ -3,17 +3,10 @@ import os
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Exact, pinned CDN assets for the API docs pages (`/docs` and `/redoc`).
-# The docs routes in `autosecops.api.docs` load these same URLs, so the CSP and
-# the rendered HTML cannot drift apart when FastAPI changes its defaults.
-SWAGGER_UI_JS_URL = (
-    "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"
-)
-SWAGGER_UI_CSS_URL = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css"
-REDOC_JS_URL = "https://cdn.jsdelivr.net/npm/redoc@2.5.4/bundles/redoc.standalone.js"
-
-_SCRIPT_SRC = f"script-src 'self' 'unsafe-inline' {SWAGGER_UI_JS_URL} {REDOC_JS_URL}"
-_STYLE_SRC = f"style-src 'self' 'unsafe-inline' {SWAGGER_UI_CSS_URL}"
+# The API docs pages (`/docs` and `/redoc`) load vendored assets from the API's
+# own origin (see `autosecops.api.docs`), so no CDN host is allowed here.
+_SCRIPT_SRC = "script-src 'self' 'unsafe-inline'"
+_STYLE_SRC = "style-src 'self' 'unsafe-inline'"
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
