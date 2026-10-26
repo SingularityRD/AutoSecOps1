@@ -8,6 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from tracecat_ee.workspace_chat.policy import (
     is_workspace_chat_entitled,
     require_workspace_chat_entitlement_for_entity,
@@ -99,6 +100,21 @@ def _sse_headers(format: StreamFormat) -> dict[str, str]:
     if format == "vercel":
         return dict(VERCEL_SSE_HEADERS)
     return dict(SSE_HEADERS)
+
+
+async def _release_request_db_connection(db_session: AsyncSession) -> None:
+    """Return the request's pooled DB connection before a long-lived SSE stream.
+
+    FastAPI tears down ``yield`` dependencies only after a streaming response
+    finishes, so the request-scoped session shared with the auth dependency
+    would otherwise stay idle in transaction for the stream's lifetime. Its
+    open transaction keeps table locks that make DDL (such as a migration)
+    wait, and every query queued behind that DDL waits with it.
+
+    Args:
+        db_session: The request-scoped session from ``AsyncDBSession``.
+    """
+    await db_session.close()
 
 
 def _bubble_id(session_id: uuid.UUID, curr_run_id: uuid.UUID | None) -> str | None:
@@ -556,6 +572,7 @@ async def send_message(
     request: ChatRequest,
     role: WorkspaceActorRouteRole,
     http_request: Request,
+    db_session: AsyncDBSession,
 ) -> StreamingResponse:
     """Send a message to the agent session with streaming response.
 
@@ -705,6 +722,7 @@ async def send_message(
             start_id="0-0",
         )
 
+        await _release_request_db_connection(db_session)
         # Create stream and return with Vercel format
         return StreamingResponse(
             stream.sse(
@@ -755,6 +773,7 @@ async def stream_session_events(
     role: WorkspaceActorRouteRole,
     request: Request,
     session_id: uuid.UUID,
+    db_session: AsyncDBSession,
     format: StreamFormat = Query(
         default="vercel", description="Streaming format (e.g. 'vercel')"
     ),
@@ -794,6 +813,7 @@ async def stream_session_events(
             legacy_stream = await AgentStream.new(
                 session_id=session_id, workspace_id=workspace_id
             )
+            await _release_request_db_connection(db_session)
             return StreamingResponse(
                 legacy_stream.sse(
                     request.is_disconnected, last_id=start_id, format=format
@@ -841,6 +861,7 @@ async def stream_session_events(
         last_id=start_id,
         session_id=session_id,
     )
+    await _release_request_db_connection(db_session)
     return StreamingResponse(
         stream.sse(
             request.is_disconnected,

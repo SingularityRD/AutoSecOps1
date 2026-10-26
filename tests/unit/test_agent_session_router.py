@@ -515,6 +515,7 @@ async def _call_send_message(
     request: Any,
     role: Role,
 ) -> tuple[Any, AsyncMock]:
+    db_session = AsyncMock()
     with (
         patch(
             "tracecat.agent.session.router.AgentSessionService.with_session",
@@ -534,8 +535,15 @@ async def _call_send_message(
                 Any,
                 SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
             ),
+            db_session=db_session,
         )
     with_session_mock.assert_called_once_with(role=role)
+    # A live Redis stream must not pin the request's pooled DB connection for
+    # the stream's lifetime; an immediately finished response needs no release.
+    if stream_new_mock.await_count:
+        db_session.close.assert_awaited_once()
+    else:
+        db_session.close.assert_not_awaited()
     return response, stream_new_mock
 
 
@@ -779,6 +787,7 @@ async def test_send_message_new_turn_preserves_only_uncertain_dispatch(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
+                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == 500
@@ -850,6 +859,7 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
+                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == 409
@@ -897,6 +907,7 @@ async def test_send_message_rejects_teammate_session() -> None:
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
+                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -968,6 +979,7 @@ async def test_send_message_does_not_reset_stream_when_validation_fails(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
+                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == status_code
@@ -1053,6 +1065,7 @@ async def test_send_message_requires_entitlement_for_workspace_chat_parent(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
+                db_session=AsyncMock(),
             )
 
     fake_svc.run_turn.assert_not_awaited()
@@ -1276,6 +1289,7 @@ async def test_stream_session_events_lifecycle(
     )
     fake_stream = SimpleNamespace(sse=Mock(return_value=_empty_event_stream()))
     finished_sse = Mock(return_value=_empty_event_stream())
+    db_session = AsyncMock()
 
     with (
         patch(
@@ -1298,6 +1312,7 @@ async def test_stream_session_events_lifecycle(
                 headers=headers, is_disconnected=AsyncMock(return_value=False)
             ),
             session_id=session_id,
+            db_session=db_session,
             format="vercel",
         )
 
@@ -1324,6 +1339,8 @@ async def test_stream_session_events_lifecycle(
         stream_new_mock.assert_awaited_with(
             session_id=session_id, workspace_id=workspace_id, stream_id=stream_id
         )
+        # A live stream must not pin the request's pooled DB connection.
+        db_session.close.assert_awaited_once()
 
 
 @pytest.mark.anyio
@@ -1344,6 +1361,7 @@ async def test_stream_session_events_reads_legacy_workspace_chat_without_entitle
         get_legacy_chat=AsyncMock(return_value=legacy_chat),
     )
     fake_stream = SimpleNamespace(sse=Mock(return_value=_empty_event_stream()))
+    db_session = AsyncMock()
 
     with (
         patch(
@@ -1367,10 +1385,12 @@ async def test_stream_session_events_reads_legacy_workspace_chat_without_entitle
                 is_disconnected=AsyncMock(return_value=False),
             ),
             session_id=session_id,
+            db_session=db_session,
         )
 
     assert isinstance(response, StreamingResponse)
     fake_stream.sse.assert_called_once()
+    db_session.close.assert_awaited_once()
 
 
 @pytest.mark.anyio
