@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 import tracecat.config as tracecat_config
-from tracecat.config import bound_env, env_bool, env_networks, env_ports
+from tracecat.config import (
+    bound_env,
+    env_bool,
+    env_networks,
+    env_no_proxy,
+    env_ports,
+    env_proxy_url,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "tracecat" / "config.py"
@@ -226,6 +233,120 @@ def test_env_networks_uses_default_when_unset_or_blank(
     assert default == tracecat_config.TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS
 
 
+@pytest.mark.parametrize("raw_value", [None, "", "   "])
+def test_env_proxy_url_is_none_when_unset_or_blank(
+    monkeypatch: pytest.MonkeyPatch, raw_value: str | None
+) -> None:
+    if raw_value is None:
+        monkeypatch.delenv("TEST_PROXY_ENV", raising=False)
+    else:
+        monkeypatch.setenv("TEST_PROXY_ENV", raw_value)
+
+    assert env_proxy_url("TEST_PROXY_ENV") is None
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        "http://proxy.example.internal:3128",
+        " https://user:p%40ss@10.0.0.8:8443/ ",
+        "HTTP://[fd00::8]:3128",
+    ],
+)
+def test_env_proxy_url_accepts_http_proxies(
+    monkeypatch: pytest.MonkeyPatch, raw_value: str
+) -> None:
+    monkeypatch.setenv("TEST_PROXY_ENV", raw_value)
+
+    assert env_proxy_url("TEST_PROXY_ENV") == raw_value.strip()
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        "socks5://user:synthetic-secret@proxy:1080",
+        "proxy.example.internal:3128",
+        "http://user:synthetic-secret@proxy:3128/path",
+        "http://user:synthetic-secret@proxy:3128/?q=1",
+        "http://user:synthetic-secret@proxy:notaport",
+        "http://user:synthetic-secret@:3128",
+    ],
+)
+def test_env_proxy_url_rejects_invalid_values_without_echoing_them(
+    monkeypatch: pytest.MonkeyPatch, raw_value: str
+) -> None:
+    monkeypatch.setenv("TEST_PROXY_ENV", raw_value)
+
+    with pytest.raises(ValueError, match="TEST_PROXY_ENV must be") as exc_info:
+        env_proxy_url("TEST_PROXY_ENV")
+    assert "synthetic-secret" not in str(exc_info.value)
+    assert exc_info.value.__cause__ is None
+
+
+def test_env_no_proxy_parses_hosts_and_networks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TEST_NO_PROXY_ENV",
+        " Internal.Example.com, .corp.example, *.svc.cluster.local,10.0.0.0/8,"
+        "203.0.113.7,[fd00::1],, host_with_underscore ",
+    )
+
+    entries = env_no_proxy("TEST_NO_PROXY_ENV")
+
+    assert tuple(str(entry) for entry in entries) == (
+        "internal.example.com",
+        "corp.example",
+        "svc.cluster.local",
+        "10.0.0.0/8",
+        "203.0.113.7/32",
+        "fd00::1/128",
+        "host_with_underscore",
+    )
+
+
+@pytest.mark.parametrize("raw_value", [None, "", " , "])
+def test_env_no_proxy_is_empty_when_unset_or_blank(
+    monkeypatch: pytest.MonkeyPatch, raw_value: str | None
+) -> None:
+    if raw_value is None:
+        monkeypatch.delenv("TEST_NO_PROXY_ENV", raising=False)
+    else:
+        monkeypatch.setenv("TEST_NO_PROXY_ENV", raw_value)
+
+    assert env_no_proxy("TEST_NO_PROXY_ENV") == ()
+
+
+@pytest.mark.parametrize(
+    "raw_value", ["*", "example.com:443", "http://example.com", "bad host", "a..b"]
+)
+def test_env_no_proxy_rejects_invalid_entries(
+    monkeypatch: pytest.MonkeyPatch, raw_value: str
+) -> None:
+    monkeypatch.setenv("TEST_NO_PROXY_ENV", raw_value)
+
+    with pytest.raises(ValueError, match="TEST_NO_PROXY_ENV contains an invalid"):
+        env_no_proxy("TEST_NO_PROXY_ENV")
+
+
+def test_outbound_proxy_is_disabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    try:
+        with monkeypatch.context() as env:
+            env.delenv("TRACECAT__OUTBOUND_PROXY_URL", raising=False)
+            env.delenv("TRACECAT__OUTBOUND_NO_PROXY", raising=False)
+            # Generic proxy variables must not enable the proxy implicitly.
+            env.setenv("HTTPS_PROXY", "http://127.0.0.1:9999")
+            env.setenv("HTTP_PROXY", "http://127.0.0.1:9999")
+            env.setenv("NO_PROXY", "example.com")
+            reloaded = importlib.reload(tracecat_config)
+            assert reloaded.TRACECAT__OUTBOUND_PROXY_URL is None
+            assert reloaded.TRACECAT__OUTBOUND_NO_PROXY == ()
+    finally:
+        importlib.reload(tracecat_config)
+
+
 def test_audit_trusted_proxy_env_is_wired_to_deployments() -> None:
     """Both audit consumers (api, mcp) must receive the override in every target."""
     name = "TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS"
@@ -244,9 +365,16 @@ def test_audit_trusted_proxy_env_is_wired_to_deployments() -> None:
         assert "audit_trusted_proxy_cidrs" in (fargate / tf).read_text(), tf
 
 
-def test_outbound_private_cidrs_are_wired_to_deployments() -> None:
+@pytest.mark.parametrize(
+    "name,tf_var",
+    [
+        ("TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS", "outbound_allowed_private_cidrs"),
+        ("TRACECAT__OUTBOUND_PROXY_URL", "outbound_proxy_url"),
+        ("TRACECAT__OUTBOUND_NO_PROXY", "outbound_no_proxy"),
+    ],
+)
+def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> None:
     """Validation, gateway, and agent processes share the operator's policy."""
-    name = "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS"
     for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
         for service in ("api", "litellm", "agent-executor", "agent-worker"):
             match = re.search(
@@ -254,21 +382,22 @@ def test_outbound_private_cidrs_are_wired_to_deployments() -> None:
                 path.read_text(),
             )
             assert match is not None, f"{path.name}: no {service} service block"
-            assert f"{name}: ${{{name}:-}}" in match.group("body"), (
+            body = match.group("body").replace(" # Sensitive", "")
+            assert f"{name}: ${{{name}:-}}" in body, (
                 f"{path.name}: {service} must forward the override and default to empty"
             )
     fargate = REPO_ROOT / "deployments/fargate"
-    assert (
-        f"{name} = var.outbound_allowed_private_cidrs"
-        in (fargate / "modules/ecs/locals.tf").read_text()
+    assert re.search(
+        rf"{name}\s*=\s*var\.{tf_var}\n",
+        (fargate / "modules/ecs/locals.tf").read_text(),
     )
     assert re.search(
-        r"outbound_allowed_private_cidrs\s*=\s*var.outbound_allowed_private_cidrs",
+        rf"{tf_var}\s*=\s*var\.{tf_var}\n",
         (fargate / "main.tf").read_text(),
     )
     for tf in ("variables.tf", "modules/ecs/variables.tf"):
         assert re.search(
-            r'variable "outbound_allowed_private_cidrs" \{[^}]*default\s*=\s*""',
+            rf'variable "{tf_var}" \{{[^}}]*default\s*=\s*""',
             (fargate / tf).read_text(),
         ), tf
 

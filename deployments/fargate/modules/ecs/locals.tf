@@ -70,6 +70,8 @@ locals {
     TRACECAT__AGENT_SANDBOX_TIMEOUT = var.agent_sandbox_timeout
     # Shared outbound policy for MCP and custom LLM requests.
     TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS = var.outbound_allowed_private_cidrs
+    TRACECAT__OUTBOUND_PROXY_URL             = var.outbound_proxy_url
+    TRACECAT__OUTBOUND_NO_PROXY              = var.outbound_no_proxy
     # Audit client-IP attribution: both api and mcp resolve X-Forwarded-For,
     # so it rides the common env. Empty uses the built-in private-range default.
     TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs

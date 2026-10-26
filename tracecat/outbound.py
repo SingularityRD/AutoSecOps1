@@ -3,6 +3,11 @@
 Resolve and validate at the socket boundary, then dial the validated numeric IP.
 HTTPcore retains the original origin for connection pooling, Host and TLS SNI.
 These clients must not be used for trusted internal API or gateway traffic.
+
+With ``TRACECAT__OUTBOUND_PROXY_URL`` set, requests go through that operator
+forward proxy instead. The target is still validated and resolved locally first,
+but the proxy resolves it again, so a DNS answer that changes between the two
+lookups is not covered. Configure the proxy's own egress policy accordingly.
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ import ipaddress
 import os
 import socket
 from collections.abc import Iterable
+from types import TracebackType
 from typing import Any
 
 import anyio
@@ -188,12 +194,51 @@ def tunnel_proxy_url() -> str | None:
     return os.environ.get(TUNNEL_PROXY_ENV) or None
 
 
+def _bypasses_egress_proxy(host: str) -> bool:
+    """Return whether TRACECAT__OUTBOUND_NO_PROXY sends this host direct."""
+    host = host.lower().rstrip(".")
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        address = None
+    for entry in config.TRACECAT__OUTBOUND_NO_PROXY:
+        if isinstance(entry, str):
+            if address is None and (host == entry or host.endswith(f".{entry}")):
+                return True
+        elif address is not None and address in entry:
+            return True
+    return False
+
+
+def _create_egress_proxy_transport(
+    proxy_url: str, **kwargs: Any
+) -> httpx.AsyncHTTPTransport:
+    """Create the transport that forwards requests to the operator proxy."""
+    proxy = httpx.Proxy(proxy_url)
+    if proxy.url.scheme == "https":
+        # Trust operator CA bundles for TLS to the proxy, as for targets.
+        proxy = httpx.Proxy(
+            proxy_url,
+            ssl_context=httpx.create_ssl_context(verify=True, trust_env=True),
+        )
+    transport = httpx.AsyncHTTPTransport(proxy=proxy, trust_env=False, **kwargs)
+    # Every connection this pool opens goes to the operator-configured proxy,
+    # never to the target, so dial it without the destination policy: corporate
+    # proxies usually have private addresses. Targets are checked per request.
+    transport._pool._network_backend = AnyIOBackend()
+    return transport
+
+
 class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
     """HTTPX transport with socket-level egress policy and optional origin binding.
 
     In a tunneled action every request goes to the tunnel gateway instead. The
     gateway's exact host/port allowlist decides which targets are reachable, so
     the local address check is skipped; URL and origin checks still apply.
+
+    Otherwise, when an operator egress proxy is configured, requests to hosts
+    outside TRACECAT__OUTBOUND_NO_PROXY go through it after the target host
+    passes the same local DNS and address policy as a direct connection.
     """
 
     def __init__(
@@ -209,6 +254,12 @@ class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
             # Trust operator-provided CA bundles without enabling env proxies.
             # Explicit verify contexts/paths retain their normal precedence.
             kwargs["verify"] = httpx.create_ssl_context(verify=True, trust_env=True)
+        # The tunnel gateway takes precedence over the operator egress proxy.
+        self._egress_proxy: httpx.AsyncHTTPTransport | None = None
+        if tunnel_proxy is None and config.TRACECAT__OUTBOUND_PROXY_URL is not None:
+            self._egress_proxy = _create_egress_proxy_transport(
+                config.TRACECAT__OUTBOUND_PROXY_URL, **kwargs
+            )
         if tunnel_proxy is not None:
             kwargs["proxy"] = httpx.Proxy(tunnel_proxy)
         super().__init__(trust_env=False, **kwargs)
@@ -229,7 +280,13 @@ class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
             raise OutboundRequestDenied(
                 "Cross-origin outbound requests are not allowed"
             )
-        response = await super().handle_async_request(request)
+        if self._egress_proxy is not None and not _bypasses_egress_proxy(
+            request.url.host
+        ):
+            await _check_proxied_target(request)
+            response = await self._egress_proxy.handle_async_request(request)
+        else:
+            response = await super().handle_async_request(request)
         if response.status_code in {301, 302, 303, 307, 308}:
             location = response.headers.get("location")
             if location is not None:
@@ -245,6 +302,43 @@ class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
                     raise
         return response
 
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        try:
+            await super().__aexit__(exc_type, exc_value, traceback)
+        finally:
+            if self._egress_proxy is not None:
+                await self._egress_proxy.__aexit__(exc_type, exc_value, traceback)
+
+    async def aclose(self) -> None:
+        try:
+            await super().aclose()
+        finally:
+            if self._egress_proxy is not None:
+                await self._egress_proxy.aclose()
+
+
+async def _check_proxied_target(request: httpx.Request) -> None:
+    """Apply the direct-connection address policy before using the proxy.
+
+    The proxy dials the target itself, so without this check it would reach
+    private, loopback and metadata addresses on the backend's behalf.
+    """
+    _, host, port = _origin(request.url)
+    timeouts = request.extensions.get("timeout", {})
+    try:
+        # DNS shares the connect budget, as on the direct path.
+        async with asyncio.timeout(timeouts.get("connect")):
+            await resolve_outbound_addresses(host, port)
+    except TimeoutError as exc:
+        raise httpx.ConnectTimeout(
+            "Outbound connection timed out", request=request
+        ) from exc
+
 
 def create_outbound_http_client(
     *,
@@ -259,6 +353,8 @@ def create_outbound_http_client(
     ``tunnel_proxy`` sends every request through a tunnel gateway. Shared
     services (api, agent-executor) must pass it per client; otherwise the
     executor's per-action tunnel environment applies.
+    Without a tunnel, ``TRACECAT__OUTBOUND_PROXY_URL`` applies; it never comes
+    from callers.
     Extra HTTPX options use Any because HTTPX exposes no public constructor
     options type; transport/proxy overrides are deliberately rejected.
     """

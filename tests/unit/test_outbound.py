@@ -45,6 +45,7 @@ from tracecat.integrations.schemas import MCPHttpIntegrationTestConnectionReques
 from tracecat.integrations.service import IntegrationService
 from tracecat.network import DisallowedUrlError
 from tracecat.outbound import (
+    OutboundHTTPTransport,
     OutboundNetworkBackend,
     SocketOption,
     create_outbound_http_client,
@@ -53,8 +54,12 @@ from tracecat.outbound import (
 
 
 class RecordingStream(httpcore.AsyncNetworkStream):
-    def __init__(self, response: bytes) -> None:
-        self.response = response
+    def __init__(self, response: bytes | tuple[bytes, bytes]) -> None:
+        # A (plaintext, tls) pair models a proxy that answers CONNECT before
+        # the tunneled TLS session sends the target's response.
+        self.response, self.tls_response = (
+            response if isinstance(response, tuple) else (response, b"")
+        )
         self.writes: list[bytes] = []
         self.server_hostname: str | None = None
         self.ssl_context: ssl.SSLContext | None = None
@@ -75,6 +80,8 @@ class RecordingStream(httpcore.AsyncNetworkStream):
     ) -> httpcore.AsyncNetworkStream:
         self.ssl_context = ssl_context
         self.server_hostname = server_hostname
+        if self.tls_response:
+            self.response, self.tls_response = self.tls_response, b""
         return self
 
     async def aclose(self) -> None:
@@ -85,7 +92,7 @@ class RecordingBackend(httpcore.AsyncNetworkBackend):
     def __init__(self) -> None:
         self.connections: list[tuple[str, int]] = []
         self.streams: list[RecordingStream] = []
-        self.responses = [
+        self.responses: list[bytes | tuple[bytes, bytes]] = [
             b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
         ]
 
@@ -951,3 +958,272 @@ def test_explicit_tunnel_proxy_routes_through_gateway(
     )
     assert type(vars(direct._transport)["_pool"]).__name__ == "AsyncConnectionPool"
     assert type(vars(tunneled._transport)["_pool"]).__name__ == "AsyncHTTPProxy"
+
+
+SYNTHETIC_PROXY = "http://proxy-user:proxy-secret@10.9.9.9:3128"
+PROXY_ADDRESS = ("10.9.9.9", 3128)
+CONNECT_OK = b"HTTP/1.1 200 Connection established\r\n\r\n"
+OK_RESPONSE = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
+
+
+def json_response(body: bytes) -> bytes:
+    return (
+        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+        + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+        + body
+    )
+
+
+@pytest.fixture
+async def egress_proxy(
+    network: RecordingBackend, monkeypatch: pytest.MonkeyPatch
+) -> AsyncMock:
+    """Configure a private operator proxy and a public DNS answer for targets."""
+    monkeypatch.delenv("TRACECAT__TUNNEL_PROXY_URL", raising=False)
+    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_PROXY_URL", SYNTHETIC_PROXY)
+    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_NO_PROXY", ())
+    resolver = AsyncMock(return_value=[dns_answer("8.8.8.8")])
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolver)
+    return resolver
+
+
+@pytest.mark.anyio
+async def test_egress_proxy_tunnels_https_after_local_policy_check(
+    network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    network.responses = [(CONNECT_OK, OK_RESPONSE)]
+    async with create_outbound_http_client() as client:
+        response = await client.get(
+            "https://models.example.com/models",
+            headers={"Authorization": "Bearer synthetic"},
+        )
+    assert response.status_code == 200
+    # The private proxy is dialed even though no private CIDR is allowed.
+    assert network.connections == [PROXY_ADDRESS]
+    egress_proxy.assert_awaited_once()
+    assert egress_proxy.await_args is not None
+    assert egress_proxy.await_args.args[:2] == ("models.example.com", 443)
+    stream = network.streams[0]
+    wire = b"".join(stream.writes)
+    assert wire.startswith(b"CONNECT models.example.com:443 HTTP/1.1\r\n")
+    assert b"Proxy-Authorization: Basic " in wire
+    # TLS to the target runs end to end inside the tunnel.
+    assert stream.server_hostname == "models.example.com"
+    assert stream.ssl_context is not None
+    assert stream.ssl_context.verify_mode == ssl.CERT_REQUIRED
+
+
+@pytest.mark.anyio
+async def test_egress_proxy_forwards_plain_http(
+    network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    network.responses = [OK_RESPONSE]
+    async with create_outbound_http_client() as client:
+        assert (await client.get("http://models.example.com/v1")).status_code == 200
+    assert network.connections == [PROXY_ADDRESS]
+    wire = b"".join(network.streams[0].writes)
+    assert wire.startswith(b"GET http://models.example.com/v1 HTTP/1.1\r\n")
+    egress_proxy.assert_awaited_once()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1/", "http://169.254.169.254/", "https://[::1]/"]
+)
+async def test_egress_proxy_refuses_private_literal_targets(
+    url: str, network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    async with create_outbound_http_client() as client:
+        with pytest.raises(DisallowedUrlError):
+            await client.get(url, headers={"Authorization": "Bearer synthetic"})
+    assert network.connections == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("answers", [["10.0.0.1"], ["8.8.8.8", "127.0.0.1"], []])
+async def test_egress_proxy_refuses_private_dns_targets(
+    answers: list[str], network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    egress_proxy.return_value = [dns_answer(address) for address in answers]
+    async with create_outbound_http_client() as client:
+        with pytest.raises(DisallowedUrlError):
+            await client.get("https://internal.example.com/")
+    assert network.connections == []
+
+
+@pytest.mark.anyio
+async def test_egress_proxy_honors_private_cidr_exception(
+    network: RecordingBackend,
+    egress_proxy: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        config,
+        "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+        (ipaddress.ip_network("10.0.0.5/32"),),
+    )
+    network.responses = [OK_RESPONSE]
+    async with create_outbound_http_client() as client:
+        assert (await client.get("http://10.0.0.5/")).status_code == 200
+        with pytest.raises(DisallowedUrlError):
+            await client.get("http://10.0.0.6/")
+    assert network.connections == [PROXY_ADDRESS]
+
+
+@pytest.mark.anyio
+async def test_egress_proxy_is_unused_when_unset(
+    network: RecordingBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_PROXY_URL", None)
+    monkeypatch.setattr(
+        asyncio.get_running_loop(),
+        "getaddrinfo",
+        AsyncMock(return_value=[dns_answer("8.8.8.8")]),
+    )
+    async with create_outbound_http_client() as client:
+        transport = client._transport
+        assert isinstance(transport, OutboundHTTPTransport)
+        assert transport._egress_proxy is None
+        assert (await client.get("https://models.example.com/")).status_code == 200
+    # The fixture's HTTPS_PROXY stays ignored, as before.
+    assert network.connections == [("8.8.8.8", 443)]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "no_proxy,url,dialed",
+    [
+        (("example.com",), "https://example.com/", ("8.8.8.8", 443)),
+        (("example.com",), "https://api.example.com/", ("8.8.8.8", 443)),
+        (("example.com",), "https://notexample.com/", PROXY_ADDRESS),
+        ((ipaddress.ip_network("8.8.8.0/24"),), "http://8.8.8.8/", ("8.8.8.8", 80)),
+        ((ipaddress.ip_network("8.8.8.0/24"),), "http://8.8.4.4/", PROXY_ADDRESS),
+    ],
+)
+async def test_egress_proxy_no_proxy_connects_directly(
+    no_proxy: tuple[str | ipaddress.IPv4Network, ...],
+    url: str,
+    dialed: tuple[str, int],
+    network: RecordingBackend,
+    egress_proxy: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_NO_PROXY", no_proxy)
+    tunneled = dialed == PROXY_ADDRESS and url.startswith("https")
+    network.responses = [(CONNECT_OK, OK_RESPONSE) if tunneled else OK_RESPONSE]
+    async with create_outbound_http_client() as client:
+        assert (await client.get(url)).status_code == 200
+    assert network.connections == [dialed]
+
+
+@pytest.mark.anyio
+async def test_egress_proxy_bypass_keeps_direct_policy(
+    network: RecordingBackend,
+    egress_proxy: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        config,
+        "TRACECAT__OUTBOUND_NO_PROXY",
+        ("internal.example.com", ipaddress.ip_network("10.0.0.0/8")),
+    )
+    egress_proxy.return_value = [dns_answer("10.0.0.1")]
+    async with create_outbound_http_client() as client:
+        with pytest.raises(DisallowedUrlError):
+            await client.get("https://internal.example.com/")
+        with pytest.raises(DisallowedUrlError):
+            await client.get("http://10.0.0.1/")
+    assert network.connections == []
+
+
+@pytest.mark.anyio
+async def test_tunnel_proxy_takes_precedence_over_egress_proxy(
+    network: RecordingBackend,
+    egress_proxy: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    explicit = create_outbound_http_client(
+        tunnel_proxy="http://tunnel:token@10.1.2.3:8080"
+    )
+    monkeypatch.setenv(
+        "TRACECAT__TUNNEL_PROXY_URL", "http://tunnel:token@10.1.2.4:8080"
+    )
+    from_env = create_outbound_http_client()
+    for client, host in ((explicit, b"10.1.2.3"), (from_env, b"10.1.2.4")):
+        async with client:
+            transport = client._transport
+            assert isinstance(transport, OutboundHTTPTransport)
+            assert transport._egress_proxy is None
+            pool = vars(transport)["_pool"]
+            assert isinstance(pool, httpcore.AsyncHTTPProxy)
+            assert pool._proxy_url.host == host
+
+
+@pytest.mark.anyio
+async def test_model_discovery_uses_egress_proxy(
+    network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    body = orjson.dumps({"object": "list", "data": [{"id": "synthetic-model"}]})
+    network.responses = [(CONNECT_OK, json_response(body))]
+    response = await fetch_openai_compatible_models(
+        base_url="https://gateway.example.com/v1", api_key="synthetic", timeout=1
+    )
+    assert response.status_code == 200
+    with pytest.raises(DisallowedUrlError):
+        await fetch_openai_compatible_models(
+            base_url="http://127.0.0.1/v1", api_key="synthetic", timeout=1
+        )
+    assert network.connections == [PROXY_ADDRESS]
+
+
+@pytest.mark.anyio
+async def test_litellm_provider_calls_use_egress_proxy(
+    network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    body = orjson.dumps(
+        {
+            "id": "synthetic",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "synthetic-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+    )
+    network.responses = [(CONNECT_OK, json_response(body))]
+    # Without a request-scoped client, LiteLLM builds its own handler; the
+    # installed transport factory must still route it through the proxy.
+    response = await litellm.acompletion(
+        model="openai/synthetic-model",
+        api_base="https://gateway.example.com/v1",
+        api_key="synthetic",
+        messages=[{"role": "user", "content": "hello"}],
+        num_retries=0,
+        max_retries=0,
+    )
+    assert isinstance(response, litellm.ModelResponse)
+    assert response.choices[0].message.content == "hello"
+    assert network.connections == [PROXY_ADDRESS]
+    wire = b"".join(network.streams[0].writes)
+    assert wire.startswith(b"CONNECT gateway.example.com:443 HTTP/1.1\r\n")
+    assert b"POST /v1/chat/completions " in wire
+
+
+@pytest.mark.anyio
+async def test_guarded_llm_handler_uses_egress_proxy(
+    network: RecordingBackend, egress_proxy: AsyncMock
+) -> None:
+    network.responses = [(CONNECT_OK, OK_RESPONSE)]
+    handler = OutboundLLMHTTPHandler()
+    try:
+        response = await handler.get("https://gateway.example.com/v1/models")
+    finally:
+        await handler.close()
+    assert response.status_code == 200
+    assert network.connections == [PROXY_ADDRESS]

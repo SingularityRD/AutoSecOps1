@@ -1,9 +1,11 @@
 import logging
 import os
+import re
 import uuid
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from typing import Literal, cast
+from urllib.parse import urlsplit
 
 from tracecat import __version__
 from tracecat.agent.constants import (
@@ -811,6 +813,81 @@ def env_ports(name: str, *, default: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(ports)
 
 
+def env_proxy_url(name: str) -> str | None:
+    """Parse an optional HTTP(S) forward proxy URL from an environment variable.
+
+    Args:
+        name: Environment variable name.
+
+    Returns:
+        The stripped proxy URL, or None when the variable is unset or blank.
+
+    Raises:
+        ValueError: If the value is not an ``http`` or ``https`` URL with a host
+            and no path, query, or fragment. The message omits the value
+            because proxy URLs can carry credentials.
+    """
+    raw_value = (os.environ.get(name) or "").strip()
+    if not raw_value:
+        return None
+    try:
+        parsed = urlsplit(raw_value)
+        # Accessing the port validates it; urlsplit parses lazily.
+        _ = parsed.port
+    except ValueError:
+        # Suppress the cause: parser messages can echo parts of the value.
+        raise ValueError(f"{name} must be a valid proxy URL") from None
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            f"{name} must be an http:// or https:// proxy URL without a path"
+        )
+    return raw_value
+
+
+_NO_PROXY_LABEL = r"[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?"
+_NO_PROXY_HOSTNAME = re.compile(rf"{_NO_PROXY_LABEL}(\.{_NO_PROXY_LABEL})*")
+
+
+def env_no_proxy(name: str) -> tuple[str | IPv4Network | IPv6Network, ...]:
+    """Parse comma-separated proxy bypass entries from an environment variable.
+
+    Entries are hostnames, which also match their subdomains, or IP addresses
+    and CIDRs, which match literal IP hosts. A leading ``.`` or ``*.`` on a
+    hostname is accepted and ignored.
+
+    Args:
+        name: Environment variable name.
+
+    Returns:
+        Lowercase hostnames and parsed networks in configured order.
+
+    Raises:
+        ValueError: If an entry is neither a hostname nor an IP address or CIDR.
+    """
+    raw_value = os.environ.get(name, "")
+    entries: list[str | IPv4Network | IPv6Network] = []
+    for value in raw_value.split(","):
+        stripped = value.strip().lower()
+        if not stripped:
+            continue
+        try:
+            entries.append(ip_network(stripped.removeprefix("[").removesuffix("]")))
+            continue
+        except ValueError:
+            pass
+        hostname = stripped.removeprefix("*.").removeprefix(".").removesuffix(".")
+        if not _NO_PROXY_HOSTNAME.fullmatch(hostname):
+            raise ValueError(f"{name} contains an invalid entry: {stripped!r}")
+        entries.append(hostname)
+    return tuple(entries)
+
+
 TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
     "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS"
 )
@@ -819,6 +896,24 @@ TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
 Empty by default. Configure exact IPs or narrow CIDRs only for intentional private
 integrations. Every workspace using these clients can reach an allowed address.
 Set this in the process/container environment, not workspace or action inputs.
+"""
+
+TRACECAT__OUTBOUND_PROXY_URL = env_proxy_url("TRACECAT__OUTBOUND_PROXY_URL")
+"""Operator-configured HTTP(S) forward proxy for caller-controlled destinations.
+
+Unset by default, so outbound clients connect directly. When set, the shared
+outbound client still validates each target URL and resolves the target host
+locally against the outbound policy, then sends the request through this proxy.
+The proxy's own address is dialed without that policy, so it may be private.
+Generic ``HTTP_PROXY``/``HTTPS_PROXY`` variables are never honored implicitly.
+Tunneled requests keep using their tunnel gateway instead.
+"""
+
+TRACECAT__OUTBOUND_NO_PROXY = env_no_proxy("TRACECAT__OUTBOUND_NO_PROXY")
+"""Destinations that bypass ``TRACECAT__OUTBOUND_PROXY_URL``.
+
+Hostnames match themselves and their subdomains; IPs and CIDRs match literal IP
+hosts. Bypassed requests connect directly under the same outbound policy.
 """
 
 TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS = env_bool(
