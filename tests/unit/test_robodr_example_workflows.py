@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 from autosecops.dsl.common import DSLInput
+from autosecops.dsl.schemas import ActionStatement
 from autosecops.registry.repository import Repository
 from autosecops.validation.service import (
     validate_dsl_acyclic,
@@ -58,11 +59,12 @@ def _arg_errors(dsl: DSLInput, repo: Repository) -> list[str]:
     return errors
 
 
-def test_all_four_workflows_ship() -> None:
+def test_all_workflows_ship() -> None:
     titles = {_load(p).definition.title for p in WORKFLOW_FILES}
     assert titles == {
         "Robot finding triage",
         "Robot containment request (approval)",
+        "Robot action sign-off",
         "Rogue DDS participant",
         "Motion envelope violation",
     }
@@ -105,18 +107,86 @@ def test_tainted_fields_reach_prompts_only_through_render_untrusted(path: Path) 
         assert ".display" not in prompt and ".value }}" not in prompt
 
 
-def test_containment_request_goes_through_the_approval_gate() -> None:
+def _actions(name: str) -> dict[str, ActionStatement]:
+    dsl = _load(WORKFLOWS_DIR / name).definition
+    return {stmt.ref: stmt for stmt in dsl.actions}
+
+
+def test_containment_request_needs_platform_signoff() -> None:
     path = WORKFLOWS_DIR / "robot-containment-request.yml"
     dsl = _load(path).definition
-    actions = {stmt.ref: stmt for stmt in dsl.actions}
-    # The workflow never calls request_action directly ...
-    assert all(stmt.action != "tools.robodr.request_action" for stmt in dsl.actions)
-    # ... only through an agent whose single tool needs approval.
-    gate = actions["approved_request"]
-    assert gate.action == "ai.agent"
-    assert gate.args["actions"] == ["tools.robodr.request_action"]
-    assert gate.args["tool_approvals"] == {"tools.robodr.request_action": True}
-    assert gate.args["max_tool_calls"] == 1
-    # The policy check runs first and gates the request.
+    actions = _actions(path.name)
+    expects = dsl.entrypoint.expects or {}
+    # No input names a person: approvals are form submissions the action
+    # reads back from the platform.
+    assert "approved_by" not in expects and "requested_by" not in expects
+    assert "request_submission_id" in expects
+    assert "approval_submission_ids" in expects
+    # The robot answer key is required (no default) and used everywhere.
+    key = expects["answer_public_key_hex"]
+    assert key.type == "str" and not key.has_default()
+    send = actions["send"]
+    assert send.action == "tools.robodr.request_action"
+    assert send.args["request_submission_id"] == "${{ TRIGGER.request_submission_id }}"
+    assert (
+        send.args["approval_submission_ids"] == "${{ TRIGGER.approval_submission_ids }}"
+    )
+    assert send.args["request_id"] == "${{ ACTIONS.prepare.result.request_id }}"
+    for ref in ("snapshot", "send"):
+        assert (
+            actions[ref].args["answer_public_key_hex"]
+            == "${{ TRIGGER.answer_public_key_hex }}"
+        )
+    # The request is sent only when the policy allows it and sign-offs exist.
+    assert "policy.result.allowed" in str(send.run_if)
+    assert "request_submission_id" in str(send.run_if)
+    assert actions["prepare"].action == "tools.robodr.prepare_action_request"
     assert actions["policy"].action == "tools.robodr.check_action_policy"
-    assert "policy.result.allowed" in str(actions["request_arguments"].run_if)
+
+
+def test_signoff_workflow_collects_the_bound_answers() -> None:
+    dsl = _load(WORKFLOWS_DIR / "robot-action-sign-off.yml").definition
+    expects = dsl.entrypoint.expects or {}
+    assert set(expects) >= {
+        "robodr_request_id",
+        "robodr_request_digest",
+        "robodr_decision",
+    }
+    decision = expects["robodr_decision"]
+    assert decision.type == "str" and decision.enum == ["request", "approve"]
+    # It never contacts a robot.
+    assert all(not s.action.startswith("tools.robodr.") for s in dsl.actions)
+
+
+@pytest.mark.parametrize(
+    ("name", "ref"),
+    [
+        ("robot-finding-triage.yml", "render_tainted"),
+        ("rogue-dds-participant.yml", "participant"),
+        ("motion-envelope-violation.yml", "channel"),
+    ],
+)
+def test_whole_tainted_entries_reach_render_untrusted(name: str, ref: str) -> None:
+    """The entry carries `suspicious`; a bare `display` would drop it."""
+    stmt = _actions(name)[ref]
+    assert stmt.action == "tools.robodr.render_untrusted"
+    assert stmt.args["value"] == "${{ var.field }}"
+
+
+def test_triage_renders_the_case_summary_as_untrusted() -> None:
+    actions = _actions("robot-finding-triage.yml")
+    prompt = str(actions["triage_note"].args["user_prompt"])
+    slack = str(actions["notify"].args["text"])
+    for text in (prompt, slack):
+        assert "get_case.result.summary" not in text
+        assert "get_case.result.description" not in text
+    assert "ACTIONS.render_summary.result" in prompt
+    assert "ACTIONS.render_summary_markdown.result" in slack
+    for ref, mode in (
+        ("render_summary", "prompt"),
+        ("render_summary_markdown", "markdown"),
+    ):
+        stmt = actions[ref]
+        assert stmt.action == "tools.robodr.render_untrusted"
+        assert stmt.args["value"] == "${{ ACTIONS.get_case.result.summary }}"
+        assert stmt.args["mode"] == mode

@@ -6,6 +6,8 @@
 # ATT&CK for ICS context, asks a model for a structured triage note, and
 # notifies. Tainted (adversary-controlled) fields reach the model only as
 # `tools.robodr.render_untrusted` blocks, and reach the case only as code spans.
+# The case summary is rendered the same way before it reaches the model or
+# Slack: a case may come from somewhere other than the RoboDR ingest.
 # The model answers in a closed schema (enums plus one rationale string that is
 # rendered as untrusted), so injected text cannot set a verdict or a link.
 definition:
@@ -49,15 +51,36 @@ definition:
         - get_case
       for_each: ${{ for var.field in ACTIONS.get_case.result.payload.robodr.untrusted.values }}
       args:
-        value: ${{ var.field.display }}
+        # The whole entry, so its `suspicious` flag reaches the block header.
+        value: ${{ var.field }}
         field: ${{ var.field.pointer }}
         mode: prompt
         max_length: 400
+
+    - ref: render_summary
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - get_case
+      args:
+        value: ${{ ACTIONS.get_case.result.summary }}
+        field: case_summary
+        mode: prompt
+        max_length: 255
+
+    - ref: render_summary_markdown
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - get_case
+      args:
+        value: ${{ ACTIONS.get_case.result.summary }}
+        mode: markdown
+        max_length: 255
 
     - ref: triage_note
       action: ai.action
       depends_on:
         - render_tainted
+        - render_summary
       args:
         instructions: |
           You triage robot security findings from RoboDR for a SOC analyst.
@@ -72,7 +95,8 @@ definition:
           propose robot_safe_pause, robot_request_safe_state or
           robot_rollback_config for a humanoid robot.
         user_prompt: |
-          Finding: ${{ ACTIONS.get_case.result.summary }}
+          Case summary:
+          ${{ ACTIONS.render_summary.result }}
           Severity: ${{ ACTIONS.get_case.result.payload.robodr.severity }}
           Rule: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}
           Robot: ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
@@ -125,7 +149,6 @@ definition:
         - triage_note
       args:
         value: ${{ ACTIONS.triage_note.result.output.rationale }}
-        field: model_rationale
         mode: markdown
         max_length: 1500
 
@@ -154,17 +177,19 @@ definition:
           - Proposed actions (each needs approval through the containment workflow): `${{ FN.join(ACTIONS.triage_note.result.output.proposed_actions, ", ") }}`
           - Rationale: ${{ ACTIONS.render_rationale.result }}
 
-    # Slack gets sensor fields only; no tainted value leaves the case.
+    # Slack gets sensor fields and the rendered summary; no tainted value
+    # leaves the case.
     - ref: notify
       action: tools.slack.post_message
       depends_on:
         - comment
+        - render_summary_markdown
       run_if: ${{ FN.not_null(TRIGGER.slack_channel) }}
       args:
         channel: ${{ TRIGGER.slack_channel }}
         text: >-
           RoboDR ${{ ACTIONS.get_case.result.payload.robodr.severity }}:
-          ${{ ACTIONS.get_case.result.summary }} on
+          ${{ ACTIONS.render_summary_markdown.result }} on
           ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
           (rule ${{ ACTIONS.get_case.result.payload.robodr.rule_id }},
           ${{ FN.join(ACTIONS.get_case.result.payload.robodr.mitre_ics, ", ") }}). Case

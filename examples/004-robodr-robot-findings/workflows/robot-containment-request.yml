@@ -1,31 +1,35 @@
 # Robot containment request (approval).
 #
 # Sends one RoboDR catalog action to a robot's control plane, only after
-# approval. Three gates, in order:
+# people signed the exact request off on the platform. Run it twice:
 #
-# 1. `tools.robodr.check_action_policy` against the robot's own snapshot:
-#    catalog action, approvers (one person, or two different people for
+# 1. Without `request_submission_id`: the workflow validates the request,
+#    checks it against the robot's signed snapshot
+#    (`tools.robodr.check_action_policy`: catalog action, and morphology:
+#    robot_safe_pause, robot_request_safe_state and robot_rollback_config only
+#    for wheeled_mobile, arm, aerial or other, never rollback_config on a
+#    quadruped), and comments the `request_id` and `request_digest` on the
+#    case. Nothing is sent.
+# 2. The requester submits the "Robot action sign-off" form with
+#    `robodr_decision: request`, and one approver (two different people for
 #    robot_safe_pause, robot_request_safe_state and robot_rollback_config,
-#    never the requester), and morphology (a humanoid or a robot of unknown
-#    morphology never gets robot_safe_pause, robot_request_safe_state or
-#    robot_rollback_config; a quadruped never gets robot_rollback_config).
-#    A refusal is commented on the case and nothing is sent.
-# 2. The platform approval: `tools.robodr.request_action` is approval-gated
-#    (`requires_approval`), and this workflow calls it through an agent with
-#    `tool_approvals`, so the run pauses in the agent inbox until a reviewer
-#    approves the exact arguments.
-# 3. `request_action` re-checks the catalog parameters and the policy against
-#    a fresh robot snapshot before it signs and sends the request.
+#    never the requester) submits it with `robodr_decision: approve`, each
+#    with that `request_id` and `request_digest`.
+# 3. Run it again with the same action inputs, the `request_id`, and the
+#    submission ids. `tools.robodr.request_action` reads the submissions back
+#    from the platform, takes every identity from them (no input names a
+#    person), checks that they sign off this exact request, re-checks the
+#    policy against a fresh signed snapshot, and only then signs and sends.
 #
 # The robot judges the request again and may refuse it. The current RoboDR
 # release records accepted requests without executing them
 # (`recorded_not_executed`), which this workflow reports as not applied.
 definition:
   title: Robot containment request (approval)
-  description: Request an approved RoboDR robot action through the control plane.
+  description: Request a signed-off RoboDR robot action through the control plane.
   config:
     environment: default
-    timeout: 3600
+    timeout: 600
   entrypoint:
     expects:
       case_id:
@@ -33,25 +37,23 @@ definition:
         description: Case the request belongs to.
       base_url:
         type: str
-        description: Robot control-plane URL (TLS terminator in front of robodr-agentd).
+        description: >-
+          Robot control-plane URL, https://host[:port] with no path (TLS
+          terminator in front of robodr-agentd).
       robot_id:
         type: str
         description: Robot id robodr-agentd is configured with.
+      answer_public_key_hex:
+        type: str
+        description: >-
+          The robot's finding public key (64 hex). Required: the snapshot and
+          every answer must be signed by the robot.
       action:
         type: str
         description: >-
           Catalog wire name: robot_restrict_motion, robot_quarantine_node,
           robot_isolate_network, robot_record_evidence, robot_safe_pause,
           robot_request_safe_state or robot_rollback_config.
-      requested_by:
-        type: str
-        description: Person who requests the action.
-      approved_by:
-        type: list[str]
-        description: >-
-          People who approved the request, other than the requester. Two
-          different people for robot_safe_pause, robot_request_safe_state and
-          robot_rollback_config.
       reason:
         type: str
         description: Why the action is requested, at most 500 characters.
@@ -81,17 +83,53 @@ definition:
       to_version:
         type: str | None
         default: null
-      answer_public_key_hex:
+      request_id:
         type: str | None
-        description: Robot finding public key; when set, answers must be signed.
+        description: >-
+          Null on the first run (a new id is made). On the second run, the
+          request_id the sign-offs carry.
+        default: null
+      request_submission_id:
+        type: str | None
+        description: >-
+          Second run: the requester's "Robot action sign-off" submission id.
+          Null on the first run.
+        default: null
+      approval_submission_ids:
+        type: list[str]
+        description: >-
+          Second run: the approvers' "Robot action sign-off" submission ids.
+        default: []
+      answer_key_id:
+        type: str | None
+        description: Expected key id of the robot's answer signatures.
         default: null
   actions:
+    - ref: prepare
+      action: tools.robodr.prepare_action_request
+      args:
+        robot_id: ${{ TRIGGER.robot_id }}
+        action: ${{ TRIGGER.action }}
+        reason: ${{ TRIGGER.reason }}
+        ttl_seconds: ${{ TRIGGER.ttl_seconds }}
+        request_id: ${{ TRIGGER.request_id }}
+        max_linear_speed: ${{ TRIGGER.max_linear_speed }}
+        max_joint_speed: ${{ TRIGGER.max_joint_speed }}
+        workspace_zone: ${{ TRIGGER.workspace_zone }}
+        participant_guid: ${{ TRIGGER.participant_guid }}
+        node: ${{ TRIGGER.node }}
+        config: ${{ TRIGGER.config }}
+        to_version: ${{ TRIGGER.to_version }}
+
     - ref: snapshot
       action: tools.robodr.get_robot
+      depends_on:
+        - prepare
       args:
         base_url: ${{ TRIGGER.base_url }}
         robot_id: ${{ TRIGGER.robot_id }}
         answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
+        answer_key_id: ${{ TRIGGER.answer_key_id }}
 
     - ref: policy
       action: tools.robodr.check_action_policy
@@ -99,97 +137,120 @@ definition:
         - snapshot
       args:
         action: ${{ TRIGGER.action }}
-        requested_by: ${{ TRIGGER.requested_by }}
-        approved_by: ${{ TRIGGER.approved_by }}
         morphology: ${{ ACTIONS.snapshot.result.data.morphology }}
         advertised_actions: ${{ ACTIONS.snapshot.result.data.actions }}
+
+    # Snapshot values are rendered as code spans: they come from the robot.
+    - ref: shown_morphology
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - policy
+      args:
+        value: ${{ ACTIONS.snapshot.result.data.morphology }}
+        mode: markdown
+        max_length: 64
 
     - ref: refuse
       action: core.cases.create_comment
       depends_on:
-        - policy
+        - shown_morphology
       run_if: ${{ FN.is_equal(ACTIONS.policy.result.allowed, False) }}
       args:
         case_id: ${{ TRIGGER.case_id }}
         content: |
           ## Robot containment refused by the SOC policy
 
-          Nothing was sent to robot `${{ TRIGGER.robot_id }}`.
+          Nothing was sent to robot `${{ ACTIONS.prepare.result.robot_id }}`.
 
-          - Action: `${{ TRIGGER.action }}`
-          - Requested by: `${{ TRIGGER.requested_by }}`
-          - Robot morphology: `${{ ACTIONS.snapshot.result.data.morphology }}`
+          - Action: `${{ ACTIONS.prepare.result.wire_name }}`
+          - Robot morphology: ${{ ACTIONS.shown_morphology.result }}
           - Reasons: ${{ FN.join(ACTIONS.policy.result.reasons, "; ") }}
 
-    - ref: request_arguments
-      action: core.transform.reshape
+    - ref: ask_signoff
+      action: core.cases.create_comment
       depends_on:
-        - policy
-      run_if: ${{ FN.is_equal(ACTIONS.policy.result.allowed, True) }}
+        - shown_morphology
+      run_if: >-
+        ${{ FN.and(FN.is_equal(ACTIONS.policy.result.allowed, True),
+        FN.is_null(TRIGGER.request_submission_id)) }}
       args:
-        value:
-          base_url: ${{ TRIGGER.base_url }}
-          robot_id: ${{ TRIGGER.robot_id }}
-          action: ${{ ACTIONS.policy.result.wire_name }}
-          requested_by: ${{ TRIGGER.requested_by }}
-          approved_by: ${{ ACTIONS.policy.result.approved_by }}
-          reason: ${{ TRIGGER.reason }}
-          ttl_seconds: ${{ TRIGGER.ttl_seconds }}
-          max_linear_speed: ${{ TRIGGER.max_linear_speed }}
-          max_joint_speed: ${{ TRIGGER.max_joint_speed }}
-          workspace_zone: ${{ TRIGGER.workspace_zone }}
-          participant_guid: ${{ TRIGGER.participant_guid }}
-          node: ${{ TRIGGER.node }}
-          config: ${{ TRIGGER.config }}
-          to_version: ${{ TRIGGER.to_version }}
-          answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
+        case_id: ${{ TRIGGER.case_id }}
+        content: |
+          ## Robot containment request: sign-off needed
 
-    # The approval gate. The prompt holds only the analyst's own inputs, never
-    # a finding field, and the agent may call nothing but request_action.
-    - ref: approved_request
-      action: ai.agent
+          Nothing was sent. To send `${{ ACTIONS.prepare.result.wire_name }}` to
+          robot `${{ ACTIONS.prepare.result.robot_id }}`, submit the
+          "Robot action sign-off" form with:
+
+          - `robodr_request_id`: `${{ ACTIONS.prepare.result.request_id }}`
+          - `robodr_request_digest`: `${{ ACTIONS.prepare.result.request_digest }}`
+
+          The requester submits it once with `robodr_decision` = `request`.
+          ${{ ACTIONS.prepare.result.required_approvals }} other person(s)
+          (${{ ACTIONS.prepare.result.approval }} approval, never the
+          requester) each submit it with `robodr_decision` = `approve`. Then
+          run this workflow again with the same inputs, this `request_id` and
+          the submission ids.
+
+          Parameters: `${{ FN.serialize_json(ACTIONS.prepare.result.parameters) }}`,
+          ttl `${{ ACTIONS.prepare.result.ttl_seconds }}`.
+
+    - ref: send
+      action: tools.robodr.request_action
       depends_on:
-        - request_arguments
+        - shown_morphology
+      run_if: >-
+        ${{ FN.and(FN.is_equal(ACTIONS.policy.result.allowed, True),
+        FN.not_null(TRIGGER.request_submission_id)) }}
       args:
-        instructions: |
-          You submit exactly one pre-approved robot action request.
-          Call tools.robodr.request_action exactly once with exactly the JSON
-          arguments you are given, omitting arguments whose value is null.
-          Do not change, add or drop any argument. Do not call it again if it
-          fails or is denied. Then report the returned `status` and `report`
-          verbatim.
-        user_prompt: |
-          Arguments for tools.robodr.request_action:
-          ${{ FN.serialize_json(ACTIONS.request_arguments.result) }}
-        actions:
-          - tools.robodr.request_action
-        tool_approvals:
-          tools.robodr.request_action: true
-        max_tool_calls: 1
-        max_requests: 4
-        retries: 0
+        base_url: ${{ TRIGGER.base_url }}
+        robot_id: ${{ TRIGGER.robot_id }}
+        action: ${{ ACTIONS.prepare.result.wire_name }}
+        request_id: ${{ ACTIONS.prepare.result.request_id }}
+        request_submission_id: ${{ TRIGGER.request_submission_id }}
+        approval_submission_ids: ${{ TRIGGER.approval_submission_ids }}
+        answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
+        answer_key_id: ${{ TRIGGER.answer_key_id }}
+        reason: ${{ TRIGGER.reason }}
+        ttl_seconds: ${{ TRIGGER.ttl_seconds }}
+        max_linear_speed: ${{ TRIGGER.max_linear_speed }}
+        max_joint_speed: ${{ TRIGGER.max_joint_speed }}
+        workspace_zone: ${{ TRIGGER.workspace_zone }}
+        participant_guid: ${{ TRIGGER.participant_guid }}
+        node: ${{ TRIGGER.node }}
+        config: ${{ TRIGGER.config }}
+        to_version: ${{ TRIGGER.to_version }}
+
+    # The report quotes the robot's refusal reason: render it as a code span.
+    - ref: shown_report
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - send
+      args:
+        value: ${{ ACTIONS.send.result.report }}
+        mode: markdown
+        max_length: 600
 
     - ref: record
       action: core.cases.create_comment
       depends_on:
-        - approved_request
+        - shown_report
       args:
         case_id: ${{ TRIGGER.case_id }}
         content: |
           ## Robot containment request
 
-          - Robot: `${{ TRIGGER.robot_id }}`
-          - Action: `${{ ACTIONS.policy.result.wire_name }}` (${{ ACTIONS.policy.result.approval }} approval)
-          - Requested by: `${{ TRIGGER.requested_by }}`
-          - Approved by: `${{ FN.join(ACTIONS.policy.result.approved_by, ", ") }}`, plus the agent inbox decision
-          - Robot safety state at check time: `${{ FN.serialize_json(ACTIONS.snapshot.result.data.safety_state) }}`
-
-          Result as reported by the request step (`recorded_not_executed` means
-          the robot recorded the plan and executed nothing):
-
-          ${{ ACTIONS.approved_request.result.output }}
+          - Robot: `${{ ACTIONS.prepare.result.robot_id }}`
+          - Action: `${{ ACTIONS.send.result.wire_name }}` (${{ ACTIONS.send.result.approval }} approval)
+          - Request id: `${{ ACTIONS.send.result.request_id }}`
+          - Requested by (platform user): `${{ ACTIONS.send.result.requested_by.id }}`
+          - Approved by (platform users): `${{ FN.serialize_json(ACTIONS.send.result.approved_by) }}`
+          - Status: `${{ ACTIONS.send.result.status }}`
+          - Report: ${{ ACTIONS.shown_report.result }}
 
   returns:
     allowed: ${{ ACTIONS.policy.result.allowed }}
     reasons: ${{ ACTIONS.policy.result.reasons }}
-    approval: ${{ ACTIONS.policy.result.approval }}
+    request_id: ${{ ACTIONS.prepare.result.request_id }}
+    request_digest: ${{ ACTIONS.prepare.result.request_digest }}
+    status: ${{ ACTIONS.send.result.status }}

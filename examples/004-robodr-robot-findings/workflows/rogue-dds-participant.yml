@@ -54,7 +54,9 @@ definition:
         - is_rogue_dds
       for_each: ${{ for var.field in ACTIONS.get_case.result.payload.robodr.untrusted.values }}
       args:
-        value: ${{ FN.format("{} = {}", var.field.pointer, var.field.display) }}
+        # The whole entry, so its `suspicious` flag is shown.
+        value: ${{ var.field }}
+        field: ${{ var.field.pointer }}
         mode: markdown
         max_length: 600
 
@@ -92,9 +94,11 @@ definition:
           On a humanoid or quadruped, send `robot_quarantine_node` and
           `robot_isolate_network` only when the balance loop is not networked:
           on Unitree the low-level loop is a DDS writer of `rt/lowcmd`, and
-          cutting it trips the motor watchdog and the robot falls. Never send
-          `robot_safe_pause`, `robot_request_safe_state` or
-          `robot_rollback_config` to a humanoid.
+          cutting it trips the motor watchdog and the robot falls.
+          `robot_safe_pause`, `robot_request_safe_state` and
+          `robot_rollback_config` are sent only to a wheeled_mobile, arm,
+          aerial or other robot; the containment workflow refuses them for
+          any other morphology.
 
   returns:
     rule_id: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}

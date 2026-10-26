@@ -57,7 +57,9 @@ definition:
         - is_motion_violation
       for_each: ${{ for var.field in ACTIONS.get_case.result.payload.robodr.untrusted.values }}
       args:
-        value: ${{ FN.format("{} = {}", var.field.pointer, var.field.display) }}
+        # The whole entry, so its `suspicious` flag is shown.
+        value: ${{ var.field }}
+        field: ${{ var.field.pointer }}
         mode: markdown
         max_length: 600
 
@@ -90,9 +92,10 @@ definition:
              (single approval). A cap must be above 0; a stop is
              `robot_safe_pause`. On a humanoid or quadruped the robot refuses
              a cap below the policy's `min_motion_factor` (`fall_hazard`).
-          3. `robot_safe_pause` only for a wheeled or tracked robot, with two
-             approvers other than the requester. Never on a humanoid or a robot
-             of unknown morphology: the containment workflow refuses it.
+          3. `robot_safe_pause` only for a wheeled_mobile, arm, aerial or other
+             robot, with two approvers other than the requester. The
+             containment workflow refuses it for any other morphology
+             (humanoid, quadruped, unspecified or unknown).
 
           Mode `observe` means the robot reports only; it refuses every action
           except `robot_record_evidence`.
