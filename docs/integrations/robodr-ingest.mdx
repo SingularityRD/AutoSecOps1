@@ -31,7 +31,7 @@ You need the `robot:update` scope, which the Workspace Admin role has; `robot:re
 | `uplink` | One robot | Signs batches with findings of that robot only. |
 | `relay` | The workspace | Signs batches for any registered robot, such as a sensor box or the SOC-side diode importer. |
 | `finding` | One robot | Verifies the optional per-finding signature. Never signs a batch. |
-| `blackbox` | One robot | Verifies black-box evidence. Registered at [fleet enrollment](/integrations/robodr-fleet); never signs a batch. |
+| `blackbox` | One robot | Verifies black-box evidence. Registered only by [fleet enrollment](/integrations/robodr-fleet), never through the key API; never signs a batch. |
 
 A `relay` key takes two options:
 
@@ -54,7 +54,8 @@ curl -X POST "https://<your-host>/api/workspaces/<workspace-id>/robot-edr/keys" 
 ```
 
 The response carries the key id, `ed25519:<16 hex>`, which must match the `key_id` in the RoboDR key file.
-An active `uplink` or `relay` key can be registered in one workspace only.
+A public key is registered once on the whole instance, in one workspace for one robot, and stays taken after you delete the key: AutoSecOps refuses it again with `409`.
+A `finding` key may carry the producer's own key id, which must not have the `ed25519:` form unless it is the derived id.
 
 | Route | Scope |
 | --- | --- |
