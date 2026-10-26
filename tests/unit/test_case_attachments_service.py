@@ -31,6 +31,7 @@ from autosecops.storage.exceptions import (
     MaxAttachmentsExceededError,
     StorageLimitExceededError,
 )
+from tests.conftest import MINIO_PORT
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -137,7 +138,7 @@ async def configure_minio_for_attachments(
     monkeypatch.setattr(
         config,
         "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
-        "http://localhost:9000",
+        f"http://localhost:{MINIO_PORT}",
         raising=False,
     )
     monkeypatch.setattr(

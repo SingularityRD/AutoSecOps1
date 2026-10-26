@@ -64,24 +64,76 @@ class SearchMigration(Protocol):
     def downgrade(self) -> None: ...
 
 
-def load_search_migration() -> SearchMigration:
-    """Load the unmerged revision for disposable migration/transport fixtures."""
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "alembic/versions/e2018a1b2c3d_add_case_text_search_indexes.py"
-    )
-    spec = importlib.util.spec_from_file_location("case_text_search_migration", path)
+class RenameMigration(Protocol):
+    _RENAMES: tuple[tuple[str, str, str], ...]
+
+    def upgrade(self) -> None: ...
+    def downgrade(self) -> None: ...
+
+
+def _load_revision(filename: str, module_name: str) -> object:
+    path = Path(__file__).resolve().parents[2] / "alembic/versions" / filename
+    spec = importlib.util.spec_from_file_location(module_name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return cast(SearchMigration, module)
+    return module
+
+
+def load_search_migration() -> SearchMigration:
+    """Load the unmerged revision for disposable migration/transport fixtures."""
+    return cast(
+        SearchMigration,
+        _load_revision(
+            "e2018a1b2c3d_add_case_text_search_indexes.py",
+            "case_text_search_migration",
+        ),
+    )
+
+
+def load_rename_migration() -> RenameMigration:
+    """Load the revision that gives the helpers their AutoSecOps names."""
+    return cast(
+        RenameMigration,
+        _load_revision(
+            "07c9a895bd57_rename_case_text_search_helpers.py",
+            "case_text_search_rename_migration",
+        ),
+    )
+
+
+def renamed_helper_sql(sql: str) -> str:
+    """Rewrite e2018a1b2c3d helper references to the names 07c9a895bd57 sets.
+
+    The application only calls the renamed helpers, so fixtures that install
+    the functions or indexes directly must use the post-rename names.
+    """
+    for old_name, new_name, _ in load_rename_migration()._RENAMES:
+        sql = sql.replace(f"public.{old_name}(", f"public.{new_name}(")
+    return sql
+
+
+def _helpers_renamed(conn: Connection) -> bool:
+    return bool(
+        conn.scalar(
+            sa.text(
+                "SELECT to_regprocedure('public.autosecops_case_safe_vector_v1(text)')"
+                " IS NOT NULL"
+            )
+        )
+    )
 
 
 def apply_search_migration(
     engine: Engine, *, downgrade: bool = False, search_path: str | None = None
 ) -> None:
-    """Apply only this additive revision to the isolated minimal source table."""
+    """Apply the search revision and its helper rename to the minimal table.
+
+    Upgrade runs e2018a1b2c3d and then 07c9a895bd57, which is the state the
+    application expects. Downgrade first reverts the rename when it is applied.
+    """
     migration = load_search_migration()
+    rename = load_rename_migration()
     with engine.connect() as conn:
         context = MigrationContext.configure(conn)
         with context.begin_transaction(), Operations.context(context):
@@ -90,10 +142,13 @@ def apply_search_migration(
                     sa.text("SELECT set_config('search_path', :search_path, false)"),
                     {"search_path": search_path},
                 )
+            if _helpers_renamed(conn):
+                rename.downgrade()
             if downgrade:
                 migration.downgrade()
             else:
                 migration.upgrade()
+                rename.upgrade()
 
 
 @pytest.fixture
@@ -544,10 +599,12 @@ def test_migration_rebuilds_an_invalid_concurrent_index(
 ) -> None:
     """Cancel a real guarded build, then retry without deleting source data."""
     migration = load_search_migration()
-    expression = next(
-        expression
-        for name, expression in migration._INDEXES
-        if name == "ix_case_description_fts"
+    expression = renamed_helper_sql(
+        next(
+            expression
+            for name, expression in migration._INDEXES
+            if name == "ix_case_description_fts"
+        )
     )
     with search_database.begin() as conn:
         conn.execute(
