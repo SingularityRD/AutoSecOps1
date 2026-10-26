@@ -339,6 +339,11 @@ SYSTEM_SCOPE_DEFINITIONS: list[ScopeDefinition] = [
     ScopeDefinition("tunnel:create", "tunnel", "create", "Create network tunnels"),
     ScopeDefinition("tunnel:update", "tunnel", "update", "Modify network tunnels"),
     ScopeDefinition("tunnel:delete", "tunnel", "delete", "Delete network tunnels"),
+    # Robot EDR scopes
+    ScopeDefinition("robot:read", "robot", "read", "View robots and their keys"),
+    ScopeDefinition(
+        "robot:update", "robot", "update", "Register robots and manage their keys"
+    ),
     # Schedule scopes
     ScopeDefinition("schedule:read", "schedule", "read", "View schedules"),
     ScopeDefinition("schedule:create", "schedule", "create", "Create new schedules"),

@@ -48,6 +48,8 @@ WORKSPACE_SERVICE_ACCOUNT_ASSIGNABLE_SCOPES: frozenset[str] = frozenset(
         "tunnel:create",
         "tunnel:update",
         "tunnel:delete",
+        "robot:read",
+        "robot:update",
         "workflow:read",
         "workflow:sync",
         "workspace_sync:sync",

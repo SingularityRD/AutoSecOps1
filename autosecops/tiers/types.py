@@ -100,3 +100,11 @@ class EntitlementsDict(TypedDict, total=False):
             " network tunnels such as Pangolin",
         ),
     ]
+    robot_edr: Annotated[
+        bool,
+        Field(
+            title="Robot EDR",
+            description="Whether workspaces may register robots and ingest"
+            " RoboDR findings",
+        ),
+    ]

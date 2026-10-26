@@ -20,3 +20,4 @@ class Entitlement(StrEnum):
     SEMANTIC_SEARCH = "semantic_search"
     FORMS = "forms"
     TUNNELS = "tunnels"
+    ROBOT_EDR = "robot_edr"
