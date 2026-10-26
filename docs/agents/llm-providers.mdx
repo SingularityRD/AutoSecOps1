@@ -75,7 +75,7 @@ The allowlist applies to every workspace and also covers remote MCP servers, so 
 
 ## Corporate proxy
 
-If your network reaches the internet only through an HTTP or HTTPS forward proxy, set `AUTOSECOPS__OUTBOUND_PROXY_URL` on the `api`, `agent-worker`, `litellm`, and `agent-executor` services, then restart them. Provider requests, Test connection, Refresh models, passthrough requests, and remote MCP servers then go through the proxy.
+If your network reaches the internet only through an HTTP or HTTPS forward proxy, set `AUTOSECOPS__OUTBOUND_PROXY_URL` on the `api`, `agent-worker`, `litellm`, and `agent-executor` services, then restart them. Provider requests, Test connection, Refresh models, passthrough requests, remote MCP servers, and the token requests for Vertex AI service accounts and Azure Entra client credentials then go through the proxy.
 
 ```bash
 AUTOSECOPS__OUTBOUND_PROXY_URL=http://user:password@proxy.example.internal:3128
