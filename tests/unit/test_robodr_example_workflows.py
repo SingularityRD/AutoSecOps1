@@ -6,6 +6,8 @@ the DSL validators that need no database (graph, entrypoint, expressions) and
 check every action's arguments against the registry's input schema.
 """
 
+import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -31,11 +33,43 @@ WORKFLOW_FILES = sorted(WORKFLOWS_DIR.glob("*.yml"))
 UNTRUSTED_SOURCES = ("tainted", "detail", "ros.")
 
 
+REGISTRY_PACKAGE = "autosecops_registry"
+
+
+def _registry_modules() -> dict[str, dict[str, object]]:
+    return {
+        name: dict(vars(module))
+        for name, module in list(sys.modules.items())
+        if module is not None
+        and (name == REGISTRY_PACKAGE or name.startswith(f"{REGISTRY_PACKAGE}."))
+    }
+
+
 @pytest.fixture(scope="module")
-def repo() -> Repository:
+def repo() -> Iterator[Repository]:
+    """A fully initialised registry that does not leak into other test modules.
+
+    ``Repository.init`` reloads every ``autosecops_registry`` module in place,
+    which rebinds module globals such as exception classes to new objects.
+    Names other test modules imported earlier would then no longer match what
+    the registry raises, so the module namespaces are restored afterwards and
+    modules first imported here are dropped.
+    """
+    before = _registry_modules()
     repository = Repository()
     repository.init(include_base=True, include_templates=True)
-    return repository
+    try:
+        yield repository
+    finally:
+        for name in set(_registry_modules()) - set(before):
+            del sys.modules[name]
+        for name, namespace in before.items():
+            module = sys.modules.get(name)
+            if module is None:
+                continue
+            current = vars(module)
+            current.clear()
+            current.update(namespace)
 
 
 def _load(path: Path) -> ExternalWorkflowDefinition:

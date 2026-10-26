@@ -8,12 +8,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from autosecops_registry.integrations import robodr as registry_robodr
 from autosecops_registry.integrations.robodr import (
     RENDER_ALLOWED,
     finding_to_case_fields,
-)
-from autosecops_registry.integrations.robodr import (
-    FindingError as RegistryFindingError,
 )
 
 from autosecops.robot_edr import crypto, rendering
@@ -364,7 +362,10 @@ def test_contract_version_vector_agrees_with_the_registry() -> None:
         checked = check_line(number, raw)
         value = json.loads(raw)["value"]
         if isinstance(checked, LineRejection):
-            with pytest.raises(RegistryFindingError) as exc_info:
+            # Look the class up at call time: ``Repository.init`` (run by other
+            # test modules) reloads the integration modules in place, which
+            # rebinds ``FindingError`` to a new class object.
+            with pytest.raises(registry_robodr.FindingError) as exc_info:
                 finding_to_case_fields(value)
             assert exc_info.value.code == _REGISTRY_CODE[checked.code], value
             continue
