@@ -18,16 +18,20 @@ Run with:
 
 Tune with TRACECAT_ROBOT_EDR_BENCHMARK_BATCH_SIZES (comma-separated, default
 ``50,1000``) and TRACECAT_ROBOT_EDR_BENCHMARK_FINDINGS (findings per size,
-default 10 000).
+default 10 000). TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=1 calls
+``gc.freeze()`` first, as an API process could after start-up: full
+collections then skip the start-up objects (here they cost about 0.45 s
+each, every few 1000-line batches).
 """
 
 from __future__ import annotations
 
+import gc
 import os
 import statistics
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 
 import httpx
 import pytest
@@ -87,6 +91,20 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
             await session.commit()
 
 
+@pytest.fixture
+def gc_frozen() -> Iterator[None]:
+    """Opt-in: ``gc.freeze()`` as an API process could after start-up."""
+    if os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE") != "1":
+        yield
+        return
+    gc.collect()
+    gc.freeze()
+    try:
+        yield
+    finally:
+        gc.unfreeze()
+
+
 def _p95(values: list[float]) -> float:
     ordered = sorted(values)
     return ordered[max(0, int(round(0.95 * len(ordered))) - 1)]
@@ -109,6 +127,7 @@ def _batch_body(size: int, batch: int, count: int) -> bytes:
     return body
 
 
+@pytest.mark.usefixtures("gc_frozen")
 async def test_ingest_latency(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

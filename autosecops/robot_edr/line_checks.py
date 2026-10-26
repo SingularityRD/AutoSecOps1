@@ -35,9 +35,10 @@ MAX_VALUE_BYTES: Final = 256 * 1024
 DETAIL_MAX: Final = 300
 
 # Worker processes for large batches; 0 checks every batch in the API process.
+# The API process only waits while the workers run, so they may use every CPU.
 CHECK_WORKERS: Final = int(
     os.environ.get("TRACECAT__ROBOT_EDR_CHECK_WORKERS")
-    or min(4, max(0, (os.cpu_count() or 1) - 1))
+    or (min(4, os.cpu_count() or 1) if (os.cpu_count() or 1) > 1 else 0)
 )
 # Below this many lines a batch is checked in the API process: shipping the
 # lines to the workers would cost more than it saves.
