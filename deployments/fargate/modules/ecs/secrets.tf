@@ -190,6 +190,63 @@ resource "aws_secretsmanager_secret_version" "sentry_dsn" {
   secret_string = var.sentry_dsn
 }
 
+# The license key and the outbound proxy URL (which can embed credentials) are
+# sensitive, so they live in Terraform-managed secrets and reach containers via
+# ECS `secrets`, not the plaintext task-definition environment. Same pattern as
+# the Sentry DSN above.
+locals {
+  license_key_enabled        = nonsensitive(var.license_key != null && var.license_key != "")
+  outbound_proxy_url_enabled = nonsensitive(var.outbound_proxy_url != null && var.outbound_proxy_url != "")
+}
+
+resource "aws_secretsmanager_secret" "license_key" {
+  count       = local.license_key_enabled ? 1 : 0
+  name_prefix = "${var.name_prefix}-license-key-"
+  description = "AutoSecOps license key"
+}
+
+resource "aws_secretsmanager_secret_version" "license_key" {
+  count         = local.license_key_enabled ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.license_key[0].id
+  secret_string = var.license_key
+}
+
+resource "aws_secretsmanager_secret" "outbound_proxy_url" {
+  count       = local.outbound_proxy_url_enabled ? 1 : 0
+  name_prefix = "${var.name_prefix}-outbound-proxy-url-"
+  description = "AutoSecOps outbound HTTP(S) proxy URL"
+}
+
+resource "aws_secretsmanager_secret_version" "outbound_proxy_url" {
+  count         = local.outbound_proxy_url_enabled ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.outbound_proxy_url[0].id
+  secret_string = var.outbound_proxy_url
+}
+
+locals {
+  # Pin the secret versions so a changed value creates new task-definition
+  # revisions that roll the services.
+  license_key_secret = local.license_key_enabled ? [
+    {
+      name      = "AUTOSECOPS__LICENSE_KEY"
+      valueFrom = "${aws_secretsmanager_secret_version.license_key[0].arn}:::${aws_secretsmanager_secret_version.license_key[0].version_id}"
+    }
+  ] : []
+
+  outbound_proxy_url_secret = local.outbound_proxy_url_enabled ? [
+    {
+      name      = "AUTOSECOPS__OUTBOUND_PROXY_URL"
+      valueFrom = "${aws_secretsmanager_secret_version.outbound_proxy_url[0].arn}:::${aws_secretsmanager_secret_version.outbound_proxy_url[0].version_id}"
+    }
+  ] : []
+
+  # Settings every AutoSecOps backend service reads.
+  autosecops_common_secrets = concat(
+    local.license_key_secret,
+    local.outbound_proxy_url_secret,
+  )
+}
+
 locals {
   required_autosecops_base_secrets = [
     {
@@ -226,7 +283,10 @@ locals {
     }
   ] : []
 
-  autosecops_base_secrets = local.required_autosecops_base_secrets
+  autosecops_base_secrets = concat(
+    local.required_autosecops_base_secrets,
+    local.autosecops_common_secrets,
+  )
 
   autosecops_temporal_secrets = concat(
     local.autosecops_base_secrets,

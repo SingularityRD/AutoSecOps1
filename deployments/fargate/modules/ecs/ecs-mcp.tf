@@ -15,7 +15,7 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
+    merge({
       name      = "AutoSecOpsMcpContainer"
       image     = "${var.autosecops_image}:${local.autosecops_image_tag}"
       essential = true
@@ -45,7 +45,7 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
         retries     = 3
         startPeriod = 30
       }
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 

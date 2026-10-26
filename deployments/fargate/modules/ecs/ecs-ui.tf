@@ -13,7 +13,7 @@ resource "aws_ecs_task_definition" "ui_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
+    merge({
       name  = "AutoSecOpsUiContainer"
       image = "${var.autosecops_ui_image}:${local.autosecops_image_tag}"
       portMappings = [
@@ -34,7 +34,7 @@ resource "aws_ecs_task_definition" "ui_task_definition" {
       }
       environment = local.ui_env
       secrets     = local.autosecops_ui_secrets
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 

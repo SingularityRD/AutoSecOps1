@@ -391,10 +391,15 @@ def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> 
                 f"{path.name}: {service} must forward the override and default to empty"
             )
     fargate = REPO_ROOT / "deployments/fargate"
-    assert re.search(
-        rf"{name}\s*=\s*var\.{tf_var}\n",
-        (fargate / "modules/ecs/locals.tf").read_text(),
-    )
+    if name in FARGATE_SECRET_SETTINGS:
+        assert (
+            f'name      = "{name}"' in (fargate / "modules/ecs/secrets.tf").read_text()
+        )
+    else:
+        assert re.search(
+            rf"{name}\s*=\s*var\.{tf_var}\n",
+            (fargate / "modules/ecs/locals.tf").read_text(),
+        )
     assert re.search(
         rf"{tf_var}\s*=\s*var\.{tf_var}\n",
         (fargate / "main.tf").read_text(),
@@ -404,6 +409,45 @@ def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> 
             rf'variable "{tf_var}" \{{[^}}]*default\s*=\s*""',
             (fargate / tf).read_text(),
         ), tf
+
+
+FARGATE_SECRET_SETTINGS = {
+    "AUTOSECOPS__LICENSE_KEY": "license_key",
+    "AUTOSECOPS__OUTBOUND_PROXY_URL": "outbound_proxy_url",
+}
+
+
+@pytest.mark.parametrize("name,tf_var", sorted(FARGATE_SECRET_SETTINGS.items()))
+def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> None:
+    """Task-definition env is plaintext to anyone with ecs:DescribeTaskDefinition."""
+    ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
+    assert not re.search(
+        rf"^\s*{name}\s*=", (ecs / "locals.tf").read_text(), re.MULTILINE
+    ), f"{name} must not be in a task-definition environment map"
+    secrets = (ecs / "secrets.tf").read_text()
+    assert f'name      = "{name}"' in secrets
+    assert f"secret_string = var.{tf_var}" in secrets
+    iam = (ecs / "iam.tf").read_text()
+    assert f"aws_secretsmanager_secret.{tf_var}[*].arn" in iam
+
+
+def test_fargate_autosecops_containers_use_registry_credentials() -> None:
+    ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
+    checked = 0
+    for tf in sorted(ecs.glob("ecs-*.tf")):
+        source = tf.read_text()
+        for block in re.split(r"\n    (?:merge\()?\{\n", source)[1:]:
+            image = re.search(r"^      image\s*=\s*(.+)$", block, re.MULTILINE)
+            if image is None or "autosecops" not in image.group(1):
+                continue
+            checked += 1
+            assert re.search(
+                r"\n    \}, local\.autosecops_repository_credentials\)", block
+            ), f"{tf.name}: {image.group(1)} has no repositoryCredentials"
+    assert checked >= 9
+    fargate = REPO_ROOT / "deployments/fargate"
+    for tf in ("variables.tf", "main.tf", "modules/ecs/variables.tf"):
+        assert "autosecops_registry_credentials_arn" in (fargate / tf).read_text()
 
 
 def test_smtp_env_is_wired_to_api_deployments() -> None:

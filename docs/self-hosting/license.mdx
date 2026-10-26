@@ -34,7 +34,7 @@ Set it as `AUTOSECOPS__LICENSE_KEY` on every backend service: `api`, `worker`, `
     ```
   </Tab>
   <Tab title="AWS Fargate">
-    Set the `license_key` Terraform variable, then apply.
+    Set the `license_key` Terraform variable, then apply. Terraform stores the key in a Secrets Manager secret and injects it through the task definition `secrets`, so it does not appear in the plaintext container environment.
 
     ```bash
     export TF_VAR_license_key="eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx..."
