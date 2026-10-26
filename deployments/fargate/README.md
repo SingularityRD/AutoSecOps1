@@ -104,6 +104,17 @@ and tag as the application. Set these optional variables to decouple it:
 For app-only rollbacks, keep the migrations image on a version that understands
 the current Alembic database revision while rolling back the app images.
 
+## Resource name prefixes
+
+`name_prefix` (default `tracecat`) and `iam_name_prefix` (default `Tracecat`)
+predate the AutoSecOps name. New installs may set `autosecops` / `AutoSecOps`
+before the first apply. Keep the defaults on existing stacks: AWS resource names
+are immutable, so a prefix change replaces the VPC, ALB, ECS cluster, Redis, S3
+buckets, IAM roles, and task definition families. To migrate, stand up a second
+stack with the new prefixes, restore the core database with
+`restore_from_snapshot`, `aws s3 sync` the buckets, then cut DNS over. See
+`docs/self-hosting/aws-fargate.mdx`.
+
 ## Useful outputs
 
 - `public_app_url`
