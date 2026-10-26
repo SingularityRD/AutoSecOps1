@@ -41,7 +41,7 @@ dependencies = [
     "email-validator==2.2.0",
     "fastapi-users[sqlalchemy,oauth]==15.0.5",
     "fastapi[standard]==0.137.1",
-    "fastmcp==3.2.0",
+    "fastmcp==3.4.10",
     "google-auth==2.48.0",
     "greenlet==3.0.3",
     "griffe==2.0.2",
@@ -103,7 +103,7 @@ members = ["packages/*"]
 exclude-newer = "7 days"
 # Security fixes allowed inside the cooldown; each is also pinned exactly.
 # Remove on or after 2026-10-28: once the 7-day cutoff passes, these block upgrades.
-exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", pillow = "2026-10-21T00:00:00Z", uv = "2026-10-21T00:00:00Z", virtualenv = "2026-10-18T00:00:00Z" }
+exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", fastmcp = "2026-10-21T00:00:00Z", fastmcp-slim = "2026-10-21T00:00:00Z", pillow = "2026-10-21T00:00:00Z", setuptools = "2026-10-21T00:00:00Z", uv = "2026-10-21T00:00:00Z", virtualenv = "2026-10-18T00:00:00Z" }
 # Keep overrides only for requirements that conflict with our pinned versions.
 override-dependencies = [
     # LiteLLM requires boto3>=1.43.1,<2.0; aioboto3 pins boto3<1.40.62.
@@ -115,12 +115,16 @@ constraint-dependencies = [
     # Chardet 7.x is incompatible with PolyFile 0.5.6 binary detection.
     "chardet==6.0.0.post1",
     "fickling==0.1.12",
+    # GHSA-v4x8-3wr5-3wq8, GHSA-9vhv-jxww-xfm5, GHSA-567q-5qvw-pf92.
+    "filelock==4.2.1",
     "mako==1.4.2",
     "pillow==13.0.0",
     "pyasn1==0.6.4",
     "python-multipart==0.0.31",
+    # GHSA-xmj3-9gf7-h52w.
+    "setuptools==84.1.0",
     "urllib3==2.8.0",
-    "virtualenv==21.14.9",
+    "virtualenv==21.14.10",
 ]
 
 [dependency-groups]
