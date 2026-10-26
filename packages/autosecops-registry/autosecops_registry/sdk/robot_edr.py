@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from autosecops_registry.sdk.client import TracecatClient
@@ -47,7 +48,7 @@ class RobotEdrClient:
             The stored evidence: attachment id, storage key and digests.
         """
         return await self._client.post(
-            f"/robot-edr/cases/{case_id}/evidence",
+            f"/robot-edr/cases/{quote(case_id, safe='')}/evidence",
             json={
                 "robot_id": robot_id,
                 "export_id": export_id,
@@ -73,4 +74,21 @@ class RobotEdrClient:
                 "operation": operation,
                 "export_id": export_id,
             },
+        )
+
+    async def blackbox_public_keys(self, robot_id: str) -> list[str]:
+        """The robot's registered black-box public key files.
+
+        Registered at fleet enrollment (``robodr.fleet`` §3, role
+        ``blackbox``); retired keys included, so a chain that spans a
+        re-enrollment still verifies.
+
+        Args:
+            robot_id: The robot whose keys to read.
+
+        Returns:
+            ``robodr-blackbox-key/v2`` public key files (JSON text).
+        """
+        return await self._client.get(
+            f"/robot-edr/robots/{quote(robot_id, safe='')}/blackbox-keys"
         )

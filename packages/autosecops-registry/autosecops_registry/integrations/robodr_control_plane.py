@@ -1729,6 +1729,20 @@ async def _record_access(
     return True
 
 
+async def _registered_blackbox_keys(robot_id: str) -> list[str]:
+    """The black-box keys the robot registered at fleet enrollment."""
+    try:
+        keys = await get_context().robot_edr.blackbox_public_keys(robot_id)
+    except Exception as exc:  # fail closed: no keyring, no verification
+        raise EvidenceError(
+            "no black-box public keys given and none registered for the robot "
+            f"({type(exc).__name__}); pass blackbox_public_keys"
+        ) from exc
+    if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+        raise EvidenceError("the platform returned malformed black-box keys")
+    return keys
+
+
 @registry.register(
     default_title="List RoboDR evidence",
     description=(
@@ -1979,15 +1993,16 @@ async def download_evidence_export(
     robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
     answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
     export_id: Annotated[str, _EXPORT_ID_DOC],
+    case_id: Annotated[str, Doc("Case the verified evidence is stored for.")],
     blackbox_public_keys: Annotated[
-        list[str],
+        list[str] | None,
         Doc(
             "The robot's black-box public key files (robodr-blackbox keygen "
             ".pub JSON), every key the chain names across rotations. Public "
-            "key files only."
+            "key files only. Omit to use the black-box keys the robot "
+            "registered at fleet enrollment."
         ),
-    ],
-    case_id: Annotated[str, Doc("Case the verified evidence is stored for.")],
+    ] = None,
     finding_id: Annotated[str | None, _FINDING_ID_DOC] = None,
     evidence_links: Annotated[list[str] | None, _EVIDENCE_LINKS_DOC] = None,
     context_records: Annotated[int | None, _CONTEXT_RECORDS_DOC] = None,
@@ -2011,6 +2026,8 @@ async def download_evidence_export(
         answer_key_id=answer_key_id,
     )
     _check_export_id(export_id)
+    if blackbox_public_keys is None:
+        blackbox_public_keys = await _registered_blackbox_keys(robot.robot_id)
     keyring = parse_blackbox_keyring(blackbox_public_keys)
     selector = _selector(
         robot.robot_id,

@@ -199,6 +199,10 @@ from autosecops.query.errors import (
 from autosecops.registry.actions.router import router as registry_actions_router
 from autosecops.registry.repositories.router import router as registry_repos_router
 from autosecops.registry.sync.jobs import sync_platform_registry_on_startup
+from autosecops.robot_edr.fleet_admin_router import (
+    router as robot_edr_fleet_admin_router,
+)
+from autosecops.robot_edr.fleet_router import router as robot_edr_fleet_router
 from autosecops.robot_edr.ingest_router import router as robot_edr_ingest_router
 from autosecops.robot_edr.router import router as robot_edr_router
 from autosecops.search.embeddings.router import router as embedding_configuration_router
@@ -647,6 +651,7 @@ def create_app(**kwargs) -> FastAPI:
     # Routers
     app.include_router(webhook_router)
     app.include_router(robot_edr_ingest_router)
+    app.include_router(robot_edr_fleet_router)
     app.include_router(agent_channels_router)
     app.include_router(workspaces_router)
     app.include_router(embedding_configuration_router)
@@ -669,6 +674,7 @@ def create_app(**kwargs) -> FastAPI:
     _include_workspace_scoped_router(app, schedules_router)
     _include_workspace_scoped_router(app, tags_router)
     _include_workspace_scoped_router(app, robot_edr_router)
+    _include_workspace_scoped_router(app, robot_edr_fleet_admin_router)
     app.include_router(users_router)
     app.include_router(org_router)
     app.include_router(invitations_router)

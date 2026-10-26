@@ -175,7 +175,7 @@ class RobotsService(BaseWorkspaceService):
                 "public_key is not a canonical, large-order Ed25519 public key"
             )
         derived = derive_key_id(public_key)
-        if params.role in SENDER_KEY_ROLES:
+        if params.role in SENDER_KEY_ROLES or params.role is RobotKeyRole.BLACKBOX:
             if params.key_id is not None and params.key_id != derived:
                 raise TracecatValidationError(
                     f"A {params.role} key's id is derived from its public key: {derived}"

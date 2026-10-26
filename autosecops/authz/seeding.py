@@ -344,6 +344,18 @@ SYSTEM_SCOPE_DEFINITIONS: list[ScopeDefinition] = [
     ScopeDefinition(
         "robot:update", "robot", "update", "Register robots and manage their keys"
     ),
+    ScopeDefinition(
+        "robot:enroll",
+        "robot",
+        "enroll",
+        "Manage the SOC fleet key and issue robot enrollment tokens",
+    ),
+    ScopeDefinition(
+        "robot:approve",
+        "robot",
+        "approve",
+        "Sign off robot profile approvals (observe to enforce)",
+    ),
     # Schedule scopes
     ScopeDefinition("schedule:read", "schedule", "read", "View schedules"),
     ScopeDefinition("schedule:create", "schedule", "create", "Create new schedules"),

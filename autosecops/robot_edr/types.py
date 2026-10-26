@@ -18,6 +18,9 @@ class RobotKeyRole(StrEnum):
     """Signs batches for any robot registered in the workspace."""
     FINDING = "finding"
     """Verifies per-finding signatures of its robot; never signs a batch."""
+    BLACKBOX = "blackbox"
+    """Verifies its robot's black-box records and evidence bundles; registered
+    at fleet enrollment and never authenticates a batch or a fleet request."""
 
 
 SENDER_KEY_ROLES: frozenset[RobotKeyRole] = frozenset(
@@ -103,3 +106,108 @@ class LineRejection:
     line: int
     code: LineErrorCode
     detail: str
+
+
+class FleetErrorCode(StrEnum):
+    """Error codes of the `robodr.fleet` API (contract §2.6)."""
+
+    BAD_REQUEST = "bad_request"
+    BAD_HEADER = "bad_header"
+    INVALID_PROFILE = "invalid_profile"
+    BAD_TOKEN = "bad_token"
+    BAD_SIGNATURE = "bad_signature"
+    UNKNOWN_KEY = "unknown_key"
+    STALE_TIMESTAMP = "stale_timestamp"
+    WRONG_KEY = "wrong_key"
+    REPLAYED_REQUEST = "replayed_request"
+    WORKSPACE_MISMATCH = "workspace_mismatch"
+    ROBOT_MISMATCH = "robot_mismatch"
+    NO_LIST = "no_list"
+    NO_PROFILE = "no_profile"
+    NO_APPROVAL = "no_approval"
+    NO_RING = "no_ring"
+    UNKNOWN_ROTATION = "unknown_rotation"
+    NOT_FOUND = "not_found"
+    TOKEN_USED = "token_used"
+    KEY_CONFLICT = "key_conflict"
+    ROTATION_IN_PROGRESS = "rotation_in_progress"
+    ROTATION_ID_REUSE = "rotation_id_reuse"
+    STALE_KEY = "stale_key"
+    ALREADY_RETIRED = "already_retired"
+    ROTATION_CANCELLED = "rotation_cancelled"
+    ALREADY_CANCELLED = "already_cancelled"
+    TOKEN_EXPIRED = "token_expired"
+    TOO_LARGE = "too_large"
+    UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"
+    # AutoSecOps extensions (contract §2.6 allows new codes):
+    NOT_ENTITLED = "not_entitled"
+    """`403`: the workspace lacks the `robot_edr` entitlement."""
+    TLS_REQUIRED = "tls_required"
+    """`403`: plain HTTP from a non-loopback client (contract §1)."""
+    NO_FLEET_KEY = "no_fleet_key"
+    """`503`: the workspace has no active SOC fleet key to sign the answer."""
+
+
+class FleetSocKeyKind(StrEnum):
+    """The two kinds of SOC Ed25519 keys (contract §2.7)."""
+
+    FLEET = "fleet"
+    """Online: tokens, enroll/rotate/retire/cancel answers, ring information."""
+    APPROVAL = "approval"
+    """Profile approvals only, used after the two-person sign-off."""
+
+
+class FleetSocKeyStatus(StrEnum):
+    """Lifecycle of a SOC key (contract §2.7 rotation)."""
+
+    PENDING = "pending"
+    """Generated or imported; robots must install it before it signs."""
+    ACTIVE = "active"
+    """The key the SOC signs with (one per kind and workspace)."""
+    RETIRED = "retired"
+    """No longer used to sign."""
+
+
+class FleetRotationStatus(StrEnum):
+    """State of a key rotation (contract §5)."""
+
+    OPEN = "open"
+    RETIRED = "retired"
+    CANCELLED = "cancelled"
+
+
+class FleetApprovalStatus(StrEnum):
+    """State of a profile approval (contract §6.3)."""
+
+    PENDING = "pending"
+    """Requested by one operator; waits for a second, distinct operator."""
+    SIGNED = "signed"
+    """Signed by the approval key; served to the robot."""
+    CANCELLED = "cancelled"
+
+
+class FleetFailureReason(StrEnum):
+    """Why a fleet request failed authentication; recorded in the audit log."""
+
+    BAD_HEADER = "bad_header"
+    UNKNOWN_KEY = "unknown_key"
+    STALE_TIMESTAMP = "stale_timestamp"
+    BAD_SIGNATURE = "bad_signature"
+    WRONG_KEY = "wrong_key"
+    REPLAYED_REQUEST = "replayed_request"
+    BAD_TOKEN = "bad_token"
+
+
+@dataclass(frozen=True, slots=True)
+class FleetRobot:
+    """The robot an authenticated fleet request acts for."""
+
+    robot_fk: uuid.UUID
+    robot_id: str
+    workspace_id: WorkspaceID
+    organization_id: OrganizationID
+    fleet_workspace: str
+    """The workspace label of the robot's enrollment (the contract's `workspace`)."""
+    key_fk: uuid.UUID
+    key_id: str
+    """The uplink key that authenticated the request."""

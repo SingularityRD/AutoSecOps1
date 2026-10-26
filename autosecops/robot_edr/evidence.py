@@ -43,6 +43,7 @@ from autosecops.cases.attachments.service import ROBODR_EVIDENCE_PREFIX
 from autosecops.cases.service import CasesService
 from autosecops.db.models import Robot, RobotKey
 from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.robot_edr.fleet_wire import public_key_file
 from autosecops.robot_edr.schemas import (
     EvidenceAccessRequest,
     EvidenceStoreRequest,
@@ -143,6 +144,35 @@ class RobotEvidenceService(BaseWorkspaceService):
         )
         rows = (await self.session.execute(stmt)).tuples().all()
         return {key_id: bytes(public_key) for key_id, public_key in rows}
+
+    async def blackbox_key_files(self, robot_id: str) -> list[str]:
+        """The robot's registered black-box public key files (``robodr-blackbox-key/v2``).
+
+        Every black-box key the robot ever registered, retired ones included,
+        oldest first: an evidence chain may name keys across re-enrollments.
+
+        Raises:
+            TracecatNotFoundError: The robot has no registered black-box key.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        stmt = (
+            select(RobotKey.public_key)
+            .join(Robot, Robot.id == RobotKey.robot_fk)
+            .where(
+                Robot.workspace_id == self.workspace_id,
+                Robot.robot_id == robot_id,
+                RobotKey.workspace_id == self.workspace_id,
+                RobotKey.role == RobotKeyRole.BLACKBOX.value,
+            )
+            .order_by(RobotKey.created_at.asc(), RobotKey.id.asc())
+            .limit(16)
+        )
+        keys = (await self.session.scalars(stmt)).all()
+        if not keys:
+            raise TracecatNotFoundError(
+                "The robot has no registered black-box key (enroll it first)"
+            )
+        return [public_key_file(bytes(key)) for key in keys]
 
     async def store_verified_export(
         self, case_id: uuid.UUID, params: EvidenceStoreRequest

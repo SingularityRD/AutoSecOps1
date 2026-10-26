@@ -936,6 +936,16 @@ class Robot(WorkspaceModel):
     require_finding_signature: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
+    fleet_workspace: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        doc="robodr.fleet: the workspace label the robot enrolled with",
+    )
+    fleet_enrolled_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    fleet_agentd_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fleet_profile_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
 
 
 class RobotKey(WorkspaceModel):
@@ -949,7 +959,9 @@ class RobotKey(WorkspaceModel):
     __tablename__ = "robot_key"
     __table_args__ = (
         UniqueConstraint("workspace_id", "key_id"),
-        CheckConstraint("role IN ('uplink', 'relay', 'finding')", name="role"),
+        CheckConstraint(
+            "role IN ('uplink', 'relay', 'finding', 'blackbox')", name="role_v2"
+        ),
         CheckConstraint("(role = 'relay') = (robot_fk IS NULL)", name="robot_binding"),
         CheckConstraint("octet_length(public_key) = 32", name="public_key_length"),
         CheckConstraint(
@@ -962,6 +974,7 @@ class RobotKey(WorkspaceModel):
             unique=True,
             postgresql_where=text("role IN ('uplink', 'relay') AND revoked_at IS NULL"),
         ),
+        Index("ix_robot_key_public_key", "public_key"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -1135,6 +1148,259 @@ class RobotIngestBatch(WorkspaceModel):
             "Response of the first processing. Written in the batch's own "
             "transaction, so a committed row always carries it."
         ),
+    )
+
+
+class RobotFleetSocKey(WorkspaceModel):
+    """A SOC Ed25519 key of the `robodr.fleet` API (contract §2.7).
+
+    The secret seed is Fernet-encrypted with the database encryption key, the
+    same way workspace secrets are stored.
+    """
+
+    __tablename__ = "robot_fleet_soc_key"
+    __table_args__ = (
+        CheckConstraint("kind IN ('fleet', 'approval')", name="kind"),
+        CheckConstraint("status IN ('pending', 'active', 'retired')", name="status"),
+        CheckConstraint("octet_length(public_key) = 32", name="public_key_length"),
+        Index(
+            "ix_robot_fleet_soc_key_active_kind",
+            "workspace_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    key_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    encrypted_seed: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    retired_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class RobotFleetToken(WorkspaceModel):
+    """A single-use enrollment token (contract §3.1).
+
+    Only what enrollment needs is kept: the payload fields and the nonce
+    (Fernet-encrypted) to check request MACs; never the token itself.
+    """
+
+    __tablename__ = "robot_fleet_token"
+    __table_args__ = (
+        CheckConstraint(
+            "expires_at_ms > issued_at_ms AND expires_at_ms - issued_at_ms <= 604800000",
+            name="validity",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    token_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    fleet_workspace: Mapped[str] = mapped_column(String(64), nullable=False)
+    robot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    site: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    soc_key_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    issued_at_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expires_at_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    encrypted_nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    robot_fk: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    request_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    answer: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        doc="The stored enroll answer, returned byte for byte on a retry",
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class RobotFleetRotation(WorkspaceModel):
+    """A key rotation of one robot and role (contract §5).
+
+    A cancel of a rotation the SOC never received is recorded as a cancelled
+    row without a rotate answer, so the late rotate request is refused.
+    """
+
+    __tablename__ = "robot_fleet_rotation"
+    __table_args__ = (
+        CheckConstraint("role IN ('uplink', 'finding')", name="role"),
+        CheckConstraint("status IN ('open', 'retired', 'cancelled')", name="status"),
+        Index(
+            "ix_robot_fleet_rotation_open_role",
+            "robot_fk",
+            "role",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    rotation_id: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    robot_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    old_key_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    new_key_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    request_digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    rotate_answer: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    retire_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    retire_answer: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    cancel_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    cancel_answer: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+
+class RobotFleetRevocationList(WorkspaceModel):
+    """A root-signed `robodr-profile-revocations/v2` list (contract §4.1)."""
+
+    __tablename__ = "robot_fleet_revocation_list"
+    __table_args__ = (UniqueConstraint("workspace_id", "platform", "serial"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    platform: Mapped[str] = mapped_column(String(64), nullable=False)
+    serial: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    list_digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    signer_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature_checked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    body: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class RobotFleetProfileDraft(WorkspaceModel):
+    """A draft profile a robot published for review (contract §6.1)."""
+
+    __tablename__ = "robot_fleet_profile_draft"
+    __table_args__ = (UniqueConstraint("robot_fk", "digest"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    robot_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    body: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class RobotFleetProfileOffer(WorkspaceModel):
+    """The locked profile currently offered to a robot (contract §6.2)."""
+
+    __tablename__ = "robot_fleet_profile_offer"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    robot_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    profile_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    platform: Mapped[str] = mapped_column(String(64), nullable=False)
+    digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    body: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, doc="The offer JSON, served verbatim"
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class RobotFleetApproval(WorkspaceModel):
+    """An observe -> enforce approval of one exact profile (contract §6.3).
+
+    Signed by the approval key only once two distinct platform users (the
+    requester and an approver) have signed it off.
+    """
+
+    __tablename__ = "robot_fleet_approval"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'signed', 'cancelled')", name="status"),
+        CheckConstraint(
+            "validity_ms > 0 AND validity_ms <= 604800000", name="validity"
+        ),
+        CheckConstraint(
+            "approved_by IS NULL OR approved_by <> requested_by",
+            name="two_person",
+        ),
+        Index("ix_robot_fleet_approval_robot_digest", "robot_fk", "profile_digest"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    approval_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    robot_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="CASCADE"), nullable=False
+    )
+    platform: Mapped[str] = mapped_column(String(64), nullable=False)
+    profile_digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    profile_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    validity_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
+    issued_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    expires_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    signer_key_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    envelope: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+
+class RobotFleetRing(WorkspaceModel):
+    """A signed update-ring document of a robot (contract §7)."""
+
+    __tablename__ = "robot_fleet_ring"
+    __table_args__ = (UniqueConstraint("robot_fk", "serial"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    robot_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("robot.id", ondelete="CASCADE"), nullable=False
+    )
+    serial: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ring: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    bundle_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    min_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    issued_at_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expires_at_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    envelope: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
     )
 
 

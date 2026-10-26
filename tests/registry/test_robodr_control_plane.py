@@ -489,6 +489,8 @@ class FakeRobotEdr:
 
     stored: list[dict[str, Any]] = field(default_factory=list)
     accesses: list[dict[str, Any]] = field(default_factory=list)
+    registered_blackbox_keys: list[str] = field(default_factory=list)
+    key_reads: list[str] = field(default_factory=list)
 
     async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
         self.stored.append({"case_id": case_id, **kwargs})
@@ -496,6 +498,10 @@ class FakeRobotEdr:
 
     async def record_evidence_access(self, **kwargs: Any) -> None:
         self.accesses.append(kwargs)
+
+    async def blackbox_public_keys(self, robot_id: str) -> list[str]:
+        self.key_reads.append(robot_id)
+        return list(self.registered_blackbox_keys)
 
 
 @dataclass
@@ -1707,6 +1713,31 @@ async def test_download_verifies_resumes_and_stores(stub, platform) -> None:
 
 
 @pytest.mark.anyio
+async def test_download_uses_the_registered_blackbox_keys(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    _robot_edr(platform).registered_blackbox_keys = [BLACKBOX_PUB]
+    with soc_secrets():
+        result = await cp.download_evidence_export(
+            **_evidence_kwargs(base_url), case_id="CASE-0042"
+        )
+    assert result["verified"] is True
+    assert _robot_edr(platform).key_reads == [ROBOT_ID]
+
+
+@pytest.mark.anyio
+async def test_download_without_any_blackbox_key_fails_closed(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="black-box"):
+            await cp.download_evidence_export(
+                **_evidence_kwargs(base_url), case_id="CASE-0042"
+            )
+    assert _robot_edr(platform).stored == []
+
+
+@pytest.mark.anyio
 async def test_a_tampered_chunk_is_never_stored(stub, platform) -> None:
     robot, base_url = stub
     evidence = EvidenceRobot()
@@ -1774,6 +1805,8 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
         sent.append(request)
         if request.url.path.endswith("/access"):
             return httpx.Response(204)
+        if request.url.path.endswith("/blackbox-keys"):
+            return httpx.Response(200, json=[])
         return httpx.Response(201, json={"attachment_id": "a"})
 
     def transport(*, uds: str) -> httpx.MockTransport:
@@ -1791,12 +1824,18 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
         verification={"verified": True},
     )
     await client.robot_edr.record_evidence_access(robot_id=ROBOT_ID, operation="list")
+    await client.robot_edr.blackbox_public_keys(ROBOT_ID)
     assert [(r.method, str(r.url)) for r in sent] == [
         (
             "POST",
             "http://tracecat-action-gateway/internal/robot-edr/cases/CASE-0042/evidence",
         ),
         ("POST", "http://tracecat-action-gateway/internal/robot-edr/evidence/access"),
+        (
+            "GET",
+            "http://tracecat-action-gateway/internal/robot-edr/robots/"
+            f"{ROBOT_ID}/blackbox-keys",
+        ),
     ]
     assert json.loads(sent[0].content)["export_id"] == EXPORT_ID
     assert json.loads(sent[1].content) == {

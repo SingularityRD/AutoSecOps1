@@ -9,7 +9,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from autosecops.core.schemas import Schema
-from autosecops.robot_edr.types import LineErrorCode, RobotKeyRole
+from autosecops.robot_edr.types import (
+    FleetApprovalStatus,
+    FleetRotationStatus,
+    FleetSocKeyKind,
+    FleetSocKeyStatus,
+    LineErrorCode,
+    RobotKeyRole,
+)
 
 ROBOT_ID_PATTERN = r"^[A-Za-z0-9._-]{1,64}$"
 LABEL_PATTERN = r"^[ -;=?-_a-~]*$"
@@ -56,6 +63,7 @@ class RobotRead(Schema):
     model: str | None
     morphology: str | None
     require_finding_signature: bool
+    fleet_enrolled_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -183,3 +191,251 @@ class EvidenceAccessRequest(BaseModel):
     robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
     operation: Literal["list", "create_export", "download_export"]
     export_id: str | None = Field(default=None, pattern=EXPORT_ID_PATTERN)
+
+
+# --- fleet (robodr.fleet API v1) --------------------------------------------------
+
+FLEET_LABEL_PATTERN = r"^[A-Za-z0-9._-]{1,64}$"
+FLEET_VERSION_PATTERN = r"^[0-9][0-9A-Za-z.+~-]{0,63}$"
+FLEET_DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
+MAX_TOKEN_VALIDITY_HOURS = 168
+MAX_APPROVAL_VALIDITY_HOURS = 168
+
+
+class FleetErrorResponse(BaseModel):
+    """Error body of the robot-facing fleet endpoints (contract §2.6)."""
+
+    code: str
+    detail: str
+
+
+class FleetDraftReceipt(BaseModel):
+    """`200` body of `POST /robot-edr/v2/fleet/profiles/drafts`."""
+
+    digest: str
+    status: Literal["received"]
+
+
+class FleetSocKeyCreate(Schema):
+    """Generate a SOC key, or import one generated offline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: FleetSocKeyKind
+    secret_key_file: str | None = Field(
+        default=None,
+        max_length=4096,
+        description=(
+            "Optional robodr-blackbox-key/v2 secret key file to import instead of "
+            "generating a key on the server"
+        ),
+    )
+
+
+class FleetSocKeyRead(Schema):
+    """A SOC key (public material only)."""
+
+    id: uuid.UUID
+    kind: FleetSocKeyKind
+    key_id: str
+    fingerprint: str
+    status: FleetSocKeyStatus
+    public_key_file: str = Field(
+        ..., description="The robodr-blackbox-key/v2 public file robots install"
+    )
+    created_at: datetime
+    activated_at: datetime | None
+    retired_at: datetime | None
+
+
+class FleetTokenCreate(Schema):
+    """Issue a single-use enrollment token for a robot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    validity_hours: int = Field(default=24, ge=1, le=MAX_TOKEN_VALIDITY_HOURS)
+
+
+class FleetTokenRead(Schema):
+    """An enrollment token (never the token itself)."""
+
+    id: uuid.UUID
+    token_id: str
+    robot_id: str
+    site: str | None
+    workspace: str
+    soc_key_id: str
+    issued_at: datetime
+    expires_at: datetime
+    consumed_at: datetime | None
+    revoked_at: datetime | None
+    status: Literal["active", "consumed", "expired", "revoked"]
+
+
+class FleetTokenIssued(FleetTokenRead):
+    """A newly issued token: the only response that carries the token."""
+
+    token: str = Field(
+        ...,
+        description=(
+            "The compact token (rdet1.…). A bearer credential until consumed: it is "
+            "shown once and never stored"
+        ),
+    )
+
+
+class FleetRotationRead(Schema):
+    """A key rotation of the robot (contract §5)."""
+
+    rotation_id: str
+    role: RobotKeyRole
+    old_key_id: str
+    new_key_id: str
+    status: FleetRotationStatus
+    received: bool = Field(
+        ..., description="False for a cancel of a rotation the SOC never received"
+    )
+    created_at: datetime
+    closed_at: datetime | None
+
+
+class FleetDraftRead(Schema):
+    """A draft profile the robot published for review."""
+
+    id: uuid.UUID
+    digest: str
+    size: int
+    received_at: datetime
+
+
+class FleetDraftContent(FleetDraftRead):
+    """A draft profile with its file text."""
+
+    profile: str
+
+
+class FleetOfferUpdate(Schema):
+    """Offer a locked, signed profile to the robot (contract §6.2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profile: str = Field(
+        ...,
+        min_length=1,
+        max_length=1024 * 1024,
+        description="The locked profile file, exactly as robodr-commission wrote it",
+    )
+    signature: str = Field(
+        ...,
+        min_length=1,
+        max_length=64 * 1024,
+        description="The profile's .sig file, exactly as written",
+    )
+
+
+class FleetOfferRead(Schema):
+    """The profile currently offered to the robot."""
+
+    digest: str
+    profile_version: int
+    platform: str
+    updated_at: datetime
+
+
+class FleetApprovalCreate(Schema):
+    """Request an observe -> enforce approval of the offered profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profile_digest: str = Field(..., pattern=FLEET_DIGEST_PATTERN)
+    validity_hours: int = Field(default=24, ge=1, le=MAX_APPROVAL_VALIDITY_HOURS)
+
+
+class FleetApprovalRead(Schema):
+    """An approval request and, once two people signed it off, its signature."""
+
+    id: uuid.UUID
+    approval_id: str
+    profile_digest: str
+    profile_version: int
+    platform: str
+    status: FleetApprovalStatus
+    requested_by: uuid.UUID | None
+    approved_by: uuid.UUID | None
+    validity_hours: int
+    issued_at: datetime | None
+    expires_at: datetime | None
+    signer_key_id: str | None
+    created_at: datetime
+
+
+class FleetRingUpdate(Schema):
+    """Publish update-ring information for the robot (contract §7)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ring: int = Field(..., ge=0, le=2, description="0 canary, 1 early, 2 broad")
+    target_version: str | None = Field(default=None, pattern=FLEET_VERSION_PATTERN)
+    bundle_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    min_version: str | None = Field(
+        default=None,
+        pattern=FLEET_VERSION_PATTERN,
+        description="Security floor: the lowest release the robot may run",
+    )
+    validity_hours: int = Field(default=24 * 7, ge=1, le=24 * 90)
+
+
+class FleetRingRead(Schema):
+    """The latest update-ring document of the robot."""
+
+    serial: int
+    ring: int
+    target_version: str | None
+    bundle_sha256: str | None
+    min_version: str | None
+    issued_at: datetime
+    expires_at: datetime
+
+
+class FleetRevocationCreate(Schema):
+    """Publish a root-signed revocation list for a platform (contract §4.1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    revocation_list: str = Field(..., min_length=1, max_length=1024 * 1024)
+    trust_root_public_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description=(
+            "Optional trust-root public key (robodr-blackbox-key/v2 file or 64 hex) "
+            "to check the list's signature before publishing"
+        ),
+    )
+
+
+class FleetRevocationRead(Schema):
+    """A published revocation list."""
+
+    id: uuid.UUID
+    platform: str
+    serial: int
+    list_digest: str
+    signer_key_id: str
+    signature_checked: bool
+    created_at: datetime
+
+
+class RobotFleetStatus(Schema):
+    """The fleet lifecycle of one robot (latest 20 items of each kind)."""
+
+    enrolled: bool
+    workspace: str | None
+    enrolled_at: datetime | None
+    agentd_version: str | None
+    profile_digest: str | None
+    tokens: list[FleetTokenRead]
+    rotations: list[FleetRotationRead]
+    drafts: list[FleetDraftRead]
+    offer: FleetOfferRead | None
+    approvals: list[FleetApprovalRead]
+    ring: FleetRingRead | None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Path, status
 
 from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.authz.controls import require_scope
@@ -11,6 +11,7 @@ from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
+    ROBOT_ID_PATTERN,
     EvidenceAccessRequest,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
@@ -53,3 +54,20 @@ async def record_evidence_access(
 ) -> None:
     """Audit-log a workflow's read of a robot's evidence."""
     await RobotEvidenceService(session, role=role).record_access(params)
+
+
+@router.get("/robots/{robot_id}/blackbox-keys")
+@require_scope("robot:read")
+async def list_blackbox_keys(
+    *,
+    role: ExecutorWorkspaceRole,
+    session: AsyncDBSession,
+    robot_id: str = Path(..., pattern=ROBOT_ID_PATTERN),
+) -> list[str]:
+    """The robot's registered black-box public key files (fleet enrollment)."""
+    try:
+        return await RobotEvidenceService(session, role=role).blackbox_key_files(
+            robot_id
+        )
+    except TracecatNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
