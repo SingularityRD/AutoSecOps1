@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 import orjson
 import pytest
 
-from tracecat.contexts import ctx_logical_time
-from tracecat.expressions.functions import (
+from autosecops.contexts import ctx_logical_time
+from autosecops.expressions.functions import (
     _bool,
     add,
     add_prefix,

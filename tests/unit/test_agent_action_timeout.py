@@ -8,16 +8,16 @@ import uuid
 
 import pytest
 
-from tracecat.agent import types as agent_types
-from tracecat.agent.constants import (
+from autosecops.agent import types as agent_types
+from autosecops.agent.constants import (
     AGENT_TIMEOUT_SECONDS_DEFAULT,
     AGENT_TIMEOUT_SECONDS_FLOOR,
 )
-from tracecat.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
-from tracecat.dsl.constants import DEFAULT_ACTION_TIMEOUT
-from tracecat.dsl.schemas import ActionRetryPolicy, ActionStatement
-from tracecat.workflow.actions.schemas import ActionControlFlow, ActionRead
-from tracecat.workflow.management.schemas import ExternalWorkflowDefinition
+from autosecops.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
+from autosecops.dsl.constants import DEFAULT_ACTION_TIMEOUT
+from autosecops.dsl.schemas import ActionRetryPolicy, ActionStatement
+from autosecops.workflow.actions.schemas import ActionControlFlow, ActionRead
+from autosecops.workflow.management.schemas import ExternalWorkflowDefinition
 
 
 def _task(
@@ -130,8 +130,8 @@ def test_legacy_db_row_with_baked_generic_default_clamps_up() -> None:
     """Rows persisted before clamping stored the full ActionControlFlow dump,
     baking the generic 300s default in as an explicit author value. Rebuilding
     statements from such rows must clamp the timeout up to the agent floor."""
-    from tracecat.db.models import Action
-    from tracecat.dsl.common import build_action_statements_from_actions
+    from autosecops.db.models import Action
+    from autosecops.dsl.common import build_action_statements_from_actions
 
     workflow_id = uuid.uuid4()
     legacy_row = Action(
@@ -156,7 +156,7 @@ def test_legacy_db_row_with_baked_generic_default_clamps_up() -> None:
 def test_action_write_api_clamps_out_of_bounds_agent_timeout() -> None:
     """Expand phase: the authoring surface clamps and persists instead of
     rejecting; a follow-up flips this to a 422 once telemetry is quiet."""
-    from tracecat.workflow.actions.router import _clamp_agent_timeout
+    from autosecops.workflow.actions.router import _clamp_agent_timeout
 
     def clamp(action_type: str, payload: dict | None) -> ActionControlFlow | None:
         cf = ActionControlFlow.model_validate(payload) if payload is not None else None
@@ -277,10 +277,10 @@ async def test_action_create_persists_agent_default_timeout() -> None:
     values and non-agent actions are untouched."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from tracecat.auth.types import Role
-    from tracecat.identifiers import WorkflowUUID
-    from tracecat.workflow.actions.schemas import ActionCreate
-    from tracecat.workflow.actions.service import WorkflowActionService
+    from autosecops.auth.types import Role
+    from autosecops.identifiers import WorkflowUUID
+    from autosecops.workflow.actions.schemas import ActionCreate
+    from autosecops.workflow.actions.service import WorkflowActionService
 
     session = MagicMock()
     session.commit = AsyncMock()
@@ -331,9 +331,9 @@ async def test_graph_add_node_persists_agent_default_timeout() -> None:
     the default injection must live on that path too."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from tracecat.auth.types import Role
-    from tracecat.workflow.graph.service import WorkflowGraphService
-    from tracecat.workflow.management.schemas import AddNodePayload
+    from autosecops.auth.types import Role
+    from autosecops.workflow.graph.service import WorkflowGraphService
+    from autosecops.workflow.management.schemas import AddNodePayload
 
     session = MagicMock()
     session.flush = AsyncMock()

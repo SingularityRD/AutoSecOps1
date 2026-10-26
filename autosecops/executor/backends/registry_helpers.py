@@ -1,0 +1,128 @@
+"""Shared helpers for resolving and ordering registry artifact URIs."""
+
+from __future__ import annotations
+
+import functools
+
+import autosecops_registry
+
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl.schemas import RunActionInput
+from autosecops.executor.registry_artifacts import bundled_builtin_registry_uri
+from autosecops.executor.service import (
+    RegistryArtifactsContext,
+    get_registry_artifacts_for_lock,
+)
+from autosecops.logger import logger
+from autosecops.registry.constants import (
+    DEFAULT_REGISTRY_ORIGIN,
+    PLATFORM_REGISTRY_NAMESPACE,
+)
+from autosecops.registry.sync.prebuilt import load_prebuilt_builtin_registry_manifest
+from autosecops.registry.versions.schemas import registry_manifest_fingerprint
+
+
+async def get_registry_artifact_uris(
+    input: RunActionInput,
+    role: Role,
+) -> list[str]:
+    """Get registry artifact URIs for the execution environment.
+
+    The returned list may include a pseudo-URI for the builtin registry package
+    already installed in the executor image.
+    """
+    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        return []
+
+    origins = dict(input.registry_lock.origins)
+    artifact_uris: list[str] = []
+
+    if (
+        origins.get(DEFAULT_REGISTRY_ORIGIN) == autosecops_registry.__version__
+        and (builtin_version := origins.get(DEFAULT_REGISTRY_ORIGIN)) is not None
+        and _bundled_builtin_matches_lock(input.registry_lock, builtin_version)
+    ):
+        del origins[DEFAULT_REGISTRY_ORIGIN]
+        artifact_uris.append(bundled_builtin_registry_uri(builtin_version))
+
+    if not origins:
+        return artifact_uris
+
+    if role.organization_id is None:
+        raise ValueError("organization_id is required for registry artifacts lookup")
+
+    artifacts = await get_registry_artifacts_for_lock(
+        origins,
+        role.organization_id,
+    )
+    return artifact_uris + sort_registry_artifact_uris(artifacts)
+
+
+def _bundled_builtin_matches_lock(registry_lock: object, version: str) -> bool:
+    """Return whether this executor can satisfy the locked builtin from its image."""
+    origin_fingerprints = getattr(registry_lock, "origin_fingerprints", None)
+    if not isinstance(origin_fingerprints, dict):
+        return True
+
+    expected = origin_fingerprints.get(DEFAULT_REGISTRY_ORIGIN)
+    if expected is None:
+        return True
+
+    actual = _bundled_builtin_fingerprint(
+        config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR, version
+    )
+    if actual is None:
+        logger.info(
+            "Bundled builtin registry fingerprint unavailable; using artifact lookup",
+            registry_version=version,
+        )
+        return False
+
+    if actual != expected:
+        logger.info(
+            "Bundled builtin registry fingerprint mismatch; using artifact lookup",
+            registry_version=version,
+            expected_fingerprint=expected,
+            actual_fingerprint=actual,
+        )
+        return False
+
+    return True
+
+
+@functools.cache
+def _bundled_builtin_fingerprint(prebuilt_dir: str, version: str) -> str | None:
+    """Fingerprint the image's prebuilt builtin manifest once per process.
+
+    The manifest is baked into the image and never changes under a running
+    process, so parsing the multi-megabyte file on every action is wasted work.
+    ``prebuilt_dir`` is part of the key because the loader resolves it from config.
+    """
+    manifest = load_prebuilt_builtin_registry_manifest(
+        origin=DEFAULT_REGISTRY_ORIGIN,
+        target_version=version,
+        storage_namespace=PLATFORM_REGISTRY_NAMESPACE,
+    )
+    if manifest is None:
+        return None
+    return registry_manifest_fingerprint(manifest)
+
+
+def sort_registry_artifact_uris(
+    artifacts: list[RegistryArtifactsContext],
+) -> list[str]:
+    """Sort artifacts: autosecops_registry first, then lexicographically by origin."""
+    builtin_uris: list[str] = []
+    other_uris: list[tuple[str, str]] = []
+
+    for artifact in artifacts:
+        if not artifact.artifact_uri:
+            continue
+        if artifact.origin == DEFAULT_REGISTRY_ORIGIN:
+            builtin_uris.append(artifact.artifact_uri)
+        else:
+            other_uris.append((artifact.origin, artifact.artifact_uri))
+
+    other_uris.sort(key=lambda item: item[0])
+    return builtin_uris + [uri for _, uri in other_uris]

@@ -12,19 +12,15 @@ from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_org_membership_via_group,
-)
-from tracecat import config
-from tracecat.auth import domain_policy
-from tracecat.auth.enums import AuthType
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES
-from tracecat.authz.seeding import seed_system_roles_for_org, seed_system_scopes
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth import domain_policy
+from autosecops.auth.enums import AuthType
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.scopes import ORG_ADMIN_SCOPES
+from autosecops.authz.seeding import seed_system_roles_for_org, seed_system_scopes
+from autosecops.db.models import (
     ExternalGroup,
     ExternalGroupMapping,
     Group,
@@ -40,25 +36,29 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     InvitationGrant as InvitationGrantRow,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import (
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatValidationError,
 )
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.router import get_invitation_by_token
-from tracecat.invitations.schemas import InvitationCreate, InvitationGrant
-from tracecat.invitations.service import (
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.router import get_invitation_by_token
+from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
+from autosecops.invitations.service import (
     InvitationService,
     accept_invitation_for_user,
     find_invitation_by_token,
     get_pending_invitation_for_email,
 )
-from tracecat.organization.router import list_org_members
-from tracecat.organization.service import OrgService
+from autosecops.organization.router import list_org_members
+from autosecops.organization.service import OrgService
+from tests.support.membership import (
+    grant_org_membership,
+    grant_org_membership_via_group,
+)
 
 
 @pytest.fixture
@@ -156,11 +156,11 @@ async def invitee(session: AsyncSession) -> User:
 def rbac_addons_entitled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Invitation-group tests run with RBAC add-ons unless they override it."""
     monkeypatch.setattr(
-        "tracecat.invitations.service.is_org_entitled",
+        "autosecops.invitations.service.is_org_entitled",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.service.is_org_entitled",
+        "autosecops.service.is_org_entitled",
         AsyncMock(return_value=True),
     )
 
@@ -633,7 +633,7 @@ class TestCreateInvitationGroups:
         group = await _group(session, org.id, "premium")
         role_id = await _role_id(session, org.id, "organization-admin")
         monkeypatch.setattr(
-            "tracecat.invitations.service.is_org_entitled",
+            "autosecops.invitations.service.is_org_entitled",
             AsyncMock(return_value=False),
         )
 
@@ -1120,7 +1120,7 @@ class TestAcceptInvitationGroups:
             )
         )
         monkeypatch.setattr(
-            "tracecat.invitations.service.is_org_entitled",
+            "autosecops.invitations.service.is_org_entitled",
             AsyncMock(return_value=False),
         )
 

@@ -10,24 +10,24 @@ import pytest
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.dropdowns.schemas import CaseDropdownValueInput
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.cases.dropdowns.schemas import CaseDropdownValueInput
+from autosecops.cases.enums import (
     CaseAgentSessionInteractionOperation,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.cases.schemas import (
+from autosecops.cases.schemas import (
     CaseCommentCreate,
     CaseCommentUpdate,
     CaseCreate,
     CaseUpdate,
 )
-from tracecat.cases.service import CaseCommentsService, CasesService
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.contexts import ctx_agent_session_id
-from tracecat.db.models import (
+from autosecops.cases.service import CaseCommentsService, CasesService
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.contexts import ctx_agent_session_id
+from autosecops.db.models import (
     AgentSession,
     Case,
     CaseAgentSessionInteraction,
@@ -54,15 +54,15 @@ def isolate_case_side_effects() -> Iterator[None]:
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.publish_case_event_payload",
+            "autosecops.cases.events.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat.cases.service.publish_case_event_payload",
+            "autosecops.cases.service.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
     ):

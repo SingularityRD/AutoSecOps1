@@ -5,19 +5,19 @@ import base64
 import httpx
 import pytest
 import respx
-from pydantic import ValidationError
-from tenacity import RetryError
-from tracecat_registry._internal.exceptions import TracecatException
-from tracecat_registry.core.http import (
+from autosecops_registry._internal.exceptions import TracecatException
+from autosecops_registry.core.http import (
     FileUploadData,
     http_paginate,
     http_poll,
     http_request,
     httpx_to_response,
 )
+from pydantic import ValidationError
+from tenacity import RetryError
 
-from tracecat.expressions.functions import str_to_b64
-from tracecat.registry.repository import (
+from autosecops.expressions.functions import str_to_b64
+from autosecops.registry.repository import (
     RegisterKwargs,
     generate_model_from_function,
 )
@@ -939,7 +939,7 @@ async def test_http_request_empty_filename_after_sanitization() -> None:
 @pytest.mark.anyio
 async def test_http_request_file_upload_max_files_exceeded() -> None:
     """Test HTTP request fails if number of files exceeds TRACECAT__MAX_UPLOAD_FILES_COUNT."""
-    from tracecat_registry.core import http as core_http  # For accessing the constant
+    from autosecops_registry.core import http as core_http  # For accessing the constant
 
     files_to_upload: dict[str, str | FileUploadData] = {}
     for i in range(core_http.TRACECAT__MAX_UPLOAD_FILES_COUNT + 1):

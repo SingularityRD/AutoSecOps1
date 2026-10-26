@@ -19,29 +19,29 @@ from claude_agent_sdk.types import (
     McpStdioServerConfig,
 )
 
-from tracecat.agent.common.config import (
+from autosecops.agent.common.config import (
     TRACECAT__AGENT_SANDBOX_TIMEOUT,
     build_agent_runtime_uv_env,
 )
-from tracecat.agent.common.protocol import RuntimeInitPayload
-from tracecat.agent.common.types import SandboxAgentConfig
-from tracecat.agent.constants import AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
-from tracecat.agent.executor.loopback import LoopbackResult
-from tracecat.agent.runtime import session_paths as session_paths_module
-from tracecat.agent.runtime.claude_code import broker as broker_module
-from tracecat.agent.runtime.claude_code import transport as transport_module
-from tracecat.agent.runtime.claude_code.broker import (
+from autosecops.agent.common.protocol import RuntimeInitPayload
+from autosecops.agent.common.types import SandboxAgentConfig
+from autosecops.agent.constants import AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
+from autosecops.agent.executor.loopback import LoopbackResult
+from autosecops.agent.runtime import session_paths as session_paths_module
+from autosecops.agent.runtime.claude_code import broker as broker_module
+from autosecops.agent.runtime.claude_code import transport as transport_module
+from autosecops.agent.runtime.claude_code.broker import (
     ClaudeRuntimeBroker,
     ClaudeTurnRequest,
     ConcurrentSessionTurnError,
 )
-from tracecat.agent.runtime.claude_code.transport import (
+from autosecops.agent.runtime.claude_code.transport import (
     SandboxedCLITransport,
     open_mcp_bridge_binding,
 )
-from tracecat.agent.runtime.session_paths import AgentSandboxPathMapping
-from tracecat.agent.sandbox.config import AgentResourceLimits
-from tracecat.executor.enums import ExecutorBackendType
+from autosecops.agent.runtime.session_paths import AgentSandboxPathMapping
+from autosecops.agent.sandbox.config import AgentResourceLimits
+from autosecops.executor.enums import ExecutorBackendType
 
 
 def _make_request(tmp_path: Path) -> ClaudeTurnRequest:
@@ -331,7 +331,7 @@ def test_transport_prepares_bundled_claude_path(
     expected_path: str,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.runtime.claude_code.transport.claude_agent_sdk.__file__",
+        "autosecops.agent.runtime.claude_code.transport.claude_agent_sdk.__file__",
         "/app/.venv/lib/python3.12/site-packages/claude_agent_sdk/__init__.py",
     )
 

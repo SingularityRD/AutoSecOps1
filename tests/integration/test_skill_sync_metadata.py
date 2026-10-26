@@ -7,11 +7,11 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Skill, SkillVersion
-from tracecat.exceptions import TracecatValidationError
-from tracecat.workspace_sync.importer import WorkspaceResourceImportService
-from tracecat.workspace_sync.schemas import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Skill, SkillVersion
+from autosecops.exceptions import TracecatValidationError
+from autosecops.workspace_sync.importer import WorkspaceResourceImportService
+from autosecops.workspace_sync.schemas import (
     SkillFileSpec,
     SkillResourceSpec,
     WorkspaceSpec,

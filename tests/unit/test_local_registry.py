@@ -17,12 +17,12 @@ from textwrap import dedent
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.registry.constants import DEFAULT_LOCAL_REGISTRY_ORIGIN
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.registry.repository import Repository
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.registry.constants import DEFAULT_LOCAL_REGISTRY_ORIGIN
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.registry.repository import Repository
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -32,7 +32,7 @@ def sample_package_content() -> str:
     """Sample package content with a basic UDF."""
     return dedent(
         """
-        from tracecat_registry import registry
+        from autosecops_registry import registry
 
         @registry.register(
             default_title="Add two numbers",
@@ -112,7 +112,7 @@ async def test_local_registry(
     actions_file.write_text(
         dedent(
             """
-            from tracecat_registry import registry
+            from autosecops_registry import registry
 
             @registry.register(
                 default_title="Add two numbers and adds 1",

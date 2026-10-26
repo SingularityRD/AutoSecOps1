@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from tracecat.common import is_iterable
+from autosecops.common import is_iterable
 
 
 @pytest.mark.parametrize(

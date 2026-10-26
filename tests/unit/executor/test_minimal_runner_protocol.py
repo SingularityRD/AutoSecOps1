@@ -19,7 +19,7 @@ import orjson
 import pytest
 from pydantic import BaseModel, field_serializer
 
-from tracecat.executor import minimal_runner
+from autosecops.executor import minimal_runner
 
 # --- Action Gateway compatibility regressions ---
 
@@ -35,7 +35,7 @@ def test_action_gateway_sdk_transport_patches_legacy_tracecat_client(
     replace only their `request()` method and send traffic through the UDS.
     """
     captured: dict[str, Any] = {}
-    sdk_client: Any = types.ModuleType("tracecat_registry.sdk.client")
+    sdk_client: Any = types.ModuleType("autosecops_registry.sdk.client")
 
     class LegacyTracecatClient:
         """Old SDK shape: request exists, gateway transport helper does not."""
@@ -89,7 +89,7 @@ def test_action_gateway_sdk_transport_patches_legacy_tracecat_client(
             return httpx.Response(200, json={"ok": True})
 
     def import_module(name: str) -> Any:
-        if name == "tracecat_registry.sdk.client":
+        if name == "autosecops_registry.sdk.client":
             return sdk_client
         raise ImportError(name)
 
@@ -134,7 +134,7 @@ def test_action_gateway_sdk_transport_leaves_current_tracecat_client_unpatched(
     not monkeypatch them. This prevents the compatibility shim from overriding
     the current SDK's own env/keyword handling.
     """
-    sdk_client: Any = types.ModuleType("tracecat_registry.sdk.client")
+    sdk_client: Any = types.ModuleType("autosecops_registry.sdk.client")
 
     class CurrentTracecatClient:
         """Current SDK shape: native gateway transport helper is present."""
@@ -146,7 +146,7 @@ def test_action_gateway_sdk_transport_leaves_current_tracecat_client_unpatched(
             return "original"
 
     def import_module(name: str) -> Any:
-        if name == "tracecat_registry.sdk.client":
+        if name == "autosecops_registry.sdk.client":
             return sdk_client
         raise ImportError(name)
 
@@ -175,17 +175,17 @@ def test_run_udf_supports_legacy_registry_context_and_sdk_gateway_transport(
     """
     captured: dict[str, Any] = {}
 
-    # Build a fake old tracecat_registry package tree so `_run_udf` exercises
+    # Build a fake old autosecops_registry package tree so `_run_udf` exercises
     # the same import boundary it uses for cached registry artifacts.
-    registry_pkg: Any = types.ModuleType("tracecat_registry")
+    registry_pkg: Any = types.ModuleType("autosecops_registry")
     registry_pkg.__path__ = []
-    context_module: Any = types.ModuleType("tracecat_registry.context")
-    sdk_pkg: Any = types.ModuleType("tracecat_registry.sdk")
+    context_module: Any = types.ModuleType("autosecops_registry.context")
+    sdk_pkg: Any = types.ModuleType("autosecops_registry.sdk")
     sdk_pkg.__path__ = []
-    sdk_client: Any = types.ModuleType("tracecat_registry.sdk.client")
-    internal_pkg: Any = types.ModuleType("tracecat_registry._internal")
+    sdk_client: Any = types.ModuleType("autosecops_registry.sdk.client")
+    internal_pkg: Any = types.ModuleType("autosecops_registry._internal")
     internal_pkg.__path__ = []
-    secrets_module: Any = types.ModuleType("tracecat_registry._internal.secrets")
+    secrets_module: Any = types.ModuleType("autosecops_registry._internal.secrets")
     action_module: Any = types.ModuleType("legacy_action_module")
 
     @dataclass
@@ -281,12 +281,12 @@ def test_run_udf_supports_legacy_registry_context_and_sdk_gateway_transport(
 
     # Make normal imports inside `_run_udf` resolve to the fake old package.
     for name, module in {
-        "tracecat_registry": registry_pkg,
-        "tracecat_registry.context": context_module,
-        "tracecat_registry.sdk": sdk_pkg,
-        "tracecat_registry.sdk.client": sdk_client,
-        "tracecat_registry._internal": internal_pkg,
-        "tracecat_registry._internal.secrets": secrets_module,
+        "autosecops_registry": registry_pkg,
+        "autosecops_registry.context": context_module,
+        "autosecops_registry.sdk": sdk_pkg,
+        "autosecops_registry.sdk.client": sdk_client,
+        "autosecops_registry._internal": internal_pkg,
+        "autosecops_registry._internal.secrets": secrets_module,
         "legacy_action_module": action_module,
     }.items():
         monkeypatch.setitem(sys.modules, name, module)
@@ -534,7 +534,7 @@ def test_main_minimal_stringifies_secret_env_for_registry_context(monkeypatch) -
     test_module: Any = types.ModuleType("test_module")
 
     def secret_action() -> dict[str, str]:
-        from tracecat_registry._internal import secrets
+        from autosecops_registry._internal import secrets
 
         return {
             "port": secrets.get("PORT").strip(),
@@ -1110,7 +1110,7 @@ def test_sandbox_runner_skips_heavy_imports_for_plain_builtin_action() -> None:
             "resolved_context": {
                 "action_impl": {
                     "type": "udf",
-                    "module": "tracecat_registry.core.transform",
+                    "module": "autosecops_registry.core.transform",
                     "name": "deduplicate",
                 },
                 "evaluated_args": {
@@ -1126,7 +1126,7 @@ def test_sandbox_runner_skips_heavy_imports_for_plain_builtin_action() -> None:
         f"runpy.run_path({minimal_runner.__file__!r}, run_name='__main__')\n"
         "heavy = (\n"
         "    'pydantic', 'rich', 'click', 'pygments',\n"
-        "    'tracecat_registry._internal.models',\n"
+        "    'autosecops_registry._internal.models',\n"
         ")\n"
         "sys.stderr.write(repr(sorted(m for m in heavy if m in sys.modules)))\n"
     )

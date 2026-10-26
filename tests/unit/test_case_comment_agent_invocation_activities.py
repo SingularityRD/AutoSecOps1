@@ -7,17 +7,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.agent.session.service import AGENT_SESSION_EXECUTION_SCOPES
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.cases.agent_invocations.activities import (
+from autosecops.agent.session.service import AGENT_SESSION_EXECUTION_SCOPES
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.cases.agent_invocations.activities import (
     prepare_comment_agent_invocation_activity,
 )
-from tracecat.cases.agent_invocations.schemas import (
+from autosecops.cases.agent_invocations.schemas import (
     PrepareCommentAgentInvocationInput,
 )
-from tracecat.cases.agent_invocations.types import PreparedCommentAgentSession
+from autosecops.cases.agent_invocations.types import PreparedCommentAgentSession
 
 
 @pytest.mark.anyio
@@ -77,12 +77,12 @@ async def test_prepare_comment_invocation_uses_session_execution_role() -> None:
 
     with (
         patch(
-            "tracecat.cases.agent_invocations.activities."
+            "autosecops.cases.agent_invocations.activities."
             "CaseCommentAgentInvocationDispatcher.with_session",
             return_value=dispatcher_context(),
         ),
         patch(
-            "tracecat.cases.agent_invocations.activities.AgentSessionService",
+            "autosecops.cases.agent_invocations.activities.AgentSessionService",
             return_value=session_service,
         ),
     ):

@@ -10,23 +10,23 @@ import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.agent_sessions.service import (
+from autosecops.auth.types import Role
+from autosecops.cases.agent_sessions.service import (
     CaseAgentSessionInteractionService,
 )
-from tracecat.cases.enums import (
+from autosecops.cases.enums import (
     CaseAgentSessionInteractionOperation,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     AgentSession,
     Case,
     CaseAgentSessionInteraction,
     Workspace,
 )
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

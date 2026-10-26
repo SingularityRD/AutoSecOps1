@@ -20,42 +20,42 @@ from sqlalchemy.orm import selectinload as sa_selectinload
 from sqlalchemy.pool import NullPool
 
 from tests.database import TEST_DB_CONFIG
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.dropdowns.schemas import (
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.dropdowns.schemas import (
     CaseDropdownDefinitionCreate,
     CaseDropdownOptionCreate,
     CaseDropdownValueInput,
 )
-from tracecat.cases.dropdowns.service import (
+from autosecops.cases.dropdowns.service import (
     CaseDropdownDefinitionsService,
     CaseDropdownValuesService,
 )
-from tracecat.cases.enums import (
+from autosecops.cases.enums import (
     CaseEventType,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.cases.filters import resolve_tag_ids
-from tracecat.cases.schemas import (
+from autosecops.cases.filters import resolve_tag_ids
+from autosecops.cases.schemas import (
     CaseCommentCreate,
     CaseCreate,
     CaseFieldCreate,
     CaseReadMinimal,
     CaseUpdate,
 )
-from tracecat.tags.schemas import TagCreate
-from tracecat.cases.service import (
+from autosecops.tags.schemas import TagCreate
+from autosecops.cases.service import (
     CASE_BATCH_LOCK_TIMEOUT,
     CaseCommentsService,
     CaseFieldsService,
     CasesService,
 )
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.db.models import (
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.db.models import (
     Case,
     CaseComment,
     CaseEvent,
@@ -63,14 +63,14 @@ from tracecat.db.models import (
     User,
     Workspace,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tables.enums import SqlType
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tables.enums import SqlType
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -79,15 +79,15 @@ pytestmark = pytest.mark.usefixtures("db")
 def stub_case_duration_sync() -> Iterator[None]:
     with (
         patch(
-            "tracecat.cases.events.sync_case_duration",
+            "autosecops.cases.events.sync_case_duration",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.service.publish_case_event_payload",
+            "autosecops.cases.service.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -853,7 +853,7 @@ class TestCasesService:
                 AuditService, "create_event", new_callable=AsyncMock
             ) as mock_audit,
             patch(
-                "tracecat.cases.events.publish_case_event_payload",
+                "autosecops.cases.events.publish_case_event_payload",
                 new=mock_publish,
             ),
             patch.object(
@@ -1083,7 +1083,7 @@ class TestCasesService:
                 AuditService, "create_event", new_callable=AsyncMock
             ) as mock_audit,
             patch(
-                "tracecat.cases.events.publish_case_event_payload",
+                "autosecops.cases.events.publish_case_event_payload",
                 new=mock_publish,
             ),
             patch.object(
@@ -1285,7 +1285,7 @@ class TestCasesService:
         with (
             patch.object(AuditService, "create_event", new_callable=AsyncMock),
             patch(
-                "tracecat.cases.events.publish_case_event_payload",
+                "autosecops.cases.events.publish_case_event_payload",
                 new=mock_publish,
             ),
             patch.object(
@@ -1819,7 +1819,7 @@ class TestCasesService:
             return sa_selectinload(attr)
 
         with patch(
-            "tracecat.cases.search_service.selectinload",
+            "autosecops.cases.search_service.selectinload",
             side_effect=tracked_selectinload,
         ):
             await cases_service.search_cases(params=params)
@@ -1828,7 +1828,7 @@ class TestCasesService:
 
         loader_calls.clear()
         with patch(
-            "tracecat.cases.search_service.selectinload",
+            "autosecops.cases.search_service.selectinload",
             side_effect=tracked_selectinload,
         ):
             await cases_service.search_cases(params=params, include_durations=True)
@@ -2438,7 +2438,7 @@ class TestCasesService:
         self, cases_service: CasesService, case_create_params: CaseCreate, mocker
     ) -> None:
         """Test that case creation is atomic when field update fails."""
-        from tracecat.exceptions import TracecatException, TracecatNotFoundError
+        from autosecops.exceptions import TracecatException, TracecatNotFoundError
 
         # Add fields to the params
         params_with_fields = CaseCreate(

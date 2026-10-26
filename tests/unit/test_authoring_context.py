@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from tracecat.agent.authoring_context import (
+from autosecops.agent.authoring_context import (
     ActionRequirementPayload,
     build_enabled_models,
     build_example_from_schema,
@@ -196,7 +196,7 @@ class TestBuildEnabledModels:
                 ]
 
         monkeypatch.setattr(
-            "tracecat.agent.authoring_context.AgentModelAccessService.with_session",
+            "autosecops.agent.authoring_context.AgentModelAccessService.with_session",
             lambda role: _AsyncContext(_AccessService()),
         )
 
@@ -219,7 +219,7 @@ class TestBuildEnabledModels:
             raise AssertionError("must not read models without agent:read")
 
         monkeypatch.setattr(
-            "tracecat.agent.authoring_context.AgentModelAccessService.with_session",
+            "autosecops.agent.authoring_context.AgentModelAccessService.with_session",
             _fail,
         )
 
@@ -237,7 +237,7 @@ class TestBuildEnabledModels:
             raise AssertionError("must not read models without a workspace")
 
         monkeypatch.setattr(
-            "tracecat.agent.authoring_context.AgentModelAccessService.with_session",
+            "autosecops.agent.authoring_context.AgentModelAccessService.with_session",
             _fail,
         )
 
@@ -248,8 +248,8 @@ class TestComputeAttributedUserScopes:
     """Service roles with an attributed user resolve that user's real scopes."""
 
     async def test_none_for_user_role(self) -> None:
-        from tracecat.auth.credentials import compute_attributed_user_scopes
-        from tracecat.auth.types import Role
+        from autosecops.auth.credentials import compute_attributed_user_scopes
+        from autosecops.auth.types import Role
 
         role = Role(
             type="user",
@@ -261,8 +261,8 @@ class TestComputeAttributedUserScopes:
         assert await compute_attributed_user_scopes(role) is None
 
     async def test_none_for_unattributed_service_role(self) -> None:
-        from tracecat.auth.credentials import compute_attributed_user_scopes
-        from tracecat.auth.types import Role
+        from autosecops.auth.credentials import compute_attributed_user_scopes
+        from autosecops.auth.types import Role
 
         role = Role(
             type="service",
@@ -275,8 +275,8 @@ class TestComputeAttributedUserScopes:
     async def test_resolves_user_scopes_for_attributed_service_role(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from tracecat.auth import credentials
-        from tracecat.auth.types import Role
+        from autosecops.auth import credentials
+        from autosecops.auth.types import Role
 
         user_id = uuid.uuid4()
         org_id = uuid.uuid4()
@@ -313,7 +313,7 @@ class TestAuthoringContextRouteCallerScoping:
 
     @staticmethod
     def _executor_role() -> Any:
-        from tracecat.auth.types import Role
+        from autosecops.auth.types import Role
 
         return Role(
             type="service",
@@ -333,9 +333,9 @@ class TestAuthoringContextRouteCallerScoping:
         role: Any,
         attributed_scopes: frozenset[str] | None,
     ) -> dict[str, frozenset[str]]:
-        from tracecat.contexts import ctx_role
-        from tracecat.mcp.schemas import WorkflowAuthoringContextRequest
-        from tracecat.workflow.executions import internal_router
+        from autosecops.contexts import ctx_role
+        from autosecops.mcp.schemas import WorkflowAuthoringContextRequest
+        from autosecops.workflow.executions import internal_router
 
         seen: dict[str, frozenset[str]] = {}
 

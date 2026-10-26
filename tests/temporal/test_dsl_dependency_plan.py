@@ -10,24 +10,24 @@ from temporalio import activity, workflow
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
-from tests.shared import recorded_patch_ids
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.action import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.action import (
     DSLActivities,
     EvaluateTemplatedObjectActivityInput,
     materialize_context,
 )
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import ActionStatement, RunActionInput
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.expressions.eval import eval_templated_object
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import InlineObject, StoredObject
-from tracecat.temporal.patches import WorkflowPatch
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import ActionStatement, RunActionInput
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.expressions.eval import eval_templated_object
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.temporal.patches import WorkflowPatch
+from tests.shared import recorded_patch_ids
 
 pytestmark = [pytest.mark.temporal, pytest.mark.integration, pytest.mark.anyio]
 
@@ -103,8 +103,8 @@ def _run_args(count: int) -> DSLRunArgs:
             returns="${{ ACTIONS.summary.result }}",
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={"core.noop": "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={"core.noop": "autosecops_registry"},
         ),
         time_anchor=datetime(2026, 1, 1, tzinfo=UTC),
     )

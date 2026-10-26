@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from tracecat.db.tenant_rls import (
+from autosecops.db.tenant_rls import (
     disable_agent_catalog_table_rls,
     disable_org_optional_workspace_table_rls,
     disable_org_table_rls,

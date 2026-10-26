@@ -455,7 +455,7 @@ async def _run_loop_hotplug_child() -> None:
                 os.getuid() == apiuser.pw_uid and os.geteuid() == apiuser.pw_uid
             )
 
-            from tracecat.executor.registry_artifacts import SquashfsArtifact
+            from autosecops.executor.registry_artifacts import SquashfsArtifact
 
             artifact = SquashfsArtifact(
                 uri="s3://example/registry/site-packages.squashfs",

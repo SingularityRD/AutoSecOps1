@@ -7,21 +7,21 @@ from unittest.mock import AsyncMock, MagicMock, call
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.durations import materialization
-from tracecat.cases.durations.consumer import (
+from autosecops.cases.durations import materialization
+from autosecops.cases.durations.consumer import (
     CASE_SYNC_ATTEMPT_DELAYS_SECONDS,
     CaseDurationSyncConsumer,
     DurationDefinitionSyncJob,
 )
-from tracecat.cases.durations.materialization import (
+from autosecops.cases.durations.materialization import (
     _event_types_require_sync,
     _get_service_role,
     sync_case_duration,
 )
-from tracecat.cases.enums import CaseEventType
-from tracecat.redis.client import RedisClient, StreamGroupNotFoundError
-from tracecat.tiers.enums import Entitlement
-from tracecat.tiers.exceptions import DefaultTierNotConfiguredError
+from autosecops.cases.enums import CaseEventType
+from autosecops.redis.client import RedisClient, StreamGroupNotFoundError
+from autosecops.tiers.enums import Entitlement
+from autosecops.tiers.exceptions import DefaultTierNotConfiguredError
 
 
 class FakeRedisClient:
@@ -52,7 +52,7 @@ class FakeRedisClient:
 def rollout_backfill_mock(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     mock = AsyncMock(return_value=True)
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.enqueue_rollout_backfill_once",
+        "autosecops.cases.durations.consumer.enqueue_rollout_backfill_once",
         mock,
     )
     return mock
@@ -255,10 +255,10 @@ async def test_consumer_requeues_jobs_after_local_retries_exhausted(
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, method, job_mock)
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.publish_case_duration_sync",
+        "autosecops.cases.durations.consumer.publish_case_duration_sync",
         publish_mock,
     )
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     await consumer._handle_entries([("1-0", entry)])
 
@@ -289,23 +289,23 @@ async def test_shared_sync_case_duration_uses_transaction_scoped_lock(
         yield fake_session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.materialization.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.try_pg_advisory_xact_lock",
+        "autosecops.cases.durations.materialization.try_pg_advisory_xact_lock",
         lock_mock,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.CaseDurationService",
+        "autosecops.cases.durations.materialization.CaseDurationService",
         duration_service_cls,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization._get_service_role",
+        "autosecops.cases.durations.materialization._get_service_role",
         AsyncMock(return_value=role),
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization._event_types_require_sync",
+        "autosecops.cases.durations.materialization._event_types_require_sync",
         AsyncMock(return_value=True),
     )
 
@@ -347,15 +347,15 @@ async def test_consumer_skips_backfill_fanout_without_entitlement(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.consumer.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.is_org_entitled",
+        "autosecops.cases.durations.consumer.is_org_entitled",
         entitlement_mock,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.publish_case_duration_sync",
+        "autosecops.cases.durations.consumer.publish_case_duration_sync",
         publish_mock,
     )
     consumer = CaseDurationSyncConsumer(cast(RedisClient, AsyncMock()))
@@ -444,10 +444,10 @@ async def test_consumer_retries_job_locally(
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, method, job_mock)
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.publish_case_duration_sync",
+        "autosecops.cases.durations.consumer.publish_case_duration_sync",
         publish_mock,
     )
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     await consumer._handle_entries([("1-0", entry)])
 
@@ -493,14 +493,14 @@ async def test_consumer_leaves_jobs_pending_when_requeue_fails(
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, method, job_mock)
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.publish_case_duration_sync",
+        "autosecops.cases.durations.consumer.publish_case_duration_sync",
         publish_mock,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.logger.warning",
+        "autosecops.cases.durations.consumer.logger.warning",
         logger_mock,
     )
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     await consumer._handle_entries([("1-0", entry)])
 
@@ -581,7 +581,7 @@ async def test_consumer_ignores_xdel_failure_after_ack(
     )
     logger_mock = MagicMock()
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.logger.warning",
+        "autosecops.cases.durations.consumer.logger.warning",
         logger_mock,
     )
 
@@ -650,7 +650,7 @@ def test_parse_job_rejects_invalid_reason_shapes(
         },
     }
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.logger.warning",
+        "autosecops.cases.durations.consumer.logger.warning",
         logger_mock,
     )
 
@@ -841,7 +841,7 @@ async def test_consumer_claims_idle_messages_while_stream_is_busy(
     claim_idle_mock = AsyncMock()
     monotonic_mock = MagicMock(side_effect=[0.0, 11.0])
     monkeypatch.setattr(
-        "tracecat.cases.durations.consumer.monotonic",
+        "autosecops.cases.durations.consumer.monotonic",
         monotonic_mock,
     )
     monkeypatch.setattr(consumer, "_ensure_group", ensure_group_mock)
@@ -878,7 +878,7 @@ async def test_claim_idle_messages_drains_all_available_batches(
     handle_entries_mock = AsyncMock()
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, "_handle_entries", handle_entries_mock)
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     await consumer._claim_idle_messages()
 
@@ -983,7 +983,7 @@ async def test_consumer_retries_transient_read_failure_and_processes_next_batch(
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, "_ensure_group", ensure_group_mock)
     monkeypatch.setattr(consumer, "_handle_entries", handle_entries_mock)
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     with pytest.raises(asyncio.CancelledError):
         await consumer.run()
@@ -1021,7 +1021,7 @@ async def test_consumer_recreates_missing_group_and_keeps_reading(
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, "_ensure_group", ensure_group_mock)
     monkeypatch.setattr(consumer, "_handle_entries", handle_entries_mock)
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     with pytest.raises(asyncio.CancelledError):
         await consumer.run()
@@ -1049,7 +1049,7 @@ async def test_consumer_retries_rollout_backfill_then_reads_stream(
     ensure_group_mock = AsyncMock()
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, "_ensure_group", ensure_group_mock)
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     with pytest.raises(asyncio.CancelledError):
         await consumer.run()
@@ -1078,7 +1078,7 @@ async def test_consumer_retries_pending_rollout_until_complete(
     ensure_group_mock = AsyncMock()
     sleep_mock = AsyncMock()
     monkeypatch.setattr(consumer, "_ensure_group", ensure_group_mock)
-    monkeypatch.setattr("tracecat.cases.durations.consumer.asyncio.sleep", sleep_mock)
+    monkeypatch.setattr("autosecops.cases.durations.consumer.asyncio.sleep", sleep_mock)
 
     with pytest.raises(asyncio.CancelledError):
         await consumer.run()

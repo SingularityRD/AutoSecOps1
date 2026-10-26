@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
-from tracecat.workflow.schedules import schemas
+from autosecops.workflow.schedules import schemas
 
 
 def test_schedule_create_valid_cron():

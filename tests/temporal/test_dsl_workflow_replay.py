@@ -15,39 +15,41 @@ from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
-from tests.shared import recorded_patch_ids
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl import workflow as workflow_module
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.action import DSLActivities, PrepareSubflowActivityInput
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.init_activities import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl import workflow as workflow_module
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.action import DSLActivities, PrepareSubflowActivityInput
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.init_activities import (
     resolve_workflow_concurrency_limits_enabled_activity,
 )
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.schemas import ActionStatement, RunActionInput
-from tracecat.dsl.types import ActionErrorInfo, TaskExceptionInfo
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.schemas import ActionStatement, RunActionInput
+from autosecops.dsl.types import ActionErrorInfo, TaskExceptionInfo
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.object import InlineObject, StoredObject
-from tracecat.temporal.errors import (
+from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.temporal.errors import (
     build_error_transport_detail,
     extract_error_classification,
     raise_application_error_from_classification,
 )
-from tracecat.temporal.patches import WorkflowPatch
-from tracecat.workflow.executions.enums import TemporalSearchAttr
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import GetErrorHandlerWorkflowIDActivityInputs
+from autosecops.temporal.patches import WorkflowPatch
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import (
+    GetErrorHandlerWorkflowIDActivityInputs,
+)
+from tests.shared import recorded_patch_ids
 
 pytestmark = [pytest.mark.temporal, pytest.mark.integration]
 
@@ -195,8 +197,8 @@ def _handler_failure_run_args() -> DSLRunArgs:
         ),
         trigger_inputs=InlineObject(data={"source": "replay-test"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={"core.noop": "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={"core.noop": "autosecops_registry"},
         ),
         time_anchor=datetime(2026, 1, 1, tzinfo=UTC),
     )
@@ -306,7 +308,7 @@ async def test_dsl_workflow_replays_legacy_subflow_failure_history(
         ),
         trigger_inputs=InlineObject(data={"source": "replay-test"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
         time_anchor=datetime(2026, 1, 1, tzinfo=UTC),

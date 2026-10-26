@@ -1,10 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.expressions.common import ExprContext
-from tracecat.identifiers.workflow import ExecutionUUID, WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.expressions.common import ExprContext
+from autosecops.identifiers.workflow import ExecutionUUID, WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
 
 
 def test_run_action_input_drops_legacy_inputs_context():
@@ -31,8 +31,8 @@ def test_run_action_input_drops_legacy_inputs_context():
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 

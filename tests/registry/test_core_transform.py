@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 import redis.asyncio as aioredis
-from tracecat_registry._internal.exceptions import TracecatExpressionError
-from tracecat_registry.context import clear_context, set_context
-from tracecat_registry.core.transform import (
+from autosecops_registry._internal.exceptions import TracecatExpressionError
+from autosecops_registry.context import clear_context, set_context
+from autosecops_registry.core.transform import (
     apply,
     deduplicate,
     drop_nulls,

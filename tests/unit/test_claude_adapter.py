@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 from claude_agent_sdk.types import StreamEvent
 
-from tracecat.agent.common.stream_types import StreamEventType
-from tracecat.agent.runtime.claude_code.adapter import (
+from autosecops.agent.common.stream_types import StreamEventType
+from autosecops.agent.runtime.claude_code.adapter import (
     ClaudeSDKAdapter,
     ContentBlockDeltaEvent,
     ContentBlockStartEvent,

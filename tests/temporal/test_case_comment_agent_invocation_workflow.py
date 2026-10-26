@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from autosecops_ee.agent.workflows.durable import AgentWorkflowArgs
 from sqlalchemy import delete, select
 from temporalio import activity, workflow
 from temporalio.api.enums.v1 import EventType
@@ -12,28 +13,27 @@ from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.service import RPCError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
-from tracecat_ee.agent.workflows.durable import AgentWorkflowArgs
 
-from tracecat import config
-from tracecat.agent.schemas import AgentOutput, RunAgentArgs
-from tracecat.agent.service import AgentManagementService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.worker import new_sandbox_runner
-from tracecat.auth.types import Role
-from tracecat.cases.agent_invocations import activities as invocation_activities
-from tracecat.cases.agent_invocations import queue as invocation_queue
-from tracecat.cases.agent_invocations import schemas
-from tracecat.cases.agent_invocations import workflows as invocation_workflows
-from tracecat.cases.enums import (
+from autosecops import config
+from autosecops.agent.schemas import AgentOutput, RunAgentArgs
+from autosecops.agent.service import AgentManagementService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.worker import new_sandbox_runner
+from autosecops.auth.types import Role
+from autosecops.cases.agent_invocations import activities as invocation_activities
+from autosecops.cases.agent_invocations import queue as invocation_queue
+from autosecops.cases.agent_invocations import schemas
+from autosecops.cases.agent_invocations import workflows as invocation_workflows
+from autosecops.cases.enums import (
     CaseCommentAgentInvocationStatus,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.cases.schemas import CaseCommentCreate
-from tracecat.cases.service import CaseCommentsService
-from tracecat.db.models import (
+from autosecops.cases.schemas import CaseCommentCreate
+from autosecops.cases.service import CaseCommentsService
+from autosecops.db.models import (
     AgentPreset,
     AgentPresetVersion,
     AgentSession,
@@ -42,7 +42,7 @@ from tracecat.db.models import (
     CaseCommentAgentInvocation,
     CaseCommentMention,
 )
-from tracecat.dsl._converter import get_data_converter
+from autosecops.dsl._converter import get_data_converter
 
 pytestmark = pytest.mark.temporal
 _EVENTS: list[str] = []
@@ -502,9 +502,11 @@ async def test_comment_mention_runs_agent_and_posts_reply(
         "get_workspace_runtime_provider_credentials",
         AsyncMock(return_value={"OPENAI_API_KEY": "test-key"}),
     )
-    monkeypatch.setattr("tracecat.cases.events.publish_case_event_payload", AsyncMock())
     monkeypatch.setattr(
-        "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+        "autosecops.cases.events.publish_case_event_payload", AsyncMock()
+    )
+    monkeypatch.setattr(
+        "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
         Mock(),
     )
 

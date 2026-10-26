@@ -8,8 +8,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.auth.discovery as auth_discovery_module
-from tracecat.auth.discovery import AuthDiscoverResponse, AuthDiscoveryMethod
+import autosecops.auth.discovery as auth_discovery_module
+from autosecops.auth.discovery import AuthDiscoverResponse, AuthDiscoveryMethod
 
 
 @pytest.mark.anyio

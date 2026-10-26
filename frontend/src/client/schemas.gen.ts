@@ -28294,12 +28294,12 @@ export const $RegistryLock = {
 
 Attributes:
     origins: Maps repository origin to pinned version string.
-        Example: {"tracecat_registry": "2024.12.10.123456"}
+        Example: {"autosecops_registry": "2024.12.10.123456"}
     actions: Maps action name to its source origin.
-        Example: {"core.transform.reshape": "tracecat_registry"}
+        Example: {"core.transform.reshape": "autosecops_registry"}
     origin_fingerprints: Optional immutable manifest fingerprints for origins.
         New executors use the builtin fingerprint to decide whether their
-        bundled tracecat_registry package is an exact match for the lock.`,
+        bundled autosecops_registry package is an exact match for the lock.`,
 } as const
 
 export const $RegistryLockEntryRead = {
@@ -44844,64 +44844,7 @@ export const $Yaml = {
   title: "Yaml",
 } as const
 
-export const $login = {
-  properties: {
-    grant_type: {
-      anyOf: [
-        {
-          type: "string",
-          pattern: "^password$",
-        },
-        {
-          type: "null",
-        },
-      ],
-      title: "Grant Type",
-    },
-    username: {
-      type: "string",
-      title: "Username",
-    },
-    password: {
-      type: "string",
-      format: "password",
-      title: "Password",
-    },
-    scope: {
-      type: "string",
-      title: "Scope",
-      default: "",
-    },
-    client_id: {
-      anyOf: [
-        {
-          type: "string",
-        },
-        {
-          type: "null",
-        },
-      ],
-      title: "Client Id",
-    },
-    client_secret: {
-      anyOf: [
-        {
-          type: "string",
-        },
-        {
-          type: "null",
-        },
-      ],
-      format: "password",
-      title: "Client Secret",
-    },
-  },
-  type: "object",
-  required: ["username", "password"],
-  title: "Body_auth-auth:database.login",
-} as const
-
-export const $tracecat__admin__registry__schemas__RegistrySyncResponse = {
+export const $autosecops__admin__registry__schemas__RegistrySyncResponse = {
   properties: {
     success: {
       type: "boolean",
@@ -44926,7 +44869,7 @@ export const $tracecat__admin__registry__schemas__RegistrySyncResponse = {
   description: "Response from sync operation.",
 } as const
 
-export const $tracecat__admin__registry__schemas__RegistryVersionPromoteResponse =
+export const $autosecops__admin__registry__schemas__RegistryVersionPromoteResponse =
   {
     properties: {
       repository_id: {
@@ -44972,7 +44915,7 @@ export const $tracecat__admin__registry__schemas__RegistryVersionPromoteResponse
     description: "Response from promoting a registry version.",
   } as const
 
-export const $tracecat__admin__registry__schemas__RegistryVersionRead = {
+export const $autosecops__admin__registry__schemas__RegistryVersionRead = {
   properties: {
     id: {
       type: "string",
@@ -45049,7 +44992,7 @@ export const $tracecat__admin__registry__schemas__RegistryVersionRead = {
   description: "Registry version details.",
 } as const
 
-export const $tracecat__organization__schemas__OrgDomainRead = {
+export const $autosecops__organization__schemas__OrgDomainRead = {
   properties: {
     id: {
       type: "string",
@@ -45120,7 +45063,7 @@ export const $tracecat__organization__schemas__OrgDomainRead = {
   title: "OrgDomainRead",
 } as const
 
-export const $tracecat__organization__schemas__OrgRead = {
+export const $autosecops__organization__schemas__OrgRead = {
   properties: {
     id: {
       type: "string",
@@ -45137,7 +45080,7 @@ export const $tracecat__organization__schemas__OrgRead = {
   title: "OrgRead",
 } as const
 
-export const $tracecat__registry__repositories__schemas__RegistrySyncResponse =
+export const $autosecops__registry__repositories__schemas__RegistrySyncResponse =
   {
     properties: {
       success: {
@@ -45198,7 +45141,7 @@ export const $tracecat__registry__repositories__schemas__RegistrySyncResponse =
     description: "Response model for registry sync operation.",
   } as const
 
-export const $tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse =
+export const $autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse =
   {
     properties: {
       repository_id: {
@@ -45244,64 +45187,65 @@ export const $tracecat__registry__repositories__schemas__RegistryVersionPromoteR
     description: "Response model for version promotion.",
   } as const
 
-export const $tracecat__registry__repositories__schemas__RegistryVersionRead = {
-  properties: {
-    id: {
-      type: "string",
-      format: "uuid",
-      title: "Id",
+export const $autosecops__registry__repositories__schemas__RegistryVersionRead =
+  {
+    properties: {
+      id: {
+        type: "string",
+        format: "uuid",
+        title: "Id",
+      },
+      repository_id: {
+        type: "string",
+        format: "uuid",
+        title: "Repository Id",
+      },
+      version: {
+        type: "string",
+        title: "Version",
+      },
+      commit_sha: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+        title: "Commit Sha",
+      },
+      tarball_uri: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+        title: "Tarball Uri",
+      },
+      created_at: {
+        type: "string",
+        format: "date-time",
+        title: "Created At",
+      },
     },
-    repository_id: {
-      type: "string",
-      format: "uuid",
-      title: "Repository Id",
-    },
-    version: {
-      type: "string",
-      title: "Version",
-    },
-    commit_sha: {
-      anyOf: [
-        {
-          type: "string",
-        },
-        {
-          type: "null",
-        },
-      ],
-      title: "Commit Sha",
-    },
-    tarball_uri: {
-      anyOf: [
-        {
-          type: "string",
-        },
-        {
-          type: "null",
-        },
-      ],
-      title: "Tarball Uri",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      title: "Created At",
-    },
-  },
-  type: "object",
-  required: [
-    "id",
-    "repository_id",
-    "version",
-    "commit_sha",
-    "tarball_uri",
-    "created_at",
-  ],
-  title: "RegistryVersionRead",
-  description: "Response model for reading a registry version.",
-} as const
+    type: "object",
+    required: [
+      "id",
+      "repository_id",
+      "version",
+      "commit_sha",
+      "tarball_uri",
+      "created_at",
+    ],
+    title: "RegistryVersionRead",
+    description: "Response model for reading a registry version.",
+  } as const
 
-export const $tracecat_ee__admin__organizations__schemas__OrgDomainRead = {
+export const $autosecops_ee__admin__organizations__schemas__OrgDomainRead = {
   properties: {
     id: {
       type: "string",
@@ -45372,7 +45316,7 @@ export const $tracecat_ee__admin__organizations__schemas__OrgDomainRead = {
   description: "Organization domain response.",
 } as const
 
-export const $tracecat_ee__admin__organizations__schemas__OrgRead = {
+export const $autosecops_ee__admin__organizations__schemas__OrgRead = {
   properties: {
     id: {
       type: "string",
@@ -45413,4 +45357,61 @@ export const $tracecat_ee__admin__organizations__schemas__OrgRead = {
   required: ["id", "name", "slug", "is_active", "created_at"],
   title: "OrgRead",
   description: "Organization response.",
+} as const
+
+export const $login = {
+  properties: {
+    grant_type: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^password$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Grant Type",
+    },
+    username: {
+      type: "string",
+      title: "Username",
+    },
+    password: {
+      type: "string",
+      format: "password",
+      title: "Password",
+    },
+    scope: {
+      type: "string",
+      title: "Scope",
+      default: "",
+    },
+    client_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Client Id",
+    },
+    client_secret: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      format: "password",
+      title: "Client Secret",
+    },
+  },
+  type: "object",
+  required: ["username", "password"],
+  title: "Body_auth-auth:database.login",
 } as const

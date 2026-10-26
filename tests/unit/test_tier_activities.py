@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from temporalio.exceptions import ApplicationError
 
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.tiers.activities import (
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.tiers.activities import (
     AcquireActionPermitInput,
     AcquireWorkflowPermitInput,
     GetTierLimitsInput,
@@ -21,12 +21,12 @@ from tracecat.tiers.activities import (
     acquire_workflow_permit_activity,
     get_tier_limits_activity,
 )
-from tracecat.tiers.exceptions import (
+from autosecops.tiers.exceptions import (
     DefaultTierNotConfiguredError,
     InvalidOrganizationConcurrencyCapError,
 )
-from tracecat.tiers.permits import PermitAcquireOutcome
-from tracecat.tiers.semaphore import AcquireResult
+from autosecops.tiers.permits import PermitAcquireOutcome
+from autosecops.tiers.semaphore import AcquireResult
 
 ORG_ID = uuid.UUID("00000000-0000-4000-8000-000000000111")
 
@@ -44,7 +44,7 @@ async def test_acquire_action_permit_activity_uses_permit_service() -> None:
     )
 
     with patch(
-        "tracecat.tiers.activities.TierPermitService.create",
+        "autosecops.tiers.activities.TierPermitService.create",
         new=AsyncMock(return_value=permit_svc),
     ):
         result = await acquire_action_permit_activity(
@@ -71,7 +71,7 @@ async def test_acquire_workflow_permit_activity_maps_invalid_cap_error() -> None
     )
 
     with patch(
-        "tracecat.tiers.activities.TierPermitService.create",
+        "autosecops.tiers.activities.TierPermitService.create",
         new=AsyncMock(return_value=permit_svc),
     ):
         with pytest.raises(ApplicationError) as exc_info:
@@ -95,7 +95,7 @@ async def test_acquire_workflow_permit_activity_maps_invalid_cap_error() -> None
 async def test_acquire_action_permit_activity_classifies_service_failure() -> None:
     diagnostic = "permit diagnostic must not enter history"
     with patch(
-        "tracecat.tiers.activities.TierPermitService.create",
+        "autosecops.tiers.activities.TierPermitService.create",
         new=AsyncMock(side_effect=RuntimeError(diagnostic)),
     ):
         with pytest.raises(ApplicationError) as exc_info:
@@ -124,7 +124,7 @@ async def test_get_tier_limits_activity_classifies_service_failure() -> None:
     mock_ctx.__aenter__.return_value = mock_service
 
     with patch(
-        "tracecat.tiers.activities.TierService.with_session",
+        "autosecops.tiers.activities.TierService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:
@@ -146,7 +146,7 @@ async def test_get_tier_limits_activity_maps_missing_default_tier() -> None:
     mock_ctx.__aenter__.return_value = mock_service
 
     with patch(
-        "tracecat.tiers.activities.TierService.with_session",
+        "autosecops.tiers.activities.TierService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:

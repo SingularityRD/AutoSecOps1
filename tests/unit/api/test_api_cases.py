@@ -11,12 +11,12 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import ProgrammingError
 
-from tracecat.auth.types import Role
-from tracecat.cases import filters as case_filters
-from tracecat.cases import internal_router as internal_cases_router
-from tracecat.cases import router as cases_router
-from tracecat.cases.dropdowns.schemas import CaseDropdownValueRead
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.cases import filters as case_filters
+from autosecops.cases import internal_router as internal_cases_router
+from autosecops.cases import router as cases_router
+from autosecops.cases.dropdowns.schemas import CaseDropdownValueRead
+from autosecops.cases.enums import (
     CaseEventType,
     CaseFieldKind,
     CasePriority,
@@ -24,28 +24,28 @@ from tracecat.cases.enums import (
     CaseStatus,
     CaseVersionField,
 )
-from tracecat.cases.hierarchy import CaseHierarchyService
-from tracecat.cases.schemas import (
+from autosecops.cases.hierarchy import CaseHierarchyService
+from autosecops.cases.schemas import (
     CaseBatchItemResult,
     CaseBatchResponse,
     CaseReadMinimal,
     CaseSearchAggregateRead,
     CaseStatusGroupCounts,
 )
-from tracecat.cases.versions import router as case_versions_router
-from tracecat.cases.versions.schemas import (
+from autosecops.cases.versions import router as case_versions_router
+from autosecops.cases.versions.schemas import (
     CaseVersionCompareRead,
     CaseVersionContentRead,
     CaseVersionRestoreRead,
 )
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Case, CaseTag, Workspace
-from tracecat.exceptions import (
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Case, CaseTag, Workspace
+from autosecops.exceptions import (
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.pagination import CursorPaginatedResponse
+from autosecops.pagination import CursorPaginatedResponse
 
 
 @pytest.fixture(autouse=True)

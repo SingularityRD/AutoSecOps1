@@ -17,9 +17,9 @@ repos:
         exclude: ^deployments/helm/.*/templates/
       # Synced skill files stay byte-identical to upstream (just skill-library check).
       - id: end-of-file-fixer
-        exclude: ^tracecat/agent/skill/library/skills/
+        exclude: ^autosecops/agent/skill/library/skills/
       - id: trailing-whitespace
-        exclude: (\.patch$|^tracecat/agent/skill/library/skills/)
+        exclude: (\.patch$|^autosecops/agent/skill/library/skills/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
     hooks:
@@ -45,7 +45,7 @@ repos:
         name: update frontend client
         entry: bash -c "pnpm -C frontend generate-client-ci && pnpm -C frontend check"
         language: system
-        files: ^(tracecat|packages)
+        files: ^(autosecops|packages)
         require_serial: true
         pass_filenames: false
       - id: basedpyright
@@ -73,13 +73,13 @@ repos:
         name: skill library check
         entry: just skill-library check
         language: system
-        files: ^tracecat/agent/skill/library/(skills/|sources\.toml$)
+        files: ^autosecops/agent/skill/library/(skills/|sources\.toml$)
         pass_filenames: false
         require_serial: true
       - id: gen-mcp-docs
         name: generate mcp docs
         entry: just gen-mcp-docs
         language: system
-        files: ^tracecat/mcp/server\.py$
+        files: ^autosecops/mcp/server\.py$
         pass_filenames: false
         require_serial: true

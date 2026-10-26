@@ -2,7 +2,7 @@
 
 import pytest
 
-from tracecat.base62 import b62decode, b62encode
+from autosecops.base62 import b62decode, b62encode
 
 
 @pytest.mark.parametrize(

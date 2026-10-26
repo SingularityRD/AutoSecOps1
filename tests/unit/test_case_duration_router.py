@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.durations.router import list_case_durations
-from tracecat.cases.durations.service import CaseDurationService
+from autosecops.cases.durations.router import list_case_durations
+from autosecops.cases.durations.service import CaseDurationService
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -6,7 +6,7 @@ NsJail::
     uv run pytest --noconftest tests/integration/test_registry_discovery_resources.py -m integration -s
 
 The test is skipped unless Linux and the configured NsJail sandbox rootfs are
-available. Start the container through ``python -m tracecat.sandbox.bootstrap``
+available. Start the container through ``python -m autosecops.sandbox.bootstrap``
 to delegate its cgroup before running pytest.
 """
 
@@ -19,8 +19,8 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat import config
-from tracecat.registry.sync.sandbox import RegistrySyncSandbox
+from autosecops import config
+from autosecops.registry.sync.sandbox import RegistrySyncSandbox
 
 
 def _real_nsjail_available() -> bool:
@@ -69,7 +69,7 @@ duckdb.sql("SET threads=20")
 time.sleep(1)
 import databricks.sdk
 
-from tracecat_registry import registry
+from autosecops_registry import registry
 
 
 @registry.register(

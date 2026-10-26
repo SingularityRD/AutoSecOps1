@@ -3,7 +3,7 @@
 from psycopg import Connection, Error
 from pydantic import JsonValue
 
-from tracecat.query.lexical_types import ColumnSearchOrder, SearchMode
+from autosecops.query.lexical_types import ColumnSearchOrder, SearchMode
 
 from .queries import Search, query
 from .schema import CONFIG, columns, populate_projection

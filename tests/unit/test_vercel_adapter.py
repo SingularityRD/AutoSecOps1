@@ -11,7 +11,7 @@ from claude_agent_sdk.types import (
     UserMessage,
 )
 
-from tracecat.agent.adapter.vercel import (
+from autosecops.agent.adapter.vercel import (
     DataEventPayload,
     DataUIPart,
     ToolUIPartInputAvailable,
@@ -20,10 +20,10 @@ from tracecat.agent.adapter.vercel import (
     VercelStreamContext,
     convert_chat_messages_to_ui,
 )
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.common.stream_types import UnifiedStreamEvent
-from tracecat.chat.enums import MessageKind
-from tracecat.chat.schemas import ApprovalRead, ChatMessage
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.common.stream_types import UnifiedStreamEvent
+from autosecops.chat.enums import MessageKind
+from autosecops.chat.schemas import ApprovalRead, ChatMessage
 
 
 def _approval_message(

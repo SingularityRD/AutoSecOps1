@@ -5,6 +5,10 @@ from collections.abc import Callable
 from typing import cast
 
 import pytest
+from autosecops_ee.agent.workflows.durable import (
+    _agent_activity_classification,
+    _executor_activity_classification,
+)
 from temporalio.api.failure.v1 import Failure
 from temporalio.converter import DataConverter
 from temporalio.exceptions import (
@@ -14,12 +18,8 @@ from temporalio.exceptions import (
     TimeoutError,
     TimeoutType,
 )
-from tracecat_ee.agent.workflows.durable import (
-    _agent_activity_classification,
-    _executor_activity_classification,
-)
 
-from tracecat.agent.common.exceptions import (
+from autosecops.agent.common.exceptions import (
     AgentPreparationError,
     AgentSandboxProcessExitError,
     AgentToolLimitExceededError,
@@ -30,8 +30,8 @@ from tracecat.agent.common.exceptions import (
     UserMCPDiscoveryTimeoutError,
     UserMCPDiscoveryUnavailableError,
 )
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.error_policy import (
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.error_policy import (
     MAX_UNCLASSIFIED_DETAIL_CHARS,
     agent_executor_protocol_failed,
     agent_executor_timed_out,
@@ -49,20 +49,23 @@ from tracecat.agent.error_policy import (
     tenant_entitlement_denied,
     user_agent_execution_failed,
 )
-from tracecat.agent.executor.activity import AgentExecutorResult, SandboxedAgentExecutor
-from tracecat.agent.executor.loopback import (
+from autosecops.agent.executor.activity import (
+    AgentExecutorResult,
+    SandboxedAgentExecutor,
+)
+from autosecops.agent.executor.loopback import (
     LoopbackEventSink,
     LoopbackHandler,
     LoopbackInput,
     LoopbackResult,
 )
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     application_error_from_classification,
     build_error_transport_detail,
     extract_error_classification,

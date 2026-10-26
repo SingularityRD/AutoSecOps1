@@ -10,25 +10,25 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from autosecops_ee.admin.organizations.service import AdminOrgService
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
-from tracecat_ee.admin.organizations.service import AdminOrgService
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import PlatformRole, Role
-from tracecat.db.models import Invitation, InvitationGrant, Organization, User
-from tracecat.db.models import Role as DBRole
-from tracecat.email.transport import EmailDeliveryError, OutboundEmail, SMTPTransport
-from tracecat.exceptions import TracecatConflictError
-from tracecat.invitations.consumer import (
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import PlatformRole, Role
+from autosecops.db.models import Invitation, InvitationGrant, Organization, User
+from autosecops.db.models import Role as DBRole
+from autosecops.email.transport import EmailDeliveryError, OutboundEmail, SMTPTransport
+from autosecops.exceptions import TracecatConflictError
+from autosecops.invitations.consumer import (
     MAX_EMAIL_ATTEMPTS,
     deliver_next_invitation,
     run_invitation_email_tick,
 )
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.service import RESEND_COOLDOWN, InvitationService
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import RESEND_COOLDOWN, InvitationService
+from tests.database import TEST_DB_CONFIG
 
 
 class FakeTransport:
@@ -53,7 +53,7 @@ def tick_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None
         yield session
 
     monkeypatch.setattr(
-        "tracecat.invitations.consumer.get_async_session_bypass_rls_context_manager",
+        "autosecops.invitations.consumer.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
 
@@ -66,7 +66,7 @@ def _patch_transport(monkeypatch: pytest.MonkeyPatch, transport: FakeTransport) 
         return transport if real_from_config() is not None else None
 
     monkeypatch.setattr(
-        "tracecat.invitations.consumer.SMTPTransport.from_config",
+        "autosecops.invitations.consumer.SMTPTransport.from_config",
         staticmethod(fake_from_config),
     )
 
@@ -356,7 +356,7 @@ async def test_pre_send_failure_rolls_back_the_claim(
     transport = FakeTransport()
     _patch_transport(monkeypatch, transport)
     monkeypatch.setattr(
-        "tracecat.invitations.consumer.load_invitation_grants",
+        "autosecops.invitations.consumer.load_invitation_grants",
         AsyncMock(side_effect=RuntimeError("transient")),
     )
 
@@ -543,7 +543,7 @@ async def test_concurrent_ticks_deliver_each_invitation_once(
             yield session
 
     monkeypatch.setattr(
-        "tracecat.invitations.consumer.get_async_session_bypass_rls_context_manager",
+        "autosecops.invitations.consumer.get_async_session_bypass_rls_context_manager",
         independent_session,
     )
     try:

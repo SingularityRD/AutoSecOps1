@@ -10,12 +10,15 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from tracecat.agent.channels.dependencies import (
+from autosecops.agent.channels.dependencies import (
     _verify_slack_signature,
     validate_channel_token,
 )
-from tracecat.agent.channels.schemas import ChannelType
-from tracecat.agent.channels.service import PENDING_SLACK_BOT_TOKEN, AgentChannelService
+from autosecops.agent.channels.schemas import ChannelType
+from autosecops.agent.channels.service import (
+    PENDING_SLACK_BOT_TOKEN,
+    AgentChannelService,
+)
 
 
 def _build_request(headers: dict[str, str], body: bytes) -> Request:

@@ -8,21 +8,21 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseCreate, CaseFieldCreate
-from tracecat.cases.service import CaseFieldsService, CasesService
-from tracecat.db.models import Workspace
-from tracecat.db.rls import set_rls_context
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseCreate, CaseFieldCreate
+from autosecops.cases.service import CaseFieldsService, CasesService
+from autosecops.db.models import Workspace
+from autosecops.db.rls import set_rls_context
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import (
     TableColumnCreate,
     TableCreate,
     TableRowInsert,
 )
-from tracecat.tables.service import TableEditorService, TablesService
+from autosecops.tables.service import TableEditorService, TablesService
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -8,7 +8,7 @@ from litellm.llms.anthropic.experimental_pass_through.adapters.transformation im
 )
 from litellm.types.llms.anthropic import AnthropicMessagesRequest
 
-from tracecat.agent.litellm_compat import apply_patch, truncate_tool_call_id
+from autosecops.agent.litellm_compat import apply_patch, truncate_tool_call_id
 
 
 @pytest.mark.parametrize("provider", [None, "openai", "bedrock"])

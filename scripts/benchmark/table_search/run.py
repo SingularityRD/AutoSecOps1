@@ -37,7 +37,7 @@ import psycopg
 from psycopg import Connection, Error, sql
 from pydantic import JsonValue
 
-from tracecat.query.lexical_types import ColumnSearchOrder, SearchMode
+from autosecops.query.lexical_types import ColumnSearchOrder, SearchMode
 
 from .queries import SEARCHES, Search, query
 from .safety import check_contract, safety_probes

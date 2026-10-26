@@ -14,10 +14,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.agent.preset.tool_policy import PresetToolPolicyService
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.agent.preset.tool_policy import PresetToolPolicyService
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     PlatformRegistryIndex,
     PlatformRegistryRepository,
     PlatformRegistryVersion,
@@ -25,13 +24,14 @@ from tracecat.db.models import (
     RegistryRepository,
     RegistryVersion,
 )
-from tracecat.registry.actions.service import (
+from autosecops.registry.actions.service import (
     RegistryActionsService,
     _ActionMetadataRow,
     _CachedOrgManifest,
 )
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.versions.schemas import RegistryVersionManifest
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.versions.schemas import RegistryVersionManifest
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -344,9 +344,9 @@ async def test_org_manifest_larger_than_cache_bound_is_served_uncached(
     service = RegistryActionsService(session, role=svc_role)
     with (
         patch(
-            "tracecat.registry.actions.service.ORG_MANIFEST_CACHE_MAX_JSON_BYTES", 64
+            "autosecops.registry.actions.service.ORG_MANIFEST_CACHE_MAX_JSON_BYTES", 64
         ),
-        patch("tracecat.registry.actions.service._org_manifests", org_manifests),
+        patch("autosecops.registry.actions.service._org_manifests", org_manifests),
         patch.object(service, "has_entitlement", new=AsyncMock(return_value=True)),
     ):
         found = await service.get_actions_from_index(action_names)
@@ -386,7 +386,7 @@ async def test_org_manifest_with_big_integer_is_served_and_cached(
     )
     service = RegistryActionsService(session, role=svc_role)
     with (
-        patch("tracecat.registry.actions.service._org_manifests", org_manifests),
+        patch("autosecops.registry.actions.service._org_manifests", org_manifests),
         patch.object(service, "has_entitlement", new=AsyncMock(return_value=True)),
     ):
         found = await service.get_actions_from_index([action_name])

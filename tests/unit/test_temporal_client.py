@@ -6,10 +6,10 @@ import pytest
 from temporalio.client import Client
 from temporalio.converter import DataConverter, DefaultFailureConverter
 
-from tracecat import config
-from tracecat.dsl import client as temporal_client
-from tracecat.dsl._converter import PydanticPayloadConverter
-from tracecat.temporal.codec import CompositePayloadCodec, CompressionPayloadCodec
+from autosecops import config
+from autosecops.dsl import client as temporal_client
+from autosecops.dsl._converter import PydanticPayloadConverter
+from autosecops.temporal.codec import CompositePayloadCodec, CompressionPayloadCodec
 
 
 @pytest.mark.anyio

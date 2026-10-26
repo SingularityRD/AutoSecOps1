@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 import yaml
+from autosecops_registry.integrations import kubernetes_sdk
 from kubernetes import config as kube_config
-from tracecat_registry.integrations import kubernetes_sdk
 
 
 def _kubeconfig(**user_overrides: Any) -> str:

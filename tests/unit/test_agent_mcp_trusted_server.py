@@ -12,20 +12,23 @@ from fastmcp.utilities.tests import run_server_async
 from pydantic import ValidationError
 from temporalio.exceptions import CancelledError as TemporalCancelledError
 
-from tracecat.agent.common.types import MCPHttpServerConfig, MCPToolDefinition
-from tracecat.agent.mcp import trusted_server
-from tracecat.agent.mcp.metadata import PROXY_TOOL_CALL_ID_KEY, PROXY_TOOL_METADATA_KEY
-from tracecat.agent.mcp.user_client import UserMCPClient, UserMCPDiscoveryResult
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.tokens import (
+from autosecops.agent.common.types import MCPHttpServerConfig, MCPToolDefinition
+from autosecops.agent.mcp import trusted_server
+from autosecops.agent.mcp.metadata import (
+    PROXY_TOOL_CALL_ID_KEY,
+    PROXY_TOOL_METADATA_KEY,
+)
+from autosecops.agent.mcp.user_client import UserMCPClient, UserMCPDiscoveryResult
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.tokens import (
     MCPTokenClaims,
     UserMCPServerClaim,
     mint_mcp_token,
     verify_mcp_token,
 )
-from tracecat.auth.secrets import get_service_key
-from tracecat.exceptions import BuiltinRegistryHasNoSelectionError
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.auth.secrets import get_service_key
+from autosecops.exceptions import BuiltinRegistryHasNoSelectionError
+from autosecops.registry.lock.types import RegistryLock
 
 
 @pytest.fixture(autouse=True)
@@ -251,8 +254,8 @@ async def test_execute_action_tool_uses_registry_lock_from_token(
         lambda: pytest.fail("registry lock should come from token claims"),
     )
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "pinned-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "pinned-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
 
     result = await trusted_server._execute_registry_action(
@@ -279,8 +282,8 @@ async def test_execute_action_tool_translates_remote_cancellation(
         AsyncMock(side_effect=TemporalCancelledError("tool cancelled")),
     )
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "pinned-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "pinned-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
 
     with pytest.raises(asyncio.CancelledError):
@@ -311,7 +314,7 @@ async def test_execute_action_tool_surfaces_builtin_registry_sync_pending(
         async def resolve_lock_with_bindings(self, _actions):
             raise BuiltinRegistryHasNoSelectionError(
                 "Builtin registry sync is still in progress. Please retry shortly.",
-                detail={"origin": "tracecat_registry"},
+                detail={"origin": "autosecops_registry"},
             )
 
     monkeypatch.setattr(
@@ -429,8 +432,8 @@ async def test_build_token_scoped_tools_uses_registry_lock_catalog(
     )
 
     lock = RegistryLock(
-        origins={"tracecat_registry": "2026.05.11"},
-        actions={"core.cases.list_cases": "tracecat_registry"},
+        origins={"autosecops_registry": "2026.05.11"},
+        actions={"core.cases.list_cases": "autosecops_registry"},
     )
     claims = _build_claims(
         allowed_actions=["core.cases.list_cases"],
@@ -1311,7 +1314,7 @@ async def test_token_scoped_mcp_rejects_signed_dotted_user_mcp_deferred_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A token deferring the dotted spelling fails verification, so nothing runs."""
-    monkeypatch.setattr("tracecat.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1361,7 +1364,7 @@ async def test_token_scoped_mcp_refuses_cold_deferred_user_mcp_call_over_http(
     resolved and no remote discovery runs. The ambiguous dotted spelling is
     refused at the same point.
     """
-    monkeypatch.setattr("tracecat.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1417,12 +1420,12 @@ async def test_token_scoped_mcp_lists_but_refuses_deferred_action(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A deferred action is visible to the token holder but never executes."""
-    monkeypatch.setattr("tracecat.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
     lock = RegistryLock(
-        origins={"tracecat_registry": "test-version"},
+        origins={"autosecops_registry": "test-version"},
         actions={
-            "core.cases.list_cases": "tracecat_registry",
-            "core.cases.delete_case": "tracecat_registry",
+            "core.cases.list_cases": "autosecops_registry",
+            "core.cases.delete_case": "autosecops_registry",
         },
     )
     token = mint_mcp_token(
@@ -1480,7 +1483,7 @@ async def test_token_scoped_mcp_refuses_deferred_internal_tool_also_allowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Deferral wins even in a signed token that also allows the internal tool."""
-    monkeypatch.setattr("tracecat.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1531,15 +1534,15 @@ async def test_token_scoped_mcp_refuses_deferred_action_in_another_spelling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A deferred name matches every spelling of the tool it names."""
-    monkeypatch.setattr("tracecat.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         session_id=uuid.uuid4(),
         allowed_actions=["core.http_request"],
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={"core.http_request": "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={"core.http_request": "autosecops_registry"},
         ),
     )
     # Minting rejects this overlap, so sign the claims directly.

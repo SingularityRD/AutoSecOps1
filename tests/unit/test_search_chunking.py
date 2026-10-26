@@ -10,8 +10,8 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from tracecat.search.chunking import MAX_PREFIX_PROBES, TextChunker
-from tracecat.search.chunking_types import (
+from autosecops.search.chunking import MAX_PREFIX_PROBES, TextChunker
+from autosecops.search.chunking_types import (
     ChunkBatch,
     ChunkCheckpoint,
     ChunkingConfig,

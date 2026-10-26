@@ -1,6 +1,12 @@
 """Regression tests for the generic 1Password SDK wrapper boundaries."""
 
 import pytest
+from autosecops_registry.integrations import onepassword_sdk
+from autosecops_registry.integrations.onepassword_sdk import (
+    _get_sdk_method,
+    _prepare_call,
+    _serialize,
+)
 from onepassword import Client
 from onepassword.core import InnerClient, UniffiCore
 from onepassword.items import Items
@@ -9,12 +15,6 @@ from onepassword.types import (
     VaultCreateParams,
 )
 from onepassword.vaults import Vaults
-from tracecat_registry.integrations import onepassword_sdk
-from tracecat_registry.integrations.onepassword_sdk import (
-    _get_sdk_method,
-    _prepare_call,
-    _serialize,
-)
 
 
 @pytest.mark.anyio

@@ -13,9 +13,9 @@ from temporalio.exceptions import (
     TimeoutError as TemporalTimeoutError,
 )
 
-from tracecat.dsl.schemas import ActionRetryPolicy, ActionStatement, RunActionInput
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.storage.object import InlineObject
+from autosecops.dsl.schemas import ActionRetryPolicy, ActionStatement, RunActionInput
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.storage.object import InlineObject
 
 
 def _activity_error_from(cause: Exception) -> ActivityError:
@@ -69,8 +69,10 @@ async def test_action_retries_once_after_heartbeat_timeout() -> None:
     )
 
     with (
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute_activity),
-        patch("tracecat.dsl.workflow.workflow.patched", return_value=True),
+        patch(
+            "autosecops.dsl.workflow.workflow.execute_activity", new=execute_activity
+        ),
+        patch("autosecops.dsl.workflow.workflow.patched", return_value=True),
     ):
         result = await dsl_workflow._execute_action_activity(
             _task(), cast(RunActionInput, object())
@@ -93,8 +95,10 @@ async def test_action_propagates_second_heartbeat_timeout() -> None:
     )
 
     with (
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute_activity),
-        patch("tracecat.dsl.workflow.workflow.patched", return_value=True),
+        patch(
+            "autosecops.dsl.workflow.workflow.execute_activity", new=execute_activity
+        ),
+        patch("autosecops.dsl.workflow.workflow.patched", return_value=True),
         pytest.raises(ActivityError) as raised,
     ):
         await dsl_workflow._execute_action_activity(
@@ -119,7 +123,9 @@ async def test_action_does_not_retry_other_failures(failure: ActivityError) -> N
     execute_activity = AsyncMock(side_effect=failure)
 
     with (
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute_activity),
+        patch(
+            "autosecops.dsl.workflow.workflow.execute_activity", new=execute_activity
+        ),
         pytest.raises(ActivityError) as raised,
     ):
         await dsl_workflow._execute_action_activity(
@@ -137,7 +143,9 @@ async def test_action_with_configured_retries_has_no_extra_heartbeat_retry() -> 
     execute_activity = AsyncMock(side_effect=heartbeat_timeout)
 
     with (
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute_activity),
+        patch(
+            "autosecops.dsl.workflow.workflow.execute_activity", new=execute_activity
+        ),
         pytest.raises(ActivityError) as raised,
     ):
         await dsl_workflow._execute_action_activity(
@@ -155,8 +163,10 @@ async def test_action_preserves_legacy_path_without_retry_patch_marker() -> None
     execute_activity = AsyncMock(side_effect=heartbeat_timeout)
 
     with (
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute_activity),
-        patch("tracecat.dsl.workflow.workflow.patched", return_value=False),
+        patch(
+            "autosecops.dsl.workflow.workflow.execute_activity", new=execute_activity
+        ),
+        patch("autosecops.dsl.workflow.workflow.patched", return_value=False),
         pytest.raises(ActivityError) as raised,
     ):
         await dsl_workflow._execute_action_activity(

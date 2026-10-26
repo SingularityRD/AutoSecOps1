@@ -9,14 +9,14 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth import discovery as auth_discovery_module
-from tracecat.auth.discovery import AuthDiscoveryMethod, AuthDiscoveryService
-from tracecat.auth.enums import AuthType
-from tracecat.db.models import Invitation, Organization, OrganizationDomain
-from tracecat.exceptions import TracecatValidationError
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.organization.domains import normalize_domain
+from autosecops import config
+from autosecops.auth import discovery as auth_discovery_module
+from autosecops.auth.discovery import AuthDiscoveryMethod, AuthDiscoveryService
+from autosecops.auth.enums import AuthType
+from autosecops.db.models import Invitation, Organization, OrganizationDomain
+from autosecops.exceptions import TracecatValidationError
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.organization.domains import normalize_domain
 
 pytestmark = pytest.mark.usefixtures("db")
 

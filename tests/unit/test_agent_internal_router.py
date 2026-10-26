@@ -10,12 +10,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from temporalio.client import WorkflowFailureError
 
-from tracecat.agent import internal_router
-from tracecat.agent.internal_router import router
-from tracecat.agent.schemas import AgentOutput, RunUsage
-from tracecat.auth.dependencies import ExecutorWorkspaceRole
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session
+from autosecops.agent import internal_router
+from autosecops.agent.internal_router import router
+from autosecops.agent.schemas import AgentOutput, RunUsage
+from autosecops.auth.dependencies import ExecutorWorkspaceRole
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCache,
     TarballArtifact,
     compute_registry_artifact_cache_key,

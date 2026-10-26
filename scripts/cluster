@@ -20,7 +20,7 @@
 #   ./cluster ps                   # Show containers (auto-selects cluster)
 #   ./cluster logs api             # Show logs (auto-selects cluster)
 #   ./cluster attach api           # Attach shell to api service
-#   ./cluster loadtest --matrix packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv
+#   ./cluster loadtest --matrix packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv
 #   ./cluster list                 # List all running clusters
 #   ./cluster 1 ports              # Show port mappings for cluster 1
 #
@@ -39,7 +39,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_FILE="${REPO_ROOT}/.env"
-LOADTEST_COMPOSE_FILE="${REPO_ROOT}/packages/tracecat-benchmark/docker-compose.loadtest.yml"
+LOADTEST_COMPOSE_FILE="${REPO_ROOT}/packages/autosecops-benchmark/docker-compose.loadtest.yml"
 
 # Default profile
 PROFILE="dev"
@@ -579,9 +579,9 @@ Nuke options:
   nuke volumes          List and select volumes to remove
 
 Examples:
-  ./cluster loadtest --matrix packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv
+  ./cluster loadtest --matrix packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv
                                   Run every enabled CSV matrix case
-  ./cluster loadtest --matrix packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv --case smoke
+  ./cluster loadtest --matrix packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv --case smoke
                                   Run one named matrix case
   ./cluster up -d                Start sandboxed cluster and create dev users
   ./cluster up -d --single-tenant
@@ -725,7 +725,7 @@ build_env() {
     # --ee-multi-tenant) override it; .env and shell values are ignored so
     # fresh worktrees behave consistently.
     export TRACECAT__EE_MULTI_TENANT="${CLUSTER_EE_MULTI_TENANT:-true}"
-    FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from tracecat.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
+    FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from autosecops.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
     if [[ -n "$FEATURE_FLAGS" ]]; then
         export TRACECAT__FEATURE_FLAGS="$FEATURE_FLAGS"
     fi
@@ -893,7 +893,7 @@ shift
 if [[ "$COMMAND" == "loadtest" ]]; then
     cd "$REPO_ROOT"
     export TRACECAT_LOADTEST_REPO_ROOT="$REPO_ROOT"
-    exec uv run --all-packages tracecat-benchmark "$@"
+    exec uv run --all-packages autosecops-benchmark "$@"
 fi
 
 # Handle 'docs' command before cluster auto-selection. The docs preview is
@@ -1352,7 +1352,7 @@ if [[ "$COMMAND" == "up" || "$COMMAND" == "seed" ]] \
     (cd "$REPO_ROOT" && bash "$ENV_SCRIPT" <<< $'n\n\nn\ntest@autosecops.example')
 
     # Auto-populate all feature flags for dev environment
-    FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from tracecat.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
+    FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from autosecops.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
     if [[ -n "$FEATURE_FLAGS" ]]; then
         echo "TRACECAT__FEATURE_FLAGS=${FEATURE_FLAGS}" >> "$ENV_FILE"
         echo "Enabled all feature flags: $FEATURE_FLAGS"
@@ -1492,7 +1492,7 @@ seed_dev_user() {
     (
         cd "$REPO_ROOT"
         TRACECAT__DB_URI="$seed_db_uri" \
-            uv run tracecat admin create-dev-user \
+            uv run autosecops admin create-dev-user \
             --email "$seed_email" \
             --password "$seed_password" \
             --superuser-email "$seed_superuser_email" \

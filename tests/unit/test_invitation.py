@@ -8,11 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import (
+from autosecops.db.models import (
     Invitation,
     Organization,
 )
-from tracecat.invitations.enums import InvitationStatus
+from autosecops.invitations.enums import InvitationStatus
 
 
 def _token() -> str:

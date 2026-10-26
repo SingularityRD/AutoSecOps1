@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Invitation, Scope
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import TracecatAuthorizationError, TracecatValidationError
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.schemas import InvitationCreate, InvitationGrant
-from tracecat.invitations.service import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Invitation, Scope
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
+from autosecops.invitations.service import (
     _claim_pending,
     revoke_invitation_row,
     validate_grants,

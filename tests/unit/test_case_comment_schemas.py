@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from tracecat.cases.schemas import CaseCommentCreate, CaseCommentUpdate
+from autosecops.cases.schemas import CaseCommentCreate, CaseCommentUpdate
 
 WORKFLOW_ID = "wf-00000000000000000000000000000001"
 

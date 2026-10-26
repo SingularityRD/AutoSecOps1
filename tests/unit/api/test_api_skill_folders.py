@@ -9,17 +9,17 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.agent.folders import router as agent_folder_router
-from tracecat.agent.folders.service import AgentFolderErrorCode
-from tracecat.agent.preset import router as agent_preset_router
-from tracecat.agent.preset.schemas import AgentPresetMoveToFolder
-from tracecat.agent.skill import router as skill_router
-from tracecat.agent.skill.folders import router as skill_folder_router
-from tracecat.agent.skill.folders.service import SkillFolderErrorCode
-from tracecat.agent.skill.schemas import SkillMoveToFolder
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatValidationError
-from tracecat.pagination import CursorPaginatedResponse, CursorPaginationParams
+from autosecops.agent.folders import router as agent_folder_router
+from autosecops.agent.folders.service import AgentFolderErrorCode
+from autosecops.agent.preset import router as agent_preset_router
+from autosecops.agent.preset.schemas import AgentPresetMoveToFolder
+from autosecops.agent.skill import router as skill_router
+from autosecops.agent.skill.folders import router as skill_folder_router
+from autosecops.agent.skill.folders.service import SkillFolderErrorCode
+from autosecops.agent.skill.schemas import SkillMoveToFolder
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatValidationError
+from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 _FOLDER_SURFACES = [
     pytest.param(

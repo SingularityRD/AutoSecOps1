@@ -5,8 +5,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from tracecat.agent.channels import service as channel_service_module
-from tracecat.agent.channels.service import AgentChannelService
+from autosecops.agent.channels import service as channel_service_module
+from autosecops.agent.channels.service import AgentChannelService
 
 
 def test_build_slack_oauth_authorization_url_includes_redirect_uri(

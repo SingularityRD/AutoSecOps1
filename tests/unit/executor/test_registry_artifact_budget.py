@@ -1,6 +1,6 @@
 """Pure registry artifact cache budget policy tests."""
 
-from tracecat.executor.registry_artifact_budget import (
+from autosecops.executor.registry_artifact_budget import (
     RegistryArtifactCacheBudget,
     RegistryArtifactCacheEntry,
     plan_registry_artifact_evictions,

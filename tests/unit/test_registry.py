@@ -11,12 +11,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from tracecat.exceptions import RegistryValidationError
-from tracecat.git.utils import parse_git_url
-from tracecat.registry.actions.schemas import RegistryActionReadMinimal
-from tracecat.registry.actions.service import RegistryActionsService
-from tracecat.registry.actions.types import IndexEntry
-from tracecat.registry.repository import Repository
+from autosecops.exceptions import RegistryValidationError
+from autosecops.git.utils import parse_git_url
+from autosecops.registry.actions.schemas import RegistryActionReadMinimal
+from autosecops.registry.actions.service import RegistryActionsService
+from autosecops.registry.actions.types import IndexEntry
+from autosecops.registry.repository import Repository
 
 
 @pytest.mark.parametrize(
@@ -50,7 +50,7 @@ def test_registry_action_read_minimal_from_index_requires_approval(
 @pytest.mark.usefixtures("registry_version_with_manifest")
 async def test_registry_actions_filtered_by_entitlements(test_role, monkeypatch):
     """Ensure registry listings respect entitlement-gated UDFs."""
-    from tracecat.tiers import defaults as tier_defaults
+    from autosecops.tiers import defaults as tier_defaults
 
     monkeypatch.setattr(
         tier_defaults,
@@ -75,7 +75,7 @@ async def test_registry_actions_include_locked_marks_missing_entitlements(
     test_role, monkeypatch
 ):
     """Ensure include_locked returns locked actions with availability metadata."""
-    from tracecat.tiers import defaults as tier_defaults
+    from autosecops.tiers import defaults as tier_defaults
 
     monkeypatch.setattr(
         tier_defaults,
@@ -100,7 +100,7 @@ async def test_registry_actions_agent_preset_crud_unlocked_without_agent_addons(
     monkeypatch,
 ) -> None:
     """Agent preset CRUD actions are available on every plan and never locked by agent add-ons."""
-    from tracecat.tiers import defaults as tier_defaults
+    from autosecops.tiers import defaults as tier_defaults
 
     monkeypatch.setattr(
         tier_defaults,
@@ -159,7 +159,7 @@ def mock_package(tmp_path):
             f.write(
                 textwrap.dedent(
                     """
-                from tracecat_registry import registry
+                from autosecops_registry import registry
 
                 @registry.register(
                     description="This is a test function",
@@ -178,7 +178,7 @@ def mock_package(tmp_path):
             f.write(
                 textwrap.dedent(
                     """
-                from tracecat_registry import registry
+                from autosecops_registry import registry
 
                 @registry.register(
                     description="This is a deprecated function",
@@ -246,7 +246,7 @@ def test_validate_args_mode_parameter(tmp_path):
                     """
                 from datetime import datetime
                 from uuid import UUID
-                from tracecat_registry import registry
+                from autosecops_registry import registry
 
                 @registry.register(
                     description="Test function with datetime",
@@ -332,7 +332,7 @@ def test_parse_git_url_rejects_missing_repository() -> None:
 
 def test_iter_valid_files(tmp_path):
     """Test iter_valid_files function with various file structures and exclusion rules."""
-    from tracecat.registry.repository import iter_valid_files
+    from autosecops.registry.repository import iter_valid_files
 
     # Create a test directory structure
     # Valid Python files

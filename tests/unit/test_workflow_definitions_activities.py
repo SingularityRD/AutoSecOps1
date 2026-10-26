@@ -9,27 +9,27 @@ import pytest
 from pydantic import ValidationError
 from temporalio.exceptions import ApplicationError
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryLockInvalidDataError,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.versions.schemas import RegistryVersionManifest
-from tracecat.runtime.errors import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.versions.schemas import RegistryVersionManifest
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.workflow.management.definitions import (
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.workflow.management.definitions import (
     WorkflowDefinitionsService,
     get_workflow_definition_activity,
     resolve_registry_lock_activity,
 )
-from tracecat.workflow.management.schemas import (
+from autosecops.workflow.management.schemas import (
     GetWorkflowDefinitionActivityInputs,
     ResolveRegistryLockActivityInputs,
 )
@@ -87,7 +87,7 @@ async def test_get_workflow_definition_activity_classifies_invalid_persisted_dat
     mock_ctx.__aenter__.return_value = mock_service
 
     with patch(
-        "tracecat.workflow.management.definitions.WorkflowDefinitionsService.with_session",
+        "autosecops.workflow.management.definitions.WorkflowDefinitionsService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:
@@ -130,12 +130,12 @@ def _manifest_validation_error() -> ValidationError:
         pytest.param(
             lambda: BuiltinRegistryHasNoSelectionError(
                 "Builtin registry sync is still in progress. Please retry shortly.",
-                detail={"origin": "tracecat_registry"},
+                detail={"origin": "autosecops_registry"},
             ),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.WORKFLOW_BOOTSTRAP_UNAVAILABLE,
             RetryDisposition.RETRYABLE,
-            {"origin": "tracecat_registry"},
+            {"origin": "autosecops_registry"},
             id="builtin_sync_pending_retryable",
         ),
         pytest.param(
@@ -176,7 +176,7 @@ async def test_resolve_registry_lock_activity_maps_error(
     mock_ctx.__aenter__.return_value = mock_service
 
     with patch(
-        "tracecat.workflow.management.definitions.RegistryLockService.with_session",
+        "autosecops.workflow.management.definitions.RegistryLockService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:
@@ -213,7 +213,7 @@ async def test_resolve_registry_lock_activity_classifies_unexpected_failure(
     mock_ctx.__aenter__.return_value = mock_service
 
     with patch(
-        "tracecat.workflow.management.definitions.RegistryLockService.with_session",
+        "autosecops.workflow.management.definitions.RegistryLockService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:

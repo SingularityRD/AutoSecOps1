@@ -13,7 +13,7 @@ const registryAction: RegistryActionReadMinimal = {
   description: "Get one case.",
   namespace: "core.cases",
   type: "udf",
-  origin: "tracecat_registry.core.cases",
+  origin: "autosecops_registry.core.cases",
   default_title: "Get case",
   display_group: "Cases",
   action: "core.cases.get_case",

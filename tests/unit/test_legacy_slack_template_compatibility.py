@@ -9,19 +9,19 @@ import pytest
 import yaml
 from pytest_mock import MockerFixture
 
-from tracecat.auth.types import Role
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.executor import service
-from tracecat.executor.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.executor import service
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.expressions.policy import build_provenance
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.actions.schemas import TemplateAction
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.expressions.policy import build_provenance
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.actions.schemas import TemplateAction
+from autosecops.registry.lock.types import RegistryLock
 
 FIXTURES = Path(__file__).resolve().parents[1] / "data/registry/legacy_slack"
 
@@ -63,10 +63,10 @@ async def test_locked_legacy_slack_template_reaches_sdk(
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "historical-version"},
+            origins={"autosecops_registry": "historical-version"},
             actions={
-                action: "tracecat_registry",
-                "tools.slack_sdk.call_method": "tracecat_registry",
+                action: "autosecops_registry",
+                "tools.slack_sdk.call_method": "autosecops_registry",
             },
         ),
     )

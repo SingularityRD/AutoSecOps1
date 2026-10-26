@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.agent.mcp.utils import (
+from autosecops.agent.mcp.utils import (
     canonical_mcp_tool_name,
     normalize_mcp_tool_name,
 )

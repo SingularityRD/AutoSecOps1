@@ -1,8 +1,8 @@
 import pytest
 
-from tracecat.exceptions import TracecatValidationError
-from tracecat.git.constants import GIT_SSH_URL_REGEX
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
+from autosecops.exceptions import TracecatValidationError
+from autosecops.git.constants import GIT_SSH_URL_REGEX
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 
 
 @pytest.mark.parametrize(

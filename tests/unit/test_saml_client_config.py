@@ -9,9 +9,9 @@ import pytest
 from fastapi import HTTPException
 from saml2.saml import assertion_from_string
 
-from tracecat import config
-from tracecat.auth import saml
-from tracecat.auth.domain_policy import is_domain_allowed_for_org
+from autosecops import config
+from autosecops.auth import saml
+from autosecops.auth.domain_policy import is_domain_allowed_for_org
 
 
 @pytest.mark.anyio

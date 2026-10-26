@@ -19,26 +19,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import orjson
 import pytest
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.executor import action_runner
-from tracecat.executor.action_runner import ActionRunner
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.executor.registry_artifacts import compute_registry_artifact_cache_key
-from tracecat.executor.schemas import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.executor import action_runner
+from autosecops.executor.action_runner import ActionRunner
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.executor.registry_artifacts import compute_registry_artifact_cache_key
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ResolvedContext,
 )
-from tracecat.executor.secret_preprocessors import SecretEnvProjection
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.sandbox import utils as sandbox_utils
-from tracecat.sandbox.exceptions import SandboxError, SandboxWorkloadError
-from tracecat.sandbox.types import SandboxErrorCode, SandboxResult
+from autosecops.executor.secret_preprocessors import SecretEnvProjection
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.sandbox import utils as sandbox_utils
+from autosecops.sandbox.exceptions import SandboxError, SandboxWorkloadError
+from autosecops.sandbox.types import SandboxErrorCode, SandboxResult
 
 
 def _empty_secret_projection() -> SecretEnvProjection:
@@ -90,8 +90,8 @@ def mock_run_action_input() -> RunActionInput:
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 
@@ -177,7 +177,7 @@ class TestActionRunner:
         base_dir.mkdir()
 
         with (
-            patch("tracecat.executor.action_runner.config") as mock_config,
+            patch("autosecops.executor.action_runner.config") as mock_config,
             patch("asyncio.create_subprocess_exec") as mock_subprocess,
         ):
             mock_config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT = 0.1
@@ -235,7 +235,7 @@ class TestActionRunner:
                 return_value=["/bin/sleep", "30"],
             ),
             patch(
-                "tracecat.executor.action_runner.asyncio.create_subprocess_exec",
+                "autosecops.executor.action_runner.asyncio.create_subprocess_exec",
                 side_effect=capture_subprocess,
             ),
         ):
@@ -336,7 +336,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.table.search_rows",
-                module="tracecat_registry.core.table",
+                module="autosecops_registry.core.table",
                 name="search_rows",
             ),
             evaluated_args={"table": "customers"},
@@ -405,7 +405,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.table.search_rows",
-                module="tracecat_registry.core.table",
+                module="autosecops_registry.core.table",
                 name="search_rows",
             ),
             evaluated_args={"table": "customers"},
@@ -565,7 +565,7 @@ class TestActionRunner:
                 action_impl=ActionImplementation(
                     type="udf",
                     action_name="core.transform.reshape",
-                    module="tracecat_registry.core.transform",
+                    module="autosecops_registry.core.transform",
                     name="reshape",
                 ),
                 evaluated_args={},
@@ -599,7 +599,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.http_request",
-                module="tracecat_registry.core.http",
+                module="autosecops_registry.core.http",
                 name="http_request",
             ),
             evaluated_args={},
@@ -661,7 +661,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.http_request",
-                module="tracecat_registry.core.http",
+                module="autosecops_registry.core.http",
                 name="http_request",
             ),
             evaluated_args={},
@@ -726,7 +726,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.http_request",
-                module="tracecat_registry.core.http",
+                module="autosecops_registry.core.http",
                 name="http_request",
             ),
             evaluated_args={},
@@ -964,7 +964,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.table.search_rows",
-                module="tracecat_registry.core.table",
+                module="autosecops_registry.core.table",
                 name="search_rows",
             ),
             evaluated_args={"table": "customers"},
@@ -1048,7 +1048,7 @@ class TestActionRunner:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name="core.table.search_rows",
-                module="tracecat_registry.core.table",
+                module="autosecops_registry.core.table",
                 name="search_rows",
             ),
             evaluated_args={"table": "customers"},
@@ -1089,7 +1089,7 @@ class TestActionRunner:
 
         with (
             patch(
-                "tracecat.executor.registry_artifact_mounts.is_mount",
+                "autosecops.executor.registry_artifact_mounts.is_mount",
                 lambda path: path in mounted,
             ),
             patch.object(
@@ -1098,7 +1098,7 @@ class TestActionRunner:
                 return_value=["/bin/sleep", "30"],
             ),
             patch(
-                "tracecat.executor.action_runner.asyncio.create_subprocess_exec",
+                "autosecops.executor.action_runner.asyncio.create_subprocess_exec",
                 side_effect=capture_subprocess,
             ),
             patch.object(

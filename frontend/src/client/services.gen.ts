@@ -4721,7 +4721,7 @@ export const usersSearchUser = (
  * Get the current organization.
  *
  * Returns basic information about the organization the authenticated user belongs to.
- * @returns tracecat__organization__schemas__OrgRead Successful Response
+ * @returns autosecops__organization__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const organizationGetOrganization =
@@ -4760,7 +4760,7 @@ export const organizationDeleteOrganization = (
 /**
  * List Current User Organization Memberships
  * List active organizations the current user belongs to.
- * @returns tracecat__organization__schemas__OrgRead Successful Response
+ * @returns autosecops__organization__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const organizationListCurrentUserOrganizationMemberships =
@@ -4774,7 +4774,7 @@ export const organizationListCurrentUserOrganizationMemberships =
 /**
  * List Organization Domains
  * List domains assigned to the current organization.
- * @returns tracecat__organization__schemas__OrgDomainRead Successful Response
+ * @returns autosecops__organization__schemas__OrgDomainRead Successful Response
  * @throws ApiError
  */
 export const organizationListOrganizationDomains =
@@ -8652,7 +8652,7 @@ export const watchtowerEnableWatchtowerAgent = (
 /**
  * List Organizations
  * List all organizations.
- * @returns tracecat_ee__admin__organizations__schemas__OrgRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const adminListOrganizations =
@@ -8668,7 +8668,7 @@ export const adminListOrganizations =
  * Create a new organization.
  * @param data The data for the request.
  * @param data.requestBody
- * @returns tracecat_ee__admin__organizations__schemas__OrgRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const adminCreateOrganization = (
@@ -8690,7 +8690,7 @@ export const adminCreateOrganization = (
  * Get organization by ID.
  * @param data The data for the request.
  * @param data.orgId
- * @returns tracecat_ee__admin__organizations__schemas__OrgRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const adminGetOrganization = (
@@ -8714,7 +8714,7 @@ export const adminGetOrganization = (
  * @param data The data for the request.
  * @param data.orgId
  * @param data.requestBody
- * @returns tracecat_ee__admin__organizations__schemas__OrgRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgRead Successful Response
  * @throws ApiError
  */
 export const adminUpdateOrganization = (
@@ -8900,7 +8900,7 @@ export const adminResendOrganizationInvitation = (
  * List all assigned domains for an organization.
  * @param data The data for the request.
  * @param data.orgId
- * @returns tracecat_ee__admin__organizations__schemas__OrgDomainRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgDomainRead Successful Response
  * @throws ApiError
  */
 export const adminListOrganizationDomains = (
@@ -8924,7 +8924,7 @@ export const adminListOrganizationDomains = (
  * @param data The data for the request.
  * @param data.orgId
  * @param data.requestBody
- * @returns tracecat_ee__admin__organizations__schemas__OrgDomainRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgDomainRead Successful Response
  * @throws ApiError
  */
 export const adminCreateOrganizationDomain = (
@@ -8951,7 +8951,7 @@ export const adminCreateOrganizationDomain = (
  * @param data.orgId
  * @param data.domainId
  * @param data.requestBody
- * @returns tracecat_ee__admin__organizations__schemas__OrgDomainRead Successful Response
+ * @returns autosecops_ee__admin__organizations__schemas__OrgDomainRead Successful Response
  * @throws ApiError
  */
 export const adminUpdateOrganizationDomain = (
@@ -9693,7 +9693,7 @@ export const adminRegistryGetPlatformRepository = (
  * Trigger sync for all platform registry repositories.
  * @param data The data for the request.
  * @param data.force Force sync by deleting existing version
- * @returns tracecat__admin__registry__schemas__RegistrySyncResponse Successful Response
+ * @returns autosecops__admin__registry__schemas__RegistrySyncResponse Successful Response
  * @throws ApiError
  */
 export const adminRegistrySyncAllRepositories = (
@@ -9717,7 +9717,7 @@ export const adminRegistrySyncAllRepositories = (
  * @param data The data for the request.
  * @param data.repositoryId
  * @param data.force Force sync by deleting existing version
- * @returns tracecat__admin__registry__schemas__RegistrySyncResponse Successful Response
+ * @returns autosecops__admin__registry__schemas__RegistrySyncResponse Successful Response
  * @throws ApiError
  */
 export const adminRegistrySyncRepository = (
@@ -9758,7 +9758,7 @@ export const adminRegistryGetRegistryStatus =
  * @param data The data for the request.
  * @param data.repositoryId
  * @param data.limit
- * @returns tracecat__admin__registry__schemas__RegistryVersionRead Successful Response
+ * @returns autosecops__admin__registry__schemas__RegistryVersionRead Successful Response
  * @throws ApiError
  */
 export const adminRegistryListRegistryVersions = (
@@ -9805,7 +9805,7 @@ export const adminRegistryStartRegistryArtifactsBackfill = (
  * @param data The data for the request.
  * @param data.repositoryId
  * @param data.versionId
- * @returns tracecat__admin__registry__schemas__RegistryVersionPromoteResponse Successful Response
+ * @returns autosecops__admin__registry__schemas__RegistryVersionPromoteResponse Successful Response
  * @throws ApiError
  */
 export const adminRegistryPromoteRegistryVersion = (
@@ -10039,7 +10039,7 @@ export const editorFieldSchema = (
  * @param data The data for the request.
  * @param data.repositoryId
  * @param data.requestBody
- * @returns tracecat__registry__repositories__schemas__RegistrySyncResponse Successful Response
+ * @returns autosecops__registry__repositories__schemas__RegistrySyncResponse Successful Response
  * @throws ApiError
  */
 export const registryRepositoriesSyncRegistryRepository = (
@@ -10068,7 +10068,7 @@ export const registryRepositoriesSyncRegistryRepository = (
  * For platform registry versions, use the admin API at /admin/registry/versions.
  * @param data The data for the request.
  * @param data.repositoryId
- * @returns tracecat__registry__repositories__schemas__RegistryVersionRead Successful Response
+ * @returns autosecops__registry__repositories__schemas__RegistryVersionRead Successful Response
  * @throws ApiError
  */
 export const registryRepositoriesListRepositoryVersions = (
@@ -10253,7 +10253,7 @@ export const registryRepositoriesListRepositoryCommits = (
  * @param data The data for the request.
  * @param data.repositoryId
  * @param data.versionId
- * @returns tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse Successful Response
+ * @returns autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse Successful Response
  * @throws ApiError
  */
 export const registryRepositoriesPromoteRegistryVersion = (

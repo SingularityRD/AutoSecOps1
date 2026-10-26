@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tracecat.ssh import (
+from autosecops.ssh import (
     SshEnv,
     add_host_to_known_hosts_sync,
     add_ssh_key_to_agent_sync,
@@ -67,7 +67,7 @@ class TestAddHostToKnownHosts:
     def test_split_host_port(
         self, url: str, expected_host: str, expected_port: str | None
     ) -> None:
-        from tracecat.ssh import _split_host_port
+        from autosecops.ssh import _split_host_port
 
         host, port = _split_host_port(url)
 
@@ -83,7 +83,7 @@ async def test_temporary_ssh_agent_uses_private_socket_and_exact_cleanup_env(
     socket_dir = tmp_path / "agent"
     socket_path = socket_dir / "agent.sock"
     run = mocker.patch(
-        "tracecat.ssh.subprocess.run",
+        "autosecops.ssh.subprocess.run",
         side_effect=[
             SimpleNamespace(
                 returncode=0,
@@ -120,9 +120,9 @@ def test_add_ssh_key_applies_lifetime_and_destination_constraint(
     known_hosts = tmp_path / "known_hosts"
     known_hosts.write_text("git.example.test ssh-ed25519 synthetic\n")
     env = SshEnv(ssh_auth_sock="/tmp/agent.sock", ssh_agent_pid="123")
-    validate_key = mocker.patch("tracecat.ssh.paramiko.Ed25519Key.from_private_key")
+    validate_key = mocker.patch("autosecops.ssh.paramiko.Ed25519Key.from_private_key")
     run = mocker.patch(
-        "tracecat.ssh.subprocess.run",
+        "autosecops.ssh.subprocess.run",
         return_value=SimpleNamespace(returncode=0, stdout="", stderr=""),
     )
 

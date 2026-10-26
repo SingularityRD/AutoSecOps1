@@ -11,16 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.client import WorkflowExecutionStatus
 from temporalio.service import RPCError, RPCStatusCode
 
-from tracecat.agent.backends import registry
-from tracecat.agent.common.stream_types import HarnessType
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentSession
-from tracecat.inbox.providers import agent_runs
-from tracecat.inbox.providers.agent_runs import AgentRunsInboxProvider, RunStatus
-from tracecat.inbox.schemas import InboxItemRead
-from tracecat.inbox.types import InboxGroup, InboxItemStatus, InboxItemType
-from tracecat.pagination import BaseCursorPaginator
+from autosecops.agent.backends import registry
+from autosecops.agent.common.stream_types import HarnessType
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentSession
+from autosecops.inbox.providers import agent_runs
+from autosecops.inbox.providers.agent_runs import AgentRunsInboxProvider, RunStatus
+from autosecops.inbox.schemas import InboxItemRead
+from autosecops.inbox.types import InboxGroup, InboxItemStatus, InboxItemType
+from autosecops.pagination import BaseCursorPaginator
 
 
 class _ScalarResult:
@@ -320,7 +320,7 @@ async def test_classify_rejected_only_session_lands_in_completed_group(
         session_ids: Sequence[uuid.UUID],
         status: Any,
     ) -> dict[uuid.UUID, int]:
-        from tracecat.agent.approvals.enums import ApprovalStatus
+        from autosecops.agent.approvals.enums import ApprovalStatus
 
         if status == ApprovalStatus.REJECTED:
             return {rejected.id: 1}

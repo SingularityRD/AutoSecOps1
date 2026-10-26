@@ -2,7 +2,7 @@
 
 This script runs two workflows in the Temporal local test environment:
 1) Legacy path: workflow code calls the process Loguru logger directly.
-2) Safe path: workflow code calls tracecat.dsl.workflow_logging.workflow_logger.
+2) Safe path: workflow code calls autosecops.dsl.workflow_logging.workflow_logger.
 
 A blocking Loguru sink is installed to emulate logger lock contention. The
 legacy path should fail with TMPRL1101 (workflow didn't yield), while the safe
@@ -27,9 +27,9 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 with workflow.unsafe.imports_passed_through():
-    from tracecat.dsl.worker import new_sandbox_runner
-    from tracecat.dsl.workflow_logging import workflow_logger
-    from tracecat.logger import logger as process_logger
+    from autosecops.dsl.worker import new_sandbox_runner
+    from autosecops.dsl.workflow_logging import workflow_logger
+    from autosecops.logger import logger as process_logger
 
 
 class Mode(StrEnum):

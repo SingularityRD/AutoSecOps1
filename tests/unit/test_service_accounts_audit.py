@@ -7,17 +7,17 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import ServiceAccount, ServiceAccountApiKey
-from tracecat.service_accounts.service import (
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import ServiceAccount, ServiceAccountApiKey
+from autosecops.service_accounts.service import (
     IssuedServiceAccountApiKeyResult,
     OrganizationServiceAccountService,
     WorkspaceServiceAccountService,
 )
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.tiers import defaults as tier_defaults
 
 type ServiceAccountServiceClass = (
     type[OrganizationServiceAccountService] | type[WorkspaceServiceAccountService]

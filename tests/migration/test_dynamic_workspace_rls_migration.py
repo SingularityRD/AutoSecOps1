@@ -17,8 +17,8 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy import create_engine, text
 
+from autosecops.identifiers.workflow import WorkspaceUUID
 from tests.database import TEST_DB_CONFIG
-from tracecat.identifiers.workflow import WorkspaceUUID
 
 MIGRATION_REVISION = "b5fc4168fe22"
 # Immediate down_revision for b5fc4168fe22 after linearizing onto merged main.

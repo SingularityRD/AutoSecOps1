@@ -23,7 +23,7 @@ client_pid=$!
 # Keep the client secret out of the proxy's environment.
 unset PANGOLIN_CLIENT_SECRET
 
-python -m tracecat_ee.tunnels.gateway &
+python -m autosecops_ee.tunnels.gateway &
 proxy_pid=$!
 
 trap 'kill "$client_pid" "$proxy_pid" 2>/dev/null' INT TERM

@@ -4,9 +4,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tracecat import config
-from tracecat.contexts import ctx_request_audit
-from tracecat.middleware.request import RequestLoggingMiddleware
+from autosecops import config
+from autosecops.contexts import ctx_request_audit
+from autosecops.middleware.request import RequestLoggingMiddleware
 
 
 def _read_audit_context() -> dict[str, str | None]:

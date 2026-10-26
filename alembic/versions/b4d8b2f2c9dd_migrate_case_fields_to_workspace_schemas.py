@@ -10,7 +10,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine.interfaces import ReflectedColumn
 
 from alembic import op
-from tracecat.identifiers.workflow import WorkspaceUUID
+from autosecops.identifiers.workflow import WorkspaceUUID
 
 revision: str = "b4d8b2f2c9dd"
 down_revision: str | None = "a6c2d9e7f5b1"

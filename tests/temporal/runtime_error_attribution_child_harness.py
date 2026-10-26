@@ -14,6 +14,46 @@ from temporalio.client import WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 
+from autosecops import config
+from autosecops.dsl import action as action_module
+from autosecops.dsl.common import (
+    DSLEntrypoint,
+    DSLInput,
+    DSLRunArgs,
+    PreparedSubflowResult,
+)
+from autosecops.dsl.enums import (
+    FailStrategy,
+    PlatformAction,
+    StreamErrorHandlingStrategy,
+    WaitStrategy,
+)
+from autosecops.dsl.error_transport import parse_classified_action_error_payload
+from autosecops.dsl.init_activities import (
+    resolve_time_anchor_activity,
+    resolve_workflow_concurrency_limits_enabled_activity,
+)
+from autosecops.dsl.schemas import (
+    ActionRetryPolicy,
+    ActionStatement,
+    ExecutionContext,
+    GatherArgs,
+    ScatterArgs,
+)
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.expressions.schemas import ExpectedField
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import (
+    iter_error_chain,
+)
+from autosecops.workflow.management.definitions import (
+    WorkflowDefinitionsService,
+    get_workflow_definition_activity,
+)
+from autosecops.workflow.management.management import WorkflowsManagementService
 from tests.temporal.runtime_error_attribution_harness import (
     ScenarioObservation,
     _ChildDispatch,
@@ -30,46 +70,6 @@ from tests.temporal.runtime_error_attribution_harness import (
     subflow_run_args,
     wait_for_child_workflow_ids,
 )
-from tracecat import config
-from tracecat.dsl import action as action_module
-from tracecat.dsl.common import (
-    DSLEntrypoint,
-    DSLInput,
-    DSLRunArgs,
-    PreparedSubflowResult,
-)
-from tracecat.dsl.enums import (
-    FailStrategy,
-    PlatformAction,
-    StreamErrorHandlingStrategy,
-    WaitStrategy,
-)
-from tracecat.dsl.error_transport import parse_classified_action_error_payload
-from tracecat.dsl.init_activities import (
-    resolve_time_anchor_activity,
-    resolve_workflow_concurrency_limits_enabled_activity,
-)
-from tracecat.dsl.schemas import (
-    ActionRetryPolicy,
-    ActionStatement,
-    ExecutionContext,
-    GatherArgs,
-    ScatterArgs,
-)
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.expressions.schemas import ExpectedField
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import (
-    iter_error_chain,
-)
-from tracecat.workflow.management.definitions import (
-    WorkflowDefinitionsService,
-    get_workflow_definition_activity,
-)
-from tracecat.workflow.management.management import WorkflowsManagementService
 
 
 async def run_missing_published_definition_sets_platform_owner(
@@ -216,13 +216,13 @@ async def run_unhandled_subflow_preparation_failure_sets_platform_owner(
         ),
         trigger_inputs=InlineObject(data={"source": "inline-trigger"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
     )
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
-    with patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow):
+    with patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow):
         async with test_worker_factory(
             env.client,
             activities=[
@@ -295,8 +295,8 @@ def _missing_child_run_args(
         ),
         trigger_inputs=InlineObject(data={}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={"core.noop": "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={"core.noop": "autosecops_registry"},
         ),
     )
 
@@ -327,15 +327,15 @@ async def run_missing_subflow_with_cancelled_sibling_preserves_causal_owner(
 
     with (
         patch(
-            "tracecat.workflow.management.management.WorkflowsManagementService.with_session",
+            "autosecops.workflow.management.management.WorkflowsManagementService.with_session",
             return_value=management_context,
         ),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch_slow_action,
         ),
     ):
@@ -400,7 +400,7 @@ async def run_missing_subflow_with_cancelled_run_if_preserves_causal_owner(
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
     with patch(
-        "tracecat.workflow.management.management.WorkflowsManagementService.with_session",
+        "autosecops.workflow.management.management.WorkflowsManagementService.with_session",
         return_value=management_context,
     ):
         async with test_worker_factory(
@@ -475,13 +475,13 @@ async def run_gather_raise_preserves_platform_child_attribution(
         ),
         trigger_inputs=InlineObject(data={"source": "inline-trigger"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
     )
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
-    with patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow):
+    with patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow):
         async with test_worker_factory(
             env.client,
             activities=[
@@ -534,13 +534,13 @@ async def run_isolated_platform_child_failure_does_not_attribute_parent(
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
     with (
-        patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow),
+        patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch.dispatch,
         ),
     ):
@@ -615,13 +615,13 @@ async def run_fail_all_preserves_mixed_child_attribution(
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
     with (
-        patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow),
+        patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch.dispatch,
         ),
     ):
@@ -683,7 +683,7 @@ async def run_concurrent_sibling_cancellation_preserves_causal_owner(
         fail_strategy=FailStrategy.ALL,
     )
     intermediary_lock = RegistryLock(
-        origins={"tracecat_registry": "test"},
+        origins={"autosecops_registry": "test"},
         actions={},
     )
 
@@ -729,13 +729,13 @@ async def run_concurrent_sibling_cancellation_preserves_causal_owner(
     monkeypatch.setattr(config, "TRACECAT__ACTIVITY_HEARTBEAT_INTERVAL", 1)
 
     with (
-        patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow_mock),
+        patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow_mock),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch.dispatch,
         ),
     ):
@@ -845,8 +845,8 @@ async def run_successful_error_handler_does_not_inherit_terminal_owner(
         ],
     )
     handler_lock = RegistryLock(
-        origins={"tracecat_registry": "test"},
-        actions={"core.noop": "tracecat_registry"},
+        origins={"autosecops_registry": "test"},
+        actions={"core.noop": "autosecops_registry"},
     )
     handler_definition = AsyncMock(
         return_value=SimpleNamespace(
@@ -880,8 +880,8 @@ async def run_successful_error_handler_does_not_inherit_terminal_owner(
         ),
         trigger_inputs=InlineObject(data={"mode": "user"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={"core.noop": "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={"core.noop": "autosecops_registry"},
         ),
     )
     dispatch = _ChildDispatch(
@@ -893,11 +893,11 @@ async def run_successful_error_handler_does_not_inherit_terminal_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch.dispatch,
         ),
     ):
@@ -967,8 +967,8 @@ async def run_invalid_child_input_with_successful_error_handler_sets_user_owner(
         ],
     )
     handler_lock = RegistryLock(
-        origins={"tracecat_registry": "test"},
-        actions={"core.noop": "tracecat_registry"},
+        origins={"autosecops_registry": "test"},
+        actions={"core.noop": "autosecops_registry"},
     )
     handler_definition = AsyncMock(
         return_value=SimpleNamespace(
@@ -1029,7 +1029,7 @@ async def run_invalid_child_input_with_successful_error_handler_sets_user_owner(
         ),
         trigger_inputs=InlineObject(data={}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
     )
@@ -1041,13 +1041,13 @@ async def run_invalid_child_input_with_successful_error_handler_sets_user_owner(
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
     with (
-        patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow),
+        patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch.dispatch,
         ),
     ):

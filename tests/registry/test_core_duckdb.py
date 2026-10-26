@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from tracecat_registry.core import duckdb as duckdb_action
-from tracecat_registry.core.duckdb import (
+from autosecops_registry.core import duckdb as duckdb_action
+from autosecops_registry.core.duckdb import (
     _build_s3_secret,
     _extension_directory,
     _thread_limit,
@@ -226,8 +226,8 @@ import resource
 limit = 1024 * 1024 * 1024
 resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
 
-from tracecat_registry import secrets
-from tracecat_registry.core.duckdb import execute_sql
+from autosecops_registry import secrets
+from autosecops_registry.core.duckdb import execute_sql
 
 token = secrets.set_context(
     {

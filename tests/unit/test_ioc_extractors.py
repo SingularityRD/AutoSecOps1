@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 import yaml
 
-from tracecat.expressions.ioc_extractors import (
+from autosecops.expressions.ioc_extractors import (
     extract_asns,
     extract_cves,
     extract_domains,

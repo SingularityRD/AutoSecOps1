@@ -3,9 +3,9 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.error_policy import agent_executor_unclassified
-from tracecat.agent.executor.activity import AgentExecutorResult
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.error_policy import agent_executor_unclassified
+from autosecops.agent.executor.activity import AgentExecutorResult
 
 
 class _PreviousClassification(BaseModel):

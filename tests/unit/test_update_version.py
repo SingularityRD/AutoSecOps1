@@ -9,8 +9,8 @@ from packaging.version import Version
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts/update-version.sh"
 VERSION_FILES = (
-    "tracecat/__init__.py",
-    "packages/tracecat-registry/tracecat_registry/__init__.py",
+    "autosecops/__init__.py",
+    "packages/autosecops-registry/autosecops_registry/__init__.py",
 )
 
 

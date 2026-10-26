@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from tracecat.validation.common import json_schema_to_pydantic
+from autosecops.validation.common import json_schema_to_pydantic
 
 _ADDRESS_DEFS = {
     "Address": {

@@ -10,23 +10,23 @@ from claude_agent_sdk.types import UserMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.service import AgentManagementService
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.agent_invocations.completion import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.service import AgentManagementService
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.agent_invocations.completion import (
     CaseCommentAgentInvocationCompletionService,
 )
-from tracecat.cases.agent_invocations.dispatcher import (
+from autosecops.cases.agent_invocations.dispatcher import (
     CaseCommentAgentInvocationDispatcher,
 )
-from tracecat.cases.agent_invocations.service import (
+from autosecops.cases.agent_invocations.service import (
     CaseCommentAgentInvocationService,
 )
-from tracecat.cases.enums import (
+from autosecops.cases.enums import (
     CaseAgentSessionInteractionOperation,
     CaseCommentAgentInvocationStatus,
     CaseEventType,
@@ -35,14 +35,14 @@ from tracecat.cases.enums import (
     CaseStatus,
     MentionTargetType,
 )
-from tracecat.cases.schemas import (
+from autosecops.cases.schemas import (
     CaseCommentCreate,
     CaseCommentUpdate,
     CaseCommentWorkflowStatus,
     CaseCreate,
 )
-from tracecat.cases.service import CaseCommentsService, CasesService
-from tracecat.db.models import (
+from autosecops.cases.service import CaseCommentsService, CasesService
+from autosecops.db.models import (
     AgentPreset,
     AgentPresetVersion,
     AgentSession,
@@ -55,15 +55,15 @@ from tracecat.db.models import (
     User,
     Workflow,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatValidationError,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.tiers.enums import Entitlement
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.tiers.enums import Entitlement
 
 MISSING_AGENT_TARGET_ID = uuid.UUID("00000000-0000-4000-8000-000000000099")
 
@@ -74,10 +74,10 @@ pytestmark = pytest.mark.usefixtures("db")
 def stub_case_duration_sync() -> Iterator[None]:
     with (
         patch(
-            "tracecat.cases.events.sync_case_duration",
+            "autosecops.cases.events.sync_case_duration",
             new=AsyncMock(return_value=True),
         ),
-        patch("tracecat.cases.service.invoke_comment_agent_turns_after_commit"),
+        patch("autosecops.cases.service.invoke_comment_agent_turns_after_commit"),
     ):
         yield
 
@@ -1254,9 +1254,9 @@ class TestCaseCommentsService:
         callbacks: list[object] = []
 
         with (
-            patch("tracecat.cases.service.AfterCommitQueue.of") as queue_of_mock,
+            patch("autosecops.cases.service.AfterCommitQueue.of") as queue_of_mock,
             patch(
-                "tracecat.cases.service.publish_case_event_payload",
+                "autosecops.cases.service.publish_case_event_payload",
                 new=AsyncMock(),
             ) as publish_mock,
         ):
@@ -1303,9 +1303,9 @@ class TestCaseCommentsService:
         existing_audit_count = len(audit_event_calls)
 
         with (
-            patch("tracecat.cases.service.AfterCommitQueue.of"),
+            patch("autosecops.cases.service.AfterCommitQueue.of"),
             patch(
-                "tracecat.cases.service.publish_case_event_payload",
+                "autosecops.cases.service.publish_case_event_payload",
                 new=AsyncMock(side_effect=RuntimeError("redis unavailable")),
             ),
         ):

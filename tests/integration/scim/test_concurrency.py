@@ -12,21 +12,20 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from autosecops_ee.rbac.service import RBACService
+from autosecops_ee.scim.protocol import patch_group
+from autosecops_ee.scim.provisioning import ScimProvisioningService
+from autosecops_ee.scim.schemas import ScimPatchOp
+from autosecops_ee.scim.service import SCIMService
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
-from tracecat_ee.rbac.service import RBACService
-from tracecat_ee.scim.protocol import patch_group
-from tracecat_ee.scim.provisioning import ScimProvisioningService
-from tracecat_ee.scim.schemas import ScimPatchOp
-from tracecat_ee.scim.service import SCIMService
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.authz.membership import lock_role_changes
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.authz.membership import lock_role_changes
+from autosecops.db.models import (
     ExternalGroup,
     ExternalGroupMapping,
     ExternalGroupMember,
@@ -42,8 +41,9 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 
@@ -178,10 +178,10 @@ async def interleave(
                 await release.wait()
 
         for module in (
-            "tracecat_ee.scim.service",
-            "tracecat_ee.scim.protocol",
-            "tracecat_ee.scim.provisioning",
-            "tracecat_ee.rbac.service",
+            "autosecops_ee.scim.service",
+            "autosecops_ee.scim.protocol",
+            "autosecops_ee.scim.provisioning",
+            "autosecops_ee.rbac.service",
         ):
             monkeypatch.setattr(f"{module}.lock_role_changes", gate)
         task_a = asyncio.ensure_future(first(a))
@@ -392,7 +392,7 @@ async def test_duplicate_first_provisioning_links_the_winning_account(
 
     monkeypatch.setattr(SQLAlchemyUserDatabase, "create", create)
     monkeypatch.setattr(
-        "tracecat.auth.users.get_async_session_auth_context_manager", auth_session
+        "autosecops.auth.users.get_async_session_auth_context_manager", auth_session
     )
 
     async def provision() -> uuid.UUID:

@@ -12,9 +12,9 @@ import pytest
 import skill_library as script
 from skill_library import extract, render_sources, write_skill
 
-from tracecat import config
-from tracecat.agent.skill.library.sources import parse_sources, read_tree, tree_digest
-from tracecat.agent.skill.library.types import LibrarySource, LocalLibrarySource
+from autosecops import config
+from autosecops.agent.skill.library.sources import parse_sources, read_tree, tree_digest
+from autosecops.agent.skill.library.types import LibrarySource, LocalLibrarySource
 
 COMMIT = "c" * 40
 SKILL_MD = b"---\nname: triage\ndescription: Triage.\n---\nBody\n"

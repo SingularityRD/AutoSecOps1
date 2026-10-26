@@ -9,18 +9,21 @@ from unittest.mock import ANY, AsyncMock, Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from tracecat import config
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.chat.schemas import ChatPageContext, VercelChatRequest
-from tracecat.chat.tools import WORKSPACE_CHAT_DEFAULT_TOOLS, WORKSPACE_CHAT_FORMS_TOOLS
-from tracecat.db.models import AgentSession
-from tracecat.feature_flags import FeatureFlag
-from tracecat.tiers.enums import Entitlement
-from tracecat.workspaces.prompts import form_page_context
+from autosecops import config
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.chat.schemas import ChatPageContext, VercelChatRequest
+from autosecops.chat.tools import (
+    WORKSPACE_CHAT_DEFAULT_TOOLS,
+    WORKSPACE_CHAT_FORMS_TOOLS,
+)
+from autosecops.db.models import AgentSession
+from autosecops.feature_flags import FeatureFlag
+from autosecops.tiers.enums import Entitlement
+from autosecops.workspaces.prompts import form_page_context
 
 pytestmark = pytest.mark.anyio
 
@@ -60,7 +63,7 @@ def _gate(
     )
     is_org_entitled = AsyncMock(return_value=entitled)
     monkeypatch.setattr(
-        "tracecat.agent.session.service.is_org_entitled", is_org_entitled
+        "autosecops.agent.session.service.is_org_entitled", is_org_entitled
     )
     return is_org_entitled
 
@@ -176,7 +179,9 @@ async def _turn_instructions(
     with (
         patch.object(service, "validate_turn_request", return_value=agent_session),
         patch.object(service, "_build_agent_config", configuration),
-        patch("tracecat.agent.session.service.get_agent_backend", return_value=backend),
+        patch(
+            "autosecops.agent.session.service.get_agent_backend", return_value=backend
+        ),
     ):
         await service.run_turn(agent_session.id, request, is_first_prompt=False)
     return backend.start_turn.await_args.args[0].config.instructions

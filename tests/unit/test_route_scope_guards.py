@@ -7,37 +7,39 @@ from typing import Any, cast
 import pytest
 from fastapi import HTTPException
 
-from tracecat.agent.catalog import router as agent_catalog_router
-from tracecat.agent.folders import router as agent_folder_router
-from tracecat.agent.preset import router as agent_preset_router
-from tracecat.agent.skill import router as skill_router
-from tracecat.agent.skill.folders import router as skill_folder_router
-from tracecat.agent.skill.tags import definitions_router as skill_tag_definitions_router
-from tracecat.agent.skill.tags import router as skill_tags_router
-from tracecat.agent.tags import definitions_router as agent_tag_definitions_router
-from tracecat.auth.types import Role
-from tracecat.cases.dropdowns import router as case_dropdowns_router
-from tracecat.cases.durations import router as case_durations_router
-from tracecat.cases.rows import router as case_rows_router
-from tracecat.cases.tag_definitions import router as case_tag_definitions_router
-from tracecat.cases.tags import internal_router as internal_case_tags_router
-from tracecat.cases.tags import router as case_tags_router
-from tracecat.cases.versions import router as case_versions_router
-from tracecat.contexts import ctx_role
-from tracecat.exceptions import ScopeDeniedError
-from tracecat.forms import internal_router as internal_forms_router
-from tracecat.forms import router as forms_router
-from tracecat.inbox import router as inbox_router
-from tracecat.integrations import router as integrations_router
-from tracecat.invitations import router as invitations_router
-from tracecat.organization import router as organization_router
-from tracecat.registry.actions import router as registry_actions_router
-from tracecat.registry.repositories import router as registry_repos_router
-from tracecat.tables import router as tables_router
-from tracecat.vcs import router as vcs_router
-from tracecat.workflow.executions import router as workflow_executions_router
-from tracecat.workflow.store import router as workflow_store_router
-from tracecat.workspaces import router as workspaces_router
+from autosecops.agent.catalog import router as agent_catalog_router
+from autosecops.agent.folders import router as agent_folder_router
+from autosecops.agent.preset import router as agent_preset_router
+from autosecops.agent.skill import router as skill_router
+from autosecops.agent.skill.folders import router as skill_folder_router
+from autosecops.agent.skill.tags import (
+    definitions_router as skill_tag_definitions_router,
+)
+from autosecops.agent.skill.tags import router as skill_tags_router
+from autosecops.agent.tags import definitions_router as agent_tag_definitions_router
+from autosecops.auth.types import Role
+from autosecops.cases.dropdowns import router as case_dropdowns_router
+from autosecops.cases.durations import router as case_durations_router
+from autosecops.cases.rows import router as case_rows_router
+from autosecops.cases.tag_definitions import router as case_tag_definitions_router
+from autosecops.cases.tags import internal_router as internal_case_tags_router
+from autosecops.cases.tags import router as case_tags_router
+from autosecops.cases.versions import router as case_versions_router
+from autosecops.contexts import ctx_role
+from autosecops.exceptions import ScopeDeniedError
+from autosecops.forms import internal_router as internal_forms_router
+from autosecops.forms import router as forms_router
+from autosecops.inbox import router as inbox_router
+from autosecops.integrations import router as integrations_router
+from autosecops.invitations import router as invitations_router
+from autosecops.organization import router as organization_router
+from autosecops.registry.actions import router as registry_actions_router
+from autosecops.registry.repositories import router as registry_repos_router
+from autosecops.tables import router as tables_router
+from autosecops.vcs import router as vcs_router
+from autosecops.workflow.executions import router as workflow_executions_router
+from autosecops.workflow.store import router as workflow_store_router
+from autosecops.workspaces import router as workspaces_router
 
 type AsyncEndpoint = Callable[..., Awaitable[object]]
 

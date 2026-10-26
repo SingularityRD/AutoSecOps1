@@ -5,8 +5,8 @@ from __future__ import annotations
 import orjson
 import pytest
 
-from tracecat.agent.common.tool_inputs import sanitize_read_tool_input
-from tracecat.agent.sandbox.tool_use_rewrite import (
+from autosecops.agent.common.tool_inputs import sanitize_read_tool_input
+from autosecops.agent.sandbox.tool_use_rewrite import (
     ToolUseStreamRewriter,
     sanitize_messages_response_body,
 )

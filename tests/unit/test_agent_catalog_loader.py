@@ -3,8 +3,8 @@
 import orjson
 import pytest
 
-from tracecat.agent.catalog import loader
-from tracecat.agent.catalog.service import PlatformCatalogEntry
+from autosecops.agent.catalog import loader
+from autosecops.agent.catalog.service import PlatformCatalogEntry
 
 
 class _CatalogResource:

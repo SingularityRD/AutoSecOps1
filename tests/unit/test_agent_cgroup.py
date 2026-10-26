@@ -6,12 +6,12 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from tracecat.agent import executor_worker as agent_worker
-from tracecat.agent.sandbox import cgroup as agent_cgroup
-from tracecat.executor import worker as executor_worker
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.sandbox import cgroup
-from tracecat.sandbox.cgroup import CGROUP_PATH_ENV, sandbox_cgroup
+from autosecops.agent import executor_worker as agent_worker
+from autosecops.agent.sandbox import cgroup as agent_cgroup
+from autosecops.executor import worker as executor_worker
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.sandbox import cgroup
+from autosecops.sandbox.cgroup import CGROUP_PATH_ENV, sandbox_cgroup
 
 
 def test_missing_delegation_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -33,9 +33,9 @@ async def test_worker_rejects_missing_delegation(
 ) -> None:
     ready = tmp_path / "ready"
     ready.touch()
-    monkeypatch.setattr("tracecat.executor.startup.WORKER_READY_FILE", ready)
+    monkeypatch.setattr("autosecops.executor.startup.WORKER_READY_FILE", ready)
     monkeypatch.setattr(
-        "tracecat.executor.startup.validate_execution_backend", lambda: None
+        "autosecops.executor.startup.validate_execution_backend", lambda: None
     )
     monkeypatch.setattr(
         cgroup.config,
@@ -61,7 +61,7 @@ async def test_direct_worker_does_not_require_delegation(
     worker: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.executor.startup.WORKER_READY_FILE", tmp_path / "ready"
+        "autosecops.executor.startup.WORKER_READY_FILE", tmp_path / "ready"
     )
     monkeypatch.setattr(
         cgroup.config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT

@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import tracecat.registry.common as registry_common
-from tracecat.registry.constants import DEFAULT_LOCAL_REGISTRY_ORIGIN
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
+import autosecops.registry.common as registry_common
+from autosecops.registry.constants import DEFAULT_LOCAL_REGISTRY_ORIGIN
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 
 
 @pytest.mark.anyio

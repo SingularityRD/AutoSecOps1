@@ -8,16 +8,16 @@ import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.agent.skill.dependencies import SkillToolDependencyService
-from tracecat.agent.skill.frontmatter import SkillFrontmatter, SkillMetadata
-from tracecat.agent.skill.service import ManifestValidationResult, SkillService
-from tracecat.agent.skill.types import ResolvedSkillRef
-from tracecat.agent.skill.validation import STDIO_MCP_TOOL_SUBSET_UNSUPPORTED
-from tracecat.auth.types import Role
-from tracecat.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from tracecat.exceptions import TracecatValidationError
-from tracecat.integrations.service import IntegrationService
+from autosecops import config
+from autosecops.agent.skill.dependencies import SkillToolDependencyService
+from autosecops.agent.skill.frontmatter import SkillFrontmatter, SkillMetadata
+from autosecops.agent.skill.service import ManifestValidationResult, SkillService
+from autosecops.agent.skill.types import ResolvedSkillRef
+from autosecops.agent.skill.validation import STDIO_MCP_TOOL_SUBSET_UNSUPPORTED
+from autosecops.auth.types import Role
+from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
+from autosecops.exceptions import TracecatValidationError
+from autosecops.integrations.service import IntegrationService
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,16 +6,16 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from autosecops_ee.admin.tiers.service import AdminTierService
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.admin.tiers.service import AdminTierService
 
-from tracecat import config
-from tracecat.auth.types import PlatformRole, Role
-from tracecat.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Organization, OrganizationTier, Tier
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.tiers.schemas import OrganizationTierUpdate, TierCreate, TierUpdate
+from autosecops import config
+from autosecops.auth.types import PlatformRole, Role
+from autosecops.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Organization, OrganizationTier, Tier
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.tiers.schemas import OrganizationTierUpdate, TierCreate, TierUpdate
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -89,7 +89,7 @@ async def test_create_default_tier_queues_newly_entitled_default_follower(
     org_id, service = seeded_org
 
     with patch(
-        "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
+        "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
         new=AsyncMock(),
     ) as enqueue_mock:
         await service.create_tier(
@@ -112,7 +112,7 @@ async def test_create_non_default_tier_does_not_queue_backfill(
     _, service = seeded_org
 
     with patch(
-        "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
+        "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
         new=AsyncMock(),
     ) as enqueue_mock:
         await service.create_tier(
@@ -133,7 +133,7 @@ async def test_update_org_tier_invalidates_effective_limits_cache(
     org_id, service = seeded_org
 
     with patch(
-        "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache",
+        "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache",
         new=AsyncMock(),
     ) as invalidate_mock:
         result = await service.update_org_tier(
@@ -154,7 +154,7 @@ async def test_update_org_tier_completes_in_single_tenant_mode(
     org_id, service = seeded_org
 
     with patch(
-        "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache",
+        "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache",
         new=AsyncMock(),
     ):
         result = await service.update_org_tier(
@@ -196,7 +196,7 @@ async def test_update_tier_invalidates_assigned_organization_caches(
     service = AdminTierService(session, cast(PlatformRole, test_admin_role))
 
     with patch(
-        "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache_many",
+        "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache_many",
         new=AsyncMock(),
     ) as invalidate_many_mock:
         await service.update_tier(
@@ -257,11 +257,11 @@ async def test_update_org_tier_queues_backfill_only_on_case_addons_grant(
 
     with (
         patch(
-            "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache",
+            "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
+            "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
             new=AsyncMock(),
         ) as enqueue_mock,
     ):
@@ -298,11 +298,11 @@ async def test_update_org_tier_tier_id_grant_queues_case_duration_backfill(
 
     with (
         patch(
-            "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache",
+            "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
+            "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
             new=AsyncMock(),
         ) as enqueue_mock,
     ):
@@ -346,11 +346,11 @@ async def test_update_tier_grant_queues_only_newly_entitled_org(
 
     with (
         patch(
-            "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache_many",
+            "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache_many",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
+            "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
             new=AsyncMock(),
         ) as enqueue_mock,
     ):
@@ -382,7 +382,7 @@ async def test_update_tier_activation_queues_newly_entitled_default_follower(
     service = AdminTierService(session, cast(PlatformRole, test_admin_role))
 
     with patch(
-        "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
+        "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
         new=AsyncMock(),
     ) as enqueue_mock:
         await service.update_tier(
@@ -497,7 +497,7 @@ async def test_update_tier_clears_sole_default_without_backfill_error(
     service = AdminTierService(session, cast(PlatformRole, test_admin_role))
 
     with patch(
-        "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
+        "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_orgs",
         new=AsyncMock(),
     ) as enqueue_mock:
         result = await service.update_tier(
@@ -520,14 +520,14 @@ async def test_case_duration_backfill_failure_does_not_fail_org_tier_update(
 
     with (
         patch(
-            "tracecat_ee.admin.tiers.service.invalidate_effective_limits_cache",
+            "autosecops_ee.admin.tiers.service.invalidate_effective_limits_cache",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
+            "autosecops_ee.admin.tiers.service.enqueue_case_duration_backfill_for_org",
             new=AsyncMock(side_effect=RuntimeError("queue unavailable")),
         ) as enqueue_mock,
-        patch("tracecat_ee.admin.tiers.service.logger.warning") as warning_mock,
+        patch("autosecops_ee.admin.tiers.service.logger.warning") as warning_mock,
     ):
         result = await service.update_org_tier(
             org_id,

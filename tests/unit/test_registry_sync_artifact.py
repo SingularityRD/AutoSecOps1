@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.registry.sync import artifact
-from tracecat.registry.sync.artifact import upload_squashfs_venv
+from autosecops.registry.sync import artifact
+from autosecops.registry.sync.artifact import upload_squashfs_venv
 
 
 @pytest.mark.anyio
@@ -20,23 +20,23 @@ async def test_upload_squashfs_venv_uploads_only_squashfs(
     squashfs_path = tmp_path / "site-packages.squashfs"
     squashfs_path.write_bytes(b"squashfs")
     upload_file_from_path = mocker.patch(
-        "tracecat.registry.sync.artifact.blob.upload_file_from_path",
+        "autosecops.registry.sync.artifact.blob.upload_file_from_path",
         mocker.AsyncMock(),
     )
 
     uri = await artifact.upload_squashfs_venv(
         squashfs_path=squashfs_path,
-        key="platform/tarball-venvs/tracecat_registry/v1/site-packages.squashfs",
+        key="platform/tarball-venvs/autosecops_registry/v1/site-packages.squashfs",
         bucket="tracecat-registry",
     )
 
     assert uri == (
-        "s3://tracecat-registry/platform/tarball-venvs/tracecat_registry/v1/"
+        "s3://tracecat-registry/platform/tarball-venvs/autosecops_registry/v1/"
         "site-packages.squashfs"
     )
     upload_file_from_path.assert_awaited_once_with(
         path=squashfs_path,
-        key="platform/tarball-venvs/tracecat_registry/v1/site-packages.squashfs",
+        key="platform/tarball-venvs/autosecops_registry/v1/site-packages.squashfs",
         bucket="tracecat-registry",
         content_type="application/vnd.squashfs",
     )
@@ -116,7 +116,7 @@ async def test_build_artifact_from_installed_environment_includes_platlib_conten
     (purelib / "pure_only.py").write_text("PURE = True\n")
     (platlib / "plat_only.so").write_bytes(b"binary")
 
-    package_dir = tmp_path / "src" / "tracecat_registry"
+    package_dir = tmp_path / "src" / "autosecops_registry"
     package_dir.mkdir(parents=True)
     (package_dir / "__init__.py").write_text("__version__ = '0.0.0'\n")
 
@@ -141,7 +141,7 @@ async def test_build_artifact_from_installed_environment_includes_platlib_conten
     monkeypatch.setattr(artifact, "_create_squashfs_image", fake_create_squashfs)
 
     result = await artifact.build_artifact_from_installed_environment(
-        package_name="tracecat_registry",
+        package_name="autosecops_registry",
         package_dir=package_dir,
         output_dir=tmp_path / "out",
     )
@@ -265,10 +265,10 @@ async def test_build_artifact_from_installed_environment_overlays_symlinked_pack
     purelib.mkdir()
     (purelib / "dependency.py").write_text("DEP = True\n")
 
-    package_dir = tmp_path / "src" / "tracecat_registry"
+    package_dir = tmp_path / "src" / "autosecops_registry"
     package_dir.mkdir(parents=True)
     (package_dir / "__init__.py").write_text("__version__ = '0.0.0'\n")
-    (purelib / "tracecat_registry").symlink_to(package_dir, target_is_directory=True)
+    (purelib / "autosecops_registry").symlink_to(package_dir, target_is_directory=True)
 
     monkeypatch.setattr(
         artifact,
@@ -285,7 +285,7 @@ async def test_build_artifact_from_installed_environment_overlays_symlinked_pack
 
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         staging_dir = Path(cmd[1])
-        staged_package = staging_dir / "tracecat_registry"
+        staged_package = staging_dir / "autosecops_registry"
         assert staged_package.is_dir()
         assert not staged_package.is_symlink()
         assert (staged_package / "__init__.py").read_text() == "__version__ = '0.0.0'\n"
@@ -295,7 +295,7 @@ async def test_build_artifact_from_installed_environment_overlays_symlinked_pack
     monkeypatch.setattr(artifact, "subprocess_run", fake_subprocess_run)
 
     result = await artifact.build_artifact_from_installed_environment(
-        package_name="tracecat_registry",
+        package_name="autosecops_registry",
         package_dir=package_dir,
         output_dir=output_dir,
     )
@@ -319,7 +319,7 @@ async def test_build_artifact_from_installed_environment_skips_unrelated_symlink
     (linked_target / "__init__.py").write_text("X = True\n")
     (purelib / "linked_dependency").symlink_to(linked_target, target_is_directory=True)
 
-    package_dir = tmp_path / "src" / "tracecat_registry"
+    package_dir = tmp_path / "src" / "autosecops_registry"
     package_dir.mkdir(parents=True)
     (package_dir / "__init__.py").write_text("__version__ = '0.0.0'\n")
 
@@ -339,7 +339,7 @@ async def test_build_artifact_from_installed_environment_skips_unrelated_symlink
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         staging_dir = Path(cmd[1])
         assert (staging_dir / "dependency.py").exists()
-        assert (staging_dir / "tracecat_registry" / "__init__.py").exists()
+        assert (staging_dir / "autosecops_registry" / "__init__.py").exists()
         assert not (staging_dir / "linked_dependency").exists()
         squashfs_path.write_bytes(b"squashfs")
         return subprocess.CompletedProcess(cmd, 0, "", "")
@@ -347,7 +347,7 @@ async def test_build_artifact_from_installed_environment_skips_unrelated_symlink
     monkeypatch.setattr(artifact, "subprocess_run", fake_subprocess_run)
 
     result = await artifact.build_artifact_from_installed_environment(
-        package_name="tracecat_registry",
+        package_name="autosecops_registry",
         package_dir=package_dir,
         output_dir=output_dir,
     )

@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.session_events import AfterCommitQueue
+from autosecops.db.session_events import AfterCommitQueue
 
 
 @pytest.mark.anyio

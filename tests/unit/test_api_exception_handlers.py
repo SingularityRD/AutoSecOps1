@@ -10,21 +10,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
-from tracecat.api import app as api_app
-from tracecat.api.app import (
+from autosecops.api import app as api_app
+from autosecops.api.app import (
     _install_scim_exception_handlers,
     authorization_exception_handler,
     scope_denied_exception_handler,
 )
-from tracecat.api.app import (
+from autosecops.api.app import (
     create_app as create_api_app,
 )
-from tracecat.api.common import (
+from autosecops.api.common import (
     query_overflow_exception_handler,
     query_timeout_exception_handler,
     tracecat_exception_handler,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatAuthorizationError,
     TracecatException,
@@ -32,10 +32,12 @@ from tracecat.exceptions import (
     TracecatRLSViolationError,
     TracecatValidationError,
 )
-from tracecat.executor.action_gateway import app as action_gateway_app
-from tracecat.executor.action_gateway.app import create_app as create_action_gateway_app
-from tracecat.forms.schemas import FormValidateRequest
-from tracecat.query.errors import (
+from autosecops.executor.action_gateway import app as action_gateway_app
+from autosecops.executor.action_gateway.app import (
+    create_app as create_action_gateway_app,
+)
+from autosecops.forms.schemas import FormValidateRequest
+from autosecops.query.errors import (
     TracecatQueryOverflowError,
     TracecatQueryTimeoutError,
 )

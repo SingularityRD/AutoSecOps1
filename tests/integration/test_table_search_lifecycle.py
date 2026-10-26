@@ -13,12 +13,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES
-from tracecat.db.engine import get_async_session
-from tracecat.db.models import (
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ORG_ADMIN_SCOPES
+from autosecops.db.engine import get_async_session
+from autosecops.db.models import (
     Organization,
     SearchChunk,
     SearchCollection,
@@ -26,12 +25,12 @@ from tracecat.db.models import (
     Table,
     Workspace,
 )
-from tracecat.exceptions import ScopeDeniedError, TracecatNotFoundError
-from tracecat.pagination import PaginationError
-from tracecat.search.chunking_types import ChunkingIdentity
-from tracecat.search.embeddings.schemas import EmbeddingConfigurationRead
-from tracecat.search.query import eligible_chunks
-from tracecat.search.types import (
+from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.pagination import PaginationError
+from autosecops.search.chunking_types import ChunkingIdentity
+from autosecops.search.embeddings.schemas import EmbeddingConfigurationRead
+from autosecops.search.query import eligible_chunks
+from autosecops.search.types import (
     ChunkerSettings,
     ChunkManifest,
     EmbeddingResult,
@@ -41,34 +40,39 @@ from tracecat.search.types import (
     SearchScope,
     SearchState,
 )
-from tracecat.tables.enums import SqlType
-from tracecat.tables.importer import CSVImporter
-from tracecat.tables.schemas import (
+from autosecops.tables.enums import SqlType
+from autosecops.tables.importer import CSVImporter
+from autosecops.tables.schemas import (
     TableColumnCreate,
     TableColumnUpdate,
     TableCreate,
     TableRowInsert,
     TableUpdate,
 )
-from tracecat.tables.search.router import (
+from autosecops.tables.search.router import (
     require_semantic_search_entitlement,
 )
-from tracecat.tables.search.router import router as search_router
-from tracecat.tables.search.schemas import (
+from autosecops.tables.search.router import router as search_router
+from autosecops.tables.search.schemas import (
     TableSearchDisplayState,
     TableSearchProgressParams,
     TableSearchSelection,
 )
-from tracecat.tables.search.service import TableSearchService
-from tracecat.tables.search.source import TableSearchSource
-from tracecat.tables.service import BaseTablesService, TableEditorService, TablesService
-from tracecat.workspace_sync.adapters import TABLE_RESOURCE_ADAPTER
-from tracecat.workspace_sync.importer import WorkspaceResourceImportService
-from tracecat.workspace_sync.schemas import (
+from autosecops.tables.search.service import TableSearchService
+from autosecops.tables.search.source import TableSearchSource
+from autosecops.tables.service import (
+    BaseTablesService,
+    TableEditorService,
+    TablesService,
+)
+from autosecops.workspace_sync.adapters import TABLE_RESOURCE_ADAPTER
+from autosecops.workspace_sync.importer import WorkspaceResourceImportService
+from autosecops.workspace_sync.schemas import (
     TableColumnSpec,
     TableResourceSpec,
     WorkspaceSpec,
 )
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.anyio
 

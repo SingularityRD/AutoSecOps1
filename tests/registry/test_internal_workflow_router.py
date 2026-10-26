@@ -12,9 +12,9 @@ import pytest
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_409_CONFLICT
 
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.mcp.schemas import JsonPatchOperation
-from tracecat.workflow.executions.internal_router import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.mcp.schemas import JsonPatchOperation
+from autosecops.workflow.executions.internal_router import (
     InternalWorkflowCreateRequest,
     InternalWorkflowEditRequest,
     InternalWorkflowExecuteRequest,
@@ -23,7 +23,7 @@ from tracecat.workflow.executions.internal_router import (
     _build_import_data_from_definition_yaml,
     _raise_workflow_edit_http_error,
 )
-from tracecat.workflow.management.draft import WorkflowEditError
+from autosecops.workflow.management.draft import WorkflowEditError
 
 # Mark all tests to use the db fixture (required by conftest autouse)
 pytestmark = pytest.mark.usefixtures("db")
@@ -208,8 +208,8 @@ class TestInternalWorkflowCreateRequest:
         """
         from pydantic import ValidationError as PydanticValidationError
 
-        from tracecat.exceptions import TracecatDSLError
-        from tracecat.workflow.management.schemas import ExternalWorkflowDefinition
+        from autosecops.exceptions import TracecatDSLError
+        from autosecops.workflow.management.schemas import ExternalWorkflowDefinition
 
         import_data = {
             "definition": {
@@ -428,8 +428,8 @@ class TestInvalidPatchApplicationRaisesToolError:
     def test_replace_missing_path_raises_tool_error(self):
         from fastmcp.exceptions import ToolError
 
-        from tracecat.mcp.json_patch import apply_json_patch_operations
-        from tracecat.mcp.schemas import JsonPatchOperation
+        from autosecops.mcp.json_patch import apply_json_patch_operations
+        from autosecops.mcp.schemas import JsonPatchOperation
 
         with pytest.raises(ToolError) as exc:
             apply_json_patch_operations(
@@ -443,8 +443,8 @@ class TestInvalidPatchApplicationRaisesToolError:
     def test_array_index_out_of_range_raises_tool_error(self):
         from fastmcp.exceptions import ToolError
 
-        from tracecat.mcp.json_patch import apply_json_patch_operations
-        from tracecat.mcp.schemas import JsonPatchOperation
+        from autosecops.mcp.json_patch import apply_json_patch_operations
+        from autosecops.mcp.schemas import JsonPatchOperation
 
         with pytest.raises(ToolError):
             apply_json_patch_operations(
@@ -464,7 +464,7 @@ class TestInternalRouterCoversSdkPaths:
     """
 
     def _routes(self) -> set[tuple[str, str]]:
-        from tracecat.workflow.executions.internal_router import router
+        from autosecops.workflow.executions.internal_router import router
 
         routes: set[tuple[str, str]] = set()
         for route in router.routes:
@@ -491,14 +491,14 @@ class TestWorkflowAuthoringContextRequest:
     """Tests for the authoring-context request schema."""
 
     def test_defaults_to_none(self):
-        from tracecat.mcp.schemas import WorkflowAuthoringContextRequest
+        from autosecops.mcp.schemas import WorkflowAuthoringContextRequest
 
         req = WorkflowAuthoringContextRequest()
         assert req.action_names is None
         assert req.query is None
 
     def test_accepts_action_names_and_query(self):
-        from tracecat.mcp.schemas import WorkflowAuthoringContextRequest
+        from autosecops.mcp.schemas import WorkflowAuthoringContextRequest
 
         req = WorkflowAuthoringContextRequest(
             action_names=["core.http_request", "ai.agent"],
@@ -513,7 +513,7 @@ class TestInternalRouterPublishRoute:
     resolves under /internal) reaches it instead of 404ing."""
 
     def test_publish_route_registered(self):
-        from tracecat.workflow.executions.internal_router import router
+        from autosecops.workflow.executions.internal_router import router
 
         routes = {
             (method, getattr(route, "path", ""))

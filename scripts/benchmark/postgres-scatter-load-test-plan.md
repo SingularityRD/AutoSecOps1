@@ -61,15 +61,15 @@ use. The test must record the actual baseline and peak connection counts.
 
 Current implementation references:
 
-- [scheduler and pool defaults](../../tracecat/config.py)
-- [async SQLAlchemy engine construction](../../tracecat/db/engine.py)
-- [per-workflow scheduler](../../tracecat/dsl/scheduler.py)
-- [self-hosted tier defaults](../../tracecat/tiers/defaults.py)
-- [organization permit semaphore](../../tracecat/tiers/semaphore.py)
-- [executor worker capacity](../../tracecat/executor/worker.py)
+- [scheduler and pool defaults](../../autosecops/config.py)
+- [async SQLAlchemy engine construction](../../autosecops/db/engine.py)
+- [per-workflow scheduler](../../autosecops/dsl/scheduler.py)
+- [self-hosted tier defaults](../../autosecops/tiers/defaults.py)
+- [organization permit semaphore](../../autosecops/tiers/semaphore.py)
+- [executor worker capacity](../../autosecops/executor/worker.py)
 - [development Compose stack](../../docker-compose.dev.yml)
-- [workflow execution API](../../tracecat/workflow/executions/router.py)
-- [table actions](../../packages/tracecat-registry/tracecat_registry/core/table.py)
+- [workflow execution API](../../autosecops/workflow/executions/router.py)
+- [table actions](../../packages/autosecops-registry/autosecops_registry/core/table.py)
 - [numbered cluster wrapper](../cluster)
 
 ## Goals
@@ -157,11 +157,11 @@ touching Docker, then execute it through the dedicated subcommand:
 
 ```bash
 just cluster loadtest \
-  --matrix packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv \
+  --matrix packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv \
   --dry-run
 
 just cluster loadtest \
-  --matrix packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv
+  --matrix packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv
 ```
 
 The subcommand owns fresh numbered-cluster allocation, row-by-row resource
@@ -179,7 +179,7 @@ interfaces, not operator workflows.
 
 The implementation includes the following:
 
-1. `packages/tracecat-benchmark/docker-compose.loadtest.yml`
+1. `packages/autosecops-benchmark/docker-compose.loadtest.yml`
 
    A Compose override that constrains only the test cluster. Initial PostgreSQL
    settings:
@@ -233,13 +233,13 @@ The implementation includes the following:
 ### Experiment configuration
 
 This PostgreSQL experiment uses the reusable
-`tracecat_benchmark` harness. The runner selects a peer workload with
+`autosecops_benchmark` harness. The runner selects a peer workload with
 `--load-type`: `scatter` is the primary action fan-out, `bulk` is its batching
 control, and `subflow` is workflow-level fan-out. New families such as agent
 fan-out should be added as another load type without duplicating the runner,
 collector lifecycle, or experiment controls.
 
-`packages/tracecat-benchmark/tracecat_benchmark/examples/experiment.env.example`
+`packages/autosecops-benchmark/autosecops_benchmark/examples/experiment.env.example`
 is the authoritative
 resource baseline and allowed-column registry for sparse CSV rows. It exposes
 CPU and memory independently for every service in `docker-compose.dev.yml`, the
@@ -251,7 +251,7 @@ Copy and edit the example matrix, then validate the complete experiment before
 starting Docker:
 
 ```bash
-cp packages/tracecat-benchmark/tracecat_benchmark/examples/matrix.example.csv \
+cp packages/autosecops-benchmark/autosecops_benchmark/examples/matrix.example.csv \
   /tmp/load-test-matrix.csv
 
 just cluster loadtest --matrix /tmp/load-test-matrix.csv --dry-run

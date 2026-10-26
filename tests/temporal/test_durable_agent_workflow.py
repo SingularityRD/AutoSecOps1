@@ -16,25 +16,15 @@ from datetime import timedelta
 from typing import Any, Literal
 from unittest.mock import AsyncMock, MagicMock
 
+import autosecops_ee.agent.workflows.durable as durable_workflow_module
 import orjson
 import pytest
-import tracecat_ee.agent.workflows.durable as durable_workflow_module
 
-from tracecat.temporal.patches import DurableAgentWorkflowPatch
+from autosecops.temporal.patches import DurableAgentWorkflowPatch
 
 pytestmark = [pytest.mark.temporal, pytest.mark.usefixtures("db")]
 
-from temporalio import activity
-from temporalio import workflow as temporal_workflow
-from temporalio.api.enums.v1 import EventType
-from temporalio.client import (
-    Client,
-    WorkflowFailureError,
-    WorkflowHandle,
-    WorkflowHistory,
-)
-from temporalio.worker import Replayer, UnsandboxedWorkflowRunner, Worker
-from tracecat_ee.agent.activities import (
+from autosecops_ee.agent.activities import (
     AgentActivities,
     ApplyApprovalResultsActivityInputs,
     BuildAgentToolDefsArgs,
@@ -46,41 +36,50 @@ from tracecat_ee.agent.activities import (
     ExecuteRemoteMCPToolArgs,
     PersistApprovalsActivityInputs,
 )
-from tracecat_ee.agent.approvals.service import (
+from autosecops_ee.agent.approvals.service import (
     ApprovalManager,
     ApprovalMap,
     ApprovalService,
 )
-from tracecat_ee.agent.types import AgentWorkflowID
-from tracecat_ee.agent.workflows.durable import (
+from autosecops_ee.agent.types import AgentWorkflowID
+from autosecops_ee.agent.workflows.durable import (
     AgentWorkflowArgs,
     DurableAgentWorkflow,
     WorkflowApprovalSubmission,
     WorkflowCancelRequest,
 )
+from temporalio import activity
+from temporalio import workflow as temporal_workflow
+from temporalio.api.enums.v1 import EventType
+from temporalio.client import (
+    Client,
+    WorkflowFailureError,
+    WorkflowHandle,
+    WorkflowHistory,
+)
+from temporalio.worker import Replayer, UnsandboxedWorkflowRunner, Worker
 
-from tests.shared import recorded_patch_ids
-from tracecat import config
-from tracecat.agent import internal_router
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.common.stream_types import ToolCallContent
-from tracecat.agent.common.types import MCPToolDefinition
-from tracecat.agent.executor.activity import (
+from autosecops import config
+from autosecops.agent import internal_router
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.common.stream_types import ToolCallContent
+from autosecops.agent.common.types import MCPToolDefinition
+from autosecops.agent.executor.activity import (
     AgentExecutorInput,
     AgentExecutorResult,
     ToolExecutionResult,
 )
-from tracecat.agent.preset.activities import ResolveAgentsConfigActivityInput
-from tracecat.agent.preset.resolver import (
+from autosecops.agent.preset.activities import ResolveAgentsConfigActivityInput
+from autosecops.agent.preset.resolver import (
     ResolvedAgentsRuntimeConfig,
     ResolvedSubagentConfig,
 )
-from tracecat.agent.schemas import (
+from autosecops.agent.schemas import (
     AgentConfigSchema,
     InternalRunAgentRequest,
     RunAgentArgs,
 )
-from tracecat.agent.session.activities import (
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     CreateSessionResult,
     FinalizeTurnInput,
@@ -97,29 +96,30 @@ from tracecat.agent.session.activities import (
     load_session_messages_activity,
     reconcile_tool_results_activity,
 )
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.skill.types import ResolvedSkillRef
-from tracecat.agent.subagents import (
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.skill.types import ResolvedSkillRef
+from autosecops.agent.subagents import (
     AgentSubagentsConfig,
     ResolvedAgentsConfig,
     ResolvedAttachedSubagentRef,
 )
-from tracecat.agent.tokens import UserMCPServerClaim
-from tracecat.agent.types import AgentConfig, ToolApproved, ToolDenied
-from tracecat.agent.workflow_config import agent_config_to_payload
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.chat.enums import MessageKind
-from tracecat.chat.schemas import ChatMessage
-from tracecat.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
-from tracecat.db.models import AgentSessionHistory, User
-from tracecat.dsl.common import RETRY_POLICIES
-from tracecat.dsl.schemas import RunActionInput
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import RuntimeErrorKind
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.agent.tokens import UserMCPServerClaim
+from autosecops.agent.types import AgentConfig, ToolApproved, ToolDenied
+from autosecops.agent.workflow_config import agent_config_to_payload
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.chat.enums import MessageKind
+from autosecops.chat.schemas import ChatMessage
+from autosecops.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
+from autosecops.db.models import AgentSessionHistory, User
+from autosecops.dsl.common import RETRY_POLICIES
+from autosecops.dsl.schemas import RunActionInput
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import RuntimeErrorKind
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import extract_error_classification
+from tests.shared import recorded_patch_ids
 
 
 @pytest.fixture(autouse=True)
@@ -134,7 +134,7 @@ async def close_shared_redis_client():
     "Event loop is closed".
     """
     yield
-    from tracecat.redis.client import get_redis_client
+    from autosecops.redis.client import get_redis_client
 
     client = await get_redis_client()
     await client.close()
@@ -218,8 +218,8 @@ def create_mock_build_tool_definitions_activity(
 
     # Create a mock registry lock for the tools
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions=dict.fromkeys(tool_definitions.keys(), "tracecat_registry"),
+        origins={"autosecops_registry": "test-version"},
+        actions=dict.fromkeys(tool_definitions.keys(), "autosecops_registry"),
     )
 
     @activity.defn(name="build_agent_tool_definitions")
@@ -452,7 +452,7 @@ async def test_user(svc_role: Role) -> User:
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from tracecat.db.engine import get_async_engine
+    from autosecops.db.engine import get_async_engine
 
     user_id = svc_role.user_id if svc_role.user_id else uuid.uuid4()
 
@@ -997,7 +997,7 @@ async def test_terminal_end_observes_publishable_final_history(
         return ObservedTerminalStream()
 
     monkeypatch.setattr(
-        "tracecat.agent.session.service.AgentStream.new",
+        "autosecops.agent.session.service.AgentStream.new",
         observed_stream_new,
     )
 
@@ -1416,7 +1416,7 @@ async def test_agent_workflow_resolves_turn_bindings_and_replays(
         context.__aenter__.return_value = service
         monkeypatch.setattr(AgentSessionService, "with_session", lambda **kw: context)
         monkeypatch.setattr(
-            "tracecat.agent.session.activities.AgentStream.new", AsyncMock()
+            "autosecops.agent.session.activities.AgentStream.new", AsyncMock()
         )
 
     @activity.defn(name="create_session_activity")
@@ -1766,7 +1766,7 @@ async def test_agent_workflow_routes_approved_tools_to_executor_and_reconciles_h
         return _FakeStream()
 
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentStream.new",
+        "autosecops.agent.session.activities.AgentStream.new",
         fake_agent_stream_new,
     )
 
@@ -1791,8 +1791,8 @@ async def test_agent_workflow_routes_approved_tools_to_executor_and_reconciles_h
                 )
             },
             registry_lock=RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={"core.http_request": "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={"core.http_request": "autosecops_registry"},
             ),
         )
         return BuildAgentToolDefsResult(
@@ -2185,8 +2185,8 @@ async def test_agent_workflow_plumbs_forked_session_through_approval_continuatio
                 )
             },
             registry_lock=RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={"core.http_request": "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={"core.http_request": "autosecops_registry"},
             ),
         )
         return BuildAgentToolDefsResult(

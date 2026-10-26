@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 import pytest
-from tracecat_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import TracecatClient
 
 
 @pytest.mark.anyio

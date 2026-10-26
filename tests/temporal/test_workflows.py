@@ -35,35 +35,34 @@ from temporalio.common import RetryPolicy, TypedSearchAttributes
 from temporalio.exceptions import ActivityError, ApplicationError
 from temporalio.worker import Worker
 
-from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data, to_inline
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.concurrency import GatheringTaskGroup
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.concurrency import GatheringTaskGroup
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import (
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     Schedule,
     Workflow,
     WorkflowDefinition,
 )
-from tracecat.dsl.client import get_temporal_client
-from tracecat.dsl.common import (
+from autosecops.dsl.client import get_temporal_client
+from autosecops.dsl.common import (
     RETRY_POLICIES,
     DSLEntrypoint,
     DSLInput,
     DSLRunArgs,
 )
-from tracecat.dsl.enums import (
+from autosecops.dsl.enums import (
     JoinStrategy,
     LoopStrategy,
     StreamErrorHandlingStrategy,
     WaitStrategy,
 )
-from tracecat.dsl.error_transport import parse_classified_action_error_payload
-from tracecat.dsl.schemas import (
+from autosecops.dsl.error_transport import parse_classified_action_error_payload
+from autosecops.dsl.schemas import (
     ActionStatement,
     DSLConfig,
     ExecutionContext,
@@ -72,52 +71,56 @@ from tracecat.dsl.schemas import (
     ScatterArgs,
     TaskResult,
 )
-from tracecat.dsl.types import ActionErrorInfo
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.expressions.expectations import ExpectedField
-from tracecat.identifiers import ScheduleUUID
-from tracecat.identifiers.workflow import (
+from autosecops.dsl.types import ActionErrorInfo
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.expressions.expectations import ExpectedField
+from autosecops.identifiers import ScheduleUUID
+from autosecops.identifiers.workflow import (
     WF_EXEC_ID_PATTERN,
     WorkflowExecutionID,
     WorkflowID,
     WorkflowUUID,
 )
-from tracecat.logger import logger
-from tracecat.pagination import CursorPaginationParams
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import RuntimeErrorKind, RuntimeErrorOwner
-from tracecat.secrets.schemas import SecretCreate, SecretKeyValue
-from tracecat.secrets.service import SecretsService
-from tracecat.storage.object import (
+from autosecops.logger import logger
+from autosecops.pagination import CursorPaginationParams
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import RuntimeErrorKind, RuntimeErrorOwner
+from autosecops.secrets.schemas import SecretCreate, SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from autosecops.storage.object import (
     CollectionObject,
     InlineObject,
     StoredObject,
     StoredObjectValidator,
 )
-from tracecat.storage.utils import (
+from autosecops.storage.utils import (
     resolve_execution_context as resolve_exec_ctx_from_dict,
 )
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
-from tracecat.tables.service import TablesService
-from tracecat.temporal.errors import ErrorTransportDetail, extract_error_classification
-from tracecat.variables.schemas import VariableCreate
-from tracecat.variables.service import VariablesService
-from tracecat.workflow.executions.enums import (
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
+from autosecops.tables.service import TablesService
+from autosecops.temporal.errors import (
+    ErrorTransportDetail,
+    extract_error_classification,
+)
+from autosecops.variables.schemas import VariableCreate
+from autosecops.variables.service import VariablesService
+from autosecops.workflow.executions.enums import (
     TemporalSearchAttr,
     TriggerType,
     WorkflowEventType,
 )
-from tracecat.workflow.executions.schemas import (
+from autosecops.workflow.executions.schemas import (
     EventGroup,
     WorkflowExecutionEvent,
 )
-from tracecat.workflow.executions.service import WorkflowExecutionsService
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import WorkflowUpdate
+from autosecops.workflow.executions.service import WorkflowExecutionsService
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import WorkflowUpdate
+from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data, to_inline
 
 type WorkerFactory = Callable[[Client], Worker]
 
@@ -558,7 +561,7 @@ async def test_workflow_completes_and_correct(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "tracecat.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
                 ],
             ),
         )
@@ -3078,7 +3081,7 @@ async def test_workflow_error_path(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "tracecat.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
                 ],
             ),
         )
@@ -3155,7 +3158,7 @@ async def test_workflow_join_unreachable(
                 retry_policy=RetryPolicy(
                     maximum_attempts=1,
                     non_retryable_error_types=[
-                        "tracecat.exceptions.TracecatExpressionError",
+                        "autosecops.exceptions.TracecatExpressionError",
                         "TracecatValidationError",
                     ],
                 ),
@@ -3251,7 +3254,7 @@ async def test_workflow_join_run_if_skip_ok(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "tracecat.exceptions.TracecatExpressionError",
+                    "autosecops.exceptions.TracecatExpressionError",
                     "TracecatValidationError",
                 ],
             ),
@@ -3337,7 +3340,7 @@ async def test_workflow_multiple_entrypoints(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "tracecat.exceptions.TracecatExpressionError",
+                    "autosecops.exceptions.TracecatExpressionError",
                     "TracecatValidationError",
                 ],
             ),
@@ -3369,15 +3372,15 @@ async def test_workflow_runs_template_for_each(
     2. Workflows with unsatisfied required dependencies fail appropriately
     """
 
-    from tracecat.expressions.expectations import ExpectedField
-    from tracecat.registry.actions.schemas import (
+    from autosecops.expressions.expectations import ExpectedField
+    from autosecops.registry.actions.schemas import (
         ActionStep,
         RegistryActionCreate,
         TemplateAction,
         TemplateActionDefinition,
     )
-    from tracecat.registry.actions.service import RegistryActionsService
-    from tracecat.registry.repository import Repository
+    from autosecops.registry.actions.service import RegistryActionsService
+    from autosecops.registry.repository import Repository
 
     # Arrange
     # 1. Register test udfs
@@ -3459,7 +3462,7 @@ async def test_workflow_runs_template_for_each(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "tracecat.exceptions.TracecatExpressionError",
+                    "autosecops.exceptions.TracecatExpressionError",
                     "TracecatValidationError",
                 ],
             ),

@@ -13,9 +13,9 @@ from claude_agent_sdk.types import (
 )
 from mcp import types as mt
 
-from tracecat.agent.common.types import MCPToolDefinition
-from tracecat.agent.mcp import proxy_server
-from tracecat.agent.runtime.claude_code.runtime import ClaudeAgentRuntime
+from autosecops.agent.common.types import MCPToolDefinition
+from autosecops.agent.mcp import proxy_server
+from autosecops.agent.runtime.claude_code.runtime import ClaudeAgentRuntime
 
 
 @pytest.mark.anyio

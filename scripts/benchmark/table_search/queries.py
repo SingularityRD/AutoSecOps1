@@ -3,12 +3,12 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from tracecat.query.lexical import (
+from autosecops.query.lexical import (
     literal_search_pattern,
     parse_full_text_query,
     resolve_search_columns,
 )
-from tracecat.query.lexical_types import (
+from autosecops.query.lexical_types import (
     ColumnSearchOrder,
     LexicalSearchOptions,
     SearchMode,

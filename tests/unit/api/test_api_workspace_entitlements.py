@@ -7,12 +7,12 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.exceptions import EntitlementRequired
-from tracecat.tiers.enums import Entitlement
-from tracecat.workspaces import router as workspaces_router
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.exceptions import EntitlementRequired
+from autosecops.tiers.enums import Entitlement
+from autosecops.workspaces import router as workspaces_router
 
 
 @pytest.fixture

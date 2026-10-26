@@ -15,10 +15,9 @@ from temporalio.api.failure.v1 import Failure
 from temporalio.converter import DataConverter
 from temporalio.exceptions import ApplicationError
 
-from tests.shared import capture_application_error as _capture_application_error
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl.action import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl.action import (
     DSLActivities,
     EvaluateLoopedSubflowInputActivityInput,
     EvaluateTemplatedObjectActivityInput,
@@ -33,41 +32,42 @@ from tracecat.dsl.action import (
     _materialization_error_classification,
     _result_persistence_error_classification,
 )
-from tracecat.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.enums import PlatformAction, StreamErrorHandlingStrategy
-from tracecat.dsl.error_transport import (
+from autosecops.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.enums import PlatformAction, StreamErrorHandlingStrategy
+from autosecops.dsl.error_transport import (
     ActionErrorTransportDetail,
     parse_classified_action_error_payload,
 )
-from tracecat.dsl.scheduler import _classified_action_error_info
-from tracecat.dsl.schemas import ROOT_STREAM, ActionStatement, ExecutionContext
-from tracecat.dsl.types import (
+from autosecops.dsl.scheduler import _classified_action_error_info
+from autosecops.dsl.schemas import ROOT_STREAM, ActionStatement, ExecutionContext
+from autosecops.dsl.types import (
     ActionErrorInfo,
 )
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.exceptions import TracecatExpressionError, TracecatValidationError
-from tracecat.expressions.schemas import ExpectedField
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.runtime.errors import (
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.exceptions import TracecatExpressionError, TracecatValidationError
+from autosecops.expressions.schemas import ExpectedField
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.backends.inline import InlineObjectStorage
-from tracecat.storage.object import (
+from autosecops.storage.backends.inline import InlineObjectStorage
+from autosecops.storage.object import (
     CollectionObject,
     InlineObject,
     ObjectRef,
     StoredObject,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     build_error_transport_detail,
     extract_error_classification,
 )
-from tracecat.temporal.exceptions import UserError
-from tracecat.temporal.patches import WorkflowPatch
-from tracecat.workflow.executions.enums import TemporalSearchAttr, TriggerType
+from autosecops.temporal.exceptions import UserError
+from autosecops.temporal.patches import WorkflowPatch
+from autosecops.workflow.executions.enums import TemporalSearchAttr, TriggerType
+from tests.shared import capture_application_error as _capture_application_error
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,9 +258,9 @@ def test_resolve_return_expression_classifies_each_failure_stage(
         storage.store.side_effect = error
 
     with (
-        patch("tracecat.dsl.action.materialize_context", new=materialize),
-        patch("tracecat.dsl.action.eval_templated_object", new=evaluate),
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action.materialize_context", new=materialize),
+        patch("autosecops.dsl.action.eval_templated_object", new=evaluate),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
         pytest.raises(ApplicationError) as exc_info,
     ):
         DSLActivities.resolve_return_expression_activity(input)
@@ -282,7 +282,7 @@ async def test_store_workflow_payload_classifies_persistence_failure() -> None:
     )
 
     with (
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
         pytest.raises(ApplicationError) as exc_info,
     ):
         await DSLActivities.store_workflow_payload_activity(
@@ -356,9 +356,9 @@ async def test_collection_boundaries_classify_storage_failures(
         store_list.side_effect = error
 
     with (
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
-        patch("tracecat.dsl.action._store_list_result", new=store_list),
-        patch("tracecat.dsl.action.store_collection", new=store_collection),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action._store_list_result", new=store_list),
+        patch("autosecops.dsl.action.store_collection", new=store_collection),
         pytest.raises(ApplicationError) as exc_info,
     ):
         if activity_name == "synchronize_collection_object_activity":
@@ -420,7 +420,7 @@ def test_subflow_batch_storage_failure_keeps_persistence_classification() -> Non
     )
 
     with (
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
         pytest.raises(ApplicationError) as exc_info,
     ):
         DSLActivities.resolve_subflow_batch_activity(inputs)
@@ -481,9 +481,9 @@ async def test_synchronize_collection_streams_externalized_child_results(
     storage.retrieve = AsyncMock(side_effect=retrieve)
     storage.store = AsyncMock(side_effect=store)
     with (
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
         patch(
-            "tracecat.dsl.action.store_collection",
+            "autosecops.dsl.action.store_collection",
             new=AsyncMock(side_effect=store_manifest),
         ),
     ):
@@ -586,10 +586,10 @@ def test_trigger_input_validation_is_classified_and_history_safe() -> None:
 
     with (
         patch(
-            "tracecat.dsl.action.get_object_storage",
+            "autosecops.dsl.action.get_object_storage",
             return_value=InlineObjectStorage(),
         ),
-        patch("tracecat.dsl.action.logger.info") as logger_info_mock,
+        patch("autosecops.dsl.action.logger.info") as logger_info_mock,
         pytest.raises(ApplicationError) as exc_info,
     ):
         DSLActivities.normalize_trigger_inputs_activity(
@@ -644,8 +644,8 @@ def test_trigger_input_invariant_failures_are_precise_and_history_safe(
         storage.store.side_effect = ValueError(diagnostic)
 
     with (
-        patch("tracecat.dsl.action.get_object_storage", new=get_storage),
-        patch("tracecat.dsl.action.normalize_trigger_inputs", new=normalize),
+        patch("autosecops.dsl.action.get_object_storage", new=get_storage),
+        patch("autosecops.dsl.action.normalize_trigger_inputs", new=normalize),
         pytest.raises(ApplicationError) as exc_info,
     ):
         DSLActivities.normalize_trigger_inputs_activity(
@@ -693,7 +693,7 @@ def test_trigger_input_storage_failure_is_platform_owned_and_history_safe(
             storage.store.side_effect = transport_error
 
     with (
-        patch("tracecat.dsl.action.get_object_storage", return_value=storage),
+        patch("autosecops.dsl.action.get_object_storage", return_value=storage),
         pytest.raises(ApplicationError) as exc_info,
     ):
         DSLActivities.normalize_trigger_inputs_activity(
@@ -727,10 +727,10 @@ async def test_prepare_subflow_platform_failure_is_classified_and_history_safe()
 
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=sensitive),
         ),
-        patch("tracecat.dsl.action.logger.error") as logger_error_mock,
+        patch("autosecops.dsl.action.logger.error") as logger_error_mock,
         pytest.raises(ApplicationError) as exc_info,
     ):
         await DSLActivities.prepare_subflow_activity(_prepare_subflow_input())
@@ -774,7 +774,7 @@ async def test_prepare_subflow_input_failure_keeps_user_semantics() -> None:
 
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=user_error),
         ),
         pytest.raises(ApplicationError) as exc_info,
@@ -800,7 +800,7 @@ async def test_prepare_subflow_missing_definition_uses_not_found_kind() -> None:
 
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=user_error),
         ),
         pytest.raises(ApplicationError) as exc_info,
@@ -826,14 +826,14 @@ def test_subflow_user_classification_control_flow_is_replay_gated() -> None:
     )
 
     with patch(
-        "tracecat.dsl.workflow.workflow.patched",
+        "autosecops.dsl.workflow.workflow.patched",
         return_value=False,
     ) as patched_mock:
         assert DSLWorkflow._has_user_error_cause(error) is False
         patched_mock.assert_called_once_with(WorkflowPatch.ERROR_OWNER_CONTROL_FLOW)
 
     with patch(
-        "tracecat.dsl.workflow.workflow.patched",
+        "autosecops.dsl.workflow.workflow.patched",
         return_value=True,
     ) as patched_mock:
         assert DSLWorkflow._has_user_error_cause(error) is True
@@ -852,10 +852,10 @@ async def test_prepare_subflow_drops_unclassified_application_error_details() ->
 
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=original_error),
         ),
-        patch("tracecat.dsl.action.logger.error"),
+        patch("autosecops.dsl.action.logger.error"),
         pytest.raises(ApplicationError) as exc_info,
     ):
         await DSLActivities.prepare_subflow_activity(_prepare_subflow_input())
@@ -884,10 +884,10 @@ async def test_prepare_subflow_filters_unclassified_sibling_details() -> None:
 
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=original_error),
         ),
-        patch("tracecat.dsl.action.logger.error"),
+        patch("autosecops.dsl.action.logger.error"),
         pytest.raises(ApplicationError) as exc_info,
     ):
         await DSLActivities.prepare_subflow_activity(_prepare_subflow_input())
@@ -903,7 +903,7 @@ async def test_prepare_subflow_filters_unclassified_sibling_details() -> None:
 async def test_prepare_subflow_cancellation_keeps_native_semantics() -> None:
     with (
         patch(
-            "tracecat.dsl.action._prepare_subflow",
+            "autosecops.dsl.action._prepare_subflow",
             new=AsyncMock(side_effect=asyncio.CancelledError()),
         ),
         pytest.raises(asyncio.CancelledError),
@@ -948,13 +948,15 @@ async def test_error_handler_failure_preserves_original_terminal_owner() -> None
             new=AsyncMock(side_effect=handler_error),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=True,
         ) as patched_mock,
-        patch("tracecat.dsl.workflow.workflow.upsert_search_attributes") as upsert_mock,
-        patch("tracecat.dsl.workflow.workflow.info"),
         patch(
-            "tracecat.dsl.workflow.get_trigger_type",
+            "autosecops.dsl.workflow.workflow.upsert_search_attributes"
+        ) as upsert_mock,
+        patch("autosecops.dsl.workflow.workflow.info"),
+        patch(
+            "autosecops.dsl.workflow.get_trigger_type",
             return_value=TriggerType.MANUAL,
         ),
     ):
@@ -1003,7 +1005,7 @@ async def test_error_handler_lookup_failure_defers_owner_stamp_to_interceptor() 
             "_upsert_terminal_error_owner",
         ) as upsert_mock,
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=True,
         ),
         pytest.raises(ApplicationError) as exc_info,
@@ -1040,10 +1042,12 @@ def test_terminal_platform_owner_wins_for_alert_attribution() -> None:
 
     with (
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=True,
         ) as patched_mock,
-        patch("tracecat.dsl.workflow.workflow.upsert_search_attributes") as upsert_mock,
+        patch(
+            "autosecops.dsl.workflow.workflow.upsert_search_attributes"
+        ) as upsert_mock,
     ):
         DSLWorkflow._upsert_terminal_error_owner(error)
 
@@ -1065,10 +1069,12 @@ def test_terminal_owner_upsert_is_replay_gated() -> None:
 
     with (
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=False,
         ) as patched_mock,
-        patch("tracecat.dsl.workflow.workflow.upsert_search_attributes") as upsert_mock,
+        patch(
+            "autosecops.dsl.workflow.workflow.upsert_search_attributes"
+        ) as upsert_mock,
     ):
         DSLWorkflow._upsert_terminal_error_owner(error)
 
@@ -1080,8 +1086,10 @@ def test_legacy_terminal_error_does_not_add_patch_marker_or_owner() -> None:
     error = ApplicationError("Legacy failure", non_retryable=True)
 
     with (
-        patch("tracecat.dsl.workflow.workflow.patched") as patched_mock,
-        patch("tracecat.dsl.workflow.workflow.upsert_search_attributes") as upsert_mock,
+        patch("autosecops.dsl.workflow.workflow.patched") as patched_mock,
+        patch(
+            "autosecops.dsl.workflow.workflow.upsert_search_attributes"
+        ) as upsert_mock,
     ):
         DSLWorkflow._upsert_terminal_error_owner(error)
 

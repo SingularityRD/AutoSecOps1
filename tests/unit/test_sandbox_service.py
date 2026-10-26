@@ -12,8 +12,8 @@ from typing import Any, cast
 import pytest
 import pytest_mock
 
-from tracecat.sandbox.service import SandboxService, _await_task_rejoined
-from tracecat.sandbox.types import SandboxResult
+from autosecops.sandbox.service import SandboxService, _await_task_rejoined
+from autosecops.sandbox.types import SandboxResult
 
 
 @pytest.mark.anyio
@@ -77,10 +77,10 @@ async def test_install_packages_rejoins_copy_before_cleanup_on_cancellation(
         _original_rmtree(path, **kwargs)  # type: ignore[arg-type]
 
     mocker.patch(
-        "tracecat.sandbox.service.copy_tree_without_following_symlinks",
+        "autosecops.sandbox.service.copy_tree_without_following_symlinks",
         slow_copy,
     )
-    mocker.patch("tracecat.sandbox.service.shutil.rmtree", slow_rmtree)
+    mocker.patch("autosecops.sandbox.service.shutil.rmtree", slow_rmtree)
 
     task = asyncio.create_task(
         service._install_packages(
@@ -156,10 +156,10 @@ async def test_install_packages_discards_copy_worker_error_under_cancellation(
         raise PermissionError("copy worker failed")
 
     mocker.patch(
-        "tracecat.sandbox.service.copy_tree_without_following_symlinks",
+        "autosecops.sandbox.service.copy_tree_without_following_symlinks",
         failing_copy,
     )
-    mocker.patch("tracecat.sandbox.service.shutil.rmtree", shutil.rmtree)
+    mocker.patch("autosecops.sandbox.service.shutil.rmtree", shutil.rmtree)
 
     # Simulate the rejoin helper being entered when the copy task has already
     # completed with an error: it surfaces the worker error to the caller's
@@ -169,7 +169,7 @@ async def test_install_packages_discards_copy_worker_error_under_cancellation(
         return await task
 
     mocker.patch(
-        "tracecat.sandbox.service._await_task_rejoined",
+        "autosecops.sandbox.service._await_task_rejoined",
         fake_rejoined,
     )
 

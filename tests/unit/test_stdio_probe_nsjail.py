@@ -7,8 +7,8 @@ import shutil
 
 import pytest
 
+from autosecops.agent.mcp.stdio_probe import probe_stdio_mcp_tools_in_sandbox
 from tests.conftest import IN_DOCKER
-from tracecat.agent.mcp.stdio_probe import probe_stdio_mcp_tools_in_sandbox
 
 NSJAIL_AVAILABLE = shutil.which("nsjail") is not None
 ROOTFS_PATH = os.environ.get(

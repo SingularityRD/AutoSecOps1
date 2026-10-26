@@ -10,18 +10,18 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth import credentials
-from tracecat.auth.api_keys import generate_managed_api_key
-from tracecat.auth.credentials import _authenticate_api_key
-from tracecat.authz.seeding import seed_system_scopes
-from tracecat.db.models import (
+from autosecops.auth import credentials
+from autosecops.auth.api_keys import generate_managed_api_key
+from autosecops.auth.credentials import _authenticate_api_key
+from autosecops.authz.seeding import seed_system_scopes
+from autosecops.db.models import (
     Organization,
     Scope,
     ServiceAccount,
     ServiceAccountApiKey,
     Workspace,
 )
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(autouse=True)
@@ -95,7 +95,7 @@ def _use_auth_session(monkeypatch: pytest.MonkeyPatch, session: AsyncSession) ->
         yield session
 
     monkeypatch.setattr(
-        "tracecat.auth.credentials.get_async_session_auth_context_manager",
+        "autosecops.auth.credentials.get_async_session_auth_context_manager",
         _session_cm,
     )
 
@@ -115,7 +115,7 @@ async def test_authenticate_org_service_account_key_for_workspace_route(
     )
     _use_auth_session(monkeypatch, session)
     monkeypatch.setattr(
-        "tracecat.auth.credentials._get_workspace_org_id",
+        "autosecops.auth.credentials._get_workspace_org_id",
         AsyncMock(return_value=organization.id),
     )
 
@@ -219,7 +219,7 @@ async def test_authenticate_org_service_account_key_rejects_workspace_outside_or
     )
     _use_auth_session(monkeypatch, session)
     monkeypatch.setattr(
-        "tracecat.auth.credentials._get_workspace_org_id",
+        "autosecops.auth.credentials._get_workspace_org_id",
         AsyncMock(return_value=other_organization.id),
     )
 
@@ -245,11 +245,11 @@ async def test_authenticate_api_key_checks_entitlement_before_workspace_resoluti
     _use_auth_session(monkeypatch, session)
     get_workspace_org_id = AsyncMock(return_value=organization.id)
     monkeypatch.setattr(
-        "tracecat.auth.credentials.is_org_entitled",
+        "autosecops.auth.credentials.is_org_entitled",
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(
-        "tracecat.auth.credentials._get_workspace_org_id",
+        "autosecops.auth.credentials._get_workspace_org_id",
         get_workspace_org_id,
     )
 

@@ -3,17 +3,17 @@
 import pytest
 from google.auth.exceptions import GoogleAuthError, RefreshError
 
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.providers import PROVIDER_REGISTRY
-from tracecat.integrations.providers.base import BaseOAuthProvider
-from tracecat.integrations.providers.google.admin import (
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.providers import PROVIDER_REGISTRY
+from autosecops.integrations.providers.base import BaseOAuthProvider
+from autosecops.integrations.providers.google.admin import (
     GOOGLE_ADMIN_AC_SCOPES,
     GOOGLE_ADMIN_SCOPES,
 )
-from tracecat.integrations.providers.google.service_account import (
+from autosecops.integrations.providers.google.service_account import (
     _is_unauthorized_client,
 )
-from tracecat.integrations.schemas import ProviderKey
+from autosecops.integrations.schemas import ProviderKey
 
 AC = OAuthGrantType.AUTHORIZATION_CODE
 CC = OAuthGrantType.CLIENT_CREDENTIALS

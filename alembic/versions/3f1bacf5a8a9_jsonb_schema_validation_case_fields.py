@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from tracecat.identifiers.workflow import WorkspaceUUID
+from autosecops.identifiers.workflow import WorkspaceUUID
 
 # revision identifiers, used by Alembic.
 revision: str = "3f1bacf5a8a9"

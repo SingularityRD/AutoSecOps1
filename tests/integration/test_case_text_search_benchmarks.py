@@ -32,6 +32,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from autosecops.cases.text_search import get_case_search_excerpts
+from autosecops.db.models import Case
 from tests.integration.test_case_text_search_postgres import (
     INDEX_NAMES,
     WORKSPACE,
@@ -40,8 +42,6 @@ from tests.integration.test_case_text_search_postgres import (
     search_statement,
     seed_case,
 )
-from tracecat.cases.text_search import get_case_search_excerpts
-from tracecat.db.models import Case
 
 pytest_plugins = ["tests.integration.test_case_text_search_postgres"]
 

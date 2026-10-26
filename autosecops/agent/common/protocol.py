@@ -1,0 +1,401 @@
+"""Socket protocol models for orchestrator-runtime communication.
+
+These models define the contract between the trusted orchestrator (outside NSJail)
+and the sandboxed runtime (inside NSJail).
+
+Uses explicit DTO serialization with orjson for the socket boundary.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Literal, TypeGuard, get_args
+
+from autosecops.agent.common.stream_types import UnifiedStreamEvent
+from autosecops.agent.common.types import (
+    MCPToolDefinition,
+    SandboxAgentConfig,
+    SandboxSubagentConfig,
+)
+from autosecops.agent.common.wire import (
+    boolean,
+    optional_integer,
+    optional_object,
+    optional_string,
+)
+
+
+@dataclass(kw_only=True, slots=True)
+class RuntimeInitPayload:
+    """Payload sent from orchestrator to runtime on initialization.
+
+    The orchestrator sends this after the runtime connects to the control socket.
+    Contains everything the runtime needs to execute an agent turn.
+
+    On resume after approval, sdk_session_data already includes the approved or
+    denied tool_result entry.
+    """
+
+    # Runtime selection
+    runtime_type: str = "claude_code"
+    """Runtime type to load (e.g., 'claude_code', 'openai_agents')."""
+
+    # Session context
+    session_id: uuid.UUID
+    mcp_auth_token: str  # JWT for MCP auth
+    config: SandboxAgentConfig
+    user_prompt: str
+    llm_gateway_auth_token: str
+
+    # Resolved tool definitions (orchestrator resolves action names → full definitions)
+    allowed_actions: dict[str, MCPToolDefinition] | None = None
+    subagents: list[SandboxSubagentConfig] = field(default_factory=list)
+    sdk_session_id: str | None = None
+    sdk_session_data: str | None = None  # JSONL content for resume
+    is_approval_continuation: bool = False  # True when resuming after approval decision
+    is_fork: bool = False
+
+    # Sandbox-safe Claude OTel env (exporters, protocols, intervals, content
+    # gates, resource attrs, and the OTEL_EXPORTER_OTLP_HEADERS bearer for
+    # the host-side receiver). Tenant collector endpoint and tenant headers are
+    # excluded; the host-side OtelSocketReceiver holds those. The shim sets
+    # OTEL_EXPORTER_OTLP_ENDPOINT after starting its bridge.
+    agent_otel_sandbox_env: dict[str, str] | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RuntimeInitPayload:
+        """Construct from dict (orjson parsed)."""
+        # Parse config
+        config = SandboxAgentConfig.model_validate(data["config"])
+
+        # Parse allowed_actions
+        allowed_actions = None
+        if data.get("allowed_actions"):
+            allowed_actions = {
+                k: MCPToolDefinition.from_dict(v)
+                for k, v in data["allowed_actions"].items()
+            }
+
+        # Parse session_id
+        session_id = data["session_id"]
+        if isinstance(session_id, str):
+            session_id = uuid.UUID(session_id)
+
+        return cls(
+            runtime_type=data.get("runtime_type", "claude_code"),
+            session_id=session_id,
+            mcp_auth_token=data["mcp_auth_token"],
+            config=config,
+            user_prompt=data["user_prompt"],
+            llm_gateway_auth_token=data["llm_gateway_auth_token"],
+            allowed_actions=allowed_actions,
+            subagents=[
+                SandboxSubagentConfig.model_validate(item)
+                for item in data.get("subagents", [])
+            ],
+            sdk_session_id=data.get("sdk_session_id"),
+            sdk_session_data=data.get("sdk_session_data"),
+            is_approval_continuation=data.get("is_approval_continuation", False),
+            is_fork=data.get("is_fork", False),
+            agent_otel_sandbox_env=data.get("agent_otel_sandbox_env"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict for orjson serialization."""
+        result: dict[str, Any] = {
+            "runtime_type": self.runtime_type,
+            "session_id": str(self.session_id),
+            "mcp_auth_token": self.mcp_auth_token,
+            "config": self.config.model_dump(mode="json", exclude_none=True),
+            "user_prompt": self.user_prompt,
+            "llm_gateway_auth_token": self.llm_gateway_auth_token,
+            "is_approval_continuation": self.is_approval_continuation,
+            "is_fork": self.is_fork,
+        }
+        if self.allowed_actions is not None:
+            result["allowed_actions"] = {
+                k: v.to_dict() for k, v in self.allowed_actions.items()
+            }
+        if self.subagents:
+            result["subagents"] = [
+                subagent.model_dump(mode="json", exclude_none=True)
+                for subagent in self.subagents
+            ]
+        if self.sdk_session_id is not None:
+            result["sdk_session_id"] = self.sdk_session_id
+        if self.sdk_session_data is not None:
+            result["sdk_session_data"] = self.sdk_session_data
+        if self.agent_otel_sandbox_env is not None:
+            result["agent_otel_sandbox_env"] = self.agent_otel_sandbox_env
+        return result
+
+
+type RuntimeEventType = Literal[
+    "stream_event",
+    "message",
+    "session_line",
+    "session_update",
+    "result",
+    "error",
+    "done",
+    "log",
+]
+
+_RUNTIME_EVENT_TYPES: frozenset[str] = frozenset(get_args(RuntimeEventType.__value__))
+_RUNTIME_LOG_LEVELS = frozenset({"debug", "info", "warning", "error"})
+_RUNTIME_LOG_EXTRA_RESERVED_KEYS = frozenset({"self", "level", "message", "session_id"})
+
+
+def _is_runtime_event_type(value: object) -> TypeGuard[RuntimeEventType]:
+    """Narrow a wire value using the canonical runtime event type definition."""
+    return isinstance(value, str) and value in _RUNTIME_EVENT_TYPES
+
+
+@dataclass(kw_only=True, slots=True)
+class RuntimeEventEnvelope:
+    """Envelope for events sent from runtime to orchestrator.
+
+    All communication from runtime to orchestrator uses this envelope format.
+    The `type` field determines which other fields are populated.
+
+    Types:
+    - stream_event: Partial streaming deltas (TEXT_DELTA, TOOL_CALL_DELTA, etc.)
+    - message: Complete messages (UserMessage, AssistantMessage) for persistence
+    - session_update: SDK session data for persistence
+    - error: Runtime error
+    - done: Completion signal
+
+    Note: The runtime is untrusted - the loopback/orchestrator adds session_id
+    when persisting messages to ensure proper authorization.
+    """
+
+    type: RuntimeEventType
+    event: UnifiedStreamEvent | None = None  # For type="stream_event"
+    message: dict[str, Any] | None = None  # For type="message" (serialized Message)
+    session_line: str | None = None  # For type="session_line" (raw JSONL line)
+    internal: bool = (
+        False  # For type="session_line" - if True, not shown in UI timeline
+    )
+    sdk_session_id: str | None = None  # For type="session_update" or "session_line"
+    sdk_session_data: str | None = None  # For type="session_update"
+    error: str | None = None  # For type="error"
+    # For type="result" - final usage data from Claude SDK ResultMessage
+    result_usage: dict[str, Any] | None = None
+    result_num_turns: int | None = None
+    result_duration_ms: int | None = None
+    result_output: Any = None
+    # For type="log" - structured log forwarding from sandbox
+    log_level: str | None = None  # "debug", "info", "warning", "error"
+    log_message: str | None = None
+    log_extra: dict[str, Any] | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RuntimeEventEnvelope:
+        """Construct from dict (orjson parsed)."""
+        raw_type = data.get("type")
+        if not _is_runtime_event_type(raw_type):
+            raise ValueError("Unknown runtime event envelope type")
+
+        raw_event = data.get("event")
+        if raw_type == "stream_event" and not isinstance(raw_event, dict):
+            raise ValueError("Runtime stream event payload must be a JSON object")
+        if raw_event is not None and not isinstance(raw_event, dict):
+            raise ValueError("Runtime event payload must be a JSON object")
+
+        event = None
+        if raw_event is not None:
+            event = UnifiedStreamEvent.from_dict(raw_event)
+
+        message = optional_object(data, "message", path="runtime_event")
+        session_line = optional_string(data, "session_line", path="runtime_event")
+        sdk_session_id = optional_string(data, "sdk_session_id", path="runtime_event")
+        sdk_session_data = optional_string(
+            data,
+            "sdk_session_data",
+            path="runtime_event",
+        )
+        error = optional_string(data, "error", path="runtime_event")
+        result_usage = optional_object(data, "result_usage", path="runtime_event")
+        result_num_turns = optional_integer(
+            data,
+            "result_num_turns",
+            path="runtime_event",
+        )
+        result_duration_ms = optional_integer(
+            data,
+            "result_duration_ms",
+            path="runtime_event",
+        )
+        log_level = optional_string(data, "log_level", path="runtime_event")
+        log_message = optional_string(data, "log_message", path="runtime_event")
+        log_extra = optional_object(data, "log_extra", path="runtime_event")
+
+        internal = boolean(data, "internal", path="runtime_event")
+        if log_level is not None and log_level not in _RUNTIME_LOG_LEVELS:
+            raise ValueError("Runtime event log_level has an unknown log level")
+        if (
+            log_extra is not None
+            and _RUNTIME_LOG_EXTRA_RESERVED_KEYS & log_extra.keys()
+        ):
+            raise ValueError("Runtime event log_extra contains a reserved key")
+
+        match raw_type:
+            case "stream_event" if event is None:
+                raise ValueError("Runtime stream event must include event")
+            case "message" if message is None:
+                raise ValueError("Runtime message event must include message")
+            case "session_line" if session_line is None or not sdk_session_id:
+                raise ValueError(
+                    "Runtime session_line event must include session_line and a non-empty sdk_session_id"
+                )
+            case "session_update" if not sdk_session_id or sdk_session_data is None:
+                raise ValueError(
+                    "Runtime session_update event must include a non-empty sdk_session_id and sdk_session_data"
+                )
+            case "error" if error is None:
+                raise ValueError("Runtime error event must include error")
+            case "log" if log_level is None or log_message is None:
+                raise ValueError(
+                    "Runtime log event must include log_level and log_message"
+                )
+
+        return cls(
+            type=raw_type,
+            event=event,
+            message=message,
+            session_line=session_line,
+            internal=internal,
+            sdk_session_id=sdk_session_id,
+            sdk_session_data=sdk_session_data,
+            error=error,
+            result_usage=result_usage,
+            result_num_turns=result_num_turns,
+            result_duration_ms=result_duration_ms,
+            result_output=data.get(
+                "result_output",
+                data.get("result_structured_output", data.get("result_result")),
+            ),
+            log_level=log_level,
+            log_message=log_message,
+            log_extra=log_extra,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict for orjson serialization."""
+        result: dict[str, Any] = {"type": self.type}
+        if self.event is not None:
+            result["event"] = self.event.to_dict()
+        if self.message is not None:
+            result["message"] = self.message
+        if self.session_line is not None:
+            result["session_line"] = self.session_line
+        if self.internal:
+            result["internal"] = self.internal
+        if self.sdk_session_id is not None:
+            result["sdk_session_id"] = self.sdk_session_id
+        if self.sdk_session_data is not None:
+            result["sdk_session_data"] = self.sdk_session_data
+        if self.error is not None:
+            result["error"] = self.error
+        if self.result_usage is not None:
+            result["result_usage"] = self.result_usage
+        if self.result_num_turns is not None:
+            result["result_num_turns"] = self.result_num_turns
+        if self.result_duration_ms is not None:
+            result["result_duration_ms"] = self.result_duration_ms
+        if self.result_output is not None:
+            result["result_output"] = self.result_output
+        if self.log_level is not None:
+            result["log_level"] = self.log_level
+        if self.log_message is not None:
+            result["log_message"] = self.log_message
+        if self.log_extra is not None:
+            result["log_extra"] = self.log_extra
+        return result
+
+    @classmethod
+    def from_stream_event(cls, event: UnifiedStreamEvent) -> RuntimeEventEnvelope:
+        """Create a stream event envelope for partial deltas."""
+        return cls(type="stream_event", event=event)
+
+    @classmethod
+    def from_message(cls, message: Any) -> RuntimeEventEnvelope:
+        """Create a message envelope for complete messages.
+
+        Serializes the Claude SDK message. The loopback adds uuid/sessionId
+        when persisting (runtime is untrusted).
+        """
+        from dataclasses import asdict
+
+        data = asdict(message)
+        # Add type field based on message class name (e.g., UserMessage -> user)
+        data["type"] = type(message).__name__.lower().replace("message", "")
+        return cls(type="message", message=data)
+
+    @classmethod
+    def from_session_line(
+        cls, sdk_session_id: str, line: str, *, internal: bool = False
+    ) -> RuntimeEventEnvelope:
+        """Create a session line envelope for raw JSONL persistence.
+
+        This carries a complete JSONL line from the Claude SDK session file,
+        preserving the exact format needed for resume (uuid, timestamp, parentUuid, etc.).
+
+        Args:
+            sdk_session_id: The SDK's internal session ID.
+            line: Raw JSONL line from the SDK session file.
+            internal: If True, this line is internal state and should not appear
+                in the UI timeline (e.g., interrupts, synthetic messages, compaction).
+        """
+        return cls(
+            type="session_line",
+            session_line=line,
+            sdk_session_id=sdk_session_id,
+            internal=internal,
+        )
+
+    @classmethod
+    def from_session_update(
+        cls, sdk_session_id: str, sdk_session_data: str
+    ) -> RuntimeEventEnvelope:
+        """Create a session update envelope."""
+        return cls(
+            type="session_update",
+            sdk_session_id=sdk_session_id,
+            sdk_session_data=sdk_session_data,
+        )
+
+    @classmethod
+    def from_result(
+        cls,
+        usage: dict[str, Any] | None = None,
+        num_turns: int | None = None,
+        duration_ms: int | None = None,
+        output: Any = None,
+    ) -> RuntimeEventEnvelope:
+        """Create a result envelope with usage data from Claude SDK ResultMessage."""
+        return cls(
+            type="result",
+            result_usage=usage,
+            result_num_turns=num_turns,
+            result_duration_ms=duration_ms,
+            result_output=output,
+        )
+
+    @classmethod
+    def from_error(cls, error: str) -> RuntimeEventEnvelope:
+        """Create an error envelope."""
+        return cls(type="error", error=error)
+
+    @classmethod
+    def done(cls) -> RuntimeEventEnvelope:
+        """Create a done envelope."""
+        return cls(type="done")
+
+    @classmethod
+    def from_log(
+        cls, level: str, message: str, extra: dict[str, Any] | None = None
+    ) -> RuntimeEventEnvelope:
+        """Create a log envelope for structured log forwarding."""
+        return cls(type="log", log_level=level, log_message=message, log_extra=extra)

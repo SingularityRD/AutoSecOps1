@@ -10,10 +10,10 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
-import tracecat.auth.saml as saml_module
-from tracecat.api.common import bootstrap_role
-from tracecat.auth.enums import AuthType
-from tracecat.db.engine import get_async_session_bypass_rls
+import autosecops.auth.saml as saml_module
+from autosecops.api.common import bootstrap_role
+from autosecops.auth.enums import AuthType
+from autosecops.db.engine import get_async_session_bypass_rls
 
 
 def _override_saml_db_session(client: TestClient) -> Mock:

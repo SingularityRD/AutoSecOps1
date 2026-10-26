@@ -1,10 +1,10 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.variables.schemas import VariableCreate, VariableSearch, VariableUpdate
-from tracecat.variables.service import VariablesService
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.variables.schemas import VariableCreate, VariableSearch, VariableUpdate
+from autosecops.variables.service import VariablesService
 
 pytestmark = pytest.mark.usefixtures("db")
 

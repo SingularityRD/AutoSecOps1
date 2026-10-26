@@ -8,13 +8,15 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.agent.skill.tags import definitions_router as skill_tag_definitions_router
-from tracecat.agent.skill.tags import router as skill_tags_router
-from tracecat.agent.tags import definitions_router as agent_tag_definitions_router
-from tracecat.agent.tags import router as agent_tags_router
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatConflictError, TracecatNotFoundError
-from tracecat.pagination import CursorPaginatedResponse, CursorPaginationParams
+from autosecops.agent.skill.tags import (
+    definitions_router as skill_tag_definitions_router,
+)
+from autosecops.agent.skill.tags import router as skill_tags_router
+from autosecops.agent.tags import definitions_router as agent_tag_definitions_router
+from autosecops.agent.tags import router as agent_tags_router
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 _RESOURCE_TAG_SURFACES = [
     pytest.param(

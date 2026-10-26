@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from tracecat.sandbox.executor import (
+from autosecops.sandbox.executor import (
     ActionSandboxConfig,
     NsjailExecutor,
     _classify_missing_nsjail_result,
     workload_stderr_tail,
 )
-from tracecat.sandbox.nsjail_protocol import NsjailCompletedProcess
-from tracecat.sandbox.types import SandboxConfig, SandboxErrorCode
+from autosecops.sandbox.nsjail_protocol import NsjailCompletedProcess
+from autosecops.sandbox.types import SandboxConfig, SandboxErrorCode
 
 _NSJAIL_PREAMBLE = (
     "[I][2026-01-01T00:00:00+0000] Mount: '/host/tmp/job' -> '/work' type:'' options:''\n"
@@ -197,7 +197,7 @@ async def test_missing_result_preserves_crash_tail_and_launch_status(
     )
     stderr = "I" * startup_chars + crash
     mocker.patch(
-        "tracecat.sandbox.executor.invoke_nsjail",
+        "autosecops.sandbox.executor.invoke_nsjail",
         return_value=NsjailCompletedProcess(
             returncode=139,
             stdout=b"",
@@ -207,7 +207,7 @@ async def test_missing_result_preserves_crash_tail_and_launch_status(
             nsjail_signaled=False,
         ),
     )
-    log_error = mocker.patch("tracecat.sandbox.executor.logger.error")
+    log_error = mocker.patch("autosecops.sandbox.executor.logger.error")
     executor = NsjailExecutor(cache_dir=str(tmp_path / "cache"))
     mocker.patch.object(executor, "_build_config", return_value="")
 
@@ -239,7 +239,7 @@ async def test_action_missing_result_keeps_workload_traceback_tail(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
     mocker.patch(
-        "tracecat.sandbox.executor.invoke_nsjail",
+        "autosecops.sandbox.executor.invoke_nsjail",
         return_value=NsjailCompletedProcess(
             returncode=1,
             stdout=b"",
@@ -249,7 +249,7 @@ async def test_action_missing_result_keeps_workload_traceback_tail(
             nsjail_signaled=False,
         ),
     )
-    mocker.patch("tracecat.sandbox.executor.logger.error")
+    mocker.patch("autosecops.sandbox.executor.logger.error")
     executor = NsjailExecutor(cache_dir=str(tmp_path / "cache"))
     mocker.patch.object(executor, "_build_action_config", return_value="")
     mocker.patch.object(executor, "_build_action_env_map", return_value={})
@@ -278,7 +278,7 @@ async def test_script_crash_does_not_log_injected_secrets(
     }
     stderr = "\n".join(env_vars.values())
     mocker.patch(
-        "tracecat.sandbox.executor.invoke_nsjail",
+        "autosecops.sandbox.executor.invoke_nsjail",
         return_value=NsjailCompletedProcess(
             returncode=1,
             stdout=b"",
@@ -288,7 +288,7 @@ async def test_script_crash_does_not_log_injected_secrets(
             nsjail_signaled=False,
         ),
     )
-    log_error = mocker.patch("tracecat.sandbox.executor.logger.error")
+    log_error = mocker.patch("autosecops.sandbox.executor.logger.error")
     executor = NsjailExecutor(cache_dir=str(tmp_path / "cache"))
     mocker.patch.object(executor, "_build_config", return_value="")
 

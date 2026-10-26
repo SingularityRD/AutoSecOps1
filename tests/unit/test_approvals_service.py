@@ -3,14 +3,14 @@
 import uuid
 
 import pytest
+from autosecops_ee.agent.approvals.schemas import ApprovalCreate, ApprovalUpdate
+from autosecops_ee.agent.approvals.service import ApprovalService, SessionInfo
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.agent.approvals.schemas import ApprovalCreate, ApprovalUpdate
-from tracecat_ee.agent.approvals.service import ApprovalService, SessionInfo
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentSession, User
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentSession, User
 
 pytestmark = pytest.mark.usefixtures("db")
 

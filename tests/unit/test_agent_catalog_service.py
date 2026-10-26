@@ -10,26 +10,26 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.bedrock import (
+from autosecops.agent.bedrock import (
     BedrockDiscoveredModel,
     BedrockSubscription,
     BedrockSubscriptionStatus,
 )
-from tracecat.agent.catalog.schemas import (
+from autosecops.agent.catalog.schemas import (
     BedrockCatalogUpdate,
 )
-from tracecat.agent.catalog.service import AgentCatalogService
-from tracecat.agent.catalog.types import ModelKey
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import (
+from autosecops.agent.catalog.service import AgentCatalogService
+from autosecops.agent.catalog.types import ModelKey
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
     AgentModelAccess,
     Organization,
 )
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.pagination import CursorPaginationParams
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.pagination import CursorPaginationParams
 
 pytestmark = pytest.mark.usefixtures("db")
 

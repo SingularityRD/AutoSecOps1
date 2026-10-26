@@ -10,11 +10,11 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
-from tracecat.auth.types import Role
-from tracecat.db.models import OrganizationSecret, Secret, Workspace
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.secrets import router as secrets_router
-from tracecat.secrets.enums import SecretType
+from autosecops.auth.types import Role
+from autosecops.db.models import OrganizationSecret, Secret, Workspace
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.secrets import router as secrets_router
+from autosecops.secrets.enums import SecretType
 
 
 @pytest.fixture

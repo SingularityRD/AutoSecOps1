@@ -5,12 +5,12 @@ import pytest
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Workflow, Workspace
-from tracecat.identifiers.workflow import WorkflowID
-from tracecat.tags.schemas import TagCreate, TagUpdate
-from tracecat.tags.service import TagsService
-from tracecat.workflow.tags.service import WorkflowTagsService
+from autosecops.auth.types import Role
+from autosecops.db.models import Workflow, Workspace
+from autosecops.identifiers.workflow import WorkflowID
+from autosecops.tags.schemas import TagCreate, TagUpdate
+from autosecops.tags.service import TagsService
+from autosecops.workflow.tags.service import WorkflowTagsService
 
 pytestmark = pytest.mark.usefixtures("db")
 

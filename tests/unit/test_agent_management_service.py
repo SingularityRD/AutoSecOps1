@@ -7,22 +7,22 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 import sqlalchemy as sa
+from autosecops_registry._internal import secrets as registry_secrets
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_registry._internal import secrets as registry_secrets
 
-import tracecat.agent.service as agent_service
-from tracecat import config as tracecat_config
-from tracecat.agent.bedrock import BedrockDiscoveredModel, BedrockError
-from tracecat.agent.catalog.service import AgentCatalogService
-from tracecat.agent.config import PROVIDER_CREDENTIAL_CONFIGS
-from tracecat.agent.preset.activities import _load_custom_model_provider_creds
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.service import AgentManagementService
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+import autosecops.agent.service as agent_service
+from autosecops import config as tracecat_config
+from autosecops.agent.bedrock import BedrockDiscoveredModel, BedrockError
+from autosecops.agent.catalog.service import AgentCatalogService
+from autosecops.agent.config import PROVIDER_CREDENTIAL_CONFIGS
+from autosecops.agent.preset.activities import _load_custom_model_provider_creds
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.service import AgentManagementService
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
     AgentModelAccess,
@@ -32,13 +32,13 @@ from tracecat.db.models import (
     Secret,
     Workspace,
 )
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.integrations.aws_assume_role import build_workspace_external_id
-from tracecat.secrets import secrets_manager
-from tracecat.secrets.encryption import encrypt_keyvalues
-from tracecat.secrets.enums import SecretSource, SecretType
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.secrets.types import ExternalSecretReference
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.integrations.aws_assume_role import build_workspace_external_id
+from autosecops.secrets import secrets_manager
+from autosecops.secrets.encryption import encrypt_keyvalues
+from autosecops.secrets.enums import SecretSource, SecretType
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.secrets.types import ExternalSecretReference
 
 
 @pytest.fixture

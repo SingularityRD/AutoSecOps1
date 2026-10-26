@@ -105,7 +105,7 @@ services:
       REDIS_URL: ${REDIS_URL}
 
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
       - ./alembic:/app/alembic
       - ${TRACECAT__LOCAL_REPOSITORY_PATH}:/app/local_registry
@@ -193,9 +193,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
-    command: ["python", "-m", "tracecat.dsl.worker"]
+    command: ["python", "-m", "autosecops.dsl.worker"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -260,7 +260,7 @@ services:
       # NOTE: *_ALLOWED_EGRESS_CIDRS gate private-network exceptions only;
       # the *_TCP_PORTS values apply to those CIDRs. Public IPv4 egress
       # remains unrestricted (any public IPv4, any port) regardless of the
-      # allowed-egress CIDR settings. See tracecat/sandbox/networking.py.
+      # allowed-egress CIDR settings. See autosecops/sandbox/networking.py.
       TRACECAT__SANDBOX_DEFAULT_MEMORY_MB: ${TRACECAT__SANDBOX_DEFAULT_MEMORY_MB:-2048}
       TRACECAT__SANDBOX_ADDRESS_SPACE_MB: ${TRACECAT__SANDBOX_ADDRESS_SPACE_MB:-}
       TRACECAT__SANDBOX_NSJAIL_PATH: /usr/local/bin/nsjail
@@ -305,11 +305,11 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
       - ${TRACECAT__LOCAL_REPOSITORY_PATH}:/app/local_registry
       - sandbox-cache:/var/lib/tracecat/sandbox-cache
-    command: ["python", "-m", "tracecat.executor.worker"]
+    command: ["python", "-m", "autosecops.executor.worker"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -390,9 +390,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
-    command: ["python", "-m", "tracecat.agent.worker"]
+    command: ["python", "-m", "autosecops.agent.worker"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -428,12 +428,12 @@ services:
       TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS: ${TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS:-}
       TRACECAT__OUTBOUND_PROXY_URL: ${TRACECAT__OUTBOUND_PROXY_URL:-} # Sensitive
       TRACECAT__OUTBOUND_NO_PROXY: ${TRACECAT__OUTBOUND_NO_PROXY:-}
-      PYTHONPATH: /app:/app/packages/tracecat-registry:/app/packages/tracecat-ee
+      PYTHONPATH: /app:/app/packages/autosecops-registry:/app/packages/autosecops-ee
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
       - ./alembic:/app/alembic
-    command: ["python", "-m", "tracecat.agent.litellm"]
+    command: ["python", "-m", "autosecops.agent.litellm"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -546,11 +546,11 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
       - ${TRACECAT__LOCAL_REPOSITORY_PATH}:/app/local_registry
       - sandbox-cache:/var/lib/tracecat/sandbox-cache
-    command: ["python", "-m", "tracecat.agent.executor_worker"]
+    command: ["python", "-m", "autosecops.agent.executor_worker"]
     depends_on:
       litellm:
         condition: service_healthy
@@ -617,9 +617,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
-    command: ["python", "-m", "tracecat.mcp"]
+    command: ["python", "-m", "autosecops.mcp"]
     depends_on:
       api:
         condition: service_healthy
@@ -697,7 +697,7 @@ services:
       TRACECAT__FEATURE_FLAGS: ${TRACECAT__FEATURE_FLAGS}
       TRACECAT__LICENSE_KEY: ${TRACECAT__LICENSE_KEY:-}
     volumes:
-      - ./tracecat:/app/tracecat
+      - ./autosecops:/app/autosecops
       - ./packages:/app/packages
       - ./alembic:/app/alembic
     command: ["python3", "-m", "alembic", "upgrade", "head"]

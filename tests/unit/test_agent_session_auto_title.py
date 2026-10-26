@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.agent.llm import LLMCompletionError
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import AgentSession
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.agent.llm import LLMCompletionError
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import AgentSession
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ async def test_auto_title_updates_session_on_first_prompt(role: Role) -> None:
     agent_session.id = uuid.uuid4()
 
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         AsyncMock(return_value="Investigate login failures"),
     ):
         await service.auto_title_session_on_first_prompt(
@@ -83,7 +83,7 @@ async def test_auto_title_uses_service_role_for_generation(user_role: Role) -> N
     agent_session.id = uuid.uuid4()
     generate_title = AsyncMock(return_value="Investigate login failures")
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         generate_title,
     ):
         await service.auto_title_session_on_first_prompt(
@@ -121,7 +121,7 @@ async def test_auto_title_does_not_skip_when_history_exists(role: Role) -> None:
     service.is_first_prompt_for_session = AsyncMock(return_value=False)
 
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         AsyncMock(return_value="Do something useful"),
     ):
         await service.auto_title_session_on_first_prompt(
@@ -158,7 +158,7 @@ async def test_auto_title_does_not_raise_on_expected_generation_error(
     agent_session.id = uuid.uuid4()
 
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         AsyncMock(side_effect=error),
     ):
         await service.auto_title_session_on_first_prompt(
@@ -185,7 +185,7 @@ async def test_auto_title_raises_on_unexpected_generation_error(role: Role) -> N
 
     with (
         patch(
-            "tracecat.agent.session.service.generate_session_title",
+            "autosecops.agent.session.service.generate_session_title",
             AsyncMock(side_effect=RuntimeError("provider down")),
         ),
         pytest.raises(RuntimeError, match="provider down"),
@@ -233,7 +233,7 @@ async def test_auto_title_skips_when_compare_and_set_guard_fails(role: Role) -> 
     agent_session.id = uuid.uuid4()
 
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         AsyncMock(return_value="Approval follow-up investigation"),
     ):
         await service.auto_title_session_on_first_prompt(
@@ -265,7 +265,7 @@ async def test_auto_title_preserves_manual_rename_after_scheduling(
 
     generate_title = AsyncMock(return_value="Approval follow-up investigation")
     with patch(
-        "tracecat.agent.session.service.generate_session_title",
+        "autosecops.agent.session.service.generate_session_title",
         generate_title,
     ):
         await service.auto_title_session_on_first_prompt(

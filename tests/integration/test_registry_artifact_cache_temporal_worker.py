@@ -17,8 +17,8 @@ from temporalio.common import RetryPolicy
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
 
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCache,
     compute_registry_artifact_cache_key,
 )

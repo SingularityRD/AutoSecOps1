@@ -16,8 +16,8 @@ import {
 } from "lucide-react"
 import { Fragment, useMemo } from "react"
 import type {
+  autosecops__registry__repositories__schemas__RegistryVersionRead,
   GitCommitInfo,
-  tracecat__registry__repositories__schemas__RegistryVersionRead,
 } from "@/client"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { Spinner } from "@/components/loading/spinner"
@@ -42,7 +42,7 @@ import {
 import { getRelativeTime } from "@/lib/event-history"
 
 type RegistryVersionRead =
-  tracecat__registry__repositories__schemas__RegistryVersionRead
+  autosecops__registry__repositories__schemas__RegistryVersionRead
 
 /** One table row: a remote commit, a synced version, or both joined on SHA. */
 export type VersionRow = {

@@ -6,20 +6,13 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_workspace_membership,
-    seed_external_group,
-    seed_external_group_members,
-    seed_external_user,
-)
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.scopes import ADMIN_SCOPES, EDITOR_SCOPES, ORG_ADMIN_SCOPES
-from tracecat.authz.seeding import seed_system_scopes
-from tracecat.authz.service import MembershipService
-from tracecat.db.models import (
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.scopes import ADMIN_SCOPES, EDITOR_SCOPES, ORG_ADMIN_SCOPES
+from autosecops.authz.seeding import seed_system_scopes
+from autosecops.authz.service import MembershipService
+from autosecops.db.models import (
     ExternalGroupMapping,
     Group,
     GroupMember,
@@ -34,13 +27,20 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import (
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
 )
-from tracecat.workspaces.schemas import WorkspaceMembershipCreate
+from autosecops.workspaces.schemas import WorkspaceMembershipCreate
+from tests.support.membership import (
+    grant_org_membership,
+    grant_workspace_membership,
+    seed_external_group,
+    seed_external_group_members,
+    seed_external_user,
+)
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

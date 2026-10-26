@@ -23,29 +23,29 @@ from sqlalchemy import select
 from temporalio.client import WorkflowFailureError
 from temporalio.common import RetryPolicy
 
-from tests.shared import generate_test_exec_id, to_data
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.auth.users import get_user_db_context, get_user_manager_context
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session_bypass_rls_context_manager
-from tracecat.db.models import (
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.auth.users import get_user_db_context, get_user_manager_context
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
+from autosecops.db.models import (
     Organization,
     User,
     UserRoleAssignment,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.dsl.client import get_temporal_client
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.logger import logger
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.secrets.enums import SecretType
-from tracecat.secrets.schemas import SecretCreate
-from tracecat.settings.schemas import GitSettingsUpdate
+from autosecops.db.models import Role as DBRole
+from autosecops.dsl.client import get_temporal_client
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.logger import logger
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.secrets.enums import SecretType
+from autosecops.secrets.schemas import SecretCreate
+from autosecops.settings.schemas import GitSettingsUpdate
+from tests.shared import generate_test_exec_id, to_data
 
 GIT_SSH_URL = "git+ssh://git@github.com/TracecatHQ/internal-registry.git"
 KNOWN_GOOD_REMOTE_COMMIT_SHA = "e2bfd94c35c93f8052c2b97ff542961596ddd3f8"
@@ -164,10 +164,10 @@ def _sync_builtin_platform_registry(
     session: requests.Session,
     base_url: str,
 ) -> None:
-    """Ensure tracecat_registry resolves to a downloadable platform tarball.
+    """Ensure autosecops_registry resolves to a downloadable platform tarball.
 
     The remote custom registry sync only updates the org-scoped custom repo.
-    Workflow lock resolution always includes tracecat_registry as a runtime
+    Workflow lock resolution always includes autosecops_registry as a runtime
     dependency, so this test must ensure the platform builtin repo is not still
     pointing at the placeholder fixture tarball.
     """

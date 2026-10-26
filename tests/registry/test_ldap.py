@@ -10,9 +10,9 @@ from typing import Any
 
 import ldap3
 import pytest
+from autosecops_registry._internal import secrets as registry_secrets
+from autosecops_registry.integrations.ldap3 import search_entries
 from ldap3.core.exceptions import LDAPException
-from tracecat_registry._internal import secrets as registry_secrets
-from tracecat_registry.integrations.ldap3 import search_entries
 
 from tests import conftest as test_conftest
 

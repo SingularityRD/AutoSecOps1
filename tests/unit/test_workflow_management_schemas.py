@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from tracecat.workflow.management.schemas import (
+from autosecops.workflow.management.schemas import (
     WorkflowDefinitionRead,
     format_registry_origin,
 )
-from tracecat.workflow.management.utils import build_trigger_inputs_schema
+from autosecops.workflow.management.utils import build_trigger_inputs_schema
 
 
 def test_workflow_definition_read_accepts_legacy_flat_registry_lock():
@@ -18,7 +18,7 @@ def test_workflow_definition_read_accepts_legacy_flat_registry_lock():
             "version": 1,
             "content": {},
             "registry_lock": {
-                "tracecat_registry": "2025.12.10.123456",
+                "autosecops_registry": "2025.12.10.123456",
                 "git+ssh://deploy@example.com/acme/actions.git": "abcdef1234567890",
             },
             "created_at": created_at,
@@ -28,26 +28,27 @@ def test_workflow_definition_read_accepts_legacy_flat_registry_lock():
 
     assert definition.registry_lock is not None
     assert definition.registry_lock.origins == {
-        "tracecat_registry": "2025.12.10.123456",
+        "autosecops_registry": "2025.12.10.123456",
         "git+ssh://deploy@example.com/acme/actions.git": "abcdef1234567890",
     }
     assert definition.registry_lock.actions == {}
-    assert definition.registry_lock_entries[0].label == "acme/actions@abcdef123456"
-    assert definition.registry_lock_entries[1].label == (
-        "tracecat_registry@2025.12.10.123456"
+    # Entries are sorted by origin.
+    assert definition.registry_lock_entries[0].label == (
+        "autosecops_registry@2025.12.10.123456"
     )
+    assert definition.registry_lock_entries[1].label == "acme/actions@abcdef123456"
     serialized = definition.model_dump(mode="json")
     assert "registry_lock" not in serialized
     assert serialized["registry_lock_entries"] == [
         {
+            "origin": "autosecops_registry",
+            "version": "2025.12.10.123456",
+            "label": "autosecops_registry@2025.12.10.123456",
+        },
+        {
             "origin": "git+ssh://deploy@example.com/acme/actions.git",
             "version": "abcdef1234567890",
             "label": "acme/actions@abcdef123456",
-        },
-        {
-            "origin": "tracecat_registry",
-            "version": "2025.12.10.123456",
-            "label": "tracecat_registry@2025.12.10.123456",
         },
     ]
 

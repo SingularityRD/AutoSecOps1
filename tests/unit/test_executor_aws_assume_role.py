@@ -12,16 +12,16 @@ from uuid import UUID
 import pytest
 from botocore.exceptions import ClientError
 
-from tracecat.auth.types import Role
-from tracecat.dsl.schemas import RunContext
-from tracecat.exceptions import TracecatCredentialsError
-from tracecat.executor.secret_preprocessors import (
+from autosecops.auth.types import Role
+from autosecops.dsl.schemas import RunContext
+from autosecops.exceptions import TracecatCredentialsError
+from autosecops.executor.secret_preprocessors import (
     _AWS_ROLE_ARN_PATTERN,
     AwsAssumeRoleSecretPreprocessor,
     _assume_role_via_irsa,
     project_secret_env,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
+from autosecops.identifiers.workflow import WorkflowUUID
 
 _WORKSPACE_ID = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 _WF_ID = WorkflowUUID.new("wf-" + "0" * 32)
@@ -35,7 +35,7 @@ _TEMP_CREDS = {
     "SessionToken": "temp_token",
 }
 
-_IRSA_PATCH = "tracecat.executor.secret_preprocessors._assume_role_via_irsa"
+_IRSA_PATCH = "autosecops.executor.secret_preprocessors._assume_role_via_irsa"
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ class TestAssumeRoleViaIrsa:
 
         with (
             patch(
-                "tracecat.executor.secret_preprocessors.aioboto3.Session"
+                "autosecops.executor.secret_preprocessors.aioboto3.Session"
             ) as mock_session_cls,
             pytest.raises(TracecatCredentialsError, match="Failed to assume AWS role"),
         ):
@@ -433,7 +433,7 @@ class TestSecretValuesNeverEchoed:
         fake_sts.assume_role = AsyncMock(side_effect=error)
         with (
             patch(
-                "tracecat.executor.secret_preprocessors.aioboto3.Session"
+                "autosecops.executor.secret_preprocessors.aioboto3.Session"
             ) as mock_session_cls,
             pytest.raises(TracecatCredentialsError) as exc_info,
         ):
@@ -449,7 +449,7 @@ class TestSecretValuesNeverEchoed:
         assert "AccessDenied" in str(exc_info.value)
 
     def test_collect_mask_values_covers_stripped_form(self) -> None:
-        from tracecat.executor.secret_preprocessors import collect_mask_values
+        from autosecops.executor.secret_preprocessors import collect_mask_values
 
         masks = collect_mask_values([{"aws": {"AWS_ROLE_ARN": "  padded-value \n"}}])
         assert "padded-value" in masks

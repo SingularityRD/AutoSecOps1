@@ -9,7 +9,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.api.app as app_module
+import autosecops.api.app as app_module
 
 
 @pytest.mark.anyio

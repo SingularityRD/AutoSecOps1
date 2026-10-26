@@ -7,21 +7,21 @@ from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
-from tests._route_utils import iter_effective_api_routes
-from tracecat import config
-from tracecat.api.common import auth_pool_exhausted_exception_handler
-from tracecat.auth.executor_tokens import ExecutionOrigin, mint_executor_token
-from tracecat.db.exceptions import AuthPoolExhaustedError
-from tracecat.dsl.enums import PlatformAction
-from tracecat.executor.action_gateway import app as action_gateway_app
-from tracecat.executor.action_gateway.app import (
+from autosecops import config
+from autosecops.api.common import auth_pool_exhausted_exception_handler
+from autosecops.auth.executor_tokens import ExecutionOrigin, mint_executor_token
+from autosecops.db.exceptions import AuthPoolExhaustedError
+from autosecops.dsl.enums import PlatformAction
+from autosecops.executor.action_gateway import app as action_gateway_app
+from autosecops.executor.action_gateway.app import (
     create_app,
     request_logging_middleware,
     validation_exception_handler,
 )
-from tracecat.executor.action_gateway.policy import (
+from autosecops.executor.action_gateway.policy import (
     enforce_agent_script_gateway_access,
 )
+from tests._route_utils import iter_effective_api_routes
 
 
 def _route_keys(app: FastAPI) -> set[tuple[str, str]]:
@@ -41,7 +41,7 @@ def _internal_route_keys(app: FastAPI) -> set[tuple[str, str]]:
 
 
 def test_action_gateway_mounts_internal_routes() -> None:
-    from tracecat.api.app import create_app as create_api_app
+    from autosecops.api.app import create_app as create_api_app
 
     api_routes = _internal_route_keys(create_api_app())
     app = create_app()
@@ -55,7 +55,7 @@ def test_action_gateway_mounts_internal_routes() -> None:
 
 
 def test_api_and_action_gateway_handle_auth_pool_exhaustion() -> None:
-    from tracecat.api.app import create_app as create_api_app
+    from autosecops.api.app import create_app as create_api_app
 
     for app in (create_api_app(), create_app()):
         assert (

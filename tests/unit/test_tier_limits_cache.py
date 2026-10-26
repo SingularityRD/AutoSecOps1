@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracecat import config
-from tracecat.tiers.limits_cache import (
+from autosecops import config
+from autosecops.tiers.limits_cache import (
     effective_limits_cache_key,
     get_effective_limits_cached,
     invalidate_effective_limits_cache_many,
     set_effective_limits_cached,
 )
-from tracecat.tiers.schemas import EffectiveLimits
+from autosecops.tiers.schemas import EffectiveLimits
 
 
 class _FakeRedisClient:
@@ -70,7 +70,7 @@ async def test_effective_limits_cache_round_trip(
     wrapper = _FakeRedisWrapper(client)
     monkeypatch.setattr(config, "TRACECAT__TIER_LIMITS_CACHE_TTL_SECONDS", 30)
     monkeypatch.setattr(
-        "tracecat.tiers.limits_cache.get_redis_client",
+        "autosecops.tiers.limits_cache.get_redis_client",
         AsyncMock(return_value=wrapper),
     )
 
@@ -97,7 +97,7 @@ async def test_effective_limits_cache_drops_invalid_payload(
     client.values[key] = "{invalid-json"
     monkeypatch.setattr(config, "TRACECAT__TIER_LIMITS_CACHE_TTL_SECONDS", 30)
     monkeypatch.setattr(
-        "tracecat.tiers.limits_cache.get_redis_client",
+        "autosecops.tiers.limits_cache.get_redis_client",
         AsyncMock(return_value=wrapper),
     )
 
@@ -116,7 +116,7 @@ async def test_effective_limits_cache_respects_disabled_ttl(
     wrapper = _FakeRedisWrapper(client)
     monkeypatch.setattr(config, "TRACECAT__TIER_LIMITS_CACHE_TTL_SECONDS", 0)
     monkeypatch.setattr(
-        "tracecat.tiers.limits_cache.get_redis_client",
+        "autosecops.tiers.limits_cache.get_redis_client",
         AsyncMock(return_value=wrapper),
     )
 

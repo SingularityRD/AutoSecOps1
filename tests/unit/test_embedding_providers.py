@@ -16,6 +16,19 @@ from botocore.exceptions import (
     ParamValidationError,
 )
 
+from autosecops.search.embeddings import bedrock
+from autosecops.search.embeddings import client as client_module
+from autosecops.search.embeddings.catalog import (
+    default_model,
+    recipe_revision,
+    token_counter,
+)
+from autosecops.search.embeddings.types import (
+    EmbeddingError,
+    EmbeddingErrorCode,
+    ResolvedCredential,
+)
+from autosecops.search.types import SearchScope
 from tests.embedding_helpers import (
     StubProvider,
     configuration_for,
@@ -23,19 +36,6 @@ from tests.embedding_helpers import (
     request_for,
     wire_response,
 )
-from tracecat.search.embeddings import bedrock
-from tracecat.search.embeddings import client as client_module
-from tracecat.search.embeddings.catalog import (
-    default_model,
-    recipe_revision,
-    token_counter,
-)
-from tracecat.search.embeddings.types import (
-    EmbeddingError,
-    EmbeddingErrorCode,
-    ResolvedCredential,
-)
-from tracecat.search.types import SearchScope
 
 pytestmark = pytest.mark.anyio
 

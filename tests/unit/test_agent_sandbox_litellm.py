@@ -24,72 +24,72 @@ import pytest
 from claude_agent_sdk import ClaudeAgentOptions
 from claude_agent_sdk.types import SdkPluginConfig
 
-import tracecat.agent.executor.activity as executor_activity
-import tracecat.agent.runtime.claude_code.broker as broker_module
-import tracecat.agent.runtime.claude_code.runtime as runtime_module
-import tracecat.agent.runtime.claude_code.transport as transport_module
-import tracecat.agent.runtime.session_paths as session_paths_module
-import tracecat.agent.sandbox.llm_proxy as llm_proxy_module
-import tracecat.agent.sandbox.nsjail as nsjail_module
-import tracecat.agent.sandbox.shim_entrypoint as shim_entrypoint
-import tracecat.sandbox.networking as sandbox_networking
-from tracecat import config as app_config
-from tracecat.agent.common.protocol import RuntimeInitPayload
-from tracecat.agent.common.stream_types import (
+import autosecops.agent.executor.activity as executor_activity
+import autosecops.agent.runtime.claude_code.broker as broker_module
+import autosecops.agent.runtime.claude_code.runtime as runtime_module
+import autosecops.agent.runtime.claude_code.transport as transport_module
+import autosecops.agent.runtime.session_paths as session_paths_module
+import autosecops.agent.sandbox.llm_proxy as llm_proxy_module
+import autosecops.agent.sandbox.nsjail as nsjail_module
+import autosecops.agent.sandbox.shim_entrypoint as shim_entrypoint
+import autosecops.sandbox.networking as sandbox_networking
+from autosecops import config as app_config
+from autosecops.agent.common.protocol import RuntimeInitPayload
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     ToolCallContent,
     UnifiedStreamEvent,
 )
-from tracecat.agent.common.types import (
+from autosecops.agent.common.types import (
     MCPServerConfig,
     MCPStdioServerConfig,
     MCPToolDefinition,
     SandboxAgentConfig,
     SandboxSubagentConfig,
 )
-from tracecat.agent.executor.activity import (
+from autosecops.agent.executor.activity import (
     AgentExecutorInput,
     AgentExecutorResult,
     SandboxedAgentExecutor,
     run_agent_activity,
 )
-from tracecat.agent.executor.loopback import (
+from autosecops.agent.executor.loopback import (
     LoopbackHandler,
     LoopbackInput,
     LoopbackResult,
 )
-from tracecat.agent.otel_config import ResolvedAgentOtelConfig
-from tracecat.agent.runtime.claude_code.broker import (
+from autosecops.agent.otel_config import ResolvedAgentOtelConfig
+from autosecops.agent.runtime.claude_code.broker import (
     ClaudeRuntimeBroker,
     ClaudeTurnRequest,
 )
-from tracecat.agent.runtime.claude_code.transport import SandboxedCLITransport
-from tracecat.agent.sandbox.cgroup import sandbox_cgroup
-from tracecat.agent.sandbox.config import (
+from autosecops.agent.runtime.claude_code.transport import SandboxedCLITransport
+from autosecops.agent.sandbox.cgroup import sandbox_cgroup
+from autosecops.agent.sandbox.config import (
     JAILED_SHIM_ENTRYPOINT_PATH,
     AgentResourceLimits,
     AgentSandboxConfig,
     build_agent_nsjail_config,
 )
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops.agent.sandbox.llm_proxy import (
     LLM_SOCKET_NAME,
     LLMRoute,
     LLMRoutingPlan,
 )
-from tracecat.agent.skill.service import SkillService
-from tracecat.agent.skill.types import ResolvedSkillRef
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatAuthorizationError
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.observability.types import PlatformErrorCapture
-from tracecat.runtime.errors import (
+from autosecops.agent.skill.service import SkillService
+from autosecops.agent.skill.types import ResolvedSkillRef
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.observability.types import PlatformErrorCapture
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.sandbox.types import (
+from autosecops.sandbox.types import (
     SandboxEgressRule,
     SandboxNetworkPolicy,
     SandboxNetworkProtocol,
@@ -1293,8 +1293,8 @@ async def _run_stdio_mcp_startup_burst_case(
     # included) is tighter than this stress case needs, so raise it for this
     # test only. This runs in-process AND inside the Dockerized harness,
     # which invokes the same helper.
-    import tracecat.agent.sandbox.config as sandbox_config_module
-    import tracecat.agent.sandbox.nsjail as sandbox_nsjail_module
+    import autosecops.agent.sandbox.config as sandbox_config_module
+    import autosecops.agent.sandbox.nsjail as sandbox_nsjail_module
 
     real_agent_sandbox_config = sandbox_config_module.AgentSandboxConfig
 
@@ -1827,7 +1827,7 @@ def _run_nsjail_harness_in_docker_or_skip(
                 "python",
                 "api",
                 "-m",
-                "tracecat.agent.sandbox.cgroup",
+                "autosecops.agent.sandbox.cgroup",
                 "sh",
                 "-lc",
                 f"uv run python -m tests.unit.test_agent_sandbox_litellm {cli_flag}",

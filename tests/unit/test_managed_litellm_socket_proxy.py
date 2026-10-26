@@ -2,7 +2,7 @@ from pathlib import Path
 
 import orjson
 
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops.agent.sandbox.llm_proxy import (
     LLMRoute,
     LLMRoutingPlan,
     LLMSocketProxy,

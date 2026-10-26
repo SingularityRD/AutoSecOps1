@@ -9,42 +9,49 @@ import pytest
 from temporalio.api.failure.v1 import Failure
 from temporalio.converter import DataConverter
 
-from tracecat.auth.types import Role
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import (
     ActionRetryPolicy,
     ActionStatement,
     RunActionInput,
     RunContext,
 )
-from tracecat.exceptions import EntitlementRequired, ExecutionError, LoopExecutionError
-from tracecat.executor import service
-from tracecat.executor.error_policy import classify_execute_action_error
-from tracecat.executor.minimal_runner import ActionTimeoutError
-from tracecat.executor.registry_artifacts import (
+from autosecops.exceptions import (
+    EntitlementRequired,
+    ExecutionError,
+    LoopExecutionError,
+)
+from autosecops.executor import service
+from autosecops.executor.error_policy import classify_execute_action_error
+from autosecops.executor.minimal_runner import ActionTimeoutError
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCacheCapacityError,
     RegistryArtifactCacheLeaseContentionError,
     RegistryArtifactExtractionError,
 )
-from tracecat.executor.schemas import (
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ExecutorResultFailure,
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.expressions.policy import build_provenance
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops.expressions.policy import build_provenance
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.sandbox.exceptions import SandboxInfrastructureError, SandboxWorkloadError
-from tracecat.sandbox.types import SandboxErrorCode
-from tracecat.temporal.errors import application_error_from_classification
+from autosecops.sandbox.exceptions import (
+    SandboxInfrastructureError,
+    SandboxWorkloadError,
+)
+from autosecops.sandbox.types import SandboxErrorCode
+from autosecops.temporal.errors import application_error_from_classification
 
 CANARY = "synthetic-secret\nclassification-canary"
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("prepared")]

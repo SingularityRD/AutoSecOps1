@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.routing import APIRoute
 
-from tracecat.auth.dependencies import WorkspaceUserPathRole
-from tracecat.auth.types import Role
-from tracecat.mcp.personal_access_tokens import router as mcp_pat_router
-from tracecat.pagination import CursorPaginatedResponse
+from autosecops.auth.dependencies import WorkspaceUserPathRole
+from autosecops.auth.types import Role
+from autosecops.mcp.personal_access_tokens import router as mcp_pat_router
+from autosecops.pagination import CursorPaginatedResponse
 
 
 def _token_read(

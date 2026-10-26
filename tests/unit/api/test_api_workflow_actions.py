@@ -6,9 +6,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatValidationError
-from tracecat.workflow.actions.service import WorkflowActionService
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatValidationError
+from autosecops.workflow.actions.service import WorkflowActionService
 
 _WORKFLOW_ID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
 _MISSING_ACTION_ID = "00000000-0000-4000-8000-000000000000"

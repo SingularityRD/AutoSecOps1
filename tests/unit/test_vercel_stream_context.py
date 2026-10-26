@@ -9,7 +9,7 @@ from typing import cast
 
 import pytest
 
-from tracecat.agent.adapter.vercel import (
+from autosecops.agent.adapter.vercel import (
     DataEventPayload,
     PreliminaryToolOutputAvailableEventPayload,
     ReasoningDeltaEventPayload,
@@ -26,12 +26,12 @@ from tracecat.agent.adapter.vercel import (
     VercelStreamContext,
     format_sse,
 )
-from tracecat.agent.common.stream_types import (
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     ToolCallContent,
     UnifiedStreamEvent,
 )
-from tracecat.artifacts.schemas import ARTIFACT_DATA_PART_TYPE
+from autosecops.artifacts.schemas import ARTIFACT_DATA_PART_TYPE
 
 
 async def collect_frames(

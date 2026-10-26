@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from tracecat.agent import executor_worker
-from tracecat.executor import worker
+from autosecops.agent import executor_worker
+from autosecops.executor import worker
 
 
 @pytest.fixture(params=[worker, executor_worker], ids=["executor", "agent"])
@@ -16,7 +16,9 @@ def worker_module(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> ModuleType:
     module: ModuleType = request.param
-    monkeypatch.setattr("tracecat.executor.startup.validate_execution_backend", Mock())
+    monkeypatch.setattr(
+        "autosecops.executor.startup.validate_execution_backend", Mock()
+    )
     monkeypatch.setattr(module, "initialize_platform_tracing", Mock())
     monkeypatch.setattr(module, "shutdown_platform_tracing", Mock())
     monkeypatch.setattr(module, "close_storage_client_cache", AsyncMock())
@@ -51,7 +53,7 @@ async def test_readiness_ends_before_worker_drain(
 ) -> None:
     ready = tmp_path / "ready"
     ready.touch()
-    monkeypatch.setattr("tracecat.executor.startup.WORKER_READY_FILE", ready)
+    monkeypatch.setattr("autosecops.executor.startup.WORKER_READY_FILE", ready)
     shutdown = asyncio.Event()
     drained = False
 
@@ -87,10 +89,10 @@ async def test_unremovable_ready_file_fails_before_initialization(
 ) -> None:
     ready = tmp_path / "ready"
     ready.mkdir()
-    monkeypatch.setattr("tracecat.executor.startup.WORKER_READY_FILE", ready)
+    monkeypatch.setattr("autosecops.executor.startup.WORKER_READY_FILE", ready)
     validate = Mock()
     monkeypatch.setattr(
-        "tracecat.executor.startup.validate_execution_backend", validate
+        "autosecops.executor.startup.validate_execution_backend", validate
     )
     with pytest.raises(OSError):
         await worker_module.main()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RUNTIME_ERROR_CLASSIFICATION_SCHEMA,
     RetryDisposition,
     RuntimeErrorClassification,

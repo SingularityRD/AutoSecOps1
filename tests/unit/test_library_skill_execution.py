@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.agent.skill.builtin.staging import stage_platform_skill_plugin
-from tracecat.agent.skill.frontmatter import parse_skill_markdown
-from tracecat.agent.skill.library import execution
-from tracecat.agent.skill.library.types import LibrarySkill
+from autosecops.agent.skill.builtin.staging import stage_platform_skill_plugin
+from autosecops.agent.skill.frontmatter import parse_skill_markdown
+from autosecops.agent.skill.library import execution
+from autosecops.agent.skill.library.types import LibrarySkill
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])

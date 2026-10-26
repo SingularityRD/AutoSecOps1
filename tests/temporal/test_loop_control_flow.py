@@ -9,18 +9,18 @@ from temporalio.client import Client, WorkflowFailureError
 from temporalio.exceptions import ApplicationError
 from temporalio.worker import Worker
 
-from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data
-from tracecat.auth.types import Role
-from tracecat.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.enums import JoinStrategy
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.runtime.errors import (
+from autosecops.auth.types import Role
+from autosecops.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.enums import JoinStrategy
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.temporal.errors import extract_error_classification
+from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data
 
 pytestmark = [
     pytest.mark.temporal,
@@ -242,7 +242,7 @@ async def test_loop_rejects_max_iterations_over_platform_cap(
     wf_exec_id = generate_test_exec_id(test_name)
     low_platform_cap = 3
     monkeypatch.setattr(
-        "tracecat.dsl.scheduler.MAX_DO_WHILE_ITERATIONS",
+        "autosecops.dsl.scheduler.MAX_DO_WHILE_ITERATIONS",
         low_platform_cap,
     )
 

@@ -8,19 +8,19 @@ the registry SDK wrappers read.
 from typing import Literal
 
 import pytest
-from tracecat_registry import RegistryOAuthSecret
+from autosecops_registry import RegistryOAuthSecret
 
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.providers import get_provider_class
-from tracecat.integrations.providers.microsoft.graph.outlook import (
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.providers import get_provider_class
+from autosecops.integrations.providers.microsoft.graph.outlook import (
     MicrosoftOutlookACProvider,
     MicrosoftOutlookCCProvider,
 )
-from tracecat.integrations.providers.microsoft.graph.security import (
+from autosecops.integrations.providers.microsoft.graph.security import (
     MicrosoftGraphSecurityACProvider,
     MicrosoftGraphSecurityCCProvider,
 )
-from tracecat.integrations.schemas import ProviderKey
+from autosecops.integrations.schemas import ProviderKey
 
 
 @pytest.mark.parametrize(

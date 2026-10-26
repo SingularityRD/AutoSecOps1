@@ -8,12 +8,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, TypeAdapter
 
-from tracecat.identifiers.common import (
+from autosecops.identifiers.common import (
     TracecatUUID,
     id_from_short,
     id_to_short,
 )
-from tracecat.identifiers.workflow import (
+from autosecops.identifiers.workflow import (
     WF_EXEC_ID_PATTERN,
     WF_EXEC_ID_SCHEMA_PATTERN,
     AnyWorkflowIDPath,

@@ -18,21 +18,21 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     Tier,
 )
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import BuiltinRegistryHasNoSelectionError
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.webhooks.dependencies import DraftWorkflowContext
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
-from tracecat.workflow.management.management import WorkflowsManagementService
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import BuiltinRegistryHasNoSelectionError
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.webhooks.dependencies import DraftWorkflowContext
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.workflow.management.management import WorkflowsManagementService
 
 pytestmark = pytest.mark.usefixtures("db")
 

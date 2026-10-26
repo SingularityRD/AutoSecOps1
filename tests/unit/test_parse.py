@@ -1,7 +1,7 @@
 import pytest
 
-from tracecat.expressions.common import eval_jsonpath
-from tracecat.parse import (
+from autosecops.expressions.common import eval_jsonpath
+from autosecops.parse import (
     traverse_expressions,
     traverse_leaves,
     unescape_string,

@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from tracecat import config
-from tracecat.agent import executor_worker
-from tracecat.executor import worker
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.executor.startup import validate_execution_backend
+from autosecops import config
+from autosecops.agent import executor_worker
+from autosecops.executor import worker
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.executor.startup import validate_execution_backend
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ async def test_workers_reject_invalid_sandbox_before_starting_services(
 ) -> None:
     ready = tmp_path / "ready"
     ready.touch()
-    monkeypatch.setattr("tracecat.executor.startup.WORKER_READY_FILE", ready)
+    monkeypatch.setattr("autosecops.executor.startup.WORKER_READY_FILE", ready)
     path = tmp_path / relative_path
     if invalid == "not_executable":
         path.chmod(0o644)

@@ -97,7 +97,7 @@ RETIRED_CATALOG_SLUGS = (
 def _catalog_servers() -> dict[str, dict[str, Any]]:
     catalog_path = (
         Path(__file__).parents[2]
-        / "packages/tracecat-ee/tracecat_ee/mcp/catalog/mcp_catalog_private.json"
+        / "packages/autosecops-ee/autosecops_ee/mcp/catalog/mcp_catalog_private.json"
     )
     payload = orjson.loads(catalog_path.read_bytes())
     return {server["slug"]: server for server in payload["servers"]}
@@ -105,7 +105,7 @@ def _catalog_servers() -> dict[str, dict[str, Any]]:
 
 def _public_catalog_servers() -> dict[str, dict[str, Any]]:
     catalog_path = (
-        Path(__file__).parents[2] / "tracecat/integrations/catalog/mcp_catalog.json"
+        Path(__file__).parents[2] / "autosecops/integrations/catalog/mcp_catalog.json"
     )
     payload = orjson.loads(catalog_path.read_bytes())
     return {server["slug"]: server for server in payload["servers"]}
@@ -173,7 +173,7 @@ def test_retired_stdio_launchers_are_absent() -> None:
     """Retired recipes must not creep back in, in any row or option."""
     catalog_path = (
         Path(__file__).parents[2]
-        / "packages/tracecat-ee/tracecat_ee/mcp/catalog/mcp_catalog_private.json"
+        / "packages/autosecops-ee/autosecops_ee/mcp/catalog/mcp_catalog_private.json"
     )
     raw = catalog_path.read_text(encoding="utf-8")
     for launcher in RETIRED_STDIO_LAUNCHERS:

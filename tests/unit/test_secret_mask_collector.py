@@ -7,9 +7,9 @@ from itertools import product
 
 import pytest
 
-from tracecat.secrets import masking, matcher
-from tracecat.secrets.masking import SecretMaskCollector
-from tracecat.secrets.matcher import SecretSubstringIndex
+from autosecops.secrets import masking, matcher
+from autosecops.secrets.masking import SecretMaskCollector
+from autosecops.secrets.matcher import SecretSubstringIndex
 
 
 def test_substring_index_matches_literal_search_incrementally() -> None:

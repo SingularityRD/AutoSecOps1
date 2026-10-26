@@ -17,23 +17,22 @@ from fastapi import HTTPException, Request
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import grant_org_membership, grant_workspace_membership
-from tracecat.agent import router as agent_router
-from tracecat.agent.access import router as agent_access_router
-from tracecat.agent.access.schemas import WorkspaceAgentModelAccessUpdate
-from tracecat.agent.access.service import AgentModelAccessService
-from tracecat.agent.catalog import router as agent_catalog_router
-from tracecat.agent.catalog.service import AgentCatalogService
-from tracecat.agent.provider import router as agent_provider_router
-from tracecat.agent.session import router as agent_session_router
-from tracecat.auth import credentials
-from tracecat.auth.credentials import _role_dependency
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.authz.seeding import seed_system_roles_for_org, seed_system_scopes
-from tracecat.authz.service import query_effective_scopes
-from tracecat.contexts import ctx_role
-from tracecat.db.models import (
+from autosecops.agent import router as agent_router
+from autosecops.agent.access import router as agent_access_router
+from autosecops.agent.access.schemas import WorkspaceAgentModelAccessUpdate
+from autosecops.agent.access.service import AgentModelAccessService
+from autosecops.agent.catalog import router as agent_catalog_router
+from autosecops.agent.catalog.service import AgentCatalogService
+from autosecops.agent.provider import router as agent_provider_router
+from autosecops.agent.session import router as agent_session_router
+from autosecops.auth import credentials
+from autosecops.auth.credentials import _role_dependency
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.authz.seeding import seed_system_roles_for_org, seed_system_scopes
+from autosecops.authz.service import query_effective_scopes
+from autosecops.contexts import ctx_role
+from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
     AgentModelAccess,
@@ -42,7 +41,8 @@ from tracecat.db.models import (
     User,
     Workspace,
 )
-from tracecat.exceptions import ScopeDeniedError
+from autosecops.exceptions import ScopeDeniedError
+from tests.support.membership import grant_org_membership, grant_workspace_membership
 
 pytestmark = [
     pytest.mark.anyio,

@@ -8,10 +8,10 @@ from typing import Literal
 import orjson
 import pytest
 
-from tracecat.executor import minimal_runner
-from tracecat.sandbox.result_envelope import decode_result_envelope
-from tracecat.sandbox.types import SandboxErrorCode, SandboxResult
-from tracecat.sandbox.wrapper import WRAPPER_SCRIPT
+from autosecops.executor import minimal_runner
+from autosecops.sandbox.result_envelope import decode_result_envelope
+from autosecops.sandbox.types import SandboxErrorCode, SandboxResult
+from autosecops.sandbox.wrapper import WRAPPER_SCRIPT
 
 
 def _run_runner(

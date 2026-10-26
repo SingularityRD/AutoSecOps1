@@ -15,18 +15,18 @@ from typing import Any, cast
 import pytest
 import yaml
 
-from tracecat import config
-from tracecat.agent.executor.activity import SandboxedAgentExecutor
-from tracecat.agent.skill.builtin import PLATFORM_SKILLS, PLATFORM_SKILLS_SOURCE_DIR
-from tracecat.agent.skill.frontmatter import parse_skill_markdown
-from tracecat.agent.skill.schemas import SkillCreate
-from tracecat.agent.skill.types import SkillOrigin
+from autosecops import config
+from autosecops.agent.executor.activity import SandboxedAgentExecutor
+from autosecops.agent.skill.builtin import PLATFORM_SKILLS, PLATFORM_SKILLS_SOURCE_DIR
+from autosecops.agent.skill.frontmatter import parse_skill_markdown
+from autosecops.agent.skill.schemas import SkillCreate
+from autosecops.agent.skill.types import SkillOrigin
 
 IMAGE_SKILLS_ROOT = Path(config.TRACECAT__COPILOT_SKILLS_DIR)
 
 
 def _has_all_skills(root: Path) -> bool:
-    from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+    from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
     return all((root / name).is_dir() for name in BUILTIN_WORKSPACE_CHAT_SKILLS)
 
@@ -57,7 +57,7 @@ class TestBuiltinSkillsConstant:
     """The built-in skill catalog is well-formed and present on disk."""
 
     def test_each_builtin_skill_has_skill_md(self):
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         root = require_vendored_skills()
         for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
@@ -68,7 +68,7 @@ class TestVendoredSkillContent:
     """Content checks against the vendored platform skills."""
 
     def test_frontmatter_name_matches_directory(self):
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         root = require_vendored_skills()
         for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
@@ -84,7 +84,7 @@ class TestVendoredSkillContent:
             assert frontmatter.get("name") == name
 
     def test_relative_reference_links_resolve(self):
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         root = require_vendored_skills()
         for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
@@ -97,7 +97,7 @@ class TestVendoredSkillContent:
                     )
 
     def test_no_todo_placeholders(self):
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         root = require_vendored_skills()
         for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
@@ -107,7 +107,7 @@ class TestVendoredSkillContent:
                 )
 
     def test_customer_visible_prose_uses_product_brand(self):
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         root = require_vendored_skills()
         for name in BUILTIN_WORKSPACE_CHAT_SKILLS:
@@ -145,8 +145,8 @@ class TestBuiltinSkillsPayloadThreading:
     """``builtin_skills`` survives the AgentConfig <-> payload round-trip."""
 
     def test_round_trip_preserves_builtin_skills(self):
-        from tracecat.agent.types import AgentConfig
-        from tracecat.agent.workflow_config import (
+        from autosecops.agent.types import AgentConfig
+        from autosecops.agent.workflow_config import (
             agent_config_from_payload,
             agent_config_to_payload,
         )
@@ -160,8 +160,8 @@ class TestBuiltinSkillsPayloadThreading:
         assert restored.builtin_skills == ["tracecat-automation-best-practices"]
 
     def test_round_trip_defaults_to_none(self):
-        from tracecat.agent.types import AgentConfig
-        from tracecat.agent.workflow_config import (
+        from autosecops.agent.types import AgentConfig
+        from autosecops.agent.workflow_config import (
             agent_config_from_payload,
             agent_config_to_payload,
         )
@@ -189,8 +189,8 @@ class TestResolveBuiltinWorkspaceChatSkills:
 
     @pytest.mark.anyio
     async def test_returns_skills_when_entitled(self, monkeypatch):
-        from tracecat.agent.session import service as session_service
-        from tracecat.agent.session.service import AgentSessionService
+        from autosecops.agent.session import service as session_service
+        from autosecops.agent.session.service import AgentSessionService
 
         async def _entitled(session, role):  # noqa: ANN001
             return True
@@ -198,7 +198,7 @@ class TestResolveBuiltinWorkspaceChatSkills:
         # Patch the name bound in `service` (imported by value), not in `policy`.
         monkeypatch.setattr(session_service, "is_workspace_chat_entitled", _entitled)
 
-        from tracecat.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
+        from autosecops.agent.skill.builtin import BUILTIN_WORKSPACE_CHAT_SKILLS
 
         svc = SimpleNamespace(session=object(), role=object())
         resolve = AgentSessionService._resolve_builtin_workspace_chat_skills.__get__(
@@ -211,8 +211,8 @@ class TestResolveBuiltinWorkspaceChatSkills:
 
     @pytest.mark.anyio
     async def test_returns_none_when_not_entitled(self, monkeypatch):
-        from tracecat.agent.session import service as session_service
-        from tracecat.agent.session.service import AgentSessionService
+        from autosecops.agent.session import service as session_service
+        from autosecops.agent.session.service import AgentSessionService
 
         async def _not_entitled(session, role):  # noqa: ANN001
             return False
@@ -243,7 +243,7 @@ class TestStageBuiltinSkills:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """The vendored directory is the source of truth when it exists."""
-        from tracecat.agent.executor import activity as activity_mod
+        from autosecops.agent.executor import activity as activity_mod
 
         vendored_root = tmp_path / "vendored"
         vendored_skill = vendored_root / "tracecat-automation-best-practices"
@@ -275,7 +275,7 @@ class TestStageBuiltinSkills:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """An entitled session must not silently run without built-in guidance."""
-        from tracecat.agent.executor import activity as activity_mod
+        from autosecops.agent.executor import activity as activity_mod
 
         monkeypatch.setattr(
             activity_mod.app_config,
@@ -304,7 +304,7 @@ class TestWorkspaceChatPrompt:
     """Workspace Chat enters through the host adapter before generic guidance."""
 
     def test_requires_adapter_for_all_platform_work(self):
-        from tracecat.workspaces.prompts import WorkspaceCopilotPrompts
+        from autosecops.workspaces.prompts import WorkspaceCopilotPrompts
 
         instructions = WorkspaceCopilotPrompts().instructions
         platform_section = instructions.split("<platform-guidance>", maxsplit=1)[1]
@@ -315,7 +315,7 @@ class TestWorkspaceChatPrompt:
         assert "any AutoSecOps platform tool" in normalized_section
 
     def test_workflow_skill_order_is_adapter_then_generic(self):
-        from tracecat.workspaces.prompts import WorkspaceCopilotPrompts
+        from autosecops.workspaces.prompts import WorkspaceCopilotPrompts
 
         instructions = WorkspaceCopilotPrompts().instructions
         workflow_section = instructions.split("<workflows>", maxsplit=1)[1]
@@ -332,7 +332,7 @@ class TestWorkflowActionDescriptions:
     def test_all_core_workflow_actions_reference_both_skills(self):
         from collections.abc import Mapping
 
-        from tracecat_registry.core import workflow
+        from autosecops_registry.core import workflow
 
         action_descriptions: dict[str, str] = {}
         for candidate in vars(workflow).values():

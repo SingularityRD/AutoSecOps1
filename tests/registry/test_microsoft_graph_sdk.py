@@ -20,10 +20,10 @@ from typing import Any
 
 import httpx
 import pytest
-from tracecat_registry import SecretNotFoundError
-from tracecat_registry.integrations import _microsoft_graph_transport as transport
-from tracecat_registry.integrations import microsoft_graph_sdk as graph
-from tracecat_registry.integrations._microsoft_graph_transport import (
+from autosecops_registry import SecretNotFoundError
+from autosecops_registry.integrations import _microsoft_graph_transport as transport
+from autosecops_registry.integrations import microsoft_graph_sdk as graph
+from autosecops_registry.integrations._microsoft_graph_transport import (
     MicrosoftGraphAuthMode,
 )
 

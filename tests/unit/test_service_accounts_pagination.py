@@ -6,13 +6,13 @@ from typing import Any, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import ServiceAccount
-from tracecat.pagination import CursorPaginationParams
-from tracecat.service_accounts.service import (
+from autosecops.auth.types import Role
+from autosecops.db.models import ServiceAccount
+from autosecops.pagination import CursorPaginationParams
+from autosecops.service_accounts.service import (
     OrganizationServiceAccountService,
 )
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(autouse=True)

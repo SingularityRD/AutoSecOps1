@@ -24,17 +24,17 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import ActionRetryPolicy, ActionStatement, RunActionInput
+from autosecops.dsl.worker import get_activities
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.logger import logger
+from autosecops.storage.object import InlineObject, StoredObject
 from tests.shared import TEST_WF_ID, generate_test_exec_id
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import ActionRetryPolicy, ActionStatement, RunActionInput
-from tracecat.dsl.worker import get_activities
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.logger import logger
-from tracecat.storage.object import InlineObject, StoredObject
 
 
 @pytest.fixture

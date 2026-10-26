@@ -7,33 +7,33 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_workspace_membership,
-)
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.db.models import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.db.models import (
     AgentPreset,
     Membership,
     Organization,
     User,
     Workspace,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatAuthorizationError,
     TracecatValidationError,
 )
-from tracecat.workspace_sync.enums import VcsProvider
-from tracecat.workspaces.schemas import (
+from autosecops.workspace_sync.enums import VcsProvider
+from autosecops.workspaces.schemas import (
     WorkspaceRead,
     WorkspaceSearch,
     WorkspaceSettingsUpdate,
     WorkspaceUpdate,
 )
-from tracecat.workspaces.service import WorkspaceService
+from autosecops.workspaces.service import WorkspaceService
+from tests.support.membership import (
+    grant_workspace_membership,
+)
 
 pytestmark = pytest.mark.usefixtures("db")
 

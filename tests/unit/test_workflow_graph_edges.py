@@ -15,11 +15,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Action, Workflow, Workspace
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.graph.service import EdgeDedupKey, WorkflowGraphService
-from tracecat.workflow.management.schemas import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Action, Workflow, Workspace
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.graph.service import EdgeDedupKey, WorkflowGraphService
+from autosecops.workflow.management.schemas import (
     AddEdgePayload,
     AddNodePayload,
     DeleteEdgePayload,

@@ -14,19 +14,21 @@ from temporalio.client import Client
 from temporalio.common import TypedSearchAttributes
 from temporalio.converter import decode_typed_search_attributes
 
-from tracecat.agent.adapter.vercel import UIMessage
-from tracecat.agent.backends.schemas import AgentWorkflowArgs
-from tracecat.agent.session.service import (
+from autosecops.agent.adapter.vercel import UIMessage
+from autosecops.agent.backends.schemas import AgentWorkflowArgs
+from autosecops.agent.session.service import (
     AGENT_SESSION_EXECUTION_SCOPES,
     AgentSessionService,
 )
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.chat.schemas import BasicChatRequest, ChatRequest, VercelChatRequest
-from tracecat.db.models import AgentSession
-from tracecat.workflow.executions.correlation import build_agent_session_correlation_id
-from tracecat.workflow.executions.enums import (
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.chat.schemas import BasicChatRequest, ChatRequest, VercelChatRequest
+from autosecops.db.models import AgentSession
+from autosecops.workflow.executions.correlation import (
+    build_agent_session_correlation_id,
+)
+from autosecops.workflow.executions.enums import (
     ExecutionType,
     TemporalSearchAttr,
     TriggerType,
@@ -121,7 +123,7 @@ async def test_run_turn_stamps_tracecat_search_attributes(
         patch.object(service, "auto_title_session_on_first_prompt", AsyncMock()),
         patch.object(service, "_build_agent_config", _mock_agent_config_context),
         patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             AsyncMock(return_value=temporal_client),
         ),
     ):
@@ -195,7 +197,7 @@ async def test_run_turn_uses_only_vercel_text_parts(
         patch.object(service, "has_pending_approvals", AsyncMock(return_value=False)),
         patch.object(service, "_build_agent_config", _mock_agent_config_context),
         patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             AsyncMock(return_value=temporal_client),
         ),
     ):

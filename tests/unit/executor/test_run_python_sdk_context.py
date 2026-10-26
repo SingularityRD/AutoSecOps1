@@ -16,46 +16,46 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Never, assert_type
 
+import autosecops_registry
 import pytest
-import tracecat_registry
-from tracecat_registry import ctx as registry_ctx
-from tracecat_registry.context import RegistryContext, clear_context, set_context
+from autosecops_registry import ctx as registry_ctx
+from autosecops_registry.context import RegistryContext, clear_context, set_context
 
-import tracecat.executor.backends.base as executor_backend_module
-import tracecat.sandbox.service as sandbox_service_module
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl.enums import PlatformAction
-from tracecat.dsl.schemas import (
+import autosecops.executor.backends.base as executor_backend_module
+import autosecops.sandbox.service as sandbox_service_module
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl.enums import PlatformAction
+from autosecops.dsl.schemas import (
     ActionStatement,
     ExecutionContext,
     RunActionInput,
     RunContext,
 )
-from tracecat.executor.action_gateway.config import ACTION_GATEWAY_SANDBOX_SOCKET
-from tracecat.executor.action_gateway.server import ActionGateway
-from tracecat.executor.backends.base import ExecutorBackend
-from tracecat.executor.backends.direct import DirectBackend
-from tracecat.executor.backends.ephemeral import EphemeralBackend
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.executor.schemas import ActionImplementation, ResolvedContext
-from tracecat.identifiers.workflow import ExecutionUUID, WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.sandbox import (
+from autosecops.executor.action_gateway.config import ACTION_GATEWAY_SANDBOX_SOCKET
+from autosecops.executor.action_gateway.server import ActionGateway
+from autosecops.executor.backends.base import ExecutorBackend
+from autosecops.executor.backends.direct import DirectBackend
+from autosecops.executor.backends.ephemeral import EphemeralBackend
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.executor.schemas import ActionImplementation, ResolvedContext
+from autosecops.identifiers.workflow import ExecutionUUID, WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.sandbox import (
     SandboxInfrastructureError,
     SandboxService,
     validate_run_python_script,
 )
-from tracecat.sandbox.executor import NsjailExecutor
-from tracecat.sandbox.types import SandboxConfig, SandboxResult
-from tracecat.sandbox.unsafe_pid_executor import (
+from autosecops.sandbox.executor import NsjailExecutor
+from autosecops.sandbox.types import SandboxConfig, SandboxResult
+from autosecops.sandbox.unsafe_pid_executor import (
     SAFE_WRAPPER_SCRIPT as UNSAFE_PID_WRAPPER_SCRIPT,
 )
-from tracecat.sandbox.unsafe_pid_executor import UnsafePidExecutor
-from tracecat.sandbox.wrapper import WRAPPER_SCRIPT
+from autosecops.sandbox.unsafe_pid_executor import UnsafePidExecutor
+from autosecops.sandbox.wrapper import WRAPPER_SCRIPT
 
 if TYPE_CHECKING:
-    from tracecat_registry import types as registry_types
+    from autosecops_registry import types as registry_types
 
     assert_type(
         registry_ctx.cases.list_cases(limit=10),
@@ -175,8 +175,8 @@ def _make_run_python_input() -> RunActionInput:
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={PlatformAction.RUN_PYTHON: "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={PlatformAction.RUN_PYTHON: "autosecops_registry"},
         ),
     )
 
@@ -198,9 +198,9 @@ def _make_run_python_context() -> ResolvedContext:
         action_impl=ActionImplementation(
             type="udf",
             action_name=PlatformAction.RUN_PYTHON,
-            module="tracecat_registry.core.python",
+            module="autosecops_registry.core.python",
             name="run_python",
-            origin="tracecat_registry",
+            origin="autosecops_registry",
         ),
         evaluated_args={
             "script": "def main():\n    return 1",
@@ -249,7 +249,7 @@ def _set_run_python_nsjail_mode(
 
 def _registry_ctx_smoke_script() -> str:
     return """
-from tracecat_registry import ctx
+from autosecops_registry import ctx
 
 def main():
     return {
@@ -269,7 +269,7 @@ def main():
 
 def _registry_ctx_gateway_smoke_script() -> str:
     return """
-from tracecat_registry import ctx
+from autosecops_registry import ctx
 
 
 async def main():
@@ -328,14 +328,14 @@ def _expected_registry_ctx_smoke_result(
 
 
 def _registry_python_path_dirs() -> list[Path]:
-    registry_source_root = Path(tracecat_registry.__file__).resolve().parents[1]
+    registry_source_root = Path(autosecops_registry.__file__).resolve().parents[1]
     purelib = Path(sysconfig.get_path("purelib")).resolve()
     return [registry_source_root, purelib]
 
 
 def _write_legacy_registry_sdk(root: Path) -> Path:
-    """Write a minimal pre-gateway tracecat_registry package for nsjail tests."""
-    package_dir = root / "tracecat_registry"
+    """Write a minimal pre-gateway autosecops_registry package for nsjail tests."""
+    package_dir = root / "autosecops_registry"
     sdk_dir = package_dir / "sdk"
     sdk_dir.mkdir(parents=True)
 
@@ -343,7 +343,7 @@ def _write_legacy_registry_sdk(root: Path) -> Path:
     (sdk_dir / "__init__.py").write_text("")
     (package_dir / "ctx.py").write_text(
         """
-from tracecat_registry.context import get_context
+from autosecops_registry.context import get_context
 
 
 def __getattr__(name):
@@ -376,7 +376,7 @@ class RegistryContext:
 
     @property
     def client(self):
-        from tracecat_registry.sdk.client import TracecatClient
+        from autosecops_registry.sdk.client import TracecatClient
 
         return TracecatClient(
             api_url=self.api_url,
@@ -772,7 +772,7 @@ def _run_nsjail_harness_in_docker_or_skip(
                 "python",
                 "api",
                 "-m",
-                "tracecat.sandbox.bootstrap",
+                "autosecops.sandbox.bootstrap",
                 "sh",
                 "-c",
                 "uv run python -m tests.unit.executor.test_run_python_sdk_context "
@@ -982,8 +982,8 @@ def test_registry_pythonpaths_can_import_ctx_without_site_packages(
             sys.executable,
             "-S",
             "-c",
-            "from tracecat_registry import ctx; "
-            "from tracecat_registry.context import RegistryContext; "
+            "from autosecops_registry import ctx; "
+            "from autosecops_registry.context import RegistryContext; "
             "print(ctx.__name__, type(RegistryContext("
             "workspace_id='w', workflow_id='wf', run_id='r').client).__name__)",
         ],
@@ -998,7 +998,7 @@ def test_registry_pythonpaths_can_import_ctx_without_site_packages(
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "tracecat_registry.ctx TracecatClient"
+    assert result.stdout.strip() == "autosecops_registry.ctx TracecatClient"
 
 
 def test_unsafe_pid_pythonpath_uses_registry_paths(tmp_path: Path) -> None:
@@ -1170,17 +1170,17 @@ async def test_run_python_backend_always_injects_sdk_context(
             return {"ok": True}
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.SandboxService",
+        "autosecops.executor.backends.base.SandboxService",
         FakeSandboxService,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.config.TRACECAT__API_URL",
+        "autosecops.executor.backends.base.config.TRACECAT__API_URL",
         "http://api.test:8000",
     )
     backend = DirectBackend()
     monkeypatch.setattr(backend, "_get_artifact_uris", _get_artifact_uris)
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.get_action_runner",
+        "autosecops.executor.backends.base.get_action_runner",
         lambda: fake_runner,
     )
 
@@ -1231,11 +1231,11 @@ async def test_run_python_backend_holds_registry_lease_for_whole_sandbox_run(
             return {"ok": True}
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.SandboxService",
+        "autosecops.executor.backends.base.SandboxService",
         FakeSandboxService,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.get_action_runner",
+        "autosecops.executor.backends.base.get_action_runner",
         lambda: fake_runner,
     )
     backend = DirectBackend()
@@ -1279,11 +1279,11 @@ async def test_run_python_script_never_outlives_the_action_timeout(
             return {"ok": True}
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.SandboxService",
+        "autosecops.executor.backends.base.SandboxService",
         FakeSandboxService,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.get_action_runner",
+        "autosecops.executor.backends.base.get_action_runner",
         lambda: fake_runner,
     )
     backend = DirectBackend()
@@ -1311,7 +1311,7 @@ async def test_run_python_backend_fails_without_registry_artifacts(
         return []
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.base.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "autosecops.executor.backends.base.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
         False,
     )
     backend = DirectBackend()
@@ -1462,7 +1462,7 @@ async def test_run_python_nsjail_sdk_calls_use_action_gateway_without_network(
     """SDK calls should use the internal gateway while outbound network is off.
 
     This mirrors cloud `core.script.run_python` execution: user egress remains
-    disabled by default, but `tracecat_registry.ctx` calls are internal platform
+    disabled by default, but `autosecops_registry.ctx` calls are internal platform
     calls and should route through the worker-owned Unix socket. The matrix also
     uses a minimal pre-gateway registry package to catch cached legacy artifacts
     whose `TracecatClient` does not natively read the gateway socket env var.
@@ -1527,7 +1527,7 @@ async def test_run_python_pid_sdk_calls_use_action_gateway_with_legacy_registry(
     resolved_context.evaluated_args.update(
         {
             "script": """
-from tracecat_registry import ctx
+from autosecops_registry import ctx
 
 
 async def main():

@@ -9,12 +9,12 @@ from datetime import UTC, datetime, timedelta
 import orjson
 import pytest
 
-from tracecat.db.models import MCPIntegration
-from tracecat.integrations.catalog import loader
-from tracecat.integrations.catalog.service import PlatformMCPCatalogService
-from tracecat.integrations.catalog.types import RawCatalogRow
-from tracecat.integrations.enums import MCPAuthType, OAuthGrantType
-from tracecat.integrations.schemas import OAuthTokenState
+from autosecops.db.models import MCPIntegration
+from autosecops.integrations.catalog import loader
+from autosecops.integrations.catalog.service import PlatformMCPCatalogService
+from autosecops.integrations.catalog.types import RawCatalogRow
+from autosecops.integrations.enums import MCPAuthType, OAuthGrantType
+from autosecops.integrations.schemas import OAuthTokenState
 
 
 class _CatalogResource:

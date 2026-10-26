@@ -17,12 +17,12 @@ from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.temporal.codec import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.temporal.codec import (
     TRACECAT_TEMPORAL_ENCODING,
     TRACECAT_TEMPORAL_GLOBAL_SCOPE,
     reset_temporal_payload_codec_cache,

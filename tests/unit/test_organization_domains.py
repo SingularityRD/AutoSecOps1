@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import Organization, OrganizationDomain
-from tracecat.organization.domains import normalize_domain
+from autosecops.db.models import Organization, OrganizationDomain
+from autosecops.organization.domains import normalize_domain
 
 pytestmark = pytest.mark.usefixtures("db")
 

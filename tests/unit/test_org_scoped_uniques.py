@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import (
+from autosecops.db.models import (
     Organization,
     OrganizationSecret,
     OrganizationSetting,

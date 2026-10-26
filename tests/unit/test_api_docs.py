@@ -7,9 +7,9 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from tracecat import config
-from tracecat.api.app import create_app
-from tracecat.middleware.security import SecurityHeadersMiddleware
+from autosecops import config
+from autosecops.api.app import create_app
+from autosecops.middleware.security import SecurityHeadersMiddleware
 
 _EXTERNAL_SCRIPT = re.compile(r'<script[^>]*\ssrc="(https?://[^"]+)"')
 _EXTERNAL_STYLESHEET = re.compile(r'<link[^>]*\shref="(https?://[^"]+)"')

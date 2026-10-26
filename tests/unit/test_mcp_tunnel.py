@@ -4,17 +4,17 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Workspace, WorkspaceTunnel
-from tracecat.integrations import mcp_tunnel
-from tracecat.integrations.mcp_tunnel import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Workspace, WorkspaceTunnel
+from autosecops.integrations import mcp_tunnel
+from autosecops.integrations.mcp_tunnel import (
     create_mcp_oauth_http_client,
     mcp_oauth_tunnel,
     mcp_oauth_tunnel_proxy,
     mcp_server_target,
     validate_mcp_tunnel,
 )
-from tracecat.integrations.mcp_validation import MCPConfigurationError
+from autosecops.integrations.mcp_validation import MCPConfigurationError
 
 pytestmark = pytest.mark.anyio
 
@@ -107,7 +107,7 @@ async def test_oauth_tunnel_scopes_proxy(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 async def test_oauth_tunnel_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
-    from tracecat_ee.tunnels import routing
+    from autosecops_ee.tunnels import routing
 
     monkeypatch.setattr(
         routing,

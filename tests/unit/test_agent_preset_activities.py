@@ -7,48 +7,48 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from autosecops_ee.agent.workflows.durable import _agent_activity_classification
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.api.failure.v1 import Failure
 from temporalio.exceptions import ActivityError, ApplicationError
-from tracecat_ee.agent.workflows.durable import _agent_activity_classification
 
-from tracecat.agent.backends import registry
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.preset.activities import (
+from autosecops.agent.backends import registry
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.preset.activities import (
     ResolveAgentPresetConfigActivityInput,
     ResolveAgentsConfigActivityInput,
     resolve_agent_preset_config_activity,
     resolve_agents_config_activity,
     resolve_custom_model_provider_config_activity,
 )
-from tracecat.agent.preset.resolver import (
+from autosecops.agent.preset.resolver import (
     AgentPresetResolutionService,
     ResolvedAgentsRuntimeConfig,
     ResolvedSubagentConfig,
     resolve_agents_config,
 )
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.service import AgentManagementService
-from tracecat.agent.subagents import AgentSubagentsConfig, ResolvedAttachedSubagentRef
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_schemas import AgentConfigPayload
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.exceptions import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.service import AgentManagementService
+from autosecops.agent.subagents import AgentSubagentsConfig, ResolvedAttachedSubagentRef
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_schemas import AgentConfigPayload
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatAuthorizationError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.temporal.errors import (
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.temporal.errors import (
     extract_error_classification,
     raise_wrapped_application_error,
 )
@@ -126,7 +126,7 @@ async def test_resolve_agent_preset_config_classifies_user_input_errors(
     )
     role = _role()
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentManagementService.with_session",
+        "autosecops.agent.preset.activities.AgentManagementService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -159,7 +159,7 @@ async def test_resolve_agent_preset_config_keeps_whole_tool_tunnel_map(
         return _AsyncContext(config)
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentManagementService.with_session",
+        "autosecops.agent.preset.activities.AgentManagementService.with_session",
         lambda **_: _AsyncContext(
             SimpleNamespace(with_preset_config=with_preset_config)
         ),
@@ -189,7 +189,7 @@ async def test_preset_preparation_enforces_serialized_role_scopes(
 ) -> None:
     """Exercise the real catalog/provider credential guard across the wire."""
     monkeypatch.setattr(
-        "tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        "autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     role = Role(
         type="service",
@@ -226,7 +226,7 @@ async def test_preset_preparation_enforces_serialized_role_scopes(
         service.presets, "resolve_agent_preset_config", AsyncMock(return_value=config)
     )
     monkeypatch.setattr(
-        "tracecat.agent.service.AgentModelAccessService.is_catalog_enabled",
+        "autosecops.agent.service.AgentModelAccessService.is_catalog_enabled",
         AsyncMock(return_value=True),
     )
     secret_lookup = AsyncMock(return_value=SimpleNamespace(encrypted_keys=b"synthetic"))
@@ -467,7 +467,7 @@ async def test_resolve_agents_config_follows_current_preset_head(
     role = _role()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -533,7 +533,7 @@ async def test_resolve_agents_config_explicitly_disables_latest_resolution(
     role = _role()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -574,7 +574,7 @@ async def test_resolve_agents_config_classifies_missing_subagent_preset(
     )
     role = _role()
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -643,7 +643,7 @@ async def test_resolve_agents_config_rejects_subagent_with_tool_approvals(
     role = _role()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -728,7 +728,7 @@ async def test_resolve_agents_config_classifies_malformed_persisted_agents_as_pl
     )
     role = _role()
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(service),
     )
 
@@ -759,7 +759,7 @@ async def test_resolve_agents_config_rejects_invalid_fallback_alias(
     role = _role()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentPresetService.with_session",
+        "autosecops.agent.preset.activities.AgentPresetService.with_session",
         lambda **_: _AsyncContext(
             SimpleNamespace(use_latest_resource_versions=AsyncMock(return_value=False))
         ),
@@ -798,7 +798,7 @@ async def test_resolve_custom_model_provider_config_classifies_invalid_config(
     )
     role = _role()
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentManagementService.with_session",
+        "autosecops.agent.preset.activities.AgentManagementService.with_session",
         lambda *_args, **_kwargs: _AsyncContext(service),
     )
 
@@ -835,7 +835,7 @@ async def test_resolve_custom_model_provider_config_classifies_revoked_catalog(
     )
     role = _role()
     monkeypatch.setattr(
-        "tracecat.agent.preset.activities.AgentManagementService.with_session",
+        "autosecops.agent.preset.activities.AgentManagementService.with_session",
         lambda *_args, **_kwargs: _AsyncContext(service),
     )
 

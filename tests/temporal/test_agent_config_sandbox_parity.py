@@ -6,26 +6,26 @@ from collections.abc import AsyncGenerator
 from datetime import timedelta
 
 import pytest
+from autosecops_ee.agent.workflows.durable import DurableAgentWorkflow
+from autosecops_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 from pydantic import BaseModel
 from temporalio import activity, workflow
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
-from tracecat_ee.agent.workflows.durable import DurableAgentWorkflow
-from tracecat_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 
-from tracecat.agent.worker import new_sandbox_runner as new_agent_sandbox_runner
-from tracecat.agent.workflows.mcp_probe import StdioMCPProbeWorkflow
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.worker import new_sandbox_runner as new_dsl_sandbox_runner
-from tracecat.dsl.workflow import DSLWorkflow
+from autosecops.agent.worker import new_sandbox_runner as new_agent_sandbox_runner
+from autosecops.agent.workflows.mcp_probe import StdioMCPProbeWorkflow
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.worker import new_sandbox_runner as new_dsl_sandbox_runner
+from autosecops.dsl.workflow import DSLWorkflow
 
 with workflow.unsafe.imports_passed_through():
-    from tracecat.agent.common.types import (
+    from autosecops.agent.common.types import (
         MCPHttpServerConfig,
         MCPServerConfig,
         MCPStdioServerConfig,
     )
-    from tracecat.agent.types import AgentConfig
+    from autosecops.agent.types import AgentConfig
 
 pytestmark = [pytest.mark.temporal]
 

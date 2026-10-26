@@ -4,19 +4,19 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.sandbox.exceptions import SandboxValidationError
-from tracecat.sandbox.executor import (
+from autosecops.sandbox.exceptions import SandboxValidationError
+from autosecops.sandbox.executor import (
     NsjailExecutor,
     _validate_cache_key,
     _validate_env_key,
     _validate_path,
 )
-from tracecat.sandbox.types import (
+from autosecops.sandbox.types import (
     ResourceLimits,
     SandboxBindMount,
     SandboxConfig,
 )
-from tracecat.sandbox.wrapper import INSTALL_SCRIPT
+from autosecops.sandbox.wrapper import INSTALL_SCRIPT
 
 
 @pytest.mark.parametrize(

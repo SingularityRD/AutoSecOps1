@@ -2,13 +2,13 @@ import textwrap
 from typing import Any
 
 import pytest
-from tracecat_registry import ActionIsInterfaceError
-from tracecat_registry.core.agent import action, agent, preset_agent
-from tracecat_registry.fields import ModelSelection
+from autosecops_registry import ActionIsInterfaceError
+from autosecops_registry.core.agent import action, agent, preset_agent
+from autosecops_registry.fields import ModelSelection
 
+from autosecops.auth.types import Role
+from autosecops.registry.repository import RegisterKwargs, generate_model_from_function
 from tests._registry_utils import input_schema_for
-from tracecat.auth.types import Role
-from tracecat.registry.repository import RegisterKwargs, generate_model_from_function
 
 requires_openai_mocks = pytest.mark.usefixtures("mock_openai_secrets")
 

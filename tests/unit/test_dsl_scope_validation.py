@@ -2,10 +2,10 @@
 
 import pytest
 
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.exceptions import TracecatDSLError
-from tracecat.validation.service import validate_dsl_acyclic
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.exceptions import TracecatDSLError
+from autosecops.validation.service import validate_dsl_acyclic
 
 
 class TestScopeValidation:

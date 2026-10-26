@@ -5,8 +5,8 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from tracecat.auth import ip_allowlist_enforcement
-from tracecat.auth.ip_allowlist import (
+from autosecops.auth import ip_allowlist_enforcement
+from autosecops.auth.ip_allowlist import (
     PLATFORM_ADMIN_IP_ALLOWLIST_DENIED_DETAIL,
     OrgIPAllowlist,
     compile_allowlist,
@@ -14,8 +14,8 @@ from tracecat.auth.ip_allowlist import (
     parse_cidr,
     parse_client_ip,
 )
-from tracecat.contexts import RequestAuditContext, ctx_request_audit
-from tracecat.settings.schemas import (
+from autosecops.contexts import RequestAuditContext, ctx_request_audit
+from autosecops.settings.schemas import (
     IPAllowlist,
     SecuritySettingsUpdate,
     ip_allowlist_cidrs,

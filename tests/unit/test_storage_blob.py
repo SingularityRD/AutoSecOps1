@@ -16,8 +16,8 @@ import httpx
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
-from tracecat.storage import blob as blob_module
-from tracecat.storage.blob import (
+from autosecops.storage import blob as blob_module
+from autosecops.storage.blob import (
     configure_bucket_lifecycle,
     copy_file,
     delete_file,
@@ -76,14 +76,14 @@ _OPS: dict[str, tuple[str, str, str]] = {
 @pytest.fixture
 def mock_s3() -> Iterator[AsyncMock]:
     client = AsyncMock()
-    with patch("tracecat.storage.blob.get_storage_client") as get_client:
+    with patch("autosecops.storage.blob.get_storage_client") as get_client:
         get_client.return_value.__aenter__.return_value = client
         yield client
 
 
 @pytest.fixture
 def storage_logger() -> Iterator[MagicMock]:
-    with patch("tracecat.storage.blob.logger") as logger:
+    with patch("autosecops.storage.blob.logger") as logger:
         yield logger
 
 
@@ -414,7 +414,7 @@ class TestS3Operations:
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "minioadmin")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -446,7 +446,7 @@ class TestS3Operations:
             raising=False,
         )
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -475,7 +475,7 @@ class TestS3Operations:
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "minioadmin")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -500,7 +500,7 @@ class TestS3Operations:
             raising=False,
         )
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -521,7 +521,7 @@ class TestS3Operations:
             raising=False,
         )
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -549,7 +549,7 @@ class TestS3Operations:
             raising=False,
         )
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
 
@@ -583,7 +583,7 @@ class TestS3Operations:
             raising=False,
         )
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -612,7 +612,7 @@ class TestS3Operations:
             async with get_storage_client() as client:
                 assert client is expected_client
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -636,7 +636,7 @@ class TestS3Operations:
             async with get_storage_client() as client:
                 assert client is expected_client
 
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client
@@ -814,7 +814,7 @@ class TestS3Operations:
             await blob_module.close_storage_client_cache()
 
     @pytest.mark.anyio
-    @patch("tracecat.storage.blob.config")
+    @patch("autosecops.storage.blob.config")
     async def test_presigned_url_path_replacement(
         self, mock_config, mock_s3: AsyncMock
     ):
@@ -845,7 +845,7 @@ class TestS3Operations:
         assert "localhost" in result
 
     @pytest.mark.anyio
-    @patch("tracecat.storage.blob.config")
+    @patch("autosecops.storage.blob.config")
     async def test_presigned_url_no_replacement_when_not_minio(
         self, mock_config, mock_s3: AsyncMock
     ):
@@ -873,7 +873,7 @@ class TestS3Operations:
         assert parsed.hostname == "s3.amazonaws.com"
 
     @pytest.mark.anyio
-    @patch("tracecat.storage.blob.config")
+    @patch("autosecops.storage.blob.config")
     async def test_presigned_url_no_replacement_without_blob_endpoint(
         self, mock_config, mock_s3: AsyncMock
     ):
@@ -1047,7 +1047,7 @@ class TestEdgeCases:
             yield dummy_stream, sum(len(c) for c in chunks)
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1078,7 +1078,7 @@ class TestEdgeCases:
             yield DummyStream(), 10
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1111,7 +1111,7 @@ class TestEdgeCases:
             yield DummyStream(), 7
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1151,7 +1151,7 @@ class TestEdgeCases:
             yield DummyStream(), None
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1195,7 +1195,7 @@ class TestEdgeCases:
             yield DummyStream(), 5
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1235,7 +1235,7 @@ class TestEdgeCases:
             yield DummyStream(), 5
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1272,7 +1272,7 @@ class TestEdgeCases:
             yield DummyStream(), None
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
 
@@ -1345,7 +1345,7 @@ class TestEdgeCases:
             return original_unlink(path, *args, **kwargs)
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
         monkeypatch.setattr(Path, "open", blocking_open)
@@ -1388,7 +1388,7 @@ class TestEdgeCases:
             yield DummyStream(), None
 
         monkeypatch.setattr(
-            "tracecat.storage.blob.open_download_stream",
+            "autosecops.storage.blob.open_download_stream",
             _fake_open_download_stream,
         )
         out = tmp_path / "out.bin"

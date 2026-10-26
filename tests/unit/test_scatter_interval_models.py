@@ -1,5 +1,5 @@
-from tracecat.dsl.schemas import StreamID
-from tracecat.dsl.types import Task
+from autosecops.dsl.schemas import StreamID
+from autosecops.dsl.types import Task
 
 
 def test_task_identity_ignores_delay() -> None:

@@ -20,11 +20,11 @@ pytestmark = [
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from autosecops.auth.types import Role
+from autosecops.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import ActionStatement, GatherArgs, ScatterArgs
+from autosecops.dsl.workflow import DSLWorkflow
 from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data
-from tracecat.auth.types import Role
-from tracecat.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import ActionStatement, GatherArgs, ScatterArgs
-from tracecat.dsl.workflow import DSLWorkflow
 
 
 async def action_result(result: dict[str, Any], ref: str) -> Any:

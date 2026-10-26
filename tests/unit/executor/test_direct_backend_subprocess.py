@@ -5,20 +5,20 @@ from datetime import UTC, datetime
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.schemas import (
     ActionStatement,
     ExecutionContext,
     RunActionInput,
     RunContext,
 )
-from tracecat.executor.backends.direct import DirectBackend
-from tracecat.executor.schemas import (
+from autosecops.executor.backends.direct import DirectBackend
+from autosecops.executor.schemas import (
     ActionImplementation,
     ResolvedContext,
 )
-from tracecat.identifiers.workflow import ExecutionUUID, WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.identifiers.workflow import ExecutionUUID, WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
 
 
 def _make_input() -> RunActionInput:
@@ -39,8 +39,8 @@ def _make_input() -> RunActionInput:
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={"core.transform.reshape": "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={"core.transform.reshape": "autosecops_registry"},
         ),
     )
 
@@ -62,9 +62,9 @@ def _make_resolved_context() -> ResolvedContext:
         action_impl=ActionImplementation(
             type="udf",
             action_name="core.transform.reshape",
-            module="tracecat_registry.core.transform",
+            module="autosecops_registry.core.transform",
             name="reshape",
-            origin="tracecat_registry",
+            origin="autosecops_registry",
         ),
         evaluated_args={"value": {"x": 1}},
         workspace_id=str(uuid.uuid4()),
@@ -88,7 +88,7 @@ async def test_direct_backend_fails_without_tarballs(
         return []
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.direct.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "autosecops.executor.backends.direct.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
         False,
     )
     monkeypatch.setattr(backend, "_get_artifact_uris", _get_tarballs)

@@ -10,13 +10,13 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.api.app import app
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session, get_async_session_bypass_rls
-from tracecat.exceptions import TracecatConflictError
-from tracecat.organization import router as organization_router
-from tracecat.organization.schemas import (
+from autosecops.api.app import app
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session, get_async_session_bypass_rls
+from autosecops.exceptions import TracecatConflictError
+from autosecops.organization import router as organization_router
+from autosecops.organization.schemas import (
     OrgMemberAccess,
     OrgMemberGroupRead,
     OrgMemberRoleRead,

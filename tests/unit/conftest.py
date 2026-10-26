@@ -8,19 +8,19 @@ from temporalio.api.workflowservice.v1 import StartWorkflowExecutionResponse
 from temporalio.client import Client
 from temporalio.service import ConnectConfig, ServiceClient
 
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, INTAKE_SCOPES
+from autosecops.db.models import ServiceAccount, User, Workspace
+from autosecops.dsl._converter import get_data_converter
+from autosecops.storage import blob
+from autosecops.workflow.executions.service import WorkflowExecutionsService
 from tests._forms_utils import (
     READER_SCOPES,
     FakeBlobStore,
     FakeTemporal,
     create_org_user,
 )
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, INTAKE_SCOPES
-from tracecat.db.models import ServiceAccount, User, Workspace
-from tracecat.dsl._converter import get_data_converter
-from tracecat.storage import blob
-from tracecat.workflow.executions.service import WorkflowExecutionsService
 
 
 @pytest.fixture

@@ -4,35 +4,37 @@ import uuid
 from unittest.mock import AsyncMock
 
 import pytest
+from autosecops_ee.secrets.providers.aws_secrets_manager import (
+    generate_store_external_id,
+)
+from autosecops_ee.secrets.references.service import SecretReferencesService
+from autosecops_ee.secrets.stores.backends import parse_store_config
+from autosecops_ee.secrets.stores.service import SecretStoresService
 from pydantic import SecretStr
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.secrets.providers.aws_secrets_manager import generate_store_external_id
-from tracecat_ee.secrets.references.service import SecretReferencesService
-from tracecat_ee.secrets.stores.backends import parse_store_config
-from tracecat_ee.secrets.stores.service import SecretStoresService
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     Organization,
     OrganizationSecretStore,
     Secret,
     Workspace,
     WorkspaceSecretStoreAuthorization,
 )
-from tracecat.db.rls import set_rls_context
-from tracecat.db.tenant_rls import enable_org_table_rls, enable_workspace_table_rls
-from tracecat.exceptions import (
+from autosecops.db.rls import set_rls_context
+from autosecops.db.tenant_rls import enable_org_table_rls, enable_workspace_table_rls
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.pagination import PageParams
-from tracecat.secrets.enums import AwsSecretMappingMode, SecretSource
-from tracecat.secrets.schemas import (
+from autosecops.pagination import PageParams
+from autosecops.secrets.enums import AwsSecretMappingMode, SecretSource
+from autosecops.secrets.schemas import (
     AwsSecretJsonField,
     AwsSecretKeyMapping,
     AwsSecretReferenceCreate,
@@ -45,7 +47,7 @@ from tracecat.secrets.schemas import (
     SecretStoreUpdate,
     SecretUpdate,
 )
-from tracecat.secrets.service import build_external_secret_reference
+from autosecops.secrets.service import build_external_secret_reference
 
 pytestmark = pytest.mark.usefixtures("db")
 

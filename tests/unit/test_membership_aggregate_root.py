@@ -2,7 +2,7 @@
 
 ``OrganizationMembership`` is stored: children hang off it by composite foreign
 key, so one DELETE unwinds them. Workspace ``Membership`` stays derived from the
-role-assignment tables (see ``tracecat.db.models``).
+role-assignment tables (see ``autosecops.db.models``).
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from sqlalchemy import Insert, delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.authz.membership import ensure_member, mirror_workspace_membership
-from tracecat.db.models import (
+from autosecops.authz.membership import ensure_member, mirror_workspace_membership
+from autosecops.db.models import (
     Group,
     GroupMember,
     GroupRoleAssignment,
@@ -32,8 +32,8 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.db.rls import (
+from autosecops.db.models import Role as DBRole
+from autosecops.db.rls import (
     RLS_BYPASS_OFF,
     RLS_BYPASS_ON,
     RLS_VAR_BYPASS,
@@ -387,8 +387,8 @@ def test_membership_deletion_has_one_choke_point() -> None:
     A second deletion site would skip that and silently strand access.
     """
     repo_root = Path(__file__).resolve().parents[2]
-    roots = (repo_root / "tracecat", repo_root / "packages")
-    allowed = repo_root / "tracecat" / "organization" / "service.py"
+    roots = (repo_root / "autosecops", repo_root / "packages")
+    allowed = repo_root / "autosecops" / "organization" / "service.py"
 
     offenders = [
         path.relative_to(repo_root)

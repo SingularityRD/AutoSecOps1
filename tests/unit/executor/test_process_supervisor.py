@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.executor import process_supervisor
-from tracecat.sandbox.utils import (
+from autosecops.executor import process_supervisor
+from autosecops.sandbox.utils import (
     communicate_process_group,
     terminate_supervised_process,
 )

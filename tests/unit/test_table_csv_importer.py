@@ -8,11 +8,11 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.db.models import Table, TableColumn
-from tracecat.exceptions import TracecatImportError
-from tracecat.tables.enums import SqlType
-from tracecat.tables.importer import CSVImporter, CSVSchemaInferer
-from tracecat.tables.service import TablesService
+from autosecops.db.models import Table, TableColumn
+from autosecops.exceptions import TracecatImportError
+from autosecops.tables.enums import SqlType
+from autosecops.tables.importer import CSVImporter, CSVSchemaInferer
+from autosecops.tables.service import TablesService
 
 
 @pytest.fixture

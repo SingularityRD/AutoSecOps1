@@ -14,16 +14,10 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    seed_external_group,
-    seed_external_group_members,
-    seed_external_user,
-)
-from tracecat.auth.types import Role
-from tracecat.authz.seeding import seed_system_scopes
-from tracecat.authz.service import resolve_grantable_role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.authz.seeding import seed_system_scopes
+from autosecops.authz.service import resolve_grantable_role
+from autosecops.db.models import (
     ExternalGroupMapping,
     Group,
     GroupMember,
@@ -35,8 +29,14 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from tests.support.membership import (
+    grant_org_membership,
+    seed_external_group,
+    seed_external_group_members,
+    seed_external_user,
+)
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
+from autosecops_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 from temporalio import activity
 from temporalio.api.enums.v1 import EventType, IndexedValueType
 from temporalio.api.operatorservice.v1 import AddSearchAttributesRequest
@@ -17,23 +18,22 @@ from temporalio.exceptions import CancelledError as TemporalCancelledError
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
-from tracecat_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 
-from tracecat import config
-from tracecat.agent.mcp import executor
-from tracecat.agent.worker import new_sandbox_runner
-from tracecat.agent.workflows.tool_execution import (
+from autosecops import config
+from autosecops.agent.mcp import executor
+from autosecops.agent.worker import new_sandbox_runner
+from autosecops.agent.workflows.tool_execution import (
     ExecuteRegistryToolWorkflowInput,
     ExecuteRegistryToolWorkflowMemo,
 )
-from tracecat.auth.types import Role
-from tracecat.dsl import interceptor as interceptor_module
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.schemas import RunActionInput
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import InlineObject, StoredObject
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.auth.types import Role
+from autosecops.dsl import interceptor as interceptor_module
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.schemas import RunActionInput
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.workflow.executions.enums import TemporalSearchAttr
 
 pytestmark = [pytest.mark.temporal]
 
@@ -66,8 +66,8 @@ async def test_cancellation_before_worker_start_prevents_tool_execution(
             "core.http_request",
             {"url": "https://example.com"},
             RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={"core.http_request": "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={"core.http_request": "autosecops_registry"},
             ),
         ),
     )
@@ -181,8 +181,8 @@ async def test_cancellation_during_tool_execution_preserves_cancelled_status(
             "core.http_request",
             {"url": "https://example.com"},
             RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={"core.http_request": "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={"core.http_request": "autosecops_registry"},
             ),
         ),
     )

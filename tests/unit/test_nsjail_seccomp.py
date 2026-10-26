@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tracecat.agent.mcp.stdio_probe import _SANDBOX_PROBE_SCRIPT
-from tracecat.agent.sandbox.config import (
+from autosecops.agent.mcp.stdio_probe import _SANDBOX_PROBE_SCRIPT
+from autosecops.agent.sandbox.config import (
     AgentResourceLimits,
     AgentSandboxConfig,
     build_agent_env_map,
     build_agent_nsjail_config,
 )
-from tracecat.sandbox.executor import ActionSandboxConfig, NsjailExecutor
-from tracecat.sandbox.seccomp import build_untrusted_seccomp_policy
-from tracecat.sandbox.types import ResourceLimits, SandboxConfig
-from tracecat.sandbox.wrapper import INSTALL_SCRIPT, WRAPPER_SCRIPT
+from autosecops.sandbox.executor import ActionSandboxConfig, NsjailExecutor
+from autosecops.sandbox.seccomp import build_untrusted_seccomp_policy
+from autosecops.sandbox.types import ResourceLimits, SandboxConfig
+from autosecops.sandbox.wrapper import INSTALL_SCRIPT, WRAPPER_SCRIPT
 
 NPROC_ENV_VAR = "TRACECAT__SANDBOX_RLIMIT_NPROC"
 
@@ -203,8 +203,8 @@ def test_agent_env_map_injects_nproc_limit(tmp_path: Path) -> None:
 
 def test_trusted_entrypoints_enforce_nproc_limit() -> None:
     """All jailed entrypoints must apply the injected process cap."""
-    from tracecat.agent.sandbox import shim_entrypoint
-    from tracecat.executor import minimal_runner
+    from autosecops.agent.sandbox import shim_entrypoint
+    from autosecops.executor import minimal_runner
 
     assert "setrlimit" in WRAPPER_SCRIPT
     assert NPROC_ENV_VAR in WRAPPER_SCRIPT

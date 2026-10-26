@@ -10,19 +10,19 @@ import orjson
 import pytest
 from pydantic import ValidationError
 
-from tracecat.agent.executor import activity as activity_module
-from tracecat.agent.executor.activity import SandboxedAgentExecutor
-from tracecat.agent.skill.builtin import PLATFORM_SKILLS
-from tracecat.agent.skill.builtin.staging import stage_platform_skill_plugin
-from tracecat.agent.skill.frontmatter import parse_skill_markdown
-from tracecat.agent.skill.schemas import SkillReadMinimal
-from tracecat.agent.skill.types import ResolvedSkillRef, SkillOrigin
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_config import (
+from autosecops.agent.executor import activity as activity_module
+from autosecops.agent.executor.activity import SandboxedAgentExecutor
+from autosecops.agent.skill.builtin import PLATFORM_SKILLS
+from autosecops.agent.skill.builtin.staging import stage_platform_skill_plugin
+from autosecops.agent.skill.frontmatter import parse_skill_markdown
+from autosecops.agent.skill.schemas import SkillReadMinimal
+from autosecops.agent.skill.types import ResolvedSkillRef, SkillOrigin
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_config import (
     agent_config_from_payload,
     agent_config_to_payload,
 )
-from tracecat.agent.workflow_schemas import ResolvedSkillRefPayload
+from autosecops.agent.workflow_schemas import ResolvedSkillRefPayload
 
 
 def test_platform_plugin_preserves_portable_names_and_qualifies_references(

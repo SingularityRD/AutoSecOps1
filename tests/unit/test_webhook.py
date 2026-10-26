@@ -9,17 +9,17 @@ from fastapi import HTTPException, Request
 from fastapi.datastructures import FormData
 from sqlalchemy.exc import NoResultFound
 
-from tracecat import config
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Webhook, WorkflowDefinition
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.webhooks.dependencies import (
+from autosecops import config
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Webhook, WorkflowDefinition
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.webhooks.dependencies import (
     _ip_allowed,
     parse_webhook_payload,
     validate_incoming_webhook,
 )
-from tracecat.webhooks.router import _incoming_webhook
-from tracecat.webhooks.schemas import _normalize_cidrs
+from autosecops.webhooks.router import _incoming_webhook
+from autosecops.webhooks.schemas import _normalize_cidrs
 
 _JSON_BODY = orjson.dumps({"key": "value", "number": 42})
 _NDJSON_BODY = b'{"line": 1}\n{"line": 2}'
@@ -174,7 +174,7 @@ class TestValidateIncomingWebhook:
         token = ctx_role.set(None)
         try:
             with patch(
-                "tracecat.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
+                "autosecops.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
                 return_value=mock_session_cm,
             ):
                 await validate_incoming_webhook(workflow_id, webhook_secret, request)
@@ -223,7 +223,7 @@ class TestValidateIncomingWebhook:
         token = ctx_role.set(None)
         try:
             with patch(
-                "tracecat.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
+                "autosecops.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
                 return_value=mock_session_cm,
             ):
                 with pytest.raises(HTTPException) as exc_info:
@@ -304,7 +304,7 @@ class TestValidateIncomingWebhook:
         token = ctx_role.set(None)
         try:
             with patch(
-                "tracecat.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
+                "autosecops.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
                 return_value=mock_session_cm,
             ):
                 if allowed:
@@ -358,7 +358,7 @@ class TestIncomingWebhook:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             response = await _incoming_webhook(

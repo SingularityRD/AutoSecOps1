@@ -17,7 +17,7 @@ resource "aws_ecs_task_definition" "worker_task_definition" {
     {
       name    = "TracecatWorkerContainer"
       image   = "${var.tracecat_image}:${local.tracecat_image_tag}"
-      command = ["python", "-m", "tracecat.dsl.worker"]
+      command = ["python", "-m", "autosecops.dsl.worker"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {

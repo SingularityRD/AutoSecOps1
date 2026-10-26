@@ -7,14 +7,14 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import select
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseEventType
-from tracecat.db.models import CaseTag, CaseTrigger, WorkflowDefinition
-from tracecat.dsl.common import DSLInput
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.case_triggers.schemas import CaseTriggerConfig
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseEventType
+from autosecops.db.models import CaseTag, CaseTrigger, WorkflowDefinition
+from autosecops.dsl.common import DSLInput
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import (
     ExternalWorkflowDefinition,
     WorkflowLayout,
     WorkflowLayoutActionPosition,
@@ -286,7 +286,7 @@ async def test_workflow_import_ignores_empty_case_trigger(test_role: Role):
     )
 
     with patch(
-        "tracecat.workflow.management.management.CaseTriggersService"
+        "autosecops.workflow.management.management.CaseTriggersService"
     ) as case_trigger_service_cls:
         async with WorkflowsManagementService.with_session(test_role) as service:
             workflow = await service.create_workflow_from_external_definition(

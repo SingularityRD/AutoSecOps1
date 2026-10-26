@@ -22,7 +22,7 @@ export function registryTool(
     description: `Description of ${name}`,
     default_title: name.replaceAll("_", " "),
     display_group: null,
-    origin: "tracecat_registry",
+    origin: "autosecops_registry",
     type: "udf",
     ...overrides,
   }

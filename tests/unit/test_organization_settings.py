@@ -10,20 +10,20 @@ from pydantic_core import to_jsonable_python
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.agent.otel_config import AgentOtelConfig
-from tracecat.auth.enums import AuthType
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import OrganizationDomain
-from tracecat.organization.domains import normalize_domain
-from tracecat.settings import service as settings_service_module
-from tracecat.settings.constants import SENSITIVE_SETTINGS_KEYS
-from tracecat.settings.router import (
+from autosecops import config
+from autosecops.agent.otel_config import AgentOtelConfig
+from autosecops.auth.enums import AuthType
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import OrganizationDomain
+from autosecops.organization.domains import normalize_domain
+from autosecops.settings import service as settings_service_module
+from autosecops.settings.constants import SENSITIVE_SETTINGS_KEYS
+from autosecops.settings.router import (
     check_other_auth_enabled,
     check_saml_domain_prerequisites,
 )
-from tracecat.settings.schemas import (
+from autosecops.settings.schemas import (
     AgentOtelSettingsUpdate,
     AuditSettingsUpdate,
     GitSettingsUpdate,
@@ -32,7 +32,7 @@ from tracecat.settings.schemas import (
     SettingUpdate,
     ValueType,
 )
-from tracecat.settings.service import (
+from autosecops.settings.service import (
     AgentOtelEndpointNotAllowedError,
     SettingsService,
     get_setting,

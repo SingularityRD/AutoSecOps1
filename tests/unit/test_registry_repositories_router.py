@@ -7,14 +7,14 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Organization, RegistryRepository
-from tracecat.registry.constants import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Organization, RegistryRepository
+from autosecops.registry.constants import (
     DEFAULT_LOCAL_REGISTRY_ORIGIN,
     DEFAULT_REGISTRY_ORIGIN,
 )
-from tracecat.registry.repositories import router as registry_repos_router
-from tracecat.registry.repositories.schemas import (
+from autosecops.registry.repositories import router as registry_repos_router
+from autosecops.registry.repositories.schemas import (
     RegistryRepositoryCreate,
     RegistryRepositoryUpdate,
 )

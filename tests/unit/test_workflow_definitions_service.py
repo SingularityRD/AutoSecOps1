@@ -5,12 +5,12 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Workflow, Workspace
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import ScopeDeniedError
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.auth.types import Role
+from autosecops.db.models import Workflow, Workspace
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import ScopeDeniedError
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
 
 pytestmark = pytest.mark.usefixtures("db")
 

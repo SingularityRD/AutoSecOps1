@@ -1,4 +1,4 @@
-"""Unit tests for tracecat.mcp.oidc.storage — Redis-backed OIDC issuer state."""
+"""Unit tests for autosecops.mcp.oidc.storage — Redis-backed OIDC issuer state."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import uuid
 import pytest
 from cryptography.fernet import Fernet
 
-from tracecat.mcp.oidc import storage
-from tracecat.mcp.oidc.schemas import AuthCodeData, ResumeTransaction
+from autosecops.mcp.oidc import storage
+from autosecops.mcp.oidc.schemas import AuthCodeData, ResumeTransaction
 
 # ---------------------------------------------------------------------------
 # In-memory Redis substitute

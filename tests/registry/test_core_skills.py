@@ -6,8 +6,8 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from tracecat_registry.context import RegistryContext, clear_context, set_context
-from tracecat_registry.core.skills import (
+from autosecops_registry.context import RegistryContext, clear_context, set_context
+from autosecops_registry.core.skills import (
     delete_skill,
     get_skill,
     list_skill_versions,

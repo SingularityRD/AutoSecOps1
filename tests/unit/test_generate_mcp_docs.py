@@ -3,17 +3,17 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from autosecops.cases.enums import CaseEventType
 from scripts.generate_mcp_docs import (
     _clean_docstring,
     _decorator_description,
     _module_string_constants,
 )
-from tracecat.cases.enums import CaseEventType
 
 
 def test_update_case_trigger_docs_include_every_event_type() -> None:
     root = Path(__file__).resolve().parents[2]
-    source = (root / "tracecat" / "mcp" / "server.py").read_text(encoding="utf-8")
+    source = (root / "autosecops" / "mcp" / "server.py").read_text(encoding="utf-8")
     module = ast.parse(source)
     constants = _module_string_constants(module)
     tool = next(

@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.auth.types import Role
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.auth.types import Role
 
 
 def _build_service(
@@ -64,7 +64,7 @@ async def test_finalize_turn_commits_pointers_before_emitting_done(
         return stream
 
     monkeypatch.setattr(
-        "tracecat.agent.session.service.AgentStream.new",
+        "autosecops.agent.session.service.AgentStream.new",
         open_stream,
     )
 
@@ -93,7 +93,7 @@ async def test_finalize_turn_propagates_stream_failure_after_commit(
         return SimpleNamespace(done=done)
 
     monkeypatch.setattr(
-        "tracecat.agent.session.service.AgentStream.new",
+        "autosecops.agent.session.service.AgentStream.new",
         open_stream,
     )
 

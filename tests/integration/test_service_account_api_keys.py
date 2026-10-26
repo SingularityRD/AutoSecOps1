@@ -10,15 +10,15 @@ import pytest
 from fastapi import status
 from sqlalchemy import delete, select
 
-from tracecat.api.app import app
-from tracecat.auth.dependencies import OrgUserOnlyRole
-from tracecat.auth.types import Role
-from tracecat.authz.seeding import seed_system_scopes
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session_bypass_rls_context_manager
-from tracecat.db.models import Scope, ServiceAccount, ServiceAccountApiKey, Workspace
-from tracecat.service_accounts.router import WorkspaceUserOnlyInPath
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.api.app import app
+from autosecops.auth.dependencies import OrgUserOnlyRole
+from autosecops.auth.types import Role
+from autosecops.authz.seeding import seed_system_scopes
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
+from autosecops.db.models import Scope, ServiceAccount, ServiceAccountApiKey, Workspace
+from autosecops.service_accounts.router import WorkspaceUserOnlyInPath
+from autosecops.tiers import defaults as tier_defaults
 
 pytestmark = pytest.mark.usefixtures("db")
 

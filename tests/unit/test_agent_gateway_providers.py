@@ -1,16 +1,16 @@
 import pytest
 from litellm.proxy._types import ProxyException
 
-from tracecat.agent.config import PROVIDER_CREDENTIAL_CONFIGS, provider_display_rank
-from tracecat.agent.gateway import _inject_provider_credentials
-from tracecat.agent.gateway_providers import (
+from autosecops.agent.config import PROVIDER_CREDENTIAL_CONFIGS, provider_display_rank
+from autosecops.agent.gateway import _inject_provider_credentials
+from autosecops.agent.gateway_providers import (
     OLLAMA_DEFAULT_BASE_URL,
     OPENROUTER_DEFAULT_BASE_URL,
     is_builtin_gateway_provider,
     is_gateway_provider,
     resolve_gateway_provider_config,
 )
-from tracecat.agent.llm_routing import get_litellm_route_model
+from autosecops.agent.llm_routing import get_litellm_route_model
 
 pytestmark = pytest.mark.usefixtures("mock_org_id")
 

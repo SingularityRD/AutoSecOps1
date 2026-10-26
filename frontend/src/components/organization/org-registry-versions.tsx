@@ -10,9 +10,9 @@ import {
 import Link from "next/link"
 import { type ReactNode, useMemo, useState } from "react"
 import type {
+  autosecops__registry__repositories__schemas__RegistryVersionRead,
   GitCommitInfo,
   RegistryRepositoriesSyncRegistryRepositoryData,
-  tracecat__registry__repositories__schemas__RegistryVersionRead,
 } from "@/client"
 import { useScopeCheck } from "@/components/auth/scope-guard"
 import { CenteredSpinner } from "@/components/loading/spinner"
@@ -57,7 +57,7 @@ import {
 } from "@/lib/hooks"
 
 type RegistryVersionRead =
-  tracecat__registry__repositories__schemas__RegistryVersionRead
+  autosecops__registry__repositories__schemas__RegistryVersionRead
 
 const DEFAULT_BRANCH = "main"
 

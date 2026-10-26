@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.agent.sandbox.config import AgentResourceLimits
-from tracecat.sandbox.cgroup import CGROUP_PATH_ENV
-from tracecat.sandbox.exceptions import SandboxValidationError
-from tracecat.sandbox.executor import ActionSandboxConfig, NsjailExecutor
-from tracecat.sandbox.service import SandboxService
-from tracecat.sandbox.types import ResourceLimits, SandboxConfig, nsjail_rlimit_as
+from autosecops.agent.sandbox.config import AgentResourceLimits
+from autosecops.sandbox.cgroup import CGROUP_PATH_ENV
+from autosecops.sandbox.exceptions import SandboxValidationError
+from autosecops.sandbox.executor import ActionSandboxConfig, NsjailExecutor
+from autosecops.sandbox.service import SandboxService
+from autosecops.sandbox.types import ResourceLimits, SandboxConfig, nsjail_rlimit_as
 
 
 @pytest.mark.parametrize(

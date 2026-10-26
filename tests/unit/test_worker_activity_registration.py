@@ -10,28 +10,28 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from tracecat.agent.executor.activity import (
+from autosecops.agent.executor.activity import (
     probe_stdio_mcp_connection_activity,
     run_agent_activity,
 )
-from tracecat.agent.executor_worker import (
+from autosecops.agent.executor_worker import (
     get_activities as get_agent_executor_activities,
 )
-from tracecat.agent.mcp.activities import persist_stdio_mcp_connection_activity
-from tracecat.agent.preset.activities import (
+from autosecops.agent.mcp.activities import persist_stdio_mcp_connection_activity
+from autosecops.agent.preset.activities import (
     resolve_agent_preset_config_activity,
     resolve_agent_preset_version_ref_activity,
 )
-from tracecat.agent.worker import get_activities as get_agent_worker_activities
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.worker import get_activities as get_dsl_worker_activities
-from tracecat.search import indexing_schedule
+from autosecops.agent.worker import get_activities as get_agent_worker_activities
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.worker import get_activities as get_dsl_worker_activities
+from autosecops.search import indexing_schedule
 
 
 @pytest.fixture(autouse=True)
 def worker_ready_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "tracecat.executor.startup.WORKER_READY_FILE", tmp_path / "ready"
+        "autosecops.executor.startup.WORKER_READY_FILE", tmp_path / "ready"
     )
 
 
@@ -78,7 +78,7 @@ def test_agent_executor_worker_registers_runtime_execution_activities() -> None:
 async def test_agent_worker_initializes_tracing_before_temporal_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import worker
+    from autosecops.agent import worker
 
     events: list[str] = []
 
@@ -116,7 +116,7 @@ async def test_agent_worker_initializes_tracing_before_temporal_client(
 async def test_agent_executor_initializes_tracing_before_runtime_services(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import executor_worker
+    from autosecops.agent import executor_worker
 
     events: list[str] = []
 
@@ -173,7 +173,7 @@ async def test_agent_executor_initializes_tracing_before_runtime_services(
 async def test_executor_worker_continues_after_registry_cache_warmup_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.executor import worker
+    from autosecops.executor import worker
 
     shutdown_event = asyncio.Event()
     warmup = AsyncMock(side_effect=OSError("transient cache failure"))
@@ -237,7 +237,7 @@ async def test_executor_worker_continues_after_registry_cache_warmup_failure(
 async def test_dsl_worker_treats_empty_concurrency_env_vars_as_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.dsl import worker
+    from autosecops.dsl import worker
 
     shutdown_event = asyncio.Event()
     schedule = AsyncMock(side_effect=lambda *_: shutdown_event.set())
@@ -317,7 +317,7 @@ async def test_dsl_worker_treats_empty_concurrency_env_vars_as_defaults(
 async def test_agent_worker_registers_runtime_error_attribution_interceptor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import worker
+    from autosecops.agent import worker
 
     captured_interceptors: Sequence[object] = ()
     shutdown_event = asyncio.Event()
@@ -373,7 +373,7 @@ async def test_agent_worker_registers_runtime_error_attribution_interceptor(
 async def test_dsl_worker_rejects_invalid_slot_counts(
     monkeypatch: pytest.MonkeyPatch, env_var: str, value: str, message: str
 ) -> None:
-    from tracecat.dsl import worker
+    from autosecops.dsl import worker
 
     temporal_worker = Mock()
     monkeypatch.delenv("SENTRY_DSN", raising=False)
@@ -392,7 +392,7 @@ async def test_dsl_worker_rejects_invalid_slot_counts(
 async def test_agent_executor_worker_cleans_up_runtime_services_on_startup_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import executor_worker
+    from autosecops.agent import executor_worker
 
     stop_mcp_server = AsyncMock()
     start_broker = AsyncMock()
@@ -425,7 +425,7 @@ async def test_agent_executor_worker_cleans_up_runtime_services_on_startup_failu
 async def test_agent_executor_worker_treats_empty_numeric_env_vars_as_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import executor_worker
+    from autosecops.agent import executor_worker
 
     captured: list[dict[str, int | str | timedelta]] = []
     shutdown_event = asyncio.Event()
@@ -502,7 +502,7 @@ async def test_agent_executor_worker_treats_empty_numeric_env_vars_as_defaults(
 async def test_agent_executor_worker_raises_when_runtime_service_reports_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.agent import executor_worker
+    from autosecops.agent import executor_worker
 
     class _FakeWorker:
         def __init__(self, *args: object, **kwargs: object) -> None:

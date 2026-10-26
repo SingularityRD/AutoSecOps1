@@ -2,10 +2,10 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import autosecops_registry.integrations.aws_boto3 as aws_boto3
 import pytest
-import tracecat_registry.integrations.aws_boto3 as aws_boto3
+from autosecops_registry import SecretNotFoundError
 from botocore.exceptions import ClientError
-from tracecat_registry import SecretNotFoundError
 
 _ROLE_ARN = "arn:aws:iam::123456789012:role/customer-role"
 _TARGET_ROLE_ARN = "arn:aws:iam::210987654321:role/target-role"
@@ -59,7 +59,7 @@ def test_get_sync_temporary_credentials_uses_external_id_and_session_name(
         secret_values["AWS_ROLE_SESSION_NAME"] = configured_session_name
 
     with (
-        patch("tracecat_registry.ctx.get_context", return_value=ctx),
+        patch("autosecops_registry.ctx.get_context", return_value=ctx),
         _secrets(secret_values),
         patch.object(aws_boto3.boto3, "Session", return_value=session),
     ):

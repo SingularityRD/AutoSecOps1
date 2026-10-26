@@ -18,6 +18,16 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from autosecops_ee.agent import activities as agent_activities
+from autosecops_ee.agent.activities import (
+    AgentActivities,
+    BuildAgentScopeToolDefsArgs,
+    BuildAgentToolDefsArgs,
+    BuildToolDefsArgs,
+    BuildToolDefsResult,
+    EmitSessionDoneInputs,
+    EmitSessionErrorInputs,
+)
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -32,33 +42,23 @@ from opentelemetry.trace import (
 )
 from pydantic import HttpUrl
 from temporalio.exceptions import ApplicationError
-from tracecat_ee.agent import activities as agent_activities
-from tracecat_ee.agent.activities import (
-    AgentActivities,
-    BuildAgentScopeToolDefsArgs,
-    BuildAgentToolDefsArgs,
-    BuildToolDefsArgs,
-    BuildToolDefsResult,
-    EmitSessionDoneInputs,
-    EmitSessionErrorInputs,
-)
 
-from tracecat import config
-from tracecat.agent.common.config import build_agent_runtime_uv_env
-from tracecat.agent.common.exceptions import (
+from autosecops import config
+from autosecops.agent.common.config import build_agent_runtime_uv_env
+from autosecops.agent.common.exceptions import (
     AgentToolLimitExceededError,
     UserMCPDiscoveryAuthError,
     UserMCPDiscoveryTimeoutError,
 )
-from tracecat.agent.common.fs import force_rmtree
-from tracecat.agent.common.protocol import RuntimeInitPayload
-from tracecat.agent.common.types import MCPToolDefinition
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.error_policy import (
+from autosecops.agent.common.fs import force_rmtree
+from autosecops.agent.common.protocol import RuntimeInitPayload
+from autosecops.agent.common.types import MCPToolDefinition
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.error_policy import (
     agent_executor_timed_out,
     user_agent_execution_failed,
 )
-from tracecat.agent.executor.activity import (
+from autosecops.agent.executor.activity import (
     AgentExecutorInput,
     AgentExecutorResult,
     AgentOtelInputs,
@@ -67,60 +67,60 @@ from tracecat.agent.executor.activity import (
     _hydrate_sdk_session_history,
     run_agent_activity,
 )
-from tracecat.agent.executor.loopback import (
+from autosecops.agent.executor.loopback import (
     LoopbackHandler,
     LoopbackInput,
     LoopbackResult,
 )
-from tracecat.agent.mcp import user_client
-from tracecat.agent.otel_config import AgentOtelConfig, ResolvedAgentOtelConfig
-from tracecat.agent.otel_delivery import OtelDeliveryPool
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.runtime.claude_code.broker import (
+from autosecops.agent.mcp import user_client
+from autosecops.agent.otel_config import AgentOtelConfig, ResolvedAgentOtelConfig
+from autosecops.agent.otel_delivery import OtelDeliveryPool
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.runtime.claude_code.broker import (
     ClaudeTurnRequest,
     ConcurrentSessionTurnError,
 )
-from tracecat.agent.runtime.session_paths import job_uv_state_dir
-from tracecat.agent.sandbox.llm_proxy import LLMProxyError
-from tracecat.agent.schemas import ToolFilters
-from tracecat.agent.session.activities import (
+from autosecops.agent.runtime.session_paths import job_uv_state_dir
+from autosecops.agent.sandbox.llm_proxy import LLMProxyError
+from autosecops.agent.schemas import ToolFilters
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     LoadSessionInput,
     LoadSessionResult,
     create_session_activity,
     load_session_activity,
 )
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.subagents import (
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.subagents import (
     ResolvedAgentsConfig,
     ResolvedAttachedSubagentRef,
     has_manual_tool_approvals,
 )
-from tracecat.agent.tools import BuildToolsResult, create_tool_from_registry
-from tracecat.agent.types import AgentConfig, Tool
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.exceptions import (
+from autosecops.agent.tools import BuildToolsResult, create_tool_from_registry
+from autosecops.agent.types import AgentConfig, Tool
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryLockAmbiguousActionError,
     RegistryLockInvalidDataError,
 )
-from tracecat.integrations.schemas import MCPToolSummary
-from tracecat.observability.otel import (
+from autosecops.integrations.schemas import MCPToolSummary
+from autosecops.observability.otel import (
     initialize_platform_tracing,
     shutdown_platform_tracing,
 )
-from tracecat.observability.types import PlatformErrorCapture
-from tracecat.registry.actions.types import IndexedActionResult
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops.observability.types import PlatformErrorCapture
+from autosecops.registry.actions.types import IndexedActionResult
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.temporal.errors import extract_error_classification
 
 
 @pytest.fixture
@@ -441,7 +441,7 @@ class TestBuildToolDefinitionsActivity:
             monkeypatch,
             lock=BuiltinRegistryHasNoSelectionError(
                 "Builtin registry sync is still in progress. Please retry shortly.",
-                detail={"origin": "tracecat_registry"},
+                detail={"origin": "autosecops_registry"},
             ),
         )
 
@@ -456,7 +456,7 @@ class TestBuildToolDefinitionsActivity:
         app_error = exc_info.value
         assert app_error.type == "BuiltinRegistryHasNoSelectionError"
         assert app_error.non_retryable is False
-        assert app_error.details[0] == {"origin": "tracecat_registry"}
+        assert app_error.details[0] == {"origin": "autosecops_registry"}
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
@@ -481,11 +481,11 @@ class TestBuildToolDefinitionsActivity:
             pytest.param(
                 RegistryLockAmbiguousActionError(
                     "tools.example.get",
-                    ["tracecat_registry", "git+ssh://git@example.com/acme/reg.git"],
+                    ["autosecops_registry", "git+ssh://git@example.com/acme/reg.git"],
                 ),
                 RuntimeErrorOwner.USER,
                 RuntimeErrorKind.REGISTRY_LOCK_ACTION_AMBIGUOUS,
-                ("tools.example.get", "tracecat_registry"),
+                ("tools.example.get", "autosecops_registry"),
                 id="ambiguous-action",
             ),
         ],
@@ -672,7 +672,7 @@ class TestBuildToolDefinitionsActivity:
         mock_role: Role,
         payload_tunnel_id: str | None,
     ) -> None:
-        from tracecat.integrations import mcp_tunnel
+        from autosecops.integrations import mcp_tunnel
 
         integration_id = uuid.uuid4()
         tunnel_id = str(uuid.uuid4())
@@ -803,7 +803,7 @@ class TestBuildToolDefinitionsActivity:
     ) -> None:
         """An inline server can't carry its tunnel into tool calls, so it is
         never discovered rather than having its calls go direct."""
-        from tracecat.integrations import mcp_tunnel
+        from autosecops.integrations import mcp_tunnel
 
         _patch_registry(monkeypatch)
         resolve_proxy = AsyncMock(return_value="http://token@gateway:8080")
@@ -845,7 +845,7 @@ class TestBuildToolDefinitionsActivity:
     ) -> None:
         """URL, timeout and tunnel all come from the integration row, so
         fresh credentials never reach an address from a stale payload."""
-        from tracecat.integrations import mcp_tunnel
+        from autosecops.integrations import mcp_tunnel
 
         integration_id = uuid.uuid4()
         tunnel_id = str(uuid.uuid4())
@@ -1060,8 +1060,8 @@ class TestBuildToolDefinitionsActivity:
         lock_service = _patch_registry(monkeypatch, build_tools=mock_build_agent_tools)
         lock_service.resolve_lock_with_bindings.side_effect = lambda actions: (
             RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions=dict.fromkeys(actions, "tracecat_registry"),
+                origins={"autosecops_registry": "test-version"},
+                actions=dict.fromkeys(actions, "autosecops_registry"),
             )
         )
 
@@ -1127,7 +1127,7 @@ class TestBuildToolDefinitionsActivity:
 def session_service() -> Iterator[AsyncMock]:
     service = AsyncMock()
     with patch(
-        "tracecat.agent.session.activities.AgentSessionService.with_session",
+        "autosecops.agent.session.activities.AgentSessionService.with_session",
         return_value=_service_ctx(service),
     ):
         yield service
@@ -1534,17 +1534,17 @@ class TestRunAgentActivity:
         """An absent explicit timeout gets the default even under a raised ceiling."""
         expected_result = AgentExecutorResult(success=True)
         monkeypatch.setattr(
-            "tracecat.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
+            "autosecops.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
             21600,
         )
 
         with (
-            patch("tracecat.agent.executor.activity.activity") as mock_activity,
+            patch("autosecops.agent.executor.activity.activity") as mock_activity,
             patch(
-                "tracecat.agent.executor.activity.set_current_span_attributes"
+                "autosecops.agent.executor.activity.set_current_span_attributes"
             ) as set_span_attributes,
             patch(
-                "tracecat.agent.executor.activity.SandboxedAgentExecutor"
+                "autosecops.agent.executor.activity.SandboxedAgentExecutor"
             ) as mock_executor_cls,
         ):
             mock_activity.heartbeat = MagicMock()
@@ -1584,7 +1584,7 @@ class TestRunAgentActivity:
         stream = SimpleNamespace(done=AsyncMock())
         stream_new = AsyncMock(return_value=stream)
         monkeypatch.setattr(
-            "tracecat_ee.agent.activities.AgentStream.new",
+            "autosecops_ee.agent.activities.AgentStream.new",
             stream_new,
         )
 
@@ -1622,13 +1622,13 @@ class TestRunAgentActivity:
         service_context.__aenter__.return_value = service
         with_session = MagicMock(return_value=service_context)
         monkeypatch.setattr(
-            "tracecat.agent.session.service.AgentSessionService.with_session",
+            "autosecops.agent.session.service.AgentSessionService.with_session",
             with_session,
         )
         stream = SimpleNamespace(error=AsyncMock(), done=AsyncMock())
         stream_new = AsyncMock(return_value=stream)
         monkeypatch.setattr(
-            "tracecat_ee.agent.activities.AgentStream.new",
+            "autosecops_ee.agent.activities.AgentStream.new",
             stream_new,
         )
 
@@ -1681,9 +1681,9 @@ class TestRunAgentActivity:
         assert runtime is not None
         try:
             with (
-                patch("tracecat.agent.executor.activity.activity") as mock_activity,
+                patch("autosecops.agent.executor.activity.activity") as mock_activity,
                 patch(
-                    "tracecat.agent.executor.activity.SandboxedAgentExecutor"
+                    "autosecops.agent.executor.activity.SandboxedAgentExecutor"
                 ) as mock_executor_cls,
             ):
                 mock_activity.heartbeat = MagicMock()
@@ -1772,7 +1772,7 @@ class _FakeBroker:
 
 def _install_broker(monkeypatch: pytest.MonkeyPatch, broker: object) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.executor.activity.get_claude_runtime_broker",
+        "autosecops.agent.executor.activity.get_claude_runtime_broker",
         lambda: broker,
     )
 
@@ -1893,7 +1893,7 @@ class TestSandboxedAgentExecutorHelpers:
         broker = _FakeBroker(run_turn)
         _install_broker(monkeypatch, broker)
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity._agent_fs_persistence_enabled",
+            "autosecops.agent.executor.activity._agent_fs_persistence_enabled",
             lambda: False,
         )
         init_payload = executor._build_runtime_init_payload()
@@ -1978,7 +1978,7 @@ class TestSandboxedAgentExecutorHelpers:
         handler._stream_sink = cast(Any, stream)
         capture = MagicMock()
         monkeypatch.setattr(
-            "tracecat.agent.executor.loopback.capture_activity_failure",
+            "autosecops.agent.executor.loopback.capture_activity_failure",
             capture,
         )
 
@@ -2114,7 +2114,7 @@ class TestSandboxedAgentExecutorHelpers:
         mock_service.load_session_history.return_value = mock_history
 
         with patch(
-            "tracecat.agent.executor.activity.AgentSessionService.with_session",
+            "autosecops.agent.executor.activity.AgentSessionService.with_session",
             return_value=_service_ctx(mock_service),
         ):
             hydrated = await _hydrate_sdk_session_history(executor_input)
@@ -2124,7 +2124,7 @@ class TestSandboxedAgentExecutorHelpers:
         assert hydrated.is_fork is True
 
     @pytest.mark.anyio
-    @patch("tracecat.agent.executor.activity.AgentSessionService.with_session")
+    @patch("autosecops.agent.executor.activity.AgentSessionService.with_session")
     async def test_preserves_legacy_session_data(
         self,
         mock_with_session,
@@ -2311,11 +2311,11 @@ class TestSandboxedAgentExecutorCancellation:
             ),
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.GRACEFUL_CANCEL_TIMEOUT_SECONDS", 0.01
+            "autosecops.agent.executor.activity.GRACEFUL_CANCEL_TIMEOUT_SECONDS", 0.01
         )
         capture_failure = MagicMock()
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.capture_activity_failure",
+            "autosecops.agent.executor.activity.capture_activity_failure",
             capture_failure,
         )
         task = asyncio.create_task(_run_with_broker(executor, handler, tmp_path))
@@ -2349,7 +2349,7 @@ class TestSandboxedAgentExecutorCancellation:
         broker.interrupt_turn = AsyncMock()
         broker.cancel_turn = AsyncMock()
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.read_turn_cancel_signal",
+            "autosecops.agent.executor.activity.read_turn_cancel_signal",
             AsyncMock(return_value="user_cancel"),
         )
 
@@ -2405,11 +2405,11 @@ class TestSandboxedAgentExecutorCancellation:
             return "user_cancel" if cancel_signalled.is_set() else None
 
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.read_turn_cancel_signal",
+            "autosecops.agent.executor.activity.read_turn_cancel_signal",
             fake_read_turn_cancel_signal,
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.TURN_CANCEL_POLL_INTERVAL_SECONDS",
+            "autosecops.agent.executor.activity.TURN_CANCEL_POLL_INTERVAL_SECONDS",
             0.01,
         )
 
@@ -2486,7 +2486,7 @@ def _capture_run_with_broker() -> tuple[
 
 def _patch_tenant_otel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.executor.activity.load_org_agent_otel_inputs",
+        "autosecops.agent.executor.activity.load_org_agent_otel_inputs",
         AsyncMock(
             return_value=AgentOtelInputs(
                 config=AgentOtelConfig(
@@ -2501,7 +2501,7 @@ def _patch_tenant_otel(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        "tracecat.agent.executor.activity.platform_otel_collector_env",
+        "autosecops.agent.executor.activity.platform_otel_collector_env",
         lambda: {},
     )
 
@@ -2532,19 +2532,19 @@ class TestSandboxedAgentExecutorFilesystemPersistence:
         )
         _install_broker(monkeypatch, broker)
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity._agent_fs_persistence_enabled",
+            "autosecops.agent.executor.activity._agent_fs_persistence_enabled",
             lambda: fs_enabled,
         )
         if work_dir is not None:
             monkeypatch.setattr(
-                "tracecat.agent.executor.activity.build_agent_sandbox_path_mapping",
+                "autosecops.agent.executor.activity.build_agent_sandbox_path_mapping",
                 lambda **_kwargs: SimpleNamespace(host_work_dir=work_dir),
             )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.hydrate_agent_work_dir", hydrate
+            "autosecops.agent.executor.activity.hydrate_agent_work_dir", hydrate
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.persist_agent_work_dir", persist
+            "autosecops.agent.executor.activity.persist_agent_work_dir", persist
         )
 
     @pytest.mark.anyio
@@ -2814,7 +2814,7 @@ class TestSandboxedAgentExecutorFilesystemPersistence:
         )
         pool = cast(OtelDeliveryPool, object())
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.get_otel_delivery_pool", lambda: pool
+            "autosecops.agent.executor.activity.get_otel_delivery_pool", lambda: pool
         )
 
         result = await executor.run()
@@ -2857,7 +2857,9 @@ class TestSandboxedAgentExecutorFilesystemPersistence:
         )
         warning = MagicMock()
         _patch_tenant_otel(monkeypatch)
-        monkeypatch.setattr("tracecat.agent.executor.activity.logger.warning", warning)
+        monkeypatch.setattr(
+            "autosecops.agent.executor.activity.logger.warning", warning
+        )
         _stub_run_setup(
             monkeypatch,
             executor,
@@ -2883,10 +2885,12 @@ class TestSandboxedAgentExecutorFilesystemPersistence:
         """Organization OTel lookup failures return a disabled configuration."""
         warning = MagicMock()
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.load_org_agent_otel_inputs",
+            "autosecops.agent.executor.activity.load_org_agent_otel_inputs",
             AsyncMock(side_effect=OSError("settings unavailable")),
         )
-        monkeypatch.setattr("tracecat.agent.executor.activity.logger.warning", warning)
+        monkeypatch.setattr(
+            "autosecops.agent.executor.activity.logger.warning", warning
+        )
         executor = SandboxedAgentExecutor(input=executor_input)
 
         resolved = await executor._resolve_agent_otel_config()
@@ -3000,15 +3004,15 @@ class TestSandboxedAgentExecutorSkillCaching:
             return 2
 
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
+            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
             str(tmp_path),
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
+            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
             2,
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.blob.download_file_to_path",
+            "autosecops.agent.executor.activity.blob.download_file_to_path",
             fake_download_file_to_path,
         )
 
@@ -3068,15 +3072,15 @@ class TestSandboxedAgentExecutorSkillCaching:
             return 2
 
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
+            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
             str(tmp_path),
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
+            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
             0,
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.blob.download_file_to_path",
+            "autosecops.agent.executor.activity.blob.download_file_to_path",
             fake_download_file_to_path,
         )
 
@@ -3116,7 +3120,7 @@ class TestSandboxedAgentExecutorSkillCaching:
             mock_executor, "_stage_resolved_skills", fake_stage_resolved_skills
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.tempfile.mkdtemp", fake_mkdtemp
+            "autosecops.agent.executor.activity.tempfile.mkdtemp", fake_mkdtemp
         )
 
         with pytest.raises(RuntimeError, match="staging failed"):
@@ -3167,13 +3171,15 @@ class TestSandboxedAgentExecutorSkillCaching:
             mock_executor, "_stage_resolved_skills", fail_stage_resolved_skills
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.asyncio.to_thread",
+            "autosecops.agent.executor.activity.asyncio.to_thread",
             fail_cleanup_in_thread,
         )
         monkeypatch.setattr(
-            "tracecat.agent.executor.activity.tempfile.mkdtemp", fake_mkdtemp
+            "autosecops.agent.executor.activity.tempfile.mkdtemp", fake_mkdtemp
         )
-        monkeypatch.setattr("tracecat.agent.executor.activity.logger.warning", warning)
+        monkeypatch.setattr(
+            "autosecops.agent.executor.activity.logger.warning", warning
+        )
 
         with pytest.raises(type(setup_error)) as exc_info:
             await mock_executor._create_job_directory()
@@ -3306,8 +3312,10 @@ class TestSandboxedAgentExecutorJobCleanup:
             assert path == job_dir
             raise OSError("simulated cleanup failure")
 
-        monkeypatch.setattr("tracecat.agent.common.fs.shutil.rmtree", fail_rmtree)
-        monkeypatch.setattr("tracecat.agent.executor.activity.logger.warning", warning)
+        monkeypatch.setattr("autosecops.agent.common.fs.shutil.rmtree", fail_rmtree)
+        monkeypatch.setattr(
+            "autosecops.agent.executor.activity.logger.warning", warning
+        )
 
         try:
             await executor._cleanup()
@@ -3334,7 +3342,9 @@ class TestSandboxedAgentExecutorJobCleanup:
         read_only_dir.chmod(0o555)
         executor._job_dir = job_dir
         warning = MagicMock()
-        monkeypatch.setattr("tracecat.agent.executor.activity.logger.warning", warning)
+        monkeypatch.setattr(
+            "autosecops.agent.executor.activity.logger.warning", warning
+        )
 
         try:
             await executor._cleanup()

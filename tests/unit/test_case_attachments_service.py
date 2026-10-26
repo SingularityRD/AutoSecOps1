@@ -13,19 +13,19 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_fixed
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.cases.attachments.schemas import CaseAttachmentCreate
-from tracecat.cases.attachments.service import CaseAttachmentService
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseCreate
-from tracecat.cases.service import CaseEventsService, CasesService
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import Case, CaseAttachment, CaseEvent, File
-from tracecat.exceptions import TracecatAuthorizationError, TracecatException
-from tracecat.storage.blob import ensure_bucket_exists
-from tracecat.storage.exceptions import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.cases.attachments.schemas import CaseAttachmentCreate
+from autosecops.cases.attachments.service import CaseAttachmentService
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseCreate
+from autosecops.cases.service import CaseEventsService, CasesService
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import Case, CaseAttachment, CaseEvent, File
+from autosecops.exceptions import TracecatAuthorizationError, TracecatException
+from autosecops.storage.blob import ensure_bucket_exists
+from autosecops.storage.exceptions import (
     FileExtensionError,
     FileNameError,
     MaxAttachmentsExceededError,

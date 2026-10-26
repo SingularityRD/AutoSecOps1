@@ -8,8 +8,8 @@ confirm the legacy flags no longer change it.
 
 import pytest
 
-from tracecat import config
-from tracecat.tiers import defaults as tier_defaults
+from autosecops import config
+from autosecops.tiers import defaults as tier_defaults
 
 _FALSE_BY_DEFAULT = {
     "git_sync": False,

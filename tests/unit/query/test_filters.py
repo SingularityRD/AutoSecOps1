@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from tracecat.query.filters import (
+from autosecops.query.filters import (
     MAX_FILTER_CONDITIONS,
     MAX_FILTER_VALUES,
     AndClause,

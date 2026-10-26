@@ -1,4 +1,4 @@
-"""Tests for tracecat.mcp.oidc.refresh_tokens — Postgres-backed refresh tokens."""
+"""Tests for autosecops.mcp.oidc.refresh_tokens — Postgres-backed refresh tokens."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from cryptography.fernet import Fernet
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.db.models import MCPRefreshToken, Organization, User
-from tracecat.mcp.oidc.refresh_tokens import (
+from autosecops import config
+from autosecops.db.models import MCPRefreshToken, Organization, User
+from autosecops.mcp.oidc.refresh_tokens import (
     RefreshTokenError,
     _hash_token,
     consume_refresh_token,
@@ -20,7 +20,7 @@ from tracecat.mcp.oidc.refresh_tokens import (
     revoke_family,
     rotate_refresh_token,
 )
-from tracecat.mcp.oidc.schemas import RefreshTokenMetadata
+from autosecops.mcp.oidc.schemas import RefreshTokenMetadata
 
 pytestmark = pytest.mark.usefixtures("db")
 

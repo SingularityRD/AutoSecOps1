@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.tiers.exceptions import InvalidOrganizationConcurrencyCapError
-from tracecat.tiers.permits import TierPermitService
-from tracecat.tiers.schemas import EffectiveLimits
-from tracecat.tiers.semaphore import AcquireResult, RedisSemaphore
+from autosecops.tiers.exceptions import InvalidOrganizationConcurrencyCapError
+from autosecops.tiers.permits import TierPermitService
+from autosecops.tiers.schemas import EffectiveLimits
+from autosecops.tiers.semaphore import AcquireResult, RedisSemaphore
 
 ORG_ID = uuid.UUID("00000000-0000-4000-8000-000000000111")
 
@@ -45,18 +45,18 @@ async def test_get_effective_limits_for_org_populates_cache_on_miss() -> None:
 
     with (
         patch(
-            "tracecat.tiers.permits.get_effective_limits_cached",
+            "autosecops.tiers.permits.get_effective_limits_cached",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat.tiers.permits.set_effective_limits_cached",
+            "autosecops.tiers.permits.set_effective_limits_cached",
             new=AsyncMock(),
         ) as set_cache_mock,
         patch(
-            "tracecat.tiers.permits.get_async_session_context_manager",
+            "autosecops.tiers.permits.get_async_session_context_manager",
             new=_session_context,
         ),
-        patch("tracecat.tiers.permits.TierService", return_value=tier_service),
+        patch("autosecops.tiers.permits.TierService", return_value=tier_service),
     ):
         limits, source = await permit_svc.get_effective_limits_for_org(ORG_ID)
 
@@ -82,15 +82,15 @@ async def test_acquire_action_permit_uses_effective_limit() -> None:
 
     with (
         patch(
-            "tracecat.tiers.permits.get_effective_limits_cached",
+            "autosecops.tiers.permits.get_effective_limits_cached",
             new=AsyncMock(return_value=_limits(max_concurrent_actions=2)),
         ),
         patch(
-            "tracecat.tiers.permits.set_effective_limits_cached",
+            "autosecops.tiers.permits.set_effective_limits_cached",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat.tiers.permits.get_async_session_context_manager",
+            "autosecops.tiers.permits.get_async_session_context_manager",
             new=_unexpected_session_context,
         ),
     ):

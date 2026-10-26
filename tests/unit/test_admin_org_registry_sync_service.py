@@ -7,14 +7,14 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 import pytest
+from autosecops_ee.admin.organizations.service import AdminOrgService
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.admin.organizations.service import AdminOrgService
 
-from tracecat import config
-from tracecat.auth.types import PlatformRole, Role
-from tracecat.db.models import RegistryRepository
-from tracecat.registry.actions.types import RepositorySyncOutcome
-from tracecat.ssh import SshEnv
+from autosecops import config
+from autosecops.auth.types import PlatformRole, Role
+from autosecops.db.models import RegistryRepository
+from autosecops.registry.actions.types import RepositorySyncOutcome
+from autosecops.ssh import SshEnv
 
 
 @pytest.mark.anyio
@@ -44,11 +44,11 @@ async def test_admin_git_sync_forwards_configured_package_name(
         update_repository=mocker.AsyncMock(return_value=repository)
     )
     mocker.patch(
-        "tracecat.registry.repositories.service.RegistryReposService",
+        "autosecops.registry.repositories.service.RegistryReposService",
         return_value=repos_service,
     )
     mocker.patch(
-        "tracecat.registry.versions.service.RegistryVersionsService",
+        "autosecops.registry.versions.service.RegistryVersionsService",
         return_value=mocker.Mock(),
     )
     actions_service = mocker.Mock(
@@ -60,7 +60,7 @@ async def test_admin_git_sync_forwards_configured_package_name(
         )
     )
     mocker.patch(
-        "tracecat.registry.actions.service.RegistryActionsService",
+        "autosecops.registry.actions.service.RegistryActionsService",
         return_value=actions_service,
     )
 
@@ -76,7 +76,7 @@ async def test_admin_git_sync_forwards_configured_package_name(
         raise AssertionError(f"Unexpected setting: {name}")
 
     mocker.patch(
-        "tracecat.settings.service.get_setting",
+        "autosecops.settings.service.get_setting",
         side_effect=fake_get_setting,
     )
     ssh_env = SshEnv(
@@ -88,7 +88,9 @@ async def test_admin_git_sync_forwards_configured_package_name(
     async def fake_ssh_context(**_kwargs):
         yield ssh_env
 
-    ssh_context = mocker.patch("tracecat.ssh.ssh_context", side_effect=fake_ssh_context)
+    ssh_context = mocker.patch(
+        "autosecops.ssh.ssh_context", side_effect=fake_ssh_context
+    )
     mocker.patch.object(
         config,
         "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED",

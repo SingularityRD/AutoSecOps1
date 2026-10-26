@@ -15,29 +15,29 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.executor_backend import TestBackend
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import RegistryVersion
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.executor.service import dispatch_action
-from tracecat.expressions.expectations import ExpectedField
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.actions.bound import BoundRegistryAction
-from tracecat.registry.actions.schemas import (
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import RegistryVersion
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.executor.service import dispatch_action
+from autosecops.expressions.expectations import ExpectedField
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.actions.bound import BoundRegistryAction
+from autosecops.registry.actions.schemas import (
     ActionStep,
     RegistryActionCreate,
     TemplateAction,
     TemplateActionDefinition,
 )
-from tracecat.registry.actions.service import RegistryActionsService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.repository import Repository
-from tracecat.registry.versions.schemas import RegistryVersionManifestAction
-from tracecat.registry.versions.service import RegistryVersionsService
-from tracecat.secrets.schemas import SecretCreate, SecretKeyValue
-from tracecat.secrets.service import SecretsService
+from autosecops.registry.actions.service import RegistryActionsService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.repository import Repository
+from autosecops.registry.versions.schemas import RegistryVersionManifestAction
+from autosecops.registry.versions.service import RegistryVersionsService
+from autosecops.secrets.schemas import SecretCreate, SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from tests.support.executor_backend import TestBackend
 
 TEST_VERSION = "test-version"
 
@@ -53,7 +53,7 @@ async def create_manifest_for_actions(
 
     from sqlalchemy import select
 
-    from tracecat.db.models import RegistryRepository
+    from autosecops.db.models import RegistryRepository
 
     result = await session.execute(
         select(RegistryRepository).where(RegistryRepository.id == repo_id)
@@ -77,7 +77,7 @@ async def create_manifest_for_actions(
     core_reshape_impl = {
         "type": "udf",
         "url": origin,
-        "module": "tracecat_registry.core.transform",
+        "module": "autosecops_registry.core.transform",
         "name": "reshape",
     }
     manifest_actions["core.transform.reshape"] = {
@@ -111,7 +111,9 @@ async def create_manifest_for_actions(
     )
 
 
-def make_registry_lock(action: str, origin: str = "tracecat_registry") -> RegistryLock:
+def make_registry_lock(
+    action: str, origin: str = "autosecops_registry"
+) -> RegistryLock:
     """Helper to create a RegistryLock for a single action (for unit tests with mocks)."""
     return RegistryLock(
         origins={origin: TEST_VERSION},
@@ -157,7 +159,7 @@ async def test_template_action_two_steps_via_direct_backend(
     This verifies the service-layer orchestration where each step becomes
     a separate backend.execute() call.
     """
-    from tracecat import config
+    from autosecops import config
 
     monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
 
@@ -247,7 +249,7 @@ async def test_template_action_with_secrets_in_top_level_args(
     require the secret expression to be passed through the template's input args
     so they can be collected during prepare_resolved_context.
     """
-    from tracecat import config
+    from autosecops import config
 
     monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
 
@@ -342,7 +344,7 @@ async def test_nested_template_actions(
     test_role, db_session_with_repo, mock_run_context, monkeysession
 ):
     """Test that nested templates (template calling template) work correctly."""
-    from tracecat import config
+    from autosecops import config
 
     monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
 

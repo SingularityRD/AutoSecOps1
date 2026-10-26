@@ -9,34 +9,34 @@ import sqlalchemy as sa
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import EDITOR_SCOPES, VIEWER_SCOPES
-from tracecat.db.models import Table, TableColumn, Workspace
-from tracecat.exceptions import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import EDITOR_SCOPES, VIEWER_SCOPES
+from autosecops.db.models import Table, TableColumn, Workspace
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.logger import logger
-from tracecat.pagination import CursorPaginationParams
-from tracecat.query.aggregations import (
+from autosecops.logger import logger
+from autosecops.pagination import CursorPaginationParams
+from autosecops.query.aggregations import (
     AggFunction,
     AggSpec,
     GroupBySpec,
     TimeBucket,
 )
-from tracecat.query.errors import TracecatQueryTimeoutError
-from tracecat.query.filters import Condition, FilterOp, FilterValue
-from tracecat.tables.common import (
+from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.filters import Condition, FilterOp, FilterValue
+from autosecops.tables.common import (
     ColumnHasDuplicateValuesError,
     handle_default_value,
     parse_postgres_default,
     to_sql_clause,
 )
-from tracecat.tables.enums import SqlType
-from tracecat.tables.exceptions import TableRowError
-from tracecat.tables.schemas import (
+from autosecops.tables.enums import SqlType
+from autosecops.tables.exceptions import TableRowError
+from autosecops.tables.schemas import (
     TableAggregateRequest,
     TableColumnCreate,
     TableColumnUpdate,
@@ -44,7 +44,7 @@ from tracecat.tables.schemas import (
     TableRowInsert,
     TableUpdate,
 )
-from tracecat.tables.service import (
+from autosecops.tables.service import (
     DYNAMIC_WORKSPACE_TENANT_COLUMN,
     BaseTablesService,
     TableEditorService,

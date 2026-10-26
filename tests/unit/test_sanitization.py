@@ -3,7 +3,7 @@ from __future__ import annotations
 import orjson
 import pytest
 
-from tracecat.sanitization import redact_sensitive_text
+from autosecops.sanitization import redact_sensitive_text
 
 
 @pytest.mark.parametrize(

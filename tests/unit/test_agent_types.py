@@ -1,8 +1,8 @@
 import pytest
 from temporalio.converter import value_to_type
 
-from tracecat.agent import types as agent_types
-from tracecat.agent.types import AgentConfig, clamp_agent_timeout_seconds
+from autosecops.agent import types as agent_types
+from autosecops.agent.types import AgentConfig, clamp_agent_timeout_seconds
 
 
 def test_temporal_converter_decodes_agent_config_with_mcp_servers() -> None:

@@ -24,12 +24,9 @@ import httpx
 import orjson
 import pytest
 import sqlalchemy as sa
-from httpx import ASGITransport
-from pydantic import TypeAdapter
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_registry import types
-from tracecat_registry.context import RegistryContext, clear_context, set_context
-from tracecat_registry.core.cases import (
+from autosecops_registry import types
+from autosecops_registry.context import RegistryContext, clear_context, set_context
+from autosecops_registry.core.cases import (
     PriorityType,
     add_case_tag,
     aggregate_cases,
@@ -56,47 +53,52 @@ from tracecat_registry.core.cases import (
     update_comment,
     upload_attachment,
 )
-from tracecat_registry.core.ee.durations import get_case_metrics
-from tracecat_registry.core.ee.tasks import create_task, list_tasks
-from tracecat_registry.sdk.exceptions import (
+from autosecops_registry.core.ee.durations import get_case_metrics
+from autosecops_registry.core.ee.tasks import create_task, list_tasks
+from autosecops_registry.sdk.exceptions import (
     TracecatNotFoundError as SDKNotFoundError,
 )
-from tracecat_registry.sdk.exceptions import (
+from autosecops_registry.sdk.exceptions import (
     TracecatValidationError as SDKValidationError,
 )
+from httpx import ASGITransport
+from pydantic import TypeAdapter
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.dependencies import (
+from autosecops import config
+from autosecops.auth.dependencies import (
     ExecutorWorkspaceRole,
     OrgUserRole,
     ServiceRole,
     WorkspaceActorRouteRole,
     WorkspaceUserRole,
 )
-from tracecat.auth.executor_tokens import mint_executor_token
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.durations.schemas import (
+from autosecops.auth.executor_tokens import mint_executor_token
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.durations.schemas import (
     CaseDurationDefinitionCreate,
     CaseDurationEventAnchor,
 )
-from tracecat.cases.durations.service import CaseDurationDefinitionService
-from tracecat.cases.enums import (
+from autosecops.cases.durations.service import CaseDurationDefinitionService
+from autosecops.cases.enums import (
     CaseEventType,
     CaseFieldKind,
     CasePriority,
     CaseSeverity,
 )
-from tracecat.cases.router import cases_router
-from tracecat.cases.schemas import CaseFieldCreate
-from tracecat.cases.service import CaseFieldsService
-from tracecat.contexts import ctx_role
-from tracecat.db.dependencies import get_async_session
-from tracecat.db.models import Case, User, Workspace
-from tracecat.executor.action_gateway.app import create_app as create_action_gateway_app
-from tracecat.registry.repository import Repository
-from tracecat.tables.enums import SqlType
-from tracecat.validation.common import json_schema_to_pydantic
+from autosecops.cases.router import cases_router
+from autosecops.cases.schemas import CaseFieldCreate
+from autosecops.cases.service import CaseFieldsService
+from autosecops.contexts import ctx_role
+from autosecops.db.dependencies import get_async_session
+from autosecops.db.models import Case, User, Workspace
+from autosecops.executor.action_gateway.app import (
+    create_app as create_action_gateway_app,
+)
+from autosecops.registry.repository import Repository
+from autosecops.tables.enums import SqlType
+from autosecops.validation.common import json_schema_to_pydantic
 
 # Advisory lock ID for serializing case_fields schema creation in tests.
 # This prevents deadlocks when concurrent tests create workspace-scoped tables

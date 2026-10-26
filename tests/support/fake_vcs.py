@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from tracecat.exceptions import TracecatValidationError
-from tracecat.git.types import GitUrl
-from tracecat.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
-from tracecat.sync import CommitInfo, PushStatus
-from tracecat.workspace_sync.enums import VcsProvider
-from tracecat.workspace_sync.transport import VcsSyncTransport, VcsTreeSnapshot
+from autosecops.exceptions import TracecatValidationError
+from autosecops.git.types import GitUrl
+from autosecops.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
+from autosecops.sync import CommitInfo, PushStatus
+from autosecops.workspace_sync.enums import VcsProvider
+from autosecops.workspace_sync.transport import VcsSyncTransport, VcsTreeSnapshot
 
 
 @dataclass

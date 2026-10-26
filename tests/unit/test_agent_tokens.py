@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 
-from tracecat import config
-from tracecat.agent.tokens import (
+from autosecops import config
+from autosecops.agent.tokens import (
     AGENT_OTEL_TOKEN_AUDIENCE,
     AGENT_OTEL_TOKEN_ISSUER,
     AGENT_OTEL_TOKEN_SUBJECT,
@@ -18,14 +18,14 @@ from tracecat.agent.tokens import (
     verify_agent_otel_token,
     verify_mcp_token,
 )
-from tracecat.auth.secrets import get_service_key
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.auth.secrets import get_service_key
+from autosecops.registry.lock.types import RegistryLock
 
 
 def _registry_lock() -> RegistryLock:
     return RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "test-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
 
 

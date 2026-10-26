@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.dsl.common import DSLInput
+from autosecops.dsl.common import DSLInput
 
 
 @pytest.fixture

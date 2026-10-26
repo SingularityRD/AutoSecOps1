@@ -15,21 +15,21 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.git.types import GitUrl
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.sync import PushStatus
-from tracecat.vcs.gitlab.app import GITLAB_TOKEN_SECRET_NAME, GitLabTokenService
-from tracecat.vcs.gitlab.schemas import GitLabTokenCredentials
-from tracecat.workspace_sync.schemas import MANIFEST_FILENAME, WorkspaceManifest
-from tracecat.workspace_sync.serialization import canonical_json_text
-from tracecat.workspace_sync.transport import GitLabWorkspaceSyncTransport
+from autosecops.git.types import GitUrl
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.sync import PushStatus
+from autosecops.vcs.gitlab.app import GITLAB_TOKEN_SECRET_NAME, GitLabTokenService
+from autosecops.vcs.gitlab.schemas import GitLabTokenCredentials
+from autosecops.workspace_sync.schemas import MANIFEST_FILENAME, WorkspaceManifest
+from autosecops.workspace_sync.serialization import canonical_json_text
+from autosecops.workspace_sync.transport import GitLabWorkspaceSyncTransport
 
 type _FileContent = str | bytes
 
@@ -619,7 +619,7 @@ async def test_gitlab_transport_creates_merge_request_after_commit() -> None:
     )
     transport = _MockGitLabTransport(api=api)
 
-    with patch("tracecat.workspace_sync.transport.WorkspaceService") as workspace_cls:
+    with patch("autosecops.workspace_sync.transport.WorkspaceService") as workspace_cls:
         workspace_service = AsyncMock()
         workspace_service.get_workspace.return_value = type(
             "WorkspaceStub",
@@ -678,7 +678,7 @@ async def test_gitlab_transport_skips_branch_list_when_base_is_explicit(
         api.create_branch(f"branch-{index:03d}", "zz-default")
     transport = _MockGitLabTransport(api=api)
 
-    with patch("tracecat.workspace_sync.transport.WorkspaceService") as workspace_cls:
+    with patch("autosecops.workspace_sync.transport.WorkspaceService") as workspace_cls:
         workspace_service = AsyncMock()
         workspace_service.get_workspace.return_value = type(
             "WorkspaceStub",
@@ -716,7 +716,7 @@ async def test_gitlab_transport_resolves_default_base_without_branch_scan() -> N
         api.create_branch(f"branch-{index:03d}", "zz-default")
     transport = _MockGitLabTransport(api=api)
 
-    with patch("tracecat.workspace_sync.transport.WorkspaceService") as workspace_cls:
+    with patch("autosecops.workspace_sync.transport.WorkspaceService") as workspace_cls:
         workspace_service = AsyncMock()
         workspace_service.get_workspace.return_value = type(
             "WorkspaceStub",
@@ -770,7 +770,7 @@ async def test_gitlab_token_save_creates_org_secret_with_settings_scope() -> Non
 
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
-        patch("tracecat.vcs.gitlab.app.SecretsService", FakeSecretsService),
+        patch("autosecops.vcs.gitlab.app.SecretsService", FakeSecretsService),
     ):
         credentials, was_created = await service.save_gitlab_token_credentials(
             base_url="https://gitlab.example.test",
@@ -817,7 +817,7 @@ async def test_gitlab_token_save_updates_org_secret_with_settings_scope() -> Non
 
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
-        patch("tracecat.vcs.gitlab.app.SecretsService", FakeSecretsService),
+        patch("autosecops.vcs.gitlab.app.SecretsService", FakeSecretsService),
     ):
         credentials, was_created = await service.save_gitlab_token_credentials(
             base_url="https://gitlab.example.test",

@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock
 import pytest
 import redis.asyncio as redis
 
-from tracecat.tiers.activities import (
+from autosecops.tiers.activities import (
     TierActivities,
     acquire_action_permit_activity,
     heartbeat_action_permit_activity,
     release_action_permit_activity,
 )
-from tracecat.tiers.semaphore import RedisSemaphore
+from autosecops.tiers.semaphore import RedisSemaphore
 
 ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000123")
 

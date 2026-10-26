@@ -1,4 +1,4 @@
-"""Tests for tracecat.dsl.common module."""
+"""Tests for autosecops.dsl.common module."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, cast
 
-from tracecat.dsl.common import build_action_statements_from_actions
-from tracecat.dsl.view import (
+from autosecops.dsl.common import build_action_statements_from_actions
+from autosecops.dsl.view import (
     RFEdge,
     RFGraph,
     TriggerNode,
@@ -15,8 +15,8 @@ from tracecat.dsl.view import (
     UDFNode,
     UDFNodeData,
 )
-from tracecat.expressions.expectations import ExpectedField, create_expectation_model
-from tracecat.registry.actions.schemas import (
+from autosecops.expressions.expectations import ExpectedField, create_expectation_model
+from autosecops.registry.actions.schemas import (
     ActionStep,
     TemplateAction,
     TemplateActionDefinition,

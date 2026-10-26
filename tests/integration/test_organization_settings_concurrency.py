@@ -8,12 +8,12 @@ from pydantic_core import to_jsonable_python
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from autosecops.auth.types import Role
+from autosecops.db.models import Organization, OrganizationSetting
+from autosecops.settings.constants import SENSITIVE_SETTINGS_KEYS
+from autosecops.settings.schemas import SettingCreate
+from autosecops.settings.service import SettingsService
 from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.db.models import Organization, OrganizationSetting
-from tracecat.settings.constants import SENSITIVE_SETTINGS_KEYS
-from tracecat.settings.schemas import SettingCreate
-from tracecat.settings.service import SettingsService
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration, pytest.mark.usefixtures("db")]
 

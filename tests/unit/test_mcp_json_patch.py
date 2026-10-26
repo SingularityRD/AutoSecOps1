@@ -5,12 +5,12 @@ from typing import cast
 import pytest
 from fastmcp.exceptions import ToolError
 
-from tracecat.mcp.json_patch import (
+from autosecops.mcp.json_patch import (
     apply_json_patch_operations,
     resolve_action_ref_path,
     validate_patch_paths,
 )
-from tracecat.mcp.schemas import JsonPatchOperation, JsonValue
+from autosecops.mcp.schemas import JsonPatchOperation, JsonValue
 
 
 def _op(**kwargs: object) -> JsonPatchOperation:

@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from tracecat.logger import logger
+from autosecops.logger import logger
 
 # revision identifiers, used by Alembic.
 revision: str = "4e07917dc4e8"

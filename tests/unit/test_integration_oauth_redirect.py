@@ -4,10 +4,10 @@ import uuid
 
 import pytest
 
-from tracecat import config
-from tracecat.integrations.providers.github.mcp import GitHubMCPProvider
-from tracecat.integrations.providers.github.oauth import GitHubOAuthProvider
-from tracecat.integrations.router import _oauth_callback_redirect_url
+from autosecops import config
+from autosecops.integrations.providers.github.mcp import GitHubMCPProvider
+from autosecops.integrations.providers.github.oauth import GitHubOAuthProvider
+from autosecops.integrations.router import _oauth_callback_redirect_url
 
 
 def test_oauth_callback_redirect_url_uses_integrations_for_oauth_provider(

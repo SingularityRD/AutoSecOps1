@@ -7,8 +7,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests._forms_utils import create_form, create_workflow
-from tracecat.db.models import (
+from autosecops.db.models import (
     Form,
     FormFile,
     FormSubmission,
@@ -16,7 +15,8 @@ from tracecat.db.models import (
     Workspace,
     WorkspaceModel,
 )
-from tracecat.db.tenant_rls import POST_RLS_WORKSPACE_SCOPED_TABLES
+from autosecops.db.tenant_rls import POST_RLS_WORKSPACE_SCOPED_TABLES
+from tests._forms_utils import create_form, create_workflow
 
 
 @pytest.mark.parametrize("model", [Form, FormSubmission, FormView, FormFile])

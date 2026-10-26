@@ -5,8 +5,8 @@ from temporalio.exceptions import (
     TimeoutType,
 )
 
-from tracecat.dsl.interceptor import _unclassified_retry_disposition
-from tracecat.runtime.errors import RetryDisposition
+from autosecops.dsl.interceptor import _unclassified_retry_disposition
+from autosecops.runtime.errors import RetryDisposition
 
 
 def _activity_error_from(cause: BaseException) -> ActivityError:

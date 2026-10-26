@@ -15,11 +15,11 @@ from unittest.mock import patch
 
 import orjson
 import pytest
+from autosecops_registry import SecretNotFoundError
+from autosecops_registry._internal import secrets as registry_secrets
+from autosecops_registry.integrations import google_api
 from google.oauth2.credentials import Credentials as OAuthCredentials
 from googleapiclient.http import MediaIoBaseUpload
-from tracecat_registry import SecretNotFoundError
-from tracecat_registry._internal import secrets as registry_secrets
-from tracecat_registry.integrations import google_api
 
 SERVICE_ACCOUNT_INFO: dict[str, Any] = {
     "type": "service_account",
@@ -32,7 +32,7 @@ SERVICE_ACCOUNT_INFO: dict[str, Any] = {
 }
 
 FROM_SERVICE_ACCOUNT_INFO = (
-    "tracecat_registry.integrations.google_api."
+    "autosecops_registry.integrations.google_api."
     "service_account.Credentials.from_service_account_info"
 )
 

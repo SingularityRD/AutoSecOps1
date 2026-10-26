@@ -6,10 +6,10 @@ import pytest
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.router import search_user
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.db.models import Organization, OrganizationMembership, User
+from autosecops.auth.router import search_user
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.db.models import Organization, OrganizationMembership, User
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

@@ -19,24 +19,24 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from autosecops_ee.agent.schemas import AgentActionArgs
 from temporalio.exceptions import ApplicationError
-from tracecat_ee.agent.schemas import AgentActionArgs
 
-from tracecat.agent.common.types import MCPHttpServerConfig, MCPStdioServerConfig
-from tracecat.auth.types import Role
-from tracecat.dsl.action import (
+from autosecops.agent.common.types import MCPHttpServerConfig, MCPStdioServerConfig
+from autosecops.auth.types import Role
+from autosecops.dsl.action import (
     BuildAgentArgsActivityInput,
     DSLActivities,
 )
-from tracecat.dsl.schemas import ExecutionContext, TaskResult
-from tracecat.exceptions import TracecatValidationError
-from tracecat.runtime.errors import (
+from autosecops.dsl.schemas import ExecutionContext, TaskResult
+from autosecops.exceptions import TracecatValidationError
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.object import InlineObject, StoredObject
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.temporal.errors import extract_error_classification
 
 
 @pytest.fixture
@@ -154,7 +154,7 @@ async def test_agent_preparation_classifies_user_and_platform_failures(
 
     with (
         patch(
-            "tracecat.dsl.action._evaluate_agent_args",
+            "autosecops.dsl.action._evaluate_agent_args",
             new=AsyncMock(side_effect=error),
         ),
         pytest.raises(ApplicationError) as exc_info,
@@ -190,7 +190,7 @@ class TestBuildAgentArgsActivity:
         )
 
         with patch(
-            "tracecat.dsl.action.get_workspace_variables",
+            "autosecops.dsl.action.get_workspace_variables",
             new_callable=AsyncMock,
             return_value={"models": {"claude": "claude-sonnet-4-5-20250929"}},
         ):
@@ -219,7 +219,7 @@ class TestBuildAgentArgsActivity:
         )
 
         with patch(
-            "tracecat.dsl.action.get_workspace_variables",
+            "autosecops.dsl.action.get_workspace_variables",
             new_callable=AsyncMock,
         ) as mock_get_vars:
             result = await DSLActivities.build_agent_args_activity(input)
@@ -274,7 +274,7 @@ class TestBuildAgentArgsActivity:
         )
 
         with patch(
-            "tracecat.dsl.action.get_workspace_variables",
+            "autosecops.dsl.action.get_workspace_variables",
             new_callable=AsyncMock,
             return_value={"models": {"claude": "claude-sonnet-4-5-20250929"}},
         ):
@@ -300,7 +300,7 @@ class TestBuildAgentArgsActivity:
         )
 
         with patch(
-            "tracecat.dsl.action.get_workspace_variables",
+            "autosecops.dsl.action.get_workspace_variables",
             new_callable=AsyncMock,
             return_value={"models": {"claude": "claude-sonnet-4-5-20250929"}},
         ) as mock_get_vars:
@@ -441,7 +441,7 @@ class TestBuildAgentArgsMcpResolution:
         )
 
         with patch(
-            "tracecat.dsl.action._resolve_mcp_integrations",
+            "autosecops.dsl.action._resolve_mcp_integrations",
             new_callable=AsyncMock,
             return_value=[resolved],
         ) as mock_resolve:
@@ -468,7 +468,7 @@ class TestBuildAgentArgsMcpResolution:
         )
 
         with patch(
-            "tracecat.dsl.action._resolve_mcp_integrations",
+            "autosecops.dsl.action._resolve_mcp_integrations",
             new_callable=AsyncMock,
         ) as mock_resolve:
             result = await DSLActivities.build_agent_args_activity(input)
@@ -502,7 +502,7 @@ class TestBuildAgentArgsMcpResolution:
         )
 
         with patch(
-            "tracecat.dsl.action._resolve_mcp_integrations",
+            "autosecops.dsl.action._resolve_mcp_integrations",
             new_callable=AsyncMock,
             return_value=[resolved],
         ):
@@ -538,7 +538,7 @@ class TestBuildAgentArgsMcpResolution:
         )
 
         with patch(
-            "tracecat.dsl.action._resolve_mcp_integrations",
+            "autosecops.dsl.action._resolve_mcp_integrations",
             new_callable=AsyncMock,
             return_value=[resolved],
         ):
@@ -572,7 +572,7 @@ class TestBuildPresetAgentArgsActivity:
         )
 
         with patch(
-            "tracecat.dsl.action.get_workspace_variables",
+            "autosecops.dsl.action.get_workspace_variables",
             new_callable=AsyncMock,
             return_value={},
         ):

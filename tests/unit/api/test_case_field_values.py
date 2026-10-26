@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.cases.service import CaseFieldsService
-from tracecat.tables.enums import SqlType
+from autosecops.auth.types import Role
+from autosecops.cases.service import CaseFieldsService
+from autosecops.tables.enums import SqlType
 
 
 @pytest.mark.anyio

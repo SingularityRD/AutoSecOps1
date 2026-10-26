@@ -14,7 +14,7 @@ import httpx
 import orjson
 import pytest
 
-from tracecat.agent.sandbox.shim_entrypoint import (
+from autosecops.agent.sandbox.shim_entrypoint import (
     BRIDGE_HOST,
     DEFAULT_MCP_SOCKET_PATH,
     HTTP_HEADER_LIMIT,
@@ -33,7 +33,7 @@ from tracecat.agent.sandbox.shim_entrypoint import (
     read_http_request,
     run_sandboxed_claude_shim,
 )
-from tracecat.agent.sandbox.shim_entrypoint import (
+from autosecops.agent.sandbox.shim_entrypoint import (
     _read_init_payload as _read_shim_init_payload,
 )
 
@@ -227,7 +227,7 @@ async def test_pump_stdin_to_process_suppresses_broken_pipe(
         return next(chunks)
 
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint._wait_for_stdin_chunk",
+        "autosecops.agent.sandbox.shim_entrypoint._wait_for_stdin_chunk",
         fake_wait_for_stdin_chunk,
     )
     writer = _FakeStreamWriter(fail_after_write=True)
@@ -255,7 +255,7 @@ async def test_pump_stdin_forwards_streamed_initialize_agent_mcp_urls(
         return next(chunks)
 
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint._wait_for_stdin_chunk",
+        "autosecops.agent.sandbox.shim_entrypoint._wait_for_stdin_chunk",
         fake_wait_for_stdin_chunk,
     )
     writer = _FakeStreamWriter()
@@ -292,7 +292,7 @@ async def test_wait_for_process_with_stdin_does_not_wait_for_stdin_eof(
             raise
 
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint._pump_stdin_to_process",
+        "autosecops.agent.sandbox.shim_entrypoint._pump_stdin_to_process",
         fake_pump_stdin_to_process,
     )
 
@@ -717,15 +717,15 @@ async def test_shim_sets_otel_env_only_after_drop_mode_bridge_starts(
     monkeypatch.setattr(SandboxSocketBridge, "start", fake_bridge_start)
     monkeypatch.setattr(SandboxSocketBridge, "stop", fake_bridge_stop)
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint.asyncio.create_subprocess_exec",
+        "autosecops.agent.sandbox.shim_entrypoint.asyncio.create_subprocess_exec",
         fake_create_subprocess_exec,
     )
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint._pump_stream",
+        "autosecops.agent.sandbox.shim_entrypoint._pump_stream",
         fake_pump_stream,
     )
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.shim_entrypoint._wait_for_process_with_stdin",
+        "autosecops.agent.sandbox.shim_entrypoint._wait_for_process_with_stdin",
         fake_wait_for_process_with_stdin,
     )
 

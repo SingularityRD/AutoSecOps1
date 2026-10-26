@@ -6,8 +6,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat import config as tracecat_config
-from tracecat.auth.types import Role
+from autosecops import config as tracecat_config
+from autosecops.auth.types import Role
 
 
 @pytest.mark.anyio

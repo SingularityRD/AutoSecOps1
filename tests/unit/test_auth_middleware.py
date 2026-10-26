@@ -9,23 +9,23 @@ import pytest
 from fastapi import HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import grant_org_membership, grant_workspace_membership
-from tracecat import config
-from tracecat.auth.credentials import (
+from autosecops import config
+from autosecops.auth.credentials import (
     _authenticate_user,
     _role_dependency,
     authenticated_user_only,
 )
-from tracecat.auth.org_context import resolve_auth_organization_id
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_agent_session_id, ctx_role
-from tracecat.db.models import (
+from autosecops.auth.org_context import resolve_auth_organization_id
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_agent_session_id, ctx_role
+from autosecops.db.models import (
     Organization,
     User,
     Workspace,
 )
-from tracecat.organization.management import SingleTenantUserDefaultsResult
+from autosecops.organization.management import SingleTenantUserDefaultsResult
+from tests.support.membership import grant_org_membership, grant_workspace_membership
 
 
 @pytest.mark.anyio
@@ -43,7 +43,7 @@ async def test_authenticated_user_only_does_not_activate_superuser_privileges() 
     agent_session_token = ctx_agent_session_id.set(uuid.uuid4())
     try:
         with patch(
-            "tracecat.auth.credentials.compute_effective_scopes",
+            "autosecops.auth.credentials.compute_effective_scopes",
             new=AsyncMock(side_effect=_compute_effective_scopes),
         ) as mock_compute_scopes:
             role = await authenticated_user_only(user=user)
@@ -87,15 +87,15 @@ async def test_role_dependency_rebinds_rls_context_on_session(
 
     with (
         patch(
-            "tracecat.auth.credentials._authenticate_user",
+            "autosecops.auth.credentials._authenticate_user",
             new=AsyncMock(return_value=role),
         ),
         patch(
-            "tracecat.auth.credentials._validate_role",
+            "autosecops.auth.credentials._validate_role",
             new=AsyncMock(return_value=validated_role),
         ),
         patch(
-            "tracecat.auth.credentials.set_rls_context_from_role",
+            "autosecops.auth.credentials.set_rls_context_from_role",
             new=AsyncMock(),
         ) as mock_set_rls,
     ):
@@ -129,13 +129,13 @@ async def test_user_role_dependency_clears_agent_session_context() -> None:
     context_token = ctx_agent_session_id.set(uuid.uuid4())
     try:
         with (
-            patch("tracecat.auth.credentials.set_rls_context", new=AsyncMock()),
+            patch("autosecops.auth.credentials.set_rls_context", new=AsyncMock()),
             patch(
-                "tracecat.auth.credentials._authenticate_user",
+                "autosecops.auth.credentials._authenticate_user",
                 new=AsyncMock(return_value=role),
             ),
             patch(
-                "tracecat.auth.credentials._validate_role",
+                "autosecops.auth.credentials._validate_role",
                 new=AsyncMock(return_value=role),
             ),
         ):
@@ -172,15 +172,15 @@ async def test_role_dependency_preserves_auth_exception_when_cleanup_fails():
 
     with (
         patch(
-            "tracecat.auth.credentials.set_rls_context",
+            "autosecops.auth.credentials.set_rls_context",
             new=AsyncMock(),
         ),
         patch(
-            "tracecat.auth.credentials._authenticate_user",
+            "autosecops.auth.credentials._authenticate_user",
             new=AsyncMock(side_effect=original_exc),
         ),
         patch(
-            "tracecat.auth.credentials.set_rls_context_from_role",
+            "autosecops.auth.credentials.set_rls_context_from_role",
             new=AsyncMock(side_effect=RuntimeError("cleanup failed")),
         ) as mock_cleanup,
     ):
@@ -220,16 +220,16 @@ async def test_role_dependency_resolves_multi_tenant_superuser_as_regular_org_us
 
     with (
         patch(
-            "tracecat.auth.credentials._resolve_org_for_regular_user",
+            "autosecops.auth.credentials._resolve_org_for_regular_user",
             new=AsyncMock(return_value=org_id),
         ) as mock_resolve_org,
         patch(
-            "tracecat.auth.credentials.compute_effective_scopes",
+            "autosecops.auth.credentials.compute_effective_scopes",
             new=AsyncMock(return_value=scopes),
         ),
-        patch("tracecat.auth.credentials.set_rls_context", new=AsyncMock()),
+        patch("autosecops.auth.credentials.set_rls_context", new=AsyncMock()),
         patch(
-            "tracecat.auth.credentials.set_rls_context_from_role",
+            "autosecops.auth.credentials.set_rls_context_from_role",
             new=AsyncMock(),
         ),
     ):
@@ -267,7 +267,7 @@ async def test_authenticate_user_only_invalidates_scope_cache_when_defaults_chan
         session = AsyncMock()
         with (
             patch(
-                "tracecat.auth.credentials.ensure_single_tenant_user_defaults_for_session",
+                "autosecops.auth.credentials.ensure_single_tenant_user_defaults_for_session",
                 new=AsyncMock(
                     return_value=SingleTenantUserDefaultsResult(
                         organization_id=org_id,
@@ -276,11 +276,11 @@ async def test_authenticate_user_only_invalidates_scope_cache_when_defaults_chan
                 ),
             ),
             patch(
-                "tracecat.auth.credentials.set_rls_context",
+                "autosecops.auth.credentials.set_rls_context",
                 new=AsyncMock(),
             ) as mock_set_rls,
             patch(
-                "tracecat.auth.credentials._invalidate_user_scope_cache"
+                "autosecops.auth.credentials._invalidate_user_scope_cache"
             ) as mock_invalidate,
         ):
             role = await _authenticate_user(
@@ -318,18 +318,18 @@ async def test_authenticate_user_does_not_enroll() -> None:
     )
     with (
         patch(
-            "tracecat.auth.credentials.ensure_single_tenant_user_defaults_for_session",
+            "autosecops.auth.credentials.ensure_single_tenant_user_defaults_for_session",
             new=defaults,
         ),
         patch(
-            "tracecat.auth.credentials._resolve_org_for_regular_user",
+            "autosecops.auth.credentials._resolve_org_for_regular_user",
             new=AsyncMock(return_value=uuid.uuid4()),
         ),
         patch(
-            "tracecat.auth.credentials.compute_effective_scopes",
+            "autosecops.auth.credentials.compute_effective_scopes",
             new=AsyncMock(return_value=frozenset()),
         ),
-        patch("tracecat.auth.credentials.set_rls_context", new=AsyncMock()),
+        patch("autosecops.auth.credentials.set_rls_context", new=AsyncMock()),
     ):
         await _authenticate_user(
             request=request,
@@ -361,24 +361,24 @@ async def test_role_dependency_resolves_superuser_workspace_membership_without_p
     scopes = frozenset({"workspace:read"})
     with (
         patch(
-            "tracecat.auth.credentials._get_workspace_org_id",
+            "autosecops.auth.credentials._get_workspace_org_id",
             new=AsyncMock(return_value=org_id),
         ),
         patch(
-            "tracecat.auth.credentials._is_org_admin_via_rbac",
+            "autosecops.auth.credentials._is_org_admin_via_rbac",
             new=AsyncMock(return_value=False),
         ),
         patch(
-            "tracecat.auth.credentials._require_workspace_membership",
+            "autosecops.auth.credentials._require_workspace_membership",
             new=AsyncMock(return_value=None),
         ) as mock_get_membership,
         patch(
-            "tracecat.auth.credentials.compute_effective_scopes",
+            "autosecops.auth.credentials.compute_effective_scopes",
             new=AsyncMock(return_value=scopes),
         ),
-        patch("tracecat.auth.credentials.set_rls_context", new=AsyncMock()),
+        patch("autosecops.auth.credentials.set_rls_context", new=AsyncMock()),
         patch(
-            "tracecat.auth.credentials.set_rls_context_from_role",
+            "autosecops.auth.credentials.set_rls_context_from_role",
             new=AsyncMock(),
         ),
     ):

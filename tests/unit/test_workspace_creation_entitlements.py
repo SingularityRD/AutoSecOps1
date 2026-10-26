@@ -17,22 +17,22 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 from sqlalchemy.schema import DropSchema
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     Organization,
     OrganizationTier,
     Ownership,
     Tier,
     Workspace,
 )
-from tracecat.exceptions import EntitlementRequired
-from tracecat.identifiers.workflow import WorkspaceUUID
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.tiers.enums import Entitlement
-from tracecat.workspaces.schemas import WorkspaceUpdate
-from tracecat.workspaces.service import WorkspaceService
+from autosecops.exceptions import EntitlementRequired
+from autosecops.identifiers.workflow import WorkspaceUUID
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.tiers.enums import Entitlement
+from autosecops.workspaces.schemas import WorkspaceUpdate
+from autosecops.workspaces.service import WorkspaceService
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -6,41 +6,41 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from cryptography.fernet import Fernet
-from mcp.types import CallToolResult, TextContent, Tool
-from sqlalchemy.ext.asyncio import AsyncSession
-from temporalio.exceptions import ApplicationError
-from tracecat_ee.agent import activities
-from tracecat_ee.agent.activities import (
+from autosecops_ee.agent import activities
+from autosecops_ee.agent.activities import (
     AgentActivities,
     BuildAgentScopeToolDefsArgs,
     BuildAgentToolDefsArgs,
     BuildToolDefsArgs,
 )
+from cryptography.fernet import Fernet
+from mcp.types import CallToolResult, TextContent, Tool
+from sqlalchemy.ext.asyncio import AsyncSession
+from temporalio.exceptions import ApplicationError
 
-from tracecat import config
-from tracecat.agent.common.types import is_http_mcp_server
-from tracecat.agent.mcp import user_client
-from tracecat.agent.mcp.trusted_server import _resolve_user_mcp_config
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.preset.tool_policy import resolve_tool_policy
-from tracecat.agent.preset.types import PresetToolInputs
-from tracecat.agent.schemas import ToolFilters
-from tracecat.agent.tools import BuildToolsResult
-from tracecat.auth.types import Role
-from tracecat.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from tracecat.exceptions import TracecatValidationError
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.mcp_validation import MCPConfigurationError
-from tracecat.integrations.service import IntegrationService
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops import config
+from autosecops.agent.common.types import is_http_mcp_server
+from autosecops.agent.mcp import user_client
+from autosecops.agent.mcp.trusted_server import _resolve_user_mcp_config
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.preset.tool_policy import resolve_tool_policy
+from autosecops.agent.preset.types import PresetToolInputs
+from autosecops.agent.schemas import ToolFilters
+from autosecops.agent.tools import BuildToolsResult
+from autosecops.auth.types import Role
+from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
+from autosecops.exceptions import TracecatValidationError
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.mcp_validation import MCPConfigurationError
+from autosecops.integrations.service import IntegrationService
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.temporal.errors import extract_error_classification
 
 
 @pytest.fixture(autouse=True)

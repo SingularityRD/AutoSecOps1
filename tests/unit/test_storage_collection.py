@@ -11,13 +11,13 @@ from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
 from temporalio.exceptions import ApplicationError
 
-from tracecat.dsl.action import (
+from autosecops.dsl.action import (
     DSLActivities,
     NormalizeTriggerInputsActivityInputs,
 )
-from tracecat.storage import blob
-from tracecat.storage.collection import get_collection_item, store_collection
-from tracecat.storage.object import (
+from autosecops.storage import blob
+from autosecops.storage.collection import get_collection_item, store_collection
+from autosecops.storage.object import (
     CollectionObject,
     ObjectRef,
     StoredObject,
@@ -106,7 +106,7 @@ class TestCollectionStorageFunctions:
 
             raise ValueError(f"Unsupported expression: {expression}")
 
-        from tracecat.storage import blob
+        from autosecops.storage import blob
 
         monkeypatch.setattr(blob, "ensure_bucket_exists", mock_ensure_bucket_exists)
         monkeypatch.setattr(blob, "upload_file", mock_upload_file)
@@ -120,7 +120,7 @@ class TestCollectionStorageFunctions:
         self, mock_blob_storage
     ):
         """Test store_collection creates manifest and chunk blobs."""
-        from tracecat.storage.collection import store_collection
+        from autosecops.storage.collection import store_collection
 
         items = [{"id": i, "value": f"item-{i}"} for i in range(100)]
 
@@ -155,7 +155,7 @@ class TestCollectionStorageFunctions:
         self, mock_blob_storage
     ):
         """A late attempt with different content cannot change an accepted ref."""
-        from tracecat.storage.collection import (
+        from autosecops.storage.collection import (
             materialize_collection_values,
             store_collection,
         )
@@ -177,7 +177,7 @@ class TestCollectionStorageFunctions:
         self, mock_blob_storage
     ):
         """Identical retries hash to the same manifest and chunk keys."""
-        from tracecat.storage.collection import store_collection
+        from autosecops.storage.collection import store_collection
 
         prefix = "wf-123/stream-0/action-1/col-retry"
         first = await store_collection(
@@ -196,9 +196,9 @@ class TestCollectionStorageFunctions:
         self, mock_blob_storage
     ):
         """Item refs in stored_object chunks must not vary between attempts."""
-        from tracecat.dsl.action import _store_collection_as_refs
-        from tracecat.storage.backends import S3ObjectStorage
-        from tracecat.storage.object import reset_object_storage, set_object_storage
+        from autosecops.dsl.action import _store_collection_as_refs
+        from autosecops.storage.backends import S3ObjectStorage
+        from autosecops.storage.object import reset_object_storage, set_object_storage
 
         set_object_storage(S3ObjectStorage(bucket="test-bucket", threshold_bytes=0))
         try:
@@ -215,7 +215,7 @@ class TestCollectionStorageFunctions:
     @pytest.mark.anyio
     async def test_store_collection_empty_list(self, mock_blob_storage):
         """Test store_collection handles empty list."""
-        from tracecat.storage.collection import store_collection
+        from autosecops.storage.collection import store_collection
 
         collection = await store_collection(
             prefix="wf-123/empty",
@@ -231,7 +231,7 @@ class TestCollectionStorageFunctions:
     @pytest.mark.anyio
     async def test_get_collection_page(self, mock_blob_storage):
         """Test get_collection_page retrieves correct items."""
-        from tracecat.storage.collection import get_collection_page, store_collection
+        from autosecops.storage.collection import get_collection_page, store_collection
 
         items = [{"id": i} for i in range(100)]
 
@@ -264,7 +264,7 @@ class TestCollectionStorageFunctions:
     @pytest.mark.anyio
     async def test_get_collection_item(self, mock_blob_storage):
         """Test get_collection_item retrieves single items."""
-        from tracecat.storage.collection import get_collection_item, store_collection
+        from autosecops.storage.collection import get_collection_item, store_collection
 
         items = [{"id": i, "name": f"item-{i}"} for i in range(50)]
 
@@ -328,7 +328,7 @@ class TestCollectionStorageFunctions:
     @pytest.mark.anyio
     async def test_get_collection_item_out_of_bounds(self, mock_blob_storage):
         """Test get_collection_item raises IndexError for out of bounds."""
-        from tracecat.storage.collection import get_collection_item, store_collection
+        from autosecops.storage.collection import get_collection_item, store_collection
 
         items = [{"id": i} for i in range(10)]
 
@@ -349,7 +349,7 @@ class TestCollectionStorageFunctions:
     @pytest.mark.anyio
     async def test_materialize_collection_values(self, mock_blob_storage):
         """Test materialize_collection_values returns all items."""
-        from tracecat.storage.collection import (
+        from autosecops.storage.collection import (
             materialize_collection_values,
             store_collection,
         )

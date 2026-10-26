@@ -7,13 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.filters import resolve_tag_ids
-from tracecat.cases.search_schemas import CaseQuery
-from tracecat.cases.search_service import case_identity_predicates
-from tracecat.cases.types import ResolvedCaseTag
-from tracecat.db.models import Case
-from tracecat.exceptions import TracecatValidationError
+from autosecops.auth.types import Role
+from autosecops.cases.filters import resolve_tag_ids
+from autosecops.cases.search_schemas import CaseQuery
+from autosecops.cases.search_service import case_identity_predicates
+from autosecops.cases.types import ResolvedCaseTag
+from autosecops.db.models import Case
+from autosecops.exceptions import TracecatValidationError
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ async def test_empty_tag_filters_remain_unfiltered(
     search_role: Role, tags: list[str] | None
 ) -> None:
     with patch(
-        "tracecat.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
+        "autosecops.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
     ) as resolve:
         result = await resolve_tag_ids(
             tags=tags, role=search_role, session=AsyncMock(spec=AsyncSession)
@@ -69,7 +69,7 @@ async def test_unresolved_tag_filters_are_rejected(
     tags = ["known-tag", "missing-tag"] if include_known else ["missing-tag"]
     session = AsyncMock(spec=AsyncSession)
     with patch(
-        "tracecat.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
+        "autosecops.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
     ) as resolve:
         resolve.side_effect = TracecatValidationError(
             "Unknown case tag filter: 'missing-tag'"
@@ -90,7 +90,7 @@ async def test_tag_filters_preserve_ref_and_uuid_resolution(search_role: Role) -
     second = ResolvedCaseTag(id=uuid.uuid4(), ref="second-tag")
     session = AsyncMock(spec=AsyncSession)
     with patch(
-        "tracecat.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
+        "autosecops.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
     ) as resolve:
         resolve.return_value = [first, second]
         result = await resolve_tag_ids(

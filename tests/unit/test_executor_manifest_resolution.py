@@ -5,15 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from tracecat.db.models import RegistryAction, RegistryRepository, RegistryVersion
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.executor.schemas import ActionImplementation
-from tracecat.executor.secret_preprocessors import SecretEnvProjection
-from tracecat.executor.service import _prepare_step_context, prepare_resolved_context
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.versions.service import RegistryVersionsService
+from autosecops.db.models import RegistryAction, RegistryRepository, RegistryVersion
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.executor.schemas import ActionImplementation
+from autosecops.executor.secret_preprocessors import SecretEnvProjection
+from autosecops.executor.service import _prepare_step_context, prepare_resolved_context
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.versions.service import RegistryVersionsService
 
 
 def _udf_impl(*, origin: str, module: str, name: str) -> dict[str, str]:
@@ -111,10 +111,10 @@ async def test_prepare_resolved_context_uses_manifest_for_locked_workflows(
 
     # Keep test focused on resolution, not secret/variable fetching.
     mocker.patch(
-        "tracecat.executor.service.secrets_manager.get_action_secrets",
+        "autosecops.executor.service.secrets_manager.get_action_secrets",
         return_value={},
     )
-    mocker.patch("tracecat.executor.service.get_workspace_variables", return_value={})
+    mocker.patch("autosecops.executor.service.get_workspace_variables", return_value={})
 
     @asynccontextmanager
     async def _session_cm():
@@ -122,15 +122,15 @@ async def test_prepare_resolved_context_uses_manifest_for_locked_workflows(
 
     # Ensure manifest resolution uses this test session.
     mocker.patch(
-        "tracecat.executor.service.get_async_session_bypass_rls_context_manager",
+        "autosecops.executor.service.get_async_session_bypass_rls_context_manager",
         _session_cm,
     )
     mocker.patch(
-        "tracecat.executor.registry_resolver.get_async_session_context_manager",
+        "autosecops.executor.registry_resolver.get_async_session_context_manager",
         _session_cm,
     )
     mocker.patch(
-        "tracecat.executor.registry_resolver.get_async_session_bypass_rls_context_manager",
+        "autosecops.executor.registry_resolver.get_async_session_bypass_rls_context_manager",
         _session_cm,
     )
 
@@ -204,23 +204,23 @@ async def test_prepare_step_context_uses_manifest_for_template_steps(
         yield session
 
     mocker.patch(
-        "tracecat.executor.service.get_async_session_bypass_rls_context_manager",
+        "autosecops.executor.service.get_async_session_bypass_rls_context_manager",
         _session_cm,
     )
     mocker.patch(
-        "tracecat.executor.registry_resolver.get_async_session_context_manager",
+        "autosecops.executor.registry_resolver.get_async_session_context_manager",
         _session_cm,
     )
     mocker.patch(
-        "tracecat.executor.registry_resolver.get_async_session_bypass_rls_context_manager",
+        "autosecops.executor.registry_resolver.get_async_session_bypass_rls_context_manager",
         _session_cm,
     )
 
     mocker.patch(
-        "tracecat.executor.service.secrets_manager.get_action_secrets",
+        "autosecops.executor.service.secrets_manager.get_action_secrets",
         return_value={},
     )
-    mocker.patch("tracecat.executor.service.get_workspace_variables", return_value={})
+    mocker.patch("autosecops.executor.service.get_workspace_variables", return_value={})
 
     parent_resolved = (
         await prepare_resolved_context(input=input, role=test_role)
@@ -274,7 +274,7 @@ async def test_prepare_resolved_context_includes_projected_secret_masks(
     )
 
     mocker.patch(
-        "tracecat.executor.service.registry_resolver.resolve_action",
+        "autosecops.executor.service.registry_resolver.resolve_action",
         return_value=ActionImplementation(
             type="udf",
             module="manifest.module",
@@ -282,15 +282,15 @@ async def test_prepare_resolved_context_includes_projected_secret_masks(
         ),
     )
     mocker.patch(
-        "tracecat.executor.service.registry_resolver.collect_action_secrets_from_manifest",
+        "autosecops.executor.service.registry_resolver.collect_action_secrets_from_manifest",
         return_value=set(),
     )
     mocker.patch(
-        "tracecat.executor.service.collect_expressions",
+        "autosecops.executor.service.collect_expressions",
         return_value=SimpleNamespace(secrets=set(), variables=set()),
     )
     mocker.patch(
-        "tracecat.executor.service.secrets_manager.get_action_secrets",
+        "autosecops.executor.service.secrets_manager.get_action_secrets",
         return_value={
             "aws": {
                 "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role",
@@ -298,13 +298,13 @@ async def test_prepare_resolved_context_includes_projected_secret_masks(
             }
         },
     )
-    mocker.patch("tracecat.executor.service.get_workspace_variables", return_value={})
+    mocker.patch("autosecops.executor.service.get_workspace_variables", return_value={})
     mocker.patch(
-        "tracecat.executor.service.evaluate_templated_args",
+        "autosecops.executor.service.evaluate_templated_args",
         return_value={},
     )
     mocker.patch(
-        "tracecat.executor.service.project_secret_env",
+        "autosecops.executor.service.project_secret_env",
         return_value=SecretEnvProjection(
             env={
                 "AWS_ACCESS_KEY_ID": "ASIA_TEMP_KEY",

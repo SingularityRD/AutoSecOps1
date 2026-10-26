@@ -6,10 +6,13 @@ from typing import cast
 
 import pytest
 
-from tracecat import config as tracecat_config
-from tracecat.agent.sandbox.config import AgentSandboxConfig, build_agent_nsjail_config
-from tracecat.sandbox.executor import ActionSandboxConfig, NsjailExecutor
-from tracecat.sandbox.networking import (
+from autosecops import config as tracecat_config
+from autosecops.agent.sandbox.config import (
+    AgentSandboxConfig,
+    build_agent_nsjail_config,
+)
+from autosecops.sandbox.executor import ActionSandboxConfig, NsjailExecutor
+from autosecops.sandbox.networking import (
     NSTUN_GATEWAY_IP4,
     NSTUN_GATEWAY_IP6,
     SandboxDnsRoute,
@@ -20,7 +23,7 @@ from tracecat.sandbox.networking import (
     resolve_sandbox_network_plan,
     write_sandbox_network_files,
 )
-from tracecat.sandbox.types import (
+from autosecops.sandbox.types import (
     SandboxBindMount,
     SandboxConfig,
     SandboxEgressRule,

@@ -29,21 +29,21 @@ from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import TerminatedError
 from temporalio.service import RPCError, RPCStatusCode
 
-import tracecat.integrations.catalog.resolver as catalog_resolver_module
-import tracecat.integrations.catalog.service as catalog_service_module
-import tracecat.integrations.mcp_tunnel as mcp_tunnel_module
-import tracecat.integrations.router as integration_router_module
-import tracecat.integrations.service as integration_service_module
-from tracecat.agent.mcp.stdio_probe import (
+import autosecops.integrations.catalog.resolver as catalog_resolver_module
+import autosecops.integrations.catalog.service as catalog_service_module
+import autosecops.integrations.mcp_tunnel as mcp_tunnel_module
+import autosecops.integrations.router as integration_router_module
+import autosecops.integrations.service as integration_service_module
+from autosecops.agent.mcp.stdio_probe import (
     StdioMCPProbeResult,
     StdioMCPProbeWorkflowInput,
     build_stdio_mcp_probe_workflow_id,
 )
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.db.models import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.db.models import (
     AgentPreset,
     AgentPresetVersion,
     AgentSession,
@@ -53,31 +53,31 @@ from tracecat.db.models import (
     User,
     Workspace,
 )
-from tracecat.integrations.catalog.loader import catalog_id_for_slug
-from tracecat.integrations.catalog.resolver import (
+from autosecops.integrations.catalog.loader import catalog_id_for_slug
+from autosecops.integrations.catalog.resolver import (
     ResolvedCatalogConnection,
     connect_options,
 )
-from tracecat.integrations.catalog.service import PlatformMCPCatalogService
-from tracecat.integrations.catalog.types import PlatformMCPCatalogEntry
-from tracecat.integrations.enums import IntegrationStatus, MCPAuthType, OAuthGrantType
-from tracecat.integrations.mcp_validation import (
+from autosecops.integrations.catalog.service import PlatformMCPCatalogService
+from autosecops.integrations.catalog.types import PlatformMCPCatalogEntry
+from autosecops.integrations.enums import IntegrationStatus, MCPAuthType, OAuthGrantType
+from autosecops.integrations.mcp_validation import (
     MCPConfigurationError,
     MCPConnectionVerificationError,
     MCPSecretResolutionError,
 )
-from tracecat.integrations.providers.base import (
+from autosecops.integrations.providers.base import (
     DynamicRegistrationResult,
     MCPAuthProvider,
     OAuthDiscoveryResult,
     build_dcr_payload,
     mcp_requested_scopes,
 )
-from tracecat.integrations.providers.perplexity.mcp import PerplexityMCPProvider
-from tracecat.integrations.providers.runreveal.mcp import RunRevealMCPProvider
-from tracecat.integrations.providers.sentry.mcp import SentryMCPProvider
-from tracecat.integrations.providers.wiz.mcp import WizMCPProvider
-from tracecat.integrations.schemas import (
+from autosecops.integrations.providers.perplexity.mcp import PerplexityMCPProvider
+from autosecops.integrations.providers.runreveal.mcp import RunRevealMCPProvider
+from autosecops.integrations.providers.sentry.mcp import SentryMCPProvider
+from autosecops.integrations.providers.wiz.mcp import WizMCPProvider
+from autosecops.integrations.schemas import (
     CustomOAuthProviderCreate,
     MCPConnectionOption,
     MCPConnectionSpec,
@@ -97,12 +97,12 @@ from tracecat.integrations.schemas import (
     ProviderMetadata,
     ProviderScopes,
 )
-from tracecat.integrations.service import (
+from autosecops.integrations.service import (
     IntegrationService,
     OAuthRefreshBusyError,
 )
-from tracecat.integrations.types import DCRResponse, OAuthServerMetadata
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.integrations.types import DCRResponse, OAuthServerMetadata
+from autosecops.tiers import defaults as tier_defaults
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -3978,8 +3978,8 @@ class TestMCPIntegrationValidation:
 
         # Simulate tightened policy: remove 'npx' from the allowed set after the
         # row was already persisted.
-        from tracecat.exceptions import TracecatValidationError
-        from tracecat.integrations import mcp_validation
+        from autosecops.exceptions import TracecatValidationError
+        from autosecops.integrations import mcp_validation
 
         original = mcp_validation.ALLOWED_MCP_COMMANDS
         mcp_validation.ALLOWED_MCP_COMMANDS = frozenset(original - {"npx"})
@@ -4104,7 +4104,7 @@ class TestMCPIntegrationWorkspaceIsolation:
         svc_workspace,
     ) -> None:
         """Test that MCP integrations are isolated by workspace."""
-        from tracecat.db.models import Workspace
+        from autosecops.db.models import Workspace
 
         # Create service for workspace 1
         service1 = IntegrationService(session=session, role=svc_role)
@@ -4167,7 +4167,7 @@ class TestMCPIntegrationWorkspaceIsolation:
         svc_workspace,
     ) -> None:
         """Test that MCP integration cannot reference OAuth integration from different workspace."""
-        from tracecat.db.models import Workspace
+        from autosecops.db.models import Workspace
 
         # Create service for workspace 1
         service1 = IntegrationService(session=session, role=svc_role)
@@ -4678,7 +4678,7 @@ class TestMCPProviderOAuth:
             return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.10", port))]
 
         monkeypatch.setattr(
-            "tracecat.integrations.providers.base.socket.getaddrinfo",
+            "autosecops.integrations.providers.base.socket.getaddrinfo",
             fake_getaddrinfo,
         )
 
@@ -4761,7 +4761,7 @@ class TestMCPProviderOAuth:
             integration_service, "_discover_mcp_oauth_endpoints", fake_discover
         )
         monkeypatch.setattr(
-            "tracecat.integrations.providers.base.socket.getaddrinfo",
+            "autosecops.integrations.providers.base.socket.getaddrinfo",
             fake_getaddrinfo,
         )
         monkeypatch.setattr(
@@ -5297,7 +5297,7 @@ class TestMCPProviderOAuth:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """OAuth rediscovery on reconnect goes through the integration's tunnel."""
-        from tracecat.db.models import WorkspaceTunnel
+        from autosecops.db.models import WorkspaceTunnel
 
         catalog = _catalog_entry(
             slug="tunneled-mcp",
@@ -5369,7 +5369,7 @@ class TestMCPProviderOAuth:
         session: AsyncSession,
     ) -> None:
         """OAuth calls on a connection shared across routes fail instead of going direct."""
-        from tracecat.db.models import WorkspaceTunnel
+        from autosecops.db.models import WorkspaceTunnel
 
         integration = await self._store_expired_mcp_integration(
             integration_service, session
@@ -5420,7 +5420,7 @@ class TestMCPProviderOAuth:
     async def _add_tunnel(
         self, integration_service: IntegrationService, session: AsyncSession
     ) -> uuid.UUID:
-        from tracecat.db.models import WorkspaceTunnel
+        from autosecops.db.models import WorkspaceTunnel
 
         tunnel = WorkspaceTunnel(
             workspace_id=integration_service.workspace_id,
@@ -5821,7 +5821,7 @@ class TestMCPProviderOAuth:
             integration_service, "_discover_mcp_oauth_endpoints", fake_discover
         )
         monkeypatch.setattr(
-            "tracecat.integrations.providers.base.socket.getaddrinfo",
+            "autosecops.integrations.providers.base.socket.getaddrinfo",
             fake_getaddrinfo,
         )
         monkeypatch.setattr(
@@ -6228,7 +6228,7 @@ class TestMCPProviderOAuth:
                 )
 
         monkeypatch.setattr(
-            "tracecat.integrations.providers.base.httpx.AsyncClient",
+            "autosecops.integrations.providers.base.httpx.AsyncClient",
             FakeAsyncClient,
         )
 

@@ -3,38 +3,38 @@ from typing import Any, Literal
 
 import pytest
 
-from tracecat.exceptions import TracecatExpressionError
-from tracecat.expressions.common import (
+from autosecops.exceptions import TracecatExpressionError
+from autosecops.expressions.common import (
     ExprContext,
     ExprType,
     IterableExpr,
     eval_jsonpath,
 )
-from tracecat.expressions.core import TemplateExpression
-from tracecat.expressions.eval import (
+from autosecops.expressions.core import TemplateExpression
+from autosecops.expressions.eval import (
     collect_expressions,
     eval_templated_object,
     extract_expressions,
     extract_templated_secrets,
 )
-from tracecat.expressions.parser.core import ExprParser
-from tracecat.expressions.parser.evaluator import ExprEvaluator
-from tracecat.expressions.patterns import STANDALONE_TEMPLATE
-from tracecat.expressions.validator.validator import (
+from autosecops.expressions.parser.core import ExprParser
+from autosecops.expressions.parser.evaluator import ExprEvaluator
+from autosecops.expressions.patterns import STANDALONE_TEMPLATE
+from autosecops.expressions.validator.validator import (
     ExpectedField,
     ExprValidationContext,
     ExprValidator,
     TemplateActionExprValidator,
     TemplateActionValidationContext,
 )
-from tracecat.logger import logger
-from tracecat.validation.common import get_validators
-from tracecat.validation.schemas import (
+from autosecops.logger import logger
+from autosecops.validation.common import get_validators
+from autosecops.validation.schemas import (
     ExprBaseValidationResult,
     ValidationDetail,
 )
-from tracecat.variables.schemas import VariableCreate
-from tracecat.variables.service import VariablesService
+from autosecops.variables.schemas import VariableCreate
+from autosecops.variables.service import VariablesService
 
 
 @pytest.fixture

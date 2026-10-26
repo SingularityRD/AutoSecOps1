@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 
-from tracecat.agent import runtime_services
-from tracecat.agent.otel_delivery import OtelDelivery, collector_client
+from autosecops.agent import runtime_services
+from autosecops.agent.otel_delivery import OtelDelivery, collector_client
 
 
 @pytest.mark.anyio
@@ -36,7 +36,7 @@ async def test_start_mcp_server_raises_when_socket_is_not_created(
     socket_path = tmp_path / "trusted-mcp.sock"
 
     monkeypatch.setattr(
-        "tracecat.agent.common.config.TRUSTED_MCP_SOCKET_PATH",
+        "autosecops.agent.common.config.TRUSTED_MCP_SOCKET_PATH",
         socket_path,
     )
     monkeypatch.setattr(
@@ -78,7 +78,7 @@ async def test_start_and_stop_claude_runtime_broker(
     fake_broker.start = AsyncMock()
     fake_broker.stop = AsyncMock()
     monkeypatch.setattr(
-        "tracecat.agent.runtime.claude_code.broker.ClaudeRuntimeBroker",
+        "autosecops.agent.runtime.claude_code.broker.ClaudeRuntimeBroker",
         Mock(return_value=fake_broker),
     )
     runtime_services._claude_runtime_broker = None

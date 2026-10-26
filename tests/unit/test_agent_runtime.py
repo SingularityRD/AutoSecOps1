@@ -29,44 +29,44 @@ from claude_agent_sdk.types import (
     ToolUseBlock,
 )
 
-import tracecat.agent.runtime.claude_code.runtime as runtime_module
-from tracecat.agent.common.exceptions import (
+import autosecops.agent.runtime.claude_code.runtime as runtime_module
+from autosecops.agent.common.exceptions import (
     AgentPreparationError,
     AgentSandboxProcessExitError,
     AgentSandboxValidationError,
 )
-from tracecat.agent.common.protocol import RuntimeInitPayload
-from tracecat.agent.common.socket_io import SocketStreamWriter
-from tracecat.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
-from tracecat.agent.common.types import (
+from autosecops.agent.common.protocol import RuntimeInitPayload
+from autosecops.agent.common.socket_io import SocketStreamWriter
+from autosecops.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
+from autosecops.agent.common.types import (
     MCPServerConfig,
     MCPToolDefinition,
     SandboxAgentConfig,
     SandboxSubagentConfig,
 )
-from tracecat.agent.error_policy import agent_runtime_failure
-from tracecat.agent.llm_routing import (
+from autosecops.agent.error_policy import agent_runtime_failure
+from autosecops.agent.llm_routing import (
     get_litellm_route_model,
 )
-from tracecat.agent.mcp.metadata import (
+from autosecops.agent.mcp.metadata import (
     PROXY_TOOL_CALL_ID_KEY,
     PROXY_TOOL_METADATA_KEY,
 )
-from tracecat.agent.runtime.claude_code.runtime import (
+from autosecops.agent.runtime.claude_code.runtime import (
     CLAUDE_SDK_MAX_BUFFER_SIZE_BYTES,
     TRUSTED_MCP_BRIDGE_URL,
     ClaudeAgentRuntime,
     _claude_project_dir_name,
 )
-from tracecat.agent.runtime.claude_code.session_lines import (
+from autosecops.agent.runtime.claude_code.session_lines import (
     MODEL_CONTEXT_PROMPT_PREFIX,
 )
-from tracecat.agent.runtime.claude_code.transport import SandboxedCLITransport
-from tracecat.agent.subagents import AgentSubagentsConfig
-from tracecat.agent.types import AgentConfig
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.runtime.errors import RetryDisposition, RuntimeErrorKind
-from tracecat.sandbox.exceptions import SandboxFileSafetyError
+from autosecops.agent.runtime.claude_code.transport import SandboxedCLITransport
+from autosecops.agent.subagents import AgentSubagentsConfig
+from autosecops.agent.types import AgentConfig
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.runtime.errors import RetryDisposition, RuntimeErrorKind
+from autosecops.sandbox.exceptions import SandboxFileSafetyError
 
 
 @pytest.fixture
@@ -190,7 +190,7 @@ def captured_options(mock_claude_sdk_client: MagicMock) -> Iterator[list[Any]]:
         return mock_claude_sdk_client
 
     with patch(
-        "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+        "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
         side_effect=_mock_client_ctor,
     ):
         yield captured
@@ -318,7 +318,7 @@ class TestClaudeAgentRuntimeRun:
         """Test that runtime sends done signal on completion."""
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
         ):
@@ -361,14 +361,16 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
-            patch("tracecat.agent.runtime.claude_code.runtime.StreamEvent", MagicMock),
+            patch(
+                "autosecops.agent.runtime.claude_code.runtime.StreamEvent", MagicMock
+            ),
         ):
             runtime = ClaudeAgentRuntime(
                 mock_socket_writer, transport_factory=lambda _: MagicMock()
@@ -400,11 +402,11 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
         ):
@@ -465,11 +467,11 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
         ):
@@ -564,11 +566,11 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
         ):
@@ -648,7 +650,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
         ):
@@ -753,11 +755,11 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
         ):
@@ -809,7 +811,7 @@ class TestClaudeAgentRuntimeRun:
         mock_claude_sdk_client.connect.side_effect = connect_client
 
         with patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ):
             runtime = ClaudeAgentRuntime(
@@ -832,7 +834,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
             pytest.raises(ValueError, match="Test error"),
@@ -1688,7 +1690,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 side_effect=_mock_client_ctor,
             ),
         ):
@@ -1760,7 +1762,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 side_effect=_mock_client_ctor,
             ),
         ):
@@ -1857,7 +1859,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
         ):
@@ -1969,11 +1971,11 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 side_effect=_mock_client_ctor,
             ),
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKAdapter",
                 return_value=mock_adapter,
             ),
         ):
@@ -2008,7 +2010,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 return_value=mock_claude_sdk_client,
             ),
         ):
@@ -2049,7 +2051,7 @@ class TestClaudeAgentRuntimeRun:
 
         with (
             patch(
-                "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                 side_effect=_mock_client_ctor,
             ),
         ):
@@ -2294,7 +2296,7 @@ class TestClaudeAgentRuntimePreToolUseHook:
                 }
             ]
         with patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ) as client_ctor:
             await runtime.run(
@@ -2796,7 +2798,7 @@ class TestClaudeAgentRuntimeStopHook:
         mock_socket_writer: MagicMock,
     ) -> None:
         """The first MAX_STOP_HOOK_RETRIES active retries pass through unchanged."""
-        from tracecat.agent.runtime.claude_code.runtime import MAX_STOP_HOOK_RETRIES
+        from autosecops.agent.runtime.claude_code.runtime import MAX_STOP_HOOK_RETRIES
 
         runtime = ClaudeAgentRuntime(
             mock_socket_writer, transport_factory=lambda _: MagicMock()
@@ -2818,7 +2820,7 @@ class TestClaudeAgentRuntimeStopHook:
         mock_socket_writer: MagicMock,
     ) -> None:
         """Once retries exceed the cap, the hook must stop the turn cleanly."""
-        from tracecat.agent.runtime.claude_code.runtime import MAX_STOP_HOOK_RETRIES
+        from autosecops.agent.runtime.claude_code.runtime import MAX_STOP_HOOK_RETRIES
 
         runtime = ClaudeAgentRuntime(
             mock_socket_writer, transport_factory=lambda _: MagicMock()
@@ -3586,7 +3588,7 @@ async def test_run_rebuilds_sandbox_process_exit_from_transport_exit_code(
 
     with (
         patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ),
         pytest.raises(AgentSandboxProcessExitError) as excinfo,
@@ -3639,7 +3641,7 @@ async def test_run_does_not_attribute_process_exit_when_nsjail_is_disabled(
 
     with (
         patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ),
         pytest.raises(ValueError, match="Test error"),
@@ -3680,7 +3682,7 @@ async def test_run_keeps_original_error_for_non_resource_limit_exit_code(
 
     with (
         patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ),
         pytest.raises(AgentSandboxValidationError, match="Bad agent config"),
@@ -3713,7 +3715,7 @@ async def test_run_keeps_original_error_when_sandbox_process_did_not_exit(
 
     with (
         patch(
-            "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+            "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
             return_value=mock_claude_sdk_client,
         ),
         pytest.raises(ValueError, match="Test error"),

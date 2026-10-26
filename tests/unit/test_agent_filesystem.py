@@ -16,8 +16,8 @@ from typing import Any, Literal, cast
 
 import pytest
 
-from tracecat import config
-from tracecat.agent.filesystem import (
+from autosecops import config
+from autosecops.agent.filesystem import (
     AgentFilesystemService,
     AgentFilesystemSnapshotLimitExceeded,
     AgentFilesystemSnapshotMetadata,
@@ -124,11 +124,11 @@ def _patch_storage(
         AgentFilesystemService, "with_session", staticmethod(fake_with_session)
     )
     monkeypatch.setattr(
-        "tracecat.agent.filesystem.blob.upload_file_from_path",
+        "autosecops.agent.filesystem.blob.upload_file_from_path",
         fake_upload_file_from_path,
     )
     monkeypatch.setattr(
-        "tracecat.agent.filesystem.blob.download_file_to_path",
+        "autosecops.agent.filesystem.blob.download_file_to_path",
         download or fail_download_file_to_path,
     )
 
@@ -275,7 +275,7 @@ def test_work_dir_traversal_fails_on_walk_error(
     work_dir.mkdir()
     archive_path = tmp_path / "snapshot.tar.gz"
     monkeypatch.setattr(
-        "tracecat.agent.filesystem.os.walk", _failing_walk(work_dir / "restricted")
+        "autosecops.agent.filesystem.os.walk", _failing_walk(work_dir / "restricted")
     )
 
     with pytest.raises(OSError, match="Failed to traverse"):
@@ -331,7 +331,7 @@ def test_archive_does_not_follow_file_replaced_by_symlink(
             victim.symlink_to(secret)
         return real_open(path, flags, mode)
 
-    monkeypatch.setattr("tracecat.agent.filesystem.os.open", racing_open)
+    monkeypatch.setattr("autosecops.agent.filesystem.os.open", racing_open)
 
     archive_path = tmp_path / "snapshot.tar.gz"
     stats = create_work_dir_archive(
@@ -370,7 +370,7 @@ def test_archive_opens_candidate_files_nonblocking(
         observed_flags.append(flags)
         return real_open(path, flags, mode)
 
-    monkeypatch.setattr("tracecat.agent.filesystem.os.open", recording_open)
+    monkeypatch.setattr("autosecops.agent.filesystem.os.open", recording_open)
 
     create_work_dir_archive(
         work_dir,
@@ -458,7 +458,7 @@ def test_extract_to_work_dir_surfaces_existing_work_dir_removal_failure(
             raise PermissionError("permission denied")
         original_rmtree(path, *args, **kwargs)
 
-    monkeypatch.setattr("tracecat.agent.filesystem.shutil.rmtree", fake_rmtree)
+    monkeypatch.setattr("autosecops.agent.filesystem.shutil.rmtree", fake_rmtree)
 
     with pytest.raises(PermissionError, match="permission denied"):
         _extract_archive_to_work_dir(archive_path, work_dir)

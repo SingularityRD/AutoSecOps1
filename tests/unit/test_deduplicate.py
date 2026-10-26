@@ -14,7 +14,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from tracecat_registry.core.transform import (
+from autosecops_registry.core.transform import (
     _compute_digests,
     deduplicate,
     is_duplicate,
@@ -68,7 +68,7 @@ class TestDeduplicateClientPath:
     @pytest.mark.anyio
     async def test_create_digests_path(self) -> None:
         """SDK posts to /deduplicate/digests with correct payload."""
-        from tracecat_registry.sdk.deduplicate import DeduplicateClient
+        from autosecops_registry.sdk.deduplicate import DeduplicateClient
 
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value={"created": [True, False]})
@@ -102,7 +102,7 @@ class TestDeduplicateTransform:
 
         items = [{"id": 1, "v": "a"}, {"id": 2, "v": "b"}]
 
-        with patch("tracecat_registry.ctx.get_context", return_value=mock_ctx):
+        with patch("autosecops_registry.ctx.get_context", return_value=mock_ctx):
             result = await deduplicate(items, keys=["id"], persist=True)
 
         mock_dedup_client.create_digests.assert_called_once()
@@ -114,7 +114,7 @@ class TestDeduplicateTransform:
         """persist=False does within-call dedup only, no SDK call."""
         mock_ctx = MagicMock()
 
-        with patch("tracecat_registry.ctx.get_context", return_value=mock_ctx):
+        with patch("autosecops_registry.ctx.get_context", return_value=mock_ctx):
             result = await deduplicate(
                 [{"id": 1}, {"id": 1}, {"id": 2}],
                 keys=["id"],
@@ -142,7 +142,7 @@ class TestDeduplicateTransform:
         mock_ctx = MagicMock()
         mock_ctx.deduplicate = mock_dedup_client
 
-        with patch("tracecat_registry.ctx.get_context", return_value=mock_ctx):
+        with patch("autosecops_registry.ctx.get_context", return_value=mock_ctx):
             result = await is_duplicate({"id": 1}, keys=["id"])
 
         assert result is expected
@@ -153,7 +153,7 @@ class TestDeduplicateTransform:
         """Empty input returns empty list without calling SDK."""
         mock_ctx = MagicMock()
 
-        with patch("tracecat_registry.ctx.get_context", return_value=mock_ctx):
+        with patch("autosecops_registry.ctx.get_context", return_value=mock_ctx):
             result = await deduplicate([], keys=["id"], persist=True)
 
         assert result == []
@@ -179,8 +179,8 @@ class TestCheckAndSetRouter:
     @pytest.mark.anyio
     async def test_create_digests_sequential(self) -> None:
         """Small batch uses sequential set_if_not_exists calls."""
-        from tracecat.contexts import ctx_role
-        from tracecat.deduplicate.internal_router import (
+        from autosecops.contexts import ctx_role
+        from autosecops.deduplicate.internal_router import (
             CreateDigestsRequest,
             create_digests,
         )
@@ -196,7 +196,7 @@ class TestCheckAndSetRouter:
         token = ctx_role.set(role)
         try:
             with patch(
-                "tracecat.deduplicate.internal_router.get_redis_client",
+                "autosecops.deduplicate.internal_router.get_redis_client",
                 return_value=mock_redis,
             ):
                 response = await create_digests(role=role, request=request)
@@ -215,8 +215,8 @@ class TestCheckAndSetRouter:
     @pytest.mark.anyio
     async def test_create_digests_pipeline(self) -> None:
         """Large batch (>10) uses pipeline path."""
-        from tracecat.contexts import ctx_role
-        from tracecat.deduplicate.internal_router import (
+        from autosecops.contexts import ctx_role
+        from autosecops.deduplicate.internal_router import (
             CreateDigestsRequest,
             create_digests,
         )
@@ -238,7 +238,7 @@ class TestCheckAndSetRouter:
         token = ctx_role.set(role)
         try:
             with patch(
-                "tracecat.deduplicate.internal_router.get_redis_client",
+                "autosecops.deduplicate.internal_router.get_redis_client",
                 return_value=mock_redis,
             ):
                 response = await create_digests(role=role, request=request)
@@ -252,8 +252,8 @@ class TestCheckAndSetRouter:
     @pytest.mark.anyio
     async def test_workspace_isolation(self) -> None:
         """Different workspaces get different Redis key prefixes."""
-        from tracecat.contexts import ctx_role
-        from tracecat.deduplicate.internal_router import (
+        from autosecops.contexts import ctx_role
+        from autosecops.deduplicate.internal_router import (
             CreateDigestsRequest,
             create_digests,
         )
@@ -274,7 +274,7 @@ class TestCheckAndSetRouter:
             token = ctx_role.set(role)
             try:
                 with patch(
-                    "tracecat.deduplicate.internal_router.get_redis_client",
+                    "autosecops.deduplicate.internal_router.get_redis_client",
                     return_value=mock_redis,
                 ):
                     await create_digests(role=role, request=request)

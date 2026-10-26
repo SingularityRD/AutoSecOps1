@@ -14,16 +14,16 @@ from temporalio import activity, workflow
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from tracecat.agent.worker import new_sandbox_runner
-from tracecat.agent.workflow_config import (
+from autosecops.agent.worker import new_sandbox_runner
+from autosecops.agent.workflow_config import (
     agent_config_from_payload,
     agent_config_to_payload,
 )
-from tracecat.agent.workflow_schemas import AgentConfigPayload
-from tracecat.dsl._converter import get_data_converter
+from autosecops.agent.workflow_schemas import AgentConfigPayload
+from autosecops.dsl._converter import get_data_converter
 
 with workflow.unsafe.imports_passed_through():
-    from tracecat.agent.types import AgentConfig as TracecatAgentConfig
+    from autosecops.agent.types import AgentConfig as TracecatAgentConfig
 
 pytestmark = [pytest.mark.temporal]
 

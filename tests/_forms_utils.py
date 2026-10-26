@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import INTAKE_SCOPES
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import INTAKE_SCOPES
+from autosecops.db.models import (
     Form,
     FormFile,
     FormSubmission,
@@ -22,11 +22,11 @@ from tracecat.db.models import (
     Workflow,
     Workspace,
 )
-from tracecat.dsl.common import DSLInput
-from tracecat.forms.enums import FormStatus
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.storage import blob
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.dsl.common import DSLInput
+from autosecops.forms.enums import FormStatus
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.storage import blob
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
 
 READER_SCOPES = INTAKE_SCOPES | {"form:submission:read"}
 PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -225,7 +225,7 @@ class FakeTemporal:
 
 @dataclass
 class FakeBlobStore:
-    """In-memory stand-in for the functions of ``tracecat.storage.blob``."""
+    """In-memory stand-in for the functions of ``autosecops.storage.blob``."""
 
     objects: dict[str, bytes] = field(default_factory=dict)
     content_types: dict[str, str | None] = field(default_factory=dict)

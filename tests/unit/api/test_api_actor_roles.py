@@ -11,32 +11,32 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from temporalio.client import WorkflowExecutionStatus
 
-from tracecat.agent import router as agent_router
-from tracecat.agent.catalog import router as agent_catalog_router
-from tracecat.agent.catalog.schemas import (
+from autosecops.agent import router as agent_router
+from autosecops.agent.catalog import router as agent_catalog_router
+from autosecops.agent.catalog.schemas import (
     WorkspaceAgentModelListResponse,
     WorkspaceAgentModelRead,
 )
-from tracecat.auth.dependencies import (
+from autosecops.auth.dependencies import (
     WorkspaceActorRouteRole,
     WorkspaceUserRouteRole,
 )
-from tracecat.auth.types import Role
-from tracecat.cases import router as cases_router
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Workflow, Workspace
-from tracecat.integrations import router as integrations_router
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.organization import router as organization_router
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.registry.repositories import router as registry_repos_router
-from tracecat.settings import router as settings_router
-from tracecat.vcs import router as vcs_router
-from tracecat.workflow.executions import router as workflow_executions_router
-from tracecat.workflow.executions.service import WorkflowExecutionsService
-from tracecat.workflow.management import router as workflow_management_router
-from tracecat.workflow.management.types import WorkflowDefinitionMinimal
-from tracecat.workspaces import router as workspaces_router
+from autosecops.auth.types import Role
+from autosecops.cases import router as cases_router
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Workflow, Workspace
+from autosecops.integrations import router as integrations_router
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.organization import router as organization_router
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.registry.repositories import router as registry_repos_router
+from autosecops.settings import router as settings_router
+from autosecops.vcs import router as vcs_router
+from autosecops.workflow.executions import router as workflow_executions_router
+from autosecops.workflow.executions.service import WorkflowExecutionsService
+from autosecops.workflow.management import router as workflow_management_router
+from autosecops.workflow.management.types import WorkflowDefinitionMinimal
+from autosecops.workspaces import router as workspaces_router
 
 
 @pytest.fixture

@@ -4,19 +4,19 @@ from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
-from temporalio.exceptions import ApplicationError
-from tracecat_registry import ActionIsInterfaceError
-from tracecat_registry.integrations.agents import slack
-from tracecat_registry.integrations.agents.slack import (
+from autosecops_registry import ActionIsInterfaceError
+from autosecops_registry.integrations.agents import slack
+from autosecops_registry.integrations.agents.slack import (
     PreparedSlackbotPrompt,
     SlackbotContext,
 )
+from temporalio.exceptions import ApplicationError
 
-from tracecat.auth.types import Role
-from tracecat.dsl import action as dsl_action
-from tracecat.dsl.action import BuildAgentArgsActivityInput, DSLActivities
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.auth.types import Role
+from autosecops.dsl import action as dsl_action
+from autosecops.dsl.action import BuildAgentArgsActivityInput, DSLActivities
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.registry.lock.types import RegistryLock
 
 
 @pytest.mark.anyio

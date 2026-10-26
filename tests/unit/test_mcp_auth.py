@@ -26,10 +26,10 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 from starlette.types import Receive, Scope, Send
 
-from tracecat.auth.types import Role
-from tracecat.mcp import auth as mcp_auth
-from tracecat.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
-from tracecat.mcp.personal_access_tokens.types import MCPPATIdentity
+from autosecops.auth.types import Role
+from autosecops.mcp import auth as mcp_auth
+from autosecops.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
+from autosecops.mcp.personal_access_tokens.types import MCPPATIdentity
 
 type AsyncLookup = Callable[..., Awaitable[object]]
 
@@ -70,7 +70,7 @@ def _build_test_auth(
     # Use in-memory store instead of Redis for tests
     monkeypatch.setattr(mcp_auth, "REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.setattr(
-        "tracecat.config.TRACECAT__DB_ENCRYPTION_KEY",
+        "autosecops.config.TRACECAT__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode() if enable_refresh_tokens else "",
     )
     monkeypatch.setattr(mcp_auth.AsyncRedis, "from_url", lambda *a, **kw: MagicMock())
@@ -86,11 +86,11 @@ def _build_test_auth(
                 return_value=_mock_oidc_discovery_config(),
             ),
             patch(
-                "tracecat.mcp.auth.RedisStore",
+                "autosecops.mcp.auth.RedisStore",
                 return_value=MemoryStore(),
             ),
             patch(
-                "tracecat.mcp.auth.PrefixCollectionsWrapper",
+                "autosecops.mcp.auth.PrefixCollectionsWrapper",
                 side_effect=lambda store, **kw: store,
             ),
         ):

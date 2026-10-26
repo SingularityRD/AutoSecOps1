@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling >= 1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autosecops-benchmark"
+version = "0.1.0"
+description = "Internal end-to-end benchmarking tooling for AutoSecOps"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LicenseRef-Proprietary"
+authors = [{ name = "SingularityRD" }]
+dependencies = [
+    "asyncpg==0.29.0",
+    "httpx==0.28.1",
+    "python-dotenv==1.2.2",
+    "pyyaml==6.0.3",
+    "rich==13.9.4",
+    "sqlalchemy==2.0.45",
+    "temporalio==1.20.0",
+    "autosecops",
+]
+
+[project.scripts]
+autosecops-benchmark = "autosecops_benchmark.matrix:main"
+autosecops-benchmark-kubernetes = "autosecops_benchmark.kubernetes:main"
+autosecops-benchmark-viewer = "autosecops_benchmark.viewer:main"
+
+[tool.uv.sources]
+autosecops = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["autosecops_benchmark"]
+artifacts = [
+    "autosecops_benchmark/examples/*",
+    "autosecops_benchmark/fixtures/*",
+    "autosecops_benchmark/pgdog/*",
+    "autosecops_benchmark/viewer.html",
+]

@@ -10,21 +10,21 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from slack_sdk.errors import SlackApiError
 
-from tracecat import config
-from tracecat.agent.channels.handlers.slack import (
+from autosecops import config
+from autosecops.agent.channels.handlers.slack import (
     SLACK_EVENT_DEDUP_TTL_SECONDS,
     SlackChannelHandler,
     SlackMentioningUserProfile,
 )
-from tracecat.agent.channels.schemas import (
+from autosecops.agent.channels.schemas import (
     ChannelType,
     SlackChannelTokenConfig,
     ValidatedChannelToken,
 )
-from tracecat.agent.channels.service import AgentChannelService
-from tracecat.auth.types import Role
-from tracecat.chat.schemas import BasicChatRequest
-from tracecat.exceptions import TracecatValidationError
+from autosecops.agent.channels.service import AgentChannelService
+from autosecops.auth.types import Role
+from autosecops.chat.schemas import BasicChatRequest
+from autosecops.exceptions import TracecatValidationError
 
 
 class _FakeSlackResponse:
@@ -63,7 +63,7 @@ class _FakeSlackClient:
         return _FakeSlackResponse(self.responses.get(api_method))
 
 
-_SLACK = "tracecat.agent.channels.handlers.slack"
+_SLACK = "autosecops.agent.channels.handlers.slack"
 _APP_MENTION_EVENT = {
     "type": "app_mention",
     "ts": "1700000000.123",

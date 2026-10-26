@@ -13,19 +13,19 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import grant_org_membership
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.users import UserManager
-from tracecat.authz.seeding import seed_system_roles_for_org
-from tracecat.db.models import (
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.users import UserManager
+from autosecops.authz.seeding import seed_system_roles_for_org
+from autosecops.db.models import (
     Organization,
     OrganizationMembership,
     User,
     UserRoleAssignment,
 )
-from tracecat.organization.management import (
+from autosecops.organization.management import (
     ensure_single_tenant_user_defaults_for_session,
 )
+from tests.support.membership import grant_org_membership
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -109,10 +109,10 @@ async def test_registration_does_not_enroll(
 
     defaults = AsyncMock(return_value=None)
     monkeypatch.setattr(
-        "tracecat.auth.users.ensure_single_tenant_user_defaults", defaults
+        "autosecops.auth.users.ensure_single_tenant_user_defaults", defaults
     )
     monkeypatch.setattr(
-        "tracecat.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL", None
+        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL", None
     )
 
     manager = UserManager.__new__(UserManager)

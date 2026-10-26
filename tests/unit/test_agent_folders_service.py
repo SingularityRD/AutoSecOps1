@@ -8,27 +8,27 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.folders.schemas import (
+from autosecops.agent.folders.schemas import (
     AgentFolderDirectoryItem,
     AgentPresetDirectoryItem,
 )
-from tracecat.agent.folders.service import (
+from autosecops.agent.folders.service import (
     AgentFolderErrorCode,
     AgentFolderService,
 )
-from tracecat.agent.preset.schemas import AgentPresetToolSummary
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentFolder, AgentPreset, MCPIntegration
-from tracecat.exceptions import (
+from autosecops.agent.preset.schemas import AgentPresetToolSummary
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentFolder, AgentPreset, MCPIntegration
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.service import IntegrationService
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tiers.enums import Entitlement
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.service import IntegrationService
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tiers.enums import Entitlement
 
 pytestmark = pytest.mark.usefixtures("db")
 

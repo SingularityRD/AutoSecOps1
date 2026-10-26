@@ -8,14 +8,14 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.common.stream_types import HarnessType
-from tracecat.auth.types import Role
-from tracecat.chat.enums import MessageKind
-from tracecat.db.models import AgentSession, AgentSessionHistory, Approval
-from tracecat.inbox.providers.agent_runs import AgentRunsInboxProvider
-from tracecat.inbox.schemas import InboxItemRead
-from tracecat.inbox.types import InboxGroup, InboxItemStatus
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.common.stream_types import HarnessType
+from autosecops.auth.types import Role
+from autosecops.chat.enums import MessageKind
+from autosecops.db.models import AgentSession, AgentSessionHistory, Approval
+from autosecops.inbox.providers.agent_runs import AgentRunsInboxProvider
+from autosecops.inbox.schemas import InboxItemRead
+from autosecops.inbox.types import InboxGroup, InboxItemStatus
 
 pytestmark = [
     pytest.mark.anyio,

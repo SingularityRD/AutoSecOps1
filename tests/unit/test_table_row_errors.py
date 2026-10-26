@@ -9,11 +9,11 @@ from asyncpg.exceptions import CheckViolationError, NotNullViolationError
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Table, TableColumn
-from tracecat.tables.enums import SqlType
-from tracecat.tables.exceptions import TableRowError
-from tracecat.tables.service import BaseTablesService, _execute_row_write
+from autosecops.auth.types import Role
+from autosecops.db.models import Table, TableColumn
+from autosecops.tables.enums import SqlType
+from autosecops.tables.exceptions import TableRowError
+from autosecops.tables.service import BaseTablesService, _execute_row_write
 
 
 @pytest.fixture

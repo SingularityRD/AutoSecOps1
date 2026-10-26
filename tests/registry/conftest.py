@@ -6,9 +6,11 @@ from contextlib import AbstractContextManager
 
 import httpx
 import pytest
+from autosecops_registry import secrets
+from autosecops_registry.integrations import (
+    _microsoft_graph_transport as graph_transport,
+)
 from msgraph_core import GraphClientFactory
-from tracecat_registry import secrets
-from tracecat_registry.integrations import _microsoft_graph_transport as graph_transport
 
 type GraphHandler = Callable[[httpx.Request], httpx.Response]
 type InstallGraphTransport = Callable[[GraphHandler], list[httpx.Request]]

@@ -7,8 +7,8 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from tracecat.auth.credentials import _authenticate_service, compute_effective_scopes
-from tracecat.auth.types import Role
+from autosecops.auth.credentials import _authenticate_service, compute_effective_scopes
+from autosecops.auth.types import Role
 
 
 class MockHeaders(dict):
@@ -132,10 +132,10 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-runner"],
         )
 
@@ -169,10 +169,10 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-runner"],
         )
 
@@ -193,15 +193,15 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-runner"],
         )
         derived_org_id = uuid4()
         monkeypatch.setattr(
-            "tracecat.auth.credentials._get_workspace_org_id",
+            "autosecops.auth.credentials._get_workspace_org_id",
             AsyncMock(return_value=derived_org_id),
         )
 
@@ -223,10 +223,10 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-runner"],
         )
 
@@ -253,10 +253,10 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-api"],
         )
 
@@ -290,10 +290,10 @@ class TestAuthenticateServiceRoundtrip:
     ) -> None:
         """A SCIM role never crosses a service hop, not even as a plain service."""
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "tracecat.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
+            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
             ["tracecat-api"],
         )
         scim_role = Role(

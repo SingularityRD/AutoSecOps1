@@ -9,8 +9,8 @@ import boto3
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from tracecat.db import models  # noqa: F401
-from tracecat.db.migration_lock import (
+from autosecops.db import models  # noqa: F401
+from autosecops.db.migration_lock import (
     acquire_migration_advisory_lock,
     release_migration_advisory_lock,
 )

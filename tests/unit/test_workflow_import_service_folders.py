@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.store.import_service import WorkflowImportService
-from tracecat.workflow.store.schemas import RemoteWorkflowDefinition
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.store.import_service import WorkflowImportService
+from autosecops.workflow.store.schemas import RemoteWorkflowDefinition
 
 
 @pytest.fixture
@@ -154,7 +154,7 @@ class TestWorkflowImportServiceFolders:
         mock_defn_service = AsyncMock()
         mock_defn_service.create_workflow_definition.return_value = Mock(version=1)
         with patch(
-            "tracecat.workflow.store.import_service.WorkflowDefinitionsService",
+            "autosecops.workflow.store.import_service.WorkflowDefinitionsService",
             return_value=mock_defn_service,
         ):
             await service._create_new_workflow(remote, sync_schedules=sync_schedules)

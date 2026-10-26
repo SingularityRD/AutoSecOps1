@@ -5,13 +5,13 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.db.models import Organization, OrganizationTier, Tier
-from tracecat.exceptions import EntitlementRequired
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.tiers.access import is_org_entitled
-from tracecat.tiers.entitlements import Entitlement, EntitlementService
-from tracecat.tiers.service import TierService
+from autosecops import config
+from autosecops.db.models import Organization, OrganizationTier, Tier
+from autosecops.exceptions import EntitlementRequired
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.tiers.access import is_org_entitled
+from autosecops.tiers.entitlements import Entitlement, EntitlementService
+from autosecops.tiers.service import TierService
 
 pytestmark = pytest.mark.usefixtures("db")
 

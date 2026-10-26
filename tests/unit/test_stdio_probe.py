@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tracecat.agent.mcp.stdio_probe import (
+from autosecops.agent.mcp.stdio_probe import (
     MCP_STDIO_PROBE_HARD_TIMEOUT_BUFFER,
     MCP_STDIO_PROBE_TIMEOUT_CAP,
     build_stdio_mcp_probe_workflow_id,
     probe_stdio_mcp_tools_in_sandbox,
     sanitize_stdio_probe_error,
 )
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.sandbox.exceptions import SandboxTimeoutError
-from tracecat.sandbox.types import (
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.sandbox.exceptions import SandboxTimeoutError
+from autosecops.sandbox.types import (
     SandboxErrorCode,
     SandboxNetworkPurpose,
     SandboxResult,
@@ -147,12 +147,12 @@ async def test_probe_falls_back_to_pid_isolation_without_nsjail() -> None:
     """Without nsjail, the probe runs under the best-effort PID fallback."""
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
-        patch("tracecat.agent.mcp.stdio_probe.NsjailExecutor") as executor_cls,
+        patch("autosecops.agent.mcp.stdio_probe.NsjailExecutor") as executor_cls,
         patch(
-            "tracecat.agent.mcp.stdio_probe._execute_probe_without_nsjail",
+            "autosecops.agent.mcp.stdio_probe._execute_probe_without_nsjail",
             new_callable=AsyncMock,
         ) as fallback,
     ):
@@ -206,23 +206,23 @@ async def test_probe_runs_in_sandbox_when_nsjail_enabled(
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__AGENT_SANDBOX_MEMORY_MB",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__AGENT_SANDBOX_MEMORY_MB",
             memory_mb,
         ),
         patch(
-            "tracecat.agent.sandbox.config.TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB",
+            "autosecops.agent.sandbox.config.TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB",
             address_space_mb,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.sandbox_cgroup",
+            "autosecops.agent.mcp.stdio_probe.sandbox_cgroup",
             return_value=Path("/cgroup"),
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.NsjailExecutor",
+            "autosecops.agent.mcp.stdio_probe.NsjailExecutor",
             return_value=executor,
         ),
     ):
@@ -257,15 +257,15 @@ async def test_probe_timeout_leaves_buffer_before_nsjail_limit() -> None:
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.sandbox_cgroup",
+            "autosecops.agent.mcp.stdio_probe.sandbox_cgroup",
             return_value=Path("/cgroup"),
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.NsjailExecutor",
+            "autosecops.agent.mcp.stdio_probe.NsjailExecutor",
             return_value=executor,
         ),
     ):
@@ -301,15 +301,15 @@ async def test_probe_returns_friendly_structured_timeout() -> None:
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.sandbox_cgroup",
+            "autosecops.agent.mcp.stdio_probe.sandbox_cgroup",
             return_value=Path("/cgroup"),
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.NsjailExecutor",
+            "autosecops.agent.mcp.stdio_probe.NsjailExecutor",
             return_value=executor,
         ),
     ):
@@ -334,15 +334,15 @@ async def test_probe_returns_friendly_sandbox_timeout() -> None:
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.sandbox_cgroup",
+            "autosecops.agent.mcp.stdio_probe.sandbox_cgroup",
             return_value=Path("/cgroup"),
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.NsjailExecutor",
+            "autosecops.agent.mcp.stdio_probe.NsjailExecutor",
             return_value=executor,
         ),
     ):
@@ -363,11 +363,11 @@ async def test_probe_filters_unsupported_stdio_tool_names() -> None:
     """Probe results only persist tool names the runtime can expose."""
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe._execute_probe_without_nsjail",
+            "autosecops.agent.mcp.stdio_probe._execute_probe_without_nsjail",
             new_callable=AsyncMock,
         ) as fallback,
     ):
@@ -403,13 +403,13 @@ async def test_pid_fallback_probes_real_stdio_mcp_server(tmp_path: Path) -> None
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         # Force the plain-subprocess path so the test behaves the same on
         # hosts with and without unshare.
         patch(
-            "tracecat.agent.mcp.stdio_probe.pid_namespace_available",
+            "autosecops.agent.mcp.stdio_probe.pid_namespace_available",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -432,11 +432,11 @@ async def test_pid_fallback_reports_launch_failure(tmp_path: Path) -> None:
     """A command that is not an MCP server yields a clean failure result."""
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.pid_namespace_available",
+            "autosecops.agent.mcp.stdio_probe.pid_namespace_available",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -458,11 +458,11 @@ async def test_pid_fallback_reports_friendly_timeout() -> None:
     """The real probe script reports a timeout without sandbox diagnostics."""
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.pid_namespace_available",
+            "autosecops.agent.mcp.stdio_probe.pid_namespace_available",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -501,11 +501,11 @@ raise RuntimeError("synthetic startup failure")
 
     with (
         patch(
-            "tracecat.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.mcp.stdio_probe.pid_namespace_available",
+            "autosecops.agent.mcp.stdio_probe.pid_namespace_available",
             new_callable=AsyncMock,
             return_value=False,
         ),

@@ -1,4 +1,4 @@
-from tracecat.temporal.patches import ExecuteRegistryToolWorkflowPatch, WorkflowPatch
+from autosecops.temporal.patches import ExecuteRegistryToolWorkflowPatch, WorkflowPatch
 
 
 def test_workflow_patch_ids_are_history_stable() -> None:

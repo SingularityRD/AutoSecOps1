@@ -9,14 +9,14 @@ from unittest.mock import AsyncMock, call
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import RegistryRepository
-from tracecat.exceptions import RegistryNotFound, ScopeDeniedError
-from tracecat.registry.actions.types import RepositorySyncOutcome
-from tracecat.registry.repositories.schemas import RegistryRepositorySync
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.ssh import SshEnv
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import RegistryRepository
+from autosecops.exceptions import RegistryNotFound, ScopeDeniedError
+from autosecops.registry.actions.types import RepositorySyncOutcome
+from autosecops.registry.repositories.schemas import RegistryRepositorySync
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.ssh import SshEnv
 
 
 @pytest.fixture
@@ -179,18 +179,18 @@ async def test_temporal_git_sync_skips_api_ssh_context(
         list_actions_from_index_by_repository=mocker.AsyncMock(return_value=[]),
     )
     mocker.patch(
-        "tracecat.registry.actions.service.RegistryActionsService",
+        "autosecops.registry.actions.service.RegistryActionsService",
         return_value=actions_service,
     )
     mocker.patch(
-        "tracecat.registry.repositories.service.check_entitlement",
+        "autosecops.registry.repositories.service.check_entitlement",
         mocker.AsyncMock(),
     )
     mocker.patch(
-        "tracecat.registry.repositories.service.get_setting",
+        "autosecops.registry.repositories.service.get_setting",
         mocker.AsyncMock(side_effect=["registry", {"git.example.test"}]),
     )
-    ssh_context = mocker.patch("tracecat.registry.repositories.service.ssh_context")
+    ssh_context = mocker.patch("autosecops.registry.repositories.service.ssh_context")
     service = RegistryReposService(session, role=role_with_update_scope)
     mocker.patch.object(
         service,
@@ -231,15 +231,15 @@ async def test_direct_git_sync_preserves_api_ssh_context(
         list_actions_from_index_by_repository=mocker.AsyncMock(return_value=[]),
     )
     mocker.patch(
-        "tracecat.registry.actions.service.RegistryActionsService",
+        "autosecops.registry.actions.service.RegistryActionsService",
         return_value=actions_service,
     )
     mocker.patch(
-        "tracecat.registry.repositories.service.check_entitlement",
+        "autosecops.registry.repositories.service.check_entitlement",
         mocker.AsyncMock(),
     )
     mocker.patch(
-        "tracecat.registry.repositories.service.get_setting",
+        "autosecops.registry.repositories.service.get_setting",
         mocker.AsyncMock(side_effect=["registry", {"git.example.test"}]),
     )
     ssh_env = SshEnv(ssh_auth_sock="/tmp/synthetic-agent.sock", ssh_agent_pid="123")
@@ -249,7 +249,7 @@ async def test_direct_git_sync_preserves_api_ssh_context(
         yield ssh_env
 
     ssh_context = mocker.patch(
-        "tracecat.registry.repositories.service.ssh_context",
+        "autosecops.registry.repositories.service.ssh_context",
         side_effect=fake_ssh_context,
     )
     service = RegistryReposService(session, role=role_with_update_scope)

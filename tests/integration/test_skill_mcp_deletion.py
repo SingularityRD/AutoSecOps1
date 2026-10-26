@@ -7,15 +7,15 @@ import pytest
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from autosecops.agent.skill.frontmatter import SkillFrontmatter, SkillMetadata
+from autosecops.agent.skill.service import ManifestValidationResult, SkillService
+from autosecops.agent.skill.types import ResolvedSkillMcpTool, SkillToolProjection
+from autosecops.auth.types import Role
+from autosecops.db.models import MCPIntegration, Skill, SkillVersionMcpTool, Workspace
+from autosecops.exceptions import TracecatValidationError
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.service import IntegrationService
 from tests.database import TEST_DB_CONFIG
-from tracecat.agent.skill.frontmatter import SkillFrontmatter, SkillMetadata
-from tracecat.agent.skill.service import ManifestValidationResult, SkillService
-from tracecat.agent.skill.types import ResolvedSkillMcpTool, SkillToolProjection
-from tracecat.auth.types import Role
-from tracecat.db.models import MCPIntegration, Skill, SkillVersionMcpTool, Workspace
-from tracecat.exceptions import TracecatValidationError
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.service import IntegrationService
 
 
 @pytest.mark.anyio

@@ -22,7 +22,7 @@ import { useAdminRegistryStatus, useAdminRegistrySync } from "@/hooks/use-admin"
 import { getApiErrorDetail } from "@/lib/errors"
 import { getRelativeTime } from "@/lib/event-history"
 
-const TRACECAT_REGISTRY_ORIGIN = "tracecat_registry"
+const TRACECAT_REGISTRY_ORIGIN = "autosecops_registry"
 
 export function PlatformRegistryReposTable() {
   const [syncingId, setSyncingId] = useState<string | null>(null)

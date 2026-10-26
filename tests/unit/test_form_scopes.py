@@ -2,7 +2,7 @@
 
 import pytest
 
-from tracecat.authz.scopes import (
+from autosecops.authz.scopes import (
     ADMIN_SCOPES,
     EDITOR_SCOPES,
     INTAKE_SCOPES,
@@ -15,8 +15,8 @@ from tracecat.authz.scopes import (
     WORKSPACE_OPERATIONAL_SCOPES,
     is_org_level_role,
 )
-from tracecat.authz.seeding import PRESET_ROLE_DEFINITIONS, SYSTEM_SCOPE_DEFINITIONS
-from tracecat.service_accounts.constants import (
+from autosecops.authz.seeding import PRESET_ROLE_DEFINITIONS, SYSTEM_SCOPE_DEFINITIONS
+from autosecops.service_accounts.constants import (
     ORG_SERVICE_ACCOUNT_ASSIGNABLE_SCOPES,
     WORKSPACE_SERVICE_ACCOUNT_ASSIGNABLE_SCOPES,
 )

@@ -10,10 +10,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.auth.credentials as auth_credentials_module
-import tracecat.registry.repositories.router as repos_router_module
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatCredentialsNotFoundError
+import autosecops.auth.credentials as auth_credentials_module
+import autosecops.registry.repositories.router as repos_router_module
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatCredentialsNotFoundError
 
 
 @pytest.fixture

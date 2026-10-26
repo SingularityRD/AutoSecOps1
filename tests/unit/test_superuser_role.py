@@ -3,16 +3,16 @@ import uuid
 import pytest
 from fastapi import HTTPException, status
 
-from tracecat.auth import ip_allowlist_enforcement
-from tracecat.auth.credentials import _require_superuser
-from tracecat.auth.ip_allowlist import (
+from autosecops.auth import ip_allowlist_enforcement
+from autosecops.auth.credentials import _require_superuser
+from autosecops.auth.ip_allowlist import (
     PLATFORM_ADMIN_IP_ALLOWLIST_DENIED_DETAIL,
     OrgIPAllowlist,
     compile_allowlist,
 )
-from tracecat.auth.types import PlatformRole
-from tracecat.contexts import RequestAuditContext, ctx_request_audit
-from tracecat.db.models import User
+from autosecops.auth.types import PlatformRole
+from autosecops.contexts import RequestAuditContext, ctx_request_audit
+from autosecops.db.models import User
 
 
 @pytest.fixture(autouse=True)
@@ -98,8 +98,8 @@ async def test_require_superuser_checks_superuser_before_allowlist(
 def test_fastapi_users_superuser_routes_require_platform_admin_access() -> None:
     from fastapi.routing import APIRoute
 
-    from tracecat.api.app import _users_router
-    from tracecat.auth.credentials import require_superuser
+    from autosecops.api.app import _users_router
+    from autosecops.auth.credentials import require_superuser
 
     routes = {
         route.name: route

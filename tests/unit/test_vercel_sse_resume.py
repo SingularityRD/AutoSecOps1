@@ -6,13 +6,13 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from tracecat.agent.adapter.vercel import sse_vercel
-from tracecat.agent.common.stream_types import (
+from autosecops.agent.adapter.vercel import sse_vercel
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     UnifiedStreamEvent,
     parse_vercel_frame_cursor,
 )
-from tracecat.agent.stream.events import (
+from autosecops.agent.stream.events import (
     StreamDelta,
     StreamEnd,
     StreamEvent,

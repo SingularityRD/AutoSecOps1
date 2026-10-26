@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import httpx
 import pytest
 
-from tracecat.registry.repository import Repository
+from autosecops.registry.repository import Repository
 
 _ALLOWED_UNREACHABLE_STATUS_CODES = {401, 403, 429}
 _MAX_LINK_CHECK_ATTEMPTS = 3

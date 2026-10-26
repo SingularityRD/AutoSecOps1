@@ -11,14 +11,14 @@ from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 from sqlalchemy.exc import NoResultFound
 
-from tracecat.api.app import app
-from tracecat.auth.types import Role
-from tracecat.auth.users import current_active_user
-from tracecat.db.engine import get_async_session
-from tracecat.exceptions import TracecatConflictError, TracecatValidationError
-from tracecat.invitations import router as invitations_router
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.schemas import InvitationCreate, InvitationGrant
+from autosecops.api.app import app
+from autosecops.auth.types import Role
+from autosecops.auth.users import current_active_user
+from autosecops.db.engine import get_async_session
+from autosecops.exceptions import TracecatConflictError, TracecatValidationError
+from autosecops.invitations import router as invitations_router
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
 
 
 @pytest.mark.anyio

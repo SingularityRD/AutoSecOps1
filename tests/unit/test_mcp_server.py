@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
+from autosecops_registry import RegistryOAuthSecret, RegistrySecret
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware.middleware import MiddlewareContext
 from fastmcp.tools import ToolResult
@@ -22,17 +23,16 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.client import WorkflowExecutionStatus
-from tracecat_registry import RegistryOAuthSecret, RegistrySecret
 
-import tracecat.mcp.auth as mcp_auth
-from tracecat.agent import authoring_context
-from tracecat.agent.common.stream_types import (
+import autosecops.mcp.auth as mcp_auth
+from autosecops.agent import authoring_context
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     ToolCallContent,
     UnifiedStreamEvent,
 )
-from tracecat.agent.preset.schemas import AgentPresetRead
-from tracecat.agent.skill.schemas import (
+from autosecops.agent.preset.schemas import AgentPresetRead
+from autosecops.agent.skill.schemas import (
     SkillDownloadPreparedFile,
     SkillDownloadPreparedResponse,
     SkillDraftAttachUploadedBlobOp,
@@ -43,58 +43,58 @@ from tracecat.agent.skill.schemas import (
     SkillUploadSessionBatchRead,
     SkillUploadSessionRead,
 )
-from tracecat.agent.stream.events import StreamDelta, StreamEnd
-from tracecat.auth.types import Role
-from tracecat.cases.search_schemas import CaseSearchRequest
-from tracecat.db.models import Schedule, Workflow
-from tracecat.dsl.enums import JoinStrategy
-from tracecat.dsl.schemas import ROOT_STREAM, ActionStatement, StreamID
-from tracecat.exceptions import (
+from autosecops.agent.stream.events import StreamDelta, StreamEnd
+from autosecops.auth.types import Role
+from autosecops.cases.search_schemas import CaseSearchRequest
+from autosecops.db.models import Schedule, Workflow
+from autosecops.dsl.enums import JoinStrategy
+from autosecops.dsl.schemas import ROOT_STREAM, ActionStatement, StreamID
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ScopeDeniedError,
     TracecatValidationError,
 )
-from tracecat.expressions.common import ExprType
-from tracecat.integrations.enums import (
+from autosecops.expressions.common import ExprType
+from autosecops.integrations.enums import (
     IntegrationStatus,
     MCPAuthType,
     OAuthGrantType,
 )
-from tracecat.integrations.schemas import ProviderKey
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.storage.object import ExternalObject, ObjectRef
-from tracecat.tables.service import TablesService
-from tracecat.validation.schemas import (
+from autosecops.integrations.schemas import ProviderKey
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.storage.object import ExternalObject, ObjectRef
+from autosecops.tables.service import TablesService
+from autosecops.validation.schemas import (
     ValidationDetail,
     ValidationResult,
     ValidationResultType,
 )
-from tracecat.workflow.executions.constants import WF_COMPLETED_REF, WF_TRIGGER_REF
-from tracecat.workflow.executions.enums import (
+from autosecops.workflow.executions.constants import WF_COMPLETED_REF, WF_TRIGGER_REF
+from autosecops.workflow.executions.enums import (
     TriggerType,
     WorkflowEventType,
     WorkflowExecutionEventStatus,
 )
-from tracecat.workflow.executions.schemas import WorkflowExecutionEventCompact
-from tracecat.workflow.executions.service import WorkflowExecutionNotFoundError
-from tracecat.workflow.executions.shaping import (
+from autosecops.workflow.executions.schemas import WorkflowExecutionEventCompact
+from autosecops.workflow.executions.service import WorkflowExecutionNotFoundError
+from autosecops.workflow.executions.shaping import (
     MAX_EVENT_RESULT_CHARS,
     select_execution_events,
     window_result_text,
 )
-from tracecat.workflow.management import layout as layout_module
-from tracecat.workflow.schedules import bridge as schedules_bridge
+from autosecops.workflow.management import layout as layout_module
+from autosecops.workflow.schedules import bridge as schedules_bridge
 
 _original_create_mcp_auth = mcp_auth.create_mcp_auth
 try:
     mcp_auth.create_mcp_auth = lambda: None
-    from tracecat.mcp import server as mcp_server  # noqa: E402
+    from autosecops.mcp import server as mcp_server  # noqa: E402
 finally:
     mcp_auth.create_mcp_auth = _original_create_mcp_auth
 
-from tracecat.mcp.workflow_graph import build_workflow_graph  # noqa: E402
-from tracecat.workflow.management import draft  # noqa: E402
+from autosecops.mcp.workflow_graph import build_workflow_graph  # noqa: E402
+from autosecops.workflow.management import draft  # noqa: E402
 
 
 def _tool(fn: Any) -> Callable[..., Coroutine[Any, Any, Any]]:
@@ -353,7 +353,7 @@ async def test_validate_workflow_returns_expression_details(monkeypatch):
         return _AsyncContext(_WorkflowService())
 
     monkeypatch.setattr(
-        "tracecat.workflow.management.management.WorkflowsManagementService.with_session",
+        "autosecops.workflow.management.management.WorkflowsManagementService.with_session",
         _with_session,
     )
     monkeypatch.setattr(mcp_server, "validate_dsl", _validate_dsl)
@@ -3225,7 +3225,7 @@ async def test_create_workflow_surfaces_builtin_registry_sync_pending(monkeypatc
         async def create_workflow_from_external_definition(self, *_args, **_kwargs):
             raise BuiltinRegistryHasNoSelectionError(
                 "Builtin registry sync is still in progress. Please retry shortly.",
-                detail={"origin": "tracecat_registry"},
+                detail={"origin": "autosecops_registry"},
             )
 
     monkeypatch.setattr(
@@ -3257,7 +3257,7 @@ async def test_update_workflow_rejects_oversized_inline_definition_yaml():
 async def test_publish_workflow_builtin_registry_not_ready_returns_validation_failure(
     monkeypatch,
 ):
-    from tracecat.workflow.management.management import WorkflowPublishResult
+    from autosecops.workflow.management.management import WorkflowPublishResult
 
     workspace_id = uuid.uuid4()
     workflow_id = uuid.uuid4()
@@ -3526,7 +3526,7 @@ async def test_get_action_context_includes_configuration(monkeypatch):
     )
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(registry_service),
     )
     monkeypatch.setattr(mcp_server, "create_tool_from_registry", _create_tool)
@@ -3585,7 +3585,7 @@ async def test_get_action_context_oauth_configured_when_integration_exists(monke
     monkeypatch.setattr(mcp_server, "load_secret_inventory", _secret_inventory)
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_github_oauth_registry_service()),
     )
     monkeypatch.setattr(mcp_server, "create_tool_from_registry", _create_tool)
@@ -3632,7 +3632,7 @@ async def test_list_secrets_metadata_returns_keys_not_values(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "_resolve_workspace_role", _resolve)
     monkeypatch.setattr(
-        "tracecat.secrets.service.SecretsService.with_session",
+        "autosecops.secrets.service.SecretsService.with_session",
         lambda role: _AsyncContext(secret_service),
     )
 
@@ -4130,8 +4130,8 @@ async def test_get_case(monkeypatch):
 
 @pytest.mark.anyio
 async def test_get_case_includes_hierarchy(monkeypatch):
-    from tracecat.cases.hierarchy import CaseHierarchy
-    from tracecat.cases.schemas import CaseParentRead
+    from autosecops.cases.hierarchy import CaseHierarchy
+    from autosecops.cases.schemas import CaseParentRead
 
     case_id = uuid.uuid4()
     parent_id = uuid.uuid4()
@@ -4210,7 +4210,7 @@ async def test_get_case_includes_hierarchy(monkeypatch):
 @pytest.mark.anyio
 @pytest.mark.usefixtures("resolved_workspace")
 async def test_search_cases_passes_hierarchy_filters(monkeypatch):
-    from tracecat.pagination import CursorPaginatedResponse
+    from autosecops.pagination import CursorPaginatedResponse
 
     captured: dict[str, Any] = {}
 
@@ -4244,7 +4244,7 @@ async def test_search_cases_passes_hierarchy_filters(monkeypatch):
 @pytest.mark.anyio
 @pytest.mark.usefixtures("resolved_workspace")
 async def test_search_cases_maps_entitlement_error(monkeypatch):
-    from tracecat.exceptions import EntitlementRequired
+    from autosecops.exceptions import EntitlementRequired
 
     async def _query_cases(request):
         raise EntitlementRequired("case_addons")
@@ -4267,7 +4267,7 @@ async def test_search_cases_maps_entitlement_error(monkeypatch):
 @pytest.mark.anyio
 @pytest.mark.usefixtures("resolved_workspace")
 async def test_set_and_clear_case_parent(monkeypatch):
-    from tracecat.cases.schemas import CaseBatchItemResult, CaseBatchResponse
+    from autosecops.cases.schemas import CaseBatchItemResult, CaseBatchResponse
 
     calls: list[tuple[str, list[uuid.UUID], uuid.UUID | None]] = []
 
@@ -4571,7 +4571,7 @@ def _make_tool_context(
 async def test_input_size_limit_allows(
     max_bytes: int, arguments: dict[str, object]
 ) -> None:
-    from tracecat.mcp.middleware import MCPInputSizeLimitMiddleware
+    from autosecops.mcp.middleware import MCPInputSizeLimitMiddleware
 
     mw = MCPInputSizeLimitMiddleware(max_bytes=max_bytes)
     ctx = _make_tool_context(arguments=arguments)
@@ -4597,7 +4597,7 @@ async def test_input_size_limit_allows(
     ],
 )
 async def test_input_size_limit_rejects(max_bytes: int, value: str) -> None:
-    from tracecat.mcp.middleware import MCPInputSizeLimitMiddleware
+    from autosecops.mcp.middleware import MCPInputSizeLimitMiddleware
 
     mw = MCPInputSizeLimitMiddleware(max_bytes=max_bytes)
     ctx = _make_tool_context(arguments={"yaml": value})
@@ -4613,7 +4613,7 @@ async def test_input_size_limit_rejects(max_bytes: int, value: str) -> None:
 
 @pytest.mark.anyio
 async def test_timeout_middleware_allows_fast_calls():
-    from tracecat.mcp.middleware import MCPTimeoutMiddleware
+    from autosecops.mcp.middleware import MCPTimeoutMiddleware
 
     mw = MCPTimeoutMiddleware(timeout_seconds=5)
     ctx = _make_tool_context()
@@ -4631,7 +4631,7 @@ async def test_timeout_middleware_allows_fast_calls():
 
 @pytest.mark.anyio
 async def test_timeout_middleware_raises_on_slow_calls():
-    from tracecat.mcp.middleware import MCPTimeoutMiddleware
+    from autosecops.mcp.middleware import MCPTimeoutMiddleware
 
     mw = MCPTimeoutMiddleware(timeout_seconds=0)
     ctx = _make_tool_context()
@@ -4652,8 +4652,8 @@ async def test_watchtower_middleware_blocks_when_telemetry_fails(
 ) -> None:
     from fastmcp.server.context import Context
 
-    from tracecat.mcp.auth import MCPTokenIdentity
-    from tracecat.mcp.middleware import WatchtowerMonitorMiddleware
+    from autosecops.mcp.auth import MCPTokenIdentity
+    from autosecops.mcp.middleware import WatchtowerMonitorMiddleware
 
     mw = WatchtowerMonitorMiddleware()
     ctx = MiddlewareContext(
@@ -4668,19 +4668,19 @@ async def test_watchtower_middleware_blocks_when_telemetry_fails(
     async def _record_watchtower_call(**_kwargs: object) -> None:
         raise RuntimeError("telemetry unavailable")
 
-    ee_mod = ModuleType("tracecat_ee")
-    watchtower_mod = ModuleType("tracecat_ee.watchtower")
-    service_mod = ModuleType("tracecat_ee.watchtower.service")
+    ee_mod = ModuleType("autosecops_ee")
+    watchtower_mod = ModuleType("autosecops_ee.watchtower")
+    service_mod = ModuleType("autosecops_ee.watchtower.service")
     cast(Any, service_mod).get_watchtower_tool_call_context = _get_watchtower_context
     cast(Any, service_mod).record_watchtower_tool_call = _record_watchtower_call
     cast(Any, watchtower_mod).service = service_mod
     cast(Any, ee_mod).watchtower = watchtower_mod
-    monkeypatch.setitem(sys.modules, "tracecat_ee", ee_mod)
-    monkeypatch.setitem(sys.modules, "tracecat_ee.watchtower", watchtower_mod)
-    monkeypatch.setitem(sys.modules, "tracecat_ee.watchtower.service", service_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee", ee_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee.watchtower", watchtower_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee.watchtower.service", service_mod)
 
     monkeypatch.setattr(
-        "tracecat.mcp.middleware._safe_get_token_identity",
+        "autosecops.mcp.middleware._safe_get_token_identity",
         lambda: MCPTokenIdentity(client_id="client", email="user@example.com"),
     )
 
@@ -4699,8 +4699,8 @@ async def test_watchtower_middleware_passes_tool_call_targets(
 ) -> None:
     from fastmcp.server.context import Context
 
-    from tracecat.mcp.auth import MCPTokenIdentity
-    from tracecat.mcp.middleware import WatchtowerMonitorMiddleware
+    from autosecops.mcp.auth import MCPTokenIdentity
+    from autosecops.mcp.middleware import WatchtowerMonitorMiddleware
 
     workspace_id = uuid.uuid4()
     org_id = uuid.uuid4()
@@ -4720,18 +4720,18 @@ async def test_watchtower_middleware_passes_tool_call_targets(
         seen.update(kwargs)
         return None, None
 
-    ee_mod = ModuleType("tracecat_ee")
-    watchtower_mod = ModuleType("tracecat_ee.watchtower")
-    service_mod = ModuleType("tracecat_ee.watchtower.service")
+    ee_mod = ModuleType("autosecops_ee")
+    watchtower_mod = ModuleType("autosecops_ee.watchtower")
+    service_mod = ModuleType("autosecops_ee.watchtower.service")
     cast(Any, service_mod).get_watchtower_tool_call_context = _get_watchtower_context
     cast(Any, service_mod).record_watchtower_tool_call = AsyncMock()
     cast(Any, watchtower_mod).service = service_mod
     cast(Any, ee_mod).watchtower = watchtower_mod
-    monkeypatch.setitem(sys.modules, "tracecat_ee", ee_mod)
-    monkeypatch.setitem(sys.modules, "tracecat_ee.watchtower", watchtower_mod)
-    monkeypatch.setitem(sys.modules, "tracecat_ee.watchtower.service", service_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee", ee_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee.watchtower", watchtower_mod)
+    monkeypatch.setitem(sys.modules, "autosecops_ee.watchtower.service", service_mod)
     monkeypatch.setattr(
-        "tracecat.mcp.middleware._safe_get_token_identity",
+        "autosecops.mcp.middleware._safe_get_token_identity",
         lambda: MCPTokenIdentity(
             client_id="client", email="user@example.com", organization_ids=claimed
         ),
@@ -4774,7 +4774,7 @@ async def test_get_mcp_client_id(
 ) -> None:
     from fastmcp.server.context import Context
 
-    from tracecat.mcp.middleware import get_mcp_client_id
+    from autosecops.mcp.middleware import get_mcp_client_id
 
     token = SimpleNamespace(claims=claims) if claims is not None else None
     fastmcp_ctx = SimpleNamespace(get_access_token=lambda: token)
@@ -4787,7 +4787,7 @@ async def test_get_mcp_client_id(
 
 
 def test_watchtower_status_mapping() -> None:
-    from tracecat.mcp.middleware import _derive_tool_call_status
+    from autosecops.mcp.middleware import _derive_tool_call_status
 
     assert _derive_tool_call_status("Tool timed out after 5 seconds") == "timeout"
     assert _derive_tool_call_status("Request blocked by admin policy") == "blocked"
@@ -4796,8 +4796,8 @@ def test_watchtower_status_mapping() -> None:
 
 
 def test_watchtower_workspace_resolution_prefers_claimed_scope() -> None:
-    from tracecat.mcp.auth import MCPTokenIdentity
-    from tracecat.mcp.middleware import _resolve_workspace_id
+    from autosecops.mcp.auth import MCPTokenIdentity
+    from autosecops.mcp.middleware import _resolve_workspace_id
 
     scoped_workspace_id = uuid.uuid4()
     identity = MCPTokenIdentity(
@@ -4814,8 +4814,8 @@ def test_watchtower_workspace_resolution_prefers_claimed_scope() -> None:
 
 
 def test_watchtower_workspace_resolution_uses_tool_argument() -> None:
-    from tracecat.mcp.auth import MCPTokenIdentity
-    from tracecat.mcp.middleware import _resolve_workspace_id
+    from autosecops.mcp.auth import MCPTokenIdentity
+    from autosecops.mcp.middleware import _resolve_workspace_id
 
     workspace_id = uuid.uuid4()
     identity = MCPTokenIdentity(
@@ -4880,7 +4880,7 @@ async def test_action_catalog_resource(monkeypatch):
     monkeypatch.setattr(mcp_server, "load_secret_inventory", _secret_inventory)
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _empty_oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_RegistryService()),
     )
 
@@ -4952,7 +4952,7 @@ async def test_list_actions_surfaces_optional_secrets(monkeypatch):
     monkeypatch.setattr(mcp_server, "load_secret_inventory", _secret_inventory)
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _empty_oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_RegistryService()),
     )
 
@@ -5008,7 +5008,7 @@ async def test_list_actions_paginates_and_rejects_mismatched_cursor(monkeypatch)
     monkeypatch.setattr(mcp_server, "load_secret_inventory", _secret_inventory)
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _empty_oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_RegistryService()),
     )
 
@@ -5077,7 +5077,7 @@ async def test_list_actions_enriches_only_requested_page(monkeypatch):
     monkeypatch.setattr(mcp_server, "load_secret_inventory", _secret_inventory)
     monkeypatch.setattr(mcp_server, "load_oauth_inventory", _empty_oauth_inventory)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_RegistryService()),
     )
 
@@ -5178,7 +5178,7 @@ def _patch_sync_custom_registry(
 @pytest.mark.anyio
 async def test_sync_custom_registry_surfaces_scope_denied(monkeypatch):
     """A ScopeDeniedError from the service is surfaced as a ToolError."""
-    from tracecat.exceptions import ScopeDeniedError
+    from autosecops.exceptions import ScopeDeniedError
 
     repos_service = AsyncMock()
     repos_service.list_repositories.side_effect = ScopeDeniedError(
@@ -5288,7 +5288,7 @@ async def test_sync_custom_registry_rejects_multiple_custom_registries(monkeypat
 
 @pytest.mark.anyio
 async def test_sync_custom_registry_reports_per_repo_failure(monkeypatch):
-    from tracecat.exceptions import RegistryError
+    from autosecops.exceptions import RegistryError
 
     bad_repo = _registry_repo("custom_bad")
     _patch_sync_custom_registry(
@@ -6280,15 +6280,15 @@ async def test_get_workflow_authoring_context_truncates_embedded_collections(
     monkeypatch.setattr(mcp_server, "_MCP_EMBEDDED_COLLECTION_LIMIT", 1)
     monkeypatch.setattr(mcp_server, "create_tool_from_registry", _create_tool)
     monkeypatch.setattr(
-        "tracecat.registry.actions.service.RegistryActionsService.with_session",
+        "autosecops.registry.actions.service.RegistryActionsService.with_session",
         lambda role: _AsyncContext(_RegistryService()),
     )
     monkeypatch.setattr(
-        "tracecat.agent.authoring_context.VariablesService.with_session",
+        "autosecops.agent.authoring_context.VariablesService.with_session",
         lambda role: _AsyncContext(_VariablesService()),
     )
     monkeypatch.setattr(
-        "tracecat.agent.authoring_context.load_secret_inventory",
+        "autosecops.agent.authoring_context.load_secret_inventory",
         _secret_inventory,
     )
 
@@ -7804,8 +7804,8 @@ def test_prompt_complete_workflow_yaml_examples_are_schema_valid() -> None:
 
 
 def test_prompt_action_args_match_registry_signatures() -> None:
-    from tracecat_registry.core.http import http_paginate, http_request
-    from tracecat_registry.core.python import run_python
+    from autosecops_registry.core.http import http_paginate, http_request
+    from autosecops_registry.core.python import run_python
 
     action_functions = {
         "core.script.run_python": run_python,
@@ -8072,8 +8072,8 @@ async def test_request_audit_middleware_sets_context_during_tool_call(
 ):
     from types import SimpleNamespace
 
-    from tracecat.contexts import RequestAuditContext, ctx_request_audit
-    from tracecat.mcp import middleware as mcp_middleware
+    from autosecops.contexts import RequestAuditContext, ctx_request_audit
+    from autosecops.mcp import middleware as mcp_middleware
 
     fake_request = SimpleNamespace(
         headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1", "User-Agent": "curl/8.5"},
@@ -8103,8 +8103,8 @@ async def test_request_audit_middleware_sets_context_during_tool_call(
 async def test_request_audit_middleware_tolerates_missing_http_request(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from tracecat.contexts import ctx_request_audit
-    from tracecat.mcp import middleware as mcp_middleware
+    from autosecops.contexts import ctx_request_audit
+    from autosecops.mcp import middleware as mcp_middleware
 
     def _raise() -> object:
         raise RuntimeError("no active HTTP request")
@@ -8723,8 +8723,8 @@ async def test_update_form_upserts_and_needs_form_create_only_to_create(
 async def test_form_tool_reports_config_issues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.forms.enums import FormErrorCode, FormIssueCode, FormIssueSeverity
-    from tracecat.forms.schemas import FormIssue
+    from autosecops.forms.enums import FormErrorCode, FormIssueCode, FormIssueSeverity
+    from autosecops.forms.schemas import FormIssue
 
     issue = FormIssue(
         severity=FormIssueSeverity.ERROR,
@@ -8816,7 +8816,7 @@ async def test_list_workflow_action_runs_marks_lockable_and_locked(
 
 
 def _patch_action_service(monkeypatch: pytest.MonkeyPatch, updates: list[Any]) -> None:
-    from tracecat.workflow.actions.service import WorkflowActionService
+    from autosecops.workflow.actions.service import WorkflowActionService
 
     action = SimpleNamespace(ref="a", locked_execution_id="wf_example/exec_old")
 

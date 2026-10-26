@@ -7,30 +7,30 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from autosecops_registry.sdk.client import TracecatClient
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from redis.exceptions import ConnectionError as RedisConnectionError
-from tracecat_registry.sdk.client import TracecatClient
 
-from tracecat.api.app import (
+from autosecops.api.app import (
     validation_exception_handler as api_validation_exception_handler,
 )
-from tracecat.auth.dependencies import ExecutorWorkspaceRole
-from tracecat.auth.types import Role
-from tracecat.executor.action_gateway.app import (
+from autosecops.auth.dependencies import ExecutorWorkspaceRole
+from autosecops.auth.types import Role
+from autosecops.executor.action_gateway.app import (
     create_app,
     validation_exception_handler,
 )
-from tracecat.search.embeddings.types import EmbeddingError, EmbeddingErrorCode
-from tracecat.search.retrieval import TableRetrievalService
-from tracecat.search.router import (
+from autosecops.search.embeddings.types import EmbeddingError, EmbeddingErrorCode
+from autosecops.search.retrieval import TableRetrievalService
+from autosecops.search.router import (
     require_semantic_search_entitlement,
     semantic_search,
 )
-from tracecat.search.router import router as search_router
-from tracecat.search.schemas import SearchRequest
-from tracecat.search.types import SearchError, SearchErrorCode
-from tracecat.tables.internal_router import router
+from autosecops.search.router import router as search_router
+from autosecops.search.schemas import SearchRequest
+from autosecops.search.types import SearchError, SearchErrorCode
+from autosecops.tables.internal_router import router
 
 
 @pytest.mark.anyio
@@ -58,7 +58,7 @@ async def test_semantic_route_registered_on_both_internal_surfaces():
 @pytest.mark.anyio
 async def test_redis_failure_is_sanitized_not_an_empty_page(test_role: Role):
     with patch(
-        "tracecat.search.router.TableRetrievalService.search",
+        "autosecops.search.router.TableRetrievalService.search",
         new=AsyncMock(side_effect=RedisConnectionError("synthetic private details")),
     ):
         with pytest.raises(HTTPException) as error:
@@ -90,7 +90,7 @@ async def test_embedding_errors_preserve_status_and_retry_metadata(
 ):
     retry_after = 3.0 if retryable else None
     with patch(
-        "tracecat.search.router.TableRetrievalService.search",
+        "autosecops.search.router.TableRetrievalService.search",
         new=AsyncMock(side_effect=EmbeddingError(code, retry_after)),
     ):
         with pytest.raises(HTTPException) as error:
@@ -107,7 +107,7 @@ async def test_embedding_errors_preserve_status_and_retry_metadata(
 @pytest.mark.anyio
 async def test_invalid_table_name_returns_safe_client_error(test_role):
     with patch(
-        "tracecat.search.router.TableRetrievalService.search",
+        "autosecops.search.router.TableRetrievalService.search",
         new=AsyncMock(side_effect=SearchError(SearchErrorCode.INVALID_TABLE_NAME)),
     ):
         with pytest.raises(HTTPException) as error:
@@ -135,9 +135,9 @@ async def test_tokenizer_construction_and_counting_run_off_event_loop(test_role)
     tables = AsyncMock()
     tables.get_table_by_name.return_value.id = "synthetic"
     with (
-        patch("tracecat.search.retrieval.TablesService.with_session") as session,
-        patch("tracecat.search.retrieval.resolve_embedding_configuration") as resolve,
-        patch("tracecat.search.retrieval.token_counter", side_effect=make_counter),
+        patch("autosecops.search.retrieval.TablesService.with_session") as session,
+        patch("autosecops.search.retrieval.resolve_embedding_configuration") as resolve,
+        patch("autosecops.search.retrieval.token_counter", side_effect=make_counter),
     ):
         session.return_value.__aenter__.return_value = tables
         resolve.return_value = SimpleNamespace(
@@ -171,10 +171,10 @@ async def test_tokenizer_failures_return_safe_unavailable(test_role, stage, fail
     tables = AsyncMock()
     tables.get_table_by_name.return_value.id = "synthetic"
     with (
-        patch("tracecat.search.retrieval.TablesService.with_session") as session,
-        patch("tracecat.search.retrieval.resolve_embedding_configuration") as resolve,
-        patch("tracecat.search.retrieval.token_counter", side_effect=make_counter),
-        patch("tracecat.search.retrieval.embed_current") as embed,
+        patch("autosecops.search.retrieval.TablesService.with_session") as session,
+        patch("autosecops.search.retrieval.resolve_embedding_configuration") as resolve,
+        patch("autosecops.search.retrieval.token_counter", side_effect=make_counter),
+        patch("autosecops.search.retrieval.embed_current") as embed,
     ):
         session.return_value.__aenter__.return_value = tables
         resolve.return_value = SimpleNamespace(
@@ -224,7 +224,7 @@ async def test_raw_surrogate_request_returns_safe_422(test_role, body, gateway):
         RequestValidationError,
         validation_exception_handler if gateway else api_validation_exception_handler,
     )
-    with patch("tracecat.search.router.TableRetrievalService.search") as search:
+    with patch("autosecops.search.router.TableRetrievalService.search") as search:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://synthetic"
         ) as http:
@@ -269,7 +269,7 @@ async def test_valid_escaped_surrogate_pair_reaches_search(test_role):
     )
     app.dependency_overrides[require_semantic_search_entitlement] = lambda: None
     with patch(
-        "tracecat.search.router.TableRetrievalService.search",
+        "autosecops.search.router.TableRetrievalService.search",
         new=AsyncMock(side_effect=SearchError(SearchErrorCode.NOT_FOUND)),
     ) as search:
         async with httpx.AsyncClient(

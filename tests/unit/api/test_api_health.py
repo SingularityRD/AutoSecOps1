@@ -1,6 +1,6 @@
 import pytest
 
-from tracecat.api.app import app, check_health
+from autosecops.api.app import app, check_health
 
 
 @pytest.mark.anyio

@@ -24,26 +24,26 @@ import threading
 from contextlib import AsyncExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
-from tracecat_registry import secrets as registry_secrets
-from tracecat_registry.context import RegistryContext, set_context
-from tracecat_registry.sdk.client import TracecatClient
+from autosecops_registry import secrets as registry_secrets
+from autosecops_registry.context import RegistryContext, set_context
+from autosecops_registry.sdk.client import TracecatClient
 
-from tracecat import config
-from tracecat.concurrency import run_blocking_rejoin_on_cancel
-from tracecat.contexts import (
+from autosecops import config
+from autosecops.concurrency import run_blocking_rejoin_on_cancel
+from autosecops.contexts import (
     ctx_logger,
     ctx_role,
     ctx_run,
     ctx_session_id,
 )
-from tracecat.executor.action_gateway.config import action_gateway_socket_path
-from tracecat.executor.action_runner import get_action_runner
-from tracecat.executor.backends.base import ExecutorBackend
-from tracecat.executor.backends.registry_helpers import get_registry_artifact_uris
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.action_gateway.config import action_gateway_socket_path
+from autosecops.executor.action_runner import get_action_runner
+from autosecops.executor.backends.base import ExecutorBackend
+from autosecops.executor.backends.registry_helpers import get_registry_artifact_uris
+from autosecops.executor.registry_artifacts import (
     compute_registry_artifact_cache_key,
 )
-from tracecat.executor.schemas import (
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ExecutorResult,
@@ -51,17 +51,17 @@ from tracecat.executor.schemas import (
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.executor.secret_preprocessors import project_secret_env
-from tracecat.logger import logger
-from tracecat.registry.actions.schemas import RegistryActionUDFImpl
-from tracecat.registry.loaders import load_udf_impl
-from tracecat.secrets import secrets_manager
+from autosecops.executor.secret_preprocessors import project_secret_env
+from autosecops.logger import logger
+from autosecops.registry.actions.schemas import RegistryActionUDFImpl
+from autosecops.registry.loaders import load_udf_impl
+from autosecops.secrets import secrets_manager
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from tracecat.auth.types import Role
-    from tracecat.dsl.schemas import RunActionInput
+    from autosecops.auth.types import Role
+    from autosecops.dsl.schemas import RunActionInput
 
 
 _SYS_PATH_LOCK = threading.Lock()

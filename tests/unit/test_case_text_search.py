@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from tracecat.cases.text_search import (
+from autosecops.cases.text_search import (
     MAX_EXCERPT_LENGTH,
     build_case_text_expressions,
     case_search_excerpt,
@@ -15,9 +15,9 @@ from tracecat.cases.text_search import (
     get_case_search_excerpts,
     parse_case_text_query,
 )
-from tracecat.db.models import Case
-from tracecat.query.errors import TracecatQueryTimeoutError
-from tracecat.query.lexical_types import SearchMode
+from autosecops.db.models import Case
+from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.lexical_types import SearchMode
 
 
 @pytest.mark.parametrize(

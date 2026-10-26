@@ -1,0 +1,380 @@
+"""AutoSecOps exceptions
+
+Note
+----
+This module contains exceptions that are user-facing, meaning they are
+meant to be displayed to the user in a user-friendly way. We expose these
+through FastAPI exception handlers, which match the exception type.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from autosecops.runtime.errors import RuntimeErrorOwner
+
+if TYPE_CHECKING:
+    import httpx
+    from pydantic_core import ValidationError
+
+    from autosecops.executor.schemas import ExecutorActionErrorInfo
+    from autosecops.observability.types import PlatformErrorCapture
+    from autosecops.registry.actions.schemas import RegistryActionValidationErrorInfo
+    from autosecops.registry.sync.schemas import SyncErrorCode
+    from autosecops.runtime.errors import RuntimeErrorClassification
+
+
+class TracecatException(Exception):
+    """AutoSecOps generic user-facing exception"""
+
+    def __init__(self, *args, detail: Any | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.detail = detail
+
+
+class TracecatValidationError(TracecatException):
+    """AutoSecOps user-facing validation error"""
+
+
+class TracecatConflictError(TracecatException):
+    """AutoSecOps user-facing resource conflict error"""
+
+
+class TracecatDSLError(TracecatValidationError):
+    """AutoSecOps user-facing DSL error"""
+
+
+class TracecatExpressionError(TracecatException):
+    """AutoSecOps user-facing expression error"""
+
+
+class TracecatCredentialsError(TracecatException):
+    """AutoSecOps user-facing credentials error"""
+
+
+class TracecatCredentialsNotFoundError(TracecatCredentialsError):
+    """AutoSecOps user-facing credentials not found error"""
+
+
+class TracecatAuthorizationError(TracecatException):
+    """AutoSecOps user-facing authorization error"""
+
+
+class AgentModelNotEnabledError(TracecatAuthorizationError):
+    """Raised when workspace model access does not enable a catalog model."""
+
+
+class ScopeDeniedError(TracecatAuthorizationError):
+    """Raised when a user lacks required scopes for an operation.
+
+    This exception provides detailed information about which scopes were
+    required and which were missing, enabling proper 403 responses with
+    machine-readable error details.
+    """
+
+    def __init__(
+        self,
+        required_scopes: list[str],
+        missing_scopes: list[str],
+        message: str | None = None,
+    ):
+        self.required_scopes = required_scopes
+        self.missing_scopes = missing_scopes
+        default_message = "You don't have permission to perform this action."
+        super().__init__(
+            message or default_message,
+            detail={
+                "code": "insufficient_scope",
+                "required_scopes": required_scopes,
+                "missing_scopes": missing_scopes,
+            },
+        )
+
+
+class TracecatRLSViolationError(TracecatAuthorizationError):
+    """Raised when Row-Level Security blocks access to a resource.
+
+    This exception indicates that the current user's context (org/workspace)
+    does not have permission to access the requested database record.
+    """
+
+    def __init__(
+        self,
+        *args,
+        table: str,
+        operation: str,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.table = table
+        self.operation = operation
+        self.org_id = org_id
+        self.workspace_id = workspace_id
+        self.detail = {
+            "table": table,
+            "operation": operation,
+            "org_id": org_id,
+            "workspace_id": workspace_id,
+        }
+
+
+class TracecatManagementError(TracecatException):
+    """AutoSecOps user-facing management error"""
+
+
+class TracecatNotFoundError(TracecatException):
+    """Raised when a resource is not found in the AutoSecOps database."""
+
+
+class WorkflowAliasResolutionError(TracecatNotFoundError):
+    """Raised when a configured workflow alias does not resolve."""
+
+
+class TracecatServiceError(TracecatException):
+    """AutoSecOps generic user-facing service error"""
+
+
+class RegistryError(TracecatException):
+    """Generic exception raised when a registry error occurs."""
+
+
+class RegistryTemplateLoadError(RegistryError):
+    """Raised when a template action file cannot be loaded."""
+
+
+class RegistrySyncContentError(RegistryError):
+    """Registry sync failed on repository content; retrying cannot fix it."""
+
+    def __init__(self, *args, code: SyncErrorCode, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.code = code
+
+
+class BuiltinRegistryHasNoSelectionError(RegistryError):
+    """Raised when the builtin platform registry has no selected version yet."""
+
+
+class RegistryLockInvalidDataError(RegistryError):
+    """Raised when registry lock resolution finds deterministic invalid data."""
+
+
+class RegistryLockActionNotFoundError(RegistryLockInvalidDataError):
+    """Raised when an action name resolves to no registry origin."""
+
+    def __init__(self, action_name: str, origins: list[str]):
+        super().__init__(
+            f"Action '{action_name}' not found in any registry. "
+            f"Available registries: {origins}",
+            detail={"action_name": action_name, "origins": origins},
+        )
+        self.action_name = action_name
+        self.origins = origins
+
+
+class RegistryLockAmbiguousActionError(RegistryLockInvalidDataError):
+    """Raised when an action name resolves to more than one registry origin.
+
+    The collision is caused by an org registry defining an action whose
+    namespace and name shadow another registry's action, so the message is
+    safe to surface and actionable for the org's registry maintainers.
+    """
+
+    def __init__(self, action_name: str, origins: list[str]):
+        message = (
+            f"Action '{action_name}' is defined in multiple registries: "
+            f"{origins}. Rename or remove the duplicate action in your custom "
+            "registry so each action name resolves to a single registry."
+        )
+        super().__init__(
+            message,
+            detail={"action_name": action_name, "origins": origins},
+        )
+        self.action_name = action_name
+        self.origins = origins
+
+
+class RegistryActionError(RegistryError):
+    """Exception raised when a registry action error occurs."""
+
+
+class RegistryActionValidationError(TracecatException):
+    """Exception raised when a registry action validation error occurs."""
+
+    def __init__(
+        self,
+        *args,
+        detail: dict[str, list[RegistryActionValidationErrorInfo]],
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.detail = detail
+
+
+class RegistryValidationError(RegistryError):
+    """Exception raised when a registry validation error occurs."""
+
+    def __init__(
+        self, *args, key: str | None = None, err: ValidationError | str | None = None
+    ):
+        super().__init__(*args)
+        self.key = key
+        self.err = err
+
+    def __reduce__(self):
+        return (self.__class__, (self.key, self.err))
+
+
+class RegistryNotFound(RegistryError):
+    """Exception raised when a registry is not found."""
+
+
+class TaskUnreachable(TracecatException):
+    """Raised when a task is unreachable."""
+
+
+class ExecutorClientError(TracecatException):
+    """Exception raised when an error occurs in the executor client."""
+
+
+class ExecutionError(TracecatException):
+    """Exception raised when an error occurs during action execution.
+    Use this to wrap errors from the executor so that we should reraise"""
+
+    def __init__(
+        self,
+        info: ExecutorActionErrorInfo,
+        *,
+        classification: RuntimeErrorClassification | None = None,
+        sentry_capture: PlatformErrorCapture | None = None,
+    ):
+        self.info = info
+        self.sentry_capture = sentry_capture
+        # Host-derived metadata, never decoded from a backend error payload.
+        # Platform messages are neutral and policy-authored; user messages must
+        # follow the diagnostic's sanitization rather than retain old plaintext.
+        self.classification = (
+            classification.model_copy(update={"message": info.message})
+            if classification is not None
+            and classification.owner is RuntimeErrorOwner.USER
+            else classification
+        )
+        # Build a user-friendly error message from the info
+        message = (
+            f"There was an error in the executor when calling action '{info.action_name}'."
+            f"\n\n{info}"
+        )
+        super().__init__(message)
+
+
+class LoopExecutionError(TracecatException):
+    """Exception raised when an error occurs during loop execution."""
+
+    def __init__(self, loop_errors: list[ExecutionError]):
+        self.loop_errors = loop_errors
+        n_errors = len(loop_errors)
+        message = f"Loop execution failed with {n_errors} error(s)"
+        super().__init__(message)
+
+
+class TracecatSettingsError(TracecatException):
+    """Exception raised when a setting error occurs."""
+
+
+class TracecatImportError(TracecatException):
+    """Exception raised when an import error occurs."""
+
+
+class RateLimitExceeded(ExecutorClientError):
+    """Exception raised when a request is rejected due to rate limiting."""
+
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded. Please try again later.",
+        detail: Any = None,
+        retry_after: int | None = None,
+    ):
+        """
+        Initialize a rate limit exceeded error.
+
+        Args:
+            message: The error message
+            detail: Additional error details
+            retry_after: Suggested time in seconds to wait before retrying (if provided by the server)
+        """
+        super().__init__(message, detail)
+        self.retry_after = retry_after
+
+    @classmethod
+    def from_response(
+        cls, response: httpx.Response, detail: Any = None
+    ) -> RateLimitExceeded:
+        """
+        Create a RateLimitExceededError from an HTTP response.
+
+        Args:
+            response: The HTTP response object
+            detail: Additional error details
+
+        Returns:
+            A RateLimitExceededError instance
+        """
+        retry_after = None
+        if "Retry-After" in response.headers:
+            try:
+                retry_after = int(response.headers["Retry-After"])
+            except (ValueError, TypeError):
+                pass
+
+        message = "Rate limit exceeded. Please try again later."
+        if retry_after:
+            message += f" Server suggests waiting {retry_after} seconds."
+
+        return cls(message, detail, retry_after)
+
+
+class PayloadSizeExceeded(TracecatException):
+    """Error raised when a payload exceeds a size limit."""
+
+
+class EntitlementRequired(TracecatException):
+    """Exception raised when a feature requires an upgraded plan.
+
+    Raised when an organization attempts to use a feature they are not entitled to.
+    """
+
+    def __init__(
+        self,
+        entitlement: str,
+        *,
+        unavailable_actions: list[str] | None = None,
+        unavailable_origins: list[str] | None = None,
+    ):
+        def _format_bulleted_preview(items: list[str], *, limit: int = 5) -> str:
+            shown = items[:limit]
+            lines = [f"- {item}" for item in shown]
+            if len(items) > limit:
+                lines.append(f"- +{len(items) - limit} more")
+            return "\n".join(lines)
+
+        self.entitlement = entitlement
+        message = f"Feature '{entitlement}' requires an upgraded plan."
+        detail: dict[str, object] = {"entitlement": entitlement}
+
+        if unavailable_actions:
+            unique_actions = list(dict.fromkeys(unavailable_actions))
+            detail["unavailable_actions"] = unique_actions
+            message += (
+                "\n\nUnavailable actions on your current plan:\n"
+                f"{_format_bulleted_preview(unique_actions)}"
+            )
+
+        if unavailable_origins:
+            unique_origins = list(dict.fromkeys(unavailable_origins))
+            # Origins can include sensitive repository details; keep only a count.
+            detail["unavailable_origin_count"] = len(unique_origins)
+            if not unavailable_actions:
+                message += "\n\nSome actions are unavailable on your current plan."
+
+        super().__init__(message, detail=detail)

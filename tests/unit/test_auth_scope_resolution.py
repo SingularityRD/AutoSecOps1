@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracecat.auth import credentials
-from tracecat.auth.types import Role
+from autosecops.auth import credentials
+from autosecops.auth.types import Role
 
 
 @pytest.mark.anyio

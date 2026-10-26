@@ -14,8 +14,8 @@ from uuid import uuid4
 import httpx
 import orjson
 import pytest
-from tracecat_registry.sdk.cases import CasesClient
-from tracecat_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.cases import CasesClient
+from autosecops_registry.sdk.client import TracecatClient
 
 
 @pytest.fixture
@@ -442,7 +442,7 @@ def test_case_search_sdk_stub_signatures_match_client() -> None:
     module = ast.parse(
         (
             Path(__file__).parents[2]
-            / "packages/tracecat-registry/tracecat_registry/ctx.pyi"
+            / "packages/autosecops-registry/autosecops_registry/ctx.pyi"
         ).read_text()
     )
     declarations = [

@@ -9,13 +9,13 @@ from tempfile import TemporaryDirectory
 import httpx
 import pytest
 
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops.agent.sandbox.llm_proxy import (
     LLMProxyError,
     LLMRoute,
     LLMRoutingPlan,
     LLMSocketProxy,
 )
-from tracecat.agent.sandbox.shim_entrypoint import (
+from autosecops.agent.sandbox.shim_entrypoint import (
     HTTP_HEADER_LIMIT,
     HTTPRequestError,
     SandboxSocketBridge,

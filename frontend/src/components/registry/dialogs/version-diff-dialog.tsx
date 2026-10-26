@@ -2,7 +2,7 @@
 
 import { DiffIcon } from "lucide-react"
 import { useState } from "react"
-import type { tracecat__registry__repositories__schemas__RegistryVersionRead } from "@/client"
+import type { autosecops__registry__repositories__schemas__RegistryVersionRead } from "@/client"
 import { DiffView } from "@/components/registry/version-diff-view"
 import {
   Dialog,
@@ -15,7 +15,7 @@ import {
 import { useRegistryVersionDiff } from "@/hooks/use-registry-versions"
 
 type RegistryVersionRead =
-  tracecat__registry__repositories__schemas__RegistryVersionRead
+  autosecops__registry__repositories__schemas__RegistryVersionRead
 
 /** Props for {@link VersionDiffDialog}. */
 export interface VersionDiffDialogProps {

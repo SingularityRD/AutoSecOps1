@@ -6,29 +6,21 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import event, func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.rbac.router import list_groups
-from tracecat_ee.rbac.service import RBACService
-from tracecat_ee.scim.connections import ScimConnectionService
-from tracecat_ee.scim.schemas import (
+from autosecops_ee.rbac.router import list_groups
+from autosecops_ee.rbac.service import RBACService
+from autosecops_ee.scim.connections import ScimConnectionService
+from autosecops_ee.scim.schemas import (
     ExternalGroupMappingCreate,
     ScimReviewPerson,
 )
-from tracecat_ee.scim.service import REVIEW_PREVIEW_LIMIT, SCIMService
+from autosecops_ee.scim.service import REVIEW_PREVIEW_LIMIT, SCIMService
+from sqlalchemy import event, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_org_membership_via_group,
-    seed_external_group,
-    seed_external_group_members,
-    seed_external_user,
-    seed_group_member,
-)
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.db.models import (
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.db.models import (
     ExternalGroup,
     ExternalGroupMapping,
     ExternalGroupMember,
@@ -42,13 +34,21 @@ from tracecat.db.models import (
     UserRoleAssignment,
     effective_group_members,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
 )
-from tracecat.organization.service import OrgService
-from tracecat.pagination import PageParams, PaginationError
+from autosecops.organization.service import OrgService
+from autosecops.pagination import PageParams, PaginationError
+from tests.support.membership import (
+    grant_org_membership,
+    grant_org_membership_via_group,
+    seed_external_group,
+    seed_external_group_members,
+    seed_external_user,
+    seed_group_member,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)

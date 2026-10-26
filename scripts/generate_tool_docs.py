@@ -8,7 +8,7 @@ from typing import Any
 
 import orjson
 
-from tracecat.registry.repository import Repository
+from autosecops.registry.repository import Repository
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DOCS_DIR = ROOT_DIR / "docs"

@@ -14,6 +14,19 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from autosecops.auth.dependencies import ExecutorWorkspaceRole, WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseStatus
+from autosecops.cases.router import cases_router
+from autosecops.cases.search_schemas import CaseQuery, CaseSearchRequest
+from autosecops.cases.service import CasesService
+from autosecops.db.engine import get_async_session
+from autosecops.db.models import Case, Organization, Workspace
+from autosecops.executor.action_gateway.app import create_app
+from autosecops.pagination import PaginationError, PaginationErrorCode
+from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.lexical_types import SearchMode
+from autosecops.tiers import defaults as tier_defaults
 from tests.database import TEST_DB_CONFIG
 from tests.integration.test_case_search_reads import (
     capture_search_queries,
@@ -21,19 +34,6 @@ from tests.integration.test_case_search_reads import (
 )
 from tests.integration.test_case_text_search_postgres import load_search_migration
 from tests.unit.test_case_aggregation import add_case
-from tracecat.auth.dependencies import ExecutorWorkspaceRole, WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseStatus
-from tracecat.cases.router import cases_router
-from tracecat.cases.search_schemas import CaseQuery, CaseSearchRequest
-from tracecat.cases.service import CasesService
-from tracecat.db.engine import get_async_session
-from tracecat.db.models import Case, Organization, Workspace
-from tracecat.executor.action_gateway.app import create_app
-from tracecat.pagination import PaginationError, PaginationErrorCode
-from tracecat.query.errors import TracecatQueryTimeoutError
-from tracecat.query.lexical_types import SearchMode
-from tracecat.tiers import defaults as tier_defaults
 
 pytest_plugins = ["tests.unit.test_case_aggregation"]
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
@@ -263,7 +263,7 @@ async def test_filters_precede_relevance_pages_and_explicit_sorts(
             )
 
     with patch(
-        "tracecat.cases.text_search_indexes.CASE_SEARCH_GENERATION",
+        "autosecops.cases.text_search_indexes.CASE_SEARCH_GENERATION",
         "synthetic-next-generation",
     ):
         with pytest.raises(PaginationError) as stale:

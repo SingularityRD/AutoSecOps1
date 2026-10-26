@@ -10,27 +10,27 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracecat.sandbox import executor as executor_module
-from tracecat.sandbox import nsjail_protocol
-from tracecat.sandbox.exceptions import (
+from autosecops.sandbox import executor as executor_module
+from autosecops.sandbox import nsjail_protocol
+from autosecops.sandbox.exceptions import (
     PackageInstallError,
     SandboxInfrastructureError,
     SandboxTimeoutError,
 )
-from tracecat.sandbox.executor import (
+from autosecops.sandbox.executor import (
     _WORKLOAD_LAUNCHER_NAME,
     _WORKLOAD_LAUNCHER_SCRIPT,
     _WORKLOAD_STARTED_MARKER,
     ActionSandboxConfig,
     NsjailExecutor,
 )
-from tracecat.sandbox.nsjail_protocol import (
+from autosecops.sandbox.nsjail_protocol import (
     NsjailCompletedProcess,
     invoke_nsjail,
     scan_nsjail_log,
 )
-from tracecat.sandbox.service import SandboxService
-from tracecat.sandbox.types import SandboxConfig, SandboxErrorCode, SandboxResult
+from autosecops.sandbox.service import SandboxService
+from autosecops.sandbox.types import SandboxConfig, SandboxErrorCode, SandboxResult
 
 
 @pytest.mark.anyio

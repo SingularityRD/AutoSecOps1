@@ -1,12 +1,12 @@
 from typing import get_type_hints
 
-from tests._route_utils import EffectiveRoute, iter_effective_api_routes
-from tracecat.api.app import app
-from tracecat.auth.dependencies import (
+from autosecops.api.app import app
+from autosecops.auth.dependencies import (
     WorkspaceActorRouteRole,
     WorkspaceUserRouteRole,
     require_workspace_id_path,
 )
+from tests._route_utils import EffectiveRoute, iter_effective_api_routes
 
 WORKSPACE_ROUTE_PREFIXES = [
     "/actions",

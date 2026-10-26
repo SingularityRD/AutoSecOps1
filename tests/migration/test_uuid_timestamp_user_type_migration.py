@@ -12,8 +12,8 @@ import orjson
 import pytest
 from sqlalchemy import create_engine, text
 
+from autosecops.identifiers.workflow import WorkspaceUUID
 from tests.database import TEST_DB_CONFIG
-from tracecat.identifiers.workflow import WorkspaceUUID
 
 MIGRATION_REVISION = "7e1a4d9c2b6f"
 PREVIOUS_REVISION = "bf38f2aa1c77"

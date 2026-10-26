@@ -2,10 +2,10 @@
 
 import { RefreshCcw } from "lucide-react"
 import type {
+  autosecops__registry__repositories__schemas__RegistrySyncResponse,
   GitCommitInfo,
   RegistryRepositoriesSyncRegistryRepositoryData,
   RegistryRepositoryReadMinimal,
-  tracecat__registry__repositories__schemas__RegistrySyncResponse,
 } from "@/client"
 import { Spinner } from "@/components/loading/spinner"
 import { shortCommitSha } from "@/components/registry/utils"
@@ -29,7 +29,7 @@ export interface SyncRepositoryDialogProps {
   selectedRepo: RegistryRepositoryReadMinimal | null
   syncRepo: (
     params: RegistryRepositoriesSyncRegistryRepositoryData
-  ) => Promise<tracecat__registry__repositories__schemas__RegistrySyncResponse>
+  ) => Promise<autosecops__registry__repositories__schemas__RegistrySyncResponse>
   syncRepoIsPending: boolean
   /** Sync this commit instead of the remote HEAD. */
   targetCommit?: GitCommitInfo | null

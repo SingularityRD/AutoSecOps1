@@ -11,10 +11,10 @@ from typing import Any
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.schemas import ExecutionContext
-from tracecat.executor.schemas import ActionImplementation, ResolvedContext
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.schemas import ExecutionContext
+from autosecops.executor.schemas import ActionImplementation, ResolvedContext
 
 # =============================================================================
 # Environment Setup for Integration Tests
@@ -46,7 +46,7 @@ def disable_nsjail_for_tests(monkeypatch_session):
     monkeypatch_session.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
 
     # Reload config to pick up the new value
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -197,9 +197,9 @@ def staged_cache_dirs(
 @pytest.fixture
 def run_action_input_factory():
     """Factory for creating RunActionInput objects for testing."""
-    from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-    from tracecat.identifiers.workflow import WorkflowUUID
-    from tracecat.registry.lock.types import RegistryLock
+    from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+    from autosecops.identifiers.workflow import WorkflowUUID
+    from autosecops.registry.lock.types import RegistryLock
 
     def _create(
         action: str = "core.transform",
@@ -210,8 +210,8 @@ def run_action_input_factory():
         # Provide a default registry lock for testing
         if registry_lock is None:
             registry_lock = RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={action: "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={action: "autosecops_registry"},
             )
         return RunActionInput(
             task=ActionStatement(
@@ -254,7 +254,7 @@ def resolved_context_factory():
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args=args or {"value": {"test": True}},

@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import delete, func, select
 
-from tracecat.authz.enums import ScopeSource
-from tracecat.authz.seeding import (
+from autosecops.authz.enums import ScopeSource
+from autosecops.authz.seeding import (
     PRESET_ROLE_DEFINITIONS,
     SYSTEM_SCOPE_DEFINITIONS,
     seed_registry_scopes,
@@ -14,7 +14,7 @@ from tracecat.authz.seeding import (
     seed_system_roles_for_org,
     seed_system_scopes,
 )
-from tracecat.db.models import Organization, Role, RoleScope, Scope
+from autosecops.db.models import Organization, Role, RoleScope, Scope
 
 
 @pytest.mark.anyio

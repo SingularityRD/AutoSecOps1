@@ -6,19 +6,19 @@ from datetime import UTC, datetime
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.enums import EdgeType
-from tracecat.dsl.scheduler import DSLScheduler
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.enums import EdgeType
+from autosecops.dsl.scheduler import DSLScheduler
+from autosecops.dsl.schemas import (
     ROOT_STREAM,
     ActionStatement,
     ExecutionContext,
     RunContext,
 )
-from tracecat.dsl.types import Task
-from tracecat.identifiers.workflow import WorkflowUUID
+from autosecops.dsl.types import Task
+from autosecops.identifiers.workflow import WorkflowUUID
 
 
 class _ControlledPutQueue:

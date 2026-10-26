@@ -7,24 +7,24 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.skill.frontmatter import SkillFrontmatter
-from tracecat.agent.skill.schemas import SkillCreate
-from tracecat.agent.skill.service import (
+from autosecops.agent.skill.frontmatter import SkillFrontmatter
+from autosecops.agent.skill.schemas import SkillCreate
+from autosecops.agent.skill.service import (
     ManifestValidationResult,
     SkillFileBlobRef,
     SkillService,
 )
-from tracecat.agent.skill.types import ResolvedSkillMcpTool, SkillToolProjection
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.agent.skill.types import ResolvedSkillMcpTool, SkillToolProjection
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     MCPIntegration,
     SkillVersion,
     SkillVersionMcpTool,
     SkillVersionTool,
 )
-from tracecat.exceptions import TracecatValidationError
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.service import IntegrationService
+from autosecops.exceptions import TracecatValidationError
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.service import IntegrationService
 
 
 async def _publish_snapshot(

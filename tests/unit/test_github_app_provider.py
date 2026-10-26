@@ -7,27 +7,27 @@ from pathlib import Path
 import httpx
 import jwt
 import pytest
+from autosecops_registry import RegistryOAuthSecret
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from tracecat_registry import RegistryOAuthSecret
 
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.providers import PROVIDER_REGISTRY
-from tracecat.integrations.providers.github import app as github_app
-from tracecat.integrations.providers.github.app import (
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.providers import PROVIDER_REGISTRY
+from autosecops.integrations.providers.github import app as github_app
+from autosecops.integrations.providers.github.app import (
     GitHubAppInstallationProvider,
     GitHubAppUserProvider,
     parse_github_app_permissions,
 )
-from tracecat.integrations.schemas import ProviderKey
-from tracecat.registry.actions.schemas import TemplateAction
+from autosecops.integrations.schemas import ProviderKey
+from autosecops.registry.actions.schemas import TemplateAction
 
 GITHUB_TEMPLATES = sorted(
     (
         Path(__file__).resolve().parents[2]
         / "packages"
-        / "tracecat-registry"
-        / "tracecat_registry"
+        / "autosecops-registry"
+        / "autosecops_registry"
         / "templates"
         / "tools"
         / "github"

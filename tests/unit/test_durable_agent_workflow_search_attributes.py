@@ -9,10 +9,8 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from temporalio.common import TypedSearchAttributes
-from temporalio.exceptions import ActivityError, ApplicationError
-from tracecat_ee.agent.activities import BuildToolDefsArgs, BuildToolDefsResult
-from tracecat_ee.agent.workflows.durable import (
+from autosecops_ee.agent.activities import BuildToolDefsArgs, BuildToolDefsResult
+from autosecops_ee.agent.workflows.durable import (
     AgentWorkflowArgs,
     DurableAgentWorkflow,
     WorkflowApprovalSubmission,
@@ -22,25 +20,29 @@ from tracecat_ee.agent.workflows.durable import (
     _build_approved_tool_run_input,
     _start_registry_tool_call,
 )
+from temporalio.common import TypedSearchAttributes
+from temporalio.exceptions import ActivityError, ApplicationError
 
-from tracecat import config
-from tracecat.agent.common.types import MCPToolDefinition
-from tracecat.agent.executor.activity import AgentExecutorInput, AgentExecutorResult
-from tracecat.agent.executor.schemas import ApprovedToolCall
-from tracecat.agent.preset.activities import ResolveAgentPresetConfigActivityInput
-from tracecat.agent.schemas import AgentOutput, RunAgentArgs
-from tracecat.agent.session.activities import FinalizeTurnInput, FinalizeTurnResult
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_config import agent_config_to_payload
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import _serializer
-from tracecat.dsl.common import RETRY_POLICIES
-from tracecat.identifiers.workflow import ExecutionUUID, WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.temporal.patches import DurableAgentWorkflowPatch
-from tracecat.workflow.executions.correlation import build_agent_session_correlation_id
-from tracecat.workflow.executions.enums import (
+from autosecops import config
+from autosecops.agent.common.types import MCPToolDefinition
+from autosecops.agent.executor.activity import AgentExecutorInput, AgentExecutorResult
+from autosecops.agent.executor.schemas import ApprovedToolCall
+from autosecops.agent.preset.activities import ResolveAgentPresetConfigActivityInput
+from autosecops.agent.schemas import AgentOutput, RunAgentArgs
+from autosecops.agent.session.activities import FinalizeTurnInput, FinalizeTurnResult
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_config import agent_config_to_payload
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import _serializer
+from autosecops.dsl.common import RETRY_POLICIES
+from autosecops.identifiers.workflow import ExecutionUUID, WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.temporal.patches import DurableAgentWorkflowPatch
+from autosecops.workflow.executions.correlation import (
+    build_agent_session_correlation_id,
+)
+from autosecops.workflow.executions.enums import (
     ExecutionType,
     TemporalSearchAttr,
     TriggerType,
@@ -98,7 +100,7 @@ def test_agent_token_ttl_includes_executor_queue_and_setup_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat_ee.agent.workflows.durable.config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT",
+        "autosecops_ee.agent.workflows.durable.config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT",
         300,
     )
 
@@ -188,11 +190,11 @@ async def test_upsert_tracecat_search_attributes_fills_missing_keys() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.info",
+            "autosecops_ee.agent.workflows.durable.workflow.info",
             return_value=SimpleNamespace(typed_search_attributes=existing_attrs),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.upsert_search_attributes"
+            "autosecops_ee.agent.workflows.durable.workflow.upsert_search_attributes"
         ) as upsert_mock,
     ):
         workflow_instance._upsert_tracecat_search_attributes()
@@ -236,11 +238,11 @@ async def test_upsert_tracecat_search_attributes_preserves_existing_values() -> 
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.info",
+            "autosecops_ee.agent.workflows.durable.workflow.info",
             return_value=SimpleNamespace(typed_search_attributes=existing_attrs),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.upsert_search_attributes"
+            "autosecops_ee.agent.workflows.durable.workflow.upsert_search_attributes"
         ) as upsert_mock,
     ):
         workflow_instance._upsert_tracecat_search_attributes()
@@ -262,11 +264,11 @@ async def test_run_skips_search_attribute_upsert_without_patch_marker() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             return_value=False,
         ) as patched_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
+            "autosecops_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
             return_value=False,
         ),
         patch.object(
@@ -331,13 +333,13 @@ async def test_run_preserves_v1_finalize_then_done_history_shape() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             side_effect=lambda patch_id: (
                 patch_id == DurableAgentWorkflowPatch.FINALIZE_TURN
             ),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
+            "autosecops_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
             return_value=False,
         ),
         patch.object(workflow_instance, "_build_config", AsyncMock(return_value=cfg)),
@@ -395,17 +397,17 @@ async def test_run_does_not_emit_done_after_combined_finalize_failure() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             side_effect=lambda patch_id: (
                 patch_id == DurableAgentWorkflowPatch.FINALIZE_TURN_WITH_END
             ),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
+            "autosecops_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
             return_value=False,
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.info",
+            "autosecops_ee.agent.workflows.durable.workflow.info",
             return_value=SimpleNamespace(
                 workflow_id=f"agent/{workflow_args.agent_args.session_id}"
             ),
@@ -417,11 +419,11 @@ async def test_run_does_not_emit_done_after_combined_finalize_failure() -> None:
             AsyncMock(side_effect=terminal_run),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
             AsyncMock(side_effect=finalize_error),
         ) as execute_activity_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity_method",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity_method",
             AsyncMock(),
         ) as execute_activity_method_mock,
     ):
@@ -456,13 +458,13 @@ async def test_finalize_turn_falls_back_only_for_legacy_worker_result(
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.info",
+            "autosecops_ee.agent.workflows.durable.workflow.info",
             return_value=SimpleNamespace(
                 workflow_id=f"agent/{workflow_args.agent_args.session_id}"
             ),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
             AsyncMock(return_value=activity_result),
         ) as execute_activity_mock,
         patch.object(
@@ -508,11 +510,11 @@ async def test_run_skips_activity_error_emission_without_patch_marker() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             side_effect=[False, False, False, False, False],
         ) as patched_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
+            "autosecops_ee.agent.workflows.durable.workflow.unsafe.is_replaying",
             return_value=False,
         ),
         patch.object(workflow_instance, "_build_config", AsyncMock(return_value=cfg)),
@@ -524,7 +526,7 @@ async def test_run_skips_activity_error_emission_without_patch_marker() -> None:
         # Let the real _finalize_session_error run so its patch-gated
         # early-return is exercised; mock only the actual scheduling call.
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity_method",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity_method",
             AsyncMock(),
         ) as execute_activity_mock,
         patch.object(
@@ -565,18 +567,18 @@ async def test_compile_agent_run_uses_legacy_activity_without_patch_marker() -> 
             )
         },
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={"core.http_request": "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={"core.http_request": "autosecops_registry"},
         ),
     )
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             return_value=False,
         ) as patched_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity_method",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity_method",
             AsyncMock(return_value=build_result),
         ) as execute_activity_mock,
         patch.object(
@@ -617,11 +619,11 @@ async def test_load_terminal_message_history_skips_activity_without_patch_marker
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.patched",
+            "autosecops_ee.agent.workflows.durable.workflow.patched",
             return_value=False,
         ) as patched_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
             new_callable=AsyncMock,
         ) as execute_activity_mock,
     ):
@@ -657,7 +659,7 @@ async def test_approval_pause_done_failure_does_not_abort_workflow() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity_method",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity_method",
             AsyncMock(side_effect=activity_error),
         ),
     ):
@@ -699,7 +701,7 @@ async def test_build_config_prefers_pinned_preset_version_id() -> None:
     )
 
     with patch(
-        "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+        "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
         AsyncMock(return_value=agent_config_to_payload(pinned_config)),
     ) as execute_activity_mock:
         cfg = await workflow_instance._build_config(workflow_args)
@@ -766,7 +768,7 @@ async def test_build_config_applies_preset_output_type_override(
     )
 
     with patch(
-        "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+        "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
         AsyncMock(return_value=agent_config_to_payload(preset_config)),
     ):
         cfg = await workflow_instance._build_config(workflow_args)
@@ -821,7 +823,7 @@ async def test_build_config_prunes_tool_tunnels_after_action_override(
     )
 
     with patch(
-        "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+        "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
         AsyncMock(return_value=agent_config_to_payload(preset_config)),
     ):
         cfg = await workflow_instance._build_config(workflow_args)
@@ -862,11 +864,11 @@ async def test_sequential_approved_remote_tools_receive_fresh_mcp_tokens() -> No
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.now",
+            "autosecops_ee.agent.workflows.durable.workflow.now",
             return_value=datetime(2026, 7, 14, tzinfo=UTC),
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable._start_remote_mcp_tool_call"
+            "autosecops_ee.agent.workflows.durable._start_remote_mcp_tool_call"
         ) as start_remote_mock,
         patch.object(
             workflow_instance,
@@ -879,7 +881,7 @@ async def test_sequential_approved_remote_tools_receive_fresh_mcp_tokens() -> No
             side_effect=["fresh-token-1", "fresh-token-2"],
         ) as mint_token_mock,
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.execute_activity",
+            "autosecops_ee.agent.workflows.durable.workflow.execute_activity",
             AsyncMock(return_value=SimpleNamespace(results=[])),
         ),
     ):
@@ -910,8 +912,8 @@ def test_build_approved_tool_run_input_is_deterministic() -> None:
     logical_time = datetime(2026, 3, 17, tzinfo=UTC)
     agent_session_id = uuid.UUID("00000000-0000-4000-8000-000000000999")
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "test-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
     tool_call = ApprovedToolCall(
         tool_call_id="toolu_123",
@@ -950,17 +952,17 @@ def test_approved_registry_tool_failures_are_not_retried() -> None:
         service_id="tracecat-api",
     )
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "test-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
 
     with (
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.uuid4",
+            "autosecops_ee.agent.workflows.durable.workflow.uuid4",
             side_effect=[uuid.uuid4(), uuid.uuid4(), uuid.uuid4()],
         ),
         patch(
-            "tracecat_ee.agent.workflows.durable.workflow.start_activity"
+            "autosecops_ee.agent.workflows.durable.workflow.start_activity"
         ) as start_activity_mock,
     ):
         _start_registry_tool_call(
@@ -990,8 +992,8 @@ def test_build_approved_tool_run_input_strips_proxy_metadata() -> None:
     logical_time = datetime(2026, 3, 17, tzinfo=UTC)
     agent_session_id = uuid.UUID("00000000-0000-4000-8000-000000000999")
     registry_lock = RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions={"core.cases.create_case": "tracecat_registry"},
+        origins={"autosecops_registry": "test-version"},
+        actions={"core.cases.create_case": "autosecops_registry"},
     )
     tool_call = ApprovedToolCall(
         tool_call_id="toolu_123",

@@ -1,12 +1,12 @@
 import pytest
 
-from tracecat.query.errors import QueryErrorCode, TracecatQueryTimeoutError
-from tracecat.query.lexical import (
+from autosecops.query.errors import QueryErrorCode, TracecatQueryTimeoutError
+from autosecops.query.lexical import (
     literal_search_pattern,
     parse_full_text_query,
     resolve_search_columns,
 )
-from tracecat.query.lexical_types import (
+from autosecops.query.lexical_types import (
     MAX_MATCH_COLUMN_LENGTH,
     MAX_MATCH_EXCERPT_LENGTH,
     MAX_MATCH_EXCERPTS,

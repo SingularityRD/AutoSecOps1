@@ -6,11 +6,11 @@ from unittest.mock import patch
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import Schedule, Workflow
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.management.management import WorkflowsManagementService
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import Schedule, Workflow
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.management.management import WorkflowsManagementService
 
 
 @pytest.mark.anyio
@@ -64,7 +64,9 @@ async def test_delete_workflow_cleans_up_schedules(test_role: Role):
         await session.commit()
 
         # Mock the Temporal bridge delete_schedule function
-        with patch("tracecat.workflow.schedules.bridge.delete_schedule") as mock_delete:
+        with patch(
+            "autosecops.workflow.schedules.bridge.delete_schedule"
+        ) as mock_delete:
             mock_delete.return_value = None
 
             # Delete the workflow
@@ -118,7 +120,9 @@ async def test_delete_workflow_handles_temporal_errors_gracefully(test_role: Rol
         await session.commit()
 
         # Mock the Temporal bridge to raise an exception
-        with patch("tracecat.workflow.schedules.bridge.delete_schedule") as mock_delete:
+        with patch(
+            "autosecops.workflow.schedules.bridge.delete_schedule"
+        ) as mock_delete:
             mock_delete.side_effect = Exception("Temporal connection failed")
 
             # Delete the workflow - should not raise an exception

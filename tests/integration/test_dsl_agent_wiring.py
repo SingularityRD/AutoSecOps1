@@ -6,25 +6,24 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
-from temporalio import activity
-from temporalio.client import Client
-from temporalio.worker import Worker
-from tracecat_ee.agent.activities import (
+from autosecops_ee.agent.activities import (
     BuildAgentToolDefsArgs,
     BuildAgentToolDefsResult,
     BuildToolDefsResult,
 )
-from tracecat_ee.agent.schemas import AgentActionArgs
-from tracecat_ee.agent.workflows.durable import DurableAgentWorkflow
-from tracecat_registry.integrations.agents.slack import SlackbotContext
+from autosecops_ee.agent.schemas import AgentActionArgs
+from autosecops_ee.agent.workflows.durable import DurableAgentWorkflow
+from autosecops_registry.integrations.agents.slack import SlackbotContext
+from temporalio import activity
+from temporalio.client import Client
+from temporalio.worker import Worker
 
-from tests.shared import to_data
-from tracecat import config
-from tracecat.agent.executor.activity import (
+from autosecops import config
+from autosecops.agent.executor.activity import (
     AgentExecutorInput,
     AgentExecutorResult,
 )
-from tracecat.agent.session.activities import (
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     CreateSessionResult,
     LoadSessionInput,
@@ -32,24 +31,25 @@ from tracecat.agent.session.activities import (
     LoadSessionMessagesResult,
     LoadSessionResult,
 )
-from tracecat.agent.worker import (
+from autosecops.agent.worker import (
     get_activities as get_agent_worker_activities,
 )
-from tracecat.agent.worker import (
+from autosecops.agent.worker import (
     new_sandbox_runner as new_agent_sandbox_runner,
 )
-from tracecat.auth.types import Role
-from tracecat.dsl.action import (
+from autosecops.auth.types import Role
+from autosecops.dsl.action import (
     BuildAgentArgsActivityInput,
     FinalizeSlackbotActivityInput,
     PreparedSlackbot,
 )
-from tracecat.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.dsl.worker import get_activities as get_dsl_worker_activities
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
+from autosecops.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.dsl.worker import get_activities as get_dsl_worker_activities
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from tests.shared import to_data
 
 
 def _activity_name(activity_def: object) -> str:
@@ -140,7 +140,7 @@ def create_mock_build_tool_definitions_activity() -> Callable[..., Any]:
         tool_result = BuildToolDefsResult(
             tool_definitions={},
             registry_lock=RegistryLock(
-                origins={"tracecat_registry": "test-version"},
+                origins={"autosecops_registry": "test-version"},
                 actions={},
             ),
             user_mcp_claims=None,

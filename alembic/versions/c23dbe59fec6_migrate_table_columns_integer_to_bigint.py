@@ -12,7 +12,7 @@ from uuid import UUID
 import sqlalchemy as sa
 
 from alembic import op
-from tracecat.identifiers.workflow import WorkspaceUUID
+from autosecops.identifiers.workflow import WorkspaceUUID
 
 # revision identifiers, used by Alembic.
 revision: str = "c23dbe59fec6"

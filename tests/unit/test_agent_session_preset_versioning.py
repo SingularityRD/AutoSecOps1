@@ -8,18 +8,18 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from tracecat.agent.session.schemas import AgentSessionCreate, AgentSessionUpdate
-from tracecat.agent.session.service import (
+from autosecops.agent.session.schemas import AgentSessionCreate, AgentSessionUpdate
+from autosecops.agent.session.service import (
     AGENT_SESSION_EXECUTION_SCOPES,
     AgentSessionService,
 )
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.chat.tools import WORKSPACE_CHAT_DEFAULT_TOOLS
-from tracecat.db.models import AgentSession
-from tracecat.exceptions import TracecatValidationError
-from tracecat.tiers.enums import Entitlement
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.chat.tools import WORKSPACE_CHAT_DEFAULT_TOOLS
+from autosecops.db.models import AgentSession
+from autosecops.exceptions import TracecatValidationError
+from autosecops.tiers.enums import Entitlement
 
 
 class _TestAgentSessionService(AgentSessionService):
@@ -162,7 +162,7 @@ async def test_session_mcp_integrations_must_load_before_persisting(
 
     with (
         patch(
-            "tracecat.agent.session.service.AgentPresetService",
+            "autosecops.agent.session.service.AgentPresetService",
             Mock(return_value=preset_service),
         ),
         pytest.raises(TracecatValidationError, match="MCP integration not found"),
@@ -377,7 +377,7 @@ async def test_workspace_chat_preset_config_scope_filters_actions() -> None:
     service._resolve_builtin_workspace_chat_skills = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
     with patch(
-        "tracecat.agent.session.service.AgentManagementService"
+        "autosecops.agent.session.service.AgentManagementService"
     ) as agent_svc_cls:
         agent_svc_cls.return_value = SimpleNamespace(
             with_preset_config=_fake_with_preset_config
@@ -435,7 +435,7 @@ async def test_workspace_chat_preset_config_superuser_keeps_all_actions() -> Non
     service._resolve_builtin_workspace_chat_skills = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
     with patch(
-        "tracecat.agent.session.service.AgentManagementService"
+        "autosecops.agent.session.service.AgentManagementService"
     ) as agent_svc_cls:
         agent_svc_cls.return_value = SimpleNamespace(
             with_preset_config=_fake_with_preset_config

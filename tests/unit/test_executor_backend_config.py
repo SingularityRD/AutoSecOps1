@@ -10,21 +10,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tracecat import config
-from tracecat.executor.action_runner import ActionRunner
-from tracecat.executor.backends import _create_backend
-from tracecat.executor.backends.direct import DirectBackend
-from tracecat.executor.backends.ephemeral import EphemeralBackend
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.sandbox import service as sandbox_service
-from tracecat.sandbox.exceptions import SandboxInfrastructureError
-from tracecat.sandbox.service import SandboxService
+from autosecops import config
+from autosecops.executor.action_runner import ActionRunner
+from autosecops.executor.backends import _create_backend
+from autosecops.executor.backends.direct import DirectBackend
+from autosecops.executor.backends.ephemeral import EphemeralBackend
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.sandbox import service as sandbox_service
+from autosecops.sandbox.exceptions import SandboxInfrastructureError
+from autosecops.sandbox.service import SandboxService
 
 
 @pytest.mark.parametrize("module", ["minimal_runner", "process_supervisor"])
 def test_executor_entrypoints_import_without_site_packages(module: str) -> None:
     """Sibling modules must not shadow stdlib imports in standalone scripts."""
-    executor_dir = Path(__file__).parents[2] / "tracecat" / "executor"
+    executor_dir = Path(__file__).parents[2] / "autosecops" / "executor"
     # Site initialization can preload stdlib types and hide a sibling types.py.
     result = subprocess.run(
         [sys.executable, "-S", "-c", f"import {module}"],
@@ -69,8 +69,8 @@ def test_workers_and_agent_runtime_agree_on_backend(
         [
             sys.executable,
             "-c",
-            "from tracecat import config; "
-            "from tracecat.agent.common import config as agent_config; "
+            "from autosecops import config; "
+            "from autosecops.agent.common import config as agent_config; "
             "print(config.TRACECAT__EXECUTOR_BACKEND, agent_config.TRACECAT__EXECUTOR_BACKEND)",
         ],
         env=env,

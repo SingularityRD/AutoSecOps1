@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
 import pytest
+from autosecops_ee.scim.service import SCIMService
 from sqlalchemy.dialects import postgresql
-from tracecat_ee.scim.service import SCIMService
 
-from tracecat.auth.types import Role
+from autosecops.auth.types import Role
 
 
 @pytest.mark.parametrize("user_count", [0, 1, 100])

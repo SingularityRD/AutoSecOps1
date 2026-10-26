@@ -4,12 +4,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Workflow, WorkflowFolder, Workspace
-from tracecat.exceptions import TracecatValidationError
-from tracecat.identifiers.workflow import WorkflowID
-from tracecat.workflow.management.folders.schemas import WorkflowFolderCreate
-from tracecat.workflow.management.folders.service import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Workflow, WorkflowFolder, Workspace
+from autosecops.exceptions import TracecatValidationError
+from autosecops.identifiers.workflow import WorkflowID
+from autosecops.workflow.management.folders.schemas import WorkflowFolderCreate
+from autosecops.workflow.management.folders.service import (
     WorkflowFolderErrorCode,
     WorkflowFolderService,
 )

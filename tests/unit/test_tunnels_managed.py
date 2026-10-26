@@ -5,10 +5,8 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.tunnels import service as service_module
-from tracecat_ee.tunnels.pangolin import (
+from autosecops_ee.tunnels import service as service_module
+from autosecops_ee.tunnels.pangolin import (
     PangolinAPI,
     PangolinClient,
     PangolinCredentials,
@@ -16,15 +14,17 @@ from tracecat_ee.tunnels.pangolin import (
     PangolinSettings,
     PangolinSite,
 )
-from tracecat_ee.tunnels.schemas import ManagedTunnelCreate, TunnelUpdate
-from tracecat_ee.tunnels.service import TunnelsService
+from autosecops_ee.tunnels.schemas import ManagedTunnelCreate, TunnelUpdate
+from autosecops_ee.tunnels.service import TunnelsService
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.secrets import get_db_encryption_key
-from tracecat.auth.types import Role
-from tracecat.db.models import Organization, Workspace, WorkspaceTunnel
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.secrets.encryption import decrypt_value
+from autosecops import config
+from autosecops.auth.secrets import get_db_encryption_key
+from autosecops.auth.types import Role
+from autosecops.db.models import Organization, Workspace, WorkspaceTunnel
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.secrets.encryption import decrypt_value
 
 SETTINGS = PangolinSettings(
     api_url="https://pangolin-api.example.com/v1",
@@ -189,7 +189,7 @@ class TestPangolinAPI:
                 await api.site_online(3)
 
     def test_settings_require_all_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from tracecat import config
+        from autosecops import config
 
         monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", SETTINGS.api_url)
         monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", SETTINGS.endpoint)

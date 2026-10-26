@@ -8,9 +8,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.integrations import router as integrations_router
-from tracecat.integrations.enums import IntegrationStatus, OAuthGrantType
+from autosecops.auth.types import Role
+from autosecops.integrations import router as integrations_router
+from autosecops.integrations.enums import IntegrationStatus, OAuthGrantType
 
 
 @pytest.mark.anyio

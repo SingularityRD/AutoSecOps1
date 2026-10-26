@@ -9,23 +9,25 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from tests.unit.test_bitbucket_vcs import role
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatNotFoundError,
 )
-from tracecat.git.types import GitUrl
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.secrets.service import SecretsService
-from tracecat.tiers.enums import Entitlement
-from tracecat.vcs.bitbucket.app import BitbucketError
-from tracecat.vcs.bitbucket_data_center.app import BitbucketDataCenterTokenService
-from tracecat.vcs.bitbucket_data_center.schemas import (
+from autosecops.git.types import GitUrl
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from autosecops.tiers.enums import Entitlement
+from autosecops.vcs.bitbucket.app import BitbucketError
+from autosecops.vcs.bitbucket_data_center.app import BitbucketDataCenterTokenService
+from autosecops.vcs.bitbucket_data_center.schemas import (
     BitbucketDataCenterTokenCredentials,
 )
-from tracecat.vcs.bitbucket_data_center.types import DataCenterBranch
-from tracecat.workspace_sync.transport import BitbucketDataCenterWorkspaceSyncTransport
+from autosecops.vcs.bitbucket_data_center.types import DataCenterBranch
+from autosecops.workspace_sync.transport import (
+    BitbucketDataCenterWorkspaceSyncTransport,
+)
+from tests.unit.test_bitbucket_vcs import role
 
 TOKEN = "synthetic-data-center-test-token"
 
@@ -54,7 +56,7 @@ async def test_credential_lifecycle_and_status_never_returns_token():
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
         patch(
-            "tracecat.vcs.bitbucket_data_center.app.SecretsService",
+            "autosecops.vcs.bitbucket_data_center.app.SecretsService",
             return_value=secrets,
         ),
     ):

@@ -1,0 +1,217 @@
+"""
+Type-safe schemas for registry sync communication.
+
+This module defines Pydantic models used to serialize/deserialize data
+for registry sync operations, including:
+- Subprocess sync (existing)
+- Temporal workflow sync (sandboxed executor)
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from typing import Literal, Self
+from uuid import UUID
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, TypeAdapter
+
+from autosecops.exceptions import (
+    RegistryError,
+    RegistrySyncContentError,
+    RegistryTemplateLoadError,
+)
+from autosecops.registry.actions.schemas import (
+    RegistryActionCreate,
+    RegistryActionValidationErrorInfo,
+)
+
+
+class SyncErrorCode(StrEnum):
+    """Deterministic sync failures that retrying cannot fix."""
+
+    PACKAGE_NOT_FOUND = "package_not_found"
+    TEMPLATE_LOAD_FAILED = "template_load_failed"
+    IMPORT_FAILED = "import_failed"
+
+
+class SyncResultSuccess(BaseModel):
+    """Successful sync result containing actions and metadata."""
+
+    actions: list[RegistryActionCreate] = Field(
+        default_factory=list,
+        description="List of serialized registry actions.",
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="The resolved commit SHA (None for local/builtin repos).",
+    )
+    validation_errors: dict[str, list[RegistryActionValidationErrorInfo]] = Field(
+        default_factory=dict,
+        description="Map of action name to list of validation errors.",
+    )
+
+
+class SyncResultError(BaseModel):
+    """Error result from sync subprocess."""
+
+    error: str = Field(..., description="Error message from the subprocess.")
+    error_code: SyncErrorCode | None = Field(
+        default=None,
+        description="Machine-readable code for non-retryable content errors.",
+    )
+
+    @classmethod
+    def from_exception(cls, exc: BaseException) -> Self:
+        """Build an error result, classifying known content errors by type."""
+        error_code: SyncErrorCode | None = None
+        if isinstance(exc, ModuleNotFoundError):
+            # Wrong `git_repo_package_name`.
+            error_code = SyncErrorCode.PACKAGE_NOT_FOUND
+        elif isinstance(exc, RegistryTemplateLoadError):
+            error_code = SyncErrorCode.TEMPLATE_LOAD_FAILED
+        return cls(error=str(exc), error_code=error_code)
+
+    def to_exception(self) -> RegistryError:
+        """Convert back into the exception the sync caller should raise."""
+        if self.error_code is not None:
+            return RegistrySyncContentError(self.error, code=self.error_code)
+        return RegistryError(self.error)
+
+
+class RegistryCloneResult(BaseModel):
+    """Validated output from the sandboxed Git clone phase."""
+
+    commit_sha: str = Field(
+        ...,
+        pattern=r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+        description="Fully resolved Git object ID for the checked-out commit.",
+    )
+
+
+# Type adapter for parsing the sync result (success or error)
+SyncResultAdapter: TypeAdapter[SyncResultSuccess | SyncResultError] = TypeAdapter(
+    SyncResultSuccess | SyncResultError
+)
+
+
+# =============================================================================
+# Temporal Workflow Schemas (Sandboxed Registry Sync)
+# =============================================================================
+
+
+class RegistrySyncRequest(BaseModel):
+    """Request for sandboxed registry sync via Temporal workflow.
+
+    This is passed from the API service to the ExecutorWorker via Temporal.
+    Git SSH keys are fetched by the ExecutorWorker and never enter Temporal args.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    repository_id: UUID = Field(..., description="Database repository ID")
+    origin: str = Field(..., description="Repository origin URL or name")
+    origin_type: Literal["builtin", "local", "git"] = Field(
+        ..., description="Type of repository origin"
+    )
+    git_url: str | None = Field(
+        default=None, description="Git SSH URL for cloning (git origins only)"
+    )
+    commit_sha: str | None = Field(
+        default=None, description="Target commit SHA (git origins only)"
+    )
+    target_version: str | None = Field(
+        default=None,
+        description=(
+            "Target registry version string for deterministic artifact keys. "
+            "Primarily used by builtin platform registry sync."
+        ),
+    )
+    git_repo_package_name: str | None = Field(
+        default=None,
+        description="Optional Python package name override for git repositories",
+    )
+    validate_actions: bool = Field(
+        default=False, description="Whether to validate template actions"
+    )
+    storage_namespace: str | None = Field(
+        default=None,
+        description=(
+            "Storage namespace for artifact uploads (e.g., org ID or 'platform'). "
+            "Defaults to the deployment's default org ID when not provided."
+        ),
+    )
+    organization_id: UUID | None = Field(
+        default=None,
+        description="Organization ID for org-scoped operations (e.g., secrets access).",
+    )
+
+
+class RegistrySyncResult(BaseModel):
+    """Result from sandboxed registry sync workflow.
+
+    Returned from the ExecutorWorker to the API service via Temporal.
+    Contains discovered actions and artifact location for DB operations.
+    """
+
+    model_config = ConfigDict(
+        serialize_by_alias=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+
+    actions: list[RegistryActionCreate] = Field(
+        default_factory=list,
+        description="List of discovered registry actions",
+    )
+    artifact_uri: str = Field(
+        ...,
+        validation_alias=AliasChoices("artifact_uri", "tarball_uri"),
+        serialization_alias="tarball_uri",
+        description="S3 URI of the uploaded execution artifact",
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="Resolved commit SHA (None for builtin/local repos)",
+    )
+    validation_errors: dict[str, list[RegistryActionValidationErrorInfo]] = Field(
+        default_factory=dict,
+        description="Map of action name to validation errors",
+    )
+
+    @property
+    def tarball_uri(self) -> str:
+        """Legacy alias for the registry artifact URI."""
+        return self.artifact_uri
+
+
+class RegistryArtifactsBackfillItem(BaseModel):
+    """Registry version whose artifacts should be backfilled."""
+
+    version_id: UUID = Field(..., description="Database registry version ID")
+    version: str = Field(..., description="Registry version string")
+    tarball_uri: str = Field(
+        ..., description="S3 URI of the existing execution artifact"
+    )
+
+
+class RegistryArtifactsBackfillRequest(BaseModel):
+    """Request for backfilling registry version artifacts."""
+
+    items: list[RegistryArtifactsBackfillItem] = Field(
+        ..., min_length=1, description="Registry versions to backfill"
+    )
+
+
+class RegistryArtifactsBackfillItemResult(BaseModel):
+    """Result for one registry version artifact backfill."""
+
+    version_id: UUID
+    status: Literal["created", "exists", "skipped", "failed"]
+    error: str | None = None
+
+
+class RegistryArtifactsBackfillResult(BaseModel):
+    """Result from a registry artifact backfill workflow."""
+
+    requested_count: int
+    results: list[RegistryArtifactsBackfillItemResult]

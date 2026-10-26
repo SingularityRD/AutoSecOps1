@@ -15,14 +15,12 @@ from pydantic import SecretStr
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tests.embedding_helpers import configuration_for, request_for, wire_response
-from tracecat import config
-from tracecat.agent.service import AgentManagementService
-from tracecat.auth.secrets import get_db_encryption_key
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_engine, reset_async_engine
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.agent.service import AgentManagementService
+from autosecops.auth.secrets import get_db_encryption_key
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_engine, reset_async_engine
+from autosecops.db.models import (
     AgentCatalog,
     AgentModelAccess,
     Organization,
@@ -32,22 +30,24 @@ from tracecat.db.models import (
     SearchWorkspaceState,
     Workspace,
 )
-from tracecat.exceptions import ScopeDeniedError
-from tracecat.search.embeddings.catalog import recipe_revision
-from tracecat.search.embeddings.client import EmbeddingClient
-from tracecat.search.embeddings.service import (
+from autosecops.exceptions import ScopeDeniedError
+from autosecops.search.embeddings.catalog import recipe_revision
+from autosecops.search.embeddings.client import EmbeddingClient
+from autosecops.search.embeddings.service import (
     WorkspaceEmbeddingService,
     embed_current,
     resolve_embedding_configuration,
 )
-from tracecat.search.embeddings.types import EmbeddingError, EmbeddingErrorCode
-from tracecat.search.types import (
+from autosecops.search.embeddings.types import EmbeddingError, EmbeddingErrorCode
+from autosecops.search.types import (
     EmbeddingRequest,
     SearchScope,
     SearchState,
 )
-from tracecat.secrets.encryption import encrypt_keyvalues
-from tracecat.secrets.schemas import SecretKeyValue
+from autosecops.secrets.encryption import encrypt_keyvalues
+from autosecops.secrets.schemas import SecretKeyValue
+from tests.database import TEST_DB_CONFIG
+from tests.embedding_helpers import configuration_for, request_for, wire_response
 
 pytestmark = pytest.mark.anyio
 

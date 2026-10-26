@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import paramiko
 import pytest
+from autosecops_registry.core import ssh as registry_ssh
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
 )
-from tracecat_registry.core import ssh as registry_ssh
 
 
 @pytest.fixture

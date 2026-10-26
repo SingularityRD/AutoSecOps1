@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.integrations.catalog.loader import (
+from autosecops.integrations.catalog.loader import (
     get_platform_mcp_catalog_entry_by_slug,
 )
-from tracecat.integrations.schemas import (
+from autosecops.integrations.schemas import (
     MCPStdioIntegrationCreate,
     validate_url_credential_values,
 )
-from tracecat.integrations.service import IntegrationService
+from autosecops.integrations.service import IntegrationService
 
 
 class TestValidateUrlCredentialValues:

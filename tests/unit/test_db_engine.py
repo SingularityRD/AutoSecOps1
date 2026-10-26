@@ -12,10 +12,10 @@ from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.pool import QueuePool
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import (
     AuthSession,
     _get_db_uri,
     get_async_auth_engine,
@@ -26,7 +26,7 @@ from tracecat.db.engine import (
     get_async_session_bypass_rls,
     reset_async_engine,
 )
-from tracecat.db.exceptions import (
+from autosecops.db.exceptions import (
     AuthPoolExhaustedError,
     DatabasePoolAcquisitionOrderError,
 )
@@ -53,7 +53,7 @@ def test_get_db_uri_logs_decode_error(monkeypatch: pytest.MonkeyPatch) -> None:
     response: dict[str, object] = {"SecretBinary": base64.b64encode(b"\xff\xfe")}
     monkeypatch.setattr(config, "TRACECAT__DB_PASS__ARN", "arn:secret")
     monkeypatch.setattr(
-        "tracecat.db.engine.boto3.session.Session",
+        "autosecops.db.engine.boto3.session.Session",
         lambda: DummySession(response),
     )
 
@@ -112,11 +112,11 @@ async def test_get_async_session_rls_context(
     )
 
     monkeypatch.setattr(
-        "tracecat.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
+        "autosecops.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
     )
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", set_context)
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context_from_role", set_from_role)
-    monkeypatch.setattr("tracecat.db.engine.get_async_engine", lambda: object())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", set_context)
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context_from_role", set_from_role)
+    monkeypatch.setattr("autosecops.db.engine.get_async_engine", lambda: object())
     if rls_mode is not None:
         monkeypatch.setattr(config, "TRACECAT__RLS_MODE", rls_mode)
 
@@ -157,9 +157,9 @@ async def test_only_auth_session_binds_to_auth_engine(
         session_cm.__aexit__.return_value = None
         return session_cm
 
-    monkeypatch.setattr("tracecat.db.engine.AsyncSession", record_bind)
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", AsyncMock())
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context_from_role", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.AsyncSession", record_bind)
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context_from_role", AsyncMock())
     monkeypatch.setattr(config, "TRACECAT__RLS_MODE", config.RLSMode.OFF)
 
     request_generator = get_async_session()
@@ -215,10 +215,10 @@ async def test_main_session_acquisition_while_auth_session_held_raises(
     session_cm.__aexit__.return_value = None
 
     monkeypatch.setattr(
-        "tracecat.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
+        "autosecops.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
     )
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", AsyncMock())
-    monkeypatch.setattr("tracecat.db.engine.get_async_auth_engine", lambda: object())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.get_async_auth_engine", lambda: object())
 
     auth_generator = get_async_session_auth()
     await anext(auth_generator)
@@ -239,10 +239,10 @@ async def test_nested_auth_session_acquisition_raises(
     session_cm.__aexit__.return_value = None
 
     monkeypatch.setattr(
-        "tracecat.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
+        "autosecops.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
     )
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", AsyncMock())
-    monkeypatch.setattr("tracecat.db.engine.get_async_auth_engine", lambda: object())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.get_async_auth_engine", lambda: object())
 
     outer_generator = get_async_session_auth()
     await anext(outer_generator)
@@ -263,13 +263,13 @@ async def test_auth_pool_timeout_raises_typed_exhaustion_error(
     session_cm.__aexit__.return_value = None
 
     monkeypatch.setattr(
-        "tracecat.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
+        "autosecops.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
     )
     monkeypatch.setattr(
-        "tracecat.db.engine.set_rls_context",
+        "autosecops.db.engine.set_rls_context",
         AsyncMock(side_effect=SQLAlchemyTimeoutError()),
     )
-    monkeypatch.setattr("tracecat.db.engine.get_async_auth_engine", lambda: object())
+    monkeypatch.setattr("autosecops.db.engine.get_async_auth_engine", lambda: object())
 
     generator = get_async_session_auth()
     with pytest.raises(AuthPoolExhaustedError):
@@ -287,10 +287,10 @@ async def test_auth_accessor_yields_capability_narrowed_handle(
     session_cm.__aexit__.return_value = None
 
     monkeypatch.setattr(
-        "tracecat.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
+        "autosecops.db.engine.AsyncSession", lambda *args, **kwargs: session_cm
     )
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", AsyncMock())
-    monkeypatch.setattr("tracecat.db.engine.get_async_auth_engine", lambda: object())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.get_async_auth_engine", lambda: object())
 
     async with get_async_session_auth_context_manager() as session:
         assert isinstance(session, AuthSession)

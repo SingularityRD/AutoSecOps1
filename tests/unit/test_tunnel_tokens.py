@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
-from tracecat_ee.tunnels.tokens import (
+from autosecops_ee.tunnels.tokens import (
     TUNNEL_TOKEN_AUDIENCE,
     TUNNEL_TOKEN_ISSUER,
     TunnelTokenError,
@@ -114,7 +114,7 @@ def test_mint_rejects_bad_ttl(ttl: int) -> None:
 
 
 def test_gateway_policy_token_round_trip_and_rejections() -> None:
-    from tracecat_ee.tunnels.tokens import (
+    from autosecops_ee.tunnels.tokens import (
         mint_gateway_policy_token,
         unverified_policy_token_tunnel_id,
         verify_gateway_policy_token,
@@ -136,7 +136,7 @@ def test_gateway_policy_token_round_trip_and_rejections() -> None:
 
 
 def test_proxy_token_is_not_a_policy_token() -> None:
-    from tracecat_ee.tunnels.tokens import verify_gateway_policy_token
+    from autosecops_ee.tunnels.tokens import verify_gateway_policy_token
 
     key = generate_gateway_key()
     tunnel_id = uuid.uuid4()

@@ -11,10 +11,10 @@ import {
 } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
+  autosecops__admin__registry__schemas__RegistryVersionRead,
   RegistryActionReadMinimal,
   RegistryRepositoryReadMinimal,
   RepositoryStatus,
-  tracecat__admin__registry__schemas__RegistryVersionRead,
 } from "@/client"
 import { adminRegistryListRegistryVersions } from "@/client"
 import { useScopeCheck } from "@/components/auth/scope-guard"
@@ -311,7 +311,7 @@ export function WorkspaceActionsInventory() {
       }
 
       const versions = platformVersionsResults[index]?.data as
-        | tracecat__admin__registry__schemas__RegistryVersionRead[]
+        | autosecops__admin__registry__schemas__RegistryVersionRead[]
         | undefined
       const currentVersion =
         versions?.find((version) => version.id === repo.current_version_id) ??

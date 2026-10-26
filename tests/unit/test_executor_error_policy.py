@@ -4,28 +4,28 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
     TracecatExpressionError,
 )
-from tracecat.executor.error_policy import classify_execute_action_error
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.error_policy import classify_execute_action_error
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCacheLeaseContentionError,
 )
-from tracecat.executor.schemas import ExecutorActionErrorInfo
-from tracecat.expressions.eval import get_iterables_from_expression
-from tracecat.runtime.errors import (
+from autosecops.executor.schemas import ExecutorActionErrorInfo
+from autosecops.expressions.eval import get_iterables_from_expression
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.sandbox.exceptions import (
+from autosecops.sandbox.exceptions import (
     SandboxWorkloadError,
     raise_for_sandbox_error_code,
 )
-from tracecat.sandbox.types import SandboxErrorCode
+from autosecops.sandbox.types import SandboxErrorCode
 
 
 def _iteration_error(cause: Exception, *, index: int) -> ExecutionError:

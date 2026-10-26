@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from tracecat.storage.object import InlineObject
-from tracecat.workflow.executions.schemas import (
+from autosecops.storage.object import InlineObject
+from autosecops.workflow.executions.schemas import (
     WorkflowExecutionCollectionPageItem,
     WorkflowExecutionCollectionPageItemKind,
 )

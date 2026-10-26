@@ -18,7 +18,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from tracecat.logger import logger
+from autosecops.logger import logger
 
 # revision identifiers, used by Alembic.
 revision: str = "b23b877ee161"

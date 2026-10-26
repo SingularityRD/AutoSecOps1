@@ -21,49 +21,53 @@ from temporalio.client import (
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl import action as action_module
-from tracecat.dsl import init_activities as init_activities_module
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.common import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl import action as action_module
+from autosecops.dsl import init_activities as init_activities_module
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.common import (
     DSLEntrypoint,
     DSLInput,
     DSLRunArgs,
     PreparedSubflowResult,
 )
-from tracecat.dsl.enums import (
+from autosecops.dsl.enums import (
     FailStrategy,
     PlatformAction,
     WaitStrategy,
 )
-from tracecat.dsl.init_activities import (
+from autosecops.dsl.init_activities import (
     resolve_time_anchor_activity,
     resolve_workflow_concurrency_limits_enabled_activity,
 )
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.schemas import (
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.schemas import (
     ActionRetryPolicy,
     ActionStatement,
     DSLConfig,
     RunActionInput,
 )
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.exceptions import EntitlementRequired, ExecutionError, LoopExecutionError
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.executor.registry_artifacts import (
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.exceptions import (
+    EntitlementRequired,
+    ExecutionError,
+    LoopExecutionError,
+)
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCacheLeaseContentionError,
     RegistryArtifactExtractionError,
 )
-from tracecat.executor.schemas import ExecutorActionErrorInfo
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import RuntimeErrorKind
-from tracecat.storage.object import ExternalObject, InlineObject, ObjectRef
-from tracecat.temporal.errors import extract_error_classifications
-from tracecat.workflow.executions.enums import TemporalSearchAttr
-from tracecat.workflow.management.management import WorkflowsManagementService
+from autosecops.executor.schemas import ExecutorActionErrorInfo
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import RuntimeErrorKind
+from autosecops.storage.object import ExternalObject, InlineObject, ObjectRef
+from autosecops.temporal.errors import extract_error_classifications
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+from autosecops.workflow.management.management import WorkflowsManagementService
 
 pytestmark = [pytest.mark.temporal]
 
@@ -264,8 +268,8 @@ def _run_args(*, max_attempts: int) -> DSLRunArgs:
         ),
         trigger_inputs=_external_trigger(),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 
@@ -400,7 +404,7 @@ def subflow_run_args(
         ),
         trigger_inputs=InlineObject(data={}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
     )
@@ -415,7 +419,7 @@ def prepared_fanout(
     origin = (
         "custom_actions"
         if action_name.startswith("custom_actions.")
-        else "tracecat_registry"
+        else "autosecops_registry"
     )
     return PreparedSubflowResult(
         wf_id=child_wf_id,
@@ -466,7 +470,7 @@ def fanout_run_args(
         ),
         trigger_inputs=InlineObject(data={"items": modes}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
+            origins={"autosecops_registry": "test"},
             actions={},
         ),
     )
@@ -583,11 +587,11 @@ async def run_successful_materialization_retry_does_not_set_terminal_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=AsyncMock(return_value={"ok": True}),
         ),
     ):
@@ -632,11 +636,11 @@ async def run_executor_internal_failure_sets_platform_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=fault.dispatch,
         ),
     ):
@@ -735,15 +739,15 @@ async def run_executor_boundary_failure_sets_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             new=get_backend,
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=dispatch,
         ),
         patch(
-            "tracecat.executor.activities.get_object_storage",
+            "autosecops.executor.activities.get_object_storage",
             return_value=storage,
         ),
     ):
@@ -798,11 +802,11 @@ async def run_successful_registry_contention_retry_has_no_terminal_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=fault.dispatch,
         ),
     ):
@@ -847,11 +851,11 @@ async def run_user_action_failure_sets_user_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=fault.dispatch,
         ),
     ):
@@ -909,16 +913,16 @@ async def run_missing_error_handler_preserves_original_action_failure(
 
     with (
         patch(
-            "tracecat.workflow.management.management."
+            "autosecops.workflow.management.management."
             "WorkflowsManagementService.with_session",
             return_value=management_context,
         ),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=fault.dispatch,
         ),
     ):

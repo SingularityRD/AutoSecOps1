@@ -10,6 +10,9 @@ from pathlib import Path
 
 import grpc
 import pytest
+from autosecops_registry._internal import secrets as registry_secrets
+from autosecops_registry.core import grpc as grpc_core
+from autosecops_registry.core.grpc import request as grpc_request
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -21,9 +24,6 @@ from cryptography.hazmat.primitives.serialization import (
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 from grpc_tools import protoc
-from tracecat_registry._internal import secrets as registry_secrets
-from tracecat_registry.core import grpc as grpc_core
-from tracecat_registry.core.grpc import request as grpc_request
 
 
 @contextmanager

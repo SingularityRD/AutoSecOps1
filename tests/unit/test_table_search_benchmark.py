@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from autosecops.query.lexical_types import ColumnSearchOrder, SearchMode
 from scripts.benchmark.table_search.queries import SEARCHES, Search, query
 from scripts.benchmark.table_search.run import (
     Settings,
@@ -19,7 +20,6 @@ from scripts.benchmark.table_search.run import (
 )
 from scripts.benchmark.table_search.safety import plan_uses_index
 from scripts.benchmark.table_search.schema import columns, insert_sql
-from tracecat.query.lexical_types import ColumnSearchOrder, SearchMode
 
 
 @pytest.fixture

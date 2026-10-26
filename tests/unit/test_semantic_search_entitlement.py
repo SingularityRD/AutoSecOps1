@@ -9,24 +9,24 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from tracecat.auth.dependencies import (
+from autosecops.auth.dependencies import (
     ExecutorWorkspaceRole,
     WorkspaceActorRouteRole,
     WorkspaceUserPathRole,
 )
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session
-from tracecat.exceptions import EntitlementRequired
-from tracecat.search.embeddings.router import router as embedding_router
-from tracecat.search.indexing_types import (
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session
+from autosecops.exceptions import EntitlementRequired
+from autosecops.search.embeddings.router import router as embedding_router
+from autosecops.search.indexing_types import (
     CollectionWork,
     IndexingOutcome,
     IndexingProgress,
 )
-from tracecat.search.indexing_workflow import index_search_collection
-from tracecat.search.router import router as semantic_router
-from tracecat.tables.search.router import router as table_search_router
-from tracecat.tiers.enums import Entitlement
+from autosecops.search.indexing_workflow import index_search_collection
+from autosecops.search.router import router as semantic_router
+from autosecops.tables.search.router import router as table_search_router
+from autosecops.tiers.enums import Entitlement
 
 pytestmark = pytest.mark.anyio
 
@@ -97,15 +97,15 @@ async def test_semantic_search_routes_require_entitlement(
     url = path.format(table_id=uuid4(), workspace_id=role.workspace_id)
     with (
         patch(
-            "tracecat.tables.search.router.TableSearchService",
+            "autosecops.tables.search.router.TableSearchService",
             side_effect=AssertionError,
         ),
         patch(
-            "tracecat.search.embeddings.router.WorkspaceEmbeddingService",
+            "autosecops.search.embeddings.router.WorkspaceEmbeddingService",
             side_effect=AssertionError,
         ),
         patch(
-            "tracecat.search.router.TableRetrievalService", side_effect=AssertionError
+            "autosecops.search.router.TableRetrievalService", side_effect=AssertionError
         ),
     ):
         async with httpx.AsyncClient(
@@ -119,10 +119,10 @@ async def test_semantic_search_routes_require_entitlement(
 async def test_entitled_org_reaches_semantic_search(role: Role):
     with (
         patch(
-            "tracecat.tiers.access.is_org_entitled", new=AsyncMock(return_value=True)
+            "autosecops.tiers.access.is_org_entitled", new=AsyncMock(return_value=True)
         ),
         patch(
-            "tracecat.search.embeddings.router.WorkspaceEmbeddingService.get",
+            "autosecops.search.embeddings.router.WorkspaceEmbeddingService.get",
             new=AsyncMock(side_effect=EntitlementRequired("sentinel")),
         ),
     ):
@@ -142,15 +142,15 @@ async def test_indexing_skips_unentitled_organizations(entitled: bool):
         organization_id=uuid4(), workspace_id=uuid4(), collection_id=uuid4()
     )
     capacity = patch(
-        "tracecat.search.indexing_workflow.search_capacity",
+        "autosecops.search.indexing_workflow.search_capacity",
         side_effect=RuntimeError("capacity reached"),
     )
     with (
         patch(
-            "tracecat.search.indexing_workflow.get_async_session_bypass_rls_context_manager"
+            "autosecops.search.indexing_workflow.get_async_session_bypass_rls_context_manager"
         ),
         patch(
-            "tracecat.search.indexing_workflow.is_org_entitled",
+            "autosecops.search.indexing_workflow.is_org_entitled",
             new=AsyncMock(return_value=entitled),
         ) as is_entitled,
         capacity as search_capacity,

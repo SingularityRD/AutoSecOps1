@@ -39,47 +39,49 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 from temporalio.worker import Worker
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import (
     Organization,
     PlatformRegistryRepository,
     PlatformRegistryVersion,
 )
-from tracecat.dsl.schemas import (
+from autosecops.dsl.schemas import (
     ActionStatement,
     ExecutionContext,
     RunActionInput,
     RunContext,
 )
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.executor.action_runner import ActionRunner
-from tracecat.executor.backends.ephemeral import EphemeralBackend
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.executor.schemas import (
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.executor.action_runner import ActionRunner
+from autosecops.executor.backends.ephemeral import EphemeralBackend
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.executor.service import (
+from autosecops.executor.service import (
     RegistryArtifactsContext,
     get_registry_artifacts_for_lock,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.repositories.platform_service import PlatformRegistryReposService
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.registry.sync.platform_service import PlatformRegistrySyncService
-from tracecat.registry.sync.service import RegistrySyncService
-from tracecat.registry.sync.workflow import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.repositories.platform_service import (
+    PlatformRegistryReposService,
+)
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.registry.sync.platform_service import PlatformRegistrySyncService
+from autosecops.registry.sync.service import RegistrySyncService
+from autosecops.registry.sync.workflow import (
     RegistrySyncActivities,
     RegistrySyncWorkflow,
 )
-from tracecat.storage import blob
+from autosecops.storage import blob
+from tests.database import TEST_DB_CONFIG
 
 # =============================================================================
 # Test Configuration
@@ -182,7 +184,7 @@ def _run_sync_artifact_sandbox_smoke_in_docker_or_skip(
     compose_env["TRACECAT__SANDBOX_NSJAIL_PATH"] = "/usr/local/bin/nsjail"
     compose_env["TRACECAT__SANDBOX_ROOTFS_PATH"] = "/var/lib/tracecat/sandbox-rootfs"
     compose_env["TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH"] = (
-        "/app/packages/tracecat-registry"
+        "/app/packages/autosecops-registry"
     )
     compose_env["PYTHONDONTWRITEBYTECODE"] = "1"
 
@@ -365,7 +367,7 @@ def subprocess_db_env(monkeypatch):
     Also resets the cached async engine so that _prepare_resolved_context
     can create a new session that connects to the test database.
     """
-    import tracecat.db.engine as engine_module
+    import autosecops.db.engine as engine_module
 
     # Convert asyncpg URL to psycopg URL for subprocess
     test_db_url = TEST_DB_CONFIG.test_url.replace("+asyncpg", "+psycopg")
@@ -523,7 +525,7 @@ def run_action_input_factory():
     ) -> RunActionInput:
         wf_id = WorkflowUUID.new_uuid4()
         # Build proper RegistryLock with origins and action mappings
-        origins = registry_lock or {"tracecat_registry": "test-version"}
+        origins = registry_lock or {"autosecops_registry": "test-version"}
         actions = {action: list(origins.keys())[0]}
         return RunActionInput(
             task=ActionStatement(
@@ -561,9 +563,9 @@ def unique_version() -> str:
     avoiding issues with bucket cleanup removing tarballs while DB
     records persist.
     """
-    import tracecat_registry
+    import autosecops_registry
 
-    return f"{tracecat_registry.__version__}-{uuid.uuid4().hex[:8]}"
+    return f"{autosecops_registry.__version__}-{uuid.uuid4().hex[:8]}"
 
 
 # =============================================================================
@@ -578,9 +580,9 @@ def module_unique_version() -> str:
     This allows tests to share a single synced registry version,
     avoiding redundant 15-30s sync operations per test.
     """
-    import tracecat_registry
+    import autosecops_registry
 
-    return f"{tracecat_registry.__version__}-module-{uuid.uuid4().hex[:8]}"
+    return f"{autosecops_registry.__version__}-module-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture(scope="module")
@@ -664,7 +666,7 @@ async def shared_synced_registry(
             module_builtin_repo, target_version=module_unique_version
         )
 
-    # Also sync to platform tables (executor queries platform tables for tracecat_registry)
+    # Also sync to platform tables (executor queries platform tables for autosecops_registry)
     platform_svc = PlatformRegistryReposService(module_committing_session)
     platform_repo = await platform_svc.get_or_create_repository(DEFAULT_REGISTRY_ORIGIN)
     platform_sync_service = PlatformRegistrySyncService(module_committing_session)
@@ -705,7 +707,7 @@ class TestSyncv2MinioIntegration:
         """Verify that syncing builtin registry uploads tarball to MinIO.
 
         This test:
-        1. Syncs the builtin tracecat_registry
+        1. Syncs the builtin autosecops_registry
         2. Verifies a RegistryVersion is created with tarball_uri
         3. Verifies the tarball object exists in MinIO
         """
@@ -902,7 +904,7 @@ class TestExecuteWithSyncedRegistry:
         input_data = run_action_input_factory(
             action="core.transform.reshape",
             args=args,
-            registry_lock={"tracecat_registry": sync_result.version.version},
+            registry_lock={"autosecops_registry": sync_result.version.version},
         )
 
         # Create resolved context for execution
@@ -911,7 +913,7 @@ class TestExecuteWithSyncedRegistry:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args=args,
@@ -937,7 +939,7 @@ class TestExecuteWithSyncedRegistry:
         # Mock both the action runner and artifact resolution
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -983,7 +985,7 @@ class TestExecuteWithSyncedRegistry:
         ]
 
         # Create input with registry lock
-        registry_lock = {"tracecat_registry": sync_result.version.version}
+        registry_lock = {"autosecops_registry": sync_result.version.version}
         args = {"value": {"locked": True}}
         input_data = run_action_input_factory(
             action="core.transform.reshape",
@@ -997,7 +999,7 @@ class TestExecuteWithSyncedRegistry:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args=args,
@@ -1022,7 +1024,7 @@ class TestExecuteWithSyncedRegistry:
 
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -1031,7 +1033,7 @@ class TestExecuteWithSyncedRegistry:
                 side_effect=execute_without_nsjail,
             ),
             patch(
-                "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+                "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
                 new_callable=AsyncMock,
                 return_value=mock_artifacts,
             ),
@@ -1088,7 +1090,7 @@ class TestFailureScenarios:
             )
 
         # Sync the same version to platform-scoped tables.
-        # Executor lock resolution routes tracecat_registry to platform tables.
+        # Executor lock resolution routes autosecops_registry to platform tables.
         platform_svc = PlatformRegistryReposService(committing_session)
         platform_repo = await platform_svc.get_or_create_repository(
             DEFAULT_REGISTRY_ORIGIN
@@ -1105,7 +1107,7 @@ class TestFailureScenarios:
         args = {"value": {"test": True}}
         input_data = run_action_input_factory(
             args=args,
-            registry_lock={"tracecat_registry": sync_result.version.version},
+            registry_lock={"autosecops_registry": sync_result.version.version},
         )
 
         # Create resolved context for execution
@@ -1114,7 +1116,7 @@ class TestFailureScenarios:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args=args,
@@ -1125,7 +1127,7 @@ class TestFailureScenarios:
         )
 
         # Resolve and delete the exact artifact URI(s) the executor will use.
-        # For tracecat_registry, this may resolve to platform-scoped artifacts.
+        # For autosecops_registry, this may resolve to platform-scoped artifacts.
         backend = EphemeralBackend()
         tarball_uris = await backend._get_artifact_uris(input_data, test_role)
         assert tarball_uris, (
@@ -1152,7 +1154,7 @@ class TestFailureScenarios:
 
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -1183,7 +1185,7 @@ class TestFailureScenarios:
         assert test_role.organization_id is not None
 
         # Try to resolve non-existent version
-        registry_lock = {"tracecat_registry": "nonexistent-version-12345"}
+        registry_lock = {"autosecops_registry": "nonexistent-version-12345"}
 
         artifacts = await get_registry_artifacts_for_lock(
             registry_lock, organization_id=test_role.organization_id
@@ -1234,7 +1236,7 @@ class TestMultitenantWorkloads:
             wf_id = WorkflowUUID.new_uuid4()
             action = "core.transform.reshape"
             # Build proper RegistryLock with origins and action mappings
-            origins = registry_lock or {"tracecat_registry": "test-version"}
+            origins = registry_lock or {"autosecops_registry": "test-version"}
             actions = {action: list(origins.keys())[0]}
             return RunActionInput(
                 task=ActionStatement(
@@ -1286,7 +1288,7 @@ class TestMultitenantWorkloads:
         # Create inputs with workspace-specific values
         value_a = {"workspace": "A", "tenant_id": str(workspace_a_id)}
         value_b = {"workspace": "B", "tenant_id": str(workspace_b_id)}
-        registry_lock = {"tracecat_registry": sync_result.version.version}
+        registry_lock = {"autosecops_registry": sync_result.version.version}
         input_a = create_run_input(
             workspace_id=workspace_a_id,
             value=value_a,
@@ -1304,7 +1306,7 @@ class TestMultitenantWorkloads:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args={"value": value_a},
@@ -1318,7 +1320,7 @@ class TestMultitenantWorkloads:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args={"value": value_b},
@@ -1344,7 +1346,7 @@ class TestMultitenantWorkloads:
         # Execute both workspaces concurrently
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -1400,7 +1402,7 @@ class TestMultitenantWorkloads:
 
         # Create multiple inputs for the same workspace
         workspace_id = test_role.workspace_id
-        registry_lock = {"tracecat_registry": sync_result.version.version}
+        registry_lock = {"autosecops_registry": sync_result.version.version}
         inputs_and_contexts = []
         for i in range(5):
             value = {"request_id": i, "workspace": str(workspace_id)}
@@ -1414,7 +1416,7 @@ class TestMultitenantWorkloads:
                 variables={},
                 action_impl=ActionImplementation(
                     type="udf",
-                    module="tracecat_registry.core.transform",
+                    module="autosecops_registry.core.transform",
                     name="reshape",
                 ),
                 evaluated_args={"value": value},
@@ -1441,7 +1443,7 @@ class TestMultitenantWorkloads:
         # Execute all requests concurrently
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -1495,7 +1497,7 @@ class TestMultitenantWorkloads:
         role_b = create_workspace_role(workspace_b_id)
 
         # Both use the same version via registry lock (simulating pinned deployments)
-        registry_lock = {"tracecat_registry": sync_result.version.version}
+        registry_lock = {"autosecops_registry": sync_result.version.version}
 
         # Create inputs with registry locks
         value_a = {"workspace": "A", "locked_version": sync_result.version.version}
@@ -1517,7 +1519,7 @@ class TestMultitenantWorkloads:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args={"value": value_a},
@@ -1531,7 +1533,7 @@ class TestMultitenantWorkloads:
             variables={},
             action_impl=ActionImplementation(
                 type="udf",
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args={"value": value_b},
@@ -1566,7 +1568,7 @@ class TestMultitenantWorkloads:
         # Execute both workspaces concurrently with locked versions
         with (
             patch(
-                "tracecat.executor.backends.ephemeral.get_action_runner",
+                "autosecops.executor.backends.ephemeral.get_action_runner",
                 return_value=test_runner,
             ),
             patch.object(
@@ -1575,7 +1577,7 @@ class TestMultitenantWorkloads:
                 side_effect=execute_without_nsjail,
             ),
             patch(
-                "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+                "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
                 new_callable=AsyncMock,
                 return_value=mock_artifacts,
             ),
@@ -1630,7 +1632,7 @@ class TestVersionIsolationArtifactResolution:
         This tests the critical execution path: when a workflow is locked to v1
         but v2 is current, the executor should resolve v1's tarball_uri.
 
-        Uses DEFAULT_REGISTRY_ORIGIN (tracecat_registry) since get_registry_artifacts_for_lock
+        Uses DEFAULT_REGISTRY_ORIGIN (autosecops_registry) since get_registry_artifacts_for_lock
         only queries platform tables for this origin.
         """
         # Ensure organization_id is set
@@ -1696,11 +1698,11 @@ class TestVersionIsolationArtifactResolution:
 
 async def _run_sync_artifact_sandbox_smoke_child() -> None:
     """Run the full sync -> MinIO -> ephemeral sandbox path inside Docker."""
-    from tracecat.db.engine import (
+    from autosecops.db.engine import (
         get_async_session_bypass_rls_context_manager,
         reset_async_engine,
     )
-    from tracecat.storage import blob as blob_module
+    from autosecops.storage import blob as blob_module
 
     config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED = False
     config.TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED = True
@@ -1767,7 +1769,7 @@ async def _run_sync_artifact_sandbox_smoke_child() -> None:
         action_impl=ActionImplementation(
             type="udf",
             action_name=action,
-            module="tracecat_registry.core.transform",
+            module="autosecops_registry.core.transform",
             name="reshape",
             origin=DEFAULT_REGISTRY_ORIGIN,
         ),

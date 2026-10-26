@@ -14,28 +14,28 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatNotFoundError,
 )
-from tracecat.git.types import GitUrl
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.secrets.service import SecretsService
-from tracecat.sync import PushStatus
-from tracecat.tiers.enums import Entitlement
-from tracecat.vcs.bitbucket.app import BitbucketError, BitbucketTokenService
-from tracecat.vcs.bitbucket.git import BitbucketGit, repository_path, validate_path
-from tracecat.vcs.bitbucket.types import BitbucketBranch
-from tracecat.workspace_sync.enums import VcsProvider
-from tracecat.workspace_sync.service import WorkspaceSyncService
-from tracecat.workspace_sync.transport import (
+from autosecops.git.types import GitUrl
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from autosecops.sync import PushStatus
+from autosecops.tiers.enums import Entitlement
+from autosecops.vcs.bitbucket.app import BitbucketError, BitbucketTokenService
+from autosecops.vcs.bitbucket.git import BitbucketGit, repository_path, validate_path
+from autosecops.vcs.bitbucket.types import BitbucketBranch
+from autosecops.workspace_sync.enums import VcsProvider
+from autosecops.workspace_sync.service import WorkspaceSyncService
+from autosecops.workspace_sync.transport import (
     BitbucketWorkspaceSyncTransport,
     vcs_transport_for_provider,
 )
-from tracecat.workspaces.schemas import WorkspaceSettingsUpdate
+from autosecops.workspaces.schemas import WorkspaceSettingsUpdate
 
 TOKEN = SecretStr("synthetic-test-token")
 URL = GitUrl(host="bitbucket.org", org="example-workspace", repo="example-repo")
@@ -362,7 +362,7 @@ async def test_credential_lifecycle_and_status_never_returns_token():
     secrets._get_org_secret_by_name.side_effect = TracecatNotFoundError("missing")
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
-        patch("tracecat.vcs.bitbucket.app.SecretsService", return_value=secrets),
+        patch("autosecops.vcs.bitbucket.app.SecretsService", return_value=secrets),
     ):
         assert not (await service.get_bitbucket_token_credentials_status()).exists
         credentials, created = await service.save_bitbucket_token_credentials(

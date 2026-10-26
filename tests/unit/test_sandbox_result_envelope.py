@@ -10,12 +10,12 @@ import orjson
 import pytest
 import pytest_mock
 
-from tracecat.sandbox import result_envelope as result_envelope_module
-from tracecat.sandbox.result_envelope import (
+from autosecops.sandbox import result_envelope as result_envelope_module
+from autosecops.sandbox.result_envelope import (
     ResultEnvelopeOutcome,
     decode_result_envelope,
 )
-from tracecat.sandbox.types import SandboxErrorCode, SandboxResult
+from autosecops.sandbox.types import SandboxErrorCode, SandboxResult
 
 
 def _decode(

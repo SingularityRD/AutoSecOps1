@@ -18,11 +18,11 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import (
+from autosecops.db.models import (
     PlatformRegistryRepository,
     PlatformRegistryVersion,
 )
-from tracecat.registry.constants import (
+from autosecops.registry.constants import (
     DEFAULT_REGISTRY_ORIGIN,
 )
 
@@ -84,7 +84,7 @@ async def test_startup_sync_skips_when_version_already_current(
     session: AsyncSession,
 ) -> None:
     """Test that startup sync skips when target version is already current."""
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
 
     # Get or create platform repo (may already exist from conftest seeding)
     repo = await _get_or_create_platform_repo(session)
@@ -103,13 +103,13 @@ async def test_startup_sync_skips_when_version_already_current(
     session.add(repo)
     await session.commit()
 
-    # Mock tracecat_registry.__version__ to return our version
-    with patch("tracecat.registry.sync.jobs.tracecat_registry") as mock_registry:
+    # Mock autosecops_registry.__version__ to return our version
+    with patch("autosecops.registry.sync.jobs.autosecops_registry") as mock_registry:
         mock_registry.__version__ = "0.1.0"
 
         # Should complete without calling sync
         with patch(
-            "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+            "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
         ) as mock_sync_service:
             artifact_build = await _sync_as_leader(session, "0.1.0")
             # Sync service should not be instantiated
@@ -126,7 +126,7 @@ async def test_startup_sync_does_not_promote_existing_non_current_version(
     session: AsyncSession,
 ) -> None:
     """Test that startup sync does NOT auto-promote existing non-current versions."""
-    from tracecat.registry.sync.jobs import _sync_as_leader
+    from autosecops.registry.sync.jobs import _sync_as_leader
 
     # Get or create platform repo (may already exist from conftest seeding)
     repo = await _get_or_create_platform_repo(session)
@@ -158,7 +158,7 @@ async def test_startup_sync_does_not_promote_existing_non_current_version(
 
     # Try to sync to version 2.0.0 (which exists but is not current)
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_service:
         artifact_build = await _sync_as_leader(session, "2.0.0")
 
@@ -176,7 +176,7 @@ async def test_startup_sync_defers_existing_target_when_no_current_version(
     session: AsyncSession,
 ) -> None:
     """Test startup sync waits for artifacts before repairing a missing pointer."""
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
 
     repo = await _get_or_create_platform_repo(session)
     repo.current_version_id = None
@@ -193,7 +193,7 @@ async def test_startup_sync_defers_existing_target_when_no_current_version(
     await session.commit()
 
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_service:
         artifact_build = await _sync_as_leader(session, "1.0.0")
         mock_sync_service.assert_not_called()
@@ -212,7 +212,7 @@ async def test_startup_sync_refuses_downgrade(
     session: AsyncSession,
 ) -> None:
     """Test that startup sync refuses to downgrade to older version."""
-    from tracecat.registry.sync.jobs import _sync_as_leader
+    from autosecops.registry.sync.jobs import _sync_as_leader
 
     # Get or create platform repo (may already exist from conftest seeding)
     repo = await _get_or_create_platform_repo(session)
@@ -232,7 +232,7 @@ async def test_startup_sync_refuses_downgrade(
 
     # Try to sync to version 1.0.0 (older)
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_service:
         artifact_build = await _sync_as_leader(session, "1.0.0")
 
@@ -250,7 +250,7 @@ async def test_startup_sync_calls_sync_for_new_version(
     session: AsyncSession,
 ) -> None:
     """Test fresh startup sync promotes immediately for first-install UX."""
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
 
     repo = await _get_or_create_platform_repo(session)
     repo.current_version_id = None
@@ -271,7 +271,7 @@ async def test_startup_sync_calls_sync_for_new_version(
     )
 
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_cls:
         mock_sync_service = AsyncMock()
         mock_sync_service.sync_repository_v2.return_value = mock_result
@@ -298,7 +298,7 @@ async def test_startup_sync_defers_promotion_for_new_upgrade_version(
     session: AsyncSession,
 ) -> None:
     """Test upgrade startup sync promotes only after artifact upload."""
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
 
     repo = await _get_or_create_platform_repo(session)
     old_version = PlatformRegistryVersion(
@@ -322,7 +322,7 @@ async def test_startup_sync_defers_promotion_for_new_upgrade_version(
     )
 
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_cls:
         mock_sync_service = AsyncMock()
         mock_sync_service.sync_repository_v2.return_value = mock_result
@@ -344,7 +344,7 @@ async def test_startup_sync_defers_promotion_for_new_upgrade_version(
 async def test_startup_sync_returns_artifact_build_for_resolved_version(
     session: AsyncSession,
 ) -> None:
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest, _sync_as_leader
 
     repo = await _get_or_create_platform_repo(session)
     repo.current_version_id = None
@@ -365,7 +365,7 @@ async def test_startup_sync_returns_artifact_build_for_resolved_version(
     )
 
     with patch(
-        "tracecat.registry.sync.jobs.PlatformRegistrySyncService"
+        "autosecops.registry.sync.jobs.PlatformRegistrySyncService"
     ) as mock_sync_cls:
         mock_sync_service = AsyncMock()
         mock_sync_service.sync_repository_v2.return_value = mock_result
@@ -384,7 +384,7 @@ async def test_startup_sync_returns_artifact_build_for_resolved_version(
 async def test_promote_after_artifact_build_promotes_when_current_matches_guard(
     session: AsyncSession,
 ) -> None:
-    from tracecat.registry.sync.jobs import (
+    from autosecops.registry.sync.jobs import (
         _promote_platform_registry_version_after_artifact_build,
     )
 
@@ -423,7 +423,7 @@ async def test_promote_after_artifact_build_promotes_when_current_matches_guard(
 async def test_promote_after_artifact_build_updates_stored_artifact_uri(
     session: AsyncSession,
 ) -> None:
-    from tracecat.registry.sync.jobs import (
+    from autosecops.registry.sync.jobs import (
         _promote_platform_registry_version_after_artifact_build,
     )
 
@@ -465,7 +465,7 @@ async def test_promote_after_artifact_build_updates_stored_artifact_uri(
 async def test_promote_after_artifact_build_promotes_collision_version(
     session: AsyncSession,
 ) -> None:
-    from tracecat.registry.sync.jobs import (
+    from autosecops.registry.sync.jobs import (
         _promote_platform_registry_version_after_artifact_build,
     )
 
@@ -504,7 +504,7 @@ async def test_promote_after_artifact_build_promotes_collision_version(
 async def test_promote_after_artifact_build_skips_when_current_changed(
     session: AsyncSession,
 ) -> None:
-    from tracecat.registry.sync.jobs import (
+    from autosecops.registry.sync.jobs import (
         _promote_platform_registry_version_after_artifact_build,
     )
 
@@ -549,8 +549,8 @@ async def test_promote_after_artifact_build_skips_when_current_changed(
 async def test_startup_sync_awaits_artifact_build_after_releasing_lock(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.registry.sync import jobs
-    from tracecat.registry.sync.jobs import _ArtifactBuildRequest
+    from autosecops.registry.sync import jobs
+    from autosecops.registry.sync.jobs import _ArtifactBuildRequest
 
     build_started = asyncio.Event()
     release_build = asyncio.Event()
@@ -583,7 +583,7 @@ async def test_startup_sync_awaits_artifact_build_after_releasing_lock(
         build_started.set()
         await release_build.wait()
 
-    monkeypatch.setattr(jobs.tracecat_registry, "__version__", "1.0.0")
+    monkeypatch.setattr(jobs.autosecops_registry, "__version__", "1.0.0")
     monkeypatch.setattr(jobs, "try_pg_advisory_lock", AsyncMock(return_value=True))
     monkeypatch.setattr(jobs, "_sync_as_leader", fake_sync_as_leader)
     monkeypatch.setattr(jobs, "pg_advisory_unlock", fake_release_lock)
@@ -604,14 +604,14 @@ async def test_startup_sync_leader_election_non_leader_exits(
     session: AsyncSession,
 ) -> None:
     """Test that non-leader process exits immediately without syncing."""
-    from tracecat.registry.sync.jobs import sync_platform_registry_on_startup
+    from autosecops.registry.sync.jobs import sync_platform_registry_on_startup
 
     # Mock try_pg_advisory_lock to return False (lock not acquired)
     with (
         patch(
-            "tracecat.registry.sync.jobs.try_pg_advisory_lock", return_value=False
+            "autosecops.registry.sync.jobs.try_pg_advisory_lock", return_value=False
         ) as mock_lock,
-        patch("tracecat.registry.sync.jobs._sync_as_leader") as mock_sync,
+        patch("autosecops.registry.sync.jobs._sync_as_leader") as mock_sync,
     ):
         await sync_platform_registry_on_startup()
 

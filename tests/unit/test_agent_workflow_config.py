@@ -1,5 +1,5 @@
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_config import (
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_config import (
     agent_config_from_payload,
     agent_config_to_payload,
 )

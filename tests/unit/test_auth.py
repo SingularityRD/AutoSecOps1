@@ -5,12 +5,12 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
-from tracecat import config
-from tracecat.auth import users as users_mod
-from tracecat.auth.types import Role
-from tracecat.clients import AuthenticatedAPIClient, AuthenticatedServiceClient
-from tracecat.contexts import ctx_role
-from tracecat.identifiers import InternalServiceID
+from autosecops import config
+from autosecops.auth import users as users_mod
+from autosecops.auth.types import Role
+from autosecops.clients import AuthenticatedAPIClient, AuthenticatedServiceClient
+from autosecops.contexts import ctx_role
+from autosecops.identifiers import InternalServiceID
 
 
 @pytest.mark.anyio

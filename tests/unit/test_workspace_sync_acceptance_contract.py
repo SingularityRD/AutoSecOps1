@@ -20,17 +20,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
+from autosecops_ee.secrets.references.service import SecretReferencesService
 from cryptography.fernet import Fernet
 from pydantic import SecretStr, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.secrets.references.service import SecretReferencesService
 
-from tests.support.fake_vcs import FakeVcsServer
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import (
     Action,
     AgentCatalog,
     AgentCustomProvider,
@@ -61,43 +60,43 @@ from tracecat.db.models import (
     WorkspaceSyncResourceMapping,
     WorkspaceVariable,
 )
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import (
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ScopeDeniedError,
     TracecatCredentialsError,
     TracecatValidationError,
 )
-from tracecat.forms.enums import FormStatus
-from tracecat.forms.schemas import FormConfig
-from tracecat.forms.service import stored_form_config
-from tracecat.git.types import GitUrl
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.logger import logger
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.secrets.enums import SecretSource
-from tracecat.secrets.schemas import AwsSecretReferenceUpdate, SecretKeyValue
-from tracecat.secrets.service import SecretsService, build_external_secret_reference
-from tracecat.sync import PullDiagnostic, PullOptions, PullResult, PushStatus
-from tracecat.tables.schemas import TableUpdate
-from tracecat.tables.service import BaseTablesService
-from tracecat.tiers.enums import Entitlement
-from tracecat.workflow.store.import_service import WorkflowImportService
-from tracecat.workflow.store.schemas import WorkflowSyncPullRequest
-from tracecat.workspace_sync.adapters import (
+from autosecops.forms.enums import FormStatus
+from autosecops.forms.schemas import FormConfig
+from autosecops.forms.service import stored_form_config
+from autosecops.git.types import GitUrl
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.logger import logger
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.secrets.enums import SecretSource
+from autosecops.secrets.schemas import AwsSecretReferenceUpdate, SecretKeyValue
+from autosecops.secrets.service import SecretsService, build_external_secret_reference
+from autosecops.sync import PullDiagnostic, PullOptions, PullResult, PushStatus
+from autosecops.tables.schemas import TableUpdate
+from autosecops.tables.service import BaseTablesService
+from autosecops.tiers.enums import Entitlement
+from autosecops.workflow.store.import_service import WorkflowImportService
+from autosecops.workflow.store.schemas import WorkflowSyncPullRequest
+from autosecops.workspace_sync.adapters import (
     AGENT_PRESET_RESOURCE_ADAPTER,
     RESOURCE_ADAPTERS_BY_TYPE,
     SECRET_METADATA_RESOURCE_ADAPTER,
     TABLE_RESOURCE_ADAPTER,
     WORKSPACE_RESOURCE_ADAPTERS,
 )
-from tracecat.workspace_sync.adapters.base import VersionedSlug
-from tracecat.workspace_sync.enums import SyncResourceType, VcsProvider
-from tracecat.workspace_sync.importer import WorkspaceResourceImportService
-from tracecat.workspace_sync.resources import workflow_references
-from tracecat.workspace_sync.schemas import (
+from autosecops.workspace_sync.adapters.base import VersionedSlug
+from autosecops.workspace_sync.enums import SyncResourceType, VcsProvider
+from autosecops.workspace_sync.importer import WorkspaceResourceImportService
+from autosecops.workspace_sync.resources import workflow_references
+from autosecops.workspace_sync.schemas import (
     AGENT_PRESET_ROOT,
     CASE_DROPDOWN_ROOT,
     CASE_DURATION_ROOT,
@@ -124,12 +123,13 @@ from tracecat.workspace_sync.schemas import (
     WorkspaceSyncExportPreviewRequest,
     WorkspaceSyncExportRequest,
 )
-from tracecat.workspace_sync.serialization import (
+from autosecops.workspace_sync.serialization import (
     canonical_json_text,
     serialize_yaml_model,
 )
-from tracecat.workspace_sync.service import WorkspaceSyncService
-from tracecat.workspace_sync.transport import VcsTreeSnapshot
+from autosecops.workspace_sync.service import WorkspaceSyncService
+from autosecops.workspace_sync.transport import VcsTreeSnapshot
+from tests.support.fake_vcs import FakeVcsServer
 
 if TYPE_CHECKING:
     from loguru import Record
@@ -377,7 +377,7 @@ async def test_agent_chat_metadata_pull_preserves_versions_and_partial_defaults(
     )
     service = WorkspaceSyncService(session=session, role=svc_role)
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         preview = await service.pull(
@@ -654,7 +654,7 @@ async def test_pull_dry_run_reports_per_resource_counts(
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch.object(
@@ -1498,7 +1498,7 @@ async def test_source_export_target_pull_preserves_projected_workspace(
     assert seed_commit.sha is not None
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         source_pull = await source_service.pull(
@@ -1643,7 +1643,7 @@ async def test_selected_export_by_source_id_targets_mapped_resource_after_rename
     assert seed_commit.sha is not None
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         source_pull = await source_service.pull(
@@ -2047,7 +2047,7 @@ async def test_full_workspace_export_uses_desired_heads_for_workflow_dependencie
     # Stub the registry lock so pulling the workflow does not require resolving
     # real action bindings; this test only exercises the export closure.
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         source_pull = await source_service.pull(
@@ -2112,7 +2112,7 @@ async def test_single_workflow_export_includes_dependency_closure(
     assert seed_commit.sha is not None
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         pull = await service.pull(options=PullOptions(commit_sha=seed_commit.sha))
@@ -2173,7 +2173,7 @@ async def test_legacy_pull_rejects_before_non_workflow_import(
     )
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         # Neither updated instance imports anything from the legacy repository.
@@ -2211,7 +2211,7 @@ async def test_project_workspace_preserves_workflow_source_id_after_rename(
             ),
         ),
         patch(
-            "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+            "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
             AsyncMock(return_value=RegistryLock(origins={}, actions={})),
         ),
     ):
@@ -2579,7 +2579,7 @@ async def test_pull_identity_swap_reuses_source_id_mappings(
             ),
         ),
         patch(
-            "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+            "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
             AsyncMock(return_value=RegistryLock(origins={}, actions={})),
         ),
     ):
@@ -2762,7 +2762,7 @@ async def test_pull_unchanged_skill_ignores_inferred_content_type(
         first_version_id = skill.current_version_id
 
         with patch(
-            "tracecat.agent.skill.service.SkillService._guess_content_type",
+            "autosecops.agent.skill.service.SkillService._guess_content_type",
             return_value="application/octet-stream",
         ):
             second_result = await service.pull(options=PullOptions(commit_sha="g" * 40))
@@ -3056,7 +3056,7 @@ async def test_pull_workflow_source_id_rename_reuses_alias_mapping(
             ),
         ),
         patch(
-            "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+            "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
             AsyncMock(return_value=RegistryLock(origins={}, actions={})),
         ),
     ):
@@ -3824,7 +3824,7 @@ async def test_agent_preset_dry_run_correlates_catalog_id_without_spurious_diff(
     )
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         result = await service.pull(
@@ -3905,7 +3905,7 @@ async def test_agent_preset_sync_requires_an_ambiguous_catalog_choice_per_pull(
 
     chosen_catalog = catalog_rows[1]
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         ambiguous_preview = await service.pull(
@@ -4066,7 +4066,7 @@ async def test_workspace_sync_catalog_mapping_rewrites_preset_and_nested_workflo
     assert prepared_nested_model["base_url"] is None
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         result = await service._import_snapshot(
@@ -4155,7 +4155,7 @@ async def test_workspace_sync_workflow_catalog_ambiguity_blocks_preview_and_appl
     )
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         preview = await service.pull(
@@ -4231,7 +4231,7 @@ async def test_workspace_sync_workflow_catalog_auto_resolves_single_candidate(
     assert diagnostics == []
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         result = await service._import_snapshot(snapshot, sync_schedules=False)
@@ -4347,7 +4347,7 @@ async def test_workspace_sync_preserves_templated_workflow_catalog_id(
     assert diagnostics == []
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         result = await service._import_snapshot(snapshot, sync_schedules=False)
@@ -4873,7 +4873,7 @@ async def test_mcp_integration_refs_in_workflow_agent_args_are_correlated(
     assert prepared_args["mcp_integrations"] == [str(local.id)]
 
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         result = await service._import_snapshot(snapshot, sync_schedules=False)
@@ -4922,7 +4922,7 @@ async def test_workflow_only_local_mcp_id_resolves_directly(
         "mcp_integrations"
     ] == [str(local.id)]
     with patch(
-        "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+        "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
         AsyncMock(return_value=RegistryLock(origins={}, actions={})),
     ):
         result = await service._import_snapshot(snapshot, sync_schedules=False)
@@ -5427,7 +5427,7 @@ async def test_agent_preset_sync_reports_unavailable_catalog_model_before_writes
     )
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         result = await service.pull(
@@ -6102,7 +6102,7 @@ async def _aws_store(
 def external_secret_stores_entitled(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     entitlement = AsyncMock(return_value=None)
     monkeypatch.setattr(
-        "tracecat.workspace_sync.adapters.secret_metadata.check_entitlement",
+        "autosecops.workspace_sync.adapters.secret_metadata.check_entitlement",
         entitlement,
     )
     return entitlement
@@ -8015,7 +8015,7 @@ def _serve_remote_commits(
         return_value=GitUrl(host="github.com", org="TracecatHQ", repo="git-sync-qa")
     )
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         yield
@@ -8875,11 +8875,11 @@ async def _pull_form_tree(
     )
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch(
-            "tracecat.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
+            "autosecops.workflow.management.management.RegistryLockService.resolve_lock_with_bindings",
             AsyncMock(return_value=RegistryLock(origins={}, actions={})),
         ),
     ):
@@ -8912,7 +8912,7 @@ async def test_workflow_form_block_round_trips_as_written(
     async def entitled(_session: Any, _org_id: Any, entitlement: Entitlement) -> bool:
         return entitlement is not Entitlement.FORMS
 
-    monkeypatch.setattr("tracecat.tiers.access.is_org_entitled", entitled)
+    monkeypatch.setattr("autosecops.tiers.access.is_org_entitled", entitled)
 
     service, result = await _pull_form_tree(session, svc_role, _FORM_BLOCK)
 
@@ -9090,7 +9090,7 @@ async def _pull_missing_action_tree(
         return_value=GitUrl(host="github.com", org="TracecatHQ", repo="git-sync-qa")
     )
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         return await service.pull(

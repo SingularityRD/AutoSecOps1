@@ -12,14 +12,14 @@ from fastapi import FastAPI
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.dependencies import ExecutorWorkspaceRole
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.service import CasesService
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.dependencies import ExecutorWorkspaceRole
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.service import CasesService
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session
+from autosecops.db.models import (
     Case,
     CaseDropdownDefinition,
     CaseDropdownOption,
@@ -33,7 +33,7 @@ from tracecat.db.models import (
     User,
     Workspace,
 )
-from tracecat.executor.action_gateway.app import create_app
+from autosecops.executor.action_gateway.app import create_app
 
 pytestmark = pytest.mark.anyio
 

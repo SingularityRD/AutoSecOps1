@@ -13,7 +13,7 @@ from litellm.anthropic_interface import acreate
 from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
 from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-from tracecat.agent.gateway import _inject_provider_credentials
+from autosecops.agent.gateway import _inject_provider_credentials
 
 
 def _event_frame(event_type: str, payload: dict[str, object]) -> bytes:

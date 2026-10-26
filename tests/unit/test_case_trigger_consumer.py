@@ -10,16 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.exceptions import WorkflowAlreadyStartedError
 from tenacity import Future, RetryError
 
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseCommentWorkflowStatus, CaseCreate
-from tracecat.cases.service import CasesService
-from tracecat.cases.triggers.consumer import CaseTriggerConsumer
-from tracecat.db.models import Case, CaseComment, CaseEvent, CaseTrigger, Workflow
-from tracecat.redis.client import RedisClient
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseCommentWorkflowStatus, CaseCreate
+from autosecops.cases.service import CasesService
+from autosecops.cases.triggers.consumer import CaseTriggerConsumer
+from autosecops.db.models import Case, CaseComment, CaseEvent, CaseTrigger, Workflow
+from autosecops.redis.client import RedisClient
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -395,7 +395,7 @@ async def test_dispatch_workflow_skips_non_current_definition(
     workflow_service_connect = AsyncMock()
 
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
+        "autosecops.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
         AsyncMock(
             return_value=SimpleNamespace(
                 workflow=SimpleNamespace(version=2),
@@ -406,7 +406,7 @@ async def test_dispatch_workflow_skips_non_current_definition(
         ),
     )
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowExecutionsService.connect",
+        "autosecops.cases.triggers.consumer.WorkflowExecutionsService.connect",
         workflow_service_connect,
     )
 
@@ -448,7 +448,7 @@ async def test_dispatch_workflow_disables_structurally_invalid_definition(
     workflow_service_connect = AsyncMock()
 
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
+        "autosecops.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
         AsyncMock(
             return_value=SimpleNamespace(
                 workflow=SimpleNamespace(version=1),
@@ -464,7 +464,7 @@ async def test_dispatch_workflow_disables_structurally_invalid_definition(
         ),
     )
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowExecutionsService.connect",
+        "autosecops.cases.triggers.consumer.WorkflowExecutionsService.connect",
         workflow_service_connect,
     )
 
@@ -747,15 +747,15 @@ async def test_dispatch_selected_workflow_start_outcomes(
         audit_calls.append(kwargs)
 
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.DSLInput.model_validate",
+        "autosecops.cases.triggers.consumer.DSLInput.model_validate",
         lambda content: content,
     )
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowExecutionsService.connect",
+        "autosecops.cases.triggers.consumer.WorkflowExecutionsService.connect",
         AsyncMock(return_value=exec_service),
     )
     monkeypatch.setattr(
-        "tracecat.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
+        "autosecops.cases.triggers.consumer.WorkflowDefinitionsService.get_definition_by_workflow_id",
         AsyncMock(
             return_value=SimpleNamespace(content={"title": "test"}, registry_lock=None)
         ),

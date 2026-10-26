@@ -10,14 +10,14 @@ from sqlalchemy import event, select
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.filters import resolve_tag_ids
-from tracecat.cases.search_schemas import CaseQuery
-from tracecat.cases.service import CasesService
-from tracecat.cases.tags.search import resolve_case_tag_filters
-from tracecat.db.models import CaseTag, Organization, Workspace
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.filters import Condition
+from autosecops.auth.types import Role
+from autosecops.cases.filters import resolve_tag_ids
+from autosecops.cases.search_schemas import CaseQuery
+from autosecops.cases.service import CasesService
+from autosecops.cases.tags.search import resolve_case_tag_filters
+from autosecops.db.models import CaseTag, Organization, Workspace
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.filters import Condition
 
 pytestmark = pytest.mark.anyio
 

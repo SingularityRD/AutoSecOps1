@@ -6,13 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.search.indexing_types import (
+from autosecops.search.indexing_types import (
     CollectionWork,
     DispatchPage,
     IndexingOutcome,
     IndexingProgress,
 )
-from tracecat.search.indexing_workflow import (
+from autosecops.search.indexing_workflow import (
     SearchIndexDispatcher,
     discover_search_collections,
 )
@@ -49,7 +49,7 @@ async def test_dispatch_replenishes_slots_and_serializes_each_workspace():
         return IndexingProgress(outcome=IndexingOutcome.IDLE)
 
     with patch(
-        "tracecat.search.indexing_workflow.workflow.execute_activity", new=execute
+        "autosecops.search.indexing_workflow.workflow.execute_activity", new=execute
     ):
         task = asyncio.create_task(SearchIndexDispatcher().run())
         try:

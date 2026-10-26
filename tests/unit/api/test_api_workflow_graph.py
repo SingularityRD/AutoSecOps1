@@ -7,10 +7,10 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Workflow, Workspace
-from tracecat.workflow.graph.service import WorkflowGraphService
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Workflow, Workspace
+from autosecops.workflow.graph.service import WorkflowGraphService
 
 
 @pytest.fixture

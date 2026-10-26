@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.search.chunking_types import ChunkCheckpoint, ChunkingIdentity
-from tracecat.search.types import (
+from autosecops.search.chunking_types import ChunkCheckpoint, ChunkingIdentity
+from autosecops.search.types import (
     EnumerationCursor,
     SearchError,
     SearchErrorCode,

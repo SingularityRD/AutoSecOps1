@@ -14,8 +14,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tracecat.executor.action_gateway.server import ActionGateway
-from tracecat.temporal.worker_lifecycle import (
+from autosecops.executor.action_gateway.server import ActionGateway
+from autosecops.temporal.worker_lifecycle import (
     install_worker_shutdown_signal_handlers,
 )
 

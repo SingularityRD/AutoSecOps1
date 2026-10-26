@@ -13,8 +13,8 @@ from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 from litellm.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownManager
 from litellm.proxy.utils import ProxyLogging
 
-from tracecat.agent import gateway_drain
-from tracecat.agent.gateway import TracecatCallbackHandler
+from autosecops.agent import gateway_drain
+from autosecops.agent.gateway import TracecatCallbackHandler
 
 
 @pytest.mark.anyio

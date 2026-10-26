@@ -17,14 +17,14 @@ from temporalio.common import (
     WorkflowIDReusePolicy,
 )
 
+from autosecops.concurrency import GatheringTaskGroup
+from autosecops.contexts import ctx_role
+from autosecops.dsl.client import get_temporal_client
+from autosecops.dsl.common import DSLInput, DSLRunArgs
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.storage.object import InlineObject
 from tests.shared import TEST_WF_ID, generate_test_exec_id
 from tests.stress.server import StressServer
-from tracecat.concurrency import GatheringTaskGroup
-from tracecat.contexts import ctx_role
-from tracecat.dsl.client import get_temporal_client
-from tracecat.dsl.common import DSLInput, DSLRunArgs
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.storage.object import InlineObject
 
 
 @dataclass

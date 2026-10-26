@@ -28,7 +28,7 @@ After this migration:
    resolves the real invocation target by decrypting ``encrypted_config``
    at call time.
 3. Platform catalog rows are seeded from
-   ``tracecat/agent/platform_catalog.json`` exactly as the file provides
+   ``autosecops/agent/platform_catalog.json`` exactly as the file provides
    them.
 4. Each org that has any direct-provider credential secret (openai /
    anthropic / gemini) gets ``agent_model_access`` grants to every
@@ -83,7 +83,7 @@ depends_on: str | Sequence[str] | None = None
 logger = logging.getLogger("alembic.runtime.migration.v2_backfill")
 
 PLATFORM_CATALOG_PATH = (
-    Path(__file__).resolve().parents[2] / "tracecat" / "agent" / "platform_catalog.json"
+    Path(__file__).resolve().parents[2] / "autosecops" / "agent" / "platform_catalog.json"
 )
 
 
@@ -107,7 +107,7 @@ DEFAULT_MODEL_CATALOG_ID_SETTING_KEY = "agent_default_model_catalog_id"
 
 # Lightweight sa.table() definitions matching the frozen v1 schema. Using
 # literal tables here (rather than importing ORM models from
-# ``tracecat.db.models``) keeps the migration stable even if the ORM
+# ``autosecops.db.models``) keeps the migration stable even if the ORM
 # evolves in later releases.
 org_secret_tbl = sa.table(
     "organization_secret",

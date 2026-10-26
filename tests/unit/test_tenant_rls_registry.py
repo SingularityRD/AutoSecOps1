@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy import Table
 
-from tracecat.auth.types import Role
-from tracecat.cases.service import CaseFieldsService
-from tracecat.db.models import Base
-from tracecat.db.tenant_rls import (
+from autosecops.auth.types import Role
+from autosecops.cases.service import CaseFieldsService
+from autosecops.db.models import Base
+from autosecops.db.tenant_rls import (
     ALL_TENANT_RLS_TABLES,
     ORG_OPTIONAL_WORKSPACE_POLICY_TABLES,
     ORG_POLICY_TABLES,
@@ -21,7 +21,7 @@ from tracecat.db.tenant_rls import (
     enable_agent_tag_link_table_rls,
     enable_skill_tag_link_table_rls,
 )
-from tracecat.tables.service import TablesService
+from autosecops.tables.service import TablesService
 
 
 @pytest.fixture(scope="session", autouse=True)

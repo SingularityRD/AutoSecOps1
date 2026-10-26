@@ -10,35 +10,35 @@ from unittest.mock import patch
 import pytest
 from temporalio.exceptions import ActivityError, ApplicationError, CancelledError
 
-from tests.shared import capture_application_error as _capture_application_error
-from tracecat.auth.types import Role
-from tracecat.dsl import scheduler as scheduler_module
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.error_transport import parse_classified_action_error_payload
-from tracecat.dsl.scheduler import DSLScheduler
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl import scheduler as scheduler_module
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.error_transport import parse_classified_action_error_payload
+from autosecops.dsl.scheduler import DSLScheduler
+from autosecops.dsl.schemas import (
     ROOT_STREAM,
     ActionStatement,
     ExecutionContext,
     RunContext,
     StreamID,
 )
-from tracecat.dsl.types import (
+from autosecops.dsl.types import (
     ActionErrorInfo,
     Task,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.runtime.errors import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     build_error_transport_detail,
     extract_error_classifications,
 )
-from tracecat.temporal.patches import WorkflowPatch
+from autosecops.temporal.patches import WorkflowPatch
+from tests.shared import capture_application_error as _capture_application_error
 
 
 def _build_scheduler(
@@ -110,7 +110,7 @@ async def test_scheduler_preserves_temporal_cancellation_with_replay_gate(
 
     scheduler = _build_scheduler(total_tasks=1, executor=executor)
     with patch(
-        "tracecat.dsl.scheduler.workflow.patched",
+        "autosecops.dsl.scheduler.workflow.patched",
         return_value=preserve_cancellation,
     ):
         if preserve_cancellation:
@@ -138,7 +138,7 @@ async def test_run_if_preserves_temporal_cancellation_with_replay_gate(
     with (
         patch.object(scheduler, "resolve_expression", side_effect=activity_error),
         patch(
-            "tracecat.dsl.scheduler.workflow.patched",
+            "autosecops.dsl.scheduler.workflow.patched",
             return_value=preserve_cancellation,
         ) as patched,
     ):
@@ -177,7 +177,7 @@ async def test_scheduler_cancellation_does_not_hide_same_batch_error(
     with (
         patch.object(scheduler, "_schedule_task", new=schedule_task),
         patch(
-            "tracecat.dsl.scheduler.workflow.patched",
+            "autosecops.dsl.scheduler.workflow.patched",
             return_value=preserve_cancellation,
         ) as patched,
         pytest.raises(RuntimeError, match="causal scheduler failure"),

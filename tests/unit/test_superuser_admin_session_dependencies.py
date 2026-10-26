@@ -4,13 +4,13 @@ import ast
 from pathlib import Path
 
 SUPERUSER_ADMIN_ROUTERS = (
-    Path("tracecat/admin/agent/router.py"),
-    Path("tracecat/admin/maintenance/router.py"),
-    Path("tracecat/admin/registry/router.py"),
-    Path("packages/tracecat-ee/tracecat_ee/admin/organizations/router.py"),
-    Path("packages/tracecat-ee/tracecat_ee/admin/users/router.py"),
-    Path("packages/tracecat-ee/tracecat_ee/admin/settings/router.py"),
-    Path("packages/tracecat-ee/tracecat_ee/admin/tiers/router.py"),
+    Path("autosecops/admin/agent/router.py"),
+    Path("autosecops/admin/maintenance/router.py"),
+    Path("autosecops/admin/registry/router.py"),
+    Path("packages/autosecops-ee/autosecops_ee/admin/organizations/router.py"),
+    Path("packages/autosecops-ee/autosecops_ee/admin/users/router.py"),
+    Path("packages/autosecops-ee/autosecops_ee/admin/settings/router.py"),
+    Path("packages/autosecops-ee/autosecops_ee/admin/tiers/router.py"),
 )
 
 

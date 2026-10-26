@@ -14,9 +14,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.seeding import seed_system_roles_for_org
-from tracecat.db.models import (
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.seeding import seed_system_roles_for_org
+from autosecops.db.models import (
     ExternalGroup,
     ExternalGroupMember,
     ExternalUser,
@@ -25,8 +25,8 @@ from tracecat.db.models import (
     GroupRoleAssignment,
     UserRoleAssignment,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.identifiers import OrganizationID, UserID, WorkspaceID
+from autosecops.db.models import Role as DBRole
+from autosecops.identifiers import OrganizationID, UserID, WorkspaceID
 
 
 async def _role_id(

@@ -8,13 +8,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from autosecops_ee.scim.connections import IssuedScimConnection
 from fastapi import status
 from fastapi.testclient import TestClient
-from tracecat_ee.scim.connections import IssuedScimConnection
 
-from tracecat.auth.api_keys import SCIM_API_KEY_PREFIX
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError
+from autosecops.auth.api_keys import SCIM_API_KEY_PREFIX
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError
 
 BASE = "/scim/connection"
 
@@ -44,11 +44,11 @@ async def test_issue_returns_the_raw_token_once(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.connections.ScimConnectionService.issue_token",
+            "autosecops_ee.scim.connections.ScimConnectionService.issue_token",
             new=AsyncMock(return_value=issued),
         ),
     ):
@@ -70,11 +70,11 @@ async def test_get_never_returns_the_token(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.connections.ScimConnectionService.get_connection",
+            "autosecops_ee.scim.connections.ScimConnectionService.get_connection",
             new=AsyncMock(return_value=connection),
         ),
     ):
@@ -94,11 +94,11 @@ async def test_get_without_a_connection_is_404(
 ) -> None:
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.connections.ScimConnectionService.get_connection",
+            "autosecops_ee.scim.connections.ScimConnectionService.get_connection",
             new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
         ),
     ):
@@ -113,11 +113,11 @@ async def test_disconnect_returns_no_content(
 ) -> None:
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.disconnect",
+            "autosecops_ee.scim.service.SCIMService.disconnect",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -132,11 +132,11 @@ async def test_disconnect_without_a_connection_is_404(
 ) -> None:
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.disconnect",
+            "autosecops_ee.scim.service.SCIMService.disconnect",
             new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
         ),
     ):

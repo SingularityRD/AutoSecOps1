@@ -2,9 +2,9 @@
 
 import uuid
 
-from tracecat.auth.credentials import get_role_from_user
-from tracecat.auth.schemas import UserRole
-from tracecat.db.models import User
+from autosecops.auth.credentials import get_role_from_user
+from autosecops.auth.schemas import UserRole
+from autosecops.db.models import User
 
 
 def test_get_role_from_superuser() -> None:

@@ -7,24 +7,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tracecat.agent.common.config import (
+from autosecops.agent.common.config import (
     JAILED_OTEL_SOCKET_PATH,
     build_agent_runtime_uv_env,
 )
-from tracecat.agent.runtime.session_paths import (
+from autosecops.agent.runtime.session_paths import (
     JAILED_AGENT_UV_STATE_DIR,
     job_uv_state_dir,
 )
-from tracecat.agent.sandbox import nsjail as nsjail_module
-from tracecat.agent.sandbox.config import AgentSandboxConfig
-from tracecat.agent.sandbox.nsjail import (
+from autosecops.agent.sandbox import nsjail as nsjail_module
+from autosecops.agent.sandbox.config import AgentSandboxConfig
+from autosecops.agent.sandbox.nsjail import (
     SESSION_HOME_ENV_VAR,
     SESSION_WORK_DIR_ENV_VAR,
     SpawnedRuntime,
     cleanup_spawned_runtime,
     spawn_jailed_runtime,
 )
-from tracecat.executor.enums import ExecutorBackendType
+from autosecops.executor.enums import ExecutorBackendType
 
 
 @pytest.fixture(autouse=True)
@@ -45,11 +45,11 @@ async def test_spawn_direct_runtime_sets_explicit_agent_session_paths(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -69,7 +69,7 @@ async def test_spawn_direct_runtime_sets_explicit_agent_session_paths(
     assert create_subprocess_exec.await_args is not None
     cmd = create_subprocess_exec.await_args.args
     assert cmd[0].endswith("python")
-    assert cmd[1].endswith("tracecat/agent/sandbox/shim_entrypoint.py")
+    assert cmd[1].endswith("autosecops/agent/sandbox/shim_entrypoint.py")
     env = create_subprocess_exec.await_args.kwargs["env"]
     assert env["TRACECAT__EXECUTOR_BACKEND"] == "direct"
     assert env["HOME"] == str(session_home_dir)
@@ -94,11 +94,11 @@ async def test_spawn_direct_runtime_passes_inherited_fds(tmp_path: Path) -> None
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -130,11 +130,11 @@ async def test_spawn_direct_runtime_owns_implicit_job_directory(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -172,15 +172,15 @@ async def test_spawn_direct_runtime_cleans_implicit_job_directory_on_failure(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.tempfile.mkdtemp",
+            "autosecops.agent.sandbox.nsjail.tempfile.mkdtemp",
             side_effect=create_job_dir,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(side_effect=OSError("spawn failed")),
         ),
         pytest.raises(OSError, match="spawn failed"),
@@ -216,11 +216,11 @@ async def test_spawn_nsjail_runtime_mounts_job_scoped_uv_state(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -263,11 +263,11 @@ async def test_direct_runtime_isolates_uv_state_across_two_jobs(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -328,11 +328,11 @@ async def test_nsjail_runtime_isolates_two_jobs_by_uv_mount_source(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=mock_process),
         ) as create_subprocess_exec,
     ):
@@ -383,11 +383,11 @@ async def test_spawn_creates_uv_state_with_owner_only_permissions(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=MagicMock()),
         ),
     ):
@@ -416,11 +416,11 @@ async def test_spawn_normalizes_preexisting_uv_state_permissions(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=MagicMock()),
         ),
     ):
@@ -450,7 +450,7 @@ def test_cleanup_spawned_runtime_swallows_rmtree_error_and_warns(
         assert path == job_dir
         raise OSError("simulated cleanup failure")
 
-    monkeypatch.setattr("tracecat.agent.common.fs.shutil.rmtree", fail_rmtree)
+    monkeypatch.setattr("autosecops.agent.common.fs.shutil.rmtree", fail_rmtree)
     monkeypatch.setattr(nsjail_module.logger, "warning", warning)
 
     try:
@@ -515,11 +515,11 @@ async def test_spawn_nsjail_runtime_uses_mounted_otel_socket_path(
 
     with (
         patch(
-            "tracecat.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
-            "tracecat.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
+            "autosecops.agent.sandbox.nsjail.asyncio.create_subprocess_exec",
             AsyncMock(return_value=MagicMock()),
         ) as create_subprocess_exec,
     ):

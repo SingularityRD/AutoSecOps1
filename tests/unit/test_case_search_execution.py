@@ -11,17 +11,13 @@ import pytest
 import sqlalchemy as sa
 from fastapi import FastAPI
 
-from tests.unit.test_case_aggregation import (
-    add_case,
-    add_dropdown,
-)
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.cases.enums import CasePriority, CaseSeverity
-from tracecat.cases.router import cases_router
-from tracecat.cases.schemas import CaseAggregateRequest
-from tracecat.cases.search_schemas import CaseQuery, CaseSearchRequest
-from tracecat.cases.service import CasesService, parse_case_short_id
-from tracecat.db.models import (
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.cases.enums import CasePriority, CaseSeverity
+from autosecops.cases.router import cases_router
+from autosecops.cases.schemas import CaseAggregateRequest
+from autosecops.cases.search_schemas import CaseQuery, CaseSearchRequest
+from autosecops.cases.service import CasesService, parse_case_short_id
+from autosecops.db.models import (
     Case,
     CaseDropdownValue,
     CaseFields,
@@ -29,9 +25,13 @@ from tracecat.db.models import (
     CaseTagLink,
     Workspace,
 )
-from tracecat.exceptions import ScopeDeniedError
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.exceptions import ScopeDeniedError
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tiers import defaults as tier_defaults
+from tests.unit.test_case_aggregation import (
+    add_case,
+    add_dropdown,
+)
 
 pytestmark = pytest.mark.anyio
 pytest_plugins = ["tests.unit.test_case_aggregation"]

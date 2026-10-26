@@ -9,24 +9,24 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import tracecat.mcp.personal_access_tokens.service as mcp_pat_service
-from tests.support.membership import grant_org_membership, grant_workspace_membership
-from tracecat.auth.api_keys import generate_managed_api_key
-from tracecat.auth.credentials import _authenticate_api_key
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+import autosecops.mcp.personal_access_tokens.service as mcp_pat_service
+from autosecops.auth.api_keys import generate_managed_api_key
+from autosecops.auth.credentials import _authenticate_api_key
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     MCPPersonalAccessToken,
     Organization,
     User,
     Workspace,
 )
-from tracecat.exceptions import TracecatAuthorizationError, TracecatNotFoundError
-from tracecat.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
-from tracecat.mcp.personal_access_tokens.service import (
+from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
+from autosecops.mcp.personal_access_tokens.service import (
     MCPPersonalAccessTokenService,
 )
-from tracecat.pagination import CursorPaginationParams
+from autosecops.pagination import CursorPaginationParams
+from tests.support.membership import grant_org_membership, grant_workspace_membership
 
 pytestmark = pytest.mark.anyio
 

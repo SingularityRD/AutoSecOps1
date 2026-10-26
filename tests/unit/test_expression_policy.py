@@ -5,10 +5,9 @@ from typing import Any
 
 import pytest
 
-from tests._registry_utils import core_udfs, input_schema_for
-from tracecat.dsl.schemas import TemplateExecutionContext
-from tracecat.exceptions import TracecatExpressionError
-from tracecat.expressions.policy import (
+from autosecops.dsl.schemas import TemplateExecutionContext
+from autosecops.exceptions import TracecatExpressionError
+from autosecops.expressions.policy import (
     PRESERVE_PARAMETERS,
     REDACT_PARAMETERS,
     ActionArgumentPlan,
@@ -18,7 +17,8 @@ from tracecat.expressions.policy import (
     expression_policy,
     resolve_action_args,
 )
-from tracecat.secrets.constants import MASK_VALUE
+from autosecops.secrets.constants import MASK_VALUE
+from tests._registry_utils import core_udfs, input_schema_for
 
 
 @dataclass

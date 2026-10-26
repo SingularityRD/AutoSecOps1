@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 
-from tracecat.agent.skill.internal_router import (
+from autosecops.agent.skill.internal_router import (
     get_skill,
     get_skill_version,
     list_skill_versions,
@@ -16,8 +16,8 @@ from tracecat.agent.skill.internal_router import (
     publish_skill_draft,
     publish_skill_version,
 )
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatValidationError
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatValidationError
 
 
 def _executor_role() -> Role:
@@ -43,7 +43,7 @@ async def test_list_endpoints_convert_invalid_cursor_to_http_400() -> None:
     )
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         with pytest.raises(HTTPException) as skills_exc:
@@ -80,7 +80,7 @@ async def test_get_skill_resolves_slug_identifier() -> None:
     mock_service.get_skill_read.return_value = {"id": str(resolved_skill_id)}
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         raw_get_skill = cast(Any, get_skill).__wrapped__
@@ -103,7 +103,7 @@ async def test_get_skill_unknown_identifier_returns_http_404() -> None:
     mock_service.get_skill_by_identifier.return_value = None
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -131,7 +131,7 @@ async def test_get_skill_version_returns_snapshot_for_udfs() -> None:
     mock_service.get_version_snapshot_read.return_value = snapshot
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         raw_get_skill_version = cast(Any, get_skill_version).__wrapped__
@@ -165,7 +165,7 @@ async def test_publish_skill_version_converts_version_conflict_to_http_409() -> 
     )
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -195,7 +195,7 @@ async def test_publish_skill_draft_converts_revision_conflict_to_http_409() -> N
     )
 
     with patch(
-        "tracecat.agent.skill.internal_router.SkillService",
+        "autosecops.agent.skill.internal_router.SkillService",
         return_value=mock_service,
     ):
         with pytest.raises(HTTPException) as exc_info:

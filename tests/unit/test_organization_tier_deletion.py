@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import Organization, OrganizationTier, Tier
-from tracecat.organization.management import delete_organization_with_cleanup
+from autosecops.db.models import Organization, OrganizationTier, Tier
+from autosecops.organization.management import delete_organization_with_cleanup
 
 
 @pytest.mark.anyio

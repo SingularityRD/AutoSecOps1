@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import tracecat.config as tracecat_config
-from tracecat.config import (
+import autosecops.config as tracecat_config
+from autosecops.config import (
     bound_env,
     env_bool,
     env_networks,
@@ -18,7 +18,7 @@ from tracecat.config import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = REPO_ROOT / "tracecat" / "config.py"
+CONFIG_PATH = REPO_ROOT / "autosecops" / "config.py"
 SANDBOX_POLICY_COMPOSE_ENV_FILES = (
     REPO_ROOT / "docker-compose.yml",
     REPO_ROOT / "docker-compose.dev.yml",
@@ -487,7 +487,7 @@ def test_config_boolean_env_values_use_env_bool() -> None:
     ]
 
     assert not violations, (
-        "Boolean environment variables in tracecat/config.py must use env_bool(): "
+        "Boolean environment variables in autosecops/config.py must use env_bool(): "
         + ", ".join(violations)
     )
 

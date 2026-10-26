@@ -92,7 +92,7 @@ def _seed_legacy_registry_rows(db_url: str) -> tuple[uuid.UUID, uuid.UUID]:
                 text(
                     """
                     INSERT INTO registry_repository (id, organization_id, origin, current_version_id)
-                    VALUES (:id, :organization_id, 'tracecat_registry', NULL)
+                    VALUES (:id, :organization_id, 'autosecops_registry', NULL)
                     """
                 ),
                 {
@@ -144,7 +144,7 @@ def _seed_legacy_registry_rows(db_url: str) -> tuple[uuid.UUID, uuid.UUID]:
                 text(
                     """
                     INSERT INTO platform_registry_repository (id, origin, current_version_id)
-                    VALUES (:id, 'tracecat_registry', NULL)
+                    VALUES (:id, 'autosecops_registry', NULL)
                     """
                 ),
                 {"id": platform_repo_id},

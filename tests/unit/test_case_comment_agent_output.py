@@ -1,5 +1,5 @@
-from tracecat.cases.agent_invocations.output import render_agent_output_as_comment
-from tracecat.cases.schemas import CASE_COMMENT_MAX_LENGTH
+from autosecops.cases.agent_invocations.output import render_agent_output_as_comment
+from autosecops.cases.schemas import CASE_COMMENT_MAX_LENGTH
 
 _TRUNCATION_NOTICE = "\n\n[Agent output truncated]"
 

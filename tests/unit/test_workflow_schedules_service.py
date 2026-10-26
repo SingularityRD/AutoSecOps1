@@ -9,31 +9,31 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.exceptions import ApplicationError
 
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import EDITOR_SCOPES
-from tracecat.db.models import Schedule, Workflow
-from tracecat.exceptions import (
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import EDITOR_SCOPES
+from autosecops.db.models import Schedule, Workflow
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatConflictError,
     TracecatNotFoundError,
 )
-from tracecat.identifiers import ScheduleUUID, WorkspaceID
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.runtime.errors import (
+from autosecops.identifiers import ScheduleUUID, WorkspaceID
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.workflow.schedules import bridge
-from tracecat.workflow.schedules.schemas import (
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.workflow.schedules import bridge
+from autosecops.workflow.schedules.schemas import (
     GetScheduleActivityInputs,
     ScheduleCreate,
     ScheduleUpdate,
 )
-from tracecat.workflow.schedules.service import WorkflowSchedulesService
+from autosecops.workflow.schedules.service import WorkflowSchedulesService
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -71,7 +71,7 @@ async def test_get_schedule_trigger_inputs_activity_classifies_failures(
     )
 
     with patch(
-        "tracecat.workflow.schedules.service.WorkflowSchedulesService.with_session",
+        "autosecops.workflow.schedules.service.WorkflowSchedulesService.with_session",
         return_value=mock_ctx,
     ):
         with pytest.raises(ApplicationError) as exc_info:

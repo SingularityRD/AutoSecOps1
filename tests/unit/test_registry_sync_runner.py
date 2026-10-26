@@ -7,25 +7,25 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import SecretStr
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.exceptions import RegistryError, RegistrySyncContentError
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.registry.actions.enums import TemplateActionValidationErrorType
-from tracecat.registry.actions.schemas import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.exceptions import RegistryError, RegistrySyncContentError
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.registry.actions.enums import TemplateActionValidationErrorType
+from autosecops.registry.actions.schemas import (
     RegistryActionCreate,
     RegistryActionOptions,
     RegistryActionUDFImpl,
     RegistryActionValidationErrorInfo,
 )
-from tracecat.registry.artifact_keys import get_artifact_local_dir
-from tracecat.registry.constants import (
+from autosecops.registry.artifact_keys import get_artifact_local_dir
+from autosecops.registry.constants import (
     DEFAULT_LOCAL_REGISTRY_ORIGIN,
     DEFAULT_REGISTRY_ORIGIN,
 )
-from tracecat.registry.sync.artifact import RegistryArtifactBuildResult
-from tracecat.registry.sync.prebuilt import write_prebuilt_registry_manifest
-from tracecat.registry.sync.runner import (
+from autosecops.registry.sync.artifact import RegistryArtifactBuildResult
+from autosecops.registry.sync.prebuilt import write_prebuilt_registry_manifest
+from autosecops.registry.sync.runner import (
     ActionDiscoveryError,
     GitCloneError,
     RegistrySyncRunner,
@@ -34,12 +34,12 @@ from tracecat.registry.sync.runner import (
     _SandboxedBackend,
     _UnsandboxedBackend,
 )
-from tracecat.registry.sync.schemas import (
+from autosecops.registry.sync.schemas import (
     RegistrySyncRequest,
     SyncErrorCode,
     SyncResultSuccess,
 )
-from tracecat.registry.versions.schemas import RegistryVersionManifest
+from autosecops.registry.versions.schemas import RegistryVersionManifest
 
 
 def _make_artifact_result(tmp_path: Path) -> RegistryArtifactBuildResult:
@@ -65,7 +65,7 @@ def _make_action(repository_id: UUID, default_title: str) -> RegistryActionCreat
         implementation=RegistryActionUDFImpl(
             type="udf",
             url=DEFAULT_REGISTRY_ORIGIN,
-            module="tracecat_registry.core.transform",
+            module="autosecops_registry.core.transform",
             name="reshape",
         ),
         secrets=None,
@@ -398,7 +398,7 @@ async def test_runner_decreases_privileges_across_sandbox_phases(
     )
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
     )
 
@@ -439,7 +439,7 @@ async def test_runner_does_not_package_invalid_sandbox_discovery(
     )
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
         validate_actions=True,
     )
@@ -463,7 +463,7 @@ async def test_fetch_registry_ssh_key_uses_role_scoped_service_session(mocker) -
         yield secrets_service
 
     with_session = mocker.patch(
-        "tracecat.registry.sync.runner.SecretsService.with_session",
+        "autosecops.registry.sync.runner.SecretsService.with_session",
         side_effect=fake_with_session,
     )
 
@@ -482,7 +482,7 @@ async def test_runner_raises_before_upload_on_validation_errors(
     runner = RegistrySyncRunner()
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
         validate_actions=True,
     )
@@ -540,7 +540,7 @@ async def test_discover_actions_marks_template_load_errors_non_retryable(
 ) -> None:
     runner = RegistrySyncRunner()
     mocker.patch(
-        "tracecat.registry.sync.runner.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.runner.fetch_actions_from_subprocess",
         mocker.AsyncMock(
             side_effect=RegistrySyncContentError(
                 "Failed to load template action from "
@@ -554,7 +554,7 @@ async def test_discover_actions_marks_template_load_errors_non_retryable(
         await runner._discover_unsandboxed_actions(
             RegistrySyncRequest(
                 repository_id=uuid4(),
-                origin="tracecat_registry",
+                origin="autosecops_registry",
                 origin_type="builtin",
             ),
             None,
@@ -567,7 +567,7 @@ async def test_discover_actions_marks_template_load_errors_non_retryable(
 async def test_discover_actions_marks_missing_package_non_retryable(mocker) -> None:
     runner = RegistrySyncRunner()
     mocker.patch(
-        "tracecat.registry.sync.runner.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.runner.fetch_actions_from_subprocess",
         mocker.AsyncMock(
             side_effect=RegistrySyncContentError(
                 "No module named 'internal-registry'",
@@ -580,7 +580,7 @@ async def test_discover_actions_marks_missing_package_non_retryable(mocker) -> N
         await runner._discover_unsandboxed_actions(
             RegistrySyncRequest(
                 repository_id=uuid4(),
-                origin="tracecat_registry",
+                origin="autosecops_registry",
                 origin_type="builtin",
             ),
             None,
@@ -593,10 +593,10 @@ async def test_discover_actions_marks_missing_package_non_retryable(mocker) -> N
 async def test_discover_actions_keeps_subprocess_errors_retryable(mocker) -> None:
     runner = RegistrySyncRunner()
     mocker.patch(
-        "tracecat.registry.sync.runner.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.runner.fetch_actions_from_subprocess",
         mocker.AsyncMock(
             side_effect=RegistryError(
-                "Sync subprocess timed out after 300.0s for 'tracecat_registry'"
+                "Sync subprocess timed out after 300.0s for 'autosecops_registry'"
             )
         ),
     )
@@ -605,7 +605,7 @@ async def test_discover_actions_keeps_subprocess_errors_retryable(mocker) -> Non
         await runner._discover_unsandboxed_actions(
             RegistrySyncRequest(
                 repository_id=uuid4(),
-                origin="tracecat_registry",
+                origin="autosecops_registry",
                 origin_type="builtin",
             ),
             None,
@@ -737,7 +737,7 @@ async def test_runner_uses_prebuilt_manifest_or_falls_back_to_discovery(
         "_upload_squashfs",
         mocker.AsyncMock(
             return_value=(
-                "s3://registry/platform/tarball-venvs/tracecat_registry/generated/"
+                "s3://registry/platform/tarball-venvs/autosecops_registry/generated/"
                 "site-packages.squashfs"
             )
         ),

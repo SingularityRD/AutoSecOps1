@@ -8,16 +8,16 @@ import pytest
 from fastapi import HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import grant_org_membership
-from tracecat.auth.credentials import (
+from autosecops.auth.credentials import (
     ACTIVE_ORG_COOKIE,
     _resolve_org_for_regular_user,
 )
-from tracecat.auth.schemas import UserRole
-from tracecat.db.models import (
+from autosecops.auth.schemas import UserRole
+from autosecops.db.models import (
     Organization,
     User,
 )
+from tests.support.membership import grant_org_membership
 
 
 def _request_with_cookie(value: str | None) -> Request:

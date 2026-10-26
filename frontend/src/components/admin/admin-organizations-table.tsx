@@ -3,7 +3,7 @@
 import { DotsHorizontalIcon } from "@radix-ui/react-icons"
 import Cookies from "js-cookie"
 import { useState } from "react"
-import type { tracecat_ee__admin__organizations__schemas__OrgRead as OrgRead } from "@/client"
+import type { autosecops_ee__admin__organizations__schemas__OrgRead as OrgRead } from "@/client"
 import { AdminOrgDeleteDialog } from "@/components/admin/admin-org-delete-dialog"
 import { AdminOrgDomainsDialog } from "@/components/admin/admin-org-domains-dialog"
 import { AdminOrgInvitationsDialog } from "@/components/admin/admin-org-invitations-dialog"

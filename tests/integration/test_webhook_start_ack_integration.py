@@ -7,15 +7,15 @@ import pytest
 from fastapi import status
 from sqlalchemy import select
 
-from tracecat.api.app import app
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import Webhook
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.store.import_service import WorkflowImportService
-from tracecat.workflow.store.schemas import RemoteWebhook, RemoteWorkflowDefinition
+from autosecops.api.app import app
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import Webhook
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.store.import_service import WorkflowImportService
+from autosecops.workflow.store.schemas import RemoteWebhook, RemoteWorkflowDefinition
 
 pytestmark = [
     pytest.mark.usefixtures("db"),
@@ -94,7 +94,7 @@ async def test_webhook_returns_500_when_temporal_start_fails(
         return FailingTemporalClient()
 
     monkeypatch.setattr(
-        "tracecat.workflow.executions.service.get_temporal_client",
+        "autosecops.workflow.executions.service.get_temporal_client",
         fake_get_temporal_client,
     )
 

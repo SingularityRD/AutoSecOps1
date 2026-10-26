@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from tracecat import config
-from tracecat.agent.channels.sinks.slack import SlackStreamSink
-from tracecat.agent.common.stream_types import (
+from autosecops import config
+from autosecops.agent.channels.sinks.slack import SlackStreamSink
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     ToolCallContent,
     UnifiedStreamEvent,
@@ -66,7 +66,7 @@ def patched_slack_client(monkeypatch: pytest.MonkeyPatch) -> _FakeSlackClient:
         return fake_client
 
     monkeypatch.setattr(
-        "tracecat.agent.channels.sinks.slack.AsyncWebClient", _make_client
+        "autosecops.agent.channels.sinks.slack.AsyncWebClient", _make_client
     )
     return fake_client
 
@@ -327,7 +327,7 @@ async def test_slack_stream_sink_emits_approval_cards(
         return fake_redis
 
     monkeypatch.setattr(
-        "tracecat.agent.channels.sinks.slack.get_redis_client",
+        "autosecops.agent.channels.sinks.slack.get_redis_client",
         _get_redis,
     )
     monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")

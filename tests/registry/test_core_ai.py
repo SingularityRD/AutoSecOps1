@@ -1,5 +1,5 @@
 import pytest
-from tracecat_registry.core import ai
+from autosecops_registry.core import ai
 
 
 @pytest.mark.parametrize(

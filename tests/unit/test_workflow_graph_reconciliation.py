@@ -12,12 +12,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Action, Workflow, Workspace
-from tracecat.identifiers import WorkflowID
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import WorkflowUpdate
+from autosecops.auth.types import Role
+from autosecops.db.models import Action, Workflow, Workspace
+from autosecops.identifiers import WorkflowID
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import WorkflowUpdate
 
 pytestmark = pytest.mark.usefixtures("db")
 

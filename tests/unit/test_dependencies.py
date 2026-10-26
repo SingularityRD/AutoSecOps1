@@ -4,13 +4,13 @@ import pytest
 from fastapi import HTTPException, status
 from pytest_mock import MockerFixture
 
-from tracecat.api.common import bootstrap_role
-from tracecat.auth.dependencies import (
+from autosecops.api.common import bootstrap_role
+from autosecops.auth.dependencies import (
     require_any_auth_type_enabled,
     require_auth_type_enabled,
     verify_auth_type,
 )
-from tracecat.auth.enums import AuthType
+from autosecops.auth.enums import AuthType
 
 
 @pytest.mark.anyio
@@ -40,7 +40,7 @@ async def test_verify_auth_type_not_allowed(
     mocker: MockerFixture, target_type: AuthType, allowed_types: list[AuthType]
 ):
     """Test that unauthorized auth types raise HTTPException."""
-    mocker.patch("tracecat.config.TRACECAT__AUTH_TYPES", allowed_types)
+    mocker.patch("autosecops.config.TRACECAT__AUTH_TYPES", allowed_types)
 
     with pytest.raises(HTTPException) as exc:
         await verify_auth_type(target_type)
@@ -52,8 +52,8 @@ async def test_verify_auth_type_not_allowed(
 @pytest.mark.anyio
 async def test_verify_auth_type_setting_disabled(mocker: MockerFixture):
     """Test that disabled SAML setting raises HTTPException."""
-    mocker.patch("tracecat.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
-    mocker.patch("tracecat.auth.dependencies.get_setting", return_value=False)
+    mocker.patch("autosecops.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
+    mocker.patch("autosecops.auth.dependencies.get_setting", return_value=False)
 
     with pytest.raises(HTTPException) as exc:
         await verify_auth_type(AuthType.SAML)
@@ -65,8 +65,8 @@ async def test_verify_auth_type_setting_disabled(mocker: MockerFixture):
 @pytest.mark.anyio
 async def test_verify_auth_type_invalid_setting(mocker: MockerFixture):
     """Test that invalid settings raise HTTPException."""
-    mocker.patch("tracecat.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
-    mocker.patch("tracecat.auth.dependencies.get_setting", return_value=None)
+    mocker.patch("autosecops.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
+    mocker.patch("autosecops.auth.dependencies.get_setting", return_value=None)
 
     with pytest.raises(HTTPException) as exc:
         await verify_auth_type(AuthType.SAML)
@@ -84,9 +84,9 @@ async def test_verify_auth_type_non_saml_is_platform_controlled(
     mocker: MockerFixture, auth_type: AuthType
 ) -> None:
     """Non-SAML auth types are platform-configured only, no DB lookups."""
-    mocker.patch("tracecat.config.TRACECAT__AUTH_TYPES", [auth_type])
+    mocker.patch("autosecops.config.TRACECAT__AUTH_TYPES", [auth_type])
     get_setting_mock = mocker.patch(
-        "tracecat.auth.dependencies.get_setting",
+        "autosecops.auth.dependencies.get_setting",
         return_value=False,
     )
 
@@ -101,9 +101,9 @@ async def test_verify_auth_type_uses_provided_org_role(
     mocker: MockerFixture,
 ) -> None:
     """SAML checks should honor the caller's resolved organization context."""
-    mocker.patch("tracecat.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
+    mocker.patch("autosecops.config.TRACECAT__AUTH_TYPES", [AuthType.SAML])
     get_setting_mock = mocker.patch(
-        "tracecat.auth.dependencies.get_setting",
+        "autosecops.auth.dependencies.get_setting",
         return_value=True,
     )
     org_id = uuid.uuid4()
@@ -124,11 +124,11 @@ async def test_require_any_auth_type_enabled_succeeds_on_first_match(
 ) -> None:
     """First matching auth type is accepted without further checks."""
     mocker.patch(
-        "tracecat.config.TRACECAT__AUTH_TYPES",
+        "autosecops.config.TRACECAT__AUTH_TYPES",
         [AuthType.OIDC],
     )
     verify_mock = mocker.patch(
-        "tracecat.auth.dependencies.verify_auth_type",
+        "autosecops.auth.dependencies.verify_auth_type",
     )
     dependency = require_any_auth_type_enabled([AuthType.OIDC])
     check_any = dependency.dependency
@@ -146,7 +146,7 @@ async def test_require_any_auth_type_enabled_rejects_when_none_allowed(
 ) -> None:
     """Raises 403 when no candidate auth type is in the allowed list."""
     mocker.patch(
-        "tracecat.config.TRACECAT__AUTH_TYPES",
+        "autosecops.config.TRACECAT__AUTH_TYPES",
         [AuthType.BASIC],
     )
     dependency = require_any_auth_type_enabled([AuthType.OIDC])

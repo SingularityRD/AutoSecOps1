@@ -10,21 +10,21 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.session.history import prepare_session_history
-from tracecat.agent.subagents import (
+from autosecops.agent.session.history import prepare_session_history
+from autosecops.agent.subagents import (
     ResolvedAgentsConfig,
     ResolvedAttachedSubagentRef,
 )
-from tracecat.auth.types import Role
-from tracecat.cases.agent_sessions.backfill import CaseAgentSessionBackfill
-from tracecat.cases.agent_sessions.types import CaseAgentSessionBackfillSkipReason
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.cases.agent_sessions.backfill import CaseAgentSessionBackfill
+from autosecops.cases.agent_sessions.types import CaseAgentSessionBackfillSkipReason
+from autosecops.cases.enums import (
     CaseAgentSessionInteractionOperation,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     AgentSession,
     AgentSessionHistory,
     Case,
@@ -124,15 +124,15 @@ async def test_backfill_reconstructs_mutations_safely_and_idempotently(
 ) -> None:
     """Exercise the backfill as one bounded, database-backed workflow."""
     monkeypatch.setattr(
-        "tracecat.cases.agent_sessions.backfill._HISTORY_FETCH_SIZE",
+        "autosecops.cases.agent_sessions.backfill._HISTORY_FETCH_SIZE",
         1,
     )
     monkeypatch.setattr(
-        "tracecat.cases.agent_sessions.backfill._INTERACTION_INSERT_BATCH_SIZE",
+        "autosecops.cases.agent_sessions.backfill._INTERACTION_INSERT_BATCH_SIZE",
         1,
     )
     monkeypatch.setattr(
-        "tracecat.cases.agent_sessions.backfill._TARGET_LOOKUP_BATCH_SIZE",
+        "autosecops.cases.agent_sessions.backfill._TARGET_LOOKUP_BATCH_SIZE",
         1,
     )
     assert svc_role.workspace_id is not None

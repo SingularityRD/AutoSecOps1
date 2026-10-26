@@ -8656,12 +8656,12 @@ export type RegistryArtifactsBackfillStartResponse = {
  *
  * Attributes:
  * origins: Maps repository origin to pinned version string.
- * Example: {"tracecat_registry": "2024.12.10.123456"}
+ * Example: {"autosecops_registry": "2024.12.10.123456"}
  * actions: Maps action name to its source origin.
- * Example: {"core.transform.reshape": "tracecat_registry"}
+ * Example: {"core.transform.reshape": "autosecops_registry"}
  * origin_fingerprints: Optional immutable manifest fingerprints for origins.
  * New executors use the builtin fingerprint to decide whether their
- * bundled tracecat_registry package is an exact match for the lock.
+ * bundled autosecops_registry package is an exact match for the lock.
  */
 export type RegistryLock = {
   origins: {
@@ -13438,19 +13438,10 @@ export type Yaml = {
   component_id?: "yaml"
 }
 
-export type login = {
-  grant_type?: string | null
-  username: string
-  password: string
-  scope?: string
-  client_id?: string | null
-  client_secret?: string | null
-}
-
 /**
  * Response from sync operation.
  */
-export type tracecat__admin__registry__schemas__RegistrySyncResponse = {
+export type autosecops__admin__registry__schemas__RegistrySyncResponse = {
   success: boolean
   synced_at: string
   repositories: Array<RepositorySyncResult>
@@ -13459,7 +13450,7 @@ export type tracecat__admin__registry__schemas__RegistrySyncResponse = {
 /**
  * Response from promoting a registry version.
  */
-export type tracecat__admin__registry__schemas__RegistryVersionPromoteResponse =
+export type autosecops__admin__registry__schemas__RegistryVersionPromoteResponse =
   {
     repository_id: string
     origin: string
@@ -13471,7 +13462,7 @@ export type tracecat__admin__registry__schemas__RegistryVersionPromoteResponse =
 /**
  * Registry version details.
  */
-export type tracecat__admin__registry__schemas__RegistryVersionRead = {
+export type autosecops__admin__registry__schemas__RegistryVersionRead = {
   id: string
   repository_id: string
   version: string
@@ -13484,7 +13475,7 @@ export type tracecat__admin__registry__schemas__RegistryVersionRead = {
   in_use?: boolean
 }
 
-export type tracecat__organization__schemas__OrgDomainRead = {
+export type autosecops__organization__schemas__OrgDomainRead = {
   id: string
   organization_id: string
   domain: string
@@ -13497,7 +13488,7 @@ export type tracecat__organization__schemas__OrgDomainRead = {
   updated_at: string
 }
 
-export type tracecat__organization__schemas__OrgRead = {
+export type autosecops__organization__schemas__OrgRead = {
   id: string
   name: string
 }
@@ -13505,20 +13496,21 @@ export type tracecat__organization__schemas__OrgRead = {
 /**
  * Response model for registry sync operation.
  */
-export type tracecat__registry__repositories__schemas__RegistrySyncResponse = {
-  success: boolean
-  repository_id: string
-  origin: string
-  version?: string | null
-  commit_sha?: string | null
-  actions_count?: number | null
-  forced?: boolean
-}
+export type autosecops__registry__repositories__schemas__RegistrySyncResponse =
+  {
+    success: boolean
+    repository_id: string
+    origin: string
+    version?: string | null
+    commit_sha?: string | null
+    actions_count?: number | null
+    forced?: boolean
+  }
 
 /**
  * Response model for version promotion.
  */
-export type tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse =
+export type autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse =
   {
     repository_id: string
     origin: string
@@ -13530,7 +13522,7 @@ export type tracecat__registry__repositories__schemas__RegistryVersionPromoteRes
 /**
  * Response model for reading a registry version.
  */
-export type tracecat__registry__repositories__schemas__RegistryVersionRead = {
+export type autosecops__registry__repositories__schemas__RegistryVersionRead = {
   id: string
   repository_id: string
   version: string
@@ -13542,7 +13534,7 @@ export type tracecat__registry__repositories__schemas__RegistryVersionRead = {
 /**
  * Organization domain response.
  */
-export type tracecat_ee__admin__organizations__schemas__OrgDomainRead = {
+export type autosecops_ee__admin__organizations__schemas__OrgDomainRead = {
   id: string
   organization_id: string
   domain: string
@@ -13558,13 +13550,22 @@ export type tracecat_ee__admin__organizations__schemas__OrgDomainRead = {
 /**
  * Organization response.
  */
-export type tracecat_ee__admin__organizations__schemas__OrgRead = {
+export type autosecops_ee__admin__organizations__schemas__OrgRead = {
   id: string
   name: string
   slug: string
   is_active: boolean
   created_at: string
   updated_at?: string | null
+}
+
+export type login = {
+  grant_type?: string | null
+  username: string
+  password: string
+  scope?: string
+  client_id?: string | null
+  client_secret?: string | null
 }
 
 export type PublicIncomingWebhookPostData = {
@@ -14650,7 +14651,7 @@ export type UsersSearchUserData = {
 export type UsersSearchUserResponse = UserSearchRead
 
 export type OrganizationGetOrganizationResponse =
-  tracecat__organization__schemas__OrgRead
+  autosecops__organization__schemas__OrgRead
 
 export type OrganizationDeleteOrganizationData = {
   /**
@@ -14662,10 +14663,10 @@ export type OrganizationDeleteOrganizationData = {
 export type OrganizationDeleteOrganizationResponse = void
 
 export type OrganizationListCurrentUserOrganizationMembershipsResponse =
-  Array<tracecat__organization__schemas__OrgRead>
+  Array<autosecops__organization__schemas__OrgRead>
 
 export type OrganizationListOrganizationDomainsResponse =
-  Array<tracecat__organization__schemas__OrgDomainRead>
+  Array<autosecops__organization__schemas__OrgDomainRead>
 
 export type OrganizationGetOrganizationEntitlementsResponse =
   EffectiveEntitlements
@@ -15833,21 +15834,21 @@ export type WatchtowerEnableWatchtowerAgentData = {
 export type WatchtowerEnableWatchtowerAgentResponse = void
 
 export type AdminListOrganizationsResponse =
-  Array<tracecat_ee__admin__organizations__schemas__OrgRead>
+  Array<autosecops_ee__admin__organizations__schemas__OrgRead>
 
 export type AdminCreateOrganizationData = {
   requestBody: OrgCreate
 }
 
 export type AdminCreateOrganizationResponse =
-  tracecat_ee__admin__organizations__schemas__OrgRead
+  autosecops_ee__admin__organizations__schemas__OrgRead
 
 export type AdminGetOrganizationData = {
   orgId: string
 }
 
 export type AdminGetOrganizationResponse =
-  tracecat_ee__admin__organizations__schemas__OrgRead
+  autosecops_ee__admin__organizations__schemas__OrgRead
 
 export type AdminUpdateOrganizationData = {
   orgId: string
@@ -15855,7 +15856,7 @@ export type AdminUpdateOrganizationData = {
 }
 
 export type AdminUpdateOrganizationResponse =
-  tracecat_ee__admin__organizations__schemas__OrgRead
+  autosecops_ee__admin__organizations__schemas__OrgRead
 
 export type AdminDeleteOrganizationData = {
   /**
@@ -15913,7 +15914,7 @@ export type AdminListOrganizationDomainsData = {
 }
 
 export type AdminListOrganizationDomainsResponse =
-  Array<tracecat_ee__admin__organizations__schemas__OrgDomainRead>
+  Array<autosecops_ee__admin__organizations__schemas__OrgDomainRead>
 
 export type AdminCreateOrganizationDomainData = {
   orgId: string
@@ -15921,7 +15922,7 @@ export type AdminCreateOrganizationDomainData = {
 }
 
 export type AdminCreateOrganizationDomainResponse =
-  tracecat_ee__admin__organizations__schemas__OrgDomainRead
+  autosecops_ee__admin__organizations__schemas__OrgDomainRead
 
 export type AdminUpdateOrganizationDomainData = {
   domainId: string
@@ -15930,7 +15931,7 @@ export type AdminUpdateOrganizationDomainData = {
 }
 
 export type AdminUpdateOrganizationDomainResponse =
-  tracecat_ee__admin__organizations__schemas__OrgDomainRead
+  autosecops_ee__admin__organizations__schemas__OrgDomainRead
 
 export type AdminDeleteOrganizationDomainData = {
   domainId: string
@@ -16132,7 +16133,7 @@ export type AdminRegistrySyncAllRepositoriesData = {
 }
 
 export type AdminRegistrySyncAllRepositoriesResponse =
-  tracecat__admin__registry__schemas__RegistrySyncResponse
+  autosecops__admin__registry__schemas__RegistrySyncResponse
 
 export type AdminRegistrySyncRepositoryData = {
   /**
@@ -16143,7 +16144,7 @@ export type AdminRegistrySyncRepositoryData = {
 }
 
 export type AdminRegistrySyncRepositoryResponse =
-  tracecat__admin__registry__schemas__RegistrySyncResponse
+  autosecops__admin__registry__schemas__RegistrySyncResponse
 
 export type AdminRegistryGetRegistryStatusResponse = RegistryStatusResponse
 
@@ -16153,7 +16154,7 @@ export type AdminRegistryListRegistryVersionsData = {
 }
 
 export type AdminRegistryListRegistryVersionsResponse =
-  Array<tracecat__admin__registry__schemas__RegistryVersionRead>
+  Array<autosecops__admin__registry__schemas__RegistryVersionRead>
 
 export type AdminRegistryStartRegistryArtifactsBackfillData = {
   requestBody: RegistryArtifactsBackfillStartRequest
@@ -16168,7 +16169,7 @@ export type AdminRegistryPromoteRegistryVersionData = {
 }
 
 export type AdminRegistryPromoteRegistryVersionResponse =
-  tracecat__admin__registry__schemas__RegistryVersionPromoteResponse
+  autosecops__admin__registry__schemas__RegistryVersionPromoteResponse
 
 export type AdminRegistryDeleteRegistryVersionData = {
   repositoryId: string
@@ -16256,14 +16257,14 @@ export type RegistryRepositoriesSyncRegistryRepositoryData = {
 }
 
 export type RegistryRepositoriesSyncRegistryRepositoryResponse =
-  tracecat__registry__repositories__schemas__RegistrySyncResponse
+  autosecops__registry__repositories__schemas__RegistrySyncResponse
 
 export type RegistryRepositoriesListRepositoryVersionsData = {
   repositoryId: string
 }
 
 export type RegistryRepositoriesListRepositoryVersionsResponse =
-  Array<tracecat__registry__repositories__schemas__RegistryVersionRead>
+  Array<autosecops__registry__repositories__schemas__RegistryVersionRead>
 
 export type RegistryRepositoriesListRegistryRepositoriesResponse =
   Array<RegistryRepositoryReadMinimal>
@@ -16311,7 +16312,7 @@ export type RegistryRepositoriesPromoteRegistryVersionData = {
 }
 
 export type RegistryRepositoriesPromoteRegistryVersionResponse =
-  tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse
+  autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse
 
 export type RegistryRepositoriesDeleteRegistryVersionData = {
   repositoryId: string
@@ -16334,7 +16335,7 @@ export type RegistryRepositoriesGetPreviousRegistryVersionData = {
 }
 
 export type RegistryRepositoriesGetPreviousRegistryVersionResponse =
-  tracecat__registry__repositories__schemas__RegistryVersionRead | null
+  autosecops__registry__repositories__schemas__RegistryVersionRead | null
 
 export type RegistryActionsListRegistryActionsData = {
   /**
@@ -20372,7 +20373,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__organization__schemas__OrgRead
+        200: autosecops__organization__schemas__OrgRead
       }
     }
     delete: {
@@ -20395,7 +20396,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat__organization__schemas__OrgRead>
+        200: Array<autosecops__organization__schemas__OrgRead>
       }
     }
   }
@@ -20405,7 +20406,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat__organization__schemas__OrgDomainRead>
+        200: Array<autosecops__organization__schemas__OrgDomainRead>
       }
     }
   }
@@ -22631,7 +22632,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat_ee__admin__organizations__schemas__OrgRead>
+        200: Array<autosecops_ee__admin__organizations__schemas__OrgRead>
       }
     }
     post: {
@@ -22640,7 +22641,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        201: tracecat_ee__admin__organizations__schemas__OrgRead
+        201: autosecops_ee__admin__organizations__schemas__OrgRead
         /**
          * Validation Error
          */
@@ -22655,7 +22656,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat_ee__admin__organizations__schemas__OrgRead
+        200: autosecops_ee__admin__organizations__schemas__OrgRead
         /**
          * Validation Error
          */
@@ -22668,7 +22669,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat_ee__admin__organizations__schemas__OrgRead
+        200: autosecops_ee__admin__organizations__schemas__OrgRead
         /**
          * Validation Error
          */
@@ -22769,7 +22770,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat_ee__admin__organizations__schemas__OrgDomainRead>
+        200: Array<autosecops_ee__admin__organizations__schemas__OrgDomainRead>
         /**
          * Validation Error
          */
@@ -22782,7 +22783,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        201: tracecat_ee__admin__organizations__schemas__OrgDomainRead
+        201: autosecops_ee__admin__organizations__schemas__OrgDomainRead
         /**
          * Validation Error
          */
@@ -22797,7 +22798,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat_ee__admin__organizations__schemas__OrgDomainRead
+        200: autosecops_ee__admin__organizations__schemas__OrgDomainRead
         /**
          * Validation Error
          */
@@ -23252,7 +23253,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__admin__registry__schemas__RegistrySyncResponse
+        200: autosecops__admin__registry__schemas__RegistrySyncResponse
         /**
          * Validation Error
          */
@@ -23267,7 +23268,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__admin__registry__schemas__RegistrySyncResponse
+        200: autosecops__admin__registry__schemas__RegistrySyncResponse
         /**
          * Validation Error
          */
@@ -23292,7 +23293,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat__admin__registry__schemas__RegistryVersionRead>
+        200: Array<autosecops__admin__registry__schemas__RegistryVersionRead>
         /**
          * Validation Error
          */
@@ -23322,7 +23323,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__admin__registry__schemas__RegistryVersionPromoteResponse
+        200: autosecops__admin__registry__schemas__RegistryVersionPromoteResponse
         /**
          * Validation Error
          */
@@ -23442,7 +23443,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__registry__repositories__schemas__RegistrySyncResponse
+        200: autosecops__registry__repositories__schemas__RegistrySyncResponse
         /**
          * Cannot sync repository
          */
@@ -23465,7 +23466,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: Array<tracecat__registry__repositories__schemas__RegistryVersionRead>
+        200: Array<autosecops__registry__repositories__schemas__RegistryVersionRead>
         /**
          * Validation Error
          */
@@ -23559,7 +23560,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse
+        200: autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse
         /**
          * Validation Error
          */
@@ -23604,7 +23605,7 @@ export type $OpenApiTs = {
         /**
          * Successful Response
          */
-        200: tracecat__registry__repositories__schemas__RegistryVersionRead | null
+        200: autosecops__registry__repositories__schemas__RegistryVersionRead | null
         /**
          * Validation Error
          */

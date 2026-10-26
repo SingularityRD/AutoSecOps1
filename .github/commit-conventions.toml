@@ -228,7 +228,7 @@ migration = "infra"
 playbook = "docs"
 playbooks = "docs"
 
-# The operator CLI in packages/tracecat-admin is a packaged tool, so it labels
+# The operator CLI in packages/autosecops-admin is a packaged tool, so it labels
 # as `build`. Deliberately different from `admin`, which is the org admin API.
 admin-cli = "build"
 
