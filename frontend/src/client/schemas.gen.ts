@@ -17836,6 +17836,889 @@ export const $FixedActionResult = {
   description: "An action result reused from a previous run of the workflow.",
 } as const
 
+export const $FleetApprovalCreate = {
+  properties: {
+    profile_digest: {
+      type: "string",
+      pattern: "^sha256:[0-9a-f]{64}$",
+      title: "Profile Digest",
+    },
+    validity_hours: {
+      type: "integer",
+      maximum: 168,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 24,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["profile_digest"],
+  title: "FleetApprovalCreate",
+  description: "Request an observe -> enforce approval of the offered profile.",
+} as const
+
+export const $FleetApprovalRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    approval_id: {
+      type: "string",
+      title: "Approval Id",
+    },
+    profile_digest: {
+      type: "string",
+      title: "Profile Digest",
+    },
+    profile_version: {
+      type: "integer",
+      title: "Profile Version",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetApprovalStatus",
+    },
+    requested_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Requested By",
+    },
+    approved_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Approved By",
+    },
+    validity_hours: {
+      type: "integer",
+      title: "Validity Hours",
+    },
+    issued_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Issued At",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    signer_key_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signer Key Id",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "approval_id",
+    "profile_digest",
+    "profile_version",
+    "platform",
+    "status",
+    "requested_by",
+    "approved_by",
+    "validity_hours",
+    "issued_at",
+    "expires_at",
+    "signer_key_id",
+    "created_at",
+  ],
+  title: "FleetApprovalRead",
+  description:
+    "An approval request and, once two people signed it off, its signature.",
+} as const
+
+export const $FleetApprovalStatus = {
+  type: "string",
+  enum: ["pending", "signed", "cancelled"],
+  title: "FleetApprovalStatus",
+  description: "State of a profile approval (contract §6.3).",
+} as const
+
+export const $FleetDraftContent = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    size: {
+      type: "integer",
+      title: "Size",
+    },
+    received_at: {
+      type: "string",
+      format: "date-time",
+      title: "Received At",
+    },
+    profile: {
+      type: "string",
+      title: "Profile",
+    },
+  },
+  type: "object",
+  required: ["id", "digest", "size", "received_at", "profile"],
+  title: "FleetDraftContent",
+  description: "A draft profile with its file text.",
+} as const
+
+export const $FleetDraftRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    size: {
+      type: "integer",
+      title: "Size",
+    },
+    received_at: {
+      type: "string",
+      format: "date-time",
+      title: "Received At",
+    },
+  },
+  type: "object",
+  required: ["id", "digest", "size", "received_at"],
+  title: "FleetDraftRead",
+  description: "A draft profile the robot published for review.",
+} as const
+
+export const $FleetDraftReceipt = {
+  properties: {
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    status: {
+      type: "string",
+      const: "received",
+      title: "Status",
+    },
+  },
+  type: "object",
+  required: ["digest", "status"],
+  title: "FleetDraftReceipt",
+  description: `\`200\` body of \`POST /robot-edr/v2/fleet/profiles/drafts\`.`,
+} as const
+
+export const $FleetErrorResponse = {
+  properties: {
+    code: {
+      type: "string",
+      title: "Code",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["code", "detail"],
+  title: "FleetErrorResponse",
+  description:
+    "Error body of the robot-facing fleet endpoints (contract §2.6).",
+} as const
+
+export const $FleetOfferRead = {
+  properties: {
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    profile_version: {
+      type: "integer",
+      title: "Profile Version",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: ["digest", "profile_version", "platform", "updated_at"],
+  title: "FleetOfferRead",
+  description: "The profile currently offered to the robot.",
+} as const
+
+export const $FleetOfferUpdate = {
+  properties: {
+    profile: {
+      type: "string",
+      maxLength: 1048576,
+      minLength: 1,
+      title: "Profile",
+      description:
+        "The locked profile file, exactly as robodr-commission wrote it",
+    },
+    signature: {
+      type: "string",
+      maxLength: 65536,
+      minLength: 1,
+      title: "Signature",
+      description: "The profile's .sig file, exactly as written",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["profile", "signature"],
+  title: "FleetOfferUpdate",
+  description: "Offer a locked, signed profile to the robot (contract §6.2).",
+} as const
+
+export const $FleetRevocationCreate = {
+  properties: {
+    revocation_list: {
+      type: "string",
+      maxLength: 1048576,
+      minLength: 1,
+      title: "Revocation List",
+    },
+    trust_root_public_key: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 4096,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Trust Root Public Key",
+      description:
+        "Optional trust-root public key (robodr-blackbox-key/v2 file or 64 hex) to check the list's signature before publishing",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["revocation_list"],
+  title: "FleetRevocationCreate",
+  description:
+    "Publish a root-signed revocation list for a platform (contract §4.1).",
+} as const
+
+export const $FleetRevocationRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    serial: {
+      type: "integer",
+      title: "Serial",
+    },
+    list_digest: {
+      type: "string",
+      title: "List Digest",
+    },
+    signer_key_id: {
+      type: "string",
+      title: "Signer Key Id",
+    },
+    signature_checked: {
+      type: "boolean",
+      title: "Signature Checked",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "platform",
+    "serial",
+    "list_digest",
+    "signer_key_id",
+    "signature_checked",
+    "created_at",
+  ],
+  title: "FleetRevocationRead",
+  description: "A published revocation list.",
+} as const
+
+export const $FleetRingRead = {
+  properties: {
+    serial: {
+      type: "integer",
+      title: "Serial",
+    },
+    ring: {
+      type: "integer",
+      title: "Ring",
+    },
+    target_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Target Version",
+    },
+    bundle_sha256: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Bundle Sha256",
+    },
+    min_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Min Version",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+  },
+  type: "object",
+  required: [
+    "serial",
+    "ring",
+    "target_version",
+    "bundle_sha256",
+    "min_version",
+    "issued_at",
+    "expires_at",
+  ],
+  title: "FleetRingRead",
+  description: "The latest update-ring document of the robot.",
+} as const
+
+export const $FleetRingUpdate = {
+  properties: {
+    ring: {
+      type: "integer",
+      maximum: 2,
+      minimum: 0,
+      title: "Ring",
+      description: "0 canary, 1 early, 2 broad",
+    },
+    target_version: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9][0-9A-Za-z.+~-]{0,63}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Target Version",
+    },
+    bundle_sha256: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Bundle Sha256",
+    },
+    min_version: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9][0-9A-Za-z.+~-]{0,63}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Min Version",
+      description: "Security floor: the lowest release the robot may run",
+    },
+    validity_hours: {
+      type: "integer",
+      maximum: 2160,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 168,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["ring"],
+  title: "FleetRingUpdate",
+  description: "Publish update-ring information for the robot (contract §7).",
+} as const
+
+export const $FleetRotationRead = {
+  properties: {
+    rotation_id: {
+      type: "string",
+      title: "Rotation Id",
+    },
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    old_key_id: {
+      type: "string",
+      title: "Old Key Id",
+    },
+    new_key_id: {
+      type: "string",
+      title: "New Key Id",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetRotationStatus",
+    },
+    received: {
+      type: "boolean",
+      title: "Received",
+      description: "False for a cancel of a rotation the SOC never received",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    closed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Closed At",
+    },
+  },
+  type: "object",
+  required: [
+    "rotation_id",
+    "role",
+    "old_key_id",
+    "new_key_id",
+    "status",
+    "received",
+    "created_at",
+    "closed_at",
+  ],
+  title: "FleetRotationRead",
+  description: "A key rotation of the robot (contract §5).",
+} as const
+
+export const $FleetRotationStatus = {
+  type: "string",
+  enum: ["open", "retired", "cancelled"],
+  title: "FleetRotationStatus",
+  description: "State of a key rotation (contract §5).",
+} as const
+
+export const $FleetSocKeyCreate = {
+  properties: {
+    kind: {
+      $ref: "#/components/schemas/FleetSocKeyKind",
+    },
+    secret_key_file: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 4096,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Secret Key File",
+      description:
+        "Optional robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["kind"],
+  title: "FleetSocKeyCreate",
+  description: "Generate a SOC key, or import one generated offline.",
+} as const
+
+export const $FleetSocKeyKind = {
+  type: "string",
+  enum: ["fleet", "approval"],
+  title: "FleetSocKeyKind",
+  description: "The two kinds of SOC Ed25519 keys (contract §2.7).",
+} as const
+
+export const $FleetSocKeyRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    kind: {
+      $ref: "#/components/schemas/FleetSocKeyKind",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    fingerprint: {
+      type: "string",
+      title: "Fingerprint",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetSocKeyStatus",
+    },
+    public_key_file: {
+      type: "string",
+      title: "Public Key File",
+      description: "The robodr-blackbox-key/v2 public file robots install",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    activated_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Activated At",
+    },
+    retired_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Retired At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "kind",
+    "key_id",
+    "fingerprint",
+    "status",
+    "public_key_file",
+    "created_at",
+    "activated_at",
+    "retired_at",
+  ],
+  title: "FleetSocKeyRead",
+  description: "A SOC key (public material only).",
+} as const
+
+export const $FleetSocKeyStatus = {
+  type: "string",
+  enum: ["pending", "active", "retired"],
+  title: "FleetSocKeyStatus",
+  description: "Lifecycle of a SOC key (contract §2.7 rotation).",
+} as const
+
+export const $FleetTokenCreate = {
+  properties: {
+    validity_hours: {
+      type: "integer",
+      maximum: 168,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 24,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  title: "FleetTokenCreate",
+  description: "Issue a single-use enrollment token for a robot.",
+} as const
+
+export const $FleetTokenIssued = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    token_id: {
+      type: "string",
+      title: "Token Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    workspace: {
+      type: "string",
+      title: "Workspace",
+    },
+    soc_key_id: {
+      type: "string",
+      title: "Soc Key Id",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+    consumed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Consumed At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    status: {
+      type: "string",
+      enum: ["active", "consumed", "expired", "revoked"],
+      title: "Status",
+    },
+    token: {
+      type: "string",
+      title: "Token",
+      description:
+        "The compact token (rdet1.…). A bearer credential until consumed: it is shown once and never stored",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "token_id",
+    "robot_id",
+    "site",
+    "workspace",
+    "soc_key_id",
+    "issued_at",
+    "expires_at",
+    "consumed_at",
+    "revoked_at",
+    "status",
+    "token",
+  ],
+  title: "FleetTokenIssued",
+  description:
+    "A newly issued token: the only response that carries the token.",
+} as const
+
+export const $FleetTokenRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    token_id: {
+      type: "string",
+      title: "Token Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    workspace: {
+      type: "string",
+      title: "Workspace",
+    },
+    soc_key_id: {
+      type: "string",
+      title: "Soc Key Id",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+    consumed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Consumed At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    status: {
+      type: "string",
+      enum: ["active", "consumed", "expired", "revoked"],
+      title: "Status",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "token_id",
+    "robot_id",
+    "site",
+    "workspace",
+    "soc_key_id",
+    "issued_at",
+    "expires_at",
+    "consumed_at",
+    "revoked_at",
+    "status",
+  ],
+  title: "FleetTokenRead",
+  description: "An enrollment token (never the token itself).",
+} as const
+
 export const $Float = {
   properties: {
     component_id: {
@@ -26257,6 +27140,45 @@ export const $Page_ExternalGroupRead_ = {
   title: "Page[ExternalGroupRead]",
 } as const
 
+export const $Page_FleetRevocationRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/FleetRevocationRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[FleetRevocationRead]",
+} as const
+
 export const $Page_RobotKeyRead_ = {
   properties: {
     items: {
@@ -29458,6 +30380,125 @@ export const $RobotCreate = {
   description: "Register a robot in the workspace.",
 } as const
 
+export const $RobotFleetStatus = {
+  properties: {
+    enrolled: {
+      type: "boolean",
+      title: "Enrolled",
+    },
+    workspace: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Workspace",
+    },
+    enrolled_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Enrolled At",
+    },
+    agentd_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Agentd Version",
+    },
+    profile_digest: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Profile Digest",
+    },
+    tokens: {
+      items: {
+        $ref: "#/components/schemas/FleetTokenRead",
+      },
+      type: "array",
+      title: "Tokens",
+    },
+    rotations: {
+      items: {
+        $ref: "#/components/schemas/FleetRotationRead",
+      },
+      type: "array",
+      title: "Rotations",
+    },
+    drafts: {
+      items: {
+        $ref: "#/components/schemas/FleetDraftRead",
+      },
+      type: "array",
+      title: "Drafts",
+    },
+    offer: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/FleetOfferRead",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    approvals: {
+      items: {
+        $ref: "#/components/schemas/FleetApprovalRead",
+      },
+      type: "array",
+      title: "Approvals",
+    },
+    ring: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/FleetRingRead",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+  },
+  type: "object",
+  required: [
+    "enrolled",
+    "workspace",
+    "enrolled_at",
+    "agentd_version",
+    "profile_digest",
+    "tokens",
+    "rotations",
+    "drafts",
+    "offer",
+    "approvals",
+    "ring",
+  ],
+  title: "RobotFleetStatus",
+  description:
+    "The fleet lifecycle of one robot (latest 20 items of each kind).",
+} as const
+
 export const $RobotKeyCreate = {
   properties: {
     role: {
@@ -29652,7 +30693,7 @@ export const $RobotKeyRead = {
 
 export const $RobotKeyRole = {
   type: "string",
-  enum: ["uplink", "relay", "finding"],
+  enum: ["uplink", "relay", "finding", "blackbox"],
   title: "RobotKeyRole",
   description:
     "What a registered Ed25519 key may authenticate (ingest contract §3).",
@@ -29705,6 +30746,18 @@ export const $RobotRead = {
     require_finding_signature: {
       type: "boolean",
       title: "Require Finding Signature",
+    },
+    fleet_enrolled_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Fleet Enrolled At",
     },
     created_at: {
       type: "string",
