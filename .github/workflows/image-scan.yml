@@ -1,0 +1,99 @@
+name: Image scan
+
+# Builds the backend and UI images locally (never pushed) and scans them with
+# Trivy. Runs when image inputs change and weekly for new advisories.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - Dockerfile
+      - frontend/Dockerfile.prod
+      - pyproject.toml
+      - uv.lock
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+      - .github/workflows/image-scan.yml
+  pull_request:
+    branches: ["main", "staging"]
+    paths:
+      - Dockerfile
+      - frontend/Dockerfile.prod
+      - pyproject.toml
+      - uv.lock
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+      - .github/workflows/image-scan.yml
+  schedule:
+    - cron: "41 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-scan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+
+jobs:
+  scan:
+    name: Trivy (${{ matrix.image }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: .
+            file: Dockerfile
+            target: production
+            cache: api-linux-amd64
+          - image: ui
+            context: frontend
+            file: frontend/Dockerfile.prod
+            target: runner
+            cache: ui-multiarch
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: autosecops-scan/${{ matrix.image }}:${{ github.sha }}
+          # Placeholder build-time URLs; the scan only needs the filesystem.
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost/api
+            NEXT_PUBLIC_APP_ENV=production
+            NEXT_PUBLIC_APP_URL=http://localhost
+            NEXT_SERVER_API_URL=http://api:8000
+            NODE_ENV=production
+          # Read-only reuse of the layers the image publish workflow caches.
+          cache-from: type=gha,scope=${{ matrix.cache }}
+
+      - name: Scan with Trivy
+        env:
+          IMAGE_REF: autosecops-scan/${{ matrix.image }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            "$TRIVY_IMAGE" image \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --no-progress \
+            --exit-code 1 \
+            "$IMAGE_REF"
