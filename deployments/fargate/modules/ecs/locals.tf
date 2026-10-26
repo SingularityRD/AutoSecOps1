@@ -324,7 +324,6 @@ locals {
       NEXT_PUBLIC_API_URL                 = local.public_api_url
       NEXT_PUBLIC_APP_ENV                 = var.autosecops_app_env
       NEXT_PUBLIC_APP_URL                 = local.public_app_url
-      NEXT_PUBLIC_AUTH_TYPES              = var.auth_types
       NEXT_SERVER_API_URL                 = local.internal_api_url
       NODE_ENV                            = "production"
       AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS = join(" ", local.presigned_browser_origins)

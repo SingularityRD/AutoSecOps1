@@ -181,6 +181,8 @@ fi
 dotenv_replace "AUTOSECOPS__DB_SSLMODE" "$ssl_mode" "$env_file"
 dotenv_replace "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
 
+# Allow the local frontend dev server and the public app URL.
+new_origins="http://localhost:3000,${public_app_url}"
 # Remove duplicate entries and leading/trailing commas
 new_origins=$(echo "$new_origins" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/^,//;s/,$//')
 dotenv_replace "AUTOSECOPS__ALLOW_ORIGINS" "$new_origins" "$env_file"
