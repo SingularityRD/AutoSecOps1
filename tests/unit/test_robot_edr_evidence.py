@@ -339,6 +339,182 @@ def test_the_action_gateway_serves_the_evidence_routes() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# The evidence routes with a real executor token (e2e defect D1)
+# --------------------------------------------------------------------------- #
+
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+
+from autosecops.auth.executor_tokens import mint_executor_token  # noqa: E402
+from autosecops.authz.scopes import (  # noqa: E402
+    PRESET_ROLE_SCOPES,
+    SERVICE_PRINCIPAL_SCOPES,
+    WORKSPACE_OPERATIONAL_SCOPES,
+)
+from autosecops.robot_edr import evidence_router  # noqa: E402
+
+
+def _executor_token(
+    ws: Workspace,
+    *,
+    user_id: uuid.UUID | None = None,
+    service_id: Any = "tracecat-executor",
+) -> str:
+    """The token a workflow run's action gets, minted as the executor does."""
+    return mint_executor_token(
+        workspace_id=ws.id,
+        user_id=user_id,
+        service_id=service_id,
+        execution_origin="workflow",
+        root_action="tools.robodr.download_evidence_export",
+        wf_id="wf-evidence",
+        wf_exec_id="wf-evidence/exec-1",
+    )
+
+
+@pytest.fixture
+async def gateway() -> AsyncGenerator[AsyncClient, None]:
+    """The action gateway app the registry SDK calls, served in process."""
+    transport = ASGITransport(app=create_gateway_app())
+    async with AsyncClient(transport=transport, base_url="http://gateway") as client:
+        yield client
+
+
+@pytest.mark.parametrize(
+    "service_id", ["tracecat-executor", "tracecat-runner", "tracecat-mcp"]
+)
+async def test_the_executor_reaches_every_evidence_route(
+    workspace: Workspace,
+    case: Case,
+    storage: str,
+    gateway: AsyncClient,
+    service_id: str,
+) -> None:
+    headers = {
+        "Authorization": f"Bearer {_executor_token(workspace, service_id=service_id)}"
+    }
+    access = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers=headers,
+        json={
+            "robot_id": ROBOT_ID,
+            "operation": "download_export",
+            "export_id": EXPORT_ID,
+        },
+    )
+    # Accepted (and logged); an audit event names a person, and this
+    # unattributed run has none.
+    assert access.status_code == 204, access.text
+
+    keys = await gateway.get(
+        f"/internal/robot-edr/robots/{ROBOT_ID}/blackbox-keys", headers=headers
+    )
+    # Authorized: the robot simply has no black-box key enrolled yet.
+    assert keys.status_code == 404, keys.text
+    assert "enroll" in keys.text
+
+    stored = await gateway.post(
+        f"/internal/robot-edr/cases/{case.id}/evidence",
+        headers=headers,
+        json=_request().model_dump(mode="json"),
+    )
+    assert stored.status_code == 201, stored.text
+    assert stored.json()["bundle_sha256"] == hashlib.sha256(BUNDLE).hexdigest()
+
+
+async def test_the_evidence_routes_refuse_a_token_of_another_workspace(
+    workspace: Workspace, gateway: AsyncClient, svc_organization: Organization
+) -> None:
+    other = Workspace(
+        id=uuid.uuid4(),
+        name=f"evidence-other-{uuid.uuid4().hex[:8]}",
+        organization_id=svc_organization.id,
+    )
+    async with get_async_session_context_manager() as session:
+        session.add(other)
+        await session.commit()
+    try:
+        headers = {"Authorization": f"Bearer {_executor_token(other)}"}
+        keys = await gateway.get(
+            f"/internal/robot-edr/robots/{ROBOT_ID}/blackbox-keys", headers=headers
+        )
+        # The token's workspace scopes the lookup: the robot of another
+        # workspace is not found from it.
+        assert keys.status_code == 404, keys.text
+    finally:
+        async with get_async_session_context_manager() as session:
+            await session.execute(delete(Workspace).where(Workspace.id == other.id))
+            await session.commit()
+
+
+async def test_the_evidence_routes_refuse_a_missing_or_forged_token(
+    workspace: Workspace, gateway: AsyncClient
+) -> None:
+    body = {"robot_id": ROBOT_ID, "operation": "list"}
+    missing = await gateway.post("/internal/robot-edr/evidence/access", json=body)
+    assert missing.status_code == 401
+    forged = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {_executor_token(workspace)}x"},
+        json=body,
+    )
+    assert forged.status_code == 401
+
+
+async def test_an_attributed_user_without_robot_read_is_refused(
+    workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # A run started by a person reads evidence only if that person may read
+    # robots: the executor's grant never exceeds its attributed user's.
+    token = _executor_token(workspace, user_id=uuid.uuid4())
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"robot_id": ROBOT_ID, "operation": "list"},
+    )
+    assert response.status_code == 403, response.text
+    assert "robot:read" in response.text
+    assert not [e for e in audit_capture.events if e.resource_type == "robot_evidence"]
+
+
+async def test_an_attributed_viewer_reads_evidence_audited(
+    workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The run acts for a workspace viewer (who holds robot:read). Only the
+    # membership lookup is stubbed; the token and the route are real.
+    user_id = uuid.uuid4()
+    looked_up: list[uuid.UUID | None] = []
+
+    async def viewer_scopes(role: Role) -> frozenset[str]:
+        looked_up.append(role.user_id)
+        return PRESET_ROLE_SCOPES["workspace-viewer"]
+
+    monkeypatch.setattr(
+        evidence_router, "compute_attributed_user_scopes", viewer_scopes
+    )
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={
+            "Authorization": f"Bearer {_executor_token(workspace, user_id=user_id)}"
+        },
+        json={"robot_id": ROBOT_ID, "operation": "list"},
+    )
+    assert response.status_code == 204, response.text
+    assert looked_up == [user_id]
+    [event] = [e for e in audit_capture.events if e.resource_type == "robot_evidence"]
+    assert event.data == {"robot_id": ROBOT_ID, "export_id": None, "operation": "list"}
+
+
+def test_robot_read_is_not_an_operational_scope_of_every_service() -> None:
+    # Least privilege: the evidence routes grant robot reads to the executor
+    # themselves; no internal service gets robot:read for every robot route.
+    assert "robot:read" not in WORKSPACE_OPERATIONAL_SCOPES
+    assert all("robot:read" not in s for s in SERVICE_PRINCIPAL_SCOPES.values())
+
+
+# --------------------------------------------------------------------------- #
 # Hardening: server-side mark, storage keys, quota, cleanup, re-verification
 # --------------------------------------------------------------------------- #
 
