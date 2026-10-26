@@ -1,0 +1,155 @@
+{{- if .Values.tunnels.enabled }}
+{{- $ns := .Values.tunnels.namespace -}}
+{{- $apiCtx := dict "root" . "component" "api" "values" .Values.api -}}
+{{- if .Values.tunnels.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+    # Gateways need NET_ADMIN and /dev/net/tun.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/audit: baseline
+{{- end }}
+---
+# The API creates, updates, and deletes per-tunnel gateway objects with
+# server-side apply in the tunnels namespace only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateways
+  namespace: {{ $ns }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateways
+  namespace: {{ $ns }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateways
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "autosecops.serviceAccountName" $apiCtx }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.tunnels.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateways
+  namespace: {{ $ns }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: tunnel-gateway
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    # Only executors send traffic through gateways.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: ["executor", "agent-executor"]
+              - key: app.kubernetes.io/instance
+                operator: In
+                values: [{{ .Release.Name | quote }}]
+      ports:
+        - port: {{ .Values.tunnels.gateway.port }}
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Gateways poll the API for their policy.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- include "autosecops.componentSelectorLabels" $apiCtx | nindent 14 }}
+      ports:
+        - port: 8000
+          protocol: TCP
+    # Pangolin control plane and WireGuard.
+    - to:
+        {{- range .Values.tunnels.networkPolicy.pangolinCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+            {{- if eq . "0.0.0.0/0" }}
+            except:
+              {{- toYaml $.Values.tunnels.gateway.blockedCidrs | nindent 14 }}
+            {{- end }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 21820
+          protocol: UDP
+{{- end }}
+{{- if .Values.tunnels.admissionPolicy.enabled }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateway-image
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >-
+        object.spec.containers.all(c, c.image == {{ include "autosecops.tunnelGatewayImage" . | quote }})
+        && (!has(object.spec.initContainers) || object.spec.initContainers.size() == 0)
+        && (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.size() == 0)
+      message: Only AutoSecOps tunnel gateway pods may run in the tunnels namespace.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "autosecops.fullname" . }}-tunnel-gateway-image
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "autosecops.fullname" . }}-tunnel-gateway-image
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ $ns }}
+{{- end }}
+{{- end }}

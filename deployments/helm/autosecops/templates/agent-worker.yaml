@@ -1,0 +1,32 @@
+{{- define "autosecops.agentWorker.container" -}}
+{{- $v := .Values.agentWorker -}}
+command: ["python", "-m", "autosecops.agent.worker"]
+{{- with include "autosecops.metricsPort" . }}
+ports:
+  {{- . | nindent 2 }}
+{{- end }}
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: agent-worker
+  - name: AUTOSECOPS__AGENT_MAX_CONCURRENT_ACTIVITIES
+    value: {{ $v.maxConcurrentActivities | toString | quote }}
+  - name: TEMPORAL__THREADPOOL_MAX_WORKERS
+    value: {{ $v.threadpoolMaxWorkers | toString | quote }}
+  {{- include "autosecops.env.metrics" . | nindent 2 }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "agent-worker") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.agentWorker.enabled }}
+{{- $ctx := dict "root" . "component" "agent-worker" "values" .Values.agentWorker }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.agentWorker.container" .)
+    "backend" true
+    "extraPodAnnotations" (include "autosecops.metricsPodAnnotations" .)
+  ) $ctx) }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

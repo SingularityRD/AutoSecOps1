@@ -1,0 +1,39 @@
+{{- define "autosecops.ui.container" -}}
+{{- $v := .Values.ui -}}
+ports:
+  - name: http
+    containerPort: 3000
+    protocol: TCP
+env:
+  - name: NODE_ENV
+    value: production
+  - name: NEXT_PUBLIC_APP_ENV
+    value: {{ .Values.autosecops.appEnv | quote }}
+  - name: NEXT_PUBLIC_APP_URL
+    value: {{ include "autosecops.publicAppUrl" . | quote }}
+  - name: NEXT_PUBLIC_API_URL
+    value: {{ include "autosecops.publicApiUrl" . | quote }}
+  - name: NEXT_PUBLIC_AUTH_TYPES
+    value: {{ .Values.autosecops.auth.types | quote }}
+  - name: NEXT_SERVER_API_URL
+    value: {{ include "autosecops.internalApiUrl" . | quote }}
+  - name: AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS
+    value: {{ $v.cspConnectSrcOrigins | default (include "autosecops.presignedUrlEndpoint" .) | quote }}
+  {{- include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SERVICE_KEY" "secret" (include "autosecops.coreSecretName" .) "key" "serviceKey") | nindent 2 }}
+  {{- with $v.extraEnv }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.ui.enabled }}
+{{- $ctx := dict "root" . "component" "ui" "values" .Values.ui }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.uiImage" .)
+    "pullPolicy" .Values.uiImage.pullPolicy
+    "container" (include "autosecops.ui.container" .)
+  ) $ctx) }}
+---
+{{ include "autosecops.service" $ctx }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

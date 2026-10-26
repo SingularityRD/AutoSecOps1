@@ -1,153 +1,123 @@
 ---
 title: Kubernetes
-description: "Deploy self-hosted AutoSecOps to Kubernetes with the OCI Helm chart: install AutoSecOps services and Temporal on EKS, GKE, or any conformant cluster."
+description: "Deploy self-hosted AutoSecOps to Kubernetes with the AutoSecOps Helm chart, connected to your own PostgreSQL, Redis, S3-compatible storage, and Temporal."
 ---
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
-<Info>
-  The AutoSecOps Helm chart is distributed as a private OCI artifact hosted in AWS ECR.
-  Please contact [SingularityRD](https://github.com/SingularityRD) for access for evaluations or internal enterprise use.
-</Info>
+The AutoSecOps Helm chart lives in the AutoSecOps repository at [`deployments/helm/autosecops`](https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops).
+It deploys the AutoSecOps services and connects them to PostgreSQL, Redis, object storage, and Temporal that you run outside the chart.
+
+| Component | Kubernetes resources |
+| :-------- | :------------------- |
+| `api`, `ui`, `mcp`, `litellm` | Deployment and ClusterIP Service each |
+| `worker`, `executor`, `agent-worker`, `agent-executor` | Deployment each |
+| Database migrations | Job that runs `alembic upgrade head` before every install and upgrade |
+| Routing | Optional Ingress with the same paths as the Docker Compose Caddyfile |
+| Scaling | Optional HorizontalPodAutoscaler and PodDisruptionBudget per component |
+
+Every component except `api` and `ui` can be turned off with `<component>.enabled: false`.
 
 ## Prerequisites
 
-- Kubernetes 1.27+
-- Helm 3.12+ (with OCI support)
+- Kubernetes 1.27+ (1.30+ for the tunnel admission policy)
+- Helm 3.12+
 - `kubectl` configured for your target cluster
-- Access to the AutoSecOps OCI Helm chart (see above)
-- External PostgreSQL 15 or newer instance (e.g., Amazon RDS, Cloud SQL, or [CloudNativePG](#cloudnativepg))
-- External Redis instance (e.g., Amazon ElastiCache, Memorystore)
-- S3-compatible object storage (e.g., Amazon S3, MinIO)
-- `openssl` (for generating secrets)
+- PostgreSQL 15 or newer with [pgvector](/self-hosting/pgvector) available, e.g. Amazon RDS, Cloud SQL, or [CloudNativePG](#cloudnativepg)
+- Redis 7 or newer, e.g. Amazon ElastiCache or Memorystore
+- S3 or S3-compatible object storage, e.g. Amazon S3 or MinIO
+- A Temporal server or Temporal Cloud namespace
+- `openssl` to generate secrets
 
 ## Core secrets
-
-AutoSecOps requires four cryptographic secrets.
 
 <GenerateSecrets />
 
 ## Secrets management
 
-The Helm chart supports three strategies for providing secrets to AutoSecOps pods.
+Each credential comes from a Kubernetes Secret. Reference a Secret you manage with `existingSecret`, or set the values and let the chart create the Secret.
+
+| Values | Chart-created Secret | Keys |
+| :----- | :------------------- | :--- |
+| `secrets` | `autosecops-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret` |
+| `externalPostgres.auth` | `autosecops-postgres-credentials` | `username`, `password` |
+| `externalRedis.auth` | `autosecops-redis-credentials` | `url` |
+| `externalS3.auth` | `autosecops-s3-credentials` | `accessKeyId`, `secretAccessKey` |
+| `externalTemporal.auth` | `autosecops-temporal-credentials` | `apiKey` |
+| `autosecops.pangolin` | `autosecops-pangolin-credentials` | `apiKey` |
+
+The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, and `temporalPayloadEncryptionKeyring`.
 
 <Tabs>
-  <Tab title="External Secrets Operator (recommended)">
-    The chart creates `ExternalSecret` resources that sync from AWS Secrets Manager into Kubernetes secrets via a `ClusterSecretStore`.
-    You need [External Secrets Operator](https://external-secrets.io) installed and a `ClusterSecretStore` configured with IRSA.
-
-    ```yaml
-    externalSecrets:
-      enabled: true
-      clusterSecretStoreRef: "my-cluster-secret-store"
-
-      coreSecrets:
-        enabled: true
-        secretArn: "arn:aws:secretsmanager:us-west-2:123456789012:secret:tracecat/core"
-
-      postgres:
-        enabled: true
-        secretArn: "arn:aws:secretsmanager:us-west-2:123456789012:secret:tracecat/postgres"
-
-      redis:
-        enabled: true
-        secretArn: "arn:aws:secretsmanager:us-west-2:123456789012:secret:tracecat/redis"
-    ```
-
-    Expected secret formats in AWS Secrets Manager:
-
-    | Secret | Format |
-    | :----- | :----- |
-    | Core | JSON: `{ "dbEncryptionKey": "...", "serviceKey": "...", "signingSecret": "...", "userAuthSecret": "..." }` |
-    | PostgreSQL | JSON: `{ "username": "...", "password": "..." }` |
-    | Redis | Raw URL string, e.g. `rediss://:password@host:6379` |
-    | Temporal | Raw API key string |
-
-    The chart refreshes secrets every `1m` by default. Override with `externalSecrets.refreshInterval`.
-  </Tab>
-
-  <Tab title="Existing Kubernetes secret">
-    Reference a secret you created with `kubectl` or your GitOps pipeline.
+  <Tab title="Existing Secret (recommended)">
+    Create the Secret with `kubectl`, your GitOps pipeline, or [External Secrets Operator](https://external-secrets.io) syncing from your secret manager.
 
     ```bash
-    kubectl create secret generic tracecat-secrets \
-      --namespace tracecat \
+    kubectl create namespace autosecops
+    kubectl create secret generic autosecops-secrets \
+      --namespace autosecops \
       --from-literal=dbEncryptionKey="$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')" \
       --from-literal=serviceKey="$(openssl rand -hex 32)" \
       --from-literal=signingSecret="$(openssl rand -hex 32)" \
       --from-literal=userAuthSecret="$(openssl rand -hex 32)"
     ```
 
-    Then set `secrets.existingSecret` in your values:
+    Then reference it:
 
     ```yaml
     secrets:
-      existingSecret: "tracecat-secrets"
+      existingSecret: autosecops-secrets
     ```
 
-    You also need separate secrets for PostgreSQL and Redis, referenced by `externalPostgres.auth.existingSecret` and `externalRedis.auth.existingSecret`.
+    With External Secrets Operator, point the `ExternalSecret` target at the same name and keys. The chart reads the Secret; it does not create `ExternalSecret` resources.
   </Tab>
 
-  <Tab title="Chart-managed secret templates">
-    <Info>
-      Only use this approach if secret values are encrypted in your repository and injected at deploy time through a pipeline like ArgoCD with sealed secrets or SOPS.
-      Storing plaintext secrets in version control is not safe.
-    </Info>
+  <Tab title="Chart-created Secret">
+    Only use this approach when your pipeline keeps values encrypted at rest, such as Sealed Secrets, SOPS, or a CI secret store that renders the values file at deploy time.
 
     ```yaml
     secrets:
-      create:
-        tracecat:
-          enabled: true
-          dbEncryptionKey: "${DB_ENCRYPTION_KEY}"
-          serviceKey: "${SERVICE_KEY}"
-          signingSecret: "${SIGNING_SECRET}"
-          userAuthSecret: "${USER_AUTH_SECRET}"
-
-        postgres:
-          enabled: true
-          username: "${DB_USERNAME}"
-          password: "${DB_PASSWORD}"
-
-        redis:
-          enabled: true
-          url: "${REDIS_URL}"
+      dbEncryptionKey: "${DB_ENCRYPTION_KEY}"
+      serviceKey: "${SERVICE_KEY}"
+      signingSecret: "${SIGNING_SECRET}"
+      userAuthSecret: "${USER_AUTH_SECRET}"
     ```
 
-    The chart renders these as Helm pre-install hooks so they exist before the migrations job runs.
+    The chart creates these Secrets as `pre-install,pre-upgrade` hooks so they exist before the migrations Job runs. Helm keeps hook resources on `helm uninstall`, so the keys survive an uninstall. Delete them by hand only when you discard the installation.
   </Tab>
 </Tabs>
 
+Each service receives only the secrets it uses: `USER_AUTH_SECRET` reaches `api` and `mcp`, SSO and SMTP secrets reach `api`, and `ui` receives only the service key.
+
 ## External services
 
-The Helm chart does not bundle databases. You must provide connection details for PostgreSQL, Redis, S3, and Temporal.
+The chart does not bundle databases, Redis, object storage, or Temporal. Missing connection values fail `helm install` with a message that names the value to set.
 
 ### PostgreSQL
 
-Use PostgreSQL 15 or newer for the AutoSecOps application database. [Set up pgvector](/self-hosting/pgvector) before running migrations.
+Use PostgreSQL 15 or newer. [Set up pgvector](/self-hosting/pgvector) before the first install; the migrations Job runs `alembic upgrade head` against this database.
 
 ```yaml
 externalPostgres:
-  host: "your-rds-instance.us-west-2.rds.amazonaws.com"
+  host: "autosecops.abc123.us-west-2.rds.amazonaws.com"
   port: 5432
-  database: tracecat
-  sslMode: "require"
+  database: autosecops
+  sslMode: verify-full
   auth:
-    existingSecret: "tracecat-postgres-credentials"  # keys: username, password
+    existingSecret: autosecops-postgres-credentials  # keys: username, password
   tls:
-    verifyCA: true
     caCert: |
       -----BEGIN CERTIFICATE-----
       ...RDS CA bundle...
       -----END CERTIFICATE-----
 ```
 
-For Amazon RDS, download the global CA bundle from the [AWS trust store](https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem).
+The chart mounts `tls.caCert` into every backend pod and sets `PGSSLROOTCERT`. For Amazon RDS, download the global CA bundle from the [AWS trust store](https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem).
 
 #### CloudNativePG
 
-To run PostgreSQL inside Kubernetes, we recommend the [CloudNativePG](https://cloudnative-pg.io) operator. Load pgvector as an [image volume extension](https://cloudnative-pg.io/docs/1.30/imagevolume_extensions/#directly-in-the-cluster), then let a `Database` resource enable it in the application database.
+To run PostgreSQL inside Kubernetes, use the [CloudNativePG](https://cloudnative-pg.io) operator. Load pgvector as an [image volume extension](https://cloudnative-pg.io/docs/1.30/imagevolume_extensions/#directly-in-the-cluster), then let a `Database` resource enable it in the application database.
 
 Image volume extensions require PostgreSQL 18, Kubernetes 1.35 or newer (or 1.33+ with the `ImageVolume` feature gate), and containerd 2.1+ or CRI-O 1.31+.
 
@@ -155,8 +125,8 @@ Image volume extensions require PostgreSQL 18, Kubernetes 1.35 or newer (or 1.33
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: tracecat-postgres
-  namespace: tracecat
+  name: autosecops-postgres
+  namespace: autosecops
 spec:
   instances: 3
   imageName: ghcr.io/cloudnative-pg/postgresql:18-minimal-trixie
@@ -164,8 +134,8 @@ spec:
     size: 50Gi
   bootstrap:
     initdb:
-      database: tracecat
-      owner: tracecat
+      database: autosecops
+      owner: autosecops
   postgresql:
     extensions:
       - name: pgvector
@@ -175,30 +145,29 @@ spec:
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
-  name: tracecat-postgres-tracecat
-  namespace: tracecat
+  name: autosecops-postgres-autosecops
+  namespace: autosecops
 spec:
-  name: tracecat
-  owner: tracecat
+  name: autosecops
+  owner: autosecops
   cluster:
-    name: tracecat-postgres
+    name: autosecops-postgres
   extensions:
     - name: vector
       schema: public
 ```
 
-The pgvector image tag must match the cluster's PostgreSQL major version and OS (`18-trixie` above). The `Database` resource runs `CREATE EXTENSION` with operator privileges, so the `tracecat` role does not need superuser access.
+The pgvector image tag must match the cluster's PostgreSQL major version and OS (`18-trixie` above). The `Database` resource runs `CREATE EXTENSION` with operator privileges, so the `autosecops` role does not need superuser access.
 
-Point the chart at the read-write service and the `-app` secret that CloudNativePG generates:
+Point the chart at the read-write service and the `-app` Secret that CloudNativePG generates:
 
 ```yaml
 externalPostgres:
-  host: "tracecat-postgres-rw.tracecat.svc"
-  port: 5432
-  database: tracecat
-  sslMode: "require"
+  host: autosecops-postgres-rw.autosecops.svc
+  database: autosecops
+  sslMode: require
   auth:
-    existingSecret: "tracecat-postgres-app"  # keys: username, password
+    existingSecret: autosecops-postgres-app  # keys: username, password
 ```
 
 ### Redis
@@ -206,161 +175,122 @@ externalPostgres:
 ```yaml
 externalRedis:
   auth:
-    existingSecret: "tracecat-redis-credentials"  # key: url
+    existingSecret: autosecops-redis-credentials  # key: url
 ```
 
-The `url` key should be a full Redis connection string, e.g. `rediss://:password@host:6379`. Use `rediss://` (double s) for TLS.
+The `url` key holds a full Redis connection string, e.g. `rediss://:password@redis.example.internal:6379`. Use `rediss://` for TLS.
 
 ### S3
 
 ```yaml
 externalS3:
-  endpoint: ""        # leave empty for AWS S3
-  region: "us-west-2"
+  endpoint: ""              # empty for AWS S3, e.g. https://minio.example.internal for MinIO
+  region: us-west-2
+  presignedUrlEndpoint: ""  # public URL browsers use for presigned URLs; defaults to endpoint
+  buckets:
+    workflow: autosecops-workflow
+    attachments: autosecops-attachments
+    registry: autosecops-registry
+    agent: autosecops-agent
+    skills: autosecops-skills
   auth:
-    existingSecret: "tracecat-s3-credentials"  # keys: accessKeyId, secretAccessKey
+    existingSecret: autosecops-s3-credentials  # keys: accessKeyId, secretAccessKey
 ```
 
-When using IRSA for S3 access, omit `auth.existingSecret` and annotate the service account instead (see [Service accounts](#service-accounts)).
+On AWS, omit `auth` and grant S3 access through [IRSA](#irsa-eks) instead. The `api` service creates missing buckets at startup.
 
 ### Temporal
 
-<Tabs>
-  <Tab title="Self-hosted (bundled)">
-    The chart includes a Temporal subchart. Point it at your external PostgreSQL instance for persistence.
+The chart connects to an existing Temporal deployment, such as the [official Temporal Helm chart](https://github.com/temporalio/helm-charts) or Temporal Cloud.
 
+<Tabs>
+  <Tab title="Self-hosted Temporal">
     ```yaml
-    temporal:
-      enabled: true
-      server:
-        config:
-          persistence:
-            datastores:
-              default:
-                sql:
-                  connectAddr: "your-rds-host:5432"
-                  user: "temporal"
-                  existingSecret: "tracecat-postgres-credentials"
-              visibility:
-                sql:
-                  connectAddr: "your-rds-host:5432"
-                  user: "temporal"
-                  existingSecret: "tracecat-postgres-credentials"
+    externalTemporal:
+      clusterUrl: temporal-frontend.temporal.svc:7233
+      namespace: default
     ```
 
-    The Temporal schema setup job runs automatically and creates the `temporal` and `temporal_visibility` databases if they do not exist.
+    Size the Temporal server with at least 4 CPU cores and 8 GB of memory. See [Temporal retention](/self-hosting/temporal-retention) to set how long workflow history is kept.
   </Tab>
 
   <Tab title="Temporal Cloud">
-    Disable the bundled subchart and point to your Temporal Cloud namespace.
-
     ```yaml
-    temporal:
-      enabled: false
-
     externalTemporal:
-      enabled: true
-      clusterUrl: "your-namespace.tmprl.cloud:7233"
-      clusterNamespace: "your-namespace"
+      clusterUrl: your-namespace.a1b2c.tmprl.cloud:7233
+      namespace: your-namespace.a1b2c
       auth:
-        existingSecret: "tracecat-temporal-credentials"  # key: apiKey
+        existingSecret: autosecops-temporal-credentials  # key: apiKey
     ```
   </Tab>
 </Tabs>
 
 ## Service accounts
 
-The chart creates a shared `tracecat-app` service account for most workloads (API, worker, migrations). Optionally create dedicated service accounts for executor, agent-executor, and litellm.
+The chart creates one `autosecops` service account for every workload. Set `<component>.serviceAccount.create: true` to give a component its own account, for example to scope executor permissions separately from the API.
+
+Pods mount a service account token only when they call the Kubernetes API: the `api` pods do when [tunnels](#tunnels) are enabled.
 
 ### IRSA (EKS)
 
-Annotate service accounts with an IAM role ARN for AWS API access (S3, Secrets Manager, Bedrock).
+Annotate the service accounts with IAM role ARNs for S3, Secrets Manager, and Bedrock access.
 
 ```yaml
 serviceAccount:
-  create: true
   annotations:
-    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/tracecat-app"
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/autosecops-app"
 
 executor:
   serviceAccount:
     create: true
-    name: "tracecat-executor"
     annotations:
-      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/tracecat-executor"
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/autosecops-executor"
+
+agentExecutor:
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/autosecops-executor"
 ```
 
-Dedicated executor service accounts let you scope S3 and secret permissions separately from the main application role.
-
-<Info>
-  Cross-account role assumption is supported.
-  Set `tracecat.aws.assumeRoleAccountId` and `tracecat.aws.assumeRolePrincipalArn` to assume roles in other AWS accounts from the executor.
-</Info>
+To let executors assume roles in other AWS accounts, set `autosecops.aws.assumeRoleAccountId` (a quoted 12-digit string) and `autosecops.aws.assumeRolePrincipalArn` to the executor role that the target roles trust.
 
 ## Networking
 
-The chart supports Kubernetes Ingress and Istio VirtualService for external traffic routing.
+Set `ingress.enabled: true` to create one Ingress with the same routing as the Docker Compose Caddyfile:
 
-<Tabs>
-  <Tab title="Ingress">
-    The chart creates a single Ingress resource with path-based routing. Set `ingress.split: true` to generate separate Ingress resources per service (useful when the API requires different annotations than the UI, such as longer timeouts).
+| Path | Service | Port |
+| :--- | :------ | :--- |
+| `/api` | `autosecops-api` | 8000 |
+| `/mcp`, `/.well-known/oauth-*`, `/authorize`, `/token`, `/register`, `/consent`, `/auth/callback` | `autosecops-mcp` | 8099 |
+| `/` | `autosecops-ui` | 3000 |
 
-    ```yaml
-    ingress:
-      enabled: true
-      className: "alb"  # or nginx, traefik, etc.
-      host: "tracecat.example.com"
-      annotations:
-        alb.ingress.kubernetes.io/scheme: internet-facing
-      tls:
-        - hosts:
-            - tracecat.example.com
-          secretName: tracecat-tls
-    ```
+The API serves under the `/api` root path, so the Ingress forwards the prefix unchanged; do not add a rewrite. MCP routes appear only when `mcp.enabled` is `true`.
 
-    Default path routing:
+```yaml
+urls:
+  publicApp: https://autosecops.example.com
 
-    | Path | Service | Port |
-    | :--- | :------ | :--- |
-    | `/api` | api | 8000 |
-    | `/mcp` | mcp | 8099 |
-    | `/` | ui | 3000 |
+ingress:
+  enabled: true
+  className: nginx
+  host: autosecops.example.com
+  annotations:
+    # Chat and agent responses stream for up to a full agent turn.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls:
+    - hosts: [autosecops.example.com]
+      secretName: autosecops-tls
+```
 
-    MCP routes (`/mcp`, `/.well-known/oauth-*`, `/authorize`, `/token`, `/register`, `/consent`, `/auth/callback`) are included automatically when `mcp.enabled: true`.
-  </Tab>
-
-  <Tab title="Istio VirtualService">
-    Disable `ingress.enabled` when using VirtualServices to avoid conflicting resources.
-
-    ```yaml
-    ingress:
-      enabled: false
-
-    virtualService:
-      enabled: true
-      tracecat:
-        enabled: true
-        configs:
-          - name: tracecat
-            hosts:
-              - "tracecat.example.com"
-            gateways:
-              - "istio-system/my-gateway"
-    ```
-
-    Optional webhook and Temporal Web UI VirtualServices are available via `virtualService.webhooks` and `virtualService.temporal`.
-  </Tab>
-</Tabs>
+`urls.publicApi` defaults to `<publicApp>/api`, and `urls.allowOrigins` defaults to `publicApp`. To use a Gateway API route or a service mesh instead, leave `ingress.enabled` off and route the same paths to the services above.
 
 ## Tunnels
 
-[Tunnels](/manage-platform/tunnels) need the `tunnels` Enterprise entitlement. With `tunnels.enabled: true`, the `api` service creates a `tunnel-<id>` Secret, Deployment, and Service per tunnel in `tunnels.namespace`, and reconciles them every minute.
+[Tunnels](/manage-platform/tunnels) need the `tunnels` Enterprise entitlement. With `tunnels.enabled: true`, the `api` service creates a `tunnel-<id>` Secret, Deployment, and Service per tunnel in `tunnels.namespace` and reconciles them every minute.
 
 ```yaml
-api:
-  serviceAccount:
-    create: true
-
 tunnels:
   enabled: true
   gateway:
@@ -368,74 +298,88 @@ tunnels:
       - "10.0.0.0/16"     # pod / VPC CIDR
       - "172.20.0.0/16"   # service CIDR
 
-tracecat:
+autosecops:
   pangolin:
     orgId: "<pangolin-org-id>"
-    existingSecret: "tracecat-pangolin-credentials"  # key: apiKey
+    existingSecret: autosecops-pangolin-credentials  # key: apiKey
 ```
 
-- `tunnels.gateway.blockedCidrs` is required. List every pod and service CIDR in the cluster, including secondary VPC ranges.
-- For self-hosted Pangolin, also set `tracecat.pangolin.endpoint` and `tracecat.pangolin.apiUrl`. To read the key from AWS Secrets Manager, set `externalSecrets.pangolin.enabled` and `externalSecrets.pangolin.secretArn` instead of `existingSecret`.
-- Gateways need `NET_ADMIN` and `/dev/net/tun`, so the tunnels namespace enforces the `privileged` Pod Security level. The chart's admission policy (Kubernetes 1.30+) limits pods there to the gateway image, and its NetworkPolicy admits only executors and allows egress to Pangolin on TCP 443 and UDP 21820.
+- Set `tunnels.gateway.blockedCidrs` to every pod, service, and node CIDR in the cluster, including secondary VPC ranges. The chart fails to render without it.
+- For self-hosted Pangolin, also set `autosecops.pangolin.endpoint` and `autosecops.pangolin.apiUrl`.
+- The chart grants the `api` service account a Role limited to Secrets, Services, and Deployments in the tunnels namespace.
+- Gateways need `NET_ADMIN` and `/dev/net/tun`. Install a device plugin that exposes `/dev/net/tun` as the extended resource in `tunnels.gateway.tunResource` (default `squat.ai/tun`), or set it to `""` if your nodes grant the device another way.
+- The chart creates the namespace with the `privileged` Pod Security level, a NetworkPolicy that admits only executor traffic and allows egress to DNS, the API, and Pangolin on TCP 443 and UDP 21820, and a ValidatingAdmissionPolicy that admits only the gateway image. The policy needs Kubernetes 1.30+; set `tunnels.admissionPolicy.enabled: false` on older clusters.
 - The gateway image follows the AutoSecOps image tag, so each upgrade restarts every gateway briefly.
 
 ## Installation
 
 <Steps>
-  <Step title="Add the OCI registry">
+  <Step title="Get the chart">
+    Clone the repository at the release you want to deploy:
+
     ```bash
-    helm registry login <ecr-registry-url>
+    git clone --branch <release-tag> https://github.com/SingularityRD/AutoSecOps1.git
+    cd AutoSecOps1
     ```
 
-    Use the credentials provided by the AutoSecOps team.
+    The chart will also be published as `oci://ghcr.io/singularityrd/charts/autosecops`. Until it is, install from the repository path.
   </Step>
 
   <Step title="Create your values file">
-    Combine secrets, external services, networking, and URL configuration from the sections above into a single `values.yaml`.
+    Combine secrets, external services, networking, and authentication from the sections above into one `values.yaml`.
 
     ```yaml
-    secrets:
-      existingSecret: "tracecat-secrets"
-
     urls:
-      publicApp: "https://tracecat.example.com"
-      publicApi: "https://tracecat.example.com/api"
+      publicApp: https://autosecops.example.com
 
-    tracecat:
+    autosecops:
       auth:
-        types: "oidc"
-        superadminEmail: "admin@example.com"
+        types: oidc
+        superadminEmail: admin@example.com
+        oidc:
+          issuer: https://idp.example.com
 
-    ingress:
-      enabled: true
-      className: "alb"
-      host: "tracecat.example.com"
+    secrets:
+      existingSecret: autosecops-secrets
 
     externalPostgres:
-      host: "your-db-host"
+      host: autosecops.abc123.us-west-2.rds.amazonaws.com
+      database: autosecops
       auth:
-        existingSecret: "tracecat-postgres-credentials"
+        existingSecret: autosecops-postgres-credentials
 
     externalRedis:
       auth:
-        existingSecret: "tracecat-redis-credentials"
+        existingSecret: autosecops-redis-credentials
 
     externalS3:
-      region: "us-west-2"
+      region: us-west-2
+
+    externalTemporal:
+      clusterUrl: temporal-frontend.temporal.svc:7233
+
+    ingress:
+      enabled: true
+      className: nginx
+      host: autosecops.example.com
     ```
+
+    `values.schema.json` rejects unknown keys, so a typo fails the install instead of being ignored.
   </Step>
 
   <Step title="Install the chart">
     ```bash
-    helm install tracecat oci://<ecr-registry-url>/tracecat \
-      --version <chart-version> \
-      --namespace tracecat --create-namespace \
+    helm install autosecops deployments/helm/autosecops \
+      --namespace autosecops --create-namespace \
       -f values.yaml \
-      --wait --timeout 10m
+      --wait --timeout 15m
     ```
 
-    Replace `<chart-version>` with the version provided by the AutoSecOps team (e.g. `0.4.5`).
-    The `--wait` flag blocks until all pods are ready. Initial provisioning takes a few minutes depending on Temporal schema setup.
+    Helm runs the migrations Job first, then rolls out the services. Follow the migrations with:
+
+    ```bash
+    kubectl -n autosecops logs job/autosecops-migrations -f
+    ```
   </Step>
 </Steps>
 
@@ -447,6 +391,13 @@ Once deployed, access your instance at:
 - API docs: `https://<your-domain>/api/docs`
 - MCP: `https://<your-domain>/mcp`
 
+Without an Ingress, check the API with a port-forward:
+
+```bash
+kubectl -n autosecops port-forward svc/autosecops-api 8000:8000
+curl http://localhost:8000/health
+```
+
 ## First login
 
 <FirstSuperadmin />
@@ -454,14 +405,14 @@ Once deployed, access your instance at:
 ## Upgrade the Helm chart
 
 ```bash
-helm upgrade tracecat oci://<ecr-registry-url>/tracecat \
-  --version <chart-version> \
-  --namespace tracecat \
+git -C AutoSecOps1 fetch --tags && git -C AutoSecOps1 checkout <release-tag>
+helm upgrade autosecops AutoSecOps1/deployments/helm/autosecops \
+  --namespace autosecops \
   -f values.yaml \
-  --wait --timeout 10m
+  --wait --timeout 15m
 ```
 
-`--version` selects the chart version. If you set image tags in `values.yaml`, a chart upgrade keeps using those tags. Otherwise, it uses the new chart's `appVersion` and may also update AutoSecOps.
+The migrations Job runs again as a `pre-upgrade` hook before any pod rolls. Pods restart automatically when the chart's ConfigMap or chart-created Secrets change.
 
 <Warning>
   Do not change or lose your `dbEncryptionKey`, `serviceKey`, `signingSecret`, or `userAuthSecret` values between upgrades.
@@ -470,24 +421,7 @@ helm upgrade tracecat oci://<ecr-registry-url>/tracecat \
 
 ## Update AutoSecOps
 
-The chart version and AutoSecOps version are independent. You can use the chart's `appVersion` or set image tags explicitly.
-
-### Use the chart `appVersion`
-
-Each chart version includes an `appVersion`. When image tags are unset, the chart uses `appVersion` for both the backend and UI images.
-
-```bash
-helm show chart oci://<ecr-registry-url>/tracecat \
-  --version <chart-version>
-```
-
-Choose a chart with the required `appVersion`, then run the chart upgrade command above. This updates the chart and AutoSecOps together.
-
-### Set image tags
-
-For the unified execution backend configuration below, upgrade to chart `0.6.0` or newer together with AutoSecOps `1.1.0-alpha.9` or newer. Changing only the image tags on an older chart does not update its sandbox permissions or agent startup configuration. The new chart's version guard checks the app version only when you use that chart.
-
-When your chart supports the target AutoSecOps release, keep `--version` unchanged and set both image tags in `values.yaml`:
+The chart's `appVersion` sets the default image tag for the backend, UI, migrations, and tunnel gateway images. To run a different compatible release without changing the chart, set the tags explicitly:
 
 ```yaml
 image:
@@ -497,126 +431,92 @@ uiImage:
   tag: "<app-version>"
 ```
 
-`image.tag` sets the backend image and the default migrations image. `uiImage.tag` sets the UI image. Both override the chart's `appVersion`; keep them on the same compatible release.
-
-Run the chart upgrade command after updating `values.yaml`. If you set `migrations.image.tag` separately, it continues to override `image.tag` for migrations.
+Keep both tags on the same release. `migrations.image.tag` overrides `image.tag` for the migrations Job only. Pin a digest with `image.digest` and `uiImage.digest` for immutable deployments.
 
 ## Security
 
 ### Execution sandboxing
 
-With chart `0.6.0` or newer, choose the backend independently for the executor and agent-executor. Both default to `nsjail`:
+`executor` and `agent-executor` run the `nsjail` backend by default. In that mode their pods start as root through the cgroup bootstrap entrypoint, run privileged with `SYS_ADMIN` and an `Unconfined` seccomp profile, and drop to uid 1001 before the worker starts. nsjail needs nodes with cgroup v2.
+
+To run both without nsjail isolation as unprivileged pods, set:
 
 ```yaml
-executor:
-  backend: nsjail
-agentExecutor:
-  backend: nsjail
+autosecops:
+  sandbox:
+    disableNsjail: true
 ```
 
-nsjail requires privileged pods with `SYS_ADMIN` capability and an `Unconfined` seccomp profile. The chart applies these settings to each service configured with `nsjail`.
+Set `executor.backend` or `agentExecutor.backend` to `nsjail` or `direct` to choose per service. All other pods run as uid 1001 with every capability dropped and the `RuntimeDefault` seccomp profile.
 
-To run both services without nsjail isolation, set:
-
-```yaml
-executor:
-  backend: direct
-agentExecutor:
-  backend: direct
-```
-
-You can also select different backends for the two services. Remove `tracecat.sandbox.disableNsjail` from your Helm values when upgrading; the chart rejects this removed setting even when it is `false`. Replace a previous `true` value with `direct` on both services.
+Docker Compose caps executor containers at 4096 processes. Kubernetes has no per-pod setting for this, so set the kubelet `podPidsLimit` on nodes that run executors.
 
 See [Security](/self-hosting/security) for backend choices (`nsjail`, `direct`) and isolation tradeoffs.
 
 ### Authentication
 
-Set `tracecat.auth.types` to `oidc` or `saml` for production deployments. See [OIDC](/authentication/oidc) and [SAML](/authentication/saml) for configuration details.
+Set `autosecops.auth.types` to `oidc` or `saml` for production deployments. See [OIDC](/authentication/oidc) and [SAML](/authentication/saml) for configuration details. Store OIDC client credentials and the SAML metadata URL in the core Secret (`oidcClientId`, `oidcClientSecret`, `samlIdpMetadataUrl`).
 
 ## Autoscaling
 
-The chart uses KEDA with a Temporal queue-based scaler to auto-scale worker, executor, and agent-executor deployments.
-
-Prerequisites:
-- `keda.enabled: true` (installs the KEDA subchart)
-- `metricsserver.enabled: true` (or an existing metrics-server in the cluster)
+Each component accepts a HorizontalPodAutoscaler. It needs [metrics-server](https://github.com/kubernetes-sigs/metrics-server) in the cluster.
 
 ```yaml
-keda:
-  enabled: true
-
-metricsserver:
-  enabled: true
-
 worker:
   autoscaling:
     enabled: true
-    minReplicas: 1
+    minReplicas: 2
     maxReplicas: 8
-    targetQueueSize: 5
-    cooldownPeriod: 120
+    targetCPUUtilizationPercentage: 70
 
 executor:
   autoscaling:
     enabled: true
-    minReplicas: 1
+    minReplicas: 2
     maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
 ```
 
-When autoscaling is enabled, the static `replicas` value is ignored. KEDA polls the Temporal task queue and scales based on queue depth.
+When autoscaling is enabled, the chart leaves `replicaCount` out of the Deployment. Add `<component>.podDisruptionBudget.enabled: true` to keep replicas available during node drains.
 
 ## Minimum resources
 
-These are the default resource requests and limits from the chart.
+The default requests and limits match the AWS Fargate task sizes.
 
-| Component | CPU request | Memory request | CPU limit | Memory limit | Default replicas |
-| :-------- | :---------- | :------------- | :-------- | :----------- | :--------------- |
-| UI | 500m | 512Mi | 500m | 1024Mi | 1 |
-| API | 2000m | 4096Mi | 2000m | 4096Mi | 2 |
-| Worker | 2000m | 2048Mi | 2000m | 2048Mi | 4 |
-| Executor | 4000m | 8192Mi | 4000m | 8192Mi | 4 |
-| Agent executor | 2000m | 4096Mi | 4000m | 16384Mi | 2 |
-| Agent worker | 2000m | 2048Mi | 2000m | 2048Mi | 2 |
-| LiteLLM | 4000m | 8192Mi | 4000m | 8192Mi | 2 |
-| MCP | 1000m | 1024Mi | 1000m | 1024Mi | 2 |
+| Component | CPU request | Memory request | Memory limit | Default replicas |
+| :-------- | :---------- | :------------- | :----------- | :--------------- |
+| UI | 1 | 2Gi | 2Gi | 1 |
+| API | 2 | 4Gi | 4Gi | 2 |
+| Worker | 2 | 4Gi | 4Gi | 2 |
+| Executor | 4 | 8Gi | 8Gi | 2 |
+| Agent worker | 2 | 4Gi | 4Gi | 2 |
+| Agent executor | 4 | 16Gi | 16Gi | 1 |
+| LiteLLM | 4 | 8Gi | 8Gi | 1 |
+| MCP | 1 | 2Gi | 2Gi | 1 |
 
-<Info>
-  The agent executor uses burstable limits (requests 2000m/4096Mi, limits 4000m/16384Mi) to handle variable LLM response sizes.
-  All other services use guaranteed QoS where requests equal limits.
-</Info>
+The chart sets no CPU limits, so pods can burst above their requests. Override `<component>.resources` to fit your cluster.
 
 ## Observability
 
-The chart bundles optional subcharts for Prometheus, Grafana, and Grafana Alloy (k8s-monitoring).
+Set `autosecops.temporal.metrics.enabled: true` to expose Temporal SDK metrics on port `9090` of the worker, executor, agent-worker, and agent-executor pods. The chart adds `prometheus.io/scrape`, `prometheus.io/port`, and `prometheus.io/path` annotations for Prometheus or Grafana Alloy to discover.
 
 ```yaml
-tracecat:
+autosecops:
   temporal:
     metrics:
       enabled: true
-
-monitoring:
-  enabled: true
-
-prometheus:
-  enabled: true
-
-grafana:
-  enabled: true
-  adminPassword: "change-me"
+  otel:
+    enabled: true
+    endpoint: http://otel-collector.observability:4318
 ```
 
-For Grafana Cloud or other external providers, enable only `tracecat.temporal.metrics.enabled` and configure your own scraping. See `values-eks-grafana-cloud.yaml` in the chart examples directory.
-
-<Info>
-  For production observability with custom dashboards, OpenTelemetry export, and alerting, contact the AutoSecOps team for enterprise support.
-</Info>
+`autosecops.otel` exports platform traces over OTLP. Put exporter headers that carry credentials in the core Secret as `otelExporterOtlpHeaders`.
 
 ## FAQ
 
 <AccordionGroup>
   <Accordion title="Can executors assume cross-account AWS roles?">
-    Yes. Set `tracecat.aws.assumeRoleAccountId` and `tracecat.aws.assumeRolePrincipalArn` in your values.
+    Yes. Set `autosecops.aws.assumeRoleAccountId` and `autosecops.aws.assumeRolePrincipalArn` in your values.
     The executor uses STS `AssumeRole` to access resources in other AWS accounts.
     Ensure the target account's trust policy allows the executor's IRSA role.
   </Accordion>
@@ -624,30 +524,25 @@ For Grafana Cloud or other external providers, enable only `tracecat.temporal.me
   <Accordion title="I'm seeing 'No hosts available' errors from Temporal">
     Undersized Temporal clusters cause this error. Ensure the Temporal server pods have at least 4 CPU cores and 8 GB of memory.
 
-    If using self-hosted Temporal with an external PostgreSQL, verify the database can handle the query throughput.
-    Managed services like Amazon Aurora Serverless are recommended for production workloads.
+    If your Temporal server uses an external PostgreSQL, verify the database can handle the query throughput.
   </Accordion>
 
   <Accordion title="Connecting an in-cluster LiteLLM, vLLM, or Ollama fails with 'Host is not allowed'">
     AutoSecOps rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
-    Set `tracecat.outboundAllowedPrivateCidrs` in your values to the service's cluster IP or CIDR, e.g. `"10.96.0.0/12"`, and upgrade the release.
+    Set `autosecops.outboundAllowedPrivateCidrs` in your values to the service's cluster IP or CIDR, e.g. `"10.96.0.0/12"`, and upgrade the release.
     See [Private endpoints](/agents/llm-providers#private-endpoints).
   </Accordion>
 
-  <Accordion title="Does the chart support autoscaling?">
-    Yes. The chart includes KEDA `ScaledObject` resources for worker, executor, and agent-executor.
-    Set `keda.enabled: true` and `<component>.autoscaling.enabled: true`.
-    Scaling is driven by Temporal task queue depth, not CPU or memory utilization.
-  </Accordion>
-
   <Accordion title="Can I use non-AWS infrastructure?">
-    Yes. The chart requires PostgreSQL, Redis, and S3-compatible storage but does not require AWS.
-    Use any provider for these services.
-    For secrets management without AWS Secrets Manager, use the existing Kubernetes secret or chart-managed secret template strategies instead of External Secrets Operator.
+    Yes. The chart requires PostgreSQL, Redis, S3-compatible storage, and Temporal but does not require AWS.
+    Use any provider for these services, and Kubernetes Secrets for the credentials.
   </Accordion>
 
-  <Accordion title="How do I pin workloads to a specific CPU architecture?">
-    Set `scheduling.architecture` to `arm64` or `amd64`. The chart adds a `kubernetes.io/arch` node selector to all pods.
-    Set it to an empty string to disable architecture pinning.
+  <Accordion title="How do I pin workloads to specific nodes?">
+    Set the top-level `nodeSelector`, `tolerations`, and `affinity` for every pod, or the same keys under a component to override them for that component. For example, `nodeSelector: {kubernetes.io/arch: arm64}` pins every pod to ARM nodes.
+  </Accordion>
+
+  <Accordion title="How do I add an environment variable the chart does not expose?">
+    Add it to `autosecops.extraEnv` for every backend service, or to `<component>.extraEnv` for one component.
   </Accordion>
 </AccordionGroup>

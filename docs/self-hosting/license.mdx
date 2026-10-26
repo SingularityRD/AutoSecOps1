@@ -42,7 +42,7 @@ Set it as `AUTOSECOPS__LICENSE_KEY` on every backend service: `api`, `worker`, `
     ```
   </Tab>
   <Tab title="Kubernetes">
-    Add `AUTOSECOPS__LICENSE_KEY` to the environment of the backend deployments, then roll them out.
+    Add the key to the core Secret as `licenseKey`, or set `secrets.licenseKey` when the chart creates the Secret, then upgrade the release. The chart passes it to every backend deployment and the migrations Job.
   </Tab>
 </Tabs>
 

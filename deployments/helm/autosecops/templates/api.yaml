@@ -1,0 +1,89 @@
+{{- define "autosecops.api.container" -}}
+{{- $root := . -}}
+{{- $v := .Values.api -}}
+{{- $a := .Values.autosecops -}}
+{{- /* The image CMD runs uvicorn on $PORT (8000). */ -}}
+ports:
+  - name: http
+    containerPort: 8000
+    protocol: TCP
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: api
+  - name: AUTOSECOPS__ALLOW_ORIGINS
+    value: {{ .Values.urls.allowOrigins | default (include "autosecops.publicAppUrl" .) | quote }}
+  - name: AUTOSECOPS__AUTH_TYPES
+    value: {{ $a.auth.types | quote }}
+  - name: AUTOSECOPS__AUTH_SUPERADMIN_EMAIL
+    value: {{ $a.auth.superadminEmail | quote }}
+  - name: AUTOSECOPS__AUTH_ALLOWED_DOMAINS
+    value: {{ $a.auth.allowedDomains | quote }}
+  - name: AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH
+    value: {{ $a.auth.minPasswordLength | toString | quote }}
+  - name: OIDC_ISSUER
+    value: {{ $a.auth.oidc.issuer | quote }}
+  - name: OIDC_SCOPES
+    value: {{ $a.auth.oidc.scopes | quote }}
+  - name: SAML_ALLOW_UNSOLICITED
+    value: {{ $a.auth.saml.allowUnsolicited | toString | quote }}
+  - name: AUTOSECOPS__SMTP_HOST
+    value: {{ $a.smtp.host | quote }}
+  - name: AUTOSECOPS__SMTP_PORT
+    value: {{ $a.smtp.port | toString | quote }}
+  - name: AUTOSECOPS__SMTP_USER
+    value: {{ $a.smtp.user | quote }}
+  - name: AUTOSECOPS__EMAIL_FROM
+    value: {{ $a.smtp.emailFrom | quote }}
+  - name: AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS
+    value: {{ $a.platformAdminIpAllowlistBypass | toString | quote }}
+  {{- with include "autosecops.presignedUrlEndpoint" . }}
+  - name: AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
+    value: {{ . | quote }}
+  {{- end }}
+  {{- with $a.pangolin.endpoint }}
+  - name: AUTOSECOPS__PANGOLIN_ENDPOINT
+    value: {{ . | quote }}
+  {{- end }}
+  {{- with $a.pangolin.apiUrl }}
+  - name: AUTOSECOPS__PANGOLIN_API_URL
+    value: {{ . | quote }}
+  {{- end }}
+  {{- with $a.pangolin.orgId }}
+  - name: AUTOSECOPS__PANGOLIN_ORG_ID
+    value: {{ . | quote }}
+  {{- end }}
+  {{- if .Values.tunnels.enabled }}
+  {{- $g := .Values.tunnels.gateway }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_BACKEND
+    value: kubernetes
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_IMAGE
+    value: {{ include "autosecops.tunnelGatewayImage" . | quote }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS
+    value: {{ join "," $g.blockedCidrs | quote }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_API_URL
+    value: {{ include "autosecops.internalApiFqdnUrl" . | quote }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_TUN_RESOURCE
+    value: {{ $g.tunResource | quote }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_RECONCILE_INTERVAL
+    value: {{ $g.reconcileInterval | toString | quote }}
+  {{- end }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "api") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.api.enabled }}
+{{- $v := .Values.api }}
+{{- $ctx := dict "root" . "component" "api" "values" $v }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.api.container" .)
+    "backend" true
+    "automountToken" .Values.tunnels.enabled
+  ) $ctx) }}
+---
+{{ include "autosecops.service" $ctx }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

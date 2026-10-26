@@ -1,0 +1,111 @@
+{{- if .Values.migrations.enabled }}
+{{- $m := .Values.migrations -}}
+{{- $ctx := dict "root" . "component" "migrations" -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  {{- if $m.useHelmHooks }}
+  name: {{ include "autosecops.componentName" $ctx }}
+  {{- else }}
+  name: {{ printf "%s-%d" (include "autosecops.componentName" $ctx) .Release.Revision | trunc 63 | trimSuffix "-" }}
+  {{- end }}
+  labels:
+    {{- include "autosecops.componentLabels" $ctx | nindent 4 }}
+  {{- if $m.useHelmHooks }}
+  annotations:
+    # Run `alembic upgrade head` before new pods roll out, like the Compose
+    # `migrations` service and the Fargate API migrations container.
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+  {{- end }}
+spec:
+  backoffLimit: {{ $m.backoffLimit }}
+  activeDeadlineSeconds: {{ $m.activeDeadlineSeconds }}
+  {{- if not (kindIs "invalid" $m.ttlSecondsAfterFinished) }}
+  ttlSecondsAfterFinished: {{ $m.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "autosecops.componentSelectorLabels" $ctx | nindent 8 }}
+      {{- with $m.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      # Hooks run before release resources such as the chart ServiceAccount
+      # exist, so the Job uses the namespace default account without a token.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with ($m.nodeSelector | default .Values.nodeSelector) }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with ($m.tolerations | default .Values.tolerations) }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with ($m.affinity | default .Values.affinity) }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrations
+          image: {{ include "autosecops.migrationsImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python3", "-m", "alembic", "upgrade", "head"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: LOG_LEVEL
+              value: {{ .Values.autosecops.logLevel | quote }}
+            - name: AUTOSECOPS__LOG_FORMAT
+              value: {{ .Values.autosecops.logFormat | quote }}
+            - name: AUTOSECOPS__APP_ENV
+              value: {{ .Values.autosecops.appEnv | quote }}
+            - name: AUTOSECOPS__SERVICE_NAME
+              value: migrations
+            - name: AUTOSECOPS__FEATURE_FLAGS
+              value: {{ .Values.autosecops.featureFlags | quote }}
+            - name: AUTOSECOPS__DB_ENDPOINT
+              value: {{ .Values.externalPostgres.host | quote }}
+            - name: AUTOSECOPS__DB_PORT
+              value: {{ .Values.externalPostgres.port | toString | quote }}
+            - name: AUTOSECOPS__DB_NAME
+              value: {{ .Values.externalPostgres.database | quote }}
+            - name: AUTOSECOPS__DB_SSLMODE
+              value: {{ .Values.externalPostgres.sslMode | quote }}
+            {{- if .Values.externalPostgres.tls.caCert }}
+            - name: PGSSLROOTCERT
+              value: /etc/autosecops/postgres-ca/ca.crt
+            {{- end }}
+            {{- include "autosecops.env.postgresCredentials" . | nindent 12 }}
+            {{- include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__LICENSE_KEY" "secret" (include "autosecops.coreSecretName" .) "key" "licenseKey" "optional" true) | nindent 12 }}
+            {{- with $m.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with $m.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.externalPostgres.tls.caCert }}
+          volumeMounts:
+            - name: postgres-ca
+              mountPath: /etc/autosecops/postgres-ca
+              readOnly: true
+          {{- end }}
+      {{- if .Values.externalPostgres.tls.caCert }}
+      volumes:
+        - name: postgres-ca
+          configMap:
+            name: {{ include "autosecops.fullname" . }}-postgres-ca
+      {{- end }}
+{{- end }}
