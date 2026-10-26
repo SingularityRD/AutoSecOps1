@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from autosecops.auth.dependencies import OrgActorRole, OrgUserRole
 from autosecops.authz.controls import require_scope
@@ -17,6 +17,7 @@ from autosecops.vcs.bitbucket_data_center.app import (
 from autosecops.vcs.github.app import GitHubAppError, GitHubAppService
 from autosecops.vcs.github.flows import handle_manifest_conversion
 from autosecops.vcs.github.manifest import generate_github_app_manifest
+from autosecops.vcs.github.webhooks import verify_github_webhook
 from autosecops.vcs.gitlab.app import GitLabError, GitLabTokenService
 from autosecops.vcs.schemas import (
     BitbucketDataCenterTokenCredentialsRequest,
@@ -110,8 +111,24 @@ async def github_app_install_callback(
 
 
 @github_router.post("/webhook")
-async def github_webhook(*, payload: dict[str, Any]) -> dict[str, str]:
-    """Handle GitHub webhook events."""
+async def github_webhook(
+    *, request: Request, payload: dict[str, Any]
+) -> dict[str, str]:
+    """Handle GitHub webhook events.
+
+    Deliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the
+    webhook secret stored in the GitHub App credentials.
+    """
+    if not await verify_github_webhook(
+        body=await request.body(),
+        signature=request.headers.get("x-hub-signature-256"),
+        app_id=request.headers.get("x-github-hook-installation-target-id"),
+    ):
+        logger.warning("Rejected GitHub webhook with a missing or invalid signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature",
+        )
     try:
         event_type = payload.get("action")
         installation_data = payload.get("installation", {})
@@ -184,6 +201,8 @@ async def save_github_app_credentials(
             app_id=config.app_id or request.app_id,
         )
 
+    except EntitlementRequired:
+        raise
     except GitHubAppError as e:
         logger.error(
             "Failed to save GitHub App credentials",
@@ -218,6 +237,8 @@ async def delete_github_app_credentials(
         github_service = GitHubAppService(session=session, role=role)
         await github_service.delete_github_app_credentials()
 
+    except EntitlementRequired:
+        raise
     except GitHubAppError as e:
         logger.error("Failed to delete GitHub App credentials", error=str(e))
         raise HTTPException(
@@ -246,6 +267,8 @@ async def get_github_app_credentials_status(
         status_data = await github_service.get_github_app_credentials_status()
         return GitHubAppCredentialsStatus(**status_data)
 
+    except EntitlementRequired:
+        raise
     except Exception as e:
         logger.error(
             "Error getting GitHub App credentials status",

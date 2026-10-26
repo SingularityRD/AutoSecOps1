@@ -80,7 +80,8 @@ async def validate_incoming_webhook(
                 detail="Unauthorized webhook request",
             ) from e
 
-        if not secrets.compare_digest(secret, webhook.secret):
+        # Compare bytes: compare_digest rejects non-ASCII str input with TypeError.
+        if not secrets.compare_digest(secret.encode(), webhook.secret.encode()):
             logger.warning("Secret does not match")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

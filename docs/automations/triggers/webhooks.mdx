@@ -44,11 +44,13 @@ Default response:
 
 ```json
 {
-  "message": "Workflow execution created",
+  "message": "Workflow execution started",
   "wf_id": "wf_3mYp8JkL2nQr7sTu9vWx0Z",
   "wf_exec_id": "wf_3mYp8JkL2nQr7sTu9vWx0Z/exec_7aBcDeFgHiJkLmNoPqRsTu"
 }
 ```
+
+An NDJSON request returns `"message": "Workflow execution created"` with the `wf_exec_id` of the last run it started.
 
 Query parameters:
 

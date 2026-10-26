@@ -29282,6 +29282,7 @@ export const $Role = {
     service_id: {
       type: "string",
       enum: [
+        "autosecops-admin-cli",
         "autosecops-api",
         "autosecops-bootstrap",
         "autosecops-cli",

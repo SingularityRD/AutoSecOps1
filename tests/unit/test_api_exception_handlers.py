@@ -26,11 +26,15 @@ from autosecops.api.common import (
 )
 from autosecops.exceptions import (
     AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsDSLError,
     AutoSecOpsException,
     AutoSecOpsNotFoundError,
     AutoSecOpsRLSViolationError,
+    AutoSecOpsServiceError,
     AutoSecOpsValidationError,
     ScopeDeniedError,
+    WorkflowAliasResolutionError,
 )
 from autosecops.executor.action_gateway import app as action_gateway_app
 from autosecops.executor.action_gateway.app import (
@@ -97,8 +101,15 @@ def _get(exc: Exception):
             403,
             id="rls-subclass-403",
         ),
+        pytest.param(AutoSecOpsValidationError("bad"), 400, id="validation-error-400"),
+        pytest.param(AutoSecOpsDSLError("bad dsl"), 400, id="dsl-subclass-400"),
+        pytest.param(AutoSecOpsNotFoundError("missing"), 404, id="not-found-404"),
         pytest.param(
-            AutoSecOpsValidationError("bad"), 500, id="other-autosecops-error-500"
+            WorkflowAliasResolutionError("no alias"), 404, id="not-found-subclass-404"
+        ),
+        pytest.param(AutoSecOpsConflictError("exists"), 409, id="conflict-409"),
+        pytest.param(
+            AutoSecOpsServiceError("broken"), 500, id="other-autosecops-error-500"
         ),
         pytest.param(AutoSecOpsQueryTimeoutError(), 422, id="query-timeout-422"),
         pytest.param(AutoSecOpsQueryOverflowError(), 400, id="query-overflow-400"),

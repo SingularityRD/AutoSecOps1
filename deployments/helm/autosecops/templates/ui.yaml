@@ -13,8 +13,6 @@ env:
     value: {{ include "autosecops.publicAppUrl" . | quote }}
   - name: NEXT_PUBLIC_API_URL
     value: {{ include "autosecops.publicApiUrl" . | quote }}
-  - name: NEXT_PUBLIC_AUTH_TYPES
-    value: {{ .Values.autosecops.auth.types | quote }}
   - name: NEXT_SERVER_API_URL
     value: {{ include "autosecops.internalApiUrl" . | quote }}
   - name: AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS

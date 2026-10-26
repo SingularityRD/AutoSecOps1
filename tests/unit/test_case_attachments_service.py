@@ -4,7 +4,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 from dotenv import dotenv_values
@@ -271,6 +271,26 @@ async def test_preview_forces_download_for_non_image(
     query = parse_qs(urlparse(url).query)
     assert query.get("response-content-type") == ["application/octet-stream"]
     assert "attachment" in query.get("response-content-disposition", [""])[0]
+
+
+@pytest.mark.anyio
+async def test_forced_download_uses_original_file_name(
+    configure_minio_for_attachments,
+    test_case: tuple,
+    attachments_service: CaseAttachmentService,
+    attachment_params: CaseAttachmentCreate,
+):
+    """The browser saves the uploaded name, not the content hash of the key."""
+    case, _ = test_case
+    created = await attachments_service.create_attachment(case, attachment_params)
+
+    url, fname, _ = await attachments_service.get_attachment_download_url(
+        case, created.id
+    )
+    disposition = parse_qs(urlparse(url).query)["response-content-disposition"][0]
+    assert f'filename="{fname}"' in disposition
+    assert f"filename*=UTF-8''{quote(fname, safe='')}" in disposition
+    assert created.storage_path.rsplit("/", 1)[-1] not in disposition
 
 
 @pytest.mark.anyio

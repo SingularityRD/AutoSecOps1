@@ -86,6 +86,7 @@ TableRowID = uuid.UUID
 InvitationID = uuid.UUID
 
 InternalServiceID = Literal[
+    "autosecops-admin-cli",
     "autosecops-api",
     "autosecops-bootstrap",
     "autosecops-cli",

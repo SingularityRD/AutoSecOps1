@@ -820,6 +820,33 @@ def test_bound_env_rejects_invalid_bounds() -> None:
         bound_env("TEST_BOUND_ENV", 16, lower=10, upper=8)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        # Read by no code.
+        "AUTOSECOPS__AGENT_FS_ARCHIVE_CACHE_MAX_BYTES",
+        # Tuning knobs that Compose never passes to a container.
+        "AUTOSECOPS__EXECUTOR_TOKEN_TTL_SECONDS",
+        "AUTOSECOPS__BLOB_STORAGE_MAX_ATTEMPTS",
+        "SAML_ACCEPTED_TIME_DIFF",
+    ],
+)
+def test_env_example_does_not_advertise_ineffective_settings(name: str) -> None:
+    source = (REPO_ROOT / ".env.example").read_text()
+    assert f"{name}=" not in source
+
+
+def test_ui_deployments_do_not_set_unread_auth_types() -> None:
+    """The frontend never reads NEXT_PUBLIC_AUTH_TYPES; auth discovery is an API."""
+    paths = [
+        *COMPOSE_ENV_FILES,
+        REPO_ROOT / "deployments" / "helm" / "autosecops" / "templates" / "ui.yaml",
+        REPO_ROOT / "deployments" / "fargate" / "modules" / "ecs" / "locals.tf",
+    ]
+    for path in paths:
+        assert "NEXT_PUBLIC_AUTH_TYPES" not in path.read_text(), path.name
+
+
 def test_platform_otel_operator_settings_are_not_advertised_in_env_example() -> None:
     source = (REPO_ROOT / ".env.example").read_text()
     assert "AUTOSECOPS__PLATFORM_OTEL_ENABLED" not in source

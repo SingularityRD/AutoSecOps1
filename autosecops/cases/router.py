@@ -1204,6 +1204,8 @@ async def create_task(
             status_code=HTTP_404_NOT_FOUND,
             detail="Case not found",
         ) from e
+    except (HTTPException, EntitlementRequired):
+        raise
     except Exception as e:
         logger.exception("Failed to create task")
         raise HTTPException(
@@ -1254,6 +1256,8 @@ async def update_task(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
         ) from e
+    except (HTTPException, EntitlementRequired):
+        raise
     except Exception as e:
         logger.exception(f"Failed to update task: {e}")
         raise HTTPException(
@@ -1286,6 +1290,8 @@ async def delete_task(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
         ) from e
+    except (HTTPException, EntitlementRequired):
+        raise
     except Exception as e:
         logger.exception(f"Failed to delete task: {e}")
         raise HTTPException(

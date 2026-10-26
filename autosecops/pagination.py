@@ -875,7 +875,10 @@ class BaseCursorPaginator:
             data = json.loads(json_str)
             return CursorData.model_validate(data)
         except Exception as e:
-            raise ValueError(f"Invalid cursor format: {e}") from e
+            raise PaginationError(
+                f"Invalid cursor format: {e}",
+                code=PaginationErrorCode.INVALID_CURSOR,
+            ) from e
 
     async def get_table_row_estimate(
         self, table_name: str, schema_name: str = "public"
