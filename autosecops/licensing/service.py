@@ -8,13 +8,14 @@ to the free baseline without a restart.
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from autosecops import config
 from autosecops.licensing import keys
+from autosecops.licensing.evaluation import state_from_claims
 from autosecops.licensing.token import (
     LicenseVerificationError,
     decode_license,
@@ -27,10 +28,6 @@ from autosecops.licensing.types import (
     LicenseStatus,
 )
 from autosecops.logger import logger
-from autosecops.tiers.enums import Entitlement
-
-LICENSE_GRACE_PERIOD = timedelta(days=14)
-"""How long paid entitlements keep working after a license expires."""
 
 LICENSE_CONTACT = "sales@singularityrd.com"
 
@@ -38,58 +35,6 @@ _REPEAT_LOG_INTERVAL_SECONDS = 3600.0
 """Re-log non-healthy license states at most this often per process."""
 
 _last_logged: tuple[LicenseStatus, float] | None = None
-
-
-def _split_entitlements(
-    raw: list[str],
-) -> tuple[frozenset[Entitlement], tuple[str, ...]]:
-    known: set[Entitlement] = set()
-    unknown: list[str] = []
-    for value in raw:
-        try:
-            known.add(Entitlement(value))
-        except ValueError:
-            unknown.append(value)
-    return frozenset(known), tuple(unknown)
-
-
-def evaluate_license(
-    token: str | None,
-    *,
-    now: datetime,
-    public_key: Ed25519PublicKey,
-) -> LicenseState:
-    """Evaluate a license token at ``now``.
-
-    Never raises for a bad token: malformed or unverifiable tokens evaluate to
-    ``LicenseStatus.INVALID`` so a garbled key cannot stop the app from starting.
-    """
-    if not token:
-        return LicenseState(status=LicenseStatus.MISSING)
-    try:
-        claims = decode_license(token, public_key)
-    except LicenseVerificationError as exc:
-        return LicenseState(status=LicenseStatus.INVALID, error=exc.code)
-    return _state_from_claims(claims, now=now)
-
-
-def _state_from_claims(claims: LicenseClaims, *, now: datetime) -> LicenseState:
-    granted, unknown = _split_entitlements(claims.entitlements)
-    grace_ends_at = claims.expires_at + LICENSE_GRACE_PERIOD
-    if now < claims.expires_at:
-        status = LicenseStatus.VALID
-    elif now < grace_ends_at:
-        status = LicenseStatus.GRACE
-    else:
-        status = LicenseStatus.EXPIRED
-        granted = frozenset()
-    return LicenseState(
-        status=status,
-        claims=claims,
-        granted=granted,
-        unknown_entitlements=unknown,
-        grace_ends_at=grace_ends_at,
-    )
 
 
 @lru_cache(maxsize=1)
@@ -120,7 +65,7 @@ def get_license_state(now: datetime | None = None, *, log: bool = True) -> Licen
             case LicenseErrorCode() as code:
                 state = LicenseState(status=LicenseStatus.INVALID, error=code)
             case LicenseClaims() as claims:
-                state = _state_from_claims(claims, now=now or datetime.now(UTC))
+                state = state_from_claims(claims, now=now or datetime.now(UTC))
     if log:
         _maybe_log(state)
     return state
@@ -149,7 +94,9 @@ def log_license_state(state: LicenseState) -> None:
         "license_id": claims.license_id if claims else None,
         "customer": claims.customer if claims else None,
         "expires_at": claims.expires_at.isoformat() if claims else None,
-        "entitlements": sorted(e.value for e in state.granted),
+        "entitlements": sorted(
+            [e.value for e in state.granted] + [g.value for g in state.grants]
+        ),
     }
     match state.status:
         case LicenseStatus.MISSING:

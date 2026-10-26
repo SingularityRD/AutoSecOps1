@@ -6862,7 +6862,20 @@ export type kind = "upstream" | "local"
 /**
  * Why a license key failed verification.
  */
-export type LicenseErrorCode = "malformed" | "bad_signature" | "invalid_claims"
+export type LicenseErrorCode =
+  | "malformed"
+  | "bad_signature"
+  | "invalid_claims"
+  | "not_yet_valid"
+
+/**
+ * Deployment-wide capabilities a license can grant.
+ *
+ * These are not organization entitlements: they never appear in tiers or in
+ * ``EffectiveEntitlements``. A license lists them in ``entitlements`` next to
+ * organization entitlement keys.
+ */
+export type LicenseGrant = "multi_tenant"
 
 /**
  * License status for the platform admin.
@@ -6882,6 +6895,10 @@ export type LicenseRead = {
    * Paid entitlements the license grants right now
    */
   entitlements?: Array<Entitlement>
+  /**
+   * Deployment-wide grants the license applies right now, such as multi_tenant
+   */
+  grants?: Array<LicenseGrant>
   /**
    * Free entitlements every single-tenant install gets without a license
    */

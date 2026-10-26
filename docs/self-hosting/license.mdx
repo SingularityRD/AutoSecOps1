@@ -66,11 +66,12 @@ The `api` service also logs the license status at startup.
 | `valid` | The signature verifies and the license has not expired. | On |
 | `grace` | The license expired less than 14 days ago. | On |
 | `expired` | The license expired 14 or more days ago. | Off |
-| `invalid` | The key is malformed, or its signature does not verify. | Off |
+| `invalid` | The key is malformed, its signature does not verify, or its issue date is in the future (`not_yet_valid`). | Off |
 
 ## Expiry and grace period
 
-When a license expires, AutoSecOps keeps its entitlements on for a 14-day grace period and logs a `LICENSE EXPIRED` warning at least once an hour.
+When a license expires, AutoSecOps keeps its entitlements on for a 14-day grace period and logs a `LICENSE EXPIRED` warning.
+The `api` service logs it at startup, and every service logs it again at most once an hour while paid features are in use. An idle deployment can go longer between warnings, so check the `License` page or the API for the current status.
 After the grace period, paid features turn off and AutoSecOps logs an error.
 Install a renewed key before the grace period ends to avoid interruption.
 
@@ -88,7 +89,12 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 
 ## Multi-tenant deployments
 
-With `AUTOSECOPS__EE_MULTI_TENANT=true`, AutoSecOps ignores the license key and resolves entitlements from the tiers that platform admins assign to organizations.
+Multi-tenant mode needs both `AUTOSECOPS__EE_MULTI_TENANT=true` and a license key that grants `multi_tenant`.
+The license must be valid or in its grace period when each service starts.
+In multi-tenant mode, AutoSecOps resolves entitlements from the tiers that platform admins assign to organizations, and the license key's other entitlements do not apply.
+
+If `AUTOSECOPS__EE_MULTI_TENANT=true` is set without such a license, the `api` service logs an error at startup and every service runs single-tenant, with entitlements from the license key as described above.
+Services evaluate the `multi_tenant` grant at startup, so restart them after you install or replace the key.
 
 ## Third-party notices
 

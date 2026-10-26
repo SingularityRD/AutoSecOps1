@@ -27,6 +27,7 @@ async def get_license(role: SuperuserRole) -> LicenseRead:
         expires_at=claims.expires_at if claims else None,
         grace_ends_at=state.grace_ends_at,
         entitlements=sorted(state.granted),
+        grants=sorted(state.grants),
         included_entitlements=sorted(
             Entitlement(key)
             for key, enabled in BASELINE_ENTITLEMENTS.model_dump().items()
