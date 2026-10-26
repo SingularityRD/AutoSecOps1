@@ -8,8 +8,8 @@ Public URL: {{ include "autosecops.publicAppUrl" . }}
 
 {{- if .Values.migrations.enabled }}
 
-   Migrations run in the {{ include "autosecops.componentName" (dict "root" . "component" "migrations") }} Job:
-   kubectl -n {{ .Release.Namespace }} logs job/{{ include "autosecops.componentName" (dict "root" . "component" "migrations") }}
+   Migrations run in the {{ include "autosecops.migrationsJobName" . }} Job:
+   kubectl -n {{ .Release.Namespace }} logs job/{{ include "autosecops.migrationsJobName" . }}
 {{- end }}
 
 2. Check the API without an ingress:

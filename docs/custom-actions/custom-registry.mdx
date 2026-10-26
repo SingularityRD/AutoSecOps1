@@ -19,12 +19,32 @@ You must have the "Organization Admin" role to add and manage the custom registr
 ## Installation
 
 <Steps>
-  <Step title="Clone the custom registry starter kit">
-    Clone the custom registry starter kit from GitHub.
+  <Step title="Create the registry repository">
+    Create a Git repository that holds one Python package, for example `custom_actions`:
 
-    <Frame>
-      ![Clone GitHub template](/img/custom-actions/clone-github-template.png)
-    </Frame>
+    ```text
+    pyproject.toml
+    custom_actions/
+      __init__.py
+      greetings.py        # Python UDFs
+      templates/
+        lookup.yml        # YAML templates
+    ```
+
+    ```toml pyproject.toml
+    [project]
+    name = "custom_actions"
+    version = "0.1.0"
+    requires-python = ">=3.12"
+    dependencies = []
+
+    [build-system]
+    requires = ["hatchling"]
+    build-backend = "hatchling.build"
+    ```
+
+    Import the SDK from `autosecops_registry`; AutoSecOps provides it at runtime, so do not list it in `dependencies`. Registries written for Tracecat must change their `tracecat_registry` imports to `autosecops_registry`.
+    See [Python UDFs](/custom-actions/python-udf) and [YAML templates](/custom-actions/yaml-template) for the action formats.
   </Step>
   <Step title="Add an SSH key">
     AutoSecOps clones the repository over SSH.
@@ -51,7 +71,7 @@ You must have the "Organization Admin" role to add and manage the custom registr
 
     Set the remote repository URL, repository package name, and allowed Git domains, then click "Save repository settings".
     The remote repository URL is a pip URL of the form `git+ssh://git@github.com/your-org/your-repo.git`.
-    The package name is the name of the Python package (e.g. the parent folder named `custom_actions` in the starter kit) in the repo.
+    The package name is the name of the Python package in the repository, e.g. `custom_actions`.
 
     <Frame>
       ![Custom registry settings](/img/custom-actions/custom-registry-settings.png)
@@ -124,8 +144,7 @@ To fix it:
   </Accordion>
 
   <Accordion title="Can I rename my custom Python package name?">
-    Yes. The package name from the starter kit is `custom_actions`.
-    To rename it, you'll need to rename the:
+    Yes. To rename the `custom_actions` package, rename the:
 
     - `custom_actions` folder to `my_new_package_name`
     - Project name in `pyproject.toml` to `my_new_package_name`

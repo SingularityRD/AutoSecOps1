@@ -4,12 +4,18 @@ CLI tool for AutoSecOps platform operators to manage infrastructure and control 
 
 ## Installation
 
-```bash
-# Install the CLI
-pip install autosecops-admin
+`autosecops-admin` is not published to PyPI. Install it from an AutoSecOps
+checkout, never with `pip install autosecops-admin`: that name on PyPI is not
+ours.
 
-# For bootstrap operations (create-superuser with direct DB access)
-pip install autosecops-admin[bootstrap]
+```bash
+# API commands only
+uv tool install ./packages/autosecops-admin
+
+# With bootstrap operations (create-superuser with direct DB access), which
+# need the full AutoSecOps package: run the CLI inside the workspace
+uv sync --extra admin
+uv run autosecops --help
 ```
 
 ## Configuration
@@ -107,7 +113,7 @@ autosecops orgs list -j
 
 ```bash
 # Install in development mode
-pip install -e packages/autosecops-admin
+uv pip install -e packages/autosecops-admin
 
 # Run the CLI
 autosecops --help

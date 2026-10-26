@@ -14,7 +14,7 @@ resource "aws_ecs_task_definition" "agent_executor_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
+    merge({
       name    = "AutoSecOpsAgentExecutorContainer"
       image   = "${var.autosecops_image}:${local.autosecops_image_tag}"
       command = ["python", "-m", "autosecops.agent.executor_worker"]
@@ -28,7 +28,7 @@ resource "aws_ecs_task_definition" "agent_executor_task_definition" {
       }
       environment = local.agent_executor_env
       secrets     = local.executor_secrets
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 

@@ -51,16 +51,17 @@ module "ecs" {
   hosted_zone_id = var.hosted_zone_id
 
   # AutoSecOps version
-  autosecops_image                = var.autosecops_image
-  autosecops_ui_image             = var.autosecops_ui_image
-  autosecops_image_tag            = var.autosecops_image_tag
-  autosecops_migrations_image     = var.autosecops_migrations_image
-  autosecops_migrations_image_tag = var.autosecops_migrations_image_tag
-  temporal_server_image           = var.temporal_server_image
-  temporal_server_image_tag       = var.temporal_server_image_tag
-  temporal_ui_image               = var.temporal_ui_image
-  temporal_ui_image_tag           = var.temporal_ui_image_tag
-  force_new_deployment            = var.force_new_deployment
+  autosecops_image                    = var.autosecops_image
+  autosecops_ui_image                 = var.autosecops_ui_image
+  autosecops_image_tag                = var.autosecops_image_tag
+  autosecops_migrations_image         = var.autosecops_migrations_image
+  autosecops_migrations_image_tag     = var.autosecops_migrations_image_tag
+  autosecops_registry_credentials_arn = var.autosecops_registry_credentials_arn
+  temporal_server_image               = var.temporal_server_image
+  temporal_server_image_tag           = var.temporal_server_image_tag
+  temporal_ui_image                   = var.temporal_ui_image
+  temporal_ui_image_tag               = var.temporal_ui_image_tag
+  force_new_deployment                = var.force_new_deployment
 
   # Temporal configuration
   disable_temporal_ui        = var.disable_temporal_ui

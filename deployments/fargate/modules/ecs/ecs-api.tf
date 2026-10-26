@@ -14,7 +14,7 @@ resource "aws_ecs_task_definition" "api_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
+    merge({
       name      = "AutoSecOpsApiMigrationsContainer"
       image     = "${local.autosecops_migrations_image}:${local.autosecops_migrations_image_tag}"
       essential = false
@@ -28,8 +28,8 @@ resource "aws_ecs_task_definition" "api_task_definition" {
         }
       }
       environment = local.migrations_env
-    },
-    {
+    }, local.autosecops_repository_credentials),
+    merge({
       name      = "AutoSecOpsApiContainer"
       image     = "${var.autosecops_image}:${local.autosecops_image_tag}"
       essential = true
@@ -64,7 +64,7 @@ resource "aws_ecs_task_definition" "api_task_definition" {
         retries     = 3
         startPeriod = 60
       }
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 

@@ -23,9 +23,29 @@ Naming, labels, images, and shared lookups for the AutoSecOps chart.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/* Resource name for a component: <fullname>-<component>. */}}
+{{/*
+Resource name for a component: <fullname>-<component>. Names are DNS labels
+(at most 63 characters). When the full name is too long, shorten the fullname
+part and add a hash of it, so the component suffix survives and names stay
+unique per release.
+*/}}
 {{- define "autosecops.componentName" -}}
-{{- printf "%s-%s" (include "autosecops.fullname" .root) .component | trunc 63 | trimSuffix "-" }}
+{{- $fullname := include "autosecops.fullname" .root -}}
+{{- $name := printf "%s-%s" $fullname .component -}}
+{{- if gt (len $name) 63 -}}
+{{- $keep := int (sub 63 (add (len .component) 10)) -}}
+{{- $name = printf "%s-%s-%s" ($fullname | trunc $keep | trimSuffix "-") ($fullname | sha256sum | trunc 8) .component -}}
+{{- end -}}
+{{- $name -}}
+{{- end }}
+
+{{/* Migrations Job name. Without Helm hooks, each revision gets its own Job. */}}
+{{- define "autosecops.migrationsJobName" -}}
+{{- if .Values.migrations.useHelmHooks -}}
+{{- include "autosecops.componentName" (dict "root" . "component" "migrations") -}}
+{{- else -}}
+{{- include "autosecops.componentName" (dict "root" . "component" (printf "migrations-%d" .Release.Revision)) -}}
+{{- end -}}
 {{- end }}
 
 {{- define "autosecops.selectorLabels" -}}

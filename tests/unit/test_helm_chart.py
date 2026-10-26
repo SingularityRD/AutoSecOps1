@@ -146,3 +146,100 @@ def test_rendered_env_values_are_strings(values_file: Path) -> None:
                     assert isinstance(env["value"], str), (
                         f"{doc['metadata']['name']}: {env['name']} is not a string"
                     )
+
+
+def _helm_template(*args: str, chart_dir: Path = CHART_DIR) -> str:
+    return subprocess.run(
+        ["helm", "template", *args, str(chart_dir)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+@pytest.mark.parametrize("length", [44, 45, 50, 53])
+def test_long_release_names_keep_resource_names_unique(length: int) -> None:
+    # Helm allows release names of up to 53 characters.
+    release = "r" * length
+    rendered = _helm_template(release, "-f", str(CHART_DIR / "ci/minimal-values.yaml"))
+    documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
+    names = [(doc["kind"], doc["metadata"]["name"]) for doc in documents]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    assert not duplicates, f"Resource names collide: {duplicates}"
+    for doc in documents:
+        if doc["kind"] not in ("Deployment", "Service", "Job"):
+            continue
+        name = doc["metadata"]["name"]
+        assert len(name) <= 63, f"{doc['kind']} {name} is longer than 63 characters"
+        component = doc["metadata"]["labels"].get("app.kubernetes.io/component")
+        if doc["kind"] != "Job" and component:
+            assert name.endswith(f"-{component}")
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+@pytest.mark.parametrize("use_hooks", [True, False])
+def test_notes_name_the_rendered_migrations_job(
+    tmp_path: Path, use_hooks: bool
+) -> None:
+    # `helm template` skips NOTES.txt, so render it through a ConfigMap.
+    chart = tmp_path / "autosecops"
+    shutil.copytree(CHART_DIR, chart)
+    shutil.copy(chart / "templates/NOTES.txt", chart / "notes-source.txt")
+    (chart / "templates/notes-copy.yaml").write_text(
+        "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: notes\ndata:\n"
+        '  notes: {{ tpl (.Files.Get "notes-source.txt") . | quote }}\n'
+    )
+    args = [
+        "autosecops",
+        "-f",
+        str(chart / "ci/minimal-values.yaml"),
+        "--set",
+        f"migrations.useHelmHooks={str(use_hooks).lower()}",
+    ]
+    notes = yaml.safe_load(
+        _helm_template(*args, "-s", "templates/notes-copy.yaml", chart_dir=chart)
+    )["data"]["notes"]
+    job = yaml.safe_load(
+        _helm_template(*args, "-s", "templates/migrations-job.yaml", chart_dir=chart)
+    )
+    assert f"logs job/{job['metadata']['name']}\n" in notes
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_tunnels_namespace_must_differ_from_release_namespace() -> None:
+    result = subprocess.run(
+        [
+            "helm",
+            "template",
+            "autosecops",
+            str(CHART_DIR),
+            "-n",
+            "autosecops-tunnels",
+            "-f",
+            str(CHART_DIR / "ci/full-values.yaml"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "tunnels.namespace must differ from the release namespace" in result.stderr
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_tunnel_gateway_pull_secrets_reach_the_api() -> None:
+    rendered = _helm_template(
+        "autosecops", "-f", str(CHART_DIR / "ci/full-values.yaml")
+    )
+    api = next(
+        doc
+        for doc in yaml.safe_load_all(rendered)
+        if doc
+        and doc["kind"] == "Deployment"
+        and doc["metadata"]["name"] == "autosecops-api"
+    )
+    env = {
+        item["name"]: item.get("value")
+        for item in api["spec"]["template"]["spec"]["containers"][0]["env"]
+    }
+    assert env["AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS"] == "ghcr-pull"

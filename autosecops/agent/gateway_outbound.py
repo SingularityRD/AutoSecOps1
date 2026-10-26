@@ -8,9 +8,11 @@ from typing import Any
 
 import httpx
 from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
 from openai import AsyncAzureOpenAI
 
 from autosecops.outbound import OutboundHTTPTransport, create_outbound_http_client
+from autosecops.outbound_auth import OutboundGoogleAuthRequest
 
 
 class OutboundLLMHTTPHandler(AsyncHTTPHandler):
@@ -69,6 +71,16 @@ def _create_guarded_proxy_mounts(
     return {}
 
 
+def _refresh_vertex_auth(self: VertexBase, credentials: Any) -> None:
+    """Refresh Vertex credentials through the operator egress proxy.
+
+    Mirrors ``VertexBase.refresh_auth``, which serializes refreshes on its
+    re-entrant lock, but swaps google-auth's default requests transport.
+    """
+    with self._sync_refresh_lock:
+        credentials.refresh(OutboundGoogleAuthRequest())
+
+
 def install_outbound_http_policy() -> None:
     """Guard LiteLLM's async HTTP and OpenAI SDK factories before serving.
 
@@ -78,10 +90,13 @@ def install_outbound_http_policy() -> None:
     Disable LiteLLM's explicit environment proxy mounts too: those transports
     would take precedence over the guarded default transport.
     The guarded transport applies AUTOSECOPS__OUTBOUND_PROXY_URL itself, so
-    LiteLLM needs no proxy settings of its own.
+    LiteLLM needs no proxy settings of its own. Vertex token refreshes, which
+    use google-auth's own HTTP stack, get a proxy-aware transport too.
     This compatibility shim is covered against the pinned LiteLLM version.
     """
     AsyncHTTPHandler._create_async_transport = staticmethod(_create_guarded_transport)
+    # Vertex token refreshes use google-auth's requests transport.
+    VertexBase.refresh_auth = _refresh_vertex_auth
     AsyncHTTPHandler._create_httpx_proxy_mounts = staticmethod(
         _create_guarded_proxy_mounts
     )

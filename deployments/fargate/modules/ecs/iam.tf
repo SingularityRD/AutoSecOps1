@@ -148,7 +148,12 @@ resource "aws_iam_policy" "secrets_access" {
           var.saml_idp_metadata_url_arn,
           var.temporal_api_key_arn,
           aws_secretsmanager_secret.redis_url.arn,
-        ]), aws_secretsmanager_secret.sentry_dsn[*].arn)
+          var.autosecops_registry_credentials_arn,
+          ]),
+          aws_secretsmanager_secret.sentry_dsn[*].arn,
+          aws_secretsmanager_secret.license_key[*].arn,
+          aws_secretsmanager_secret.outbound_proxy_url[*].arn,
+        )
       }
     ]
   })
@@ -222,6 +227,7 @@ resource "aws_iam_policy" "ui_secrets_access" {
         Action = ["secretsmanager:GetSecretValue"]
         Resource = compact([
           var.autosecops_service_key_arn,
+          var.autosecops_registry_credentials_arn,
         ])
       }
     ]

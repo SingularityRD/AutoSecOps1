@@ -46,5 +46,8 @@ is missing or settings conflict. Rendered from configmap.yaml.
 {{- if not .Values.api.enabled -}}
 {{- fail "tunnels.enabled requires api.enabled: the API creates the tunnel gateways" -}}
 {{- end -}}
+{{- if eq .Values.tunnels.namespace .Release.Namespace -}}
+{{- fail "tunnels.namespace must differ from the release namespace: the API gets write access to Secrets and Deployments in the tunnels namespace" -}}
+{{- end -}}
 {{- end -}}
 {{- end }}

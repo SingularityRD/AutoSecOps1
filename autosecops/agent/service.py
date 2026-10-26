@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from autosecops_ee.secrets.stores.backends import get_backend
 from autosecops_registry._internal import secrets as registry_secrets
 from azure.identity.aio import ClientSecretCredential
-from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import service_account
 from pydantic import SecretStr
 from sqlalchemy import select
@@ -77,6 +76,10 @@ from autosecops.exceptions import (
 )
 from autosecops.integrations.aws_assume_role import build_workspace_external_id
 from autosecops.logger import logger
+from autosecops.outbound_auth import (
+    OutboundGoogleAuthRequest,
+    azure_identity_proxy_kwargs,
+)
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.constants import DEFAULT_SECRETS_ENVIRONMENT
 from autosecops.secrets.encryption import decrypt_keyvalues, decrypt_value
@@ -236,7 +239,8 @@ def _refresh_vertex_token(credentials_blob: str) -> str:
         orjson.loads(credentials_blob),
         scopes=[_GOOGLE_CLOUD_SCOPE],
     )
-    creds.refresh(GoogleAuthRequest())
+    # google-auth uses its own HTTP stack; route it through the egress proxy.
+    creds.refresh(OutboundGoogleAuthRequest())
     return creds.token
 
 
@@ -280,10 +284,13 @@ async def _resolve_azure_ad_token(
     assert client_id is not None
     assert client_secret is not None
 
+    # azure-identity uses its own HTTP stack; route it through the egress proxy.
+    proxy_kwargs = await azure_identity_proxy_kwargs()
     credential = ClientSecretCredential(
         tenant_id=tenant_id,
         client_id=client_id,
         client_secret=client_secret,
+        **proxy_kwargs,
     )
     try:
         token = await credential.get_token(_AZURE_COGNITIVE_SCOPE)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -394,3 +395,22 @@ class TestCreateDevUser:
         assert "user_role_assignment.organization_id =" in str(
             session.statement.compile()
         )
+
+
+def test_bootstrap_hint_never_suggests_pypi_install(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # autosecops-admin is not on PyPI; a `pip install` hint by name would
+    # install whatever a third party registers under it.
+    monkeypatch.setitem(sys.modules, "autosecops_admin.services.bootstrap", None)
+
+    result = runner.invoke(
+        app,
+        ["admin", "create-superuser", "--email", "admin@example.com"],
+        terminal_width=200,
+    )
+
+    assert result.exit_code == 1
+    output = " ".join(result.output.split())
+    assert "uv sync --extra admin" in output
+    assert "pip install" not in output

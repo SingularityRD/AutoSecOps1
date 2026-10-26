@@ -21,6 +21,13 @@ from autosecops_admin.output import (
 
 app = typer.Typer(no_args_is_help=True)
 
+# autosecops-admin is not published to PyPI, so never suggest `pip install`
+# by name: anyone could register that name.
+BOOTSTRAP_INSTALL_HINT = (
+    "Bootstrap dependencies not installed. From an AutoSecOps checkout, run: "
+    "uv sync --extra admin && uv run autosecops ..."
+)
+
 
 def async_command[F: Callable[..., Any]](func: F) -> F:
     """Decorator to run async functions in typer commands."""
@@ -179,10 +186,7 @@ def create_superuser(
             create_superuser as bootstrap_create_superuser,
         )
     except ImportError:
-        print_error(
-            "Bootstrap dependencies not installed. "
-            "Install with: pip install autosecops-admin[bootstrap]"
-        )
+        print_error(BOOTSTRAP_INSTALL_HINT)
         raise typer.Exit(1) from None
 
     if create:
@@ -287,10 +291,7 @@ def create_dev_user(
             create_dev_user as bootstrap_create_dev_user,
         )
     except ImportError:
-        print_error(
-            "Bootstrap dependencies not installed. "
-            "Install with: pip install autosecops-admin[bootstrap]"
-        )
+        print_error(BOOTSTRAP_INSTALL_HINT)
         raise typer.Exit(1) from None
 
     if len(password) < 12:

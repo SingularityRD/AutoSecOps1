@@ -135,7 +135,9 @@ variable "alb_ssl_policy" {
 ### Security
 
 variable "auth_types" {
-  type    = string
+  type = string
+  # SAML, not basic like Compose and Helm: this stack is public by default, so
+  # sign-in goes through the identity provider. See docs/self-hosting/aws-fargate.mdx.
   default = "saml"
 }
 
@@ -183,6 +185,12 @@ variable "autosecops_migrations_image" {
 variable "autosecops_migrations_image_tag" {
   type        = string
   description = "Docker image tag for the AutoSecOps migrations init container. Defaults to autosecops_image_tag."
+  default     = null
+}
+
+variable "autosecops_registry_credentials_arn" {
+  type        = string
+  description = "Optional Secrets Manager secret ARN with {\"username\", \"password\"} for a private registry that hosts the AutoSecOps images, such as GHCR (a GitHub username and a personal access token with read:packages). ECS uses it to pull the API, worker, executor, LiteLLM, MCP, migrations, and UI images. Leave null for public images or ECR."
   default     = null
 }
 
@@ -262,7 +270,7 @@ variable "outbound_allowed_private_cidrs" {
 
 variable "outbound_proxy_url" {
   type        = string
-  description = "Corporate HTTP(S) forward proxy for outbound MCP and LLM requests, e.g. http://user:password@proxy.internal:3128. Empty connects directly. Credentials land in the task definition environment."
+  description = "Corporate HTTP(S) forward proxy for outbound MCP and LLM requests, e.g. http://user:password@proxy.internal:3128. Empty connects directly. Stored in a Terraform-managed Secrets Manager secret and injected through ECS secrets."
   default     = ""
   sensitive   = true
 }
@@ -310,7 +318,7 @@ variable "feature_flags" {
 
 variable "license_key" {
   type        = string
-  description = "Signed AutoSecOps license key. Enables paid entitlements on single-tenant installs."
+  description = "Signed AutoSecOps license key. Enables paid entitlements on single-tenant installs. Stored in a Terraform-managed Secrets Manager secret and injected through ECS secrets."
   default     = null
   sensitive   = true
 }
@@ -380,7 +388,7 @@ variable "db_pool_timeout" {
 variable "db_pool_recycle" {
   type        = string
   description = "The time in seconds after which pool connections are recycled"
-  default     = "300"
+  default     = "600"
 }
 
 variable "db_auth_max_overflow" {
@@ -412,7 +420,7 @@ variable "db_pool_size_executor" {
 variable "context_compression_enabled" {
   type        = bool
   description = "Enable compression of large action results in workflow contexts"
-  default     = true
+  default     = false
 }
 
 variable "context_compression_threshold_kb" {
@@ -436,7 +444,7 @@ variable "temporal_payload_encryption_cache_ttl_seconds" {
 variable "temporal_payload_encryption_cache_max_items" {
   type        = number
   description = "Maximum number of cached Temporal encryption keys"
-  default     = 128
+  default     = 4096
 }
 
 ### Secret ARNs
@@ -703,7 +711,7 @@ variable "executor_desired_count" {
 
 variable "executor_client_timeout" {
   type    = string
-  default = "900"
+  default = "300"
 }
 
 variable "agent_sandbox_timeout" {
@@ -797,7 +805,7 @@ variable "agent_executor_queue" {
 
 variable "agent_executor_max_concurrent_activities" {
   type        = number
-  description = "Maximum concurrent activities per agent-executor task"
+  description = "Maximum concurrent activities per agent-executor task. Lower than the Compose and Helm default of 8 so that concurrent agent sandboxes (up to 4 GiB each by default) fit the default 16 GiB agent_executor_memory."
   default     = 3
 }
 
@@ -932,7 +940,7 @@ variable "litellm_desired_count" {
 variable "litellm_num_workers" {
   type        = string
   description = "Number of uvicorn workers for the LiteLLM service"
-  default     = "8"
+  default     = "2"
 }
 
 variable "enable_mcp" {
@@ -978,7 +986,7 @@ variable "mcp_tool_timeout_seconds" {
 variable "mcp_max_input_size_bytes" {
   type        = string
   description = "Maximum size in bytes for any single string argument to an MCP tool call"
-  default     = "524288"
+  default     = "4194304"
 }
 
 variable "mcp_startup_max_attempts" {

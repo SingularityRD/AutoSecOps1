@@ -6,6 +6,14 @@ locals {
   autosecops_migrations_image     = coalesce(var.autosecops_migrations_image, var.autosecops_image)
   autosecops_migrations_image_tag = coalesce(var.autosecops_migrations_image_tag, local.autosecops_image_tag)
 
+  # Pull credentials for a private registry such as GHCR, merged into every
+  # container definition that runs an AutoSecOps image.
+  autosecops_repository_credentials = var.autosecops_registry_credentials_arn != null ? {
+    repositoryCredentials = {
+      credentialsParameter = var.autosecops_registry_credentials_arn
+    }
+  } : {}
+
   # WAF regex pattern set names. Default to "${name_prefix}-..." so each stack
   # gets uniquely-named pattern sets within a shared AWS account; explicit
   # variable values override (e.g. legacy stacks that already own bare names).
@@ -56,7 +64,6 @@ locals {
     AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID              = data.aws_caller_identity.current.account_id
     AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
     AUTOSECOPS__FEATURE_FLAGS                           = var.feature_flags
-    AUTOSECOPS__LICENSE_KEY                             = var.license_key
     AUTOSECOPS__EE_MULTI_TENANT                         = var.ee_multi_tenant
     AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
     AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb
@@ -70,8 +77,9 @@ locals {
     AUTOSECOPS__AGENT_SANDBOX_TIMEOUT = var.agent_sandbox_timeout
     # Shared outbound policy for MCP and custom LLM requests.
     AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = var.outbound_allowed_private_cidrs
-    AUTOSECOPS__OUTBOUND_PROXY_URL             = var.outbound_proxy_url
-    AUTOSECOPS__OUTBOUND_NO_PROXY              = var.outbound_no_proxy
+    # AUTOSECOPS__OUTBOUND_PROXY_URL can hold credentials, so it is an ECS
+    # secret (secrets.tf), like AUTOSECOPS__LICENSE_KEY.
+    AUTOSECOPS__OUTBOUND_NO_PROXY = var.outbound_no_proxy
     # Audit client-IP attribution: both api and mcp resolve X-Forwarded-For,
     # so it rides the common env. Empty uses the built-in private-range default.
     AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs

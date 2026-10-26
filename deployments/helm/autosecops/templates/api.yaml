@@ -59,6 +59,14 @@ env:
     value: kubernetes
   - name: AUTOSECOPS__TUNNEL_GATEWAY_IMAGE
     value: {{ include "autosecops.tunnelGatewayImage" . | quote }}
+  {{- if $g.imagePullSecrets }}
+  {{- $pullSecrets := list }}
+  {{- range $g.imagePullSecrets }}
+  {{- $pullSecrets = append $pullSecrets .name }}
+  {{- end }}
+  - name: AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS
+    value: {{ join "," $pullSecrets | quote }}
+  {{- end }}
   - name: AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS
     value: {{ join "," $g.blockedCidrs | quote }}
   - name: AUTOSECOPS__TUNNEL_GATEWAY_API_URL

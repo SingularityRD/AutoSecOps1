@@ -154,6 +154,38 @@ async def resolve_outbound_addresses(
             raise OutboundRequestDenied("Host could not be resolved") from exc
     else:
         addresses = [literal]
+    _check_outbound_addresses(addresses)
+    return addresses
+
+
+def resolve_outbound_addresses_sync(
+    host: str, port: int
+) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Blocking variant of ``resolve_outbound_addresses`` for sync HTTP stacks."""
+    if "%" in host:
+        raise OutboundRequestDenied("Scoped addresses are not allowed")
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(
+                host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP
+            )
+            addresses = list(
+                dict.fromkeys(ipaddress.ip_address(i[4][0]) for i in infos)
+            )
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise OutboundRequestDenied("Host could not be resolved") from exc
+    else:
+        addresses = [literal]
+    _check_outbound_addresses(addresses)
+    return addresses
+
+
+def _check_outbound_addresses(
+    addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address],
+) -> None:
+    """Reject the whole result if any address is prohibited."""
     if not addresses:
         raise OutboundRequestDenied("Host could not be resolved")
     for address in addresses:
@@ -169,7 +201,6 @@ async def resolve_outbound_addresses(
         )
         if is_disallowed_address(effective) and not allowed:
             raise OutboundRequestDenied("Host is not allowed")
-    return addresses
 
 
 def _validate_url(url: httpx.URL) -> None:
@@ -208,6 +239,21 @@ def _bypasses_egress_proxy(host: str) -> bool:
         elif address is not None and address in entry:
             return True
     return False
+
+
+def egress_proxy_url_for(url: str) -> str | None:
+    """Return the operator egress proxy for ``url``, or None to connect directly.
+
+    For HTTP stacks other than the shared outbound client, such as provider
+    SDK token requests, so they follow the same proxy and bypass rules.
+    """
+    proxy_url = config.AUTOSECOPS__OUTBOUND_PROXY_URL
+    if proxy_url is None:
+        return None
+    host = httpx.URL(url).host
+    if not host or _bypasses_egress_proxy(host):
+        return None
+    return proxy_url
 
 
 def _create_egress_proxy_transport(
