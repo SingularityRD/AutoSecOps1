@@ -73,10 +73,10 @@ Keep these out of your application configuration and out of version control. Use
 | Deployment | Recommended storage |
 | --- | --- |
 | [AWS ECS Fargate](/self-hosting/aws-fargate) | AWS Secrets Manager. Pass secret ARNs to Terraform; ECS resolves the values at task launch, so they never appear in your `.tfvars`. |
-| [Kubernetes](/self-hosting/kubernetes#secrets-management) | External Secrets Operator syncing from your secret manager, or an existing Kubernetes Secret you create out of band. |
+| [Kubernetes](/self-hosting/kubernetes#secrets-management) | An existing Kubernetes Secret, ideally synced from your secret manager by External Secrets Operator, referenced with `secrets.existingSecret`. |
 | [Docker Compose](/self-hosting/docker-compose) | A `.env` file on the host. Restrict it to the service account that runs AutoSecOps and exclude it from version control. |
 
-On Kubernetes, prefer External Secrets Operator over a hand-created Secret. Your secret manager stays the source of truth, the operator re-syncs values rather than copying them, and no plaintext passes through a shell history or a manifest. Reserve chart-managed secret templates for pipelines that encrypt values at rest with Sealed Secrets or SOPS.
+On Kubernetes, prefer a Secret that External Secrets Operator syncs from your secret manager over a hand-created one. Your secret manager stays the source of truth, the operator re-syncs values rather than copying them, and no plaintext passes through a shell history or a manifest. Reserve chart-created Secrets for pipelines that encrypt values at rest with Sealed Secrets or SOPS.
 
 ### Rotation
 
@@ -152,7 +152,7 @@ When you enable nsjail, each agent, Python script, custom action, and dependency
 | Dependency installation for `core.script.run_python` | 2048 MB | `AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB` | 300 s | 256 MB | 64 |
 | Agents | 4096 MB | `AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB` | Agent timeout ceiling | 256 MB | 128 |
 
-Pass `AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB` to your action executor and `AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB` to `agent-executor`. Docker Compose forwards both settings. Helm chart 0.7.0 or newer exposes them as `executor.sandboxMemoryMib` and `agentExecutor.sandboxMemoryMib` and provides the required executor cgroup bootstrap.
+Pass `AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB` to your action executor and `AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB` to `agent-executor`. Docker Compose forwards both settings. The Helm chart exposes them as `autosecops.sandbox.defaultMemoryMb` and `autosecops.sandbox.agentMemoryMb` and starts nsjail executors through the required cgroup bootstrap.
 
 Sandboxes have no per-process address-space cap (`rlimit_as`) by default, because the cgroup memory budget already bounds RAM. Set `AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB=8192` or `AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB=16384` to add one. Size this cap well above your workload's peak virtual size, since runtimes such as DuckDB reserve far more address space than the RAM they use. Stdio MCP connection probes use the same policy with a memory budget capped at 1024 MiB.
 

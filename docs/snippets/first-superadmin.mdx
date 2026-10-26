@@ -4,7 +4,7 @@ Set the first superadmin's email before anyone signs in. Until it is set, nobody
 | :--------- | :------ |
 | Docker Compose | `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` in `.env` |
 | AWS ECS Fargate | `TF_VAR_auth_superadmin_email`, or `auth_superadmin_email` in your `.tfvars` |
-| Kubernetes | `tracecat.auth.superadminEmail` in `values.yaml` |
+| Kubernetes | `autosecops.auth.superadminEmail` in your Helm values |
 
 - Basic auth: sign up with that email, then log in.
 - SSO: log in through your identity provider. AutoSecOps creates the account on first login.

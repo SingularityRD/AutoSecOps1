@@ -1,0 +1,42 @@
+AutoSecOps {{ .Chart.AppVersion }} is deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Public URL: {{ include "autosecops.publicAppUrl" . }}
+
+1. Watch the rollout:
+
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+{{- if .Values.migrations.enabled }}
+
+   Migrations run in the {{ include "autosecops.componentName" (dict "root" . "component" "migrations") }} Job:
+   kubectl -n {{ .Release.Namespace }} logs job/{{ include "autosecops.componentName" (dict "root" . "component" "migrations") }}
+{{- end }}
+
+2. Check the API without an ingress:
+
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "autosecops.componentName" (dict "root" . "component" "api") }} 8000:{{ .Values.api.service.port }}
+   curl http://localhost:8000/health
+
+{{- if .Values.ingress.enabled }}
+
+3. Open https://{{ .Values.ingress.host }} once DNS points at your ingress controller.
+{{- else }}
+
+3. Expose the UI and API with `ingress.enabled=true`, or put your own proxy in
+   front of the {{ include "autosecops.componentName" (dict "root" . "component" "ui") }} (/) and {{ include "autosecops.componentName" (dict "root" . "component" "api") }} (/api) services.
+{{- end }}
+
+{{- if .Values.autosecops.auth.superadminEmail }}
+
+Sign in first as {{ .Values.autosecops.auth.superadminEmail }} to become superadmin.
+{{- else }}
+
+WARNING: autosecops.auth.superadminEmail is empty. Nobody can register until you set it.
+{{- end }}
+
+{{- if and (not .Values.secrets.existingSecret) .Values.migrations.enabled .Values.migrations.useHelmHooks }}
+
+Chart-created Secrets are Helm hooks: `helm uninstall` keeps them so the
+encryption keys survive. Back them up, and delete them by hand only when you
+discard the installation.
+{{- end }}

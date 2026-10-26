@@ -1,0 +1,816 @@
+# Default values for the AutoSecOps Helm chart.
+#
+# The chart deploys the AutoSecOps services only. PostgreSQL (with pgvector),
+# Redis, S3-compatible object storage, and Temporal run outside the chart; point
+# the chart at them with the `external*` sections below.
+#
+# Values marked "Required" fail `helm template` / `helm install` with a clear
+# message when unset. Never commit real secret values to a values file: prefer
+# `existingSecret` references to Kubernetes Secrets you manage separately.
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the full resource name prefix (defaults to the release name, or
+# `<release>-autosecops` when the release name does not contain `autosecops`).
+fullnameOverride: ""
+
+# -- Labels added to every resource the chart creates.
+commonLabels: {}
+
+# -- Backend image used by api, worker, executor, agent-worker, agent-executor,
+# litellm, mcp, and the migrations job.
+image:
+  repository: ghcr.io/singularityrd/autosecops
+  # -- Defaults to the chart appVersion.
+  tag: ""
+  # -- Optional digest (`sha256:...`). Takes precedence over `tag`.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# -- Frontend (Next.js) image.
+uiImage:
+  repository: ghcr.io/singularityrd/autosecops-ui
+  # -- Defaults to the chart appVersion.
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for every pod, e.g. `[{name: ghcr-pull}]`.
+imagePullSecrets: []
+
+# Public URLs. AutoSecOps uses them for redirects, OAuth callbacks, webhook URLs,
+# and CORS.
+urls:
+  # -- Required. Public URL users open in the browser, e.g. `https://autosecops.example.com`.
+  publicApp: ""
+  # -- Public API URL. Defaults to `<publicApp>/api`.
+  publicApi: ""
+  # -- Comma-separated CORS origins. Defaults to `publicApp`.
+  allowOrigins: ""
+
+# Application settings. Every key maps to an `AUTOSECOPS__*` (or related)
+# environment variable on the services that read it.
+autosecops:
+  # -- One of `development`, `staging`, `production`.
+  appEnv: production
+  # -- Python log level.
+  logLevel: INFO
+  # -- `json` or `console`.
+  logFormat: json
+  # -- Comma-separated feature flags. Flags never grant paid entitlements.
+  featureFlags: ""
+  # -- Enable multi-tenant enterprise mode.
+  eeMultiTenant: false
+
+  auth:
+    # -- Comma-separated auth types: `basic`, `oidc`, `saml`.
+    types: basic
+    # -- Email of the first user to promote to superadmin. Set it before anyone
+    # signs in; it is case-sensitive.
+    superadminEmail: ""
+    # -- Comma-separated email domains allowed to sign up. Empty allows all.
+    allowedDomains: ""
+    minPasswordLength: 12
+    oidc:
+      # -- OIDC issuer URL. Client ID and secret live in the core secret
+      # (`oidcClientId`, `oidcClientSecret`).
+      issuer: ""
+      scopes: "openid profile email"
+    saml:
+      # -- Accept IdP-initiated SAML responses.
+      allowUnsolicited: false
+
+  # Invitation email over SMTP. The password lives in the core secret
+  # (`smtpPassword`). Delivery is enabled only when every value is set.
+  smtp:
+    host: ""
+    port: 587
+    user: ""
+    # -- Sender, e.g. `AutoSecOps <no-reply@example.com>`.
+    emailFrom: ""
+
+  # -- Ceiling in seconds for every agent action and chat turn
+  # (`AUTOSECOPS__AGENT_SANDBOX_TIMEOUT`). Must be at least 1800 to keep the
+  # default agent timeout.
+  agentSandboxTimeout: 10800
+
+  # -- Comma-separated private IPs/CIDRs that LLM providers and MCP servers may
+  # resolve to, e.g. an in-cluster LiteLLM, vLLM, or Ollama service.
+  outboundAllowedPrivateCidrs: ""
+  # -- Hosts that bypass the outbound proxy. The proxy URL itself lives in the
+  # core secret (`outboundProxyUrl`) because it may embed credentials.
+  outboundNoProxy: ""
+  # -- CIDRs trusted to set X-Forwarded-For for audit client IPs. Empty uses the
+  # built-in private-range default.
+  auditTrustedProxyCidrs: ""
+  # -- Break-glass recovery for a platform admin IP allowlist lockout.
+  platformAdminIpAllowlistBypass: false
+
+  contextCompression:
+    enabled: false
+    thresholdKb: 16
+  resultExternalization:
+    # -- Store large action results and triggers in blob storage instead of
+    # Temporal history.
+    enabled: true
+    thresholdBytes: 128000
+  # -- Store large collections as chunked manifests in blob storage.
+  collectionManifestsEnabled: true
+  # -- Days to keep workflow artifacts in blob storage. 0 disables expiry.
+  workflowArtifactRetentionDays: 30
+
+  # Database connection pool tuning per process.
+  db:
+    poolSize: 10
+    maxOverflow: 60
+    poolTimeout: 30
+    poolRecycle: 600
+    authPoolSize: 5
+    authMaxOverflow: 5
+
+  # Temporal task queues shared by the workers.
+  queues:
+    executor: shared-action-queue
+    agent: shared-agent-queue
+    agentExecutor: shared-agent-executor-queue
+
+  # -- Maximum seconds one action function call may run.
+  executorClientTimeout: 300
+
+  temporal:
+    metrics:
+      # -- Expose Temporal SDK Prometheus metrics on worker, executor,
+      # agent-worker, and agent-executor pods, with `prometheus.io/*` scrape
+      # annotations.
+      enabled: false
+      port: 9090
+    payloadEncryption:
+      # -- Encrypt Temporal payloads. Put the JSON keyring in the core secret
+      # (`temporalPayloadEncryptionKeyring`) or set `keyringArn`.
+      enabled: false
+      keyringArn: ""
+      cacheTtlSeconds: 3600
+      cacheMaxItems: 128
+
+  aws:
+    # -- AWS account ID executors use for cross-account `AssumeRole`.
+    assumeRoleAccountId: ""
+    # -- Principal ARN the target roles trust, usually the executor IRSA role.
+    assumeRolePrincipalArn: ""
+
+  sandbox:
+    # -- Run executor and agent-executor without nsjail (`direct` backend).
+    # When false (default), both run the `nsjail` backend as privileged pods.
+    disableNsjail: false
+    # -- Default memory limit in MiB for action sandboxes (executor).
+    defaultMemoryMb: 2048
+    # -- Memory limit in MiB for agent sandboxes (agent-executor).
+    agentMemoryMb: 4096
+
+  # OpenTelemetry export of platform traces.
+  otel:
+    enabled: false
+    endpoint: ""
+    tracesSampler: parentbased_traceidratio
+    tracesSamplerArg: "1.0"
+
+  # Managed tunnels through Pangolin (Enterprise `tunnels` entitlement). Only
+  # the API reads these. See `tunnels` below for the gateway runtime.
+  pangolin:
+    # -- Pangolin server that sites and machine clients connect to.
+    endpoint: ""
+    # -- Pangolin Integration API base URL, ending in `/v1`.
+    apiUrl: ""
+    # -- Pangolin organization that holds managed tunnels.
+    orgId: ""
+    # -- Pangolin API key. Prefer `existingSecret`.
+    apiKey: ""
+    existingSecret: ""
+    apiKeyKey: apiKey
+
+  # -- Extra environment variables for every backend container, e.g.
+  # `[{name: AUTOSECOPS__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS, value: "10.0.0.10/32"}]`.
+  extraEnv: []
+
+# Core secrets shared by the backend services. Set `existingSecret` to use a
+# Secret you manage, or set the values below to let the chart create
+# `<fullname>-secrets`. Generate values with:
+#   dbEncryptionKey: openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'
+#   serviceKey, signingSecret, userAuthSecret: openssl rand -hex 32
+# Never change these between upgrades: losing dbEncryptionKey makes stored
+# credentials unrecoverable.
+secrets:
+  # -- Name of an existing Secret with keys `dbEncryptionKey`, `serviceKey`,
+  # `signingSecret`, `userAuthSecret`, and any optional keys below.
+  existingSecret: ""
+  # -- Required unless `existingSecret` is set.
+  dbEncryptionKey: ""
+  # -- Required unless `existingSecret` is set.
+  serviceKey: ""
+  # -- Required unless `existingSecret` is set.
+  signingSecret: ""
+  # -- Required unless `existingSecret` is set.
+  userAuthSecret: ""
+  # Optional keys. Empty values are left out of the chart-created Secret.
+  licenseKey: ""
+  oidcClientId: ""
+  oidcClientSecret: ""
+  oauthClientId: ""
+  oauthClientSecret: ""
+  samlIdpMetadataUrl: ""
+  smtpPassword: ""
+  sentryDsn: ""
+  outboundProxyUrl: ""
+  otelExporterOtlpHeaders: ""
+  temporalPayloadEncryptionKeyring: ""
+
+# External PostgreSQL 15+ with the pgvector extension available.
+externalPostgres:
+  # -- Required. Hostname of the PostgreSQL server.
+  host: ""
+  port: 5432
+  database: postgres
+  # -- libpq sslmode: `disable`, `require`, `verify-ca`, `verify-full`.
+  sslMode: require
+  auth:
+    # -- Required unless `existingSecret` is set.
+    username: ""
+    # -- Required unless `existingSecret` is set.
+    password: ""
+    # -- Existing Secret holding the credentials (e.g. a CloudNativePG `-app` secret).
+    existingSecret: ""
+    usernameKey: username
+    passwordKey: password
+  tls:
+    # -- PEM CA bundle for `verify-ca` / `verify-full`. Mounted into every
+    # backend pod and exported as `PGSSLROOTCERT`.
+    caCert: ""
+
+# External Redis.
+externalRedis:
+  auth:
+    # -- Required unless `existingSecret` is set. Full URL, e.g.
+    # `rediss://:password@redis.example.com:6379`. Use `rediss://` for TLS.
+    url: ""
+    existingSecret: ""
+    urlKey: url
+
+# S3 or an S3-compatible store (MinIO, Ceph, R2, ...).
+externalS3:
+  # -- Endpoint URL. Leave empty for AWS S3.
+  endpoint: ""
+  # -- AWS region. Exported as `AWS_REGION` / `AWS_DEFAULT_REGION` when set.
+  region: ""
+  # -- Verify TLS certificates of the storage endpoint.
+  sslVerify: true
+  # -- Total attempts (initial try + retries) for transient storage failures.
+  maxAttempts: 5
+  # -- Public endpoint browsers use for presigned URLs. Defaults to `endpoint`.
+  presignedUrlEndpoint: ""
+  buckets:
+    workflow: autosecops-workflow
+    attachments: autosecops-attachments
+    registry: autosecops-registry
+    agent: autosecops-agent
+    skills: autosecops-skills
+  auth:
+    # -- Static access key. Leave empty to use IRSA / the default AWS
+    # credential chain.
+    accessKeyId: ""
+    secretAccessKey: ""
+    existingSecret: ""
+    accessKeyIdKey: accessKeyId
+    secretAccessKeyKey: secretAccessKey
+
+# External Temporal server or Temporal Cloud.
+externalTemporal:
+  # -- Required. Temporal frontend address, e.g. `temporal-frontend.temporal:7233`
+  # or `<namespace>.<account>.tmprl.cloud:7233`.
+  clusterUrl: ""
+  namespace: default
+  taskQueue: autosecops-task-queue
+  auth:
+    # -- Temporal Cloud API key. Leave empty for self-hosted Temporal without auth.
+    apiKey: ""
+    existingSecret: ""
+    apiKeyKey: apiKey
+
+# Shared service account for every AutoSecOps workload. Components can opt into
+# a dedicated account with `<component>.serviceAccount.create`.
+serviceAccount:
+  create: true
+  # -- Defaults to the fullname.
+  name: ""
+  # -- Annotations, e.g. `eks.amazonaws.com/role-arn` for IRSA.
+  annotations: {}
+
+# Pod-level security context for every pod except sandboxed executors in
+# nsjail mode. The images run as uid/gid 1001.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context for every container except sandboxed executors in
+# nsjail mode.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+# Scheduling defaults for every pod. Component values take precedence.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Database migrations (`alembic upgrade head`). Docker Compose runs them in a
+# one-shot container and Fargate in an init container of the API task; the
+# chart runs them in a Job before the services roll.
+migrations:
+  enabled: true
+  # -- Run as a `pre-install,pre-upgrade` Helm hook. When false, the Job is a
+  # regular release resource named after the release revision.
+  useHelmHooks: true
+  image:
+    # -- Defaults to `image.repository`.
+    repository: ""
+    # -- Defaults to `image.tag`, then the chart appVersion.
+    tag: ""
+  backoffLimit: 3
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# Per-component settings. Every component supports:
+#   enabled, replicaCount, resources, autoscaling, podDisruptionBudget,
+#   serviceAccount, podAnnotations, podLabels, nodeSelector, tolerations,
+#   affinity, topologySpreadConstraints, priorityClassName,
+#   terminationGracePeriodSeconds, extraEnv, extraVolumes, extraVolumeMounts.
+# Default resources match the Fargate task sizes in deployments/fargate.
+
+api:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      memory: 4Gi
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 60
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 60
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+worker:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      memory: 4Gi
+  # -- DSL worker concurrency (`TEMPORAL__*`). Lower on small CPU allocations.
+  threadpoolMaxWorkers: 100
+  maxConcurrentActivities: 100
+  maxConcurrentWorkflowTasks: 100
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 120
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+executor:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "4"
+      memory: 8Gi
+    limits:
+      memory: 8Gi
+  # -- Override the execution backend (`nsjail` or `direct`). Empty follows
+  # `autosecops.sandbox.disableNsjail`.
+  backend: ""
+  maxConcurrentActivities: 32
+  threadpoolMaxWorkers: 32
+  forEachMaxConcurrency: 4
+  registryCacheMaxEntries: 64
+  registryCacheMaxBytes: 10737418240
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 360
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+agentWorker:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      memory: 4Gi
+  maxConcurrentActivities: 100
+  threadpoolMaxWorkers: 100
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 120
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+agentExecutor:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "4"
+      memory: 16Gi
+    limits:
+      memory: 16Gi
+  # -- Override the execution backend (`nsjail` or `direct`). Empty follows
+  # `autosecops.sandbox.disableNsjail`.
+  backend: ""
+  maxConcurrentActivities: 8
+  # -- Seconds the agent LLM proxy waits for the next byte from the model.
+  llmProxyReadTimeout: 600
+  # -- Worker drain timeout in seconds. Defaults to
+  # `autosecops.agentSandboxTimeout + 60`; must be at least that.
+  gracefulShutdownTimeout: null
+  # -- Pod grace period. Defaults to `gracefulShutdownTimeout + 60`.
+  terminationGracePeriodSeconds: null
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: null
+    maxUnavailable: 1
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+litellm:
+  # -- Managed LiteLLM gateway the agent executor calls for model requests.
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "4"
+      memory: 8Gi
+    limits:
+      memory: 8Gi
+  service:
+    type: ClusterIP
+    port: 4000
+    annotations: {}
+  numWorkers: 2
+  # -- Seconds in-flight LLM requests may drain after SIGTERM before the pod is
+  # killed (`GRACEFUL_SHUTDOWN_TIMEOUT`).
+  drainTimeoutSeconds: 1800
+  # -- Seconds to wait before SIGTERM so endpoints stop routing to the pod.
+  preStopSleepSeconds: 10
+  startupProbe:
+    httpGet:
+      path: /health/readiness
+      port: http
+    periodSeconds: 5
+    failureThreshold: 60
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /health/liveliness
+      port: http
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+mcp:
+  # -- MCP server for external IDE and agent integrations.
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 8099
+    annotations: {}
+  rateLimitRps: 2.0
+  rateLimitBurst: 10
+  toolTimeoutSeconds: 120
+  maxInputSizeBytes: 4194304
+  fileTransferUrlExpirySeconds: 300
+  startupMaxAttempts: 3
+  startupRetryDelaySeconds: 2
+  startupProbe:
+    httpGet:
+      path: /.well-known/oauth-authorization-server
+      port: http
+    periodSeconds: 5
+    failureThreshold: 60
+  readinessProbe:
+    httpGet:
+      path: /.well-known/oauth-authorization-server
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /.well-known/oauth-authorization-server
+      port: http
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 30
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+ui:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+  # -- Extra origins for the UI Content-Security-Policy `connect-src`
+  # (space-separated). Defaults to the presigned URL endpoint.
+  cspConnectSrcOrigins: ""
+  readinessProbe:
+    tcpSocket:
+      port: http
+    periodSeconds: 10
+    failureThreshold: 3
+  livenessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 30
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+# Ingress with the same routing as the Docker Compose Caddyfile:
+#   /api        -> api   (FastAPI serves under the /api root path)
+#   /mcp and MCP OAuth/discovery routes -> mcp (when mcp.enabled)
+#   /           -> ui
+ingress:
+  enabled: false
+  # -- IngressClass name, e.g. `nginx`, `alb`, `traefik`.
+  className: ""
+  # -- Required when enabled. Public hostname, e.g. `autosecops.example.com`.
+  host: ""
+  annotations: {}
+  # -- TLS blocks, e.g. `[{hosts: [autosecops.example.com], secretName: autosecops-tls}]`.
+  tls: []
+
+# Managed tunnel gateways (Enterprise `tunnels` entitlement). When enabled, the
+# API creates a `tunnel-<id>` Secret, Deployment, and Service per tunnel in
+# `tunnels.namespace` and reconciles them every minute. Gateways need
+# NET_ADMIN and `/dev/net/tun`, exposed by a device plugin through
+# `gateway.tunResource`.
+tunnels:
+  enabled: false
+  # -- Namespace that holds gateway objects.
+  namespace: autosecops-tunnels
+  # -- Create the namespace with the `privileged` Pod Security level. Set false
+  # if you manage the namespace yourself.
+  createNamespace: true
+  gateway:
+    image:
+      repository: ghcr.io/singularityrd/autosecops-tunnel-gateway
+      # -- Defaults to the chart appVersion.
+      tag: ""
+    # -- Required when enabled. Every pod, service, and node CIDR in the
+    # cluster, so gateways never dial cluster-internal addresses.
+    blockedCidrs: []
+    # -- Extended resource that grants `/dev/net/tun`. Empty disables the request.
+    tunResource: squat.ai/tun
+    port: 8080
+    reconcileInterval: 60
+  networkPolicy:
+    # -- Restrict gateway ingress to executor pods and egress to DNS, the API,
+    # and Pangolin.
+    enabled: true
+    # -- CIDRs gateways may reach Pangolin on (TCP 443, UDP 21820).
+    pangolinCidrs: ["0.0.0.0/0"]
+  admissionPolicy:
+    # -- ValidatingAdmissionPolicy (Kubernetes 1.30+) that only admits pods
+    # running the gateway image in the tunnels namespace.
+    enabled: true

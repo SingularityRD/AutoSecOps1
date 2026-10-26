@@ -1,0 +1,44 @@
+{{- define "autosecops.litellm.container" -}}
+{{- $v := .Values.litellm -}}
+command: ["python", "-m", "autosecops.agent.litellm"]
+ports:
+  - name: http
+    containerPort: {{ $v.service.port }}
+    protocol: TCP
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: litellm
+  - name: AUTOSECOPS__LITELLM_PORT
+    value: {{ $v.service.port | toString | quote }}
+  - name: AUTOSECOPS__LITELLM_NUM_WORKERS
+    value: {{ $v.numWorkers | toString | quote }}
+  # Drain budget: requests still open after it are logged by the gateway drain.
+  - name: GRACEFUL_SHUTDOWN_TIMEOUT
+    value: {{ $v.drainTimeoutSeconds | toString | quote }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "litellm") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{- if $v.preStopSleepSeconds }}
+lifecycle:
+  preStop:
+    exec:
+      command: ["sleep", {{ $v.preStopSleepSeconds | toString | quote }}]
+{{- end }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.litellm.enabled }}
+{{- $v := .Values.litellm }}
+{{- $ctx := dict "root" . "component" "litellm" "values" $v }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.litellm.container" .)
+    "backend" true
+    "terminationGracePeriodSeconds" (add (int $v.preStopSleepSeconds) (int $v.drainTimeoutSeconds) 30)
+    "strategy" (dict "type" "RollingUpdate" "rollingUpdate" (dict "maxUnavailable" 0 "maxSurge" 1))
+  ) $ctx) }}
+---
+{{ include "autosecops.service" $ctx }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

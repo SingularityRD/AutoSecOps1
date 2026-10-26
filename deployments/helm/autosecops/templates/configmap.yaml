@@ -1,0 +1,110 @@
+{{- include "autosecops.validate" . -}}
+{{- $s3 := .Values.externalS3 -}}
+{{- $a := .Values.autosecops -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "autosecops.fullname" . }}-env
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+data:
+  # Shared by every backend service (Fargate: autosecops_common_env).
+  LOG_LEVEL: {{ $a.logLevel | quote }}
+  AUTOSECOPS__APP_ENV: {{ $a.appEnv | quote }}
+  AUTOSECOPS__LOG_FORMAT: {{ $a.logFormat | quote }}
+  AUTOSECOPS__FEATURE_FLAGS: {{ $a.featureFlags | quote }}
+  AUTOSECOPS__EE_MULTI_TENANT: {{ $a.eeMultiTenant | toString | quote }}
+  AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: {{ $a.agentSandboxTimeout | toString | quote }}
+  AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED: {{ $a.contextCompression.enabled | toString | quote }}
+  AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB: {{ $a.contextCompression.thresholdKb | toString | quote }}
+  AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED: {{ $a.resultExternalization.enabled | toString | quote }}
+  AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES: {{ $a.resultExternalization.thresholdBytes | int64 | toString | quote }}
+  AUTOSECOPS__COLLECTION_MANIFESTS_ENABLED: {{ $a.collectionManifestsEnabled | toString | quote }}
+  AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS: {{ $a.workflowArtifactRetentionDays | toString | quote }}
+  AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS: {{ $a.outboundAllowedPrivateCidrs | quote }}
+  AUTOSECOPS__OUTBOUND_NO_PROXY: {{ $a.outboundNoProxy | quote }}
+  AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS: {{ $a.auditTrustedProxyCidrs | quote }}
+  AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID: {{ $a.aws.assumeRoleAccountId | toString | quote }}
+  AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN: {{ $a.aws.assumeRolePrincipalArn | quote }}
+  AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT: {{ $a.executorClientTimeout | toString | quote }}
+  AUTOSECOPS__PLATFORM_OTEL_ENABLED: {{ $a.otel.enabled | toString | quote }}
+  {{- if $a.otel.endpoint }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ $a.otel.endpoint | quote }}
+  {{- end }}
+  OTEL_TRACES_SAMPLER: {{ $a.otel.tracesSampler | quote }}
+  OTEL_TRACES_SAMPLER_ARG: {{ $a.otel.tracesSamplerArg | toString | quote }}
+
+  # Internal and public URLs.
+  AUTOSECOPS__API_URL: {{ include "autosecops.internalApiUrl" . | quote }}
+  AUTOSECOPS__API_ROOT_PATH: "/api"
+  AUTOSECOPS__PUBLIC_APP_URL: {{ include "autosecops.publicAppUrl" . | quote }}
+  AUTOSECOPS__PUBLIC_API_URL: {{ include "autosecops.publicApiUrl" . | quote }}
+  AUTOSECOPS__LITELLM_BASE_URL: {{ include "autosecops.internalLitellmUrl" . | quote }}
+
+  # Task queues.
+  AUTOSECOPS__EXECUTOR_QUEUE: {{ $a.queues.executor | quote }}
+  AUTOSECOPS__AGENT_QUEUE: {{ $a.queues.agent | quote }}
+  AUTOSECOPS__AGENT_EXECUTOR_QUEUE: {{ $a.queues.agentExecutor | quote }}
+
+  # PostgreSQL. Credentials come from the postgres Secret.
+  AUTOSECOPS__DB_ENDPOINT: {{ .Values.externalPostgres.host | quote }}
+  AUTOSECOPS__DB_PORT: {{ .Values.externalPostgres.port | toString | quote }}
+  AUTOSECOPS__DB_NAME: {{ .Values.externalPostgres.database | quote }}
+  AUTOSECOPS__DB_SSLMODE: {{ .Values.externalPostgres.sslMode | quote }}
+  AUTOSECOPS__DB_POOL_SIZE: {{ $a.db.poolSize | toString | quote }}
+  AUTOSECOPS__DB_MAX_OVERFLOW: {{ $a.db.maxOverflow | toString | quote }}
+  AUTOSECOPS__DB_POOL_TIMEOUT: {{ $a.db.poolTimeout | toString | quote }}
+  AUTOSECOPS__DB_POOL_RECYCLE: {{ $a.db.poolRecycle | toString | quote }}
+  AUTOSECOPS__DB_AUTH_POOL_SIZE: {{ $a.db.authPoolSize | toString | quote }}
+  AUTOSECOPS__DB_AUTH_MAX_OVERFLOW: {{ $a.db.authMaxOverflow | toString | quote }}
+  {{- if .Values.externalPostgres.tls.caCert }}
+  PGSSLROOTCERT: /etc/autosecops/postgres-ca/ca.crt
+  {{- end }}
+
+  # Temporal. The API key comes from the temporal Secret.
+  TEMPORAL__CLUSTER_URL: {{ .Values.externalTemporal.clusterUrl | quote }}
+  TEMPORAL__CLUSTER_NAMESPACE: {{ .Values.externalTemporal.namespace | quote }}
+  TEMPORAL__CLUSTER_QUEUE: {{ .Values.externalTemporal.taskQueue | quote }}
+  TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED: {{ $a.temporal.payloadEncryption.enabled | toString | quote }}
+  TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN: {{ $a.temporal.payloadEncryption.keyringArn | quote }}
+  TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS: {{ $a.temporal.payloadEncryption.cacheTtlSeconds | toString | quote }}
+  TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS: {{ $a.temporal.payloadEncryption.cacheMaxItems | toString | quote }}
+
+  # Blob storage. Static credentials, if any, come from the s3 Secret.
+  AUTOSECOPS__BLOB_STORAGE_ENDPOINT: {{ $s3.endpoint | quote }}
+  AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: {{ $s3.sslVerify | toString | quote }}
+  AUTOSECOPS__BLOB_STORAGE_MAX_ATTEMPTS: {{ $s3.maxAttempts | toString | quote }}
+  AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW: {{ $s3.buckets.workflow | quote }}
+  AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS: {{ $s3.buckets.attachments | quote }}
+  AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY: {{ $s3.buckets.registry | quote }}
+  AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT: {{ $s3.buckets.agent | quote }}
+  AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS: {{ $s3.buckets.skills | quote }}
+  {{- with $s3.region }}
+  AWS_REGION: {{ . | quote }}
+  AWS_DEFAULT_REGION: {{ . | quote }}
+  {{- end }}
+  {{- if .Values.tunnels.enabled }}
+
+  # Tunnel gateways. Executors build gateway hosts from these.
+  AUTOSECOPS__TUNNEL_GATEWAY_NAMESPACE: {{ .Values.tunnels.namespace | quote }}
+  AUTOSECOPS__TUNNEL_GATEWAY_PORT: {{ .Values.tunnels.gateway.port | toString | quote }}
+  {{- end }}
+{{- if .Values.externalPostgres.tls.caCert }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "autosecops.fullname" . }}-postgres-ca
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+  {{- if and .Values.migrations.enabled .Values.migrations.useHelmHooks }}
+  annotations:
+    # The migrations hook mounts this before release resources exist.
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+  {{- end }}
+data:
+  ca.crt: |
+    {{- .Values.externalPostgres.tls.caCert | nindent 4 }}
+{{- end }}

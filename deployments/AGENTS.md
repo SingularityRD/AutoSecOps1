@@ -5,13 +5,30 @@ Rules for work under `deployments/` and the root `docker-compose*.yml` files.
 ## Review across targets
 
 - Infrastructure changes must be reviewed across every relevant target:
-  `docker-compose*.yml` and `deployments/fargate/`. Kubernetes infrastructure
-  lives in the separate `TracecatHQ/k8s` repository and must be reviewed there
-  when relevant.
-- Check the matching `values.yaml`, `variables.tf`, and `main.tf` files before
-  closing out infra work.
+  `docker-compose*.yml`, `deployments/fargate/`, and the Helm chart in
+  `deployments/helm/autosecops/`. A new service, env var, secret, port, health
+  check, or sandbox privilege usually needs a matching change in all three.
+- Check the matching `deployments/helm/autosecops/values.yaml` (and
+  `values.schema.json`), `variables.tf`, and `main.tf` files before closing out
+  infra work.
 - A change that could ship by redeploying the same image is `infra` scope, not
   `engine`.
+
+## Helm chart
+
+- The chart in `deployments/helm/autosecops/` is first-party and written from
+  the Compose and Fargate deployments. Do not copy third-party chart code into
+  it, and keep it free of chart dependencies: PostgreSQL, Redis, object
+  storage, and Temporal stay external.
+- Every env var the chart sets must use the names `autosecops/config.py`
+  reads; booleans and numbers are rendered as quoted strings.
+  `tests/unit/test_helm_chart.py` checks the names.
+- Add new values to `values.schema.json` too. The schema rejects unknown keys.
+- Bump `version` in `Chart.yaml` on every chart change. `appVersion` follows
+  the release and `scripts/update-version.sh` bumps it.
+- Verify with `helm lint --strict` and `helm template | kubeconform -strict`
+  against `ci/*-values.yaml`; `.github/workflows/lint-helm.yml` runs the same
+  checks.
 
 ## Fargate and ECS Service Connect
 

@@ -1,0 +1,52 @@
+{{- define "autosecops.executor.container" -}}
+{{- $v := .Values.executor -}}
+{{- $backend := include "autosecops.executorBackend" (dict "root" . "values" $v) -}}
+{{- if eq $backend "nsjail" }}
+# The root bootstrap delegates a cgroup subtree to uid 1001, then execs the
+# worker as that user (docker-compose.sandbox.yml uses the same entrypoint).
+command: ["python", "-m", "autosecops.sandbox.bootstrap"]
+args: ["python", "-m", "autosecops.executor.worker"]
+{{- else }}
+command: ["python", "-m", "autosecops.executor.worker"]
+{{- end }}
+{{- with include "autosecops.metricsPort" . }}
+ports:
+  {{- . | nindent 2 }}
+{{- end }}
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: executor
+  - name: AUTOSECOPS__EXECUTOR_BACKEND
+    value: {{ $backend | quote }}
+  - name: AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES
+    value: {{ $v.maxConcurrentActivities | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS
+    value: {{ $v.threadpoolMaxWorkers | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY
+    value: {{ $v.forEachMaxConcurrency | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES
+    value: {{ $v.registryCacheMaxEntries | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES
+    value: {{ $v.registryCacheMaxBytes | int64 | toString | quote }}
+  - name: AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB
+    value: {{ .Values.autosecops.sandbox.defaultMemoryMb | toString | quote }}
+  {{- include "autosecops.env.sandboxPaths" . | nindent 2 }}
+  {{- include "autosecops.env.metrics" . | nindent 2 }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "executor") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.executor.enabled }}
+{{- $ctx := dict "root" . "component" "executor" "values" .Values.executor }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.executor.container" .)
+    "backend" true
+    "sandboxed" (eq (include "autosecops.executorBackend" $ctx) "nsjail")
+    "extraPodAnnotations" (include "autosecops.metricsPodAnnotations" .)
+  ) $ctx) }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

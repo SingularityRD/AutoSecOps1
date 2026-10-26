@@ -68,7 +68,7 @@ On-prem and in-cluster gateways such as `http://litellm:4000/v1`, `http://vllm:8
 | Deployment | Where to set it |
 | --- | --- |
 | Docker Compose | `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32` in `.env`; the Compose file passes it to every service that needs it |
-| Kubernetes | `tracecat.outboundAllowedPrivateCidrs: "10.0.12.34/32"` in your Helm values |
+| Kubernetes | `autosecops.outboundAllowedPrivateCidrs: "10.0.12.34/32"` in your Helm values; the chart passes it to every backend service |
 | AWS Fargate | `outbound_allowed_private_cidrs = "10.0.12.34/32"` in your Terraform variables |
 
 The allowlist applies to every workspace and also covers remote MCP servers, so list only endpoints you operate. Container hostnames such as `litellm` or `vllm` resolve to addresses on the Docker Compose `core` network; run `docker compose exec api getent hosts <hostname>` to find the address to allow, or allow that network's subnet from `docker network inspect`.
@@ -85,7 +85,7 @@ AUTOSECOPS__OUTBOUND_NO_PROXY=vllm.example.internal,10.0.12.0/24
 | Deployment | Where to set it |
 | --- | --- |
 | Docker Compose | Both variables in `.env`; the Compose file passes them to every service that needs them |
-| Kubernetes | Both variables in the environment of those services |
+| Kubernetes | `outboundProxyUrl` in the core Secret and `autosecops.outboundNoProxy` in your Helm values |
 | AWS Fargate | `outbound_proxy_url` and `outbound_no_proxy` in your Terraform variables |
 
 AutoSecOps connects to the proxy itself even when it has a private address, so you do not need to list the proxy in `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS`. Every target still passes the [private endpoint](#private-endpoints) check first: the AutoSecOps services resolve the target hostname and reject it with `Host is not allowed` if it resolves to a private address outside the allowlist. The services therefore need DNS that resolves public hostnames.

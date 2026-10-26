@@ -1,0 +1,20 @@
+apiVersion: v2
+name: autosecops
+description: AutoSecOps security automation platform (API, workers, executors, agents, MCP, and UI) for Kubernetes.
+type: application
+# Chart version. Bump on every chart change, independently of appVersion.
+version: 0.1.0
+# AutoSecOps release the chart deploys by default. scripts/update-version.sh
+# bumps this together with autosecops/__init__.py.
+appVersion: "1.0.0"
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/SingularityRD/AutoSecOps1
+sources:
+  - https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops
+keywords:
+  - autosecops
+  - soar
+  - security-automation
+maintainers:
+  - name: SingularityRD
+    url: https://github.com/SingularityRD
