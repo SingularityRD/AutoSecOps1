@@ -220,6 +220,7 @@
               "integrations/overview",
               "integrations/robodr-tools",
               "integrations/robodr-ingest",
+              "integrations/robodr-soc-agent",
               "tools/1password",
               "tools/1password_sdk",
               "tools/abuseipdb",
