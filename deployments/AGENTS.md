@@ -5,9 +5,10 @@ Rules for work under `deployments/` and the root `docker-compose*.yml` files.
 ## Review across targets
 
 - Infrastructure changes must be reviewed across every relevant target:
-  `docker-compose*.yml` and `deployments/fargate/`. Kubernetes infrastructure
-  lives in the separate `TracecatHQ/k8s` repository and must be reviewed there
-  when relevant.
+  `docker-compose*.yml`, `deployments/fargate/` and the Helm chart in
+  `deployments/helm/autosecops`. Kubernetes infrastructure lives in that chart
+  and must be reviewed there when relevant (run `helm lint` and the
+  `lint-helm` workflow).
 - Check the matching `values.yaml`, `variables.tf`, and `main.tf` files before
   closing out infra work.
 - A change that could ship by redeploying the same image is `infra` scope, not
