@@ -6,6 +6,7 @@ import dataclasses
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 
+from autosecops.agent.approvals.mandatory import enforce_mandatory_approvals
 from autosecops.agent.mcp.utils import (
     MCP_TOOL_NAME_RE,
     REGISTRY_MCP_SERVER_NAME,
@@ -199,6 +200,9 @@ def resolve_tool_policy(
                     f"mcp__{REGISTRY_MCP_SERVER_NAME}__mcp__{integration.slug}__{tool.name}"
                 )
                 approvals[key] = True
+
+    # Robot actions always pause for a human, whatever the stored rules say.
+    approvals = enforce_mandatory_approvals(approvals, actions)
 
     return EffectivePresetTools(
         actions=tuple(actions),

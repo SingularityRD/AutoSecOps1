@@ -7,8 +7,16 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
+from autosecops.agent.approvals.mandatory import reject_disabled_mandatory_approvals
 from autosecops.agent.skill.schemas import SkillName
 from autosecops.agent.subagents import AgentSubagentsConfig, has_manual_tool_approvals
 from autosecops.agent.types import AgentConfig, OutputType
@@ -104,6 +112,11 @@ PresetModelField = Annotated[
     str,
     StringConstraints(max_length=120),
 ]
+ToolApprovalsWrite = Annotated[
+    dict[str, bool] | None,
+    AfterValidator(reject_disabled_mandatory_approvals),
+]
+"""Saved approval rules; robot actions can never be set to auto-run."""
 PresetModelWriteField = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=120),
@@ -142,7 +155,7 @@ class AgentPresetExecutionConfigWrite(Schema):
     output_type: OutputType | None = Field(default=None)
     actions: list[str] | None = Field(default=None)
     namespaces: list[str] | None = Field(default=None)
-    tool_approvals: dict[str, bool] | None = Field(default=None)
+    tool_approvals: ToolApprovalsWrite = Field(default=None)
     tool_tunnels: dict[str, str] | None = Field(default=None)
     mcp_integrations: list[str] | None = Field(default=None)
     library_skills: list[SkillName] | None = Field(default=None)
@@ -188,7 +201,7 @@ class AgentPresetUpdate(BaseModel):
     output_type: OutputType | None = Field(default=None)
     actions: list[str] | None = Field(default=None)
     namespaces: list[str] | None = Field(default=None)
-    tool_approvals: dict[str, bool] | None = Field(default=None)
+    tool_approvals: ToolApprovalsWrite = Field(default=None)
     tool_tunnels: dict[str, str] | None = Field(default=None)
     mcp_integrations: list[str] | None = Field(default=None)
     library_skills: list[SkillName] | None = Field(default=None)
