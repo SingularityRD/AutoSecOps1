@@ -39,11 +39,13 @@ flowchart TB
 
 ## Prepare while connected
 
-- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry.
+- Package the AutoSecOps Helm chart from `deployments/helm/autosecops` (`helm package`) and push it, with every referenced container image, to an internal OCI registry.
 - Stage the inference image, model weights, tokenizer, and model configuration in internal repositories.
 - Provision internal PostgreSQL, Redis, S3-compatible storage, Temporal, identity, DNS, TLS, secrets, telemetry, and integration endpoints. Validate image pulls and model discovery before removing egress.
 
 No runtime workflow, integration, telemetry exporter, identity provider, or package dependency may require a public endpoint.
+
+The UI ships MCP catalog icons inside its bundle, so browsing the MCP catalog makes no third-party requests.
 
 ## Choose the model route
 
