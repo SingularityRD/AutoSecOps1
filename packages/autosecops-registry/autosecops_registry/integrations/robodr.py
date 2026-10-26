@@ -12,6 +12,12 @@ Trust model (`robodr.findings` §3 SR-TAINT, §9):
   attacker-chosen value (ROS node, topic and type names, DDS GUIDs, source
   addresses, the free-text `detail`). Those values reach a prompt, a case
   description or a chat message only through `render_untrusted`.
+* `title`, the leading sentence of `description`, `finding_info.types`,
+  `data_sources` and the ATT&CK lists must be exactly the rule catalog's text
+  for the rule id and the message's contract minor (§3 "Consumer parsing
+  rules"); `parse_finding` refuses anything else, so those fields cannot carry
+  free text. The rest of `description` (robot model, site, ...) is not
+  catalog text and is never copied to a case.
 """
 
 import hashlib
@@ -25,6 +31,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from typing_extensions import Doc
 
 from autosecops_registry import registry
+from autosecops_registry.integrations.robodr_catalog import (
+    RuleInfo,
+    rule_info_for_contract,
+)
 
 DISPLAY_GROUP = "RoboDR"
 DOC_URL = "https://docs.singularityrd.com/integrations/robodr-tools"
@@ -61,14 +71,23 @@ CASE_PRIORITY: dict[str, str] = {
     "critical": "critical",
 }
 
+# Always applied with `fullmatch` (`_full`): `re.match` with `$` also accepts
+# a trailing newline.
 _CONTRACT_VERSION_RE = re.compile(
-    r"^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$"
+    r"(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})"
 )
-_FINDING_ID_RE = re.compile(r"^rf1-[0-9a-f]{32}$")
-_EVENT_UID_RE = re.compile(r"^re1-[0-9a-f]{32}$")
-_ROBOT_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-_DATA_SOURCE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
-_TECHNIQUE_RE = re.compile(r"^T[0-9]{4}(\.[0-9]{3})?$")
+_FINDING_ID_RE = re.compile(r"rf1-[0-9a-f]{32}")
+_EVENT_UID_RE = re.compile(r"re1-[0-9a-f]{32}")
+_ROBOT_ID_RE = re.compile(r"[A-Za-z0-9._-]{1,64}")
+_DATA_SOURCE_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+_TECHNIQUE_RE = re.compile(r"T[0-9]{4}(\.[0-9]{3})?")
+TAINT_LABEL = "taint:adversary"
+
+
+def _full(pattern: re.Pattern[str], text: object) -> re.Match[str] | None:
+    """`pattern.fullmatch(text)` for a string, None for anything else."""
+    return pattern.fullmatch(text) if isinstance(text, str) else None
+
 
 # --------------------------------------------------------------------------- #
 # Finding signature (robodr.findings §2a, robodr_ocsf::sig)
@@ -146,7 +165,8 @@ def strict_json_loads(text: str) -> Any:
         )
     except FindingError:
         raise
-    except (json.JSONDecodeError, RecursionError) as exc:
+    # ValueError covers JSONDecodeError and integers past Python's digit limit.
+    except (ValueError, RecursionError) as exc:
         raise FindingError("invalid_json", "value is not valid JSON") from exc
 
 
@@ -287,7 +307,7 @@ def _tainted_entry(pointer: str, target: Any) -> dict[str, Any]:
             "kind": "tainted_value",
             "display": display,
             "value": value,
-            "suspicious": bool(target.get("suspicious", True)),
+            "suspicious": target.get("suspicious") is not False,
             "flags": flags,
             "original_len": target.get("original_len"),
             "original_sha256": target.get("original_sha256"),
@@ -303,8 +323,9 @@ def _tainted_entry(pointer: str, target: Any) -> dict[str, Any]:
             "resource_type": target.get("type"),
             "display": shown,
             "value": shown,
-            # Resources carry no flags; they mirror tainted values that do.
-            "suspicious": None,
+            # Resources carry no flags: treat them as suspicious, like any
+            # tainted value whose flag is missing.
+            "suspicious": True,
             "flags": {},
             "original_len": None,
             "original_sha256": None,
@@ -314,10 +335,62 @@ def _tainted_entry(pointer: str, target: Any) -> dict[str, Any]:
     )
 
 
+def _catalog_mismatch(where: str) -> FindingError:
+    return FindingError(
+        "catalog_mismatch",
+        f"{where} is not the rule catalog's text for this rule id and contract",
+    )
+
+
+def _check_catalog(
+    doc: dict[str, Any],
+    info: RuleInfo,
+    title: str,
+    description: str,
+    mitre: list[dict[str, Any]],
+) -> None:
+    """§3 consumer parsing rules: catalog constants are exact."""
+    ocsf = _require(doc, "ocsf", dict, "envelope")
+    finding_info = _require(ocsf, "finding_info", dict, "ocsf")
+    if title != info.title:
+        raise _catalog_mismatch("title")
+    if finding_info.get("title", title) != title:
+        raise _catalog_mismatch("ocsf.finding_info.title")
+    if ocsf.get("message", title) != title:
+        raise _catalog_mismatch("ocsf.message")
+    if not description.startswith(info.desc):
+        raise _catalog_mismatch("description")
+    if finding_info.get("desc", description) != description:
+        raise _catalog_mismatch("ocsf.finding_info.desc")
+    if finding_info.get("types") != ["robot_deviation", info.data_source]:
+        raise _catalog_mismatch("ocsf.finding_info.types")
+    if finding_info.get("data_sources") != [info.data_source]:
+        raise _catalog_mismatch("ocsf.finding_info.data_sources")
+    techniques = [(m["technique_id"], m["technique_name"]) for m in mitre]
+    if techniques != list(info.techniques):
+        raise _catalog_mismatch("mitre_predictions")
+    attacks = finding_info.get("attacks", [])
+    if not isinstance(attacks, list) or [
+        (a.get("technique", {}).get("uid"), a.get("technique", {}).get("name"))
+        if isinstance(a, dict) and isinstance(a.get("technique"), dict)
+        else None
+        for a in attacks
+    ] != list(info.techniques):
+        raise _catalog_mismatch("ocsf.finding_info.attacks")
+    resources = ocsf.get("resources", [])
+    if not isinstance(resources, list) or any(
+        not isinstance(r, dict) or r.get("labels") != [TAINT_LABEL] for r in resources
+    ):
+        raise _catalog_mismatch("ocsf.resources[].labels")
+
+
 def _parse(value: str) -> dict[str, Any]:
     if not isinstance(value, str):
         raise FindingError("invalid_value", "the value must be a JSON string")
-    raw = value.encode("utf-8", errors="strict")
+    try:
+        raw = value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:  # a lone surrogate
+        raise FindingError("invalid_value", "the value is not valid UTF-8") from exc
     if len(raw) > MAX_VALUE_BYTES:
         raise FindingError("too_large", f"value exceeds {MAX_VALUE_BYTES} bytes")
     doc = strict_json_loads(value)
@@ -325,7 +398,7 @@ def _parse(value: str) -> dict[str, Any]:
         raise FindingError("invalid_value", "the value must be a JSON object")
 
     version = doc.get("contract_version")
-    if not isinstance(version, str) or not (m := _CONTRACT_VERSION_RE.match(version)):
+    if not (m := _full(_CONTRACT_VERSION_RE, version)):
         raise FindingError("invalid_field", "contract_version must be semver x.y.z")
     if m.group(1) != "2":
         raise FindingError(
@@ -336,11 +409,11 @@ def _parse(value: str) -> dict[str, Any]:
     _check_string_rule(doc)
 
     finding_id = _require(doc, "finding_id", str, "envelope")
-    if not _FINDING_ID_RE.match(finding_id):
+    if not _full(_FINDING_ID_RE, finding_id):
         raise FindingError("invalid_field", "finding_id must be rf1- + 32 hex")
     external_id = _require(doc, "external_id", str, "envelope")
     data_source = _require(doc, "data_source", str, "envelope")
-    if not _DATA_SOURCE_RE.match(data_source):
+    if not _full(_DATA_SOURCE_RE, data_source):
         raise FindingError("invalid_field", "data_source has an invalid format")
     title = _require(doc, "title", str, "envelope")
     description = _require(doc, "description", str, "envelope")
@@ -352,7 +425,7 @@ def _parse(value: str) -> dict[str, Any]:
     ctx = _require(doc, "entity_context", dict, "envelope")
     robot = _require(ctx, "robot", dict, "entity_context")
     robot_id = _require(robot, "id", str, "entity_context.robot")
-    if not _ROBOT_ID_RE.match(robot_id):
+    if not _full(_ROBOT_ID_RE, robot_id):
         raise FindingError("invalid_field", "robot id must match [A-Za-z0-9._-]{1,64}")
     if external_id != f"{robot_id}:{finding_id}":
         raise FindingError(
@@ -369,7 +442,7 @@ def _parse(value: str) -> dict[str, Any]:
     mitre: list[dict[str, Any]] = []
     for item in mitre_raw:
         technique_id = _require(item, "technique_id", str, "mitre_predictions[]")
-        if not _TECHNIQUE_RE.match(technique_id):
+        if not _full(_TECHNIQUE_RE, technique_id):
             raise FindingError("invalid_field", "technique_id must be T#### form")
         mitre.append(
             {
@@ -385,6 +458,8 @@ def _parse(value: str) -> dict[str, Any]:
     if not all(isinstance(link, str) for link in evidence_links):
         raise FindingError("invalid_field", "evidence_links must be strings")
     anomaly_score = _optional(doc, "anomaly_score", (int, float))
+    info = rule_info_for_contract(rule_id, int(m.group(1)), int(m.group(2)))
+    _check_catalog(doc, info, title, description, mitre)
 
     pointers = _require(doc, "adversary_controlled_fields", list, "envelope")
     if not all(isinstance(p, str) for p in pointers):
@@ -417,7 +492,7 @@ def _parse(value: str) -> dict[str, Any]:
         raise FindingError("severity_mismatch", "ocsf.severity_id != severity")
     metadata = _require(ocsf, "metadata", dict, "ocsf")
     event_uid = _require(metadata, "uid", str, "ocsf.metadata")
-    if not _EVENT_UID_RE.match(event_uid):
+    if not _full(_EVENT_UID_RE, event_uid):
         raise FindingError("invalid_field", "ocsf.metadata.uid must be re1- + 32 hex")
     finding_info = _require(ocsf, "finding_info", dict, "ocsf")
     if _require(finding_info, "uid", str, "ocsf.finding_info") != finding_id:
@@ -440,6 +515,7 @@ def _parse(value: str) -> dict[str, Any]:
         "data_source": data_source,
         "title": title,
         "description": description,
+        "catalog_description": info.desc,
         "severity": severity,
         "severity_id": severity_id,
         "case_severity": CASE_SEVERITY[severity],
@@ -469,7 +545,14 @@ def _parse(value: str) -> dict[str, Any]:
         "anomaly_score": anomaly_score,
         "adversary_controlled_fields": list(pointers),
         "tainted": tainted,
-        "suspicious": any(t["suspicious"] is True for t in tainted),
+        # The producer's flags, on the tainted values. Resources carry no flags
+        # (they mirror those values); with no tainted value at all, nothing
+        # vouches for them.
+        "suspicious": any(
+            t["suspicious"] for t in tainted if t["kind"] == "tainted_value"
+        )
+        or all(t["kind"] == "resource" for t in tainted)
+        and bool(tainted),
         "value_sha256": hashlib.sha256(raw).hexdigest(),
     }
 
@@ -617,7 +700,11 @@ def _key_id_ok(key_id: Any) -> bool:
 
 def _parse_signature(signature: str | dict[str, Any]) -> tuple[str, str, bytes]:
     if isinstance(signature, str):
-        if len(signature.encode("utf-8")) > MAX_SIG_HEADER_BYTES:
+        try:
+            encoded = signature.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise FindingError("malformed_signature", "header is not UTF-8") from exc
+        if len(encoded) > MAX_SIG_HEADER_BYTES:
             raise FindingError("malformed_signature", "header value too long")
         obj = strict_json_loads(signature)
     else:
@@ -665,7 +752,10 @@ def _verify_finding_signature(
         return result(False, "bad_public_key", signed_key_id)
     if not isinstance(value, str):
         return result(False, "invalid_value", signed_key_id)
-    raw = value.encode("utf-8")
+    try:
+        raw = value.encode("utf-8")
+    except UnicodeEncodeError:  # a lone surrogate
+        return result(False, "invalid_value", signed_key_id)
     if len(raw) > MAX_VALUE_BYTES:
         return result(False, "too_large", signed_key_id)
     message = finding_signing_message(alg, signed_key_id, raw)
@@ -740,21 +830,25 @@ def _sanitize(text: str, allowed: frozenset[str]) -> str:
 
 
 def _untrusted_text(value: Any) -> tuple[str, bool | None]:
-    """The text to render for a value, and its suspicious flag if known."""
+    """The text to render for a value, and its suspicious flag if known.
+
+    A dict is a tainted value in one of its shapes: a raw tainted object
+    (`{value, display, taint, ...}`), a `parse_finding` `tainted[]` entry, a
+    case payload `untrusted.values[]` entry (`{pointer, display, suspicious}`)
+    or a tainted OCSF resource. Its `display` is used, never `value` (§3).
+    When it carries no boolean `suspicious`, it is treated as suspicious.
+    """
     if value is None:
         return "", None
     if isinstance(value, dict):
-        if "taint" in value and isinstance(value.get("display"), str):
-            # Prompts use `display`, never a re-rendering of `value` (§3).
-            suspicious = value.get("suspicious")
-            return value["display"], suspicious if isinstance(
-                suspicious, bool
-            ) else None
+        suspicious = value.get("suspicious") is not False
+        if isinstance(value.get("display"), str):
+            return value["display"], suspicious
         labels = value.get("labels")
-        if isinstance(labels, list) and "taint:adversary" in labels:
+        if isinstance(labels, list) and TAINT_LABEL in labels:
             name = value.get("name") if isinstance(value.get("name"), str) else None
             uid = value.get("uid") if isinstance(value.get("uid"), str) else None
-            return name or uid or "", None
+            return name or uid or "", True
     if isinstance(value, str):
         return value, None
     try:
@@ -767,25 +861,37 @@ def _untrusted_text(value: Any) -> tuple[str, bool | None]:
 
 def _render_untrusted(
     value: Any,
-    field: str | None = None,
+    field: Any = None,
     mode: Literal["prompt", "markdown"] = "prompt",
     max_length: int = 400,
 ) -> str:
-    if not 1 <= max_length <= MAX_RENDER_LENGTH:
-        raise ValueError(f"max_length must be 1..{MAX_RENDER_LENGTH}")
+    if (
+        isinstance(max_length, bool)
+        or not isinstance(max_length, int)
+        or not 1 <= max_length <= MAX_RENDER_LENGTH
+    ):
+        raise ValueError(f"max_length must be an integer in 1..{MAX_RENDER_LENGTH}")
+    if mode not in ("prompt", "markdown"):
+        raise ValueError("mode must be prompt or markdown")
     text, suspicious = _untrusted_text(value)
     clean = _sanitize(text, RENDER_ALLOWED)
     altered = clean != text
     truncated = len(clean) > max_length
     if truncated:
         clean = clean[:max_length]
+    if field is None or field == "":
+        label = None
+    else:
+        text_label = field if isinstance(field, str) else str(field)
+        label = _sanitize(text_label, _LABEL_ALLOWED)[:128]
     if mode == "markdown":
         # A backtick never survives sanitising, so the span cannot be closed
         # early; inside a code span nothing is rendered as Markdown or HTML.
-        return f"`{clean}`" if clean else "`(empty)`"
-    if mode != "prompt":
-        raise ValueError("mode must be prompt or markdown")
-    label = _sanitize(field, _LABEL_ALLOWED)[:128] if field else "value"
+        span = f"`{clean}`" if clean else "`(empty)`"
+        if suspicious:
+            span = f"{span} (suspicious)"
+        return f"`{label}`: {span}" if label else span
+    label = label or "value"
     flag = "unknown" if suspicious is None else str(suspicious or altered).lower()
     header = (
         f"{UNTRUSTED_OPEN} field={label} suspicious={flag} "
@@ -809,20 +915,26 @@ def render_untrusted(
     value: Annotated[
         Any,
         Doc(
-            "The untrusted value: a tainted object ({value, display, taint, ...}, "
-            "whose `display` is used), a tainted OCSF resource, a string, or any "
-            "JSON value."
+            "The untrusted value. Pass a whole tainted entry (a parse_finding "
+            "`tainted[]` entry, a case payload `untrusted.values[]` entry or a "
+            "raw tainted object): its `display` is used and its `suspicious` "
+            "flag (true when missing) is kept. Also a tainted OCSF resource, a "
+            "string, or any JSON value."
         ),
     ],
     field: Annotated[
         str | None,
-        Doc("Label for the block, usually the JSON Pointer of the field."),
+        Doc(
+            "Label for the block, usually the JSON Pointer of the field. A "
+            "non-string is converted with str(); the label is sanitised."
+        ),
     ] = None,
     mode: Annotated[
         Literal["prompt", "markdown"],
         Doc(
             "`prompt`: a three-line [untrusted-data ...] block for LLM prompts. "
-            "`markdown`: an inline code span for case descriptions and chat."
+            "`markdown`: an inline code span for case descriptions and chat, "
+            "followed by ` (suspicious)` when the value is flagged."
         ),
     ] = "prompt",
     max_length: Annotated[
@@ -848,49 +960,59 @@ def _safety_state_text(state: dict[str, Any]) -> str:
     return ", ".join(f"{k}={state[k]}" for k in first + rest)
 
 
-def _finding_to_case_fields(finding: str | dict[str, Any]) -> dict[str, Any]:
-    parsed = _parse(finding) if isinstance(finding, str) else finding
-    if not isinstance(parsed, dict) or "tainted" not in parsed:
+def _cell(value: Any) -> str:
+    """A Markdown table cell: an inline code span with `|` and markup removed."""
+    text = "" if value is None else value if isinstance(value, str) else str(value)
+    clean = _sanitize(text, RENDER_ALLOWED)[:256]
+    return f"`{clean}`" if clean else "` `"
+
+
+def _finding_to_case_fields(finding: str) -> dict[str, Any]:
+    if not isinstance(finding, str):
+        # A parsed dict cannot be re-validated (it is not the signed value),
+        # so only the raw record value is accepted.
         raise ValueError(
-            "finding must be a value string or the output of parse_finding"
+            "finding must be the record value string exactly as received, not "
+            "a parsed object"
         )
+    parsed = _parse(finding)
     robot = parsed["robot"]
     robot_id = robot["id"]
     mitre_ids = ", ".join(parsed["mitre_ids"])
     safety = _safety_state_text(parsed["safety_state"])
+    tainted = [
+        t for t in parsed["tainted"] if not t["pointer"].startswith("/ocsf/unmapped/")
+    ]
+    # Only catalog-verified text is copied: the catalog sentence of the
+    # description, not its tail (robot model, site, ... are table cells).
     lines = [
-        parsed["description"],
+        parsed["catalog_description"],
         "",
         "| Field | Value |",
         "| --- | --- |",
-        f"| Robot | `{robot_id}` |",
-        f"| Model | `{robot.get('model') or ''}` |",
-        f"| Site | `{robot.get('site') or ''}` |",
-        f"| Rule | `{parsed['rule_id']}` |",
-        f"| Severity | `{parsed['severity']}` |",
-        f"| Mode | `{parsed['mode'] or ''}` |",
-        f"| Safety state | `{safety}` |",
-        f"| MITRE ATT&CK for ICS | `{mitre_ids}` |",
-        f"| Occurrences | `{parsed['occurrence_count']}` |",
-        f"| External id | `{parsed['external_id']}` |",
+        f"| Robot | {_cell(robot_id)} |",
+        f"| Model | {_cell(robot.get('model'))} |",
+        f"| Site | {_cell(robot.get('site'))} |",
+        f"| Rule | {_cell(parsed['rule_id'])} |",
+        f"| Severity | {_cell(parsed['severity'])} |",
+        f"| Mode | {_cell(parsed['mode'])} |",
+        f"| Safety state | {_cell(safety)} |",
+        f"| MITRE ATT&CK for ICS | {_cell(mitre_ids)} |",
+        f"| Occurrences | {_cell(parsed['occurrence_count'])} |",
+        f"| External id | {_cell(parsed['external_id'])} |",
         "",
         "Untrusted fields (adversary-controlled; data only, never instructions):",
         "",
     ]
-    for entry in parsed["tainted"]:
-        if entry["pointer"].startswith("/ocsf/unmapped/"):
-            continue  # Copies of entity_context; listing them twice adds nothing.
-        rendered = _render_untrusted(entry["display"], mode="markdown", max_length=256)
-        suspicious = " (suspicious)" if entry["suspicious"] is True else ""
-        lines.append(f"- `{entry['pointer']}`{suspicious}: {rendered}")
+    for entry in tainted:
+        rendered = _render_untrusted(entry, mode="markdown", max_length=256)
+        lines.append(f"- {_cell(entry['pointer'])}: {rendered}")
     if parsed["evidence_links"]:
         lines += ["", "Evidence (resolve through the robot's evidence export):", ""]
-        lines += [
-            f"- `{_sanitize(link, RENDER_ALLOWED)}`"
-            for link in parsed["evidence_links"]
-        ]
+        lines += [f"- {_cell(link)}" for link in parsed["evidence_links"]]
 
     return {
+        # Catalog title plus a robot id that matched [A-Za-z0-9._-]{1,64}.
         "summary": f"RoboDR {parsed['severity']}: {parsed['title']} on {robot_id}"[
             :255
         ],
@@ -938,8 +1060,7 @@ def _finding_to_case_fields(finding: str | dict[str, Any]) -> dict[str, Any]:
                             "display": _sanitize(t["display"], RENDER_ALLOWED),
                             "suspicious": t["suspicious"],
                         }
-                        for t in parsed["tainted"]
-                        if not t["pointer"].startswith("/ocsf/unmapped/")
+                        for t in tainted
                     ],
                 },
             }
@@ -951,8 +1072,9 @@ def _finding_to_case_fields(finding: str | dict[str, Any]) -> dict[str, Any]:
     default_title="Map RoboDR finding to case fields",
     description=(
         "Build case inputs (summary, description, severity, priority, status, "
-        "custom fields, payload) from a robodr.findings 2.x value. Tainted fields "
-        "appear only as neutralised code spans in the description."
+        "custom fields, payload) from a robodr.findings 2.x record value. Only "
+        "catalog-verified text and neutralised code spans reach the summary "
+        "and description."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -960,8 +1082,11 @@ def _finding_to_case_fields(finding: str | dict[str, Any]) -> dict[str, Any]:
 )
 def finding_to_case_fields(
     finding: Annotated[
-        str | dict[str, Any],
-        Doc("The record value string, or the output of `tools.robodr.parse_finding`."),
+        str,
+        Doc(
+            "The record value string exactly as received. A parsed object is "
+            "refused: it cannot be re-validated."
+        ),
     ],
 ) -> dict[str, Any]:
     return _finding_to_case_fields(finding)
