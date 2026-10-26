@@ -34,7 +34,7 @@ definition:
     host:
       type: str
       description: Host field value for the event.
-      default: tracecat.com
+      default: autosecops
     verify_ssl:
       type: bool
       description: Whether to verify SSL certificates.

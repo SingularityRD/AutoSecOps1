@@ -42,6 +42,20 @@ AUDITED_REWRITES: Mapping[str, tuple[tuple[bytes, bytes], ...]] = {
             b'down_revision = "a7c3e9f1b2d4"\n',
             b'down_revision = "bc3124ad3437"\n',
         ),
+        # Rebrand: the operator-facing pgvector hints pointed at the upstream
+        # docs site. Only the hint URLs change; the SQL is otherwise identical.
+        (
+            b"                HINT = 'For pgvector installation and permissions, "
+            b"see https://docs.tracecat.com/self-hosting/pgvector';\n",
+            b"                HINT = 'For pgvector installation and permissions, "
+            b"see https://docs.singularityrd.com/self-hosting/pgvector';\n",
+        ),
+        (
+            b"                    USING HINT = 'For pgvector version and schema "
+            b"requirements, see https://docs.tracecat.com/self-hosting/pgvector';\n",
+            b"                    USING HINT = 'For pgvector version and schema "
+            b"requirements, see https://docs.singularityrd.com/self-hosting/pgvector';\n",
+        ),
     ),
     "b4e8f2a6c1d9": (
         (
