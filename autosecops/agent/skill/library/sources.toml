@@ -13,6 +13,10 @@ description = "Threat intelligence platform. Skills that turn intelligence into 
 summary = "Triage, investigate, hunt, and detect in SecOps"
 description = "Google's SIEM and SOAR platform. Skills for the SOC workflow in SecOps: alert triage, deep entity investigation, proactive threat hunting, and YARA-L detection engineering."
 
+[groups.RoboDR]
+summary = "Triage, contain, and investigate robot findings"
+description = "SingularityRD's robot detection and response. Skills for RoboDR findings in cases: signed-finding triage with untrusted fields kept as data, morphology-aware containment that always waits for human sign-off, and black-box evidence handling."
+
 [[source]]
 kind = "upstream"
 group = "AWS"
@@ -75,3 +79,13 @@ security-audit = "skills/security-audit"
 
 [source.summaries]
 security-audit = "Review code and services for vulnerabilities"
+
+[[source]]
+kind = "local"
+group = "RoboDR"
+license = "LicenseRef-Proprietary"
+
+[source.skills]
+robodr-containment = "skills/robodr-containment"
+robodr-forensics = "skills/robodr-forensics"
+robodr-triage = "skills/robodr-triage"
