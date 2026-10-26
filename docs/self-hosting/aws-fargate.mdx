@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps to AWS ECS Fargate using Terraform: 
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 
 <Warning>
   This stack exposes AutoSecOps to the public internet.
@@ -39,6 +40,19 @@ cd autosecops-fargate
 ```
 
 If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
+
+## Registry credentials
+
+ECS pulls the AutoSecOps images from GHCR. If the packages are private, store your registry credentials in Secrets Manager and pass the secret ARN to Terraform:
+
+```bash
+aws secretsmanager create-secret --name autosecops/ghcr-pull \
+  --secret-string '{"username":"<github-user>","password":"<github-token-with-read:packages>"}'
+
+export TF_VAR_autosecops_registry_credentials_arn=<secret-arn>
+```
+
+Terraform adds `repositoryCredentials` to every AutoSecOps container and lets the execution roles read the secret. If you encrypt the secret with a customer-managed KMS key, also grant the execution roles `kms:Decrypt` on it. Skip this step if the packages are public, or mirror the images to Amazon ECR and set `autosecops_image` and `autosecops_ui_image` instead.
 
 ## Create core secrets
 
@@ -136,6 +150,10 @@ terraform apply
 This setting applies only to the bundled Temporal RDS instance. It requires a DB reboot when changed and permits non-TLS connections to the Temporal database for compatibility with the current Fargate Temporal auto-setup flow.
 
 If you are using Temporal Cloud or another external Temporal cluster, set `disable_temporal_autosetup=true` and point `temporal_cluster_url` at your external cluster. In that setup, `temporal_db_force_ssl` is typically unused because the bundled Temporal RDS instance is not created. If you run your own external Temporal PostgreSQL and want SSL-only enforcement there, set `TF_VAR_temporal_db_force_ssl=true`.
+
+## Temporal search attributes
+
+<TemporalSearchAttributes />
 
 ## FAQ
 

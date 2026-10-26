@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps to Kubernetes with the AutoSecOps He
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 
 Each AutoSecOps release publishes the AutoSecOps Helm chart to `oci://ghcr.io/singularityrd/charts/autosecops`, with the release version as the chart version. The chart source lives in the AutoSecOps repository at [`deployments/helm/autosecops`](https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops).
 It deploys the AutoSecOps services and connects them to PostgreSQL, Redis, object storage, and Temporal that you run outside the chart.
@@ -29,6 +30,24 @@ Every component except `api` and `ui` can be turned off with `<component>.enable
 - S3 or S3-compatible object storage, e.g. Amazon S3 or MinIO
 - A Temporal server or Temporal Cloud namespace
 - `openssl` to generate secrets
+
+## Container images
+
+The chart pulls `ghcr.io/singularityrd/autosecops`, `autosecops-ui`, and, with tunnels, `autosecops-tunnel-gateway`. If these GHCR packages are private, create a pull Secret from a GitHub token with `read:packages` and reference it:
+
+```bash
+kubectl -n autosecops create secret docker-registry ghcr-pull \
+  --docker-server=ghcr.io --docker-username=<github-user> --docker-password="$GITHUB_TOKEN"
+```
+
+```yaml
+imagePullSecrets:
+  - name: ghcr-pull
+```
+
+`imagePullSecrets` applies to every pod in the release namespace, including the migrations Job. Tunnel gateways run in `tunnels.namespace`, so create the same Secret there and set `tunnels.gateway.imagePullSecrets`. See [Tunnels](#tunnels).
+
+To skip pull Secrets, the package owner can make each package public under the package's Package settings on GitHub, or you can mirror the images to your own registry and override `image.repository`, `uiImage.repository`, and `tunnels.gateway.image.repository`.
 
 ## Core secrets
 
@@ -225,6 +244,10 @@ The chart connects to an existing Temporal deployment, such as the [official Tem
   </Tab>
 </Tabs>
 
+#### Search attributes
+
+<TemporalSearchAttributes />
+
 ## Service accounts
 
 The chart creates one `autosecops` service account for every workload. Set `<component>.serviceAccount.create: true` to give a component its own account, for example to scope executor permissions separately from the API.
@@ -310,6 +333,8 @@ autosecops:
 - Gateways need `NET_ADMIN` and `/dev/net/tun`. Install a device plugin that exposes `/dev/net/tun` as the extended resource in `tunnels.gateway.tunResource` (default `squat.ai/tun`), or set it to `""` if your nodes grant the device another way.
 - The chart creates the namespace with the `privileged` Pod Security level, a NetworkPolicy that admits only executor traffic and allows egress to DNS, the API, and Pangolin on TCP 443 and UDP 21820, and a ValidatingAdmissionPolicy that admits only the gateway image. The policy needs Kubernetes 1.30+; set `tunnels.admissionPolicy.enabled: false` on older clusters.
 - The gateway image follows the AutoSecOps image tag, so each upgrade restarts every gateway briefly.
+- If the gateway image is private, create a pull Secret in `tunnels.namespace` and list it in `tunnels.gateway.imagePullSecrets`, e.g. `[{name: ghcr-pull}]`. The `api` adds it to every gateway Deployment.
+- `tunnels.namespace` must differ from the release namespace. The chart fails to render otherwise, because the `api` service account gets write access to Secrets and Deployments there.
 
 ## Installation
 
