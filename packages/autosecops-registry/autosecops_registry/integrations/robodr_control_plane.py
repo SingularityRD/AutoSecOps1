@@ -5,8 +5,17 @@ actions, and exports signed black-box evidence. The robot judges each action
 request against its current safety state and may refuse it. Without executor
 v1 nothing is executed: an accepted request answers `recorded_not_executed`
 with `executed: false`, which these actions report as not applied. With
-executor v1 a request may answer `pending`, then `verified` (in force) or
-`reverted`; `refused` and `failed` are never applied.
+executor v1 a request may answer `pending`, then `verified` or `reverted`;
+`refused` and `failed` are never applied. "In force" is taken only from the
+answer's own `in_force` (true for a `verified` action the executor does not
+hold): a `verified` action held after a robot reboot
+(`state.executor_state: "held"`) is reported as held, not enforced.
+
+A call the robot answers `busy` (503) or rate limited (429), or refuses
+right after it created its replay store (401 `stale_timestamp`, the replay
+fence), is signed afresh and sent again a few times; a submission is resent
+with the same `request_id` and body, which the robot judges once (§7).
+Every robot error code is reported with what it means.
 
 Channel and authentication (contract §1-2)
 ------------------------------------------
@@ -110,6 +119,7 @@ from autosecops_registry.integrations.robodr import (
     parse_public_key_hex,
 )
 from autosecops_registry.integrations.robodr_evidence import (
+    MAX_EXPORT_BYTES,
     UNVERIFIABLE,
     EvidenceError,
     Manifest,
@@ -134,12 +144,20 @@ REQUEST_TIMEOUT_S = 35.0
 HANDSHAKE_TIMEOUT_S = 5.0
 MAX_ANSWER_BYTES = 256 * 1024
 MAX_ANSWER_HEAD_BYTES = 16 * 1024
-MAX_STORED_BUNDLE_BYTES = TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
+MAX_STORED_BUNDLE_BYTES = min(TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, MAX_EXPORT_BYTES)
 """Largest export downloaded and stored: the platform's
 `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (default 64 MiB, the robot's default
-`max_export_bytes`), so a bundle the platform would refuse is never fetched."""
+`max_export_bytes`), so a bundle the platform would refuse is never fetched,
+and never more than 256 MiB, the robot's largest export (§11.7)."""
 CHUNK_ATTEMPTS = 5
 MAX_RETRY_AFTER_S = 60
+CALL_ATTEMPTS = 4
+"""Attempts of one call that the robot answered `busy` (503), rate limited
+(429) or fenced (401 `stale_timestamp`); each attempt is signed afresh."""
+FENCE_RETRY_WAIT_S = 12.0
+"""Wait before signing again after `stale_timestamp`: a robot that just
+created its replay store refuses requests for `max_clock_skew_s` (default
+30 s, §2), which three waits cover."""
 
 robodr_control_plane_secret = RegistrySecret(
     name="robodr_control_plane",
@@ -1046,20 +1064,125 @@ class RawAnswer:
         return values[0] if len(values) == 1 else None
 
 
+ERROR_EXPLANATIONS: dict[str, str] = {
+    "busy": (
+        "the robot is busy: every authenticated connection slot is taken, its "
+        "main loop is full or stopping, or it did not answer in time (a "
+        "submission may still have been recorded). Retry later with the same "
+        "request_id: the robot then judges it once or answers it as a duplicate"
+    ),
+    "rate_limited": "too many requests for this SOC key; retry later",
+    "stale_timestamp": (
+        "the robot refuses the request's timestamp. Right after the robot "
+        "created its replay store (first start, or a wiped state directory) or "
+        "after its clock went back it refuses every request for "
+        "max_clock_skew_s (default 30 s): retry later. If it persists, the SOC "
+        "or robot clock is off: check NTP on both"
+    ),
+    "replayed_nonce": "the robot already saw this request's nonce; nothing was done",
+    "bad_signature": (
+        "the robot did not accept the SOC request signature; check "
+        "ROBODR_SOC_KEY_ID / ROBODR_SOC_SECRET_HEX and the robot_id"
+    ),
+    "unknown_key": (
+        "the robot does not know the SOC key id; install its .pub under the "
+        "robot's control_plane.soc_keys"
+    ),
+    "missing_credentials": "the robot did not receive the request credentials",
+    "malformed_credentials": "the robot could not parse the request credentials",
+    "unknown_robot": "the robot is configured with another robot_id",
+    "unknown_request": (
+        "the robot does not know this request_id (never sent, or older than "
+        "the newest requests it keeps)"
+    ),
+    "request_id_conflict": (
+        "this request_id was already used for a different request; prepare a "
+        "new request"
+    ),
+    "state_unavailable": (
+        "the robot's request journal cannot take or reconcile this request "
+        "(journal damage); nothing was judged. Retry after an operator "
+        "restarted the robot's agent so it reconciles its journal"
+    ),
+    "replay_cache_full": (
+        "the robot's replay store is full of live nonces; nothing was done, retry later"
+    ),
+    "replay_store_unavailable": (
+        "the robot cannot persist the request nonce; nothing was done. An "
+        "operator must check the robot's control-plane state directory"
+    ),
+    "clock_unavailable": "the robot cannot read its clock; nothing was done",
+    "evidence_busy": "another evidence index or export runs on the robot; retry shortly",
+    "evidence_timeout": (
+        "the robot could not build the export within 60 s (or is stopping); "
+        "nothing was kept. Select fewer records"
+    ),
+    "evidence_unavailable": "the robot's black box cannot be read now",
+    "evidence_disabled": "the robot's evidence API is not configured",
+    "storage_full": (
+        "the robot's export storage is full or its state directory has less "
+        "than 64 MiB free; delete downloaded exports (delete_after_download) "
+        "or ask an operator to free space"
+    ),
+    "export_too_large": (
+        "the selection exceeds the robot's max_export_bytes (at most 256 MiB); "
+        "select fewer records"
+    ),
+    "export_limit": "the robot keeps its maximum number of exports; delete one",
+    "export_id_conflict": "this export_id was used for another selection",
+    "export_corrupt": (
+        "the robot's stored export no longer matched its manifest and was "
+        "deleted; create it again"
+    ),
+    "unknown_export": "the robot does not keep this export (expired or deleted)",
+    "no_records": "the selection matches no black-box records",
+    "evidence_not_retained": "the selected records are no longer retained",
+    "evidence_gap": "the selection spans a gap in the robot's black box",
+    "evidence_mismatch": "the evidence links do not match the robot's records",
+    "answer_signing_failed": "the robot could not sign its answer; nothing in it is used",
+}
+"""What each robot error code means for the person running the action (§7)."""
+
+
 class RobotHTTPError(ControlPlaneError):
     """The robot answered with an HTTP error (signed or not)."""
 
     def __init__(
-        self, status: int, code: str | None, message: str, *, signed: bool
+        self,
+        status: int,
+        code: str | None,
+        message: str,
+        *,
+        signed: bool,
+        attempts: int = 1,
     ) -> None:
         self.status = status
         self.code = code
         self.signed = signed
         self.retry_after: int | None = None
+        self.raw_message = message
+        self.attempts = attempts
+        self.explanation = ERROR_EXPLANATIONS.get(code or "")
         origin = "signed by the robot" if signed else "UNSIGNED: not from the robot"
-        super().__init__(
+        text = (
             f"robot answered HTTP {status} ({_shown(code) if code else 'no error code'}, "
             f"{origin}): {message}"
+        )
+        if self.explanation:
+            text += f". Meaning: {self.explanation}"
+        if attempts > 1:
+            text += f" (after {attempts} attempts)"
+        super().__init__(text)
+
+    @property
+    def fenced(self) -> bool:
+        """The robot refused the timestamp (its replay fence, or clock skew)."""
+        return self.status == 401 and self.code == "stale_timestamp"
+
+    def retryable(self, busy_codes: tuple[str, ...]) -> bool:
+        """A signed 429, or a signed 503 with one of ``busy_codes``."""
+        return self.signed and (
+            self.status == 429 or (self.status == 503 and self.code in busy_codes)
         )
 
 
@@ -1241,6 +1364,49 @@ async def _call(
     return SignedAnswer(raw.status, raw.body, raw)
 
 
+async def _call_retrying(
+    robot: _Robot,
+    method: str,
+    target: str,
+    body: bytes = b"",
+    *,
+    ok: tuple[int, ...] = (200,),
+    busy_codes: tuple[str, ...] = ("busy",),
+) -> SignedAnswer:
+    """`_call`, signed afresh and sent again while the robot is busy or fenced.
+
+    Retried: a signed 429, a signed 503 with one of ``busy_codes`` (§7: the
+    identical request with a fresh nonce is judged once or answered as a
+    duplicate) and 401 `stale_timestamp` (the replay fence after the robot
+    created its replay store, §2: nothing was done). Pass ``busy_codes=()``
+    for a call that must not be resent after `busy`.
+    """
+    delay = 1.0
+    for attempt in range(1, CALL_ATTEMPTS + 1):
+        try:
+            return await _call(robot, method, target, body, ok=ok)
+        except RobotHTTPError as exc:
+            if attempt < CALL_ATTEMPTS and exc.fenced:
+                wait = FENCE_RETRY_WAIT_S
+            elif attempt < CALL_ATTEMPTS and exc.retryable(busy_codes):
+                wait = min(exc.retry_after or delay, MAX_RETRY_AFTER_S)
+            elif attempt == 1:
+                raise
+            else:
+                final = RobotHTTPError(
+                    exc.status,
+                    exc.code,
+                    exc.raw_message,
+                    signed=exc.signed,
+                    attempts=attempt,
+                )
+                final.retry_after = exc.retry_after
+                raise final from exc
+        await asyncio.sleep(wait)
+        delay = min(delay * 2, MAX_RETRY_AFTER_S)
+    raise ControlPlaneError("unreachable: call retries exhausted")
+
+
 # --------------------------------------------------------------------------- #
 # Request states (§5, §6, §6a)
 # --------------------------------------------------------------------------- #
@@ -1249,18 +1415,108 @@ TERMINAL_STATUSES = frozenset(
     {"recorded_not_executed", "refused", "failed", "not_applied", "reverted"}
 )
 
+REFUSAL_EXPLANATIONS: dict[str, str] = {
+    # The robot's judgment (§4.1).
+    "safety_system_engaged": (
+        "the robot's safety system is engaged (e-stop or safe state) and has "
+        "authority; it gets no competing request"
+    ),
+    "observe_mode": (
+        "the robot is in observe mode (profile not locked and enforced, or "
+        "policy not OEM-validated)"
+    ),
+    "morphology_mismatch": "the robot's morphology differs from its response policy's",
+    "human_in_command": "a person is driving the robot (teleop or manual)",
+    "transient_phase": "the robot is taking off or landing",
+    "fall_hazard": "the action could make the robot fall or collapse",
+    "requires_idle": "the action needs the robot to be idle",
+    "above_policy": "the robot's response policy does not allow this step now",
+    "not_a_restriction": "the cap is above the robot's current envelope",
+    "invariant_violation": "the plan fails the robot's response invariants",
+    "not_reversible": "this action cannot be reverted; an operator restores the robot",
+    # The executor's own checks (§6a).
+    "not_executor_action": "the robot's executor never carries out this action",
+    "needs_approval": "the robot's executor policy needs an approval it did not get",
+    "motion_path": "the action would cut a motion path",
+    "locators_required": (
+        "the robot has not seen the participant's network locators yet, so it "
+        "cannot quarantine it; retry once the participant was discovered"
+    ),
+    "no_management_channel": "the action would cut the robot's management channel",
+    "unsupported_target": "the executor cannot target this (a node name or a process)",
+    "safety_state_changed": "the safety state changed between judgment and apply",
+    "safety_state_stale": "the executor's safety state is stale",
+    "safety_state_unavailable": "the executor has no current safety state",
+    "operator_disabled": (
+        "an operator disabled the robot's executor; nothing is executed until "
+        "it is re-armed on the robot"
+    ),
+    "config_unavailable": "the executor's configuration is unavailable",
+    "already_active": "the same action is already active",
+    "ttl_out_of_range": "the TTL is outside the executor's limits",
+    "replay": "the executor already received this order",
+    "invalid_order": "the executor received an invalid order",
+    "id_conflict": "the executor holds another order under this id",
+    "evidence_elsewhere": "the evidence is recorded elsewhere",
+    "soc_signature_invalid": "the executor did not accept the SOC signature of the order",
+    "soc_nonce_replayed": "the executor already saw the SOC nonce of the order",
+    "order_mismatch": "the order does not match the request the robot recorded",
+    "approval_missing": "the executor found no SOC approval for the order",
+    "executor_refused": "the executor refused it for a reason this agent does not know",
+}
+"""What each refusal code means (§4.1, §6a); refusals are final."""
 
-def _outcome(data: dict[str, Any]) -> dict[str, Any]:
-    """Report a request state as the contract requires (§5, §6a, §10)."""
+FAILURE_EXPLANATIONS: dict[str, str] = {
+    "evidence_unavailable": (
+        "the robot's black box did not take the request; nothing was decided"
+    ),
+    "state_unavailable": (
+        "the robot's request journal did not take the request; nothing was "
+        "decided or handed to the executor"
+    ),
+}
+"""What each `state.error.code` of a `failed` request means (§5, §6a)."""
+
+
+def _explain(table: dict[str, str], code: object, fallback: str) -> str:
+    return table.get(code, fallback) if isinstance(code, str) else fallback
+
+
+def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
+    """Report a request state as the contract requires (§5, §6a, §10).
+
+    "In force" is the robot's own top-level `in_force`, never inferred from
+    the status: true only for `verified` / `applied` that is not held.
+    """
     status = data.get("status")
     executed = data.get("executed") is True
-    in_force = status in ("verified", "applied") and executed
     raw_refusal = data.get("refusal")
     refusal: dict[str, Any] = raw_refusal if isinstance(raw_refusal, dict) else {}
     raw_state = data.get("state")
     state: dict[str, Any] = raw_state if isinstance(raw_state, dict) else {}
     raw_error = state.get("error")
     error: dict[str, Any] = raw_error if isinstance(raw_error, dict) else {}
+    executor_state = state.get("executor_state")
+    held = status == "verified" and executor_state == "held"
+    reported_in_force = data.get("in_force")
+    in_force = (
+        reported_in_force is True and status in ("verified", "applied") and not held
+    )
+    refusal_explanation = (
+        _explain(REFUSAL_EXPLANATIONS, refusal.get("code"), "unknown refusal code")
+        if status == "refused"
+        else None
+    )
+    error_explanation = (
+        _explain(
+            FAILURE_EXPLANATIONS,
+            error.get("code"),
+            "the executor was unreachable, its queue was full, or the apply did "
+            "not verify and was rolled back",
+        )
+        if status == "failed"
+        else None
+    )
     match status:
         case "recorded_not_executed":
             report = (
@@ -1269,31 +1525,51 @@ def _outcome(data: dict[str, Any]) -> dict[str, Any]:
             )
         case "refused":
             report = (
-                f"Not applied: refused by the robot ({_shown(refusal.get('code'))}, "
-                f"safety state {_shown(refusal.get('safety_state'))}): "
-                f"{refusal.get('reason')}. Refusals are final; do not retry."
+                f"Not applied: refused by the robot ({_shown(refusal.get('code'))}: "
+                f"{refusal_explanation}; safety state "
+                f"{_shown(refusal.get('safety_state'))}): {refusal.get('reason')}. "
+                "Refusals are final; do not retry."
             )
         case "failed":
             report = (
-                f"Not applied: failed ({_shown(error.get('code'))}); nothing is in "
-                "force. A new request is judged anew."
+                f"Not applied: failed ({_shown(error.get('code'))}: "
+                f"{error_explanation}); nothing is in force. A new request is "
+                "judged anew."
             )
         case "not_applied":
             report = "Not applied: the request never took effect, so there was nothing to revert."
+        case "pending" if revert:
+            report = (
+                "Revert pending: the robot recorded the revert and handed it to its "
+                "executor; the action may stay in force until get_action_status "
+                "shows reverted."
+            )
         case "pending":
             report = (
                 "Pending: accepted, recorded and handed to the robot's executor; "
                 "not in force yet. Poll get_action_status."
+            )
+        case "verified" if held:
+            report = (
+                "Held, not enforced: the robot rebooted and its executor holds the "
+                "action until it re-validated it (it turns reverted if not re-armed "
+                "before its TTL). Keep polling get_action_status."
             )
         case "verified" if in_force:
             report = (
                 "In force: the robot's executor applied the action and verified it; "
                 "it stays until revert or its TTL expires."
             )
+        case "verified":
+            report = (
+                "Not in force: the robot reports verified but does not report the "
+                "action in force (in_force missing or false). Keep polling "
+                "get_action_status."
+            )
         case "reverted":
             report = "Reverted: the action is no longer in force."
         case "applied" if in_force:
-            report = "Applied and executed by the robot."
+            report = "In force: applied and executed by the robot."
         case _:
             report = f"Not applied (status {_shown(status)})."
     return {
@@ -1301,15 +1577,20 @@ def _outcome(data: dict[str, Any]) -> dict[str, Any]:
         "executed": executed,
         "in_force": in_force,
         "applied": in_force,
+        "held": held,
+        "executor_state": executor_state if isinstance(executor_state, str) else None,
         "terminal": status in TERMINAL_STATUSES,
+        "duplicate": data.get("duplicate") is True,
         "refusal": data.get("refusal"),
+        "refusal_explanation": refusal_explanation,
         "error": state.get("error"),
+        "error_explanation": error_explanation,
         "report": report,
     }
 
 
 async def _verified_snapshot(robot: _Robot) -> dict[str, Any]:
-    snap = (await _call(robot, "GET", _robot_target(robot.robot_id))).json()
+    snap = (await _call_retrying(robot, "GET", _robot_target(robot.robot_id))).json()
     if snap.get("robot_id") != robot.robot_id:
         raise ControlPlaneError("the snapshot is for another robot_id")
     return snap
@@ -1380,7 +1661,7 @@ async def get_robot(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
-    answer = await _call(robot, "GET", _robot_target(robot.robot_id))
+    answer = await _call_retrying(robot, "GET", _robot_target(robot.robot_id))
     return {
         "status_code": answer.status,
         "answer_signature_verified": True,
@@ -1487,7 +1768,8 @@ def prepare_action_request(
         "two-person actions), all different platform users, signed off this "
         "exact request. The robot judges it against its safety state and may "
         "refuse it. recorded_not_executed, refused and failed are reported as "
-        "not applied; pending is not yet in force; only verified is in force."
+        "not applied; pending is not yet in force; in_force is the robot's own "
+        "word (verified and not held after a reboot)."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -1590,7 +1872,9 @@ async def request_action(
     }
     if prepared.ttl_seconds is not None:
         body_obj["ttl_seconds"] = prepared.ttl_seconds
-    answer = await _call(
+    # A `busy` submission is resent unchanged (same request_id and body, a
+    # fresh nonce): the robot judges it once or answers it as a duplicate (§7).
+    answer = await _call_retrying(
         robot,
         "POST",
         _robot_target(robot.robot_id, "action-requests"),
@@ -1617,8 +1901,9 @@ async def request_action(
     description=(
         "Read the stored state of a robot action request (signed answer). "
         "recorded_not_executed, refused, failed and reverted are terminal: never "
-        "poll them. Poll pending until it becomes verified (in force), refused "
-        "or failed."
+        "poll them. Poll pending until it becomes verified, refused or failed, "
+        "and a held verified action until it is re-armed (in_force true) or "
+        "reverted."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -1643,7 +1928,7 @@ async def get_action_status(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
-    answer = await _call(
+    answer = await _call_retrying(
         robot, "GET", _robot_target(robot.robot_id, "action-requests", request_id)
     )
     data = answer.json()
@@ -1738,7 +2023,7 @@ async def revert_action(
 
     # Which action the revert undoes decides how many approvals it needs: ask
     # the robot (signed answer) instead of trusting an input.
-    stored = await _call(
+    stored = await _call_retrying(
         robot, "GET", _robot_target(robot.robot_id, "action-requests", request_id)
     )
     state = stored.json().get("state")
@@ -1762,11 +2047,14 @@ async def revert_action(
     body = body_bytes(
         {"reason": fields["reason"], "requested_by": requester.identifier}
     )
-    answer = await _call(
+    # Resent only when the robot did nothing (fenced, rate limited); after
+    # `busy` the revert may be recorded: read get_action_status first.
+    answer = await _call_retrying(
         robot,
         "POST",
         _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
         body,
+        busy_codes=(),
     )
     data = answer.json()
     return {
@@ -1775,7 +2063,7 @@ async def revert_action(
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
-        **_outcome(data),
+        **_outcome(data, revert=True),
         "answer_signature_verified": True,
         "answer": data,
     }
@@ -1877,7 +2165,9 @@ async def list_evidence(
         answer_key_id=answer_key_id,
     )
     audit_logged = await _record_access(robot.robot_id, "list")
-    answer = await _call(robot, "GET", _robot_target(robot.robot_id, "evidence"))
+    answer = await _call_retrying(
+        robot, "GET", _robot_target(robot.robot_id, "evidence")
+    )
     return {
         "answer_signature_verified": True,
         "audit_logged": audit_logged,
@@ -2000,12 +2290,15 @@ async def create_evidence_export(
             "reason": reason,
         }
     )
-    answer = await _call(
+    # The same export_id and selector answer the same export (200), so a
+    # busy robot is asked again.
+    answer = await _call_retrying(
         robot,
         "POST",
         _robot_target(robot.robot_id, "evidence", "exports"),
         body,
         ok=(200, 201),
+        busy_codes=("busy", "evidence_busy"),
     )
     verified = _verified_manifest(robot, answer, export_id, selector)
     return {
@@ -2036,13 +2329,15 @@ async def _fetch_chunk(robot: _Robot, export_id: str, index: int, size: int) -> 
             answer = await _call(robot, "GET", target, max_body=size)
             return answer.body
         except RobotHTTPError as exc:
-            retryable = exc.signed and (
-                exc.status == 429
-                or (exc.status == 503 and exc.code in ("busy", "evidence_busy"))
-            )
-            if not retryable or attempt == CHUNK_ATTEMPTS:
+            if attempt == CHUNK_ATTEMPTS or not (
+                exc.fenced or exc.retryable(("busy", "evidence_busy"))
+            ):
                 raise
-            wait = min(exc.retry_after or delay, MAX_RETRY_AFTER_S)
+            wait = (
+                FENCE_RETRY_WAIT_S
+                if exc.fenced
+                else min(exc.retry_after or delay, MAX_RETRY_AFTER_S)
+            )
         except (OSError, TimeoutError, ssl.SSLError):
             if attempt == CHUNK_ATTEMPTS:
                 raise
@@ -2154,7 +2449,10 @@ async def download_evidence_export(
     # Step 1-2: the manifest (signed answer, signed manifest, the selector).
     export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
     verified = _verified_manifest(
-        robot, await _call(robot, "GET", export_target), export_id, selector
+        robot,
+        await _call_retrying(robot, "GET", export_target),
+        export_id,
+        selector,
     )
     manifest = verified.manifest
     if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
@@ -2204,7 +2502,7 @@ async def download_evidence_export(
     )
     deleted = False
     if delete_after_download:
-        await _call(robot, "DELETE", export_target)
+        await _call_retrying(robot, "DELETE", export_target)
         deleted = True
     return {
         "export_id": export_id,

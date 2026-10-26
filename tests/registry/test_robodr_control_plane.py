@@ -1504,13 +1504,101 @@ async def test_connection_inputs_are_checked_before_connecting(
             True,
             "executor_unreachable",
         ),
+        (
+            {
+                "status": "refused",
+                "executed": False,
+                "in_force": False,
+                "refusal": {"code": "soc_signature_invalid", "reason": "r"},
+            },
+            False,
+            True,
+            "did not accept the SOC signature",
+        ),
+        (
+            {
+                "status": "refused",
+                "executed": False,
+                "refusal": {"code": "operator_disabled", "reason": "r"},
+            },
+            False,
+            True,
+            "re-armed",
+        ),
+        (
+            {
+                "status": "failed",
+                "executed": False,
+                "in_force": False,
+                "state": {"error": {"code": "state_unavailable"}},
+            },
+            False,
+            True,
+            "request journal",
+        ),
         ({"status": "pending", "executed": False}, False, False, "Pending"),
-        ({"status": "verified", "executed": True}, True, False, "In force"),
-        ({"status": "verified", "executed": False}, False, False, "Not applied"),
-        ({"status": "reverted", "executed": True}, False, True, "Reverted"),
+        ({"status": "pending", "in_force": True}, False, False, "Pending"),
+        (
+            {"status": "verified", "executed": True, "in_force": True},
+            True,
+            False,
+            "In force",
+        ),
+        # Never inferred from the status: no `in_force`, not in force.
+        ({"status": "verified", "executed": True}, False, False, "Not in force"),
+        (
+            {"status": "verified", "executed": True, "in_force": False},
+            False,
+            False,
+            "Not in force",
+        ),
+        (
+            {
+                "status": "verified",
+                "executed": True,
+                "in_force": False,
+                "state": {"executor_state": "held"},
+            },
+            False,
+            False,
+            "Held, not enforced",
+        ),
+        (
+            # A contradictory answer still never reads as in force while held.
+            {
+                "status": "verified",
+                "executed": True,
+                "in_force": True,
+                "state": {"executor_state": "held"},
+            },
+            False,
+            False,
+            "Held, not enforced",
+        ),
+        ({"status": "verified", "executed": False}, False, False, "Not in force"),
+        (
+            {"status": "reverted", "executed": True, "in_force": False},
+            False,
+            True,
+            "Reverted",
+        ),
+        ({"status": "reverted", "in_force": True}, False, True, "Reverted"),
         ({"status": "not_applied", "executed": False}, False, True, "Not applied"),
-        ({"status": "applied", "executed": False}, False, False, "Not applied"),
+        (
+            {"status": "recorded_not_executed", "in_force": True},
+            False,
+            True,
+            "Not applied",
+        ),
+        (
+            {"status": "applied", "executed": True, "in_force": True},
+            True,
+            False,
+            "In force",
+        ),
+        ({"status": "applied", "executed": True}, False, False, "Not applied"),
         ({"status": "something_new", "executed": True}, False, False, "Not applied"),
+        ({"status": "something_new", "in_force": True}, False, False, "Not applied"),
     ],
 )
 def test_every_status_is_reported_as_the_contract_requires(
@@ -1521,6 +1609,78 @@ def test_every_status_is_reported_as_the_contract_requires(
     assert outcome["applied"] is in_force
     assert outcome["terminal"] is terminal
     assert word in outcome["report"]
+    assert outcome["held"] is (
+        data.get("status") == "verified"
+        and data.get("state", {}).get("executor_state") == "held"
+    )
+
+
+def test_every_documented_refusal_code_is_explained() -> None:
+    codes = [
+        # §4.1
+        "safety_system_engaged",
+        "observe_mode",
+        "morphology_mismatch",
+        "human_in_command",
+        "transient_phase",
+        "fall_hazard",
+        "requires_idle",
+        "above_policy",
+        "not_a_restriction",
+        "invariant_violation",
+        "not_reversible",
+        # §6a and the executor's order checks
+        "not_executor_action",
+        "needs_approval",
+        "motion_path",
+        "locators_required",
+        "no_management_channel",
+        "unsupported_target",
+        "safety_state_changed",
+        "safety_state_stale",
+        "safety_state_unavailable",
+        "operator_disabled",
+        "config_unavailable",
+        "already_active",
+        "ttl_out_of_range",
+        "replay",
+        "invalid_order",
+        "id_conflict",
+        "evidence_elsewhere",
+        "executor_refused",
+        "soc_signature_invalid",
+        "soc_nonce_replayed",
+        "order_mismatch",
+        "approval_missing",
+    ]
+    for code in codes:
+        outcome = cp._outcome(
+            {"status": "refused", "refusal": {"code": code, "reason": "r"}}
+        )
+        assert outcome["refusal_explanation"] == cp.REFUSAL_EXPLANATIONS[code]
+        assert code in outcome["report"]
+    unknown = cp._outcome({"status": "refused", "refusal": {"code": "brand_new"}})
+    assert unknown["refusal_explanation"] == "unknown refusal code"
+
+
+def test_every_documented_error_code_is_explained() -> None:
+    for code in (
+        "busy",
+        "state_unavailable",
+        "evidence_timeout",
+        "evidence_busy",
+        "storage_full",
+        "stale_timestamp",
+        "replay_cache_full",
+        "replay_store_unavailable",
+        "clock_unavailable",
+        "export_too_large",
+        "export_corrupt",
+        "answer_signing_failed",
+    ):
+        error = cp.RobotHTTPError(503, code, "m", signed=True)
+        assert error.explanation == cp.ERROR_EXPLANATIONS[code]
+        assert "Meaning: " in str(error)
 
 
 @pytest.mark.anyio
@@ -1530,6 +1690,7 @@ async def test_executor_pending_then_verified(stub, platform) -> None:
         "request_id": "x",
         "status": "pending" if r["method"] == "POST" else "verified",
         "executed": r["method"] != "POST",
+        "in_force": r["method"] != "POST",
         "state": {"executor": "robodr-executor"},
     }
     with soc_secrets():
@@ -1543,6 +1704,139 @@ async def test_executor_pending_then_verified(stub, platform) -> None:
             **_conn(base_url), request_id=sent["request_id"]
         )
     assert (status["status"], status["in_force"]) == ("verified", True)
+
+
+@pytest.mark.anyio
+async def test_a_held_action_is_reported_held_not_in_force(stub) -> None:
+    robot, base_url = stub
+    robot.answer_for = lambda r: {
+        "request_id": "x",
+        "status": "verified",
+        "executed": True,
+        "in_force": False,
+        "state": {"executor": "robodr-executor", "executor_state": "held"},
+    }
+    with soc_secrets():
+        status = await cp.get_action_status(**_conn(base_url), request_id="r1")
+    assert (status["status"], status["in_force"], status["held"]) == (
+        "verified",
+        False,
+        True,
+    )
+    assert status["executor_state"] == "held"
+    assert status["terminal"] is False
+    assert "Held, not enforced" in status["report"]
+
+
+def _busy_then(
+    robot: StubRobot, failures: int, status: int, code: str
+) -> list[dict[str, Any]]:
+    """Answer the action-request routes with an error ``failures`` times."""
+    seen: list[dict[str, Any]] = []
+
+    def reply(record: dict[str, Any]) -> Reply | None:
+        if "/action-requests" not in record["target"]:
+            return None
+        seen.append(record)
+        if len(seen) <= failures:
+            error = {"error": {"code": code, "message": "m"}}
+            return status, {"Retry-After": "0"}, json.dumps(error).encode()
+        return None
+
+    robot.evidence_for = reply
+    return seen
+
+
+@pytest.mark.anyio
+async def test_a_busy_submission_is_resent_unchanged_with_a_fresh_nonce(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    seen = _busy_then(robot, 2, 503, "busy")
+    with soc_secrets():
+        sent = await _send(base_url, platform, "robot_isolate_network")
+    assert sent["status"] == "recorded_not_executed"
+    posts = [r for r in seen if r["method"] == "POST"]
+    assert len(posts) == 3
+    assert len({r["body"] for r in posts}) == 1  # same request_id and body
+    assert len({r["headers"]["x-robodr-nonce"] for r in posts}) == 3
+
+
+@pytest.mark.anyio
+async def test_busy_that_persists_is_reported_with_its_meaning(stub, platform) -> None:
+    robot, base_url = stub
+    seen = _busy_then(robot, 99, 503, "busy")
+    with soc_secrets():
+        with pytest.raises(cp.RobotHTTPError, match="same request_id") as caught:
+            await _send(base_url, platform, "robot_isolate_network")
+    assert caught.value.attempts == cp.CALL_ATTEMPTS
+    assert len(seen) == cp.CALL_ATTEMPTS
+
+
+@pytest.mark.anyio
+async def test_the_replay_fence_is_waited_out(
+    stub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    robot, base_url = stub
+    monkeypatch.setattr(cp, "FENCE_RETRY_WAIT_S", 0.0)
+    seen = _busy_then(robot, 2, 401, "stale_timestamp")
+    with soc_secrets():
+        status = await cp.get_action_status(**_conn(base_url), request_id="r1")
+    assert status["status"] == "recorded_not_executed"
+    assert len(seen) == 3
+    # A fence that outlasts the retries says what it is.
+    seen.clear()
+    _busy_then(robot, 99, 401, "stale_timestamp")
+    with soc_secrets():
+        with pytest.raises(cp.RobotHTTPError, match="max_clock_skew_s"):
+            await cp.get_action_status(**_conn(base_url), request_id="r1")
+
+
+@pytest.mark.anyio
+async def test_a_busy_revert_is_not_resent(stub, platform) -> None:
+    robot, base_url = stub
+    robot.answer_for = _stored("isolate_network")
+    reverts: list[dict[str, Any]] = []
+
+    def reply(record: dict[str, Any]) -> Reply | None:
+        if record["target"].endswith("/revert"):
+            reverts.append(record)
+            error = {"error": {"code": "busy", "message": "m"}}
+            return 503, {}, json.dumps(error).encode()
+        return None
+
+    robot.evidence_for = reply
+    with soc_secrets():
+        with pytest.raises(cp.RobotHTTPError, match="busy"):
+            await _revert(
+                base_url, platform, "robot_isolate_network:ugv-007:01", (LEAD_B,)
+            )
+    assert len(reverts) == 1
+
+
+@pytest.mark.anyio
+async def test_a_pending_revert_is_not_reported_as_lifted(stub, platform) -> None:
+    robot, base_url = stub
+    stored = _stored("isolate_network")
+
+    def answer(record: dict[str, Any]) -> dict[str, Any]:
+        if record["target"].endswith("/revert"):
+            return {
+                "request_id": "x",
+                "status": "pending",
+                "executed": True,
+                "in_force": False,
+                "state": {"action": "isolate_network", "revert": {"result": "pending"}},
+            }
+        return stored(record)
+
+    robot.answer_for = answer
+    with soc_secrets():
+        result = await _revert(
+            base_url, platform, "robot_isolate_network:ugv-007:01", (LEAD_B,)
+        )
+    assert (result["status"], result["in_force"]) == ("pending", False)
+    assert "Revert pending" in result["report"]
 
 
 # --------------------------------------------------------------------------- #

@@ -231,6 +231,21 @@ def test_answers_do_not_verify_for_another_request_status_or_body(name: str) -> 
     )
 
 
+@pytest.mark.parametrize("name", ["02-submit", "03-get-request"])
+def test_request_state_answers_carry_in_force(name: str) -> None:
+    """Control plane v2 review: every request-state answer says `in_force`."""
+    data = json.loads(_answer(name).body)
+    assert data["in_force"] is False
+    outcome = cp._outcome(data)  # pyright: ignore[reportPrivateUsage]
+    assert outcome["status"] == "recorded_not_executed"
+    assert (outcome["in_force"], outcome["held"], outcome["terminal"]) == (
+        False,
+        False,
+        True,
+    )
+    assert "Not applied" in outcome["report"]
+
+
 def test_parse_answer_reads_the_wire_form() -> None:
     raw = _answer("01-robot")
     wire = (

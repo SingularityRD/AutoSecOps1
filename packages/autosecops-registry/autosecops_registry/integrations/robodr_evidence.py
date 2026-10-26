@@ -56,6 +56,9 @@ BUNDLE_FORMAT = "RBBXBND1"
 MAX_CHUNKS = 4096
 MAX_CHUNK_BYTES = 4 * 1024 * 1024
 MAX_MANIFEST_BYTES = 1024 * 1024
+MAX_EXPORT_BYTES = 256 * 1024 * 1024
+"""The largest bundle a robot exports (`max_export_bytes` is at most 256 MiB,
+robodr.control-plane §11.7): a manifest announcing more is not the robot's."""
 MAX_CONTEXT_RECORDS = 1024
 DEFAULT_CONTEXT_RECORDS = 16
 MAX_EVIDENCE_LINKS = 64
@@ -335,6 +338,10 @@ def parse_manifest(manifest_bytes: bytes, *, robot_id: str, export_id: str) -> M
     raw_chunks = _require(bundle, "chunks", "bundle")
     if not _is_uint(total) or total == 0 or not _full(_HEX64_RE, digest):
         raise EvidenceError("manifest bundle.bytes / bundle.sha256 are invalid")
+    if total > MAX_EXPORT_BYTES:
+        raise EvidenceError(
+            "manifest bundle.bytes exceeds 256 MiB, the robot's largest export"
+        )
     if not _is_uint(chunk_bytes) or not 0 < chunk_bytes <= MAX_CHUNK_BYTES:
         raise EvidenceError("manifest bundle.chunk_bytes is out of range")
     if not isinstance(raw_chunks, list) or not 0 < len(raw_chunks) <= MAX_CHUNKS:

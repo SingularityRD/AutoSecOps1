@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import os
 import ssl
 import tempfile
@@ -13,11 +14,14 @@ from typing import Any
 import pytest
 from autosecops_registry import config as registry_config
 from autosecops_registry.integrations import robodr_control_plane as cp
+from autosecops_registry.integrations import robodr_evidence as ev
 from autosecops_registry.sdk.robot_edr import RobotEdrClient
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
+
+VECTORS = Path(__file__).parents[1] / "data" / "robodr_control_plane_v2"
 
 # --------------------------------------------------------------------------- #
 # DER helpers (test-only re-encoding of a certificate's SPKI)
@@ -221,14 +225,39 @@ def test_ascii_uint() -> None:
 def test_stored_bundle_cap_follows_the_platform_setting() -> None:
     from autosecops import config as platform_config
 
-    assert (
-        cp.MAX_STORED_BUNDLE_BYTES
-        == registry_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
+    assert cp.MAX_STORED_BUNDLE_BYTES == min(
+        registry_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, 256 * 1024 * 1024
     )
     assert (
         registry_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
         == platform_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
     )
+
+
+def test_a_manifest_over_the_robots_largest_export_is_refused() -> None:
+    """The robot exports at most 256 MiB (`max_export_bytes`, §11.7)."""
+    assert ev.MAX_EXPORT_BYTES == 256 * 1024 * 1024
+    manifest = json.loads((VECTORS / "evidence" / "manifest.json").read_bytes())
+    bundle = manifest["bundle"]
+    size = ev.MAX_EXPORT_BYTES + 1
+    bundle["bytes"] = size
+    bundle["chunk_bytes"] = ev.MAX_CHUNK_BYTES
+    count = -(-size // ev.MAX_CHUNK_BYTES)
+    bundle["chunks"] = [
+        {
+            "index": i,
+            "offset": i * ev.MAX_CHUNK_BYTES,
+            "bytes": min(ev.MAX_CHUNK_BYTES, size - i * ev.MAX_CHUNK_BYTES),
+            "sha256": "0" * 64,
+        }
+        for i in range(count)
+    ]
+    with pytest.raises(ev.EvidenceError, match="256 MiB"):
+        ev.parse_manifest(
+            json.dumps(manifest).encode(),
+            robot_id=manifest["robot_id"],
+            export_id=manifest["export_id"],
+        )
 
 
 @pytest.mark.anyio

@@ -182,7 +182,9 @@ JSON answers larger than 256 KiB are refused while they are read.
 
 ### Results
 
-Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `terminal`, `refusal`, `error`, and a `report` sentence.
+Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `held`, `executor_state`, `terminal`, `duplicate`, `refusal`, `refusal_explanation`, `error`, `error_explanation`, and a `report` sentence.
+
+`in_force` is the robot's own top-level `in_force` answer, never inferred from the status: it is `true` only for a `verified` (or `applied`) action that the robot's executor does not hold. After a robot reboot the executor holds an action in force until it re-validated it; the answer then keeps `status: verified` with `in_force: false` and `state.executor_state: "held"`, and AutoSecOps reports it as held, not enforced (`held: true`). Keep polling `get_action_status` until it is re-armed (`in_force: true`) or `reverted`.
 
 | `status` | Meaning | Terminal |
 | --- | --- | --- |
@@ -190,12 +192,24 @@ Every action result carries `status`, `executed`, `in_force`, `applied` (same as
 | `refused` | Judged unsafe or not allowed now, by the robot or its executor. Show `refusal.code`, `refusal.reason`, and `refusal.safety_state`; do not retry | Yes |
 | `failed` | Not taken (`error.code`); nothing is in force. A new request is judged anew | Yes |
 | `pending` | Handed to RoboDR's executor; not in force yet. Poll `get_action_status` | No |
-| `verified` | The executor applied the action and verified it: `in_force` is `true` until a revert or the TTL | No |
+| `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot | No |
 | `reverted` | No longer in force | Yes |
 | `not_applied` | Revert of a request that never took effect | Yes |
 
 Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
-A revert of a `pending` or `verified` request answers `pending`; `get_action_status` then shows `reverted`.
+A revert of a `pending` or `verified` request answers `pending`; the action may stay in force until `get_action_status` shows `reverted`.
+
+`refusal_explanation` says what the refusal code means. Besides the robot's judgment codes, the executor's own checks refuse with codes such as `locators_required` (the robot has not seen the DDS participant's locators yet), `operator_disabled` (an operator disabled the executor; nothing runs until it is re-armed on the robot), `config_unavailable`, `soc_signature_invalid`, `soc_nonce_replayed`, `order_mismatch`, and `approval_missing`. A code AutoSecOps does not know is shown as an unknown refusal code; every refusal is final.
+
+### Errors and retries
+
+A robot error is raised with its HTTP status, its code, whether the robot signed it, and what the code means. AutoSecOps signs a fresh request (new nonce and timestamp) and sends it again, up to four attempts, when:
+
+- the robot answers `503 busy` (every connection slot taken, its main loop full or stopping, or it did not answer in time). A submission is resent with the same `request_id` and body, so the robot judges it once or answers it as a duplicate (`duplicate: true`). A revert is not resent after `busy`, because it may already be recorded: read `get_action_status` before reverting again;
+- the robot answers `429 rate_limited` (honouring a signed `Retry-After` up to 60 seconds);
+- the robot refuses the timestamp with `401 stale_timestamp`. Right after the robot created its replay store (its first start, or a wiped state directory) or after its clock went back, it refuses every request for `max_clock_skew_s` (30 seconds by default). AutoSecOps waits 12 seconds between attempts; if the refusal outlasts them, the error says so: retry later, and check NTP on the SOC and the robot if it persists.
+
+Other codes are not retried: `503 state_unavailable` (the robot's request journal cannot take or reconcile the request; an operator restarts the robot's agent), `503 replay_store_unavailable`, `503 replay_cache_full`, `503 clock_unavailable`, `503 evidence_timeout` (the export took longer than 60 seconds to build: select fewer records), `507 storage_full` (the robot's export quota is full or its state directory has less than 64 MiB free: delete downloaded exports), and `413 export_too_large`.
 
 ### Evidence
 
@@ -208,8 +222,9 @@ The evidence actions export signed black-box records from the robot and verify t
 `download_evidence_export` stores evidence only after every check passed: answer signatures, the manifest signature and selector, each chunk's length and SHA-256, the bundle's SHA-256, every black-box record's hash, signature, and chain link under the black-box keys, and the bundle against the manifest (sequence numbers, record count, last hash, chain id, anchor, and every referenced record).
 The bundle check accepts only what RoboDR's own verifier (`robodr-blackbox verify`) reports intact, and is stricter: it also refuses gaps, recorded truncation, a missing or quarantined segment, damage a crash cannot explain, and any control record it cannot parse.
 A refusal ending in "not verifiable by AutoSecOps" means RoboDR's verifier may still accept the bundle; check it with `robodr-blackbox verify` before treating it as tampering.
-It downloads the chunks in order and retries only the chunk that failed after a rate limit (`429`, honouring `Retry-After` up to 60 seconds), `busy`, or a dropped connection.
-It refuses exports larger than `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (64 MiB by default). Set `delete_after_download` to free the robot's export quota once the evidence is stored.
+`create_evidence_export` asks again while the robot answers `busy` or `evidence_busy` (another export runs); the same `export_id` and selector return the same export.
+It downloads the chunks in order and retries only the chunk that failed after a rate limit (`429`, honouring `Retry-After` up to 60 seconds), `busy`, `evidence_busy`, the replay fence, or a dropped connection.
+It refuses exports larger than `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (64 MiB by default), and never downloads more than 256 MiB, the robot's largest export: a manifest announcing more is refused. Set `delete_after_download` to free the robot's export quota once the evidence is stored.
 
 AutoSecOps then checks the manifest signature again against a finding key registered for the robot in the workspace (see [RoboDR ingest](/integrations/robodr-ingest)), requires the workflow's report to say verified and intact, and re-checks the bundle itself: every record's hash, the chain, sequence numbers and anchor, the control records, and the bundle against the manifest. Only the record signatures rest on the workflow's check.
 It stores the bundle, the manifest, and its signature in the attachments bucket under `robot-edr/evidence/<workspace id>/<manifest sha256>/<evidence id>/`, a new prefix for every stored export, so a later export never overwrites an earlier one. It attaches a plain-text report named `robodr-evidence-<first 16 hex of the bundle sha256>.txt` to the case.
