@@ -24,8 +24,11 @@ Rules for work under `deployments/` and the root `docker-compose*.yml` files.
   reads; booleans and numbers are rendered as quoted strings.
   `tests/unit/test_helm_chart.py` checks the names.
 - Add new values to `values.schema.json` too. The schema rejects unknown keys.
-- Bump `version` in `Chart.yaml` on every chart change. `appVersion` follows
-  the release and `scripts/update-version.sh` bumps it.
+- `version` and `appVersion` in `Chart.yaml` both equal the release version.
+  Do not bump them by hand: `scripts/update-version.sh` bumps both, and
+  `.github/workflows/publish-helm-chart.yml` publishes the chart to
+  `oci://ghcr.io/singularityrd/charts/autosecops` when the release is
+  published. Chart changes ship with the next release.
 - Verify with `helm lint --strict` and `helm template | kubeconform -strict`
   against `ci/*-values.yaml`; `.github/workflows/lint-helm.yml` runs the same
   checks.

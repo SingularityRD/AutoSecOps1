@@ -114,8 +114,10 @@ Create or switch to `BRANCH` at the verified commit. Run
 approved release. It writes the public tag to `__version__` and its PEP 440
 value to `__pep440_version__` (for example, `1.2.0-alpha.1` becomes `1.2.0a1`,
 and `1.2.0-alpha.1.2` becomes `1.2.0a1.post2`).
-Verify both application and registry versions agree, and validate the Python
-version with `packaging.version.Version` through `uv run python`.
+Verify both application and registry versions agree, that
+`deployments/helm/autosecops/Chart.yaml` has `version` and `appVersion` equal
+to the tag, and validate the Python version with `packaging.version.Version`
+through `uv run python`.
 
 Review the generated diff and, for a patch, repeat the migration gate against
 the final release tree (including all version-bump edits) before committing or
@@ -234,8 +236,20 @@ gh release create '<tag>' --verify-tag --prerelease --latest=false \
 Run only the command for the approved release type. If the range contains no
 changes, state `No changes since <PREV_TAG>.` rather than reusing older notes.
 
+Publishing the release triggers `.github/workflows/publish-helm-chart.yml`.
+Find the run whose `headSha` matches the release commit, watch it to success,
+and verify the chart:
+
+```sh
+helm show chart oci://ghcr.io/singularityrd/charts/autosecops --version '<tag>'
+```
+
+`version` and `appVersion` must both equal the tag. If the run fails, report
+it; the workflow never overwrites a published chart version, so a trusted
+actor can rerun it or dispatch it from the tag ref with the tag as input.
+
 Report the branch, immutable tag/commit, GitHub release URL, image-build run,
-and manifest verification. Never delete the alpha-line or train branch,
+manifest verification, and chart publish run. Never delete the alpha-line or train branch,
 force-push, amend existing release commits, or deploy as part of this skill.
 If signing or a publication step fails, stop and report the concrete state
 before attempting further external mutations.

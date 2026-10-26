@@ -1,0 +1,229 @@
+name: Publish Helm chart
+
+# Runs when a release is published, which the release process does only after
+# the release images are verified, so the chart never points at missing images.
+# The manual path republishes a failed run and must be dispatched from the
+# release tag with the same tag as input.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish the chart for (for example: 1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One publish at a time across all tags: the existence check and the push must
+# not interleave with another run for the same version.
+concurrency:
+  group: publish-helm-chart
+  cancel-in-progress: false
+
+env:
+  CHART: deployments/helm/autosecops
+  CHART_NAME: autosecops
+  OCI_REPOSITORY: oci://ghcr.io/singularityrd/charts
+  REGISTRY: ghcr.io
+  HELM_VERSION: v3.16.4
+  HELM_SHA256: fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179
+
+jobs:
+  package:
+    name: Lint and package chart
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(
+        fromJSON(vars.TRUSTED_CI_ACTORS_JSON || '[]'),
+        github.triggering_actor || github.actor
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate release tag against chart versions
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$REF_TYPE" != 'tag' ]]; then
+            echo "::error::Run this workflow from a release tag, not ${REF_TYPE} ${REF_NAME}."
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' && "$INPUT_TAG" != "$REF_NAME" ]]; then
+            echo '::error::Dispatch from the matching tag ref, with tag set to that tag.'
+            exit 1
+          fi
+          tag="$REF_NAME"
+          core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          if ! [[ "$tag" =~ ^${core}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || (( ${#tag} > 128 )); then
+            echo "::error::Unsupported release tag: ${tag}"
+            exit 1
+          fi
+
+          chart_field() {
+            local values
+            values=$(sed -nE "s/^$1:[[:space:]]*\"?([^\"[:space:]]+)\"?[[:space:]]*$/\\1/p" "$CHART/Chart.yaml")
+            if [[ $(grep -c . <<< "$values") -ne 1 ]]; then
+              echo "::error::Expected exactly one top-level $1 in $CHART/Chart.yaml." >&2
+              exit 1
+            fi
+            printf '%s\n' "$values"
+          }
+          chart_version=$(chart_field version)
+          app_version=$(chart_field appVersion)
+          package_version=$(sed -nE 's/^__version__ = "([^"]+)"$/\1/p' autosecops/__init__.py)
+
+          status=0
+          for pair in "Chart.yaml version=$chart_version" \
+                      "Chart.yaml appVersion=$app_version" \
+                      "autosecops.__version__=$package_version"; do
+            if [[ "${pair#*=}" != "$tag" ]]; then
+              echo "::error::${pair%%=*} is '${pair#*=}', expected release tag '${tag}'."
+              status=1
+            fi
+          done
+          if (( status != 0 )); then
+            echo 'Run scripts/update-version.sh for this release before tagging it.' >&2
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Install helm
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          install -m 0755 linux-amd64/helm bin/helm
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for values in "$CHART"/ci/*-values.yaml; do
+            echo "::group::helm lint --strict ($values)"
+            helm lint --strict "$CHART" -f "$values"
+            echo "::endgroup::"
+          done
+
+      - name: Package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/chart"
+          helm package "$CHART" --destination "$RUNNER_TEMP/chart"
+          package="$RUNNER_TEMP/chart/${CHART_NAME}-${VERSION}.tgz"
+          test -f "$package"
+          sha256sum "$package"
+
+      - name: Upload chart package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: helm-chart
+          path: ${{ runner.temp }}/chart/*.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Push chart to GHCR
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write # helm push to ghcr.io/singularityrd/charts
+    steps:
+      - name: Install helm
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          install -m 0755 linux-amd64/helm bin/helm
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Download chart package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: helm-chart
+          path: ${{ runner.temp }}/chart
+
+      - name: Log in to GHCR
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" \
+            | helm registry login "$REGISTRY" --username "$REGISTRY_USER" --password-stdin
+
+      # Published chart versions are immutable. Only a definite "not found"
+      # allows the push; any other lookup error stops the run.
+      - name: Refuse to overwrite a published version
+        env:
+          VERSION: ${{ needs.package.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$OCI_REPOSITORY/$CHART_NAME"
+          if output=$(helm show chart "$ref" --version "$VERSION" 2>&1); then
+            echo "::error::$ref version $VERSION is already published. Chart versions are immutable; cut a new release instead."
+            exit 1
+          fi
+          if ! grep -qF -- "/$CHART_NAME:$VERSION: not found" <<< "$output"; then
+            echo "::error::Could not confirm that $ref version $VERSION is unpublished."
+            echo "$output" >&2
+            exit 1
+          fi
+          echo "$ref version $VERSION is not published yet."
+
+      - name: Push chart
+        env:
+          VERSION: ${{ needs.package.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/chart/${CHART_NAME}-${VERSION}.tgz"
+          helm push "$package" "$OCI_REPOSITORY" 2>&1 | tee "$RUNNER_TEMP/push.log"
+          digest=$(sed -nE 's/^Digest: (sha256:[0-9a-f]{64})$/\1/p' "$RUNNER_TEMP/push.log")
+          helm show chart "$OCI_REPOSITORY/$CHART_NAME" --version "$VERSION" > /dev/null
+          {
+            echo "### Helm chart published"
+            echo
+            echo "- Chart: \`$OCI_REPOSITORY/$CHART_NAME\`"
+            echo "- Version: \`$VERSION\`"
+            echo "- Digest: \`${digest:-unknown}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out of GHCR
+        if: always()
+        shell: bash
+        run: helm registry logout "$REGISTRY" || true
