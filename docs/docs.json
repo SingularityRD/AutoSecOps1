@@ -219,6 +219,7 @@
             "pages": [
               "integrations/overview",
               "integrations/robodr-tools",
+              "integrations/robodr-ingest",
               "tools/1password",
               "tools/1password_sdk",
               "tools/abuseipdb",

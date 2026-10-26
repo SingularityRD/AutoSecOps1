@@ -1,0 +1,121 @@
+---
+title: "RoboDR ingest"
+sidebarTitle: "RoboDR ingest"
+description: "Connect RoboDR to AutoSecOps: register robots and their Ed25519 keys, then let robodr-uplink send signed batches of findings that become cases."
+keywords: ["robodr", "robot", "edr", "ingest", "ed25519", "robodr-uplink", "diode"]
+---
+
+RoboDR sends robot findings to AutoSecOps over HTTPS with `robodr-uplink`.
+Each request is a signed batch of `robodr.findings` 2.x values.
+AutoSecOps verifies the batch, validates every finding, and creates or updates one case per finding, tagged `robodr`.
+
+Robot EDR needs the `robot_edr` entitlement.
+See [License key](/self-hosting/license) to install a license that grants it.
+
+## Endpoint
+
+```text
+POST https://<your-host>/api/robot-edr/v2/ingest
+```
+
+The endpoint takes no user session and no API key: the Ed25519 batch signature authenticates the sender, and the sender's key decides the workspace.
+AutoSecOps refuses plain HTTP unless the client is on the same host.
+
+## Register robots and keys
+
+Register every robot that reports findings, then the public keys that sign for it.
+You need the `robot:update` scope, which the Workspace Admin role has; `robot:read` lets you view robots and keys.
+
+| Key role | Bound to | Use |
+| --- | --- | --- |
+| `uplink` | One robot | Signs batches with findings of that robot only. |
+| `relay` | The workspace | Signs batches for any registered robot, such as a sensor box or the SOC-side diode importer. |
+| `finding` | One robot | Verifies the optional per-finding signature. Never signs a batch. |
+
+A `relay` key takes two options:
+
+- `site`: the key reports only robots registered with that site. Findings for other robots are rejected with `site_mismatch`.
+- `vouches_origin`: set it only on the diode importer's key. Findings it relays satisfy a robot's `require_finding_signature` without a per-finding signature, because the importer already verified the robot's signed diode batch.
+
+A robot can hold several active keys of one role while you rotate them.
+Revoking a key stops it from authenticating anything at once.
+
+Pass public keys as 64 lower-case hex digits, the `public_hex` of a RoboDR `.key.pub` file:
+
+```bash
+curl -X POST "https://<your-host>/api/workspaces/<workspace-id>/robot-edr/robots" \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"robot_id": "ugv-001", "site": "range-north", "require_finding_signature": false}'
+
+curl -X POST "https://<your-host>/api/workspaces/<workspace-id>/robot-edr/keys" \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"role": "uplink", "robot_id": "ugv-001", "public_key": "137c63af...d54441"}'
+```
+
+The response carries the key id, `ed25519:<16 hex>`, which must match the `key_id` in the RoboDR key file.
+An active `uplink` or `relay` key can be registered in one workspace only.
+
+| Route | Scope |
+| --- | --- |
+| `GET`, `POST /robot-edr/robots` | `robot:read`, `robot:update` |
+| `GET`, `PATCH`, `DELETE /robot-edr/robots/{id}` | `robot:read`, `robot:update` |
+| `GET`, `POST /robot-edr/keys` | `robot:read`, `robot:update` |
+| `GET`, `DELETE /robot-edr/keys/{id}` | `robot:read`, `robot:update` |
+| `POST /robot-edr/keys/{id}/revoke` | `robot:update` |
+
+Deleting a robot deletes its keys and keeps its findings and cases.
+
+## Request format
+
+| Header | Value |
+| --- | --- |
+| `Content-Type` | `application/x-ndjson` |
+| `X-RoboDR-Key-Id` | Sender key id, `ed25519:<16 hex>` |
+| `X-RoboDR-Batch-Id` | 1-64 characters of `[A-Za-z0-9._:-]`, the retry key |
+| `X-RoboDR-Timestamp` | Signing time in Unix milliseconds, within 300 s of the server clock |
+| `X-RoboDR-Signature` | Ed25519 signature, 128 lower-case hex digits |
+
+The body holds one JSON object per line, `{"value": "<finding value>", "sig": null}`, with an optional per-finding signature in `sig`.
+A batch holds at most 1000 lines and 4 MiB, and one sender key may send 120 batches a minute with a burst of 30.
+`robodr-uplink` builds, signs and retries these requests; you only configure its URL, key file and CA bundle.
+
+## Responses
+
+A `200` reports every line: `created`, `updated` or `duplicates`, and a `rejected` list of line numbers with a code.
+A retry of the same batch within 7 days returns the stored response with `"replayed": true`.
+
+| Status | `code` | Meaning |
+| --- | --- | --- |
+| `400` | `bad_header`, `empty_batch` | A missing, repeated or malformed `X-RoboDR-*` header, or an empty body. |
+| `401` | `unknown_key`, `stale_timestamp`, `bad_signature` | Unregistered, revoked, expired or `finding` key, clock skew over 300 s, or a signature that does not verify. Each `401` writes an audit event with the key id, source address and reason. |
+| `403` | `not_entitled`, `tls_required` | The workspace lacks the `robot_edr` entitlement, or the request used plain HTTP from another host. |
+| `409` | `batch_id_reuse` | A known batch id with a different body. |
+| `413` | `body_too_large`, `too_many_lines` | Split the batch. |
+| `415` | `unsupported_media_type` | The body is not `application/x-ndjson`. |
+| `429` | `rate_limited` | Retry the same batch after `Retry-After` seconds. |
+
+| Line code | Meaning |
+| --- | --- |
+| `invalid_line` | The line is not `{"value": <string>, "sig": null or a signature object}`. |
+| `too_large` | The value is over 256 KiB. |
+| `unsupported_contract` | The finding names a contract major other than 2. |
+| `invalid_finding` | The finding fails `robodr.findings` 2.x validation. |
+| `robot_mismatch` | An `uplink` key sent a finding of another robot. |
+| `unknown_robot` | A `relay` key sent a finding of an unregistered robot. |
+| `site_mismatch` | A site-scoped `relay` key sent a finding of a robot at another site. |
+| `bad_finding_signature` | The per-finding signature does not verify with a `finding` key of that robot. |
+| `missing_finding_signature` | The robot requires per-finding signatures and the line has none. |
+
+## Cases
+
+Each finding is identified by its `external_id`, `<robot_id>:<finding_id>`.
+A new finding creates a case tagged `robodr`, and a new emission of a known finding updates the case: the occurrence count and payload follow the latest emission, and the severity and priority only rise.
+An emission that arrives late still adds a case event.
+
+The case uses the same summary, description, custom fields and `robodr` payload as `tools.robodr.finding_to_case_fields`, so workflows read cases from the ingest and from that action alike.
+Adversary-controlled values reach the description only as neutralised code spans under an untrusted-data label; see [RoboDR robot findings](/integrations/robodr-tools#untrusted-fields).
+
+## Related pages
+
+- See [RoboDR robot findings](/integrations/robodr-tools) for the finding tools, the example workflows, and how to handle untrusted fields.
+- See [License key](/self-hosting/license) to enable the `robot_edr` entitlement.
