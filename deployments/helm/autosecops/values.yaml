@@ -35,7 +35,9 @@ uiImage:
   digest: ""
   pullPolicy: IfNotPresent
 
-# -- Image pull secrets for every pod, e.g. `[{name: ghcr-pull}]`.
+# -- Image pull secrets for every pod in the release namespace, including the
+# migrations Job, e.g. `[{name: ghcr-pull}]`. Tunnel gateway pods use
+# `tunnels.gateway.imagePullSecrets`.
 imagePullSecrets: []
 
 # Public URLs. AutoSecOps uses them for redirects, OAuth callbacks, webhook URLs,
@@ -150,7 +152,7 @@ autosecops:
       enabled: false
       keyringArn: ""
       cacheTtlSeconds: 3600
-      cacheMaxItems: 128
+      cacheMaxItems: 4096
 
   aws:
     # -- AWS account ID executors use for cross-account `AssumeRole`.
@@ -472,8 +474,8 @@ executor:
   # -- Override the execution backend (`nsjail` or `direct`). Empty follows
   # `autosecops.sandbox.disableNsjail`.
   backend: ""
-  maxConcurrentActivities: 32
-  threadpoolMaxWorkers: 32
+  maxConcurrentActivities: 16
+  threadpoolMaxWorkers: 16
   forEachMaxConcurrency: 4
   registryCacheMaxEntries: 64
   registryCacheMaxBytes: 10737418240
@@ -797,6 +799,10 @@ tunnels:
       repository: ghcr.io/singularityrd/autosecops-tunnel-gateway
       # -- Defaults to the chart appVersion.
       tag: ""
+    # -- Image pull secrets for gateway pods, e.g. `[{name: ghcr-pull}]`. The
+    # API creates gateways in `tunnels.namespace`, so these Secrets must exist
+    # there; `imagePullSecrets` only covers the release namespace.
+    imagePullSecrets: []
     # -- Required when enabled. Every pod, service, and node CIDR in the
     # cluster, so gateways never dial cluster-internal addresses.
     blockedCidrs: []

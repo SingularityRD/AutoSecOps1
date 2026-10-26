@@ -132,6 +132,8 @@ ingress:
 tunnels:
   enabled: true
   gateway:
+    imagePullSecrets:
+      - name: ghcr-pull
     blockedCidrs:
       - 10.0.0.0/16
       - 10.96.0.0/12

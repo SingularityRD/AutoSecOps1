@@ -94,6 +94,7 @@ class GatewaySettings:
     port: int = 8080
     tun_resource: str = "squat.ai/tun"
     blocked_cidrs: tuple[str, ...] = ()
+    image_pull_secrets: tuple[str, ...] = ()
 
     @classmethod
     def from_config(cls) -> GatewaySettings:
@@ -107,6 +108,7 @@ class GatewaySettings:
                 str(network)
                 for network in config.AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS
             ),
+            image_pull_secrets=config.AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS,
         )
 
 
@@ -149,6 +151,11 @@ def build_deployment(spec: GatewaySpec, settings: GatewaySettings) -> dict[str, 
     if settings.tun_resource:
         limits[settings.tun_resource] = "1"
         requests[settings.tun_resource] = "1"
+    pod_spec_extra: dict[str, Any] = {}
+    if settings.image_pull_secrets:
+        pod_spec_extra["imagePullSecrets"] = [
+            {"name": secret} for secret in settings.image_pull_secrets
+        ]
     return {
         "apiVersion": "apps/v1",
         "kind": "Deployment",
@@ -212,6 +219,7 @@ def build_deployment(spec: GatewaySpec, settings: GatewaySettings) -> dict[str, 
                         }
                     ],
                     "volumes": [{"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}}],
+                    **pod_spec_extra,
                 },
             },
         },

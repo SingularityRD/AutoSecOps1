@@ -1676,6 +1676,16 @@ AUTOSECOPS__TUNNEL_GATEWAY_IMAGE = os.environ.get(
 Defaults to this release's version tag. Pin a digest for an immutable image.
 """
 
+AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS: tuple[str, ...] = tuple(
+    name.strip()
+    for name in os.environ.get(
+        "AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS", ""
+    ).split(",")
+    if name.strip()
+)
+"""Comma-separated names of image pull Secrets in the gateway namespace, for a
+private gateway image registry such as GHCR."""
+
 AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS = env_networks(
     "AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS"
 )

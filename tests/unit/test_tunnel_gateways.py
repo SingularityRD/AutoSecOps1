@@ -85,6 +85,25 @@ class TestGatewayManifests:
         assert container["resources"]["limits"]["squat.ai/tun"] == "1"
         assert container["envFrom"] == [{"secretRef": {"name": f"tunnel-{TUNNEL_ID}"}}]
 
+    def test_deployment_has_no_pull_secrets_by_default(self) -> None:
+        pod = build_deployment(_spec(), SETTINGS)["spec"]["template"]["spec"]
+        assert "imagePullSecrets" not in pod
+
+    def test_deployment_uses_configured_pull_secrets(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            config,
+            "AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS",
+            ("ghcr-pull", "mirror-pull"),
+        )
+        settings = GatewaySettings.from_config()
+        pod = build_deployment(_spec(), settings)["spec"]["template"]["spec"]
+        assert pod["imagePullSecrets"] == [
+            {"name": "ghcr-pull"},
+            {"name": "mirror-pull"},
+        ]
+
     def test_disabled_tunnel_scales_to_zero(self) -> None:
         deployment = build_deployment(_spec(enabled=False), SETTINGS)
         assert deployment["spec"]["replicas"] == 0

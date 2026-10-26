@@ -4,11 +4,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  {{- if $m.useHelmHooks }}
-  name: {{ include "autosecops.componentName" $ctx }}
-  {{- else }}
-  name: {{ printf "%s-%d" (include "autosecops.componentName" $ctx) .Release.Revision | trunc 63 | trimSuffix "-" }}
-  {{- end }}
+  name: {{ include "autosecops.migrationsJobName" . }}
   labels:
     {{- include "autosecops.componentLabels" $ctx | nindent 4 }}
   {{- if $m.useHelmHooks }}
