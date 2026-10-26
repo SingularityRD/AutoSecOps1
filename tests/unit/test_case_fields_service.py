@@ -9,24 +9,24 @@ import sqlalchemy as sa
 from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.enums import (
     CaseFieldReadType,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.cases.schemas import (
+from autosecops.cases.schemas import (
     CaseFieldCreate,
     CaseFieldReadMinimal,
     CaseFieldUpdate,
 )
-from tracecat.cases.service import CaseFieldsService
-from tracecat.db.models import Case, CaseFields, WorkspaceSyncResourceMapping
-from tracecat.exceptions import TracecatAuthorizationError
-from tracecat.tables.enums import SqlType
-from tracecat.workspace_sync.enums import SyncResourceType, VcsProvider
+from autosecops.cases.service import CaseFieldsService
+from autosecops.db.models import Case, CaseFields, WorkspaceSyncResourceMapping
+from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.tables.enums import SqlType
+from autosecops.workspace_sync.enums import SyncResourceType, VcsProvider
 
 pytestmark = pytest.mark.usefixtures("db")
 

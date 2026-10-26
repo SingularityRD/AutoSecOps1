@@ -7,17 +7,17 @@ from uuid import UUID, uuid4
 import pytest
 from temporalio.exceptions import ApplicationError
 
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import PydanticORJSONPayloadConverter
-from tracecat.dsl.action import (
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import PydanticORJSONPayloadConverter
+from autosecops.dsl.action import (
     DSLActivities,
     EvaluateTemplatedObjectActivityInput,
     materialize_context,
 )
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.compiler import compile_dsl_dependencies
-from tracecat.dsl.scheduler import DSLScheduler
-from tracecat.dsl.schemas import (
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.compiler import compile_dsl_dependencies
+from autosecops.dsl.scheduler import DSLScheduler
+from autosecops.dsl.schemas import (
     ROOT_STREAM,
     ActionStatement,
     DSLDependencyPlan,
@@ -26,15 +26,15 @@ from tracecat.dsl.schemas import (
     StreamID,
     TaskResult,
 )
-from tracecat.dsl.types import Task
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.dsl.workflow_logging import get_workflow_logger
-from tracecat.expressions.eval import eval_templated_object
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.runtime.errors import RuntimeErrorKind, RuntimeErrorOwner
-from tracecat.storage.object import ExternalObject, InlineObject, ObjectRef
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.temporal.patches import WorkflowPatch
+from autosecops.dsl.types import Task
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.dsl.workflow_logging import get_workflow_logger
+from autosecops.expressions.eval import eval_templated_object
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.runtime.errors import RuntimeErrorKind, RuntimeErrorOwner
+from autosecops.storage.object import ExternalObject, InlineObject, ObjectRef
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.temporal.patches import WorkflowPatch
 
 
 @pytest.fixture
@@ -118,7 +118,7 @@ async def test_compile_activity_falls_back_for_unsupported_references(
 @pytest.mark.anyio
 async def test_compile_activity_fails_open_on_unexpected_compiler_error() -> None:
     with patch(
-        "tracecat.dsl.action.compile_dsl_dependencies",
+        "autosecops.dsl.action.compile_dsl_dependencies",
         side_effect=RuntimeError("synthetic compiler failure"),
     ):
         plan = await DSLActivities.compile_dsl_dependencies_activity(make_dsl(None))
@@ -129,7 +129,7 @@ async def test_compile_activity_fails_open_on_unexpected_compiler_error() -> Non
 async def test_compile_activity_preserves_cancellation() -> None:
     with (
         patch(
-            "tracecat.dsl.action.compile_dsl_dependencies", side_effect=CancelledError
+            "autosecops.dsl.action.compile_dsl_dependencies", side_effect=CancelledError
         ),
         pytest.raises(CancelledError),
     ):
@@ -239,7 +239,7 @@ async def test_handle_return_does_not_send_unreferenced_inline_results() -> None
 
     with (
         patch.object(workflow, "_set_logical_time_context"),
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute),
+        patch("autosecops.dsl.workflow.workflow.execute_activity", new=execute),
     ):
         assert await workflow._handle_return() is stored
 
@@ -267,9 +267,9 @@ async def test_compilation_is_patch_gated(enabled: bool, failed: bool) -> None:
     execute = AsyncMock(return_value=plan)
     with (
         patch(
-            "tracecat.dsl.workflow.workflow.patched", return_value=enabled
+            "autosecops.dsl.workflow.workflow.patched", return_value=enabled
         ) as patched,
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute),
+        patch("autosecops.dsl.workflow.workflow.execute_activity", new=execute),
     ):
         await workflow._compile_dependencies()
     patched.assert_called_once_with(WorkflowPatch.COMPILE_DSL_DEPENDENCIES)
@@ -313,9 +313,9 @@ async def test_return_context_uses_plan_and_preserves_stored_objects(
     execute = AsyncMock(return_value=InlineObject(data=None))
     with (
         patch.object(workflow, "_set_logical_time_context"),
-        patch("tracecat.dsl.workflow.workflow.execute_activity", new=execute),
+        patch("autosecops.dsl.workflow.workflow.execute_activity", new=execute),
         patch(
-            "tracecat.expressions.parser.core.parser.parse",
+            "autosecops.expressions.parser.core.parser.parse",
             side_effect=AssertionError("must not parse at return"),
         ),
     ):
@@ -349,7 +349,7 @@ def test_plan_selects_live_stream_results_without_parsing(
     scheduler.stream_hierarchy = {ROOT_STREAM: None, child: ROOT_STREAM}
     task = ActionStatement(ref="consumer", action="core.noop")
     with patch(
-        "tracecat.dsl.scheduler.extract_expressions",
+        "autosecops.dsl.scheduler.extract_expressions",
         side_effect=AssertionError("must use compiled dependencies"),
     ):
         operand = scheduler.build_stream_aware_context(task, child)
@@ -375,7 +375,7 @@ async def test_compiler_fallback_preserves_legacy_action_context(
     task.args = {"value": expression}
     scheduler = object.__new__(DSLScheduler)
     with patch(
-        "tracecat.dsl.action.compile_dsl_dependencies",
+        "autosecops.dsl.action.compile_dsl_dependencies",
         side_effect=RuntimeError("synthetic compiler failure"),
     ):
         scheduler.dependency_plan = (
@@ -471,7 +471,7 @@ async def test_collection_activity_inputs_use_consumer_dependencies(
     task = Task(ref=kind, stream_id=stream_id)
     execute = AsyncMock(side_effect=CancelledError("stop after recording the input"))
     with (
-        patch("tracecat.dsl.scheduler.workflow.execute_activity", new=execute),
+        patch("autosecops.dsl.scheduler.workflow.execute_activity", new=execute),
         pytest.raises(CancelledError),
     ):
         if kind == "scatter":

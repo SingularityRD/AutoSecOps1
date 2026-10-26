@@ -12,8 +12,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from tracecat import config
-from tracecat.pagination import (
+from autosecops import config
+from autosecops.pagination import (
     BaseCursorPaginator,
     CursorData,
     CursorPaginationParams,

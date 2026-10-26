@@ -12,38 +12,38 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.api.app import app
-from tracecat.auth.types import Role
-from tracecat.db.models import Workflow
-from tracecat.dsl._converter import PydanticPayloadConverter
-from tracecat.dsl.common import (
+from autosecops.api.app import app
+from autosecops.auth.types import Role
+from autosecops.db.models import Workflow
+from autosecops.dsl._converter import PydanticPayloadConverter
+from autosecops.dsl.common import (
     DSLEntrypoint,
     DSLInput,
     DSLRunArgs,
     apply_expects_order,
     expects_key_order,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
-from tracecat.workflow.management.draft import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.workflow.management.draft import (
     build_workflow_edit_document,
     compute_workflow_edit_revision,
     persist_workflow_edit_document,
     replace_workflow_definition_from_dsl,
     workflow_edit_document_changed_sections,
 )
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.router import (
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.router import (
     _build_workflow_read,
     get_workflow_definition,
     list_workflow_definitions,
 )
-from tracecat.workflow.management.schemas import (
+from autosecops.workflow.management.schemas import (
     ExternalWorkflowDefinition,
     WorkflowCreate,
     WorkflowUpdate,
 )
-from tracecat.workspace_sync.serialization import serialize_yaml_model
+from autosecops.workspace_sync.serialization import serialize_yaml_model
 
 pytestmark = pytest.mark.usefixtures("db")
 

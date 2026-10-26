@@ -28,18 +28,18 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.schemas import ExecutionContext
-from tracecat.executor.schemas import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.schemas import ExecutionContext
+from autosecops.executor.schemas import (
     ActionImplementation,
     ResolvedContext,
 )
 
 if TYPE_CHECKING:
-    from tracecat.auth.types import Role
-    from tracecat.dsl.schemas import RunActionInput
-    from tracecat.executor.backends.base import ExecutorBackend
+    from autosecops.auth.types import Role
+    from autosecops.dsl.schemas import RunActionInput
+    from autosecops.executor.backends.base import ExecutorBackend
 
 
 def _check_nsjail_available() -> bool:
@@ -53,7 +53,7 @@ def _check_nsjail_available() -> bool:
     if platform.system() != "Linux":
         return False
 
-    from tracecat import config
+    from autosecops import config
 
     nsjail_path = Path(config.TRACECAT__SANDBOX_NSJAIL_PATH)
     rootfs_path = Path(config.TRACECAT__SANDBOX_ROOTFS_PATH)
@@ -69,8 +69,8 @@ async def _check_registry_synced() -> bool:
     try:
         from sqlalchemy import select
 
-        from tracecat.db.engine import get_async_session_context_manager
-        from tracecat.db.models import RegistryVersion
+        from autosecops.db.engine import get_async_session_context_manager
+        from autosecops.db.models import RegistryVersion
 
         async with get_async_session_context_manager() as session:
             # Check if any registry version has a tarball (regardless of org)
@@ -115,7 +115,7 @@ def backend_type(
             pytest.skip(f"nsjail not available for {backend} backend")
 
     # Reload config to pick up new environment
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -141,7 +141,7 @@ def sandboxed_backend_type(
 
     monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", backend)
 
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -157,7 +157,7 @@ def test_backend_type(monkeypatch: pytest.MonkeyPatch) -> str:
     """
     monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
 
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -173,7 +173,7 @@ def direct_backend_type(monkeypatch: pytest.MonkeyPatch) -> str:
     """
     monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
 
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -236,9 +236,9 @@ async def executor_backend(
     Yields:
         The initialized ExecutorBackend instance
     """
+    from autosecops.executor.backends.direct import DirectBackend
+    from autosecops.executor.backends.ephemeral import EphemeralBackend
     from tests.support.executor_backend import TestBackend
-    from tracecat.executor.backends.direct import DirectBackend
-    from tracecat.executor.backends.ephemeral import EphemeralBackend
 
     backend_classes: dict[str, type[ExecutorBackend]] = {
         "test": TestBackend,
@@ -274,7 +274,7 @@ async def test_backend() -> AsyncIterator[ExecutorBackend]:
 @pytest.fixture
 async def direct_backend() -> AsyncIterator[ExecutorBackend]:
     """Create a direct backend for subprocess benchmark tests."""
-    from tracecat.executor.backends.direct import DirectBackend
+    from autosecops.executor.backends.direct import DirectBackend
 
     backend = DirectBackend()
     await backend.start()
@@ -302,9 +302,9 @@ def simple_action_input_factory() -> Callable[..., RunActionInput]:
             args={"value": {"key": "value"}}
         )
     """
-    from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-    from tracecat.identifiers.workflow import ExecutionUUID, WorkflowUUID
-    from tracecat.registry.lock.types import RegistryLock
+    from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+    from autosecops.identifiers.workflow import ExecutionUUID, WorkflowUUID
+    from autosecops.registry.lock.types import RegistryLock
 
     def _create(
         action: str = "core.transform.reshape",
@@ -317,8 +317,8 @@ def simple_action_input_factory() -> Callable[..., RunActionInput]:
         # Provide a default registry lock for testing
         if registry_lock is None:
             registry_lock = RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={action: "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={action: "autosecops_registry"},
             )
         return RunActionInput(
             task=ActionStatement(
@@ -375,7 +375,7 @@ def resolved_context_factory() -> Callable[..., ResolvedContext]:
             action_impl=ActionImplementation(
                 type="udf",
                 action_name=action,
-                module="tracecat_registry.core.transform",
+                module="autosecops_registry.core.transform",
                 name="reshape",
             ),
             evaluated_args=args or {"value": {"benchmark": True}},
@@ -423,7 +423,7 @@ def setup_benchmark_environment(monkeypatch_session):
     if not os.environ.get("TRACECAT__EXECUTOR_BACKEND"):
         monkeypatch_session.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
 
-    from tracecat import config as tracecat_config
+    from autosecops import config as tracecat_config
 
     importlib.reload(tracecat_config)
 
@@ -443,7 +443,7 @@ async def ephemeral_backend() -> AsyncIterator[ExecutorBackend]:
     if not _check_nsjail_available():
         pytest.skip("nsjail not available for ephemeral backend (requires Linux)")
 
-    from tracecat.executor.backends.ephemeral import EphemeralBackend
+    from autosecops.executor.backends.ephemeral import EphemeralBackend
 
     backend = EphemeralBackend()
     await backend.start()

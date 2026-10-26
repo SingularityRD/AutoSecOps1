@@ -8,10 +8,10 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tracecat_ee.agent.approvals.router import delete_approval
+from autosecops_ee.agent.approvals.router import delete_approval
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.auth.types import Role
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.auth.types import Role
 
 
 def _execute_role(workspace_id: uuid.UUID) -> Role:
@@ -52,11 +52,11 @@ async def test_delete_approval_denies_pending_via_run_turn() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.approvals.router.AgentSessionService",
+            "autosecops_ee.agent.approvals.router.AgentSessionService",
             return_value=fake_session_svc,
         ),
         patch(
-            "tracecat_ee.agent.approvals.router.ApprovalService",
+            "autosecops_ee.agent.approvals.router.ApprovalService",
             return_value=fake_approval_svc,
         ),
     ):
@@ -96,11 +96,11 @@ async def test_delete_approval_deletes_records_when_workflow_dead() -> None:
 
     with (
         patch(
-            "tracecat_ee.agent.approvals.router.AgentSessionService",
+            "autosecops_ee.agent.approvals.router.AgentSessionService",
             return_value=fake_session_svc,
         ),
         patch(
-            "tracecat_ee.agent.approvals.router.ApprovalService",
+            "autosecops_ee.agent.approvals.router.ApprovalService",
             return_value=fake_approval_svc,
         ),
     ):

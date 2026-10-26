@@ -6,13 +6,13 @@ from slugify import slugify
 from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.service import CaseCreate, CasesService
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.db.models import Case, CaseTagLink, CaseTrigger, Workflow, Workspace
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.tags.schemas import TagCreate, TagUpdate
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.service import CaseCreate, CasesService
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.db.models import Case, CaseTagLink, CaseTrigger, Workflow, Workspace
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.tags.schemas import TagCreate, TagUpdate
 
 pytestmark = pytest.mark.usefixtures("db")
 

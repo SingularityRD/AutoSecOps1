@@ -4,15 +4,15 @@ import uuid
 from types import SimpleNamespace
 from typing import Any
 
+import autosecops_ee.watchtower.service as watchtower_service
 import pytest
-import tracecat_ee.watchtower.service as watchtower_service
-from tracecat_ee.watchtower.service import (
+from autosecops_ee.watchtower.service import (
     _build_agent_fingerprint,
     _sanitize_error_redacted,
     normalize_agent_identity,
     redact_tool_call_args,
 )
-from tracecat_ee.watchtower.types import WatchtowerAgentType
+from autosecops_ee.watchtower.types import WatchtowerAgentType
 
 
 class _ExecuteResult:

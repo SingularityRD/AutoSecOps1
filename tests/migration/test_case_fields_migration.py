@@ -13,8 +13,8 @@ import uuid
 import pytest
 from sqlalchemy import create_engine, text
 
+from autosecops.identifiers.workflow import WorkspaceUUID
 from tests.database import TEST_DB_CONFIG
-from tracecat.identifiers.workflow import WorkspaceUUID
 
 # Test-specific organization ID
 TEST_ORG_ID = uuid.uuid4()

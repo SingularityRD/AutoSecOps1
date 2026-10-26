@@ -30,15 +30,15 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.service import CasesService
+from autosecops.db.models import Case
+from autosecops.pagination import CursorPaginationParams
 from tests.integration.test_case_search_reads import (
     capture_search_queries,
     population_counts,
 )
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.service import CasesService
-from tracecat.db.models import Case
-from tracecat.pagination import CursorPaginationParams
 
 pytestmark = [
     pytest.mark.anyio,

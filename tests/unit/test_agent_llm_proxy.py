@@ -23,17 +23,17 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import SpanKind, StatusCode
 from tenacity import AsyncRetrying, RetryCallState
 
-from tracecat import config as app_config
-from tracecat.agent.common.types import SandboxAgentConfig, SandboxSubagentConfig
-from tracecat.agent.diagnostics import (
+from autosecops import config as app_config
+from autosecops.agent.common.types import SandboxAgentConfig, SandboxSubagentConfig
+from autosecops.agent.diagnostics import (
     MAX_LLM_ERROR_BODY_BYTES,
     LLMErrorDiagnostics,
     ProviderConfiguration,
 )
-from tracecat.agent.llm_routing import get_litellm_route_model
-from tracecat.agent.observability import LLMGatewayLoadTracker
-from tracecat.agent.sandbox import llm_proxy
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops.agent.llm_routing import get_litellm_route_model
+from autosecops.agent.observability import LLMGatewayLoadTracker
+from autosecops.agent.sandbox import llm_proxy
+from autosecops.agent.sandbox.llm_proxy import (
     LLMProxyError,
     LLMRoute,
     LLMRoutingPlan,
@@ -46,15 +46,15 @@ from tracecat.agent.sandbox.llm_proxy import (
     _UpstreamRateLimited,
     build_llm_routing_plan,
 )
-from tracecat.agent.sandbox.tool_use_rewrite import ToolUseStreamRewriter
-from tracecat.agent.tokens import LLMRouteClaim, mint_llm_token
-from tracecat.observability.otel import (
+from autosecops.agent.sandbox.tool_use_rewrite import ToolUseStreamRewriter
+from autosecops.agent.tokens import LLMRouteClaim, mint_llm_token
+from autosecops.observability.otel import (
     get_platform_tracing,
     initialize_platform_tracing,
     shutdown_platform_tracing,
 )
-from tracecat.outbound import OutboundHTTPTransport
-from tracecat.runtime.errors import (
+from autosecops.outbound import OutboundHTTPTransport
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
@@ -219,7 +219,9 @@ async def test_forward_request_streams_litellm_response(
 ) -> None:
     ttft_logs: list[dict[str, object]] = []
     tracker = LLMGatewayLoadTracker()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy._proxy_load_tracker", tracker)
+    monkeypatch.setattr(
+        "autosecops.agent.sandbox.llm_proxy._proxy_load_tracker", tracker
+    )
 
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"
@@ -238,7 +240,7 @@ async def test_forward_request_streams_litellm_response(
 
     monotonic_values = iter([10.0, 10.025, 10.05, 10.075, 10.1, 10.125])
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.llm_proxy.time",
+        "autosecops.agent.sandbox.llm_proxy.time",
         SimpleNamespace(monotonic=lambda: next(monotonic_values, 10.125)),
     )
 
@@ -246,7 +248,7 @@ async def test_forward_request_streams_litellm_response(
         if message == "LLM proxy first response chunk":
             ttft_logs.append(dict(kwargs))
 
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.logger.info", fake_info)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.logger.info", fake_info)
 
     response_text, _ = await _forward(
         tmp_path,
@@ -281,7 +283,9 @@ async def test_forward_request_rejects_non_inference_methods(
     or administrative endpoints.
     """
     tracker = LLMGatewayLoadTracker()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy._proxy_load_tracker", tracker)
+    monkeypatch.setattr(
+        "autosecops.agent.sandbox.llm_proxy._proxy_load_tracker", tracker
+    )
 
     forwarded: list[httpx.Request] = []
 
@@ -615,7 +619,7 @@ async def test_write_stream_response_surfaces_friendly_read_timeout(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
+        "autosecops.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
         600.0,
     )
     errors: list[LLMProxyError] = []
@@ -1167,7 +1171,7 @@ async def test_read_timeout_records_safe_body_timing(
     content_type: str,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
+        "autosecops.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
         300.0,
     )
     errors: list[LLMProxyError] = []
@@ -1177,9 +1181,11 @@ async def test_read_timeout_records_safe_body_timing(
         on_error=errors.append,
     )
     log = Mock()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.logger", log)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.logger", log)
     now = 12.0
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.time.monotonic", lambda: now)
+    monkeypatch.setattr(
+        "autosecops.agent.sandbox.llm_proxy.time.monotonic", lambda: now
+    )
 
     async def stalled_body() -> AsyncIterator[bytes]:
         nonlocal now
@@ -1234,7 +1240,7 @@ async def test_read_timeout_before_headers_records_route(
     error_response: bool,
 ) -> None:
     log = Mock()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.logger", log)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.logger", log)
 
     class StalledErrorBody(httpx.AsyncByteStream):
         async def __aiter__(self) -> AsyncIterator[bytes]:
@@ -1699,7 +1705,8 @@ async def test_llm_metadata_follows_selected_route_on_all_failure_phases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.config.TRACECAT__SERVICE_KEY", "synthetic-signing-key-for-tests-only"
+        "autosecops.config.TRACECAT__SERVICE_KEY",
+        "synthetic-signing-key-for-tests-only",
     )
 
     class StalledBody(httpx.AsyncByteStream):
@@ -1998,7 +2005,7 @@ async def test_successful_managed_request_skips_diagnostic_token_verification(
     verify = Mock(
         side_effect=AssertionError("Success must not decode diagnostic tokens")
     )
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.verify_llm_token", verify)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.verify_llm_token", verify)
     await _forward(
         tmp_path,
         lambda request: httpx.Response(200, content=b"ok"),
@@ -2323,7 +2330,7 @@ async def test_managed_stream_cut_after_headers_is_stream_interrupted(
     error: type[httpx.TransportError],
 ) -> None:
     log = Mock()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.logger", log)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.logger", log)
     upstream_request_ids: list[str | None] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -2407,7 +2414,7 @@ async def test_completed_stream_logs_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     log = Mock()
-    monkeypatch.setattr("tracecat.agent.sandbox.llm_proxy.logger", log)
+    monkeypatch.setattr("autosecops.agent.sandbox.llm_proxy.logger", log)
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

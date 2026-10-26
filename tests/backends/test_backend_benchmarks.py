@@ -46,10 +46,10 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 if TYPE_CHECKING:
-    from tracecat.auth.types import Role
-    from tracecat.dsl.schemas import RunActionInput
-    from tracecat.executor.backends.base import ExecutorBackend
-    from tracecat.executor.schemas import ResolvedContext
+    from autosecops.auth.types import Role
+    from autosecops.dsl.schemas import RunActionInput
+    from autosecops.executor.backends.base import ExecutorBackend
+    from autosecops.executor.schemas import ResolvedContext
 
 # Mark all tests in this module as integration tests requiring infrastructure
 pytestmark = pytest.mark.integration

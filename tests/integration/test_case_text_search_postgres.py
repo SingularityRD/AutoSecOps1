@@ -23,22 +23,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlalchemy.sql.elements import ColumnElement
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.cases.enums import CaseStatus
-from tracecat.cases.text_search import (
+from autosecops.cases.enums import CaseStatus
+from autosecops.cases.text_search import (
     MAX_EXCERPT_LENGTH,
     CaseTextQuery,
     build_case_text_expressions,
     get_case_search_excerpts,
     parse_case_text_query,
 )
-from tracecat.cases.text_search_indexes import ensure_case_text_indexes
-from tracecat.db.models import Case
-from tracecat.query.lexical_types import (
+from autosecops.cases.text_search_indexes import ensure_case_text_indexes
+from autosecops.db.models import Case
+from autosecops.query.lexical_types import (
     LexicalSearchError,
     LexicalSearchErrorCode,
     SearchMode,
 )
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.integration
 WORKSPACE = uuid.UUID("00000000-0000-4000-8000-000000000001")

@@ -9,14 +9,14 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
-from tracecat.auth.types import Role
-from tracecat.authz.enums import WorkspaceRole
-from tracecat.authz.scopes import ORG_MEMBER_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Workspace
-from tracecat.exceptions import TracecatAuthorizationError, TracecatNotFoundError
-from tracecat.logger import logger
-from tracecat.workspaces import router as workspaces_router
+from autosecops.auth.types import Role
+from autosecops.authz.enums import WorkspaceRole
+from autosecops.authz.scopes import ORG_MEMBER_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Workspace
+from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.logger import logger
+from autosecops.workspaces import router as workspaces_router
 
 
 def _membership_row(membership, organization_id):

@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.membership import mirror_workspace_membership
-from tracecat.contexts import ctx_role
-from tracecat.db.rls import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.membership import mirror_workspace_membership
+from autosecops.contexts import ctx_role
+from autosecops.db.rls import (
     RLS_BYPASS_OFF,
     RLS_BYPASS_ON,
     RLS_UNSET_VALUE,
@@ -152,7 +152,7 @@ class TestSetRlsContext:
     ):
         """set_rls_context should still apply GUCs when mode is off."""
         monkeypatch.setattr(
-            "tracecat.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
+            "autosecops.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
         )
 
         org_id = uuid.uuid4()
@@ -205,7 +205,7 @@ class TestSetRlsContextFromRole:
     ):
         """set_rls_context_from_role should still apply GUCs when mode is off."""
         monkeypatch.setattr(
-            "tracecat.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
+            "autosecops.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
         )
 
         await set_rls_context_from_role(mock_session, test_role)

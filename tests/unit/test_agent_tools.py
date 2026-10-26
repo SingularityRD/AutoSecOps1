@@ -7,7 +7,7 @@ Tests the harness-agnostic tool creation and execution:
 
 import pytest
 
-from tracecat.agent.tools import build_agent_tools, denormalize_tool_name
+from autosecops.agent.tools import build_agent_tools, denormalize_tool_name
 
 # =============================================================================
 # build_agent_tools Tests

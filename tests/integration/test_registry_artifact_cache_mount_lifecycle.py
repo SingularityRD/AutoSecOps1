@@ -351,11 +351,11 @@ async def _run_capacity_contention_scenario(
     root: Path,
 ) -> _CapacityContentionPayload:
     """Exercise retry after active registry leases release cache capacity."""
-    from tracecat import config
-    from tracecat.executor.registry_artifact_storage import (
+    from autosecops import config
+    from autosecops.executor.registry_artifact_storage import (
         RegistryArtifactByteReservation,
     )
-    from tracecat.executor.registry_artifacts import (
+    from autosecops.executor.registry_artifacts import (
         RegistryArtifactCache,
         RegistryArtifactCacheLeaseContentionError,
         allocated_size_bound,
@@ -494,17 +494,17 @@ async def _run_capacity_contention_scenario(
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 new=download_capacity_artifact,
             ),
             patch(
-                "tracecat.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
+                "autosecops.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
                 new=release_one_holder_during_backoff,
             ),
             # Holders release only during the public retry backoff, so don't
             # sit out the full in-admission capacity wait first.
             patch(
-                "tracecat.executor.registry_artifact_storage.RESERVATION_WAIT_SECONDS",
+                "autosecops.executor.registry_artifact_storage.RESERVATION_WAIT_SECONDS",
                 0.1,
             ),
         ):
@@ -577,8 +577,8 @@ def _add_capacity_contention_results(
 
 async def _run_mount_lifecycle_child() -> None:
     """Exercise the real mount, eviction, and sweep lifecycle in a container."""
-    from tracecat import config
-    from tracecat.executor.registry_artifacts import (
+    from autosecops import config
+    from autosecops.executor.registry_artifacts import (
         RegistryArtifactCache,
         compute_registry_artifact_cache_key,
     )

@@ -6,13 +6,13 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.workflow.executions import router as executions_router
-from tracecat.workflow.executions.enums import (
+from autosecops.auth.types import Role
+from autosecops.workflow.executions import router as executions_router
+from autosecops.workflow.executions.enums import (
     WORKFLOW_RUN_EXCLUDED_WORKFLOW_TYPES,
     ExecutionType,
 )
-from tracecat.workflow.executions.service import WorkflowExecutionsPage
+from autosecops.workflow.executions.service import WorkflowExecutionsPage
 
 
 def _empty_page() -> WorkflowExecutionsPage:

@@ -11,10 +11,9 @@ from types import SimpleNamespace
 from typing import Any, get_type_hints
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import autosecops_registry.types as registry_types
 import pytest
-import tracecat_registry.types as registry_types
-from pydantic import TypeAdapter
-from tracecat_registry.core.cases import (
+from autosecops_registry.core.cases import (
     add_case_tag,
     aggregate_cases,
     assign_user,
@@ -39,9 +38,10 @@ from tracecat_registry.core.cases import (
     upload_attachment,
     upload_attachment_from_url,
 )
-from tracecat_registry.sdk.exceptions import (
+from autosecops_registry.sdk.exceptions import (
     TracecatValidationError,
 )
+from pydantic import TypeAdapter
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def mock_cases_client():
 def mock_get_context(mock_cases_client: AsyncMock):
     """Mock get_context to return a fake context with mock cases client."""
     fake_ctx = SimpleNamespace(cases=mock_cases_client)
-    with patch("tracecat_registry.ctx.get_context", return_value=fake_ctx):
+    with patch("autosecops_registry.ctx.get_context", return_value=fake_ctx):
         yield
 
 
@@ -718,7 +718,7 @@ class TestCoreListCases:
 
     async def test_list_cases_limit_validation(self, mock_cases_client: AsyncMock):
         """Test that list_cases raises ValueError when limit exceeds maximum."""
-        from tracecat_registry import config
+        from autosecops_registry import config
 
         with pytest.raises(
             TracecatValidationError,
@@ -879,7 +879,7 @@ class TestCoreSearchCases:
 
     async def test_search_cases_limit_validation(self, mock_cases_client: AsyncMock):
         """Test that search_cases raises ValueError when limit exceeds maximum."""
-        from tracecat_registry import config
+        from autosecops_registry import config
 
         with pytest.raises(
             TracecatValidationError,
@@ -1242,8 +1242,8 @@ class TestCoreAttachments:
 class TestCoreUploadAttachmentFromURL:
     """Tests for upload_attachment_from_url registry action."""
 
-    @patch("tracecat_registry.core.cases._upload_attachment", new_callable=AsyncMock)
-    @patch("tracecat_registry.core.cases.httpx.AsyncClient")
+    @patch("autosecops_registry.core.cases._upload_attachment", new_callable=AsyncMock)
+    @patch("autosecops_registry.core.cases.httpx.AsyncClient")
     async def test_upload_attachment_from_url_success(
         self,
         mock_httpx_client,
@@ -1282,8 +1282,8 @@ class TestCoreUploadAttachmentFromURL:
 
         assert result == {"id": "attachment-id"}
 
-    @patch("tracecat_registry.core.cases._upload_attachment", new_callable=AsyncMock)
-    @patch("tracecat_registry.core.cases.httpx.AsyncClient")
+    @patch("autosecops_registry.core.cases._upload_attachment", new_callable=AsyncMock)
+    @patch("autosecops_registry.core.cases.httpx.AsyncClient")
     async def test_upload_attachment_from_url_infers_filename(
         self,
         mock_httpx_client,
@@ -1316,7 +1316,7 @@ class TestCoreUploadAttachmentFromURL:
         )
         assert result == {"id": "attachment-id"}
 
-    @patch("tracecat_registry.core.cases.httpx.AsyncClient")
+    @patch("autosecops_registry.core.cases.httpx.AsyncClient")
     async def test_upload_attachment_from_url_empty_content(
         self,
         mock_httpx_client,
@@ -1338,7 +1338,7 @@ class TestCoreUploadAttachmentFromURL:
                 url="https://example.com/docs/empty.pdf",
             )
 
-    @patch("tracecat_registry.core.cases.httpx.AsyncClient")
+    @patch("autosecops_registry.core.cases.httpx.AsyncClient")
     async def test_upload_attachment_from_url_no_content_type(
         self,
         mock_httpx_client,

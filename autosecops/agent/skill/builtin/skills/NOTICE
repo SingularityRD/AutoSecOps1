@@ -1,0 +1,24 @@
+AutoSecOps platform skills
+
+The skill directories in this folder are derived from the tracecat-plugins
+project by TracecatHQ (https://github.com/TracecatHQ/tracecat-plugins), commit
+0140783181f0afcb69961661fa1474402ca46a4e, path plugins/tracecat/skills/:
+
+  - tracecat-workspace-chat
+  - tracecat-automation-best-practices
+  - tracecat-slackbot-best-practices
+
+The original work is licensed under the Apache License, Version 2.0. A copy of
+the license is in the LICENSE file next to this notice.
+
+Modifications by SingularityRD:
+
+  - Rebranded product prose from "Tracecat" to "AutoSecOps".
+  - Replaced documentation, community, and GitHub links with the AutoSecOps
+    documentation site (https://docs.singularityrd.com) and support contact.
+  - Vendored into this repository and copied into the application image at
+    build time instead of being downloaded from the upstream repository.
+
+Skill directory names, SKILL.md `name` values, `$tracecat-*` cross-references,
+`tracecat://` MCP resource URIs, and `autosecops_registry` imports are kept
+unchanged because the application and existing sessions reference them.

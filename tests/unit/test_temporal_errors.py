@@ -17,23 +17,22 @@ from temporalio.exceptions import (
     CancelledError as TemporalCancelledError,
 )
 
-from tests.shared import capture_application_error as _capture_application_error
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.action import FinalizeGatherActivityResult
-from tracecat.dsl.error_transport import (
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.action import FinalizeGatherActivityResult
+from autosecops.dsl.error_transport import (
     ActionErrorTransportDetail,
     parse_classified_action_error_payload,
 )
-from tracecat.dsl.types import ActionErrorInfo
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.runtime.errors import (
+from autosecops.dsl.types import ActionErrorInfo
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     TracecatRuntimeError,
 )
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import (
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import (
     ERROR_TRANSPORT_DETAIL_SCHEMA,
     ErrorTransportDetail,
     activity_error_boundary,
@@ -45,8 +44,9 @@ from tracecat.temporal.errors import (
     raise_application_error_from_classification,
     raise_wrapped_application_error,
 )
-from tracecat.workflow.executions.enums import TriggerType
-from tracecat.workflow.executions.types import ErrorHandlerWorkflowInput
+from autosecops.workflow.executions.enums import TriggerType
+from autosecops.workflow.executions.types import ErrorHandlerWorkflowInput
+from tests.shared import capture_application_error as _capture_application_error
 
 
 def _user_classification(
@@ -860,7 +860,7 @@ def test_activity_error_boundary_classifies_unowned_failure() -> None:
     logger_warning = Mock()
 
     with (
-        patch("tracecat.temporal.errors.logger.warning", logger_warning),
+        patch("autosecops.temporal.errors.logger.warning", logger_warning),
         pytest.raises(ApplicationError) as exc_info,
     ):
         with activity_error_boundary(lambda _error: classification):

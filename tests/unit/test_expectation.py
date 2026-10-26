@@ -5,8 +5,8 @@ import lark
 import pytest
 from pydantic import ValidationError
 
-from tracecat.expressions.expectations import ExpectedField, create_expectation_model
-from tracecat.workflow.management.utils import build_trigger_inputs_schema
+from autosecops.expressions.expectations import ExpectedField, create_expectation_model
+from autosecops.workflow.management.utils import build_trigger_inputs_schema
 
 _SCHEMA: dict[str, dict[str, Any]] = {
     "start_time": {

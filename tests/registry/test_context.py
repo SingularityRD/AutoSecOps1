@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from tracecat_registry.context import RegistryContext
-from tracecat_registry.sdk.client import TracecatClient
+from autosecops_registry.context import RegistryContext
+from autosecops_registry.sdk.client import TracecatClient
 
 
 def test_registry_context_preserves_positional_executor_url_token_compat() -> None:

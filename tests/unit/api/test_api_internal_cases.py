@@ -6,14 +6,14 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.cases import dependencies as case_dependencies
-from tracecat.cases import internal_router as internal_cases_router
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.hierarchy import CaseHierarchyService
-from tracecat.cases.rows.schemas import CaseTableRowRead
-from tracecat.db.models import Case, CaseTag, Workspace
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.cases import dependencies as case_dependencies
+from autosecops.cases import internal_router as internal_cases_router
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.hierarchy import CaseHierarchyService
+from autosecops.cases.rows.schemas import CaseTableRowRead
+from autosecops.db.models import Case, CaseTag, Workspace
+from autosecops.exceptions import (
     TracecatNotFoundError,
     TracecatValidationError,
 )

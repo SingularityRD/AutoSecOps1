@@ -10,7 +10,7 @@ import pytest
 from botocore.exceptions import EndpointConnectionError
 from botocore.stub import Stubber
 
-from tracecat.agent.bedrock import (
+from autosecops.agent.bedrock import (
     BedrockError,
     create_bedrock_client,
     get_bedrock_subscription,

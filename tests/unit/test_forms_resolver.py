@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from tracecat import config as app_config
-from tracecat.expressions.schemas import ExpectedField
-from tracecat.forms.constants import (
+from autosecops import config as app_config
+from autosecops.expressions.schemas import ExpectedField
+from autosecops.forms.constants import (
     MAX_ACCEPT_ENTRIES,
     MAX_CONFIG_IMAGE_BYTES,
     MAX_FIELD_OPTIONS,
@@ -21,21 +21,21 @@ from tracecat.forms.constants import (
     MAX_LONG_TEXT_LENGTH,
     MAX_SHORT_TEXT_LENGTH,
 )
-from tracecat.forms.enums import (
+from autosecops.forms.enums import (
     FormAutofillSource,
     FormFieldErrorCode,
     FormInputKind,
     FormIssueSeverity,
     FormWidget,
 )
-from tracecat.forms.enums import FormIssueCode as Code
-from tracecat.forms.resolver import (
+from autosecops.forms.enums import FormIssueCode as Code
+from autosecops.forms.resolver import (
     DEFAULT_WIDGETS,
     WIDGETS,
     classify_input,
     resolve_form,
 )
-from tracecat.forms.schemas import (
+from autosecops.forms.schemas import (
     FormConfig,
     FormDividerEntry,
     FormFieldBlock,
@@ -44,8 +44,8 @@ from tracecat.forms.schemas import (
     FormNoticeEntry,
     FormTextEntry,
 )
-from tracecat.forms.types import ResolveResult
-from tracecat.forms.values import check_values, visible_fields
+from autosecops.forms.types import ResolveResult
+from autosecops.forms.values import check_values, visible_fields
 
 PNG = b"\x89PNG\r\n\x1a\n"
 STR, BOOL = {"type": "str"}, {"type": "bool"}

@@ -7,11 +7,11 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.identifiers.workflow import WorkspaceUUID
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnCreate, TableColumnUpdate, TableCreate
-from tracecat.tables.service import TablesService
+from autosecops.auth.types import Role
+from autosecops.identifiers.workflow import WorkspaceUUID
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnCreate, TableColumnUpdate, TableCreate
+from autosecops.tables.service import TablesService
 
 pytestmark = pytest.mark.anyio
 

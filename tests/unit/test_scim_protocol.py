@@ -10,34 +10,30 @@ from typing import Any, get_args
 
 import httpx
 import pytest
-from fastapi import FastAPI, HTTPException, Request, Response, status
-from fastapi.exceptions import RequestValidationError
-from sqlalchemy import event, func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.scim.credentials import ScimConnectionRole
-from tracecat_ee.scim.protocol import (
+from autosecops_ee.scim.credentials import ScimConnectionRole
+from autosecops_ee.scim.protocol import (
     is_scim_path,
     router,
     scim_error_response,
     scim_http_exception_handler,
     scim_validation_exception_handler,
 )
-from tracecat_ee.scim.schemas import (
+from autosecops_ee.scim.schemas import (
     SCIM_CONTENT_TYPE,
     ScimSchema,
 )
-from tracecat_ee.scim.service import SCIMService
+from autosecops_ee.scim.service import SCIMService
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy import event, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_org_membership_via_group,
-)
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.authz.membership import ensure_member
-from tracecat.db.engine import get_async_session
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.authz.membership import ensure_member
+from autosecops.db.engine import get_async_session
+from autosecops.db.models import (
     AccessToken,
     ExternalGroup,
     ExternalGroupMapping,
@@ -50,11 +46,15 @@ from tracecat.db.models import (
     ScimConnection,
     User,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
+)
+from tests.support.membership import (
+    grant_org_membership,
+    grant_org_membership_via_group,
 )
 
 LIST_RESPONSE_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:ListResponse"
@@ -78,7 +78,7 @@ def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None
         yield session
 
     monkeypatch.setattr(
-        "tracecat.auth.users.get_async_session_auth_context_manager",
+        "autosecops.auth.users.get_async_session_auth_context_manager",
         _session_cm,
     )
 
@@ -802,7 +802,7 @@ async def unauthenticated_client(
         yield session
 
     monkeypatch.setattr(
-        "tracecat_ee.scim.credentials.get_async_session_auth_context_manager",
+        "autosecops_ee.scim.credentials.get_async_session_auth_context_manager",
         _auth_session,
     )
     app.dependency_overrides[get_async_session] = override_session

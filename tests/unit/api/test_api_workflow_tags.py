@@ -8,8 +8,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import NoResultFound
 
-from tracecat.auth.types import Role
-from tracecat.workflow.tags import router as workflow_tags_router
+from autosecops.auth.types import Role
+from autosecops.workflow.tags import router as workflow_tags_router
 
 
 @pytest.mark.anyio

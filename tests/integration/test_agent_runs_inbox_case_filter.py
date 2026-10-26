@@ -8,23 +8,23 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.common.stream_types import HarnessType
-from tracecat.auth.types import Role
-from tracecat.cases.enums import (
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.common.stream_types import HarnessType
+from autosecops.auth.types import Role
+from autosecops.cases.enums import (
     CaseAgentSessionInteractionOperation,
     CasePriority,
     CaseSeverity,
     CaseStatus,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     AgentSession,
     Approval,
     Case,
     CaseAgentSessionInteraction,
     Workspace,
 )
-from tracecat.inbox.providers.agent_runs import AgentRunsInboxProvider
+from autosecops.inbox.providers.agent_runs import AgentRunsInboxProvider
 
 pytestmark = [
     pytest.mark.anyio,

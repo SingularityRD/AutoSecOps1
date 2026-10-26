@@ -1,8 +1,8 @@
 import uuid
 
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
-from tracecat.chat.tools import (
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
+from autosecops.chat.tools import (
     WORKSPACE_CHAT_AGENT_DEFAULT_TOOLS,
     filter_workspace_chat_tools_for_scopes,
     get_default_tools,

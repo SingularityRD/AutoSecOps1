@@ -1,4 +1,4 @@
-"""Unit tests for tracecat.db.models._to_dict function.
+"""Unit tests for autosecops.db.models._to_dict function.
 
 Tests the _to_dict helper function that converts RecordModel instances to dictionaries,
 ensuring it properly excludes ignored fields and unset values.
@@ -9,7 +9,7 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import (
+from autosecops.db.models import (
     AgentSession,
     Workflow,
     Workspace,

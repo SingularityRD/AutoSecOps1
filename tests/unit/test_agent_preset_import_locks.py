@@ -7,16 +7,16 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentPreset, Skill, Workspace
-from tracecat.db.soft_delete import with_deleted
-from tracecat.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
-from tracecat.workspace_sync.importer import WorkspaceResourceImportService
-from tracecat.workspace_sync.schemas import (
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentPreset, Skill, Workspace
+from autosecops.db.soft_delete import with_deleted
+from autosecops.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
+from autosecops.workspace_sync.importer import WorkspaceResourceImportService
+from autosecops.workspace_sync.schemas import (
     AgentPresetResourceSpec,
     AgentPresetSkillBinding,
 )
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

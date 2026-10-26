@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-import tracecat.agent.sandbox.nsjail as nsjail_module
-from tracecat.executor.enums import ExecutorBackendType
+import autosecops.agent.sandbox.nsjail as nsjail_module
+from autosecops.executor.enums import ExecutorBackendType
 
 
 class _FakeProcess:

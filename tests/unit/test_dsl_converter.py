@@ -1,4 +1,4 @@
-"""Tests for tracecat.dsl._converter payload sanitization."""
+"""Tests for autosecops.dsl._converter payload sanitization."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import pytest
 import temporalio.api.common.v1
 from temporalio.api.common.v1 import Payload
 
-from tracecat.agent.types import AgentConfig as TracecatAgentConfig
-from tracecat.agent.workflow_schemas import AgentConfigPayload
-from tracecat.dsl._converter import PydanticORJSONPayloadConverter
-from tracecat.dsl.common import AgentActionMemo, ChildWorkflowMemo
-from tracecat.dsl.enums import WaitStrategy
+from autosecops.agent.types import AgentConfig as TracecatAgentConfig
+from autosecops.agent.workflow_schemas import AgentConfigPayload
+from autosecops.dsl._converter import PydanticORJSONPayloadConverter
+from autosecops.dsl.common import AgentActionMemo, ChildWorkflowMemo
+from autosecops.dsl.enums import WaitStrategy
 
 
 class _LeakyValue:
@@ -27,7 +27,7 @@ def test_to_payload_sanitizes_serializer_failures(monkeypatch) -> None:
     def fail_serializer(_obj: object) -> object:
         raise ValueError("Bearer secret-token")
 
-    monkeypatch.setattr("tracecat.dsl._converter._serializer", fail_serializer)
+    monkeypatch.setattr("autosecops.dsl._converter._serializer", fail_serializer)
 
     converter = PydanticORJSONPayloadConverter()
 
@@ -74,9 +74,9 @@ async def test_agent_action_memo_logging_omits_raw_payload(
     def fail_from_payload(_payload: Payload) -> object:
         raise RuntimeError("decode failure")
 
-    monkeypatch.setattr("tracecat.dsl.common.logger.warning", capture_warning)
+    monkeypatch.setattr("autosecops.dsl.common.logger.warning", capture_warning)
     monkeypatch.setattr(
-        "tracecat.dsl.common._memo_payload_converter.from_payload", fail_from_payload
+        "autosecops.dsl.common._memo_payload_converter.from_payload", fail_from_payload
     )
 
     memo = temporalio.api.common.v1.Memo(
@@ -137,8 +137,8 @@ async def test_child_workflow_memo_decode_failure_keeps_best_effort_defaults(
             raise RuntimeError("decode failure")
         return payloads
 
-    monkeypatch.setattr("tracecat.dsl.common.logger.warning", capture_warning)
-    monkeypatch.setattr("tracecat.dsl.common.decode_payloads", decode_one)
+    monkeypatch.setattr("autosecops.dsl.common.logger.warning", capture_warning)
+    monkeypatch.setattr("autosecops.dsl.common.decode_payloads", decode_one)
 
     memo = temporalio.api.common.v1.Memo(
         fields={

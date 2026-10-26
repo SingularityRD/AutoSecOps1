@@ -16,12 +16,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import ANY, AsyncMock, call, patch
 
+import autosecops_registry
 import httpx
 import pytest
-import tracecat_registry
 
-from tracecat.concurrency import run_blocking_rejoin_on_cancel
-from tracecat.executor.registry_artifact_storage import (
+from autosecops.concurrency import run_blocking_rejoin_on_cancel
+from autosecops.executor.registry_artifact_storage import (
     MeteredSlots,
     RegistryArtifactByteReservation,
     RegistryArtifactMaterializationContext,
@@ -32,7 +32,7 @@ from tracecat.executor.registry_artifact_storage import (
     allocated_size_bound,
     unique_work_path,
 )
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.registry_artifacts import (
     SQUASHFS_MOUNT_OPTIONS,
     RegistryArtifactCache,
     RegistryArtifactCacheCapacityError,
@@ -52,22 +52,22 @@ from tracecat.executor.registry_artifacts import (
 )
 
 MAX_ENTRIES_CONFIG = (
-    "tracecat.executor.registry_artifacts.config"
+    "autosecops.executor.registry_artifacts.config"
     ".TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES"
 )
 MAX_BYTES_CONFIG = (
-    "tracecat.executor.registry_artifacts.config"
+    "autosecops.executor.registry_artifacts.config"
     ".TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES"
 )
 SQUASHFS_ENABLED_CONFIG = (
-    "tracecat.executor.registry_artifacts.config"
+    "autosecops.executor.registry_artifacts.config"
     ".TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"
 )
 RESERVATION_WAIT_CONFIG = (
-    "tracecat.executor.registry_artifact_storage.RESERVATION_WAIT_SECONDS"
+    "autosecops.executor.registry_artifact_storage.RESERVATION_WAIT_SECONDS"
 )
 MIB = 1024 * 1024
-MOUNT_CHECK = "tracecat.executor.registry_artifact_mounts.is_mount"
+MOUNT_CHECK = "autosecops.executor.registry_artifact_mounts.is_mount"
 
 
 def _seed_squashfs_images(cache: RegistryArtifactCache, uris: list[str]) -> None:
@@ -102,16 +102,16 @@ def _fake_squashfs_mounts(
     with (
         patch(SQUASHFS_ENABLED_CONFIG, True),
         patch(
-            "tracecat.executor.registry_artifacts.registry_artifact_mounts"
+            "autosecops.executor.registry_artifacts.registry_artifact_mounts"
             ".mount_squashfs",
             mount or record_mount,
         ),
         patch(
-            "tracecat.executor.registry_artifacts.registry_artifact_mounts.is_mount",
+            "autosecops.executor.registry_artifacts.registry_artifact_mounts.is_mount",
             is_mounted,
         ),
         patch(
-            "tracecat.executor.registry_artifact_storage.registry_artifact_mounts"
+            "autosecops.executor.registry_artifact_storage.registry_artifact_mounts"
             ".is_mount",
             is_mounted,
         ),
@@ -340,15 +340,15 @@ class TestRegistryArtifactCache:
         """In-tree builtin registry returns only the installed site-packages."""
         version = "1.2.3"
         site_packages = temp_cache_dir / "venv" / "site-packages"
-        package_dir = site_packages / "tracecat_registry"
+        package_dir = site_packages / "autosecops_registry"
         package_dir.mkdir(parents=True)
         package_file = package_dir / "__init__.py"
         package_file.write_text("")
 
-        monkeypatch.setattr(tracecat_registry, "__version__", version)
-        monkeypatch.setattr(tracecat_registry, "__file__", str(package_file))
+        monkeypatch.setattr(autosecops_registry, "__version__", version)
+        monkeypatch.setattr(autosecops_registry, "__file__", str(package_file))
         monkeypatch.setattr(
-            "tracecat.executor.registry_artifacts.sysconfig.get_path",
+            "autosecops.executor.registry_artifacts.sysconfig.get_path",
             lambda name: str(site_packages) if name == "purelib" else None,
         )
 
@@ -366,16 +366,16 @@ class TestRegistryArtifactCache:
         dependency_dir = site_packages / "orjson"
         dependency_dir.mkdir(parents=True)
         (dependency_dir / "__init__.py").write_text("VALUE = 1\n")
-        source_root = temp_cache_dir / "src" / "tracecat-registry"
-        package_dir = source_root / "tracecat_registry"
+        source_root = temp_cache_dir / "src" / "autosecops-registry"
+        package_dir = source_root / "autosecops_registry"
         package_dir.mkdir(parents=True)
         package_file = package_dir / "__init__.py"
         package_file.write_text("__version__ = '1.2.3'\n")
 
-        monkeypatch.setattr(tracecat_registry, "__version__", version)
-        monkeypatch.setattr(tracecat_registry, "__file__", str(package_file))
+        monkeypatch.setattr(autosecops_registry, "__version__", version)
+        monkeypatch.setattr(autosecops_registry, "__file__", str(package_file))
         monkeypatch.setattr(
-            "tracecat.executor.registry_artifacts.sysconfig.get_path",
+            "autosecops.executor.registry_artifacts.sysconfig.get_path",
             lambda name: str(site_packages) if name == "purelib" else None,
         )
 
@@ -388,7 +388,7 @@ class TestRegistryArtifactCache:
         self, temp_cache_dir, monkeypatch: pytest.MonkeyPatch
     ):
         """Bundled pseudo-URIs must match this executor's installed package."""
-        monkeypatch.setattr(tracecat_registry, "__version__", "1.2.3")
+        monkeypatch.setattr(autosecops_registry, "__version__", "1.2.3")
 
         cache = RegistryArtifactCache(temp_cache_dir)
         with pytest.raises(RuntimeError, match="does not match installed version"):
@@ -409,7 +409,7 @@ class TestRegistryArtifactCache:
         output_path = temp_cache_dir / "artifact.tar.gz"
 
         with patch(
-            "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+            "autosecops.executor.registry_artifacts.blob.download_file_to_path",
             new_callable=AsyncMock,
             side_effect=FileNotFoundError,
         ):
@@ -446,7 +446,7 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.file_exists",
+                "autosecops.executor.registry_artifacts.blob.file_exists",
                 new_callable=AsyncMock,
                 return_value=True,
             ) as file_exists,
@@ -630,7 +630,7 @@ class TestRegistryArtifactCache:
         with (
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.registry_artifact_mounts"
+                "autosecops.executor.registry_artifacts.registry_artifact_mounts"
                 ".mount_squashfs",
                 mount_squashfs,
             ),
@@ -749,7 +749,7 @@ class TestRegistryArtifactCache:
         # Contents appear under the mount point, but the pre-walk check saw no mount.
         (paths.squashfs_mount_dir / "mounted.bin").write_bytes(b"\0" * (1024 * 1024))
         with patch(
-            "tracecat.executor.registry_artifact_storage.registry_artifact_mounts"
+            "autosecops.executor.registry_artifact_storage.registry_artifact_mounts"
             ".is_mount",
             return_value=False,
         ):
@@ -1365,11 +1365,11 @@ class TestRegistryArtifactCache:
             patch(SQUASHFS_ENABLED_CONFIG, False),
             patch(RESERVATION_WAIT_CONFIG, 5),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 fake_download,
             ),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 extracted_size,
             ),
             patch.object(TarballArtifact, "extract", new_callable=AsyncMock),
@@ -1423,7 +1423,7 @@ class TestRegistryArtifactCache:
             patch(MAX_BYTES_CONFIG, 10 * 1024 * 1024),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 fake_download,
             ),
             patch.object(cache, "_release_reservation", tracking_release),
@@ -1475,7 +1475,7 @@ class TestRegistryArtifactCache:
             patch(MAX_BYTES_CONFIG, 10 * 1024 * 1024),
             _fake_squashfs_mounts(cache, mounted),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 fake_download,
             ),
         ):
@@ -1528,7 +1528,7 @@ class TestRegistryArtifactCache:
             patch(MAX_BYTES_CONFIG, 10 * 1024 * 1024),
             _fake_squashfs_mounts(cache, mounted, mount=slow_first_mount),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 fake_download,
             ),
         ):
@@ -1681,7 +1681,7 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.file_exists",
+                "autosecops.executor.registry_artifacts.blob.file_exists",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -1711,11 +1711,11 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.file_exists",
+                "autosecops.executor.registry_artifacts.blob.file_exists",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError(f"failed for {sidecar_uri}"),
             ),
-            patch("tracecat.executor.registry_artifacts.logger.warning") as warning,
+            patch("autosecops.executor.registry_artifacts.logger.warning") as warning,
         ):
             assert (
                 await cache._sidecar_exists(
@@ -1740,7 +1740,7 @@ class TestRegistryArtifactCache:
         cache = RegistryArtifactCache(temp_cache_dir)
 
         with patch(
-            "tracecat.executor.registry_artifacts.blob.file_exists",
+            "autosecops.executor.registry_artifacts.blob.file_exists",
             new_callable=AsyncMock,
         ) as file_exists:
             cache_key = compute_registry_artifact_cache_key(
@@ -1772,16 +1772,16 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.file_exists",
+                "autosecops.executor.registry_artifacts.blob.file_exists",
                 new_callable=AsyncMock,
                 return_value=True,
             ),
             patch(
-                "tracecat.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),
@@ -1828,12 +1828,12 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
                 new_callable=AsyncMock,
                 return_value=process,
             ) as create_subprocess_exec,
             patch(
-                "tracecat.sandbox.utils.terminate_process_group",
+                "autosecops.sandbox.utils.terminate_process_group",
                 new_callable=AsyncMock,
             ) as terminate_process_group,
         ):
@@ -1872,11 +1872,11 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
                 new_callable=AsyncMock,
                 return_value=process,
             ) as create_subprocess_exec,
-            patch("tracecat.sandbox.utils.os.killpg") as kill_group,
+            patch("autosecops.sandbox.utils.os.killpg") as kill_group,
         ):
             mounting = asyncio.create_task(
                 artifact._mount_image(image_path, target_dir)
@@ -1940,11 +1940,11 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/usr/bin/unsquashfs",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 side_effect=create_sleep_subprocess,
             ),
         ):
@@ -2038,16 +2038,16 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/usr/bin/unsquashfs",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 new_callable=AsyncMock,
                 return_value=process,
             ) as create_subprocess_exec,
             patch(
-                "tracecat.executor.registry_artifacts.communicate_process_group",
+                "autosecops.executor.registry_artifacts.communicate_process_group",
                 new_callable=AsyncMock,
                 return_value=(stdout, stderr),
             ),
@@ -2121,7 +2121,7 @@ class TestRegistryArtifactCache:
             patch(SQUASHFS_ENABLED_CONFIG, False),
             patch.object(TarballArtifact, "download", mock_download),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 side_effect=blocking_size_scan,
             ),
             patch.object(TarballArtifact, "extract", new_callable=AsyncMock) as extract,
@@ -2167,7 +2167,7 @@ class TestRegistryArtifactCache:
             patch.object(TarballArtifact, "download", mock_download),
             patch.object(TarballArtifact, "extract", fail_extract),
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path_off_loop",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path_off_loop",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -2240,7 +2240,7 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),
@@ -2324,16 +2324,16 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.blob.file_exists",
+                "autosecops.executor.registry_artifacts.blob.file_exists",
                 new_callable=AsyncMock,
                 side_effect=[True, False],
             ),
             patch(
-                "tracecat.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),
@@ -2736,10 +2736,10 @@ class TestRegistryArtifactCacheLease:
                 side_effect=materialize_candidates,
             ),
             patch(
-                "tracecat.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
+                "autosecops.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
                 side_effect=observe_backoff,
             ),
-            patch("tracecat.executor.registry_artifacts.logger.warning") as warning,
+            patch("autosecops.executor.registry_artifacts.logger.warning") as warning,
         ):
             async with cache.lease([first_uri, second_uri]) as registry_paths:
                 assert registry_paths == [first_target, second_target]
@@ -2790,7 +2790,7 @@ class TestRegistryArtifactCacheLease:
                 side_effect=capacity_error,
             ) as materialize_candidates,
             patch(
-                "tracecat.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
+                "autosecops.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
                 new_callable=AsyncMock,
             ) as sleep,
         ):
@@ -2832,7 +2832,7 @@ class TestRegistryArtifactCacheLease:
                 side_effect=contention_error,
             ) as materialize_candidates,
             patch(
-                "tracecat.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
+                "autosecops.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
                 new_callable=AsyncMock,
             ) as sleep,
         ):
@@ -2861,7 +2861,7 @@ class TestRegistryArtifactCacheLease:
         )
 
         with patch(
-            "tracecat.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
+            "autosecops.executor.registry_artifacts._sleep_registry_artifact_capacity_retry",
             new_callable=AsyncMock,
         ) as sleep:
             with pytest.raises(RegistryArtifactCacheLeaseContentionError) as raised:
@@ -2906,7 +2906,7 @@ class TestRegistryArtifactCacheLease:
             patch(MOUNT_CHECK, lambda path: path in harness.mounted),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", harness.mount),
@@ -2968,7 +2968,7 @@ class TestRegistryArtifactCacheLease:
             patch(MOUNT_CHECK, lambda path: path in harness.mounted),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", harness.mount),
@@ -3077,7 +3077,7 @@ class TestRegistryArtifactCacheLease:
 
         with (
             patch.object(cache, "_finish_lease_cleanup", fail_cleanup),
-            patch("tracecat.executor.registry_artifacts.logger.error") as log_error,
+            patch("autosecops.executor.registry_artifacts.logger.error") as log_error,
         ):
             async with cache.lease([artifact_uri]) as registry_paths:
                 result = registry_paths
@@ -3282,7 +3282,7 @@ class TestRegistryArtifactCacheLease:
         with (
             patch(SQUASHFS_ENABLED_CONFIG, False),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 return_value=1,
             ),
             patch.object(TarballArtifact, "download", controlled_download),
@@ -3330,7 +3330,7 @@ class TestRegistryArtifactCacheLease:
             patch(MOUNT_CHECK, lambda path: path in harness.mounted),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", harness.mount),
@@ -3396,15 +3396,15 @@ class TestRegistryArtifactCacheLease:
             patch(MOUNT_CHECK, lambda path: path in mounted),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/umount",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 side_effect=mock_umount,
             ),
             patch(
-                "tracecat.sandbox.utils.terminate_process_group",
+                "autosecops.sandbox.utils.terminate_process_group",
                 new_callable=AsyncMock,
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),
@@ -3431,15 +3431,15 @@ class TestRegistryArtifactCacheLease:
         """The bundled builtin registry is never a cache entry."""
         version = "1.2.3"
         site_packages = temp_cache_dir / "venv" / "site-packages"
-        package_dir = site_packages / "tracecat_registry"
+        package_dir = site_packages / "autosecops_registry"
         package_dir.mkdir(parents=True)
         package_file = package_dir / "__init__.py"
         package_file.write_text("")
 
-        monkeypatch.setattr(tracecat_registry, "__version__", version)
-        monkeypatch.setattr(tracecat_registry, "__file__", str(package_file))
+        monkeypatch.setattr(autosecops_registry, "__version__", version)
+        monkeypatch.setattr(autosecops_registry, "__file__", str(package_file))
         monkeypatch.setattr(
-            "tracecat.executor.registry_artifacts.sysconfig.get_path",
+            "autosecops.executor.registry_artifacts.sysconfig.get_path",
             lambda name: str(site_packages) if name == "purelib" else None,
         )
 
@@ -3610,10 +3610,10 @@ class TestRegistryArtifactCacheEviction:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.shutil.rmtree",
+                "autosecops.executor.registry_artifacts.shutil.rmtree",
                 side_effect=OSError("permission denied"),
             ),
-            patch("tracecat.executor.registry_artifacts.logger.warning") as warning,
+            patch("autosecops.executor.registry_artifacts.logger.warning") as warning,
         ):
             deleted = _delete_cache_path(entry_dir)
 
@@ -3702,7 +3702,7 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 0),
             patch(MAX_BYTES_CONFIG, max_bytes),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 side_effect=download_file_to_path,
             ),
         ):
@@ -3772,7 +3772,7 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 0),
             patch(MAX_BYTES_CONFIG, max_bytes),
             patch(
-                "tracecat.executor.registry_artifacts.blob.download_file_to_path",
+                "autosecops.executor.registry_artifacts.blob.download_file_to_path",
                 side_effect=download_file_to_path,
             ),
             patch.object(
@@ -3876,7 +3876,7 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 0),
             patch(MAX_BYTES_CONFIG, max_bytes),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 return_value=allocation_unit,
             ),
             patch.object(TarballArtifact, "download", _download_tarball_payload),
@@ -3908,12 +3908,12 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 1),
             patch(MAX_BYTES_CONFIG, 0),
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path",
                 return_value=False,
             ),
             patch.object(TarballArtifact, "download", _download_tarball_payload),
             patch.object(TarballArtifact, "extract", mock_extract),
-            patch("tracecat.executor.registry_artifacts.logger.warning") as warning,
+            patch("autosecops.executor.registry_artifacts.logger.warning") as warning,
         ):
             registry_paths = await _materialize(cache, cache_key, artifact_uri)
 
@@ -3966,7 +3966,7 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 0),
             patch(MAX_BYTES_CONFIG, max_bytes),
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path",
                 side_effect=fail_once,
             ),
         ):
@@ -4004,7 +4004,7 @@ class TestRegistryArtifactCacheEviction:
             return real_delete(path)
 
         with patch(
-            "tracecat.executor.registry_artifact_storage._delete_cache_path",
+            "autosecops.executor.registry_artifact_storage._delete_cache_path",
             side_effect=fail_stale_trash,
         ):
             with pytest.raises(RegistryArtifactCacheCapacityError) as raised:
@@ -4035,7 +4035,7 @@ class TestRegistryArtifactCacheEviction:
             patch(MAX_ENTRIES_CONFIG, 1),
             patch(MAX_BYTES_CONFIG, 0),
             patch(
-                "tracecat.executor.registry_artifact_storage._move_entry_to_trash",
+                "autosecops.executor.registry_artifact_storage._move_entry_to_trash",
                 side_effect=OSError("rename failed"),
             ),
             patch.object(TarballArtifact, "download", _download_tarball_payload),
@@ -4068,7 +4068,7 @@ class TestRegistryArtifactCacheEviction:
                 side_effect=PermissionError("denied"),
             ),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 return_value=9,
             ),
             patch.object(TarballArtifact, "download", _download_tarball_payload),
@@ -4408,7 +4408,7 @@ class TestRegistryArtifactCacheEviction:
         with (
             patch(MOUNT_CHECK, lambda path: path in mounted),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/umount",
             ),
             patch.object(
@@ -4417,7 +4417,7 @@ class TestRegistryArtifactCacheEviction:
                 side_effect=mock_umount,
             ),
             patch(
-                "tracecat.sandbox.utils.terminate_process_group",
+                "autosecops.sandbox.utils.terminate_process_group",
                 new_callable=AsyncMock,
             ),
         ):
@@ -4601,15 +4601,15 @@ class TestRegistryArtifactCacheEviction:
         with (
             patch(MOUNT_CHECK, lambda path: path in mounted),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/umount",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 side_effect=mock_umount,
             ) as create_subprocess_exec,
             patch(
-                "tracecat.sandbox.utils.terminate_process_group",
+                "autosecops.sandbox.utils.terminate_process_group",
                 new_callable=AsyncMock,
             ),
         ):
@@ -4657,14 +4657,14 @@ class TestRegistryArtifactCacheEviction:
         with (
             patch(MOUNT_CHECK, lambda path: path in mounted),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/umount",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 side_effect=mock_umount,
             ),
-            patch("tracecat.sandbox.utils.os.killpg") as kill_group,
+            patch("autosecops.sandbox.utils.os.killpg") as kill_group,
         ):
             eviction = asyncio.create_task(cache._evict_entry(cache_key))
             await blocked_process.communicate_started.wait()
@@ -4720,11 +4720,11 @@ class TestRegistryArtifactCacheEviction:
 
         with (
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path",
                 side_effect=blocked_delete,
             ),
             patch(
-                "tracecat.executor.registry_artifacts._tarball_extracted_size",
+                "autosecops.executor.registry_artifacts._tarball_extracted_size",
                 return_value=9,
             ),
             patch.object(TarballArtifact, "download", _download_tarball_payload),
@@ -4819,7 +4819,7 @@ class TestRegistryArtifactCacheEviction:
         paths.tarball_target_dir.mkdir()
 
         with patch(
-            "tracecat.executor.registry_artifact_storage._delete_cache_path",
+            "autosecops.executor.registry_artifact_storage._delete_cache_path",
             return_value=True,
         ) as delete_cache_path:
             assert await cache._evict_entry(cache_key) == RegistryArtifactEviction(
@@ -4855,11 +4855,11 @@ class TestRegistryArtifactCacheEviction:
         with (
             patch(MOUNT_CHECK, lambda path: path in mounted),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/umount",
             ),
             patch(
-                "tracecat.executor.registry_artifacts.asyncio.create_subprocess_exec",
+                "autosecops.executor.registry_artifacts.asyncio.create_subprocess_exec",
                 new_callable=AsyncMock,
                 return_value=process,
             ),
@@ -5126,7 +5126,7 @@ class TestRegistryArtifactCacheStartupSweep:
 
         with (
             patch(
-                "tracecat.executor.registry_artifacts.os.scandir",
+                "autosecops.executor.registry_artifacts.os.scandir",
                 side_effect=PermissionError("denied"),
             ),
             pytest.raises(PermissionError, match="denied"),
@@ -5162,7 +5162,7 @@ class TestRegistryArtifactCacheStartupSweep:
             patch(MAX_ENTRIES_CONFIG, 1),
             patch(MAX_BYTES_CONFIG, 0),
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path",
                 side_effect=fail_orphan,
             ),
         ):
@@ -5191,7 +5191,7 @@ class TestRegistryArtifactCacheStartupSweep:
             return real_delete(path)
 
         with patch(
-            "tracecat.executor.registry_artifact_storage._delete_cache_path",
+            "autosecops.executor.registry_artifact_storage._delete_cache_path",
             side_effect=fail_once,
         ):
             await cache.ensure_swept()
@@ -5227,7 +5227,7 @@ class TestRegistryArtifactCacheStartupSweep:
             patch(MAX_ENTRIES_CONFIG, 1),
             patch(MAX_BYTES_CONFIG, 0),
             patch(
-                "tracecat.executor.registry_artifact_storage._move_entry_to_trash",
+                "autosecops.executor.registry_artifact_storage._move_entry_to_trash",
                 side_effect=OSError("rename failed"),
             ),
         ):
@@ -5287,7 +5287,7 @@ class TestRegistryArtifactCacheStartupSweep:
             patch(MAX_ENTRIES_CONFIG, 0),
             patch(MAX_BYTES_CONFIG, max_bytes),
             patch(
-                "tracecat.executor.registry_artifact_storage._delete_cache_path",
+                "autosecops.executor.registry_artifact_storage._delete_cache_path",
                 side_effect=fail_once,
             ),
         ):
@@ -5336,7 +5336,7 @@ class TestSquashfsMountPolicy:
             patch(MOUNT_CHECK, lambda path: path in harness.mounted),
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", harness.mount),
@@ -5421,7 +5421,7 @@ class TestSquashfsMountPolicy:
         with (
             patch(SQUASHFS_ENABLED_CONFIG, True),
             patch(
-                "tracecat.executor.registry_artifacts.shutil.which",
+                "autosecops.executor.registry_artifacts.shutil.which",
                 return_value="/sbin/mount",
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),

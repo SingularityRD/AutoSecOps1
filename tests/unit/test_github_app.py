@@ -12,19 +12,19 @@ from github.GithubException import GithubException, UnknownObjectException
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Secret
-from tracecat.exceptions import ScopeDeniedError, TracecatNotFoundError
-from tracecat.git.types import GitUrl
-from tracecat.secrets.enums import SecretType
-from tracecat.secrets.schemas import SecretKeyValue
-from tracecat.secrets.service import SecretsService
-from tracecat.vcs.github.app import (
+from autosecops.auth.types import Role
+from autosecops.db.models import Secret
+from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.git.types import GitUrl
+from autosecops.secrets.enums import SecretType
+from autosecops.secrets.schemas import SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from autosecops.vcs.github.app import (
     GitHubAppError,
     GitHubAppSecretState,
     GitHubAppService,
 )
-from tracecat.vcs.github.schemas import (
+from autosecops.vcs.github.schemas import (
     GitHubAppCredentials,
     GitHubInstallation,
     GitHubRepository,
@@ -120,7 +120,7 @@ class TestGitHubAppService:
     @pytest.mark.anyio
     async def test_get_github_app_credentials_not_found(self, github_admin_service):
         """Test retrieving GitHub App credentials when not found."""
-        with patch("tracecat.vcs.github.app.SecretsService") as mock_secrets_service:
+        with patch("autosecops.vcs.github.app.SecretsService") as mock_secrets_service:
             mock_service = AsyncMock()
             mock_service._get_github_app_org_secret.side_effect = TracecatNotFoundError(
                 "Secret not found"
@@ -162,7 +162,7 @@ class TestGitHubAppService:
         self, github_admin_service, mock_credentials, mock_secret
     ):
         """Test getting credentials status when they exist."""
-        with patch("tracecat.vcs.github.app.SecretsService") as mock_secrets_service:
+        with patch("autosecops.vcs.github.app.SecretsService") as mock_secrets_service:
             mock_service = Mock()
             mock_service._get_github_app_org_secret = AsyncMock(
                 return_value=mock_secret
@@ -321,8 +321,8 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), mock_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
-            patch("tracecat.vcs.github.app.asyncio.to_thread") as mock_to_thread,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.asyncio.to_thread") as mock_to_thread,
         ):
             mock_integration = Mock()
             mock_integration.get_repo_installation.return_value = mock_installation
@@ -352,8 +352,8 @@ class TestGitHubAppService:
         mock_installation.get_github_for_installation.return_value = mock_github_client
 
         with (
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
-            patch("tracecat.vcs.github.app.asyncio.to_thread") as mock_to_thread,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.asyncio.to_thread") as mock_to_thread,
         ):
             mock_integration = Mock()
             mock_integration.get_repo_installation.return_value = mock_installation
@@ -401,8 +401,8 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), mock_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
-            patch("tracecat.vcs.github.app.asyncio.to_thread") as mock_to_thread,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.asyncio.to_thread") as mock_to_thread,
         ):
             mock_integration = Mock()
             mock_gh_integration.return_value = mock_integration
@@ -424,8 +424,8 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), mock_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
-            patch("tracecat.vcs.github.app.asyncio.to_thread") as mock_to_thread,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.asyncio.to_thread") as mock_to_thread,
         ):
             mock_integration = Mock()
             mock_gh_integration.return_value = mock_integration
@@ -472,7 +472,7 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), mock_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
         ):
             mock_integration = Mock()
             mock_integration.get_installations.return_value = [installation]
@@ -529,7 +529,9 @@ class TestGitHubAppService:
         installation.account = account
         installation.get_repos.return_value = [repo]
 
-        with patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration:
+        with patch(
+            "autosecops.vcs.github.app.GithubIntegration"
+        ) as mock_gh_integration:
             mock_integration = Mock()
             mock_integration.get_installations.return_value = [installation]
             mock_gh_integration.return_value = mock_integration
@@ -569,7 +571,7 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), bad_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
         ):
             with pytest.raises(GitHubAppError, match="invalid credential data"):
                 await github_service.list_accessible_repositories()
@@ -587,7 +589,7 @@ class TestGitHubAppService:
                 "_get_github_app_secret_state",
                 return_value=(GitHubAppSecretState.VALID, Mock(), mock_credentials),
             ),
-            patch("tracecat.vcs.github.app.GithubIntegration") as mock_gh_integration,
+            patch("autosecops.vcs.github.app.GithubIntegration") as mock_gh_integration,
         ):
             mock_integration = Mock()
             mock_integration.get_installations.side_effect = GithubException(
@@ -613,7 +615,7 @@ class TestGitHubAppService:
         self, github_service, mock_credentials
     ):
         """Test that non-admin role cannot register app."""
-        from tracecat.exceptions import TracecatAuthorizationError
+        from autosecops.exceptions import TracecatAuthorizationError
 
         with pytest.raises(
             TracecatAuthorizationError,
@@ -631,7 +633,7 @@ class TestGitHubAppService:
         self, github_service
     ):
         """Test that non-admin role cannot update credentials."""
-        from tracecat.exceptions import TracecatAuthorizationError
+        from autosecops.exceptions import TracecatAuthorizationError
 
         with pytest.raises(
             TracecatAuthorizationError,

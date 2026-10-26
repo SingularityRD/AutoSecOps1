@@ -4,14 +4,14 @@ from collections.abc import Iterator
 
 import pytest
 
-from tracecat.contexts import ctx_secret_masks
-from tracecat.exceptions import TracecatExpressionError
-from tracecat.executor.schemas import ExecutorActionErrorInfo
-from tracecat.executor.service import _sanitize_error_info
-from tracecat.expressions.common import eval_jsonpath, parse_jsonpath
-from tracecat.expressions.eval import eval_templated_object
-from tracecat.expressions.jsonpath import find_with_secret_masks
-from tracecat.secrets.masking import SecretMaskCollector
+from autosecops.contexts import ctx_secret_masks
+from autosecops.exceptions import TracecatExpressionError
+from autosecops.executor.schemas import ExecutorActionErrorInfo
+from autosecops.executor.service import _sanitize_error_info
+from autosecops.expressions.common import eval_jsonpath, parse_jsonpath
+from autosecops.expressions.eval import eval_templated_object
+from autosecops.expressions.jsonpath import find_with_secret_masks
+from autosecops.secrets.masking import SecretMaskCollector
 
 SECRET = "syntheticcredential-private-value"
 

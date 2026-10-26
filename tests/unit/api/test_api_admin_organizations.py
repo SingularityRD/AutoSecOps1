@@ -5,20 +5,20 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
-from tracecat_ee.admin.organizations import router as organizations_router
-from tracecat_ee.admin.organizations.schemas import (
+from autosecops_ee.admin.organizations import router as organizations_router
+from autosecops_ee.admin.organizations.schemas import (
     AdminOrgInvitationCreateResponse,
     AdminOrgInvitationRead,
     AdminOrgInvitationTokenRead,
 )
+from fastapi import status
+from fastapi.testclient import TestClient
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatValidationError
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.pagination import CursorPaginatedResponse
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatValidationError
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.pagination import CursorPaginatedResponse
 
 
 def _org_invitation_read(

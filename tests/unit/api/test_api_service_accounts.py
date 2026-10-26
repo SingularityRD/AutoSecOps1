@@ -9,17 +9,17 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.schemas import UserReadMinimal, UserRole
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.exceptions import TracecatValidationError
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.service_accounts import router as service_accounts_router
-from tracecat.service_accounts.schemas import (
+from autosecops.auth.schemas import UserReadMinimal, UserRole
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.exceptions import TracecatValidationError
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.service_accounts import router as service_accounts_router
+from autosecops.service_accounts.schemas import (
     ServiceAccountApiKeyRead,
     ServiceAccountScopeRead,
 )
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(autouse=True)

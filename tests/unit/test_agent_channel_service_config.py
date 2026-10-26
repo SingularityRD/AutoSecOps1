@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from cryptography.fernet import Fernet
 
-from tracecat.agent.channels import service as channel_service_module
-from tracecat.agent.channels.schemas import ChannelType, SlackChannelTokenConfig
-from tracecat.agent.channels.service import (
+from autosecops.agent.channels import service as channel_service_module
+from autosecops.agent.channels.schemas import ChannelType, SlackChannelTokenConfig
+from autosecops.agent.channels.service import (
     ENCRYPTED_CONFIG_VALUE_PREFIX,
     AgentChannelService,
 )

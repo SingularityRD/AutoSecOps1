@@ -2,8 +2,8 @@ import uuid
 
 import pytest
 
-from tracecat.cases.enums import MentionTargetType
-from tracecat.cases.mentions import (
+from autosecops.cases.enums import MentionTargetType
+from autosecops.cases.mentions import (
     MentionToken,
     parse_mentions,
     render_mentions_as_text,

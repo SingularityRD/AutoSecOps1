@@ -11,17 +11,17 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.admin.registry.schemas import RegistryArtifactsBackfillStartRequest
-from tracecat.admin.registry.service import AdminRegistryService
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import (
+from autosecops.admin.registry.schemas import RegistryArtifactsBackfillStartRequest
+from autosecops.admin.registry.service import AdminRegistryService
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import (
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     Workflow,
     WorkflowDefinition,
     Workspace,
 )
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -36,7 +36,7 @@ def platform_role() -> PlatformRole:
 
 
 async def _repo(session: AsyncSession) -> PlatformRegistryRepository:
-    repo = PlatformRegistryRepository(origin="tracecat_registry")
+    repo = PlatformRegistryRepository(origin="autosecops_registry")
     session.add(repo)
     await session.flush()
     return repo
@@ -96,9 +96,11 @@ async def test_list_versions_includes_artifact_and_usage_status(
     await _workflow_with_definitions(
         session,
         svc_workspace.id,
-        [{"tracecat_registry": "1.0.0"}, {"tracecat_registry": "2.0.0"}],
+        [{"autosecops_registry": "1.0.0"}, {"autosecops_registry": "2.0.0"}],
     )
-    await _workflow_with_definitions(session, svc_workspace.id, [["tracecat_registry"]])
+    await _workflow_with_definitions(
+        session, svc_workspace.id, [["autosecops_registry"]]
+    )
     await session.commit()
 
     async def fake_artifacts_ready(
@@ -146,7 +148,7 @@ async def test_artifacts_ready_accepts_direct_squashfs_uri(
         return True
 
     monkeypatch.setattr(
-        "tracecat.admin.registry.service.blob.file_exists",
+        "autosecops.admin.registry.service.blob.file_exists",
         fake_file_exists,
     )
 
@@ -214,7 +216,7 @@ async def test_promote_version_allows_ready_legacy_tarball_artifact(
         return True
 
     monkeypatch.setattr(
-        "tracecat.admin.registry.service.blob.file_exists",
+        "autosecops.admin.registry.service.blob.file_exists",
         fake_file_exists,
     )
 
@@ -254,7 +256,7 @@ async def test_promote_version_allows_backfilled_legacy_squashfs_sidecar(
         return key == "platform/v1/site-packages.squashfs"
 
     monkeypatch.setattr(
-        "tracecat.admin.registry.service.blob.file_exists",
+        "autosecops.admin.registry.service.blob.file_exists",
         fake_file_exists,
     )
 
@@ -346,7 +348,7 @@ async def test_delete_version_rejects_version_used_by_any_workflow_definition(
     await _workflow_with_definitions(
         session,
         svc_workspace.id,
-        [{"tracecat_registry": "1.0.0"}, {"tracecat_registry": "2.0.0"}],
+        [{"autosecops_registry": "1.0.0"}, {"autosecops_registry": "2.0.0"}],
     )
     await session.commit()
 
@@ -388,7 +390,7 @@ async def test_start_artifacts_backfill_scales_workflow_timeout(
         return fake_client
 
     monkeypatch.setattr(
-        "tracecat.dsl.client.get_temporal_client",
+        "autosecops.dsl.client.get_temporal_client",
         fake_get_temporal_client,
     )
 

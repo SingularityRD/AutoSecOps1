@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pydantic import SecretStr
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import EntitlementRequired
-from tracecat.tiers.enums import Entitlement
-from tracecat.vcs import router as vcs_router
-from tracecat.vcs.schemas import GitLabTokenCredentialsRequest
+from autosecops.auth.types import Role
+from autosecops.exceptions import EntitlementRequired
+from autosecops.tiers.enums import Entitlement
+from autosecops.vcs import router as vcs_router
+from autosecops.vcs.schemas import GitLabTokenCredentialsRequest
 
 
 class _EntitlementFailingGitLabTokenService:

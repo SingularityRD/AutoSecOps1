@@ -13,16 +13,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.dependencies import ExecutorWorkspaceRole
-from tracecat.auth.types import Role
-from tracecat.cases.attachments import internal_router
-from tracecat.cases.attachments.schemas import CaseAttachmentCreate
-from tracecat.db.engine import get_async_session
-from tracecat.executor.action_gateway.app import create_app
-from tracecat.executor.action_gateway.policy import (
+from autosecops.auth.dependencies import ExecutorWorkspaceRole
+from autosecops.auth.types import Role
+from autosecops.cases.attachments import internal_router
+from autosecops.cases.attachments.schemas import CaseAttachmentCreate
+from autosecops.db.engine import get_async_session
+from autosecops.executor.action_gateway.app import create_app
+from autosecops.executor.action_gateway.policy import (
     enforce_agent_script_gateway_access,
 )
-from tracecat.storage.exceptions import (
+from autosecops.storage.exceptions import (
     FileContentMismatchError,
     FileExtensionError,
     FileMimeTypeError,
@@ -31,7 +31,7 @@ from tracecat.storage.exceptions import (
     MaxAttachmentsExceededError,
     StorageLimitExceededError,
 )
-from tracecat.storage.validation import FileSecurityValidator
+from autosecops.storage.validation import FileSecurityValidator
 
 CASE_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 ATTACHMENT_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")

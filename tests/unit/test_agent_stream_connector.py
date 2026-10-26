@@ -8,16 +8,16 @@ from unittest.mock import AsyncMock
 import orjson
 import pytest
 
-from tracecat.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
-from tracecat.agent.stream.connector import AgentStream
-from tracecat.agent.stream.events import (
+from autosecops.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
+from autosecops.agent.stream.connector import AgentStream
+from autosecops.agent.stream.events import (
     StreamDelta,
     StreamEnd,
     StreamKeepAlive,
     StreamSessionEvent,
 )
-from tracecat.chat import tokens
-from tracecat.redis.client import RedisClient
+from autosecops.chat import tokens
+from autosecops.redis.client import RedisClient
 
 
 @pytest.mark.anyio

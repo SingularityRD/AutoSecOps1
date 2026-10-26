@@ -20,10 +20,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_engine, get_async_session
-from tracecat.db.rls import (
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_engine, get_async_session
+from autosecops.db.rls import (
     RLS_BYPASS_OFF,
     RLS_BYPASS_ON,
     RLS_UNSET_VALUE,

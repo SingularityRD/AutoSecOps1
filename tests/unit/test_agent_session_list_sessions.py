@@ -8,12 +8,12 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from tracecat.agent.backends import registry
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.session.schemas import AgentSessionRead
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
+from autosecops.agent.backends import registry
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.session.schemas import AgentSessionRead
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
 
 
 def _mock_scalar_result(items: list[Any]) -> Mock:

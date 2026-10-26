@@ -12,12 +12,12 @@ from temporalio.converter import (
     DefaultFailureConverterWithEncodedAttributes,
 )
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.temporal import codec as temporal_codec
-from tracecat.temporal.codec import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.temporal import codec as temporal_codec
+from autosecops.temporal.codec import (
     TRACECAT_TEMPORAL_ENCODING,
     TRACECAT_TEMPORAL_GLOBAL_SCOPE,
     CompositePayloadCodec,

@@ -12,21 +12,21 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 
 import pytest
+from autosecops_ee.scim.connections import ScimConnectionService
+from autosecops_ee.scim.credentials import authenticate_scim_connection
+from autosecops_ee.scim.service import SCIMService
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.scim.connections import ScimConnectionService
-from tracecat_ee.scim.credentials import authenticate_scim_connection
-from tracecat_ee.scim.service import SCIMService
 
+from autosecops.audit.enums import AuditEventActor, AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.audit.types import AuditEvent
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ORG_ADMIN_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.db.models import Organization, User
+from autosecops.tiers import defaults as tier_defaults
 from tests.support.membership import grant_org_membership, seed_external_user
-from tracecat.audit.enums import AuditEventActor, AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.audit.types import AuditEvent
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.db.models import Organization, User
-from tracecat.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -62,12 +62,12 @@ def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None
         yield session
 
     monkeypatch.setattr(
-        "tracecat_ee.scim.credentials.get_async_session_auth_context_manager",
+        "autosecops_ee.scim.credentials.get_async_session_auth_context_manager",
         _session_cm,
     )
     # Without this, an empty auth-pool database takes the first-user path.
     monkeypatch.setattr(
-        "tracecat.auth.users.get_async_session_auth_context_manager", _session_cm
+        "autosecops.auth.users.get_async_session_auth_context_manager", _session_cm
     )
 
 
@@ -196,7 +196,7 @@ async def test_user_driven_removal_is_still_attributed_to_the_user(
 
     monkeypatch.setattr(AuditService, "create_event", capture)
 
-    from tracecat.organization.service import OrgService
+    from autosecops.organization.service import OrgService
 
     token = ctx_role.set(admin_role)
     try:
@@ -273,9 +273,9 @@ async def test_scim_writes_emit_their_audit_events(
 
     Recompute stays silent: it is cache reconciliation, not a decision.
     """
-    from tracecat_ee.scim.provisioning import ScimProvisioningService
+    from autosecops_ee.scim.provisioning import ScimProvisioningService
 
-    from tracecat.db.models import Group
+    from autosecops.db.models import Group
 
     events: list[AuditEvent] = []
 

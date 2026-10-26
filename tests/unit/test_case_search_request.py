@@ -7,32 +7,32 @@ import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.cases.constants import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.cases.constants import (
     MAX_PAYLOAD_FIELDS,
     MAX_PAYLOAD_PATH_KEYS,
     MAX_PAYLOAD_PATHS,
 )
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.query import CaseFieldResolver, case_payload_projection
-from tracecat.cases.search_adapters import (
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.query import CaseFieldResolver, case_payload_projection
+from autosecops.cases.search_adapters import (
     iter_case_filter_conditions,
     legacy_case_filters,
 )
-from tracecat.cases.search_schemas import CaseQuery, CaseSearchRequest
-from tracecat.cases.search_service import CaseSearchService
-from tracecat.db.models import Case
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.compiler import compile_filter
-from tracecat.query.filters import (
+from autosecops.cases.search_schemas import CaseQuery, CaseSearchRequest
+from autosecops.cases.search_service import CaseSearchService
+from autosecops.db.models import Case
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.compiler import compile_filter
+from autosecops.query.filters import (
     MAX_FILTER_CONDITIONS,
     MAX_FILTER_VALUES,
     AndClause,
     Condition,
     FilterOp,
 )
-from tracecat.tables.enums import SqlType
+from autosecops.tables.enums import SqlType
 
 WORKSPACE_ID = UUID("00000000-0000-4000-8000-000000000001")
 CASE_ID = UUID("00000000-0000-4000-8000-000000000002")
@@ -283,7 +283,7 @@ async def test_legacy_filters_do_not_add_a_level_to_the_explicit_tree() -> None:
         AsyncMock(), role, fields=AsyncMock(), hierarchy=hierarchy
     )
     with patch(
-        "tracecat.cases.search_service.compile_filter", wraps=compile_filter
+        "autosecops.cases.search_service.compile_filter", wraps=compile_filter
     ) as compiler:
         predicates = await service.prepare_query(
             query, case_addons_enabled=False, legacy_filters=legacy

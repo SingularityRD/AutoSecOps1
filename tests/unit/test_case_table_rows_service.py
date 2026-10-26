@@ -12,28 +12,28 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from tests.conftest import TEST_ORG_ID
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.rows import service as case_rows_service_module
-from tracecat.cases.rows.schemas import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.rows import service as case_rows_service_module
+from autosecops.cases.rows.schemas import (
     CaseTableRowBatchLinkResponse,
     CaseTableRowInsertCreate,
     CaseTableRowLinkCreate,
 )
-from tracecat.cases.rows.service import (
+from autosecops.cases.rows.service import (
     CaseTableRowsService,
 )
-from tracecat.cases.schemas import CaseCreate
-from tracecat.cases.service import CasesService
-from tracecat.db.models import CaseEvent, CaseTableRow, Table, Workspace
-from tracecat.exceptions import EntitlementRequired, TracecatNotFoundError
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
-from tracecat.tables.service import TablesService
+from autosecops.cases.schemas import CaseCreate
+from autosecops.cases.service import CasesService
+from autosecops.db.models import CaseEvent, CaseTableRow, Table, Workspace
+from autosecops.exceptions import EntitlementRequired, TracecatNotFoundError
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
+from autosecops.tables.service import TablesService
+from tests.conftest import TEST_ORG_ID
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 

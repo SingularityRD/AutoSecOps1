@@ -6,19 +6,19 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
+from autosecops_ee.scim.connections import ScimConnectionService
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.scim.connections import ScimConnectionService
 
-from tracecat.auth.api_keys import (
+from autosecops.auth.api_keys import (
     SCIM_API_KEY_PREFIX,
     parse_managed_api_key,
     verify_api_key,
 )
-from tracecat.auth.types import Role
-from tracecat.db.models import Organization, ScimConnection, User
-from tracecat.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.auth.types import Role
+from autosecops.db.models import Organization, ScimConnection, User
+from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -40,37 +40,37 @@ from temporalio.worker import (
     WorkflowInterceptorClassInput,
 )
 
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.error_policy import (
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.error_policy import (
     agent_executor_unclassified,
     invalid_agent_configuration,
     user_agent_execution_failed,
 )
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops.agent.sandbox.llm_proxy import (
     LLMProxyError,
     LLMRoute,
     LLMRoutingPlan,
     LLMSocketProxy,
 )
-from tracecat.api.common import auth_pool_exhausted_exception_handler
-from tracecat.auth.credentials import _authenticate_executor
-from tracecat.db.exceptions import AuthPoolExhaustedError
-from tracecat.dsl import interceptor as interceptor_module
-from tracecat.dsl.interceptor import (
+from autosecops.api.common import auth_pool_exhausted_exception_handler
+from autosecops.auth.credentials import _authenticate_executor
+from autosecops.db.exceptions import AuthPoolExhaustedError
+from autosecops.dsl import interceptor as interceptor_module
+from autosecops.dsl.interceptor import (
     RuntimeErrorAttributionInterceptor,
     _RuntimeErrorAttributionWorkflowInterceptor,
 )
-from tracecat.exceptions import EntitlementRequired, ScopeDeniedError
-from tracecat.executor.action_gateway import app as gateway_module
-from tracecat.logger import logger
-from tracecat.observability import sentry as sentry_module
-from tracecat.observability.otel import (
+from autosecops.exceptions import EntitlementRequired, ScopeDeniedError
+from autosecops.executor.action_gateway import app as gateway_module
+from autosecops.logger import logger
+from autosecops.observability import sentry as sentry_module
+from autosecops.observability.otel import (
     _sanitize_server_span,
     initialize_platform_tracing,
     instrument_fastapi_app,
     shutdown_platform_tracing,
 )
-from tracecat.observability.sentry import (
+from autosecops.observability.sentry import (
     SentryTag,
     WorkflowFailureEventContext,
     _sanitize_platform_event,
@@ -83,22 +83,25 @@ from tracecat.observability.sentry import (
     initialize_worker_sentry,
     initialize_worker_sentry_from_environment,
 )
-from tracecat.observability.types import AlertPriority
-from tracecat.query.errors import TracecatQueryOverflowError, TracecatQueryTimeoutError
-from tracecat.runtime.errors import (
+from autosecops.observability.types import AlertPriority
+from autosecops.query.errors import (
+    TracecatQueryOverflowError,
+    TracecatQueryTimeoutError,
+)
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     activity_error_boundary,
     application_error_from_classification,
     build_error_transport_detail,
     extract_error_capture,
     raise_wrapped_application_error,
 )
-from tracecat.workflow.executions.enums import TriggerType
+from autosecops.workflow.executions.enums import TriggerType
 
 _SENSITIVE_VALUE = "synthetic-sensitive-workflow-payload"
 
@@ -374,7 +377,7 @@ def test_sentry_event_allowlist_drops_unknown_payload_fields() -> None:
                                 {
                                     "filename": "workflow.py",
                                     "function": "run",
-                                    "module": "tracecat.dsl.workflow",
+                                    "module": "autosecops.dsl.workflow",
                                     "lineno": 42,
                                     "colno": 7,
                                     "in_app": True,
@@ -415,7 +418,7 @@ def test_sentry_event_allowlist_drops_unknown_payload_fields() -> None:
                         {
                             "filename": "workflow.py",
                             "function": "run",
-                            "module": "tracecat.dsl.workflow",
+                            "module": "autosecops.dsl.workflow",
                             "lineno": 42,
                             "colno": 7,
                             "in_app": True,

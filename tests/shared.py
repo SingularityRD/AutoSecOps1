@@ -16,11 +16,11 @@ from pydantic import ValidationError
 from temporalio.client import Client, WorkflowHistory
 from temporalio.exceptions import ApplicationError
 
-from tracecat.identifiers.action import ref
-from tracecat.identifiers.workflow import EXEC_ID_PREFIX, WorkflowUUID
-from tracecat.registry.actions.schemas import TemplateAction
-from tracecat.runtime.errors import RuntimeErrorClassification
-from tracecat.storage.object import (
+from autosecops.identifiers.action import ref
+from autosecops.identifiers.workflow import EXEC_ID_PREFIX, WorkflowUUID
+from autosecops.registry.actions.schemas import TemplateAction
+from autosecops.runtime.errors import RuntimeErrorClassification
+from autosecops.storage.object import (
     CollectionObject,
     ExternalObject,
     InlineObject,
@@ -28,7 +28,7 @@ from tracecat.storage.object import (
     StoredObjectValidator,
     get_object_storage,
 )
-from tracecat.temporal.errors import raise_application_error_from_classification
+from autosecops.temporal.errors import raise_application_error_from_classification
 
 
 def user_client() -> httpx.AsyncClient:

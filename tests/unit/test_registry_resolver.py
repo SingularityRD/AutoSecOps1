@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.exceptions import EntitlementRequired, RegistryError
-from tracecat.executor import registry_resolver
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.versions.schemas import (
+from autosecops.exceptions import EntitlementRequired, RegistryError
+from autosecops.executor import registry_resolver
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     RegistryVersionManifestAction,
 )
@@ -50,21 +50,21 @@ class TestBuildImplIndex:
             {
                 "core.transform.reshape": {
                     "type": "udf",
-                    "url": "tracecat_registry",
-                    "module": "tracecat_registry.integrations.core.transform",
+                    "url": "autosecops_registry",
+                    "module": "autosecops_registry.integrations.core.transform",
                     "name": "reshape",
                 }
             }
         )
 
-        index = registry_resolver._build_impl_index(manifest, "tracecat_registry")
+        index = registry_resolver._build_impl_index(manifest, "autosecops_registry")
 
         assert "core.transform.reshape" in index
         impl = index["core.transform.reshape"]
         assert impl.type == "udf"
-        assert impl.module == "tracecat_registry.integrations.core.transform"
+        assert impl.module == "autosecops_registry.integrations.core.transform"
         assert impl.name == "reshape"
-        assert impl.origin == "tracecat_registry"
+        assert impl.origin == "autosecops_registry"
 
     def test_build_template_impl(self):
         """Test building impl index for template actions."""
@@ -118,14 +118,14 @@ class TestManifestCache:
             return_value=entry,
         ) as mock_load:
             first = await registry_resolver._get_manifest_entry(
-                "tracecat_registry", "v1", uuid.uuid4()
+                "autosecops_registry", "v1", uuid.uuid4()
             )
             second = await registry_resolver._get_manifest_entry(
-                "tracecat_registry", "v1", uuid.uuid4()
+                "autosecops_registry", "v1", uuid.uuid4()
             )
 
         assert first is second
-        mock_load.assert_awaited_once_with("tracecat_registry", "v1", None)
+        mock_load.assert_awaited_once_with("autosecops_registry", "v1", None)
 
     @pytest.mark.anyio
     async def test_org_manifest_remains_scoped_to_organization(self):
@@ -175,7 +175,7 @@ class TestManifestCache:
             tasks = [
                 asyncio.create_task(
                     registry_resolver._get_manifest_entry(
-                        "tracecat_registry", "v1", organization_id
+                        "autosecops_registry", "v1", organization_id
                     )
                 )
                 for organization_id in organization_ids
@@ -200,10 +200,10 @@ class TestManifestCache:
         ) as mock_load:
             with pytest.raises(RegistryError, match="temporary failure"):
                 await registry_resolver._get_manifest_entry(
-                    "tracecat_registry", "v1", uuid.uuid4()
+                    "autosecops_registry", "v1", uuid.uuid4()
                 )
             result = await registry_resolver._get_manifest_entry(
-                "tracecat_registry", "v1", uuid.uuid4()
+                "autosecops_registry", "v1", uuid.uuid4()
             )
 
         assert result is entry
@@ -220,17 +220,19 @@ class TestResolveAction:
             {
                 "core.transform.reshape": {
                     "type": "udf",
-                    "url": "tracecat_registry",
-                    "module": "tracecat_registry.integrations.core.transform",
+                    "url": "autosecops_registry",
+                    "module": "autosecops_registry.integrations.core.transform",
                     "name": "reshape",
                 }
             }
         )
-        impl_index = registry_resolver._build_impl_index(manifest, "tracecat_registry")
+        impl_index = registry_resolver._build_impl_index(
+            manifest, "autosecops_registry"
+        )
 
         lock = RegistryLock(
-            origins={"tracecat_registry": "2024.12.10"},
-            actions={"core.transform.reshape": "tracecat_registry"},
+            origins={"autosecops_registry": "2024.12.10"},
+            actions={"core.transform.reshape": "autosecops_registry"},
         )
 
         # Mock _get_manifest_entry to return our test data
@@ -250,14 +252,14 @@ class TestResolveAction:
             )
 
         assert action_impl.type == "udf"
-        assert action_impl.module == "tracecat_registry.integrations.core.transform"
-        assert action_impl.origin == "tracecat_registry"
+        assert action_impl.module == "autosecops_registry.integrations.core.transform"
+        assert action_impl.origin == "autosecops_registry"
 
     @pytest.mark.anyio
     async def test_resolve_action_not_bound_error(self):
         """Test error when action is not bound in lock."""
         lock = RegistryLock(
-            origins={"tracecat_registry": "2024.12.10"},
+            origins={"autosecops_registry": "2024.12.10"},
             actions={},  # No actions bound
         )
 
@@ -282,7 +284,7 @@ class TestResolveAction:
         with pytest.raises(ValidationError) as exc_info:
             RegistryLock(
                 origins={},  # No origins
-                actions={"core.transform.reshape": "tracecat_registry"},
+                actions={"core.transform.reshape": "autosecops_registry"},
             )
 
         assert "Actions reference unknown origins" in str(exc_info.value)
@@ -293,7 +295,7 @@ class TestResolveAction:
 
         with pytest.raises(ValidationError) as exc_info:
             RegistryLock(
-                origins={"tracecat_registry": "2024.12.10"},
+                origins={"autosecops_registry": "2024.12.10"},
                 actions={},
                 origin_fingerprints={"missing_origin": "fingerprint"},
             )
@@ -306,7 +308,7 @@ class TestPrefetchLock:
 
     @pytest.mark.anyio
     async def test_prefetch_lock_default_origin_does_not_check_custom_entitlement(self):
-        lock = RegistryLock(origins={"tracecat_registry": "2024.12.10"}, actions={})
+        lock = RegistryLock(origins={"autosecops_registry": "2024.12.10"}, actions={})
         manifest = _make_manifest({})
 
         with (
@@ -335,7 +337,7 @@ class TestPrefetchLock:
         custom_origin = "git+ssh://git@github.com/acme/custom.git"
         lock = RegistryLock(
             origins={
-                "tracecat_registry": "2024.12.10",
+                "autosecops_registry": "2024.12.10",
                 custom_origin: "v1",
             },
             actions={"tools.custom.only_action": custom_origin},
@@ -365,7 +367,7 @@ class TestPrefetchLock:
         mock_has_entitlement.assert_awaited_once()
         assert mock_get_manifest_entry.await_count == 2
         mock_get_manifest_entry.assert_any_await(
-            "tracecat_registry",
+            "autosecops_registry",
             "2024.12.10",
             organization_id,
         )
@@ -452,14 +454,14 @@ class TestCollectActionSecretsFromManifest:
     @pytest.mark.anyio
     async def test_collect_udf_secrets(self):
         """Test collecting secrets from UDF action."""
-        from tracecat_registry import RegistrySecret
+        from autosecops_registry import RegistrySecret
 
         manifest = _make_manifest(
             {
                 "tools.api.call": {
                     "type": "udf",
-                    "url": "tracecat_registry",
-                    "module": "tracecat_registry.integrations.tools.api",
+                    "url": "autosecops_registry",
+                    "module": "autosecops_registry.integrations.tools.api",
                     "name": "call",
                 }
             }
@@ -469,11 +471,13 @@ class TestCollectActionSecretsFromManifest:
             RegistrySecret(name="api_key", keys=["API_KEY"])
         ]
 
-        impl_index = registry_resolver._build_impl_index(manifest, "tracecat_registry")
+        impl_index = registry_resolver._build_impl_index(
+            manifest, "autosecops_registry"
+        )
 
         lock = RegistryLock(
-            origins={"tracecat_registry": "2024.12.10"},
-            actions={"tools.api.call": "tracecat_registry"},
+            origins={"autosecops_registry": "2024.12.10"},
+            actions={"tools.api.call": "autosecops_registry"},
         )
 
         # Mock _get_manifest_entry to return our test data
@@ -500,7 +504,7 @@ class TestCollectActionSecretsFromManifest:
     async def test_collect_secrets_action_not_bound_error(self):
         """Test error when action is not bound."""
         lock = RegistryLock(
-            origins={"tracecat_registry": "2024.12.10"},
+            origins={"autosecops_registry": "2024.12.10"},
             actions={},
         )
 

@@ -108,7 +108,7 @@ jobs:
           set +a
 
           TRACECAT__DB_URI="postgresql+psycopg://postgres:postgres@localhost:5432/postgres" \
-            uv run --no-sync tracecat admin create-dev-user \
+            uv run --no-sync autosecops admin create-dev-user \
               --email dev@autosecops.example \
               --password password1234 \
               --superuser-email test@autosecops.example \

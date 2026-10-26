@@ -4,13 +4,13 @@ import zipfile
 
 import pytest
 
-from tracecat.storage.exceptions import (
+from autosecops.storage.exceptions import (
     FileExtensionError,
     FileMimeTypeError,
     FileNameError,
     FileSizeError,
 )
-from tracecat.storage.validation import FileSecurityValidator
+from autosecops.storage.validation import FileSecurityValidator
 
 
 @pytest.fixture()

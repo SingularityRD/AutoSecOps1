@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 from temporalio.client import WorkflowExecutionStatus
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
-import tracecat.admin.maintenance.router as maintenance_router_module
-from tracecat.auth.types import Role
-from tracecat.cases.agent_sessions.types import (
+import autosecops.admin.maintenance.router as maintenance_router_module
+from autosecops.auth.types import Role
+from autosecops.cases.agent_sessions.types import (
     CaseAgentSessionBackfillReport,
     CaseAgentSessionBackfillSkipReason,
 )

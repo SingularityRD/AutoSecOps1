@@ -20,11 +20,13 @@ from temporalio.exceptions import (
 )
 from temporalio.service import RPCError, RPCStatusCode
 
-from tracecat.agent.mcp import executor
-from tracecat.agent.tokens import MCPTokenClaims
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.workflow.executions.correlation import build_agent_session_correlation_id
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.agent.mcp import executor
+from autosecops.agent.tokens import MCPTokenClaims
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.workflow.executions.correlation import (
+    build_agent_session_correlation_id,
+)
+from autosecops.workflow.executions.enums import TemporalSearchAttr
 
 
 def _build_claims() -> MCPTokenClaims:
@@ -41,8 +43,8 @@ def _build_claims() -> MCPTokenClaims:
 
 def _build_registry_lock() -> RegistryLock:
     return RegistryLock(
-        origins={"tracecat_registry": "test-version"},
-        actions={"core.http_request": "tracecat_registry"},
+        origins={"autosecops_registry": "test-version"},
+        actions={"core.http_request": "autosecops_registry"},
     )
 
 
@@ -426,7 +428,7 @@ def test_build_tool_workflow_alias_attrs_uses_claude_code_prefix() -> None:
 
 
 def test_build_run_input_sets_tool_tunnel() -> None:
-    lock = RegistryLock(origins={"tracecat_registry": "1.0.0"}, actions={})
+    lock = RegistryLock(origins={"autosecops_registry": "1.0.0"}, actions={})
     tunneled = executor.build_run_input("core.http_request", {}, lock, tunnel="onprem")
     direct = executor.build_run_input("core.http_request", {}, lock)
     assert tunneled.task.tunnel == "onprem"

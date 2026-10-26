@@ -12,24 +12,24 @@ import pytest
 from temporalio.client import WorkflowExecutionStatus, WorkflowHandle
 from temporalio.testing import WorkflowEnvironment
 
-from tests.temporal import runtime_error_attribution_child_harness as child_harness
-from tests.temporal import runtime_error_attribution_engine_harness as engine_harness
-from tests.temporal import runtime_error_attribution_harness as harness
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactCacheCapacityError,
     RegistryArtifactCacheLeaseContentionError,
 )
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.sandbox.exceptions import SandboxInfrastructureError
-from tracecat.temporal.errors import (
+from autosecops.sandbox.exceptions import SandboxInfrastructureError
+from autosecops.temporal.errors import (
     extract_error_classification,
     extract_error_classifications,
 )
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+from tests.temporal import runtime_error_attribution_child_harness as child_harness
+from tests.temporal import runtime_error_attribution_engine_harness as engine_harness
+from tests.temporal import runtime_error_attribution_harness as harness
 
 pytestmark = [pytest.mark.temporal]
 

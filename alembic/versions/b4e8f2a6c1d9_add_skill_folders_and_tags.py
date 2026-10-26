@@ -11,7 +11,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from tracecat.db.tenant_rls import (
+from autosecops.db.tenant_rls import (
     disable_skill_tag_link_table_rls,
     disable_workspace_table_rls,
     enable_skill_tag_link_table_rls,

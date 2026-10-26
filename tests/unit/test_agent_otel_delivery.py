@@ -12,8 +12,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from tracecat.agent import otel_delivery
-from tracecat.agent.otel_delivery import (
+from autosecops.agent import otel_delivery
+from autosecops.agent.otel_delivery import (
     DeliveryLimits,
     OtelDelivery,
     OtelDeliveryPool,

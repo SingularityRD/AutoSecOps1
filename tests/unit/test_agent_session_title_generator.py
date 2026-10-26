@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.agent.session.title_generator import (
+from autosecops.agent.session.title_generator import (
     TITLE_MAX_CHARS,
     TITLE_MAX_WORDS,
     generate_session_title,
@@ -34,7 +34,7 @@ def test_sanitize_session_title_handles_quotes_newlines_and_empty() -> None:
 async def test_generate_session_title_returns_sanitized_output() -> None:
     llm_complete = AsyncMock(return_value='  "Investigate API\nerrors in worker"  ')
 
-    with patch("tracecat.agent.session.title_generator.llm_complete", llm_complete):
+    with patch("autosecops.agent.session.title_generator.llm_complete", llm_complete):
         title = await generate_session_title(
             user_prompt="The worker API keeps failing",
             session=AsyncMock(),
@@ -48,7 +48,7 @@ async def test_generate_session_title_returns_sanitized_output() -> None:
 @pytest.mark.anyio
 async def test_generate_session_title_raises_on_llm_error() -> None:
     with patch(
-        "tracecat.agent.session.title_generator.llm_complete",
+        "autosecops.agent.session.title_generator.llm_complete",
         side_effect=RuntimeError("bad model"),
     ):
         with pytest.raises(RuntimeError, match="bad model"):
@@ -62,7 +62,7 @@ async def test_generate_session_title_raises_on_llm_error() -> None:
 @pytest.mark.anyio
 async def test_generate_session_title_skips_empty_prompt() -> None:
     llm_complete = AsyncMock()
-    with patch("tracecat.agent.session.title_generator.llm_complete", llm_complete):
+    with patch("autosecops.agent.session.title_generator.llm_complete", llm_complete):
         assert (
             await generate_session_title(
                 user_prompt="   ",
@@ -77,7 +77,7 @@ async def test_generate_session_title_skips_empty_prompt() -> None:
 @pytest.mark.anyio
 async def test_generate_session_title_returns_none_for_empty_sanitized_output() -> None:
     with patch(
-        "tracecat.agent.session.title_generator.llm_complete",
+        "autosecops.agent.session.title_generator.llm_complete",
         AsyncMock(return_value='""'),
     ):
         assert (

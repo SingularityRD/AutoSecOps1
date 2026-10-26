@@ -13,26 +13,26 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette import status
 
-from tracecat.agent.adapter.vercel import UIMessage
-from tracecat.agent.backends import registry
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.backends.types import (
+from autosecops.agent.adapter.vercel import UIMessage
+from autosecops.agent.backends import registry
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.backends.types import (
     AgentControlRejected,
     AgentControlUncertain,
     SessionDispatchUncertain,
 )
-from tracecat.agent.common.stream_types import (
+from autosecops.agent.common.stream_types import (
     HarnessType,
     StreamEventType,
     UnifiedStreamEvent,
 )
-from tracecat.agent.control.schemas import (
+from autosecops.agent.control.schemas import (
     AgentCancelControl,
     AgentControlReceipt,
     AgentSteerControl,
     AgentWithdrawControl,
 )
-from tracecat.agent.session.router import (
+from autosecops.agent.session.router import (
     cancel_session,
     control_session,
     create_session,
@@ -46,26 +46,26 @@ from tracecat.agent.session.router import (
     stream_session_events,
     update_session,
 )
-from tracecat.agent.session.schemas import (
+from autosecops.agent.session.schemas import (
     AgentSessionCancelRequest,
     AgentSessionCreate,
     AgentSessionForkRequest,
     AgentSessionUpdate,
 )
-from tracecat.agent.session.types import AgentSessionEntity, TurnLifecycle
-from tracecat.agent.session.views import build_session_read
-from tracecat.artifacts.schemas import CaseArtifact
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseSeverity, CaseStatus
-from tracecat.chat.schemas import (
+from autosecops.agent.session.types import AgentSessionEntity, TurnLifecycle
+from autosecops.agent.session.views import build_session_read
+from autosecops.artifacts.schemas import CaseArtifact
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseSeverity, CaseStatus
+from autosecops.chat.schemas import (
     ApprovalDecision,
     ChatResponse,
     ContinueRunRequest,
     VercelChatRequest,
 )
-from tracecat.db.engine import get_async_session
-from tracecat.exceptions import (
+from autosecops.db.engine import get_async_session
+from autosecops.exceptions import (
     EntitlementRequired,
     TracecatConflictError,
     TracecatNotFoundError,
@@ -157,7 +157,7 @@ async def _deny_workspace_chat_entitlement(**kwargs: Any) -> None:
 def _without_workspace_chat_entitlement() -> Any:
     """Patch the org off workspace chat, which OSS defaults now grant."""
     return patch(
-        "tracecat.agent.session.router.is_workspace_chat_entitled",
+        "autosecops.agent.session.router.is_workspace_chat_entitled",
         AsyncMock(return_value=False),
     )
 
@@ -192,7 +192,7 @@ def test_list_sessions_http_fork_filter_compatibility(
     fake_svc = SimpleNamespace(list_sessions=AsyncMock(return_value=[]))
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         _without_workspace_chat_entitlement(),
         TestClient(app) as client,
@@ -223,7 +223,7 @@ async def test_list_sessions_service_account_defaults_to_workspace_sessions() ->
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         _without_workspace_chat_entitlement(),
     ):
@@ -269,7 +269,7 @@ async def test_list_sessions_user_defaults_to_workspace_sessions() -> None:
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         _without_workspace_chat_entitlement(),
     ):
@@ -322,7 +322,7 @@ async def test_update_session_rejects_teammate_session() -> None:
     )
 
     with patch(
-        "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+        "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
     ):
         raw_update_session = cast(Any, update_session).__wrapped__
         with pytest.raises(HTTPException) as exc_info:
@@ -353,7 +353,7 @@ async def test_get_session_includes_agents_binding(endpoint: Any) -> None:
     )
 
     with patch(
-        "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+        "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
     ):
         response = await endpoint.__wrapped__(
             session_id=session_stub.id,
@@ -384,7 +384,7 @@ async def test_get_session_vercel_includes_persisted_artifacts() -> None:
     )
 
     with patch(
-        "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+        "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
     ):
         raw_get_session_vercel = cast(Any, get_session_vercel).__wrapped__
         response = await raw_get_session_vercel(
@@ -428,7 +428,7 @@ async def test_session_history_remains_readable_without_entitlement(
     )
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         _without_workspace_chat_entitlement(),
     ):
@@ -458,7 +458,7 @@ async def test_remove_session_artifact_removes_and_returns_artifacts() -> None:
     )
 
     with patch(
-        "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+        "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
     ):
         raw_remove_session_artifact = cast(Any, remove_session_artifact).__wrapped__
         response = await raw_remove_session_artifact(
@@ -518,11 +518,11 @@ async def _call_send_message(
     db_session = AsyncMock()
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ) as with_session_mock,
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ) as stream_new_mock,
     ):
@@ -769,11 +769,11 @@ async def test_send_message_new_turn_preserves_only_uncertain_dispatch(
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ),
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ),
     ):
@@ -841,11 +841,11 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ),
         patch(
-            "tracecat.agent.session.router._require_workspace_chat_entitlement_for_session_tree",
+            "autosecops.agent.session.router._require_workspace_chat_entitlement_for_session_tree",
             AsyncMock(return_value=None),
         ),
     ):
@@ -894,7 +894,7 @@ async def test_send_message_rejects_teammate_session() -> None:
     )
 
     with patch(
-        "tracecat.agent.session.router.AgentSessionService.with_session",
+        "autosecops.agent.session.router.AgentSessionService.with_session",
         return_value=_AsyncContext(fake_svc),
     ):
         raw_send_message = cast(Any, send_message).__wrapped__
@@ -961,11 +961,11 @@ async def test_send_message_does_not_reset_stream_when_validation_fails(
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ) as with_session_mock,
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ) as stream_new_mock,
     ):
@@ -1043,15 +1043,15 @@ async def test_send_message_requires_entitlement_for_workspace_chat_parent(
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ),
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(side_effect=_deny_workspace_chat_entitlement),
         ),
     ):
@@ -1088,11 +1088,11 @@ async def test_fork_session_requires_entitlement_for_workspace_chat_parent() -> 
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(side_effect=_deny_workspace_chat_entitlement),
         ),
     ):
@@ -1129,11 +1129,11 @@ async def test_fork_session_maps_backend_rejection_to_bad_request() -> None:
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(return_value=None),
         ),
     ):
@@ -1170,11 +1170,11 @@ async def test_cancel_session_requires_entitlement_for_workspace_chat_parent() -
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(side_effect=_deny_workspace_chat_entitlement),
         ),
     ):
@@ -1293,15 +1293,15 @@ async def test_stream_session_events_lifecycle(
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ),
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ) as stream_new_mock,
         patch(
-            "tracecat.agent.session.router.AgentStream.finished_sse",
+            "autosecops.agent.session.router.AgentStream.finished_sse",
             finished_sse,
         ),
     ):
@@ -1365,15 +1365,15 @@ async def test_stream_session_events_reads_legacy_workspace_chat_without_entitle
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_AsyncContext(fake_svc),
         ),
         patch(
-            "tracecat.agent.session.router.AgentStream.new",
+            "autosecops.agent.session.router.AgentStream.new",
             AsyncMock(return_value=fake_stream),
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(side_effect=_deny_workspace_chat_entitlement),
         ),
     ):
@@ -1410,7 +1410,7 @@ async def test_session_read_surfaces_history_failure(endpoint) -> None:
     )
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         pytest.raises(TracecatServiceError, match="backend is not installed"),
     ):
@@ -1479,14 +1479,14 @@ async def test_create_session_applies_configured_chat_backend(
         )
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(),
         ),
         patch(
-            "tracecat.agent.session.router.config.TRACECAT__AGENT_CHAT_BACKEND",
+            "autosecops.agent.session.router.config.TRACECAT__AGENT_CHAT_BACKEND",
             "external",
         ),
     ):
@@ -1514,11 +1514,11 @@ async def test_update_session_rejects_backend_changes_with_bad_request(
     agent_session = _agent_session_stub()
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.is_legacy_session",
+            "autosecops.agent.session.router.AgentSessionService.is_legacy_session",
             return_value=False,
         ),
         patch(
-            "tracecat.agent.session.router.AgentSessionService.get_session",
+            "autosecops.agent.session.router.AgentSessionService.get_session",
             return_value=agent_session,
         ),
         pytest.raises(HTTPException) as exc_info,
@@ -1569,7 +1569,7 @@ async def test_session_responses_derive_readonly_from_backend_state(
     )
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
         patch.object(
             registry,
@@ -1662,14 +1662,14 @@ def test_control_session_dispatches_each_type_to_the_service(
     app.dependency_overrides[get_async_session] = lambda: AsyncMock()
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(return_value=None),
         ),
-        patch("tracecat.agent.session.router.logger") as logger,
+        patch("autosecops.agent.session.router.logger") as logger,
         TestClient(app) as client,
     ):
         response = client.post(f"/agent/sessions/{agent_session.id}/control", json=body)
@@ -1721,11 +1721,11 @@ async def test_control_session_maps_control_outcomes(
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(return_value=None),
         ),
     ):
@@ -1750,11 +1750,11 @@ async def test_deprecated_cancel_route_calls_request_cancel() -> None:
     )
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService",
+            "autosecops.agent.session.router.AgentSessionService",
             return_value=fake_svc,
         ),
         patch(
-            "tracecat.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
             AsyncMock(return_value=None),
         ),
     ):

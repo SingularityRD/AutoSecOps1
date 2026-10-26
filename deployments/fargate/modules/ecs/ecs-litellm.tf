@@ -28,7 +28,7 @@ resource "aws_ecs_task_definition" "litellm_task_definition" {
           appProtocol   = "http"
         }
       ]
-      command = ["python", "-m", "tracecat.agent.litellm"]
+      command = ["python", "-m", "autosecops.agent.litellm"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {

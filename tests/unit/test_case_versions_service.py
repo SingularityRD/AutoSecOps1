@@ -7,11 +7,11 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.service import CasesService
-from tracecat.cases.versions.service import CaseVersionsService
-from tracecat.exceptions import ScopeDeniedError
-from tracecat.pagination import PageParams
+from autosecops.auth.types import Role
+from autosecops.cases.service import CasesService
+from autosecops.cases.versions.service import CaseVersionsService
+from autosecops.exceptions import ScopeDeniedError
+from autosecops.pagination import PageParams
 
 
 def _role_with_scopes(*scopes: str) -> Role:

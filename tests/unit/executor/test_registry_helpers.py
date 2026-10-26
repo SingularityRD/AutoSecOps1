@@ -8,26 +8,26 @@ from typing import cast
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.dsl.schemas import RunActionInput
-from tracecat.executor.backends import registry_helpers
-from tracecat.executor.backends.registry_helpers import (
+from autosecops.auth.types import Role
+from autosecops.dsl.schemas import RunActionInput
+from autosecops.executor.backends import registry_helpers
+from autosecops.executor.backends.registry_helpers import (
     get_registry_artifact_uris,
     sort_registry_artifact_uris,
 )
-from tracecat.executor.registry_artifacts import bundled_builtin_registry_uri
-from tracecat.executor.service import RegistryArtifactsContext
-from tracecat.registry.artifact_keys import get_artifact_s3_prefix
-from tracecat.registry.constants import (
+from autosecops.executor.registry_artifacts import bundled_builtin_registry_uri
+from autosecops.executor.service import RegistryArtifactsContext
+from autosecops.registry.artifact_keys import get_artifact_s3_prefix
+from autosecops.registry.constants import (
     DEFAULT_REGISTRY_ORIGIN,
     PLATFORM_REGISTRY_NAMESPACE,
 )
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.sync.prebuilt import (
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.sync.prebuilt import (
     load_prebuilt_builtin_registry_manifest,
     write_prebuilt_registry_manifest,
 )
-from tracecat.registry.versions.schemas import (
+from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     registry_manifest_fingerprint,
 )
@@ -59,7 +59,7 @@ def test_sort_registry_artifact_uris_orders_builtin_first() -> None:
             artifact_uri="s3://bucket/b.tar.gz",
         ),
         RegistryArtifactsContext(
-            origin="tracecat_registry",
+            origin="autosecops_registry",
             version="v1",
             artifact_uri="s3://bucket/builtin.tar.gz",
         ),
@@ -95,11 +95,11 @@ async def test_get_registry_artifact_uris_uses_bundled_current_builtin(
         pytest.fail("current builtin registry should not query artifact storage")
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         fail_lookup,
     )
 
@@ -130,15 +130,15 @@ async def test_get_registry_artifact_uris_uses_bundled_builtin_on_fingerprint_ma
         pytest.fail("matching builtin registry should not query artifact storage")
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
+        "autosecops.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
         lambda **_kwargs: manifest,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         fail_lookup,
     )
 
@@ -183,15 +183,15 @@ async def test_get_registry_artifact_uris_reads_bundled_manifest_once(
         return load_prebuilt_builtin_registry_manifest(**kwargs)
 
     monkeypatch.setattr(
-        "tracecat.config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "autosecops.config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
+        "autosecops.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
         counting_load,
     )
 
@@ -233,15 +233,15 @@ async def test_get_registry_artifact_uris_looks_up_builtin_on_fingerprint_mismat
         ]
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
+        "autosecops.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
         lambda **_kwargs: RegistryVersionManifest(),
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         get_artifacts,
     )
 
@@ -280,15 +280,15 @@ async def test_get_registry_artifact_uris_looks_up_builtin_when_manifest_missing
         ]
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
+        "autosecops.executor.backends.registry_helpers.load_prebuilt_builtin_registry_manifest",
         lambda **_kwargs: None,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         get_artifacts,
     )
 
@@ -328,11 +328,11 @@ async def test_get_registry_artifact_uris_looks_up_only_non_current_origins(
         ]
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         current_version,
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         get_artifacts,
     )
 
@@ -349,7 +349,7 @@ async def test_get_registry_artifact_uris_propagates_lookup_errors(
     input_data = cast(
         RunActionInput,
         SimpleNamespace(
-            registry_lock=SimpleNamespace(origins={"tracecat_registry": "1.0.0"})
+            registry_lock=SimpleNamespace(origins={"autosecops_registry": "1.0.0"})
         ),
     )
 
@@ -357,11 +357,11 @@ async def test_get_registry_artifact_uris_propagates_lookup_errors(
         raise RuntimeError("artifact lookup failed")
 
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.tracecat_registry.__version__",
+        "autosecops.executor.backends.registry_helpers.autosecops_registry.__version__",
         "2.0.0",
     )
     monkeypatch.setattr(
-        "tracecat.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
+        "autosecops.executor.backends.registry_helpers.get_registry_artifacts_for_lock",
         raise_lookup_error,
     )
 

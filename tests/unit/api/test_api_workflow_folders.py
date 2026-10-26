@@ -7,10 +7,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatValidationError
-from tracecat.workflow.management.folders import router as workflow_folder_router
-from tracecat.workflow.management.folders.service import WorkflowFolderErrorCode
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatValidationError
+from autosecops.workflow.management.folders import router as workflow_folder_router
+from autosecops.workflow.management.folders.service import WorkflowFolderErrorCode
 
 
 def _mock_service_with_async_method(

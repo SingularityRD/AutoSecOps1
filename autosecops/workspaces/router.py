@@ -1,0 +1,356 @@
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
+from sqlalchemy.exc import IntegrityError, NoResultFound
+
+from autosecops.auth.credentials import RoleACL
+from autosecops.auth.dependencies import OrgActorRole
+from autosecops.auth.types import Role
+from autosecops.authz.controls import require_scope
+from autosecops.authz.service import MembershipService
+from autosecops.db.dependencies import AsyncDBSession
+from autosecops.exceptions import (
+    TracecatAuthorizationError,
+    TracecatConflictError,
+    TracecatManagementError,
+    TracecatNotFoundError,
+    TracecatValidationError,
+)
+from autosecops.identifiers import UserID, WorkspaceID
+from autosecops.logger import logger
+from autosecops.settings.service import workspace_allows_error_details
+from autosecops.workspaces.schemas import (
+    WorkspaceCreate,
+    WorkspaceMember,
+    WorkspaceMembershipCreate,
+    WorkspaceMembershipRead,
+    WorkspaceRead,
+    WorkspaceReadMinimal,
+    WorkspaceSearch,
+    WorkspaceSettingsRead,
+    WorkspaceUpdate,
+)
+from autosecops.workspaces.service import WorkspaceService
+
+router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+
+# Workspace role types for path-based workspace access
+WorkspaceUserInPath = Annotated[
+    Role,
+    RoleACL(
+        allow_user=True,
+        allow_service=False,
+        allow_api_key=True,
+        require_workspace="yes",
+        workspace_id_in_path=True,
+    ),
+]
+# === Management === #
+
+
+@router.get("")
+@require_scope("org:read", "org:workspace:read", "workspace:read", require_all=False)
+async def list_workspaces(
+    *,
+    role: OrgActorRole,
+    session: AsyncDBSession,
+) -> list[WorkspaceReadMinimal]:
+    """List workspaces the user has access to.
+
+    Access
+    ------
+    - Org owners/admins (have `org:workspace:read` scope): See all workspaces in the org.
+    - Org members (have `org:read` scope): See only workspaces where they are a member.
+    - Workspace-bound service accounts: See only their bound workspace.
+
+    Membership limits workspace-scoped access to the actor's workspaces.
+    """
+    service = WorkspaceService(session, role=role)
+    try:
+        workspaces = await service.list_accessible_workspaces()
+    except TracecatAuthorizationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        ) from e
+    return [WorkspaceReadMinimal(id=ws.id, name=ws.name) for ws in workspaces]
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+@require_scope("workspace:create")
+async def create_workspace(
+    *,
+    role: OrgActorRole,
+    params: WorkspaceCreate,
+    session: AsyncDBSession,
+) -> WorkspaceReadMinimal:
+    """Create a new workspace.
+
+    Authorization
+    -------------
+    - Admin: Can create a workspace for any user.
+    """
+    if role.type == "service_account" and role.bound_workspace_id is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    service = WorkspaceService(session, role=role)
+    try:
+        workspace = await service.create_workspace(params.name)
+    except TracecatAuthorizationError as e:
+        logger.warning(
+            "User does not have the required scope",
+            role=role,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        ) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Resource already exists"
+        ) from e
+    return WorkspaceReadMinimal(id=workspace.id, name=workspace.name)
+
+
+# NOTE: This route must be defined before the route for getting a single workspace for both to work
+@router.get("/search")
+@require_scope("org:read", "org:workspace:read", "workspace:read", require_all=False)
+async def search_workspaces(
+    *,
+    role: OrgActorRole,
+    session: AsyncDBSession,
+    params: WorkspaceSearch = Depends(),
+) -> list[WorkspaceReadMinimal]:
+    """Return Workflow as title, description, list of Action JSONs, adjacency list of Action IDs."""
+    service = WorkspaceService(session, role=role)
+    try:
+        workspaces = await service.search_workspaces(params)
+    except TracecatAuthorizationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        ) from e
+    return [WorkspaceReadMinimal(id=ws.id, name=ws.name) for ws in workspaces]
+
+
+@router.get("/{workspace_id}")
+@require_scope("workspace:read")
+async def get_workspace(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    session: AsyncDBSession,
+) -> WorkspaceRead:
+    """Return Workflow as title, description, list of Action JSONs, adjacency list of Action IDs."""
+    service = WorkspaceService(session, role=role)
+    workspace = await service.get_workspace(workspace_id)
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found"
+        )
+
+    return WorkspaceRead(
+        id=workspace.id,
+        name=workspace.name,
+        settings=WorkspaceSettingsRead.model_validate(workspace.settings or {}),
+        default_agent_preset_id=workspace.default_agent_preset_id,
+        organization_id=workspace.organization_id,
+        unsafe_disable_secret_error_withholding_allowed=(
+            await workspace_allows_error_details(
+                organization_id=workspace.organization_id,
+                workspace_id=workspace.id,
+                session=session,
+            )
+        ),
+    )
+
+
+@router.patch("/{workspace_id}", status_code=status.HTTP_200_OK)
+@require_scope("workspace:update")
+async def update_workspace(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    params: WorkspaceUpdate,
+    session: AsyncDBSession,
+) -> WorkspaceRead:
+    """Update a workspace."""
+    service = WorkspaceService(session, role=role)
+    workspace = await service.get_workspace(workspace_id)
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found"
+        )
+    logger.info("Updating workspace", params=params)
+    try:
+        updated = await service.update_workspace(workspace, params=params)
+    except TracecatValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+    return WorkspaceRead(
+        id=updated.id,
+        name=updated.name,
+        settings=WorkspaceSettingsRead.model_validate(updated.settings or {}),
+        default_agent_preset_id=updated.default_agent_preset_id,
+        organization_id=updated.organization_id,
+    )
+
+
+@router.delete(
+    "/{workspace_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@require_scope("workspace:delete")
+async def delete_workspace(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    session: AsyncDBSession,
+) -> None:
+    """Delete a workspace."""
+
+    service = WorkspaceService(session, role=role)
+    try:
+        await service.delete_workspace(workspace_id)
+    except NoResultFound as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found"
+        ) from e
+    except TracecatManagementError as e:
+        raise HTTPException(
+            detail=str(e),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        ) from e
+
+
+# === Memberships === #
+@router.get("/{workspace_id}/members")
+@require_scope("workspace:member:read")
+async def list_workspace_members(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    session: AsyncDBSession,
+) -> list[WorkspaceMember]:
+    """List members of a workspace."""
+    service = MembershipService(session, role=role)
+    memberships = await service.list_workspace_members(workspace_id)
+    return memberships
+
+
+@router.get("/{workspace_id}/memberships")
+@require_scope("workspace:member:read")
+async def list_workspace_memberships(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    session: AsyncDBSession,
+) -> list[WorkspaceMembershipRead]:
+    """List memberships of a workspace."""
+    service = MembershipService(session, role=role)
+    memberships = await service.list_memberships(workspace_id)
+    return [
+        WorkspaceMembershipRead(
+            user_id=membership.user_id,
+            workspace_id=membership.workspace_id,
+        )
+        for membership in memberships
+    ]
+
+
+@router.post(
+    "/{workspace_id}/memberships",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "User is not a member of the organization."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "User is already a member of the workspace."
+        },
+    },
+)
+# Org inviters can already grant workspace roles through invitations; the
+# scope ceiling in create_membership still bounds the role granted.
+@require_scope("workspace:member:invite", "org:member:invite", require_all=False)
+async def create_workspace_membership(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    params: WorkspaceMembershipCreate,
+    session: AsyncDBSession,
+) -> WorkspaceMembershipRead:
+    """Create a workspace membership for a user."""
+    logger.info(
+        f"User {role.user_id} requesting to create membership for {params.user_id} in workspace {workspace_id}"
+    )
+    service = MembershipService(session, role=role)
+    try:
+        # TracecatAuthorizationError intentionally propagates: the API-wide
+        # handler maps it to 403, which is correct for a scope-ceiling denial.
+        await service.create_membership(workspace_id, params=params)
+    except TracecatNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except TracecatConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    except IntegrityError as e:
+        logger.error("INTEGRITY ERROR", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already a member of workspace.",
+        ) from e
+    except TracecatValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+    return WorkspaceMembershipRead(user_id=params.user_id, workspace_id=workspace_id)
+
+
+@router.get("/{workspace_id}/memberships/{user_id}")
+@require_scope("workspace:member:read")
+async def get_workspace_membership(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    user_id: UserID,
+    session: AsyncDBSession,
+) -> WorkspaceMembershipRead:
+    """Get a workspace membership for a user."""
+    service = MembershipService(session, role=role)
+    membership = await service.get_membership(workspace_id, user_id=user_id)
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
+    return WorkspaceMembershipRead(
+        user_id=membership.user_id,
+        workspace_id=membership.workspace_id,
+    )
+
+
+@router.delete(
+    "/{workspace_id}/memberships/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": "User remains a member through a group."
+        }
+    },
+)
+@require_scope("workspace:member:remove")
+async def delete_workspace_membership(
+    *,
+    role: WorkspaceUserInPath,
+    workspace_id: WorkspaceID,
+    user_id: UserID,
+    session: AsyncDBSession,
+) -> None:
+    """Delete a workspace membership."""
+    service = MembershipService(session, role=role)
+    try:
+        await service.delete_membership(workspace_id, user_id=user_id)
+    except TracecatConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e

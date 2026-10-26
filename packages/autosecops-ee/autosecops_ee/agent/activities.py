@@ -1,0 +1,816 @@
+from __future__ import annotations
+
+import uuid
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Protocol
+
+from pydantic import (
+    UUID4,
+    BaseModel,
+    Field,
+)
+from temporalio import activity
+from temporalio.exceptions import ApplicationError
+
+from autosecops.agent.common.stream_types import UnifiedStreamEvent
+from autosecops.agent.common.types import (
+    MCPHttpServerConfig,
+    MCPServerConfig,
+    MCPToolDefinition,
+    is_http_mcp_server,
+)
+from autosecops.agent.error_policy import (
+    agent_preparation_failed,
+    agent_tool_build_failure,
+    mcp_discovery_failure,
+    registry_lock_action_ambiguous,
+    registry_lock_invalid_data,
+    tenant_entitlement_denied,
+)
+from autosecops.agent.mcp.internal_tools import (
+    BUILDER_BUNDLED_ACTIONS,
+    BUILDER_INTERNAL_TOOL_NAMES,
+    get_builder_internal_tool_definitions,
+)
+from autosecops.agent.mcp.utils import (
+    MCP_TOOL_NAME_RE,
+    REGISTRY_MCP_SERVER_NAME,
+    normalize_mcp_tool_name,
+)
+from autosecops.agent.schemas import ToolFilters
+from autosecops.agent.stream.connector import AgentStream
+from autosecops.agent.tokens import InternalToolContext, UserMCPServerClaim
+from autosecops.agent.tools import build_agent_tools
+from autosecops.auth.types import Role
+from autosecops.common import all_activities
+from autosecops.contexts import ctx_role
+from autosecops.exceptions import (
+    BuiltinRegistryHasNoSelectionError,
+    EntitlementRequired,
+    RegistryLockAmbiguousActionError,
+    RegistryLockInvalidDataError,
+    TracecatValidationError,
+)
+from autosecops.logger import logger
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
+    RetryDisposition,
+    RuntimeErrorClassification,
+    RuntimeErrorKind,
+)
+from autosecops.temporal.errors import raise_application_error_from_classification
+
+if TYPE_CHECKING:
+    from autosecops.integrations.schemas import MCPToolSummary
+
+
+class BuildToolDefsArgs(BaseModel):
+    role: Role
+    tool_filters: ToolFilters
+    tool_approvals: dict[str, bool] | None = None
+    tool_tunnels: dict[str, str] | None = None
+    mcp_servers: list[MCPServerConfig] | None = None
+    """User-defined MCP server configurations to discover tools from."""
+    internal_tool_context: InternalToolContext | None = None
+    """Context for internal tools (e.g., preset_id for builder assistant)."""
+    fail_on_mcp_discovery_error: bool = False
+    """If true, fail closed when configured user MCP tools cannot be discovered."""
+
+
+class BuildAgentScopeToolDefsArgs(BaseModel):
+    scope: str
+    tool_filters: ToolFilters
+    tool_approvals: dict[str, bool] | None = None
+    tool_tunnels: dict[str, str] | None = None
+    mcp_servers: list[MCPServerConfig] | None = None
+    """User-defined MCP server configurations to discover tools from."""
+    internal_tool_context: InternalToolContext | None = None
+    """Context for internal tools (e.g., preset_id for builder assistant)."""
+    fail_on_mcp_discovery_error: bool = False
+    """If true, fail closed when configured user MCP tools cannot be discovered."""
+
+
+class BuildToolDefsResult(BaseModel):
+    tool_definitions: dict[str, MCPToolDefinition]
+    registry_lock: RegistryLock
+    user_mcp_claims: list[UserMCPServerClaim] | None = None
+    """Resolved user MCP server configs for JWT claims."""
+    allowed_internal_tools: list[str] | None = None
+    """List of allowed internal tool names for JWT claims."""
+    tool_approvals: dict[str, bool] | None = None
+    """Effective tool approval policy for the compiled scope."""
+    tool_tunnels: dict[str, str] | None = None
+    """Tunnel name by registry action for the compiled scope's tools."""
+
+
+class BuildAgentToolDefsArgs(BaseModel):
+    role: Role
+    scopes: list[BuildAgentScopeToolDefsArgs]
+
+
+class BuildAgentToolDefsResult(BaseModel):
+    scopes: dict[str, BuildToolDefsResult]
+
+
+class ToolApprovalPayload(BaseModel):
+    tool_call_id: str
+    tool_name: str
+    args: dict[str, Any] | str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class ExecuteRemoteMCPToolArgs(BaseModel):
+    mcp_auth_token: str
+    tool_name: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class PersistApprovalsActivityInputs(BaseModel):
+    role: Role
+    session_id: uuid.UUID
+    approvals: list[ToolApprovalPayload]
+
+
+class ApprovalDecisionPayload(BaseModel):
+    tool_call_id: str
+    approved: bool
+    reason: str | None = None
+    decision: bool | dict[str, Any] | None = None
+    decision_metadata: dict[str, Any] | None = None
+    approved_by: UUID4 | None = None
+
+
+class ApplyApprovalResultsActivityInputs(BaseModel):
+    role: Role
+    session_id: uuid.UUID
+    # Unique by tool_call_id: handle_decisions builds these from a dict, and the
+    # persistence upsert cannot carry one conflict key twice.
+    decisions: list[ApprovalDecisionPayload]
+
+
+class EmitSessionErrorInputs(BaseModel):
+    role: Role
+    session_id: uuid.UUID
+    workspace_id: uuid.UUID
+    message: str
+    active_stream_id: uuid.UUID | None = None
+    # When False, only persist last_error and skip the SSE stream. The runtime
+    # error path has already streamed the error inline via the loopback, so it
+    # persists-only; pre-stream failures stream too.
+    should_stream: bool = True
+
+
+class EmitSessionDoneInputs(BaseModel):
+    role: Role
+    session_id: uuid.UUID
+    workspace_id: uuid.UUID
+    active_stream_id: uuid.UUID | None = None
+
+
+# Cap stored error summaries so a runaway traceback can't bloat the session row
+# or the inbox payload. The detail banner only needs a short, human-readable
+# reason.
+MAX_LAST_ERROR_LEN = 2000
+
+
+class EmitSessionCancelledInputs(BaseModel):
+    role: Role
+    session_id: uuid.UUID
+    workspace_id: uuid.UUID
+    reason: str | None = None
+    # Tool calls the interrupt aborted mid-flight (from the executor result).
+    # Persisted with the cancelled marker so reloads render them as
+    # "interrupted" instead of surfacing SDK abort artifacts as tool errors.
+    interrupted_tool_call_ids: list[str] | None = None
+    # The cancelled run's id, derived replay-safely by the workflow from its
+    # own workflow id. Pins the marker row to this run instead of the session
+    # row's curr_run_id, which may already point at a newer turn by the time
+    # the cancelled workflow finalizes.
+    curr_run_id: uuid.UUID | None = None
+    active_stream_id: uuid.UUID | None = None
+    emit_stream: bool = True
+    """Whether to also push the cancelled frame onto the live stream.
+
+    False when the executor loopback already emitted the notice; the activity
+    then only persists the timeline marker row. The workflow owns the terminal
+    END after finalizing the turn.
+    """
+
+
+class _SessionStreamInputs(Protocol):
+    """Terminal-emit input shape addressing one session stream."""
+
+    session_id: uuid.UUID
+    workspace_id: uuid.UUID
+    active_stream_id: uuid.UUID | None
+
+
+def _stored_user_mcp_tool_policy(
+    tool_name: str,
+    *,
+    integration_id_by_server_name: dict[str, uuid.UUID],
+    policies_by_integration_id: dict[uuid.UUID, dict[str, MCPToolSummary]],
+) -> MCPToolSummary | None:
+    """Look up the stored per-tool policy for a discovered user MCP tool.
+
+    Returns None when the tool name is not a user MCP tool, its server has no
+    backing integration, or the integration has no stored policy for the tool.
+    """
+    from autosecops.agent.mcp.user_client import UserMCPClient
+
+    parsed = UserMCPClient.parse_user_mcp_tool_name(tool_name)
+    if parsed is None:
+        return None
+    server_name, remote_tool_name = parsed
+    integration_id = integration_id_by_server_name.get(server_name)
+    if integration_id is None:
+        return None
+    return policies_by_integration_id.get(integration_id, {}).get(remote_tool_name)
+
+
+class AgentActivities:
+    """Activities for agent execution."""
+
+    def get_activities(self) -> list[Callable[..., Any]]:
+        return all_activities(self)
+
+    async def _build_scope_tool_definitions(
+        self,
+        args: BuildAgentScopeToolDefsArgs,
+        *,
+        role: Role,
+    ) -> BuildToolDefsResult:
+        if any(is_http_mcp_server(server) for server in args.mcp_servers or ()):
+            # Authored approval rules may still use an HTTP integration's old
+            # display name. Reject unmatched server identities before the run
+            # can silently lose an approval after switching to slug routing.
+            approval_prefixes = tuple(
+                normalize_mcp_tool_name(
+                    f"mcp__{REGISTRY_MCP_SERVER_NAME}__mcp__{server['name']}__"
+                )
+                for server in args.mcp_servers or ()
+            )
+            stale_approval_keys = [
+                name
+                for name, required in (args.tool_approvals or {}).items()
+                if required
+                and name.startswith("mcp.")
+                and not name.startswith(approval_prefixes)
+            ]
+            if stale_approval_keys:
+                raise_application_error_from_classification(
+                    RuntimeErrorClassification.user(
+                        kind=RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
+                        message=(
+                            "MCP approval rules reference an unconfigured server name. "
+                            "Update the rules to use the selected integrations' slugs."
+                        ),
+                        retry_disposition=RetryDisposition.NON_RETRYABLE,
+                    ),
+                    {
+                        "code": "stale_mcp_approval_identity",
+                        "approval_keys": sorted(stale_approval_keys),
+                    },
+                )
+        effective_tool_approvals = dict(args.tool_approvals or {})
+
+        # Check if this is a builder assistant session
+        is_builder = (
+            args.internal_tool_context is not None
+            and args.internal_tool_context.entity_type == "agent_preset_builder"
+        )
+
+        # For builder sessions, add bundled actions to the tool filters
+        actions_to_build = list(args.tool_filters.actions or [])
+        if is_builder:
+            # Add bundled registry actions for builder (core.table.*, tools.exa.*)
+            for action in BUILDER_BUNDLED_ACTIONS:
+                if action not in actions_to_build:
+                    actions_to_build.append(action)
+
+        try:
+            result = await build_agent_tools(
+                namespaces=args.tool_filters.namespaces,
+                actions=actions_to_build if actions_to_build else None,
+                tool_approvals=args.tool_approvals,
+            )
+        except ValueError as e:
+            raise_application_error_from_classification(agent_tool_build_failure(e))
+        # Convert to dict[str, MCPToolDefinition] keyed by canonical action name
+        # Tools already have canonical names (with dots, e.g., "core.cases.list_cases")
+        defs: dict[str, MCPToolDefinition] = {}
+        registry_tool_names = {tool.name for tool in result.tools}
+        for tool in result.tools:
+            defs[tool.name] = MCPToolDefinition(
+                name=tool.name,
+                description=tool.description,
+                parameters_json_schema=tool.parameters_json_schema,
+            )
+            # MCP definitions drop the tool's approval flag. Record the registry
+            # default here; an explicit rule already overrode it during build.
+            if tool.requires_approval:
+                effective_tool_approvals.setdefault(tool.name, True)
+
+        # Add internal tools for builder assistant
+        allowed_internal_tools: list[str] | None = None
+        if is_builder:
+            # Add builder internal tools to definitions
+            internal_defs = get_builder_internal_tool_definitions()
+            defs.update(internal_defs)
+            allowed_internal_tools = list(BUILDER_INTERNAL_TOOL_NAMES)
+            logger.info(
+                "Added builder internal tools",
+                tool_count=len(internal_defs),
+                tools=list(internal_defs.keys()),
+            )
+
+        # Discover user MCP tools if configured
+        user_mcp_claims: list[UserMCPServerClaim] | None = None
+        if args.mcp_servers:
+            from autosecops.agent.mcp.user_client import (
+                UserMCPClient,
+                discover_user_mcp_tools,
+            )
+            from autosecops.agent.preset.service import AgentPresetService
+            from autosecops.integrations.mcp_tunnel import resolve_mcp_tunnel_proxy
+            from autosecops.integrations.mcp_validation import (
+                MCPConfigurationError,
+                MCPSecretResolutionError,
+            )
+
+            http_servers = [cfg for cfg in args.mcp_servers if is_http_mcp_server(cfg)]
+            if not http_servers:
+                logger.info("No HTTP MCP servers configured for discovery")
+                http_servers = []
+            explicit_tools_by_server = {
+                cfg["name"]: {tool["name"] for tool in tools}
+                for cfg in http_servers
+                if (tools := cfg.get("tools")) is not None
+            }
+
+            # Hydrate headers from the DB for the duration of this activity.
+            # Configs that arrive here carry ``id`` but no ``headers`` (the
+            # boundary-safe shape produced by ``resolve_mcp_integration_refs``).
+            # Fetch secrets per server, attach for ``tools/list``, and drop
+            # them before returning so they never enter ``BuildToolDefsResult``
+            # or leak across the Temporal boundary.
+            hydrated_servers: list[MCPHttpServerConfig] = []
+            for cfg in http_servers:
+                hydrated: MCPHttpServerConfig = {**cfg}
+                # The gateway proxy is only ever minted below from a checked
+                # tunnel. A caller-supplied one would skip the tunnel's
+                # ownership and allowed-target checks.
+                hydrated.pop("tunnel_proxy", None)
+                hydrated_servers.append(hydrated)
+            configs_with_integration_id: list[
+                tuple[MCPHttpServerConfig, uuid.UUID]
+            ] = []
+            integration_id_by_server_name: dict[str, uuid.UUID] = {}
+            # Servers that must not be contacted, with the reason why.
+            unusable_servers: dict[str, str] = {}
+            for hydrated in hydrated_servers:
+                if not hydrated.get("id") and hydrated.get("tunnel_id"):
+                    # Inline servers execute from their JWT claim, which has
+                    # no tunnel, so their calls would go direct.
+                    unusable_servers[hydrated["name"]] = (
+                        f"MCP server {hydrated['name']!r} sets a tunnel without "
+                        "an MCP integration. Tunnels are only supported on MCP "
+                        "integrations."
+                    )
+                if integration_id_str := hydrated.get("id"):
+                    try:
+                        integration_id = uuid.UUID(integration_id_str)
+                    except ValueError:
+                        logger.warning(
+                            "Invalid MCP integration id on server config",
+                            server_name=hydrated["name"],
+                            integration_id=integration_id_str,
+                        )
+                        continue
+                    configs_with_integration_id.append((hydrated, integration_id))
+                    integration_id_by_server_name[hydrated["name"]] = integration_id
+            tool_policies_by_integration_id: dict[
+                uuid.UUID, dict[str, MCPToolSummary]
+            ] = {}
+            if configs_with_integration_id:
+                async with AgentPresetService.with_session(role=role) as svc:
+                    tool_policies_by_integration_id = (
+                        await svc.resolve_mcp_integration_tool_policies(
+                            [
+                                integration_id
+                                for _, integration_id in configs_with_integration_id
+                            ]
+                        )
+                    )
+                    # Address, route and credentials all come from the
+                    # integration row, as they do at execution. A stale or
+                    # edited payload can't send fresh credentials to an old
+                    # URL, or go direct by dropping ``tunnel_id``.
+                    try:
+                        refs = await svc.resolve_mcp_integration_refs(
+                            [str(i) for _, i in configs_with_integration_id]
+                        )
+                    except TracecatValidationError:
+                        refs = None
+                    http_ref_by_integration_id = {
+                        ref_id: ref
+                        for ref in refs or []
+                        if is_http_mcp_server(ref) and (ref_id := ref.get("id"))
+                    }
+                    for hydrated, integration_id in configs_with_integration_id:
+                        ref = http_ref_by_integration_id.get(str(integration_id))
+                        if ref is None:
+                            unusable_servers[hydrated["name"]] = (
+                                f"MCP integration for server {hydrated['name']!r} "
+                                "was not found in this workspace"
+                            )
+                            continue
+                        hydrated["url"] = ref["url"]
+                        if (transport := ref.get("transport")) is not None:
+                            hydrated["transport"] = transport
+                        else:
+                            hydrated.pop("transport", None)
+                        if (timeout := ref.get("timeout")) is not None:
+                            hydrated["timeout"] = timeout
+                        else:
+                            hydrated.pop("timeout", None)
+                        if tunnel_id := ref.get("tunnel_id"):
+                            hydrated["tunnel_id"] = tunnel_id
+                        else:
+                            hydrated.pop("tunnel_id", None)
+                        # Only credentials resolved below may reach the URL.
+                        hydrated.pop("headers", None)
+                        try:
+                            secrets = await svc.resolve_mcp_integration_secrets(
+                                integration_id
+                            )
+                        except (ValueError, MCPSecretResolutionError):
+                            secrets = None
+                        if secrets:
+                            hydrated["headers"] = secrets
+
+            # Tunneled servers get a short-lived gateway proxy for discovery.
+            # It is dropped with the hydrated configs and never crosses the
+            # Temporal boundary. A tunnel that cannot be used fails closed.
+            reachable_servers: list[MCPHttpServerConfig] = []
+            for hydrated in hydrated_servers:
+                if reason := unusable_servers.get(hydrated["name"]):
+                    if args.fail_on_mcp_discovery_error:
+                        raise MCPConfigurationError(reason)
+                    logger.warning(
+                        "Skipping MCP server that cannot be used",
+                        server_name=hydrated["name"],
+                        reason=reason,
+                    )
+                    continue
+                if tunnel_id_str := hydrated.get("tunnel_id"):
+                    try:
+                        if role.workspace_id is None or role.organization_id is None:
+                            raise ValueError("MCP tunnels require a workspace role")
+                        hydrated["tunnel_proxy"] = await resolve_mcp_tunnel_proxy(
+                            workspace_id=role.workspace_id,
+                            organization_id=role.organization_id,
+                            tunnel_id=uuid.UUID(tunnel_id_str),
+                            subject=f"mcp_integration:{hydrated.get('id', '')}",
+                        )
+                    except (ValueError, MCPConfigurationError) as e:
+                        if args.fail_on_mcp_discovery_error:
+                            raise
+                        logger.warning(
+                            "Skipping MCP server whose tunnel cannot be used",
+                            server_name=hydrated["name"],
+                            error=str(e),
+                        )
+                        continue
+                reachable_servers.append(hydrated)
+
+            try:
+                user_mcp_tools = await discover_user_mcp_tools(
+                    reachable_servers,
+                    fail_on_error=args.fail_on_mcp_discovery_error,
+                )
+                # Add user MCP tools to definitions, honoring stored policy:
+                # disabled or missing tools are dropped, approval-gated tools
+                # are recorded in the effective approval map.
+                rejected_approval_keys: set[str] = set()
+                retained_approval_keys: set[str] = set()
+                for tool_name, tool_def in user_mcp_tools.items():
+                    parsed = UserMCPClient.parse_user_mcp_tool_name(tool_name)
+                    server_name, remote_tool_name = parsed or (None, None)
+                    if (
+                        server_name is not None
+                        and remote_tool_name is not None
+                        and (allowed_names := explicit_tools_by_server.get(server_name))
+                        is not None
+                        and remote_tool_name not in allowed_names
+                    ):
+                        continue
+                    approval_key = normalize_mcp_tool_name(
+                        f"mcp__{REGISTRY_MCP_SERVER_NAME}__{tool_name}"
+                    )
+                    # Remote names are registered verbatim on the trusted MCP
+                    # server. Apply the same name constraints as stdio discovery
+                    # before recording definitions or approval entries.
+                    if remote_tool_name is not None and not MCP_TOOL_NAME_RE.fullmatch(
+                        remote_tool_name
+                    ):
+                        rejected_approval_keys.add(approval_key)
+                        logger.warning(
+                            "Skipping user MCP tool with unsupported name",
+                            tool_name=tool_name,
+                            remote_tool_name=remote_tool_name,
+                        )
+                        continue
+                    policy = _stored_user_mcp_tool_policy(
+                        tool_name,
+                        integration_id_by_server_name=integration_id_by_server_name,
+                        policies_by_integration_id=tool_policies_by_integration_id,
+                    )
+                    if policy is not None:
+                        if not policy.enabled or policy.status != "available":
+                            logger.info(
+                                "Skipping disabled MCP tool", tool_name=tool_name
+                            )
+                            continue
+                        if policy.requires_approval:
+                            effective_tool_approvals[approval_key] = True
+                    defs[tool_name] = tool_def
+                    retained_approval_keys.add(approval_key)
+
+                # Normalization can map rejected `a.b` and valid `a__b` to
+                # the same key. Only remove approvals with no surviving tool.
+                for approval_key in rejected_approval_keys - retained_approval_keys:
+                    effective_tool_approvals.pop(approval_key, None)
+
+                # JWT claims carry the source integration id when available so
+                # the trusted MCP server can re-resolve headers per call. For
+                # legacy in-flight payloads that don't carry ``id`` (recorded
+                # before the refs-only cutover), fall back to the pre-rollout
+                # inline shape — otherwise discovery would add ``mcp__*`` tools
+                # that the trusted server can't authorize at call time.
+                user_mcp_claims = []
+                for cfg in http_servers:
+                    integration_id_str = cfg.get("id")
+                    if integration_id_str:
+                        user_mcp_claims.append(
+                            UserMCPServerClaim(
+                                name=cfg["name"],
+                                id=uuid.UUID(integration_id_str),
+                            )
+                        )
+                        continue
+                    # Legacy replay path: no id → trusted server uses inline
+                    # url/headers from the claim itself. ``execute_user_mcp_tool``
+                    # has the matching read-side branch.
+                    user_mcp_claims.append(
+                        UserMCPServerClaim(
+                            name=cfg["name"],
+                            url=cfg["url"],
+                            transport=cfg.get("transport", "http"),
+                            headers=cfg.get("headers", {}),
+                            timeout=cfg.get("timeout"),
+                        )
+                    )
+
+                logger.info(
+                    "Discovered user MCP tools",
+                    tool_count=len(user_mcp_tools),
+                    server_count=len(hydrated_servers),
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to discover user MCP tools",
+                    error_type=type(e).__name__,
+                    server_count=len(hydrated_servers),
+                )
+                if args.fail_on_mcp_discovery_error:
+                    raise_application_error_from_classification(
+                        mcp_discovery_failure(e)
+                    )
+                # Continue without user MCP tools - don't fail the whole operation
+            finally:
+                # Defensive: ensure hydrated configs (with headers) drop out
+                # of scope before this activity returns. Local variable; this
+                # is documentation more than enforcement.
+                hydrated_servers = []
+
+        # Resolve registry lock for these actions
+        # This provides origin→version mappings needed for action execution
+        # Note: User MCP tools and internal tools don't need registry lock resolution
+        registry_action_names = {
+            name
+            for name in defs.keys()
+            if not name.startswith("mcp__") and not name.startswith("internal.")
+        }
+        try:
+            async with RegistryLockService.with_session() as lock_service:
+                registry_lock = await lock_service.resolve_lock_with_bindings(
+                    registry_action_names
+                )
+        except BuiltinRegistryHasNoSelectionError as e:
+            raise ApplicationError(
+                str(e),
+                e.detail,
+                type=e.__class__.__name__,
+            ) from e
+        except EntitlementRequired as e:
+            raise_application_error_from_classification(
+                tenant_entitlement_denied(e),
+                e.detail,
+            )
+        except RegistryLockAmbiguousActionError as e:
+            raise_application_error_from_classification(
+                registry_lock_action_ambiguous(e),
+                e.detail,
+            )
+        except RegistryLockInvalidDataError as e:
+            raise_application_error_from_classification(
+                registry_lock_invalid_data(e),
+                e.detail,
+            )
+
+        if unknown_tunnel_tools := sorted(
+            set(args.tool_tunnels or {}) - registry_tool_names
+        ):
+            raise_application_error_from_classification(
+                RuntimeErrorClassification.user(
+                    kind=RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
+                    message=(
+                        "Tool tunnels are set for tools this agent doesn't have: "
+                        f"{unknown_tunnel_tools}. Add the tools or remove their tunnels."
+                    ),
+                    retry_disposition=RetryDisposition.NON_RETRYABLE,
+                ),
+                {"code": "unknown_tool_tunnels", "tools": unknown_tunnel_tools},
+            )
+
+        return BuildToolDefsResult(
+            tool_definitions=defs,
+            registry_lock=registry_lock,
+            user_mcp_claims=user_mcp_claims,
+            allowed_internal_tools=allowed_internal_tools,
+            tool_approvals=effective_tool_approvals or None,
+            tool_tunnels=args.tool_tunnels or None,
+        )
+
+    @activity.defn
+    async def build_tool_definitions(
+        self,
+        args: BuildToolDefsArgs,
+    ) -> BuildToolDefsResult:
+        # Set role context for services that require organization context
+        ctx_role.set(args.role)
+
+        return await self._build_scope_tool_definitions(
+            BuildAgentScopeToolDefsArgs(
+                scope="root",
+                tool_filters=args.tool_filters,
+                tool_approvals=args.tool_approvals,
+                tool_tunnels=args.tool_tunnels,
+                mcp_servers=args.mcp_servers,
+                internal_tool_context=args.internal_tool_context,
+                fail_on_mcp_discovery_error=args.fail_on_mcp_discovery_error,
+            ),
+            role=args.role,
+        )
+
+    @activity.defn
+    async def build_agent_tool_definitions(
+        self,
+        args: BuildAgentToolDefsArgs,
+    ) -> BuildAgentToolDefsResult:
+        # Compile all agent scopes in one activity while preserving partitioned
+        # outputs for MCP tokens, approvals, user MCP claims, and registry locks.
+        ctx_role.set(args.role)
+        results: dict[str, BuildToolDefsResult] = {}
+        for scope in args.scopes:
+            if scope.scope in results:
+                raise_application_error_from_classification(
+                    agent_preparation_failed(retryable=False)
+                )
+            results[scope.scope] = await self._build_scope_tool_definitions(
+                scope,
+                role=args.role,
+            )
+
+        return BuildAgentToolDefsResult(scopes=results)
+
+    @activity.defn
+    async def emit_session_error(self, args: EmitSessionErrorInputs) -> None:
+        """Finalize a terminal agent error.
+
+        Persists ``last_error`` on the session (the sole durable run-outcome
+        signal the inbox reads) and, for pre-stream failures, also pushes the
+        error onto the SSE stream since those happen before the loopback is
+        wired up. The runtime path streams inline already and passes
+        ``should_stream=False`` to persist-only. The workflow owns the terminal
+        END after finalizing the turn.
+
+        Best-effort: a persistence failure must not mask the agent's real error
+        or abort propagation, so it is logged and swallowed.
+        """
+        from autosecops.agent.session.service import AgentSessionService
+
+        ctx_role.set(args.role)
+        try:
+            async with AgentSessionService.with_session(role=args.role) as service:
+                agent_session = await service.get_session(args.session_id)
+                if agent_session is not None:
+                    agent_session.last_error = args.message[:MAX_LAST_ERROR_LEN]
+                    service.session.add(agent_session)
+                    await service.session.commit()
+                else:
+                    logger.warning(
+                        "Cannot persist error for unknown agent session",
+                        session_id=str(args.session_id),
+                    )
+        except Exception as e:
+            logger.warning(
+                "Failed to persist terminal agent session error",
+                session_id=str(args.session_id),
+                error=str(e),
+            )
+
+        if not args.should_stream:
+            return
+
+        stream = await self._open_session_stream(args)
+        await stream.error(args.message)
+
+    @staticmethod
+    async def _open_session_stream(args: _SessionStreamInputs) -> AgentStream:
+        """Open the active agent stream shared by terminal emit activities."""
+        return await AgentStream.new(
+            session_id=args.session_id,
+            workspace_id=args.workspace_id,
+            stream_id=args.active_stream_id,
+        )
+
+    @activity.defn
+    async def emit_session_done(self, args: EmitSessionDoneInputs) -> None:
+        """Push a terminal done marker to the active agent stream."""
+        ctx_role.set(args.role)
+        stream = await self._open_session_stream(args)
+        await stream.done()
+
+    @activity.defn
+    async def emit_session_cancelled(self, args: EmitSessionCancelledInputs) -> None:
+        """Record a cancelled turn: persist the timeline marker, then stream it.
+
+        Every cancelled turn persists a marker row so the "stopped by user"
+        divider survives DB reloads. Stream emission is conditional: approval
+        -wait cancels happen outside a running executor activity and must push
+        the cancelled frame here, while executor cancels already emitted it
+        from the loopback (``emit_stream=False``). The workflow owns the
+        terminal END after finalizing the turn.
+        """
+        # Local import: autosecops.agent.session.service imports autosecops_ee
+        # modules, so a top-level import here would create a cycle.
+        from autosecops.agent.session.service import AgentSessionService
+
+        ctx_role.set(args.role)
+        async with AgentSessionService.with_session(role=args.role) as service:
+            await service.append_cancelled_marker(
+                args.session_id,
+                reason=args.reason,
+                interrupted_tool_call_ids=args.interrupted_tool_call_ids,
+                curr_run_id=args.curr_run_id,
+            )
+
+        if not args.emit_stream:
+            return
+
+        stream = await self._open_session_stream(args)
+        await stream.append(
+            UnifiedStreamEvent.cancelled_event(
+                reason=args.reason,
+                tool_call_ids=args.interrupted_tool_call_ids,
+            )
+        )
+
+    @activity.defn
+    async def execute_remote_mcp_tool(self, args: ExecuteRemoteMCPToolArgs) -> str:
+        """Execute an approved remote MCP tool through the trusted MCP router."""
+        from fastmcp.exceptions import ToolError
+
+        from autosecops.agent.mcp.trusted_server import call_token_scoped_tool
+        from autosecops.agent.tokens import verify_mcp_token
+
+        try:
+            claims = verify_mcp_token(args.mcp_auth_token)
+        except ValueError as e:
+            raise ApplicationError(
+                "MCP token verification failed",
+                type="AgentToolExecutionError",
+                non_retryable=True,
+            ) from e
+
+        try:
+            return await call_token_scoped_tool(args.tool_name, args.args, claims)
+        except ToolError as e:
+            raise ApplicationError(
+                str(e),
+                type="AgentToolExecutionError",
+                non_retryable=True,
+            ) from e

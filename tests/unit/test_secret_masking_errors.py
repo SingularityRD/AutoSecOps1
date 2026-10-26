@@ -11,20 +11,20 @@ from typing import Any
 
 import pytest
 
-from tracecat.contexts import ctx_secret_masks
-from tracecat.exceptions import TracecatExpressionError
-from tracecat.executor.schemas import ExecutorActionErrorInfo
-from tracecat.executor.secret_preprocessors import collect_mask_values
-from tracecat.expressions.common import ExprContext
-from tracecat.expressions.eval import eval_templated_object
-from tracecat.expressions.policy import build_provenance
-from tracecat.secrets.common import (
+from autosecops.contexts import ctx_secret_masks
+from autosecops.exceptions import TracecatExpressionError
+from autosecops.executor.schemas import ExecutorActionErrorInfo
+from autosecops.executor.secret_preprocessors import collect_mask_values
+from autosecops.expressions.common import ExprContext
+from autosecops.expressions.eval import eval_templated_object
+from autosecops.expressions.policy import build_provenance
+from autosecops.secrets.common import (
     MaskedSecretError,
     await_with_masked_errors,
     call_with_masked_errors,
     mask_exception,
 )
-from tracecat.secrets.masking import SecretMaskCollector
+from autosecops.secrets.masking import SecretMaskCollector
 
 CANARY = "sk-CANARY-7f3a91d4e6b2"
 
@@ -96,7 +96,7 @@ def test_mask_exception_records_original_type(
 def test_evaluator_logging_omits_resolved_values(
     secrets: dict[str, dict[str, str]],
 ) -> None:
-    from tracecat.logger import logger
+    from autosecops.logger import logger
 
     sink = io.StringIO()
     handler_id = logger.add(sink, level="TRACE", format="{message} | {extra}")
@@ -122,8 +122,8 @@ def test_jsonpath_no_match_does_not_log_or_attach_operand(
     authored source rather than resolved secrets, so this is data minimization
     rather than a secret-bearing operand on that path.
     """
-    from tracecat.expressions.common import eval_jsonpath
-    from tracecat.logger import logger
+    from autosecops.expressions.common import eval_jsonpath
+    from autosecops.logger import logger
 
     operand: dict[str, Any] = {ExprContext.SECRETS: secrets}
     sink = io.StringIO()
@@ -190,7 +190,7 @@ def test_secret_expression_keeps_masked_diagnostic(
 
 
 def test_policy_errors_preserve_their_structured_diagnostic() -> None:
-    from tracecat.expressions.policy import _CollectionPolicy
+    from autosecops.expressions.policy import _CollectionPolicy
 
     with pytest.raises(TracecatExpressionError) as exc_info:
         eval_templated_object(
@@ -208,7 +208,7 @@ def test_policy_errors_preserve_their_structured_diagnostic() -> None:
 async def test_registry_jsonpath_miss_omits_runtime_operand() -> None:
     import logging as stdlib_logging
 
-    from tracecat_registry.core.transform import deduplicate
+    from autosecops_registry.core.transform import deduplicate
 
     secret = "sk_live_CANARY_9f3a91d4e6b2"
     items = [{"id": 1, "auth_header": f"Bearer {secret}"}]
@@ -299,7 +299,7 @@ async def test_await_with_masked_errors_severs_context() -> None:
         assert CANARY not in str(link)
 
 
-@pytest.mark.parametrize("module_path", ["tracecat.observability.sentry"])
+@pytest.mark.parametrize("module_path", ["autosecops.observability.sentry"])
 def test_workers_disable_sentry_local_variable_capture(module_path: str) -> None:
     """Sentry captures frame locals by default, and those frames hold secrets.
 
@@ -361,8 +361,8 @@ async def test_stdio_env_value_validation_does_not_echo_resolved_keys(
     from unittest import mock
     from uuid import UUID
 
-    from tracecat.agent.preset import service as preset_module
-    from tracecat.exceptions import TracecatValidationError
+    from autosecops.agent.preset import service as preset_module
+    from autosecops.exceptions import TracecatValidationError
 
     monkeypatch.setattr(
         preset_module.secrets_manager,
@@ -395,7 +395,7 @@ def test_mcp_env_validation_does_not_echo_the_key() -> None:
     error reaches durable probe results and the API, and a resolved secret lands
     in this branch precisely because it is not a valid POSIX name.
     """
-    from tracecat.integrations.mcp_validation import (
+    from autosecops.integrations.mcp_validation import (
         MCPValidationError,
         validate_mcp_env,
     )
@@ -424,16 +424,16 @@ async def _run_template(
     from unittest import mock
     from uuid import UUID
 
-    from tracecat.auth.types import Role
-    from tracecat.dsl.schemas import ActionStatement
-    from tracecat.executor import service as service_module
-    from tracecat.executor.schemas import (
+    from autosecops.auth.types import Role
+    from autosecops.dsl.schemas import ActionStatement
+    from autosecops.executor import service as service_module
+    from autosecops.executor.schemas import (
         ActionImplementation,
         ExecutorResultFailure,
         ExecutorResultSuccess,
         ResolvedContext,
     )
-    from tracecat.expressions.policy import build_provenance
+    from autosecops.expressions.policy import build_provenance
 
     results = step_results or {}
     declaring = steps_declaring_secrets or set()
@@ -768,7 +768,7 @@ async def test_template_action_error_masks_known_values(
     declaring: set[str],
     masked: bool,
 ) -> None:
-    from tracecat.exceptions import ExecutionError
+    from autosecops.exceptions import ExecutionError
 
     with pytest.raises(ExecutionError) as exc_info:
         await _run_template(
@@ -858,7 +858,7 @@ def test_known_carrier_is_masked_through_nested_inputs() -> None:
 def test_loop_context_withholds_loop_variables() -> None:
     """Loop diagnostics identify the iteration without copying the input value."""
 
-    from tracecat.executor.service import _attach_loop_context
+    from autosecops.executor.service import _attach_loop_context
 
     with pytest.raises(ValueError) as exc_info:
         int(CANARY)

@@ -8,11 +8,11 @@ from fastapi import HTTPException
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.skill.library.router import batch_uninstall_library_skills
-from tracecat.agent.skill.library.schemas import LibrarySkillBatchUninstall
-from tracecat.agent.skill.library.service import SkillLibraryService
-from tracecat.auth.types import Role
-from tracecat.exceptions import (
+from autosecops.agent.skill.library.router import batch_uninstall_library_skills
+from autosecops.agent.skill.library.schemas import LibrarySkillBatchUninstall
+from autosecops.agent.skill.library.service import SkillLibraryService
+from autosecops.auth.types import Role
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatValidationError,
 )

@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 from pydantic import HttpUrl, SecretStr, ValidationError
 
-from tracecat.agent.otel_config import (
+from autosecops.agent.otel_config import (
     AgentOtelConfig,
     resolve_agent_otel_config,
     secret_otel_headers,

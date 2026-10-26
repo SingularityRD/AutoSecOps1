@@ -9,16 +9,16 @@ import orjson
 import pytest
 from claude_agent_sdk.types import AssistantMessage, ThinkingBlock, UserMessage
 
-from tracecat.agent.runtime.claude_code.session_lines import (
+from autosecops.agent.runtime.claude_code.session_lines import (
     APPROVAL_CONTINUATION_PROMPT,
     MODEL_CONTEXT_PROMPT_PREFIX,
     mark_hidden_continuation,
 )
-from tracecat.agent.session.history import prepare_session_history
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.auth.types import Role
-from tracecat.chat.enums import MessageKind
-from tracecat.db.models import AgentSession
+from autosecops.agent.session.history import prepare_session_history
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.auth.types import Role
+from autosecops.chat.enums import MessageKind
+from autosecops.db.models import AgentSession
 
 
 def _mock_scalar_result(items: list[Any]) -> Mock:

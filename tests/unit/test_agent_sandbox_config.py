@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.agent.common.config import (
+from autosecops.agent.common.config import (
     AGENT_RUNTIME_PROTECTED_ENV_VARS,
     build_agent_runtime_uv_env,
 )
-from tracecat.agent.common.exceptions import AgentSandboxValidationError
-from tracecat.agent.sandbox.config import (
+from autosecops.agent.common.exceptions import AgentSandboxValidationError
+from autosecops.agent.sandbox.config import (
     AgentResourceLimits,
     AgentSandboxConfig,
     build_agent_env_map,

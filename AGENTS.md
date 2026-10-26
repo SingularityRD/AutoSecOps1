@@ -3,9 +3,9 @@
 Repo-wide guidance only. Nested `AGENTS.md` files load when you work under
 their directory and carry the detailed rules:
 
-- `tracecat/AGENTS.md`: backend Python, typing, services, SQLAlchemy, config.
+- `autosecops/AGENTS.md`: backend Python, typing, services, SQLAlchemy, config.
 - `frontend/AGENTS.md`: React, TypeScript, and UI conventions.
-- `packages/tracecat-registry/AGENTS.md`: integrations and templates.
+- `packages/autosecops-registry/AGENTS.md`: integrations and templates.
 - `alembic/AGENTS.md`: migration safety and expand/contract rules.
 - `deployments/AGENTS.md`: Fargate, Terraform, and deployment review.
 - `docs/AGENTS.md`: documentation structure and writing rules.

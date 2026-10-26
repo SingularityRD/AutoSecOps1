@@ -9,10 +9,10 @@ import jwt
 import pytest
 from starlette.requests import Request
 
-from tracecat import config
-from tracecat.auth import credentials
-from tracecat.auth.credentials import _role_dependency
-from tracecat.auth.executor_tokens import (
+from autosecops import config
+from autosecops.auth import credentials
+from autosecops.auth.credentials import _role_dependency
+from autosecops.auth.executor_tokens import (
     EXECUTOR_TOKEN_AUDIENCE,
     EXECUTOR_TOKEN_ISSUER,
     EXECUTOR_TOKEN_SUBJECT,
@@ -20,8 +20,8 @@ from tracecat.auth.executor_tokens import (
     mint_executor_token,
     verify_executor_token,
 )
-from tracecat.contexts import ctx_agent_session_id
-from tracecat.identifiers import InternalServiceID
+from autosecops.contexts import ctx_agent_session_id
+from autosecops.identifiers import InternalServiceID
 
 
 def _make_request(token: str | None) -> Request:

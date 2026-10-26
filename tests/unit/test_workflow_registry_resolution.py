@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import RegistryIndex, RegistryRepository, RegistryVersion
-from tracecat.dsl.common import DSLInput
-from tracecat.dsl.enums import PlatformAction
-from tracecat.workflow.management.registry_resolution import (
+from autosecops.auth.types import Role
+from autosecops.db.models import RegistryIndex, RegistryRepository, RegistryVersion
+from autosecops.dsl.common import DSLInput
+from autosecops.dsl.enums import PlatformAction
+from autosecops.workflow.management.registry_resolution import (
     resolve_action_origins_from_lock,
 )
 
@@ -41,10 +41,10 @@ def _template_manifest(*, template_action: str, step_action: str) -> dict:
     template_namespace, template_name = template_action.rsplit(".", 1)
     step_namespace, step_name = step_action.rsplit(".", 1)
 
-    step_module = "tracecat_registry.core.script"
+    step_module = "autosecops_registry.core.script"
     step_fn = "run_python"
     if step_action == PlatformAction.CHILD_WORKFLOW_EXECUTE:
-        step_module = "tracecat_registry.core.workflow"
+        step_module = "autosecops_registry.core.workflow"
         step_fn = "execute"
 
     return {
@@ -86,7 +86,7 @@ def _template_manifest(*, template_action: str, step_action: str) -> dict:
                 "interface": {"expects": {}, "returns": None},
                 "implementation": {
                     "type": "udf",
-                    "url": "tracecat_registry",
+                    "url": "autosecops_registry",
                     "module": step_module,
                     "name": step_fn,
                 },

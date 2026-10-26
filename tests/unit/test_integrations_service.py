@@ -17,31 +17,31 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-import tracecat.integrations.service as integration_service_module
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import OAuthIntegration, Workspace
-from tracecat.exceptions import TracecatAuthorizationError
-from tracecat.integrations.enums import IntegrationStatus, OAuthGrantType
-from tracecat.integrations.providers.base import (
+import autosecops.integrations.service as integration_service_module
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import OAuthIntegration, Workspace
+from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.integrations.enums import IntegrationStatus, OAuthGrantType
+from autosecops.integrations.providers.base import (
     AuthorizationCodeOAuthProvider,
     ClientCredentialsOAuthProvider,
 )
-from tracecat.integrations.schemas import (
+from autosecops.integrations.schemas import (
     IntegrationUpdate,
     ProviderKey,
     ProviderMetadata,
     ProviderScopes,
     credential_reauth_required,
 )
-from tracecat.integrations.service import (
+from autosecops.integrations.service import (
     InsecureOAuthEndpointError,
     IntegrationService,
     OAuthRefreshBusyError,
 )
-from tracecat.integrations.types import TokenResponse
+from autosecops.integrations.types import TokenResponse
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -169,7 +169,9 @@ def mock_token_response() -> TokenResponse:
 def mock_provider(monkeypatch: pytest.MonkeyPatch) -> MockOAuthProvider:
     """Create a mock OAuth provider instance."""
     # Patch the config value directly (env var won't work since config is already loaded)
-    monkeypatch.setattr("tracecat.config.TRACECAT__PUBLIC_APP_URL", "http://localhost")
+    monkeypatch.setattr(
+        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+    )
     return MockOAuthProvider(
         client_id="mock_client_id", client_secret="mock_client_secret"
     )
@@ -181,7 +183,9 @@ def mock_pkce_provider(
 ) -> MockOAuthProviderWithPKCE:
     """Create a mock OAuth provider instance with PKCE enabled."""
     # Patch the config value directly (env var won't work since config is already loaded)
-    monkeypatch.setattr("tracecat.config.TRACECAT__PUBLIC_APP_URL", "http://localhost")
+    monkeypatch.setattr(
+        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+    )
     return MockOAuthProviderWithPKCE(
         client_id="mock_client_id", client_secret="mock_client_secret"
     )
@@ -191,7 +195,9 @@ def mock_pkce_provider(
 def mock_cc_provider(monkeypatch: pytest.MonkeyPatch) -> MockCCOAuthProvider:
     """Create a mock client credentials OAuth provider instance."""
     # Patch the config value directly (env var won't work since config is already loaded)
-    monkeypatch.setattr("tracecat.config.TRACECAT__PUBLIC_APP_URL", "http://localhost")
+    monkeypatch.setattr(
+        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+    )
     return MockCCOAuthProvider(
         client_id="mock_cc_client_id", client_secret="mock_cc_client_secret"
     )
@@ -692,10 +698,10 @@ class TestIntegrationService:
         # Neither the provider nor an isolated refresh session should be needed.
         with (
             patch(
-                "tracecat.integrations.service.get_provider_class"
+                "autosecops.integrations.service.get_provider_class"
             ) as mock_get_provider,
             patch(
-                "tracecat.integrations.service.get_async_session_context_manager"
+                "autosecops.integrations.service.get_async_session_context_manager"
             ) as mock_refresh_session,
         ):
             # This should not be called since refresh is not needed
@@ -726,7 +732,7 @@ class TestIntegrationService:
 
         # Mock the provider registry
         with patch(
-            "tracecat.integrations.service.get_provider_class"
+            "autosecops.integrations.service.get_provider_class"
         ) as mock_get_provider:
             mock_get_provider.return_value = MockOAuthProvider
 
@@ -835,7 +841,7 @@ class TestIntegrationService:
         try:
             with (
                 patch(
-                    "tracecat.integrations.service.get_provider_class",
+                    "autosecops.integrations.service.get_provider_class",
                     return_value=MockOAuthProvider,
                 ),
                 patch.object(
@@ -845,12 +851,12 @@ class TestIntegrationService:
                     side_effect=refresh_access_token,
                 ) as mock_refresh,
                 patch(
-                    "tracecat.integrations.service.asyncio.sleep",
+                    "autosecops.integrations.service.asyncio.sleep",
                     new_callable=AsyncMock,
                     side_effect=retry_sleep,
                 ) as mock_sleep,
                 patch(
-                    "tracecat.integrations.service.get_async_session_context_manager",
+                    "autosecops.integrations.service.get_async_session_context_manager",
                     side_effect=get_concurrent_session,
                 ),
             ):
@@ -989,7 +995,7 @@ class TestIntegrationService:
                 side_effect=lock_error,
             ),
             patch(
-                "tracecat.integrations.service.OAUTH_REFRESH_RETRY_TIMEOUT_SECONDS",
+                "autosecops.integrations.service.OAUTH_REFRESH_RETRY_TIMEOUT_SECONDS",
                 0.0,
             ),
         ):
@@ -1011,7 +1017,7 @@ class TestIntegrationService:
 
         with (
             patch(
-                "tracecat.integrations.service.get_provider_class",
+                "autosecops.integrations.service.get_provider_class",
                 return_value=MockOAuthProvider,
             ),
             patch.object(
@@ -1068,7 +1074,7 @@ class TestIntegrationService:
 
         with (
             patch(
-                "tracecat.integrations.service.get_provider_class",
+                "autosecops.integrations.service.get_provider_class",
                 return_value=MockOAuthProvider,
             ),
             patch.object(
@@ -1153,7 +1159,7 @@ class TestIntegrationService:
 
             with (
                 patch(
-                    "tracecat.integrations.service.get_provider_class",
+                    "autosecops.integrations.service.get_provider_class",
                     return_value=MockOAuthProvider,
                 ),
                 patch.object(
@@ -1169,7 +1175,7 @@ class TestIntegrationService:
                     ),
                 ) as mock_refresh,
                 patch(
-                    "tracecat.integrations.service.get_async_session_context_manager",
+                    "autosecops.integrations.service.get_async_session_context_manager",
                     side_effect=get_refresh_session,
                 ),
             ):
@@ -1266,7 +1272,7 @@ class TestIntegrationService:
 
         # Mock the provider registry to return None (provider not found)
         with patch(
-            "tracecat.integrations.service.get_provider_class"
+            "autosecops.integrations.service.get_provider_class"
         ) as mock_get_provider:
             # Make get_provider_class return None to simulate provider not found
             mock_get_provider.return_value = None
@@ -1298,7 +1304,7 @@ class TestIntegrationService:
 
         # Mock the provider registry
         with patch(
-            "tracecat.integrations.service.get_provider_class"
+            "autosecops.integrations.service.get_provider_class"
         ) as mock_get_provider:
             mock_get_provider.return_value = MockOAuthProvider
 
@@ -1559,7 +1565,7 @@ class TestIntegrationService:
         )
 
         monkeypatch.setattr(
-            "tracecat.integrations.service.get_provider_class",
+            "autosecops.integrations.service.get_provider_class",
             lambda key: (
                 MockOAuthProvider
                 if key.id == provider_key.id
@@ -1662,7 +1668,7 @@ class TestIntegrationService:
 
         # Mock the provider registry
         with patch(
-            "tracecat.integrations.service.get_provider_class"
+            "autosecops.integrations.service.get_provider_class"
         ) as mock_get_provider:
             mock_get_provider.return_value = MockCCOAuthProvider
 
@@ -1724,7 +1730,7 @@ class TestBaseOAuthProvider:
 
         with (
             patch(
-                "tracecat.integrations.providers.base.secrets.token_urlsafe",
+                "autosecops.integrations.providers.base.secrets.token_urlsafe",
                 return_value=code_verifier,
             ),
             patch.object(
@@ -1767,7 +1773,7 @@ class TestBaseOAuthProvider:
         expected: list[str],
     ) -> None:
         monkeypatch.setattr(
-            "tracecat.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+            "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
         )
         provider = MockOAuthProvider(
             client_id="test_id", client_secret="test_secret", scopes=scopes

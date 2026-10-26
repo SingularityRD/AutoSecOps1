@@ -3,14 +3,14 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
-from tracecat_ee.admin.settings import router as settings_router
-from tracecat_ee.admin.settings.schemas import (
+from autosecops_ee.admin.settings import router as settings_router
+from autosecops_ee.admin.settings.schemas import (
     PlatformRegistrySettingsRead,
 )
+from fastapi import status
+from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
+from autosecops.auth.types import Role
 
 
 @pytest.mark.anyio
@@ -19,7 +19,7 @@ async def test_get_registry_settings_success(
 ) -> None:
     settings = PlatformRegistrySettingsRead(
         git_repo_url="https://example.com/repo.git",
-        git_repo_package_name="tracecat_registry",
+        git_repo_package_name="autosecops_registry",
         git_allowed_domains={"example.com"},
     )
 

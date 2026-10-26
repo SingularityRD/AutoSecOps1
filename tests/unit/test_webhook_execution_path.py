@@ -25,32 +25,32 @@ from fastapi.responses import JSONResponse
 from temporalio.client import Client
 from temporalio.common import TypedSearchAttributes, WorkflowIDReusePolicy
 
-from tracecat.auth.types import Role
-from tracecat.db.models import WorkflowDefinition
-from tracecat.dsl.common import DSLInput, DSLRunArgs
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import (
+from autosecops.auth.types import Role
+from autosecops.db.models import WorkflowDefinition
+from autosecops.dsl.common import DSLInput, DSLRunArgs
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import (
     CollectionObject,
     ExternalObject,
     InlineObject,
     ObjectRef,
 )
-from tracecat.storage.utils import deserialize_object
-from tracecat.webhooks.router import (
+from autosecops.storage.utils import deserialize_object
+from autosecops.webhooks.router import (
     _annotate_webhook_trace,
     _incoming_webhook,
     _wrapped_payload,
     incoming_webhook_wait,
 )
-from tracecat.webhooks.router import router as webhook_router
-from tracecat.webhooks.schemas import WebhookRead
-from tracecat.workflow.executions.enums import (
+from autosecops.webhooks.router import router as webhook_router
+from autosecops.webhooks.schemas import WebhookRead
+from autosecops.workflow.executions.enums import (
     ExecutionType,
     TemporalSearchAttr,
     TriggerType,
 )
-from tracecat.workflow.executions.service import WorkflowExecutionsService
+from autosecops.workflow.executions.service import WorkflowExecutionsService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -63,7 +63,7 @@ _WORKSPACE_ID = uuid.uuid4()
 def test_public_webhook_trace_annotation_sets_trace_id() -> None:
     response = cast(Any, {})
     with patch(
-        "tracecat.webhooks.router.current_trace_id",
+        "autosecops.webhooks.router.current_trace_id",
         return_value="0123456789abcdef0123456789abcdef",
     ):
         _annotate_webhook_trace(
@@ -129,7 +129,7 @@ def mock_storage(service: WorkflowExecutionsService) -> Iterator[MagicMock]:
     )
     with (
         patch(
-            "tracecat.workflow.executions.service.get_object_storage",
+            "autosecops.workflow.executions.service.get_object_storage",
             return_value=storage,
         ),
         patch.object(service, "_resolve_execution_timeout", return_value=None),
@@ -304,7 +304,7 @@ class TestWebhookRouterExecutionPath:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             await _incoming_webhook(
@@ -359,7 +359,7 @@ class TestWebhookRouterExecutionPath:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             await _incoming_webhook(
@@ -413,7 +413,7 @@ class TestWebhookRouterExecutionPath:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             await _incoming_webhook(
@@ -457,7 +457,7 @@ class TestWebhookRouterExecutionPath:
         request.body = AsyncMock(return_value=b'{"event":"a"}\n{"event":"b"}')
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             await _incoming_webhook(
@@ -515,7 +515,7 @@ class TestWebhookRouterExecutionPath:
         request.headers = {}
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             await _incoming_webhook(
@@ -552,7 +552,7 @@ class TestWebhookRouterExecutionPath:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             response = await incoming_webhook_wait(
@@ -597,11 +597,11 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/external"),
             ),
         ):
@@ -649,19 +649,19 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.get_collection_page",
+                "autosecops.webhooks.router.get_collection_page",
                 AsyncMock(return_value=[{"id": 1}, {"id": 2}, {"id": 3}]),
             ),
             patch(
-                "tracecat.webhooks.router.blob.upload_file",
+                "autosecops.webhooks.router.blob.upload_file",
                 AsyncMock(),
             ) as upload_file_mock,
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/collection"),
             ),
         ):
@@ -710,19 +710,19 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.get_collection_page",
+                "autosecops.webhooks.router.get_collection_page",
                 get_page_mock,
             ),
             patch(
-                "tracecat.webhooks.router.blob.upload_file",
+                "autosecops.webhooks.router.blob.upload_file",
                 AsyncMock(),
             ) as upload_file_mock,
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/collection"),
             ),
         ):
@@ -784,11 +784,11 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.get_collection_page",
+                "autosecops.webhooks.router.get_collection_page",
                 AsyncMock(
                     return_value=[
                         InlineObject(type="inline", data={"id": 1}).model_dump(),
@@ -797,15 +797,15 @@ class TestWebhookRouterExecutionPath:
                 ),
             ),
             patch(
-                "tracecat.webhooks.router.cached_blob_download",
+                "autosecops.webhooks.router.cached_blob_download",
                 AsyncMock(return_value=external_payload),
             ) as cached_download_mock,
             patch(
-                "tracecat.webhooks.router.blob.upload_file",
+                "autosecops.webhooks.router.blob.upload_file",
                 AsyncMock(),
             ) as upload_file_mock,
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/collection"),
             ),
         ):
@@ -839,7 +839,7 @@ class TestWebhookRouterExecutionPath:
         )
 
         with patch(
-            "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+            "autosecops.webhooks.router.WorkflowExecutionsService.connect",
             AsyncMock(return_value=mock_service),
         ):
             response = await incoming_webhook_wait(
@@ -882,11 +882,11 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/external"),
             ),
         ):
@@ -934,19 +934,19 @@ class TestWebhookRouterExecutionPath:
 
         with (
             patch(
-                "tracecat.webhooks.router.WorkflowExecutionsService.connect",
+                "autosecops.webhooks.router.WorkflowExecutionsService.connect",
                 AsyncMock(return_value=mock_service),
             ),
             patch(
-                "tracecat.webhooks.router.get_collection_page",
+                "autosecops.webhooks.router.get_collection_page",
                 AsyncMock(return_value=[{"id": 1}, {"id": 2}, {"id": 3}]),
             ),
             patch(
-                "tracecat.webhooks.router.blob.upload_file",
+                "autosecops.webhooks.router.blob.upload_file",
                 AsyncMock(),
             ),
             patch(
-                "tracecat.webhooks.router.blob.generate_presigned_download_url",
+                "autosecops.webhooks.router.blob.generate_presigned_download_url",
                 AsyncMock(return_value="https://example.com/presigned/collection"),
             ),
         ):

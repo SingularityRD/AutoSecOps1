@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import tracecat.service_accounts.service as service_accounts_service
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScopeSource
-from tracecat.db.models import Scope
-from tracecat.exceptions import TracecatAuthorizationError
-from tracecat.service_accounts.service import OrganizationServiceAccountService
-from tracecat.tiers import defaults as tier_defaults
+import autosecops.service_accounts.service as service_accounts_service
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScopeSource
+from autosecops.db.models import Scope
+from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.service_accounts.service import OrganizationServiceAccountService
+from autosecops.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(autouse=True)

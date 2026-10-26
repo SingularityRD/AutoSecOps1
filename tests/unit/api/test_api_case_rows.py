@@ -7,13 +7,13 @@ from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
-from tracecat.auth.types import Role
-from tracecat.cases import search_service
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.rows import internal_router as internal_case_rows_router
-from tracecat.cases.rows import router as case_rows_router
-from tracecat.cases.rows.hydration import CaseRowHydrator
-from tracecat.cases.rows.schemas import (
+from autosecops.auth.types import Role
+from autosecops.cases import search_service
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.rows import internal_router as internal_case_rows_router
+from autosecops.cases.rows import router as case_rows_router
+from autosecops.cases.rows.hydration import CaseRowHydrator
+from autosecops.cases.rows.schemas import (
     MAX_CASE_ROW_BATCH_SIZE,
     CaseLinkedTableRead,
     CaseTableRowBatchLink,
@@ -22,14 +22,14 @@ from tracecat.cases.rows.schemas import (
     CaseTableRowBatchUnlinkResponse,
     CaseTableRowLinkCreate,
 )
-from tracecat.cases.rows.service import MAX_LINKED_ROWS_PER_CASE
-from tracecat.cases.schemas import CaseReadMinimal
-from tracecat.cases.search_service import CaseSearchService
-from tracecat.cases.service import CasesService
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.pagination import CursorPaginatedResponse, Page
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnRead
+from autosecops.cases.rows.service import MAX_LINKED_ROWS_PER_CASE
+from autosecops.cases.schemas import CaseReadMinimal
+from autosecops.cases.search_service import CaseSearchService
+from autosecops.cases.service import CasesService
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.pagination import CursorPaginatedResponse, Page
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnRead
 
 
 def _build_case_read(case_id: uuid.UUID) -> CaseReadMinimal:

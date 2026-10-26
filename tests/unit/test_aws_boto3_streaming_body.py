@@ -2,8 +2,8 @@ import asyncio
 import base64
 from types import SimpleNamespace
 
+import autosecops_registry.integrations.aws_boto3 as aws_boto3
 import pytest
-import tracecat_registry.integrations.aws_boto3 as aws_boto3
 from aiobotocore.response import StreamingBody
 
 

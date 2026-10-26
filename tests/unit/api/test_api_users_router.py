@@ -1,5 +1,5 @@
+from autosecops.api.app import app
 from tests._route_utils import iter_effective_api_routes
-from tracecat.api.app import app
 
 
 def test_fastapi_users_routes_set_authenticated_user_context() -> None:

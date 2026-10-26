@@ -12,14 +12,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from temporalio.exceptions import ActivityError, ApplicationError, CancelledError
 
-import tracecat.dsl.workflow as dsl_workflow_module
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.dsl.action import DSLActivities, _evaluate_loop_iterations
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.enums import FailStrategy, PlatformAction, WaitStrategy
-from tracecat.dsl.scheduler import DSLScheduler
-from tracecat.dsl.schemas import (
+import autosecops.dsl.workflow as dsl_workflow_module
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.dsl.action import DSLActivities, _evaluate_loop_iterations
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.enums import FailStrategy, PlatformAction, WaitStrategy
+from autosecops.dsl.scheduler import DSLScheduler
+from autosecops.dsl.schemas import (
     ROOT_STREAM,
     ActionRetryPolicy,
     ActionStatement,
@@ -28,22 +28,22 @@ from tracecat.dsl.schemas import (
     RunContext,
     TaskResult,
 )
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.dsl.workflow_logging import get_workflow_logger
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.dsl.workflow_logging import get_workflow_logger
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.temporal.exceptions import UserError
-from tracecat.temporal.patches import WorkflowPatch
-from tracecat.tiers.schemas import EffectiveLimits
-from tracecat.tiers.semaphore import AcquireResult
-from tracecat.workflow.executions.enums import ExecutionType, TriggerType
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.temporal.exceptions import UserError
+from autosecops.temporal.patches import WorkflowPatch
+from autosecops.tiers.schemas import EffectiveLimits
+from autosecops.tiers.semaphore import AcquireResult
+from autosecops.workflow.executions.enums import ExecutionType, TriggerType
 
 
 def _effective_limits(
@@ -174,9 +174,9 @@ def _prepared_run_workflow(
         execution_timeout=None,
     )
     with (
-        patch("tracecat.dsl.workflow.workflow.info", return_value=workflow_info),
+        patch("autosecops.dsl.workflow.workflow.info", return_value=workflow_info),
         patch(
-            "tracecat.dsl.workflow.get_trigger_type",
+            "autosecops.dsl.workflow.get_trigger_type",
             return_value=TriggerType.MANUAL,
         ),
         patch.object(workflow, "_compile_dependencies", new=AsyncMock()),
@@ -209,7 +209,7 @@ async def test_retry_until_enforces_action_execution_limit() -> None:
         patch.object(workflow, "_execute_task", new=execute_task_mock),
         patch.object(workflow, "_set_logical_time_context", return_value=None),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=AsyncMock(side_effect=[False, False, True]),
         ),
     ):
@@ -245,12 +245,12 @@ async def test_permit_wait_expiry_is_user_attributed_quota_exhaustion(
 
     with (
         patch(
-            "tracecat.dsl.workflow.workflow.info",
+            "autosecops.dsl.workflow.workflow.info",
             return_value=SimpleNamespace(workflow_id=workflow.wf_exec_id),
         ),
-        patch("tracecat.dsl.workflow.workflow.now", return_value=datetime.now(UTC)),
+        patch("autosecops.dsl.workflow.workflow.now", return_value=datetime.now(UTC)),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=execute_activity,
         ),
         pytest.raises(ApplicationError) as exc_info,
@@ -321,7 +321,7 @@ async def test_execute_task_preserves_temporal_cancellation_with_replay_gate(
             workflow, "_run_action", new=AsyncMock(side_effect=activity_error)
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=preserve_cancellation,
         ) as patched,
     ):
@@ -352,7 +352,7 @@ async def test_run_workflow_preserves_scheduler_cancellation() -> None:
 
     with (
         _prepared_run_workflow(workflow, dsl) as run_args,
-        patch("tracecat.dsl.workflow.DSLScheduler", return_value=scheduler),
+        patch("autosecops.dsl.workflow.DSLScheduler", return_value=scheduler),
         pytest.raises(ActivityError) as exc_info,
     ):
         await workflow._run_workflow(run_args)
@@ -419,10 +419,10 @@ async def test_run_workflow_return_error_classification(
 
     with (
         _prepared_run_workflow(workflow, dsl) as run_args,
-        patch("tracecat.dsl.workflow.DSLScheduler", return_value=scheduler),
+        patch("autosecops.dsl.workflow.DSLScheduler", return_value=scheduler),
         patch.object(workflow, "_handle_return", new=AsyncMock(side_effect=error)),
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=preserve_cancellation,
         ) as patched,
     ):
@@ -484,7 +484,7 @@ async def test_execute_task_releases_action_permit_when_cancelled_during_heartbe
             new=AsyncMock(return_value=InlineObject(data={"ok": True})),
         ),
         patch.object(workflow, "_release_action_permit", new=release_mock),
-        patch("tracecat.dsl.workflow.asyncio.gather", new=delayed_gather),
+        patch("autosecops.dsl.workflow.asyncio.gather", new=delayed_gather),
     ):
 
         async def run_execute_task() -> TaskResult:
@@ -554,15 +554,15 @@ async def test_prepare_subflow_activity_failure_control_flow_is_replay_gated(
 
     with (
         patch(
-            "tracecat.dsl.scheduler.workflow.execute_activity",
+            "autosecops.dsl.scheduler.workflow.execute_activity",
             new=AsyncMock(side_effect=execute_activity),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=AsyncMock(side_effect=execute_activity),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.patched",
+            "autosecops.dsl.workflow.workflow.patched",
             return_value=control_flow_patch,
         ) as patched,
         patch.object(workflow, "_run_action", new=AsyncMock(side_effect=run_action)),
@@ -650,11 +650,11 @@ async def test_prepare_subflow_user_error_in_scatter_uses_error_path(
 
     with (
         patch(
-            "tracecat.dsl.scheduler.workflow.execute_activity",
+            "autosecops.dsl.scheduler.workflow.execute_activity",
             new=AsyncMock(side_effect=execute_activity),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=AsyncMock(side_effect=execute_activity),
         ),
         patch.object(workflow, "_run_action", new=AsyncMock(side_effect=run_action)),
@@ -703,8 +703,8 @@ async def test_run_skips_tier_limit_enforcement_when_flag_disabled() -> None:
         dsl=dsl,
         wf_id=workflow.run_context.wf_id,
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={"core.transform.reshape": "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={"core.transform.reshape": "autosecops_registry"},
         ),
     )
     run_result = InlineObject(data={"ok": True})
@@ -719,11 +719,11 @@ async def test_run_skips_tier_limit_enforcement_when_flag_disabled() -> None:
             new=AsyncMock(return_value=workflow.organization_id),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_local_activity",
+            "autosecops.dsl.workflow.workflow.execute_local_activity",
             new=AsyncMock(return_value=False),
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=execute_activity_mock,
         ),
         patch.object(workflow, "_acquire_workflow_permit", new=acquire_permit_mock),
@@ -964,11 +964,11 @@ async def test_release_workflow_permit_is_idempotent() -> None:
 
     with (
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=execute_activity_mock,
         ),
         patch(
-            "tracecat.dsl.workflow.workflow.info",
+            "autosecops.dsl.workflow.workflow.info",
             return_value=SimpleNamespace(workflow_id="wf-id"),
         ),
     ):

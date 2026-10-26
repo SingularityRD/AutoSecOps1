@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from fastapi.datastructures import UploadFile
 from starlette.datastructures import Headers
 
-from tracecat.tables.router import _read_csv_upload_with_limit
+from autosecops.tables.router import _read_csv_upload_with_limit
 
 
 @pytest.mark.anyio

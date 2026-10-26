@@ -3,7 +3,7 @@
 # AKA we assume-by-induction that `core.require` works as expected, since `core.require` functions like `core.transform.reshape`.
 
 import pytest
-from tracecat_registry.core.require import require
+from autosecops_registry.core.require import require
 
 
 @pytest.mark.parametrize(

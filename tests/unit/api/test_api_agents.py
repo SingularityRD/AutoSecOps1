@@ -7,9 +7,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.agent import router as agent_router
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError
+from autosecops.agent import router as agent_router
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError
 
 
 @pytest.mark.anyio

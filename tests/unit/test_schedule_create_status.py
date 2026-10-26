@@ -7,10 +7,10 @@ from typing import Any, Literal
 import pytest
 import temporalio.client
 
-from tracecat.auth.types import Role
-from tracecat.identifiers import ScheduleUUID
-from tracecat.identifiers.workflow import WorkflowUUID, WorkspaceUUID
-from tracecat.workflow.schedules import bridge
+from autosecops.auth.types import Role
+from autosecops.identifiers import ScheduleUUID
+from autosecops.identifiers.workflow import WorkflowUUID, WorkspaceUUID
+from autosecops.workflow.schedules import bridge
 
 
 @pytest.mark.anyio

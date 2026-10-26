@@ -7,23 +7,23 @@ import pytest
 from botocore.exceptions import HTTPClientError
 from temporalio.exceptions import ApplicationError
 
-from tracecat.dsl import action
-from tracecat.dsl.action import materialize_context
-from tracecat.dsl.schemas import ExecutionContext, TaskResult
-from tracecat.runtime.errors import (
+from autosecops.dsl import action
+from autosecops.dsl.action import materialize_context
+from autosecops.dsl.schemas import ExecutionContext, TaskResult
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage import blob as blob_module
-from tracecat.storage.blob import get_storage_client
-from tracecat.storage.object import (
+from autosecops.storage import blob as blob_module
+from autosecops.storage.blob import get_storage_client
+from autosecops.storage.object import (
     CollectionObject,
     InlineObject,
     ObjectRef,
     StoredObject,
 )
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.temporal.errors import extract_error_classification
 
 
 def _close_run_sync_runner() -> None:
@@ -50,7 +50,7 @@ def test_run_sync_reuses_storage_client_until_runner_closes(
             return client
 
     try:
-        with patch("tracecat.storage.blob.aioboto3.Session") as mock_session_cls:
+        with patch("autosecops.storage.blob.aioboto3.Session") as mock_session_cls:
             mock_session = mock_session_cls.return_value
             mock_client = AsyncMock()
             mock_session.client.return_value.__aenter__.return_value = mock_client

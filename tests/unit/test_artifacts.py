@@ -6,25 +6,25 @@ from typing import Any
 
 import pytest
 
-from tracecat.artifacts.bindings import (
+from autosecops.artifacts.bindings import (
     ARTIFACT_BINDINGS,
     MAX_LIST_ARTIFACTS,
     ArtifactIdentityRef,
     ArtifactSideEffect,
     artifact_side_effects_for_tool_result,
 )
-from tracecat.artifacts.projection import (
+from autosecops.artifacts.projection import (
     MAX_OPEN_ARTIFACTS,
     apply_artifact_side_effects,
     remove_artifact,
     serialize_artifacts,
     validate_artifacts,
 )
-from tracecat.artifacts.schemas import (
+from autosecops.artifacts.schemas import (
     CaseArtifact,
     artifact_data_payload,
 )
-from tracecat.cases.enums import CaseSeverity, CaseStatus
+from autosecops.cases.enums import CaseSeverity, CaseStatus
 
 
 def test_artifact_projection_applies_upsert_and_remove_operations() -> None:

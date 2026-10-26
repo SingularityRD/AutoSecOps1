@@ -18,42 +18,42 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
 
-from tests.database import TEST_DB_CONFIG
-from tests.integration import test_table_search_lifecycle as lifecycle
-from tests.integration.test_table_search_lifecycle import documents, enable
-from tracecat import config
-from tracecat.db.engine import reset_async_engine
-from tracecat.db.models import SearchChunk, SearchDocument, Table
-from tracecat.redis.client import RedisClient
-from tracecat.search.capacity import search_capacity
-from tracecat.search.chunking_types import ChunkCheckpoint
-from tracecat.search.embeddings.catalog import token_counter
-from tracecat.search.embeddings.client import EmbeddingClient
-from tracecat.search.embeddings.types import (
+from autosecops import config
+from autosecops.db.engine import reset_async_engine
+from autosecops.db.models import SearchChunk, SearchDocument, Table
+from autosecops.redis.client import RedisClient
+from autosecops.search.capacity import search_capacity
+from autosecops.search.chunking_types import ChunkCheckpoint
+from autosecops.search.embeddings.catalog import token_counter
+from autosecops.search.embeddings.client import EmbeddingClient
+from autosecops.search.embeddings.types import (
     EmbeddingError,
     EmbeddingErrorCode,
     ModelSpec,
     PinnedConfiguration,
     ResolvedCredential,
 )
-from tracecat.search.indexing import index_collection
-from tracecat.search.indexing_schedule import SCHEDULE_ID, ensure_search_schedule
-from tracecat.search.indexing_types import (
+from autosecops.search.indexing import index_collection
+from autosecops.search.indexing_schedule import SCHEDULE_ID, ensure_search_schedule
+from autosecops.search.indexing_types import (
     CollectionWork,
     IndexingOutcome,
     IndexingProgress,
 )
-from tracecat.search.indexing_workflow import (
+from autosecops.search.indexing_workflow import (
     SearchIndexDispatcher,
     discover_search_collections,
 )
-from tracecat.search.types import (
+from autosecops.search.types import (
     EmbeddingRequest,
     SearchScope,
     SearchState,
 )
-from tracecat.tables.schemas import TableRowInsert
-from tracecat.tables.service import TablesService
+from autosecops.tables.schemas import TableRowInsert
+from autosecops.tables.service import TablesService
+from tests.database import TEST_DB_CONFIG
+from tests.integration import test_table_search_lifecycle as lifecycle
+from tests.integration.test_table_search_lifecycle import documents, enable
 
 pytestmark = pytest.mark.anyio
 tables = lifecycle.tables

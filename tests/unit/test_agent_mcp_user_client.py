@@ -20,22 +20,22 @@ from mcp.types import (
 )
 from pydantic import AnyUrl
 
-from tracecat import config
-from tracecat.agent.common.exceptions import (
+from autosecops import config
+from autosecops.agent.common.exceptions import (
     UserMCPDiscoveryAuthError,
     UserMCPDiscoveryBudgetExceededError,
     UserMCPDiscoveryError,
     UserMCPDiscoveryTimeoutError,
     UserMCPDiscoveryUnavailableError,
 )
-from tracecat.agent.common.types import MCPHttpServerConfig, MCPToolDefinition
-from tracecat.agent.mcp import user_client
-from tracecat.agent.mcp.http_limits import (
+from autosecops.agent.common.types import MCPHttpServerConfig, MCPToolDefinition
+from autosecops.agent.mcp import user_client
+from autosecops.agent.mcp.http_limits import (
     BoundedResponseTransport,
     MCPResponseTooLargeError,
 )
-from tracecat.agent.mcp.user_client import UserMCPClient, _create_transport
-from tracecat.agent.mcp.utils import (
+from autosecops.agent.mcp.user_client import UserMCPClient, _create_transport
+from autosecops.agent.mcp.utils import (
     flatten_mcp_content_blocks,
 )
 
@@ -703,7 +703,7 @@ async def test_call_tool_returns_all_blocks(monkeypatch: pytest.MonkeyPatch) -> 
             del tool_name, args
             return _StubResult()
 
-    monkeypatch.setattr("tracecat.agent.mcp.user_client.Client", _StubClient)
+    monkeypatch.setattr("autosecops.agent.mcp.user_client.Client", _StubClient)
     client = UserMCPClient([_mcp_server("github")])
 
     result = await client.call_tool("github", "get_file_contents", {"path": "a.txt"})
@@ -719,7 +719,7 @@ async def test_call_tool_converts_response_too_large_to_tool_error(
     """The byte-cap error becomes a descriptive ToolError, not a raw error."""
     from fastmcp.exceptions import ToolError
 
-    from tracecat.agent.mcp.http_limits import MCPResponseTooLargeError
+    from autosecops.agent.mcp.http_limits import MCPResponseTooLargeError
 
     class _StubClient:
         def __init__(self, transport: Any) -> None:
@@ -742,7 +742,7 @@ async def test_call_tool_converts_response_too_large_to_tool_error(
                 16 * 1024 * 1024, observed=17_000_000
             ) from group
 
-    monkeypatch.setattr("tracecat.agent.mcp.user_client.Client", _StubClient)
+    monkeypatch.setattr("autosecops.agent.mcp.user_client.Client", _StubClient)
     client = UserMCPClient([_mcp_server("github")])
 
     with pytest.raises(ToolError, match="16 MiB"):
@@ -756,7 +756,7 @@ async def test_call_tool_propagates_cancellation_carrying_cap_error(
     """CancelledError with the cap error in __context__ must not become ToolError."""
     import asyncio
 
-    from tracecat.agent.mcp.http_limits import MCPResponseTooLargeError
+    from autosecops.agent.mcp.http_limits import MCPResponseTooLargeError
 
     class _StubClient:
         def __init__(self, transport: Any) -> None:
@@ -777,7 +777,7 @@ async def test_call_tool_propagates_cancellation_carrying_cap_error(
             except MCPResponseTooLargeError:
                 raise asyncio.CancelledError()  # noqa: B904
 
-    monkeypatch.setattr("tracecat.agent.mcp.user_client.Client", _StubClient)
+    monkeypatch.setattr("autosecops.agent.mcp.user_client.Client", _StubClient)
     client = UserMCPClient([_mcp_server("github")])
 
     with pytest.raises(asyncio.CancelledError):

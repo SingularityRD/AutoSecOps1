@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 from dotenv import dotenv_values, load_dotenv
 
-# Set test defaults BEFORE importing tracecat modules so config reads them.
+# Set test defaults BEFORE importing autosecops modules so config reads them.
 # test_workflows.py was written when we returned the full context by default.
 os.environ.setdefault("TRACECAT__WORKFLOW_RETURN_STRATEGY", "context")
 os.environ.setdefault(
@@ -28,9 +28,9 @@ os.environ.setdefault(
 )
 
 import aioboto3
+import autosecops_registry.integrations.aws_boto3 as boto3_module
 import pytest
 import redis
-import tracecat_registry.integrations.aws_boto3 as boto3_module
 from minio import Minio
 from minio.error import S3Error
 from sqlalchemy import create_engine, delete, select, text
@@ -41,43 +41,43 @@ from sqlalchemy.pool import NullPool
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from tests.database import TEST_DB_CONFIG
-from tests.support.executor_backend import TestBackend
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import (
     ADMIN_SCOPES,
     ORG_ADMIN_SCOPES,
     SERVICE_PRINCIPAL_SCOPES,
 )
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import (
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import (
     get_async_auth_engine,
     get_async_engine,
     get_async_session_context_manager,
     reset_async_engine,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     Base,
     Organization,
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     Workspace,
 )
-from tracecat.dsl.action import DSLActivities
-from tracecat.dsl.client import get_temporal_client
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.worker import get_activities, new_sandbox_runner
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.executor import backends as executor_backends
-from tracecat.executor.backends import ExecutorBackend
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.logger import logger
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.secrets import secrets_manager
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.workspaces.service import WorkspaceService
+from autosecops.dsl.action import DSLActivities
+from autosecops.dsl.client import get_temporal_client
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.worker import get_activities, new_sandbox_runner
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.executor import backends as executor_backends
+from autosecops.executor.backends import ExecutorBackend
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.logger import logger
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.secrets import secrets_manager
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.workspaces.service import WorkspaceService
+from tests.database import TEST_DB_CONFIG
+from tests.support.executor_backend import TestBackend
 
 # Test-specific organization ID (not UUID(0) since we removed that default)
 # This UUID is deterministic across test runs for fixture seeding
@@ -621,7 +621,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
     """
     from sqlalchemy.orm import Session
 
-    from tracecat.db.models import RegistryRepository, RegistryVersion
+    from autosecops.db.models import RegistryRepository, RegistryVersion
 
     def _seed_registry_version(sync_db_uri: str) -> None:
         # Use sync engine to avoid event loop conflicts.
@@ -630,7 +630,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
 
         with Session(sync_engine) as session:
             # Create a registry repository for core actions
-            origin = "tracecat_registry"
+            origin = "autosecops_registry"
             repo = session.scalar(
                 select(RegistryRepository).where(
                     RegistryRepository.organization_id == TEST_ORG_ID,
@@ -665,7 +665,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             core_transform_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "reshape",
             }
             manifest_actions["core.transform.reshape"] = {
@@ -681,7 +681,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             http_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.http",
+                "module": "autosecops_registry.core.http",
                 "name": "http_request",
             }
             manifest_actions["core.http_request"] = {
@@ -697,7 +697,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             wf_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.workflow",
+                "module": "autosecops_registry.core.workflow",
                 "name": "execute",
             }
             manifest_actions["core.workflow.execute"] = {
@@ -713,7 +713,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             filter_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "filter",
             }
             manifest_actions["core.transform.filter"] = {
@@ -729,7 +729,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             transform_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "reshape",
             }
             manifest_actions["core.transform.transform"] = {
@@ -745,7 +745,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             email_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.email",
+                "module": "autosecops_registry.core.email",
                 "name": "send_email",
             }
             manifest_actions["core.send_email"] = {
@@ -761,7 +761,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             create_case_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.cases",
+                "module": "autosecops_registry.core.cases",
                 "name": "create_case",
             }
             manifest_actions["core.cases.create_case"] = {
@@ -777,7 +777,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             create_task_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.ee.tasks",
+                "module": "autosecops_registry.core.ee.tasks",
                 "name": "create_task",
             }
             manifest_actions["core.cases.create_task"] = {
@@ -796,7 +796,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             get_case_metrics_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.ee.durations",
+                "module": "autosecops_registry.core.ee.durations",
                 "name": "get_case_metrics",
             }
             manifest_actions["core.cases.get_case_metrics"] = {
@@ -838,7 +838,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
                 preset_impl = {
                     "type": "udf",
                     "url": origin,
-                    "module": "tracecat_registry.core.presets",
+                    "module": "autosecops_registry.core.presets",
                     "name": action_name,
                 }
                 manifest_actions[f"ai.agent.{action_name}"] = {
@@ -857,7 +857,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             table_lookup_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.table",
+                "module": "autosecops_registry.core.table",
                 "name": "lookup",
             }
             manifest_actions["core.table.lookup"] = {
@@ -873,7 +873,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             table_insert_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.table",
+                "module": "autosecops_registry.core.table",
                 "name": "insert",
             }
             manifest_actions["core.table.insert"] = {
@@ -889,7 +889,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             table_insert_row_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.table",
+                "module": "autosecops_registry.core.table",
                 "name": "insert_row",
             }
             manifest_actions["core.table.insert_row"] = {
@@ -905,7 +905,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             script_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.script",
+                "module": "autosecops_registry.core.script",
                 "name": "run_python",
             }
             manifest_actions["core.script.run_python"] = {
@@ -921,7 +921,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             map_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "map",
             }
             manifest_actions["core.transform.map"] = {
@@ -937,7 +937,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             webhook_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.integrations.sinks",
+                "module": "autosecops_registry.integrations.sinks",
                 "name": "webhook",
             }
             manifest_actions["integrations.sinks.webhook"] = {
@@ -953,7 +953,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             scatter_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "scatter",
             }
             manifest_actions["core.transform.scatter"] = {
@@ -969,7 +969,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             gather_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.transform",
+                "module": "autosecops_registry.core.transform",
                 "name": "gather",
             }
             manifest_actions["core.transform.gather"] = {
@@ -985,7 +985,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             loop_start_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.loop",
+                "module": "autosecops_registry.core.loop",
                 "name": "start",
             }
             manifest_actions["core.loop.start"] = {
@@ -1001,7 +1001,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             loop_end_impl = {
                 "type": "udf",
                 "url": origin,
-                "module": "tracecat_registry.core.loop",
+                "module": "autosecops_registry.core.loop",
                 "name": "end",
             }
             manifest_actions["core.loop.end"] = {
@@ -1069,7 +1069,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
             )
 
             # Also seed platform registry tables for platform-scoped resolution
-            # The executor routes tracecat_registry origin to platform tables
+            # The executor routes autosecops_registry origin to platform tables
             platform_repo = session.scalar(
                 select(PlatformRegistryRepository).where(
                     PlatformRegistryRepository.origin == origin,
@@ -1150,7 +1150,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
 
             # Create PlatformRegistryIndex entries for each action in the manifest
             # This is required for get_actions_from_index to work in agent tools
-            from tracecat.db.models import PlatformRegistryIndex
+            from autosecops.db.models import PlatformRegistryIndex
 
             for _action_name, action_data in manifest_actions.items():
                 existing_index = session.scalar(
@@ -1424,7 +1424,7 @@ def inprocess_api_server(
             sys.executable,
             "-m",
             "uvicorn",
-            "tracecat.api.app:app",
+            "autosecops.api.app:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -1845,8 +1845,8 @@ def workflow_bucket(minio_server, env_sandbox):
     Session-scoped and autouse to ensure all tests use S3-backed object storage.
     Depends on env_sandbox to ensure config is set before we create the bucket.
     """
-    from tracecat.storage import blob
-    from tracecat.storage import object as object_module
+    from autosecops.storage import blob
+    from autosecops.storage import object as object_module
 
     # Reload blob module to pick up MinIO config
     importlib.reload(blob)
@@ -1969,8 +1969,8 @@ def threadpool() -> Iterator[ThreadPoolExecutor]:
 @pytest.fixture(scope="function")
 async def executor_backend() -> AsyncGenerator[ExecutorBackend, None]:
     """Initialize the executor backend and its worker-owned action gateway."""
-    from tracecat.executor.action_gateway.server import ActionGateway
-    from tracecat.executor.backends import (
+    from autosecops.executor.action_gateway.server import ActionGateway
+    from autosecops.executor.backends import (
         initialize_executor_backend,
         shutdown_executor_backend,
     )
@@ -2028,7 +2028,7 @@ async def test_executor_worker_factory(
     This worker listens on the shared-action-queue and handles execute_action_activity.
     Uses TestBackend for in-process execution without sandbox overhead.
     """
-    from tracecat.executor.activities import ExecutorActivities
+    from autosecops.executor.activities import ExecutorActivities
 
     def create_worker(
         client: Client,
@@ -2063,7 +2063,7 @@ def mock_openai_secrets(monkeypatch: pytest.MonkeyPatch):
         pytest.skip("OPENAI_API_KEY not found in environment")
 
     with (
-        patch("tracecat_registry._internal.secrets.get") as mock_get,
+        patch("autosecops_registry._internal.secrets.get") as mock_get,
         secrets_manager.env_sandbox({"OPENAI_API_KEY": openai_key}),
     ):
 
@@ -2087,7 +2087,7 @@ def mock_anthropic_secrets():
         pytest.skip("ANTHROPIC_API_KEY not found in environment")
 
     with (
-        patch("tracecat_registry._internal.secrets.get") as mock_get,
+        patch("autosecops_registry._internal.secrets.get") as mock_get,
         secrets_manager.env_sandbox({"ANTHROPIC_API_KEY": anthropic_key}),
     ):
 
@@ -2116,7 +2116,7 @@ def mock_bedrock_secrets():
         )
 
     with (
-        patch("tracecat_registry._internal.secrets.get") as mock_get,
+        patch("autosecops_registry._internal.secrets.get") as mock_get,
         secrets_manager.env_sandbox(
             {
                 "AWS_ACCESS_KEY_ID": aws_access_key,
@@ -2150,7 +2150,7 @@ def mock_slack_secrets():
         pytest.skip("SLACK_BOT_TOKEN not found in environment")
 
     with (
-        patch("tracecat_registry._internal.secrets.get") as mock_get,
+        patch("autosecops_registry._internal.secrets.get") as mock_get,
         secrets_manager.env_sandbox({"SLACK_BOT_TOKEN": slack_token}),
     ):
 
@@ -2175,7 +2175,7 @@ async def mock_agent_session(session: AsyncSession, svc_role: Role):
     This is a lightweight fixture for tests that need a valid session_id
     to satisfy foreign key constraints (e.g., approval tests).
     """
-    from tracecat.db.models import AgentSession
+    from autosecops.db.models import AgentSession
 
     session_id = uuid.uuid4()
     agent_session = AgentSession(

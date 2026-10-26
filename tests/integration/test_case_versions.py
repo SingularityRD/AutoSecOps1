@@ -16,19 +16,19 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import (
     CasePriority,
     CaseSeverity,
     CaseStatus,
     CaseVersionField,
 )
-from tracecat.cases.schemas import CaseCreate, CaseUpdate
-from tracecat.cases.service import CasesService
-from tracecat.db.models import Case, CaseEvent, CaseVersion, User, Workspace
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.pagination import PageParams
+from autosecops.cases.schemas import CaseCreate, CaseUpdate
+from autosecops.cases.service import CasesService
+from autosecops.db.models import Case, CaseEvent, CaseVersion, User, Workspace
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.pagination import PageParams
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = [
     pytest.mark.anyio,
@@ -47,15 +47,15 @@ def isolate_case_side_effects() -> Iterator[None]:
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.publish_case_event_payload",
+            "autosecops.cases.events.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat.cases.service.publish_case_event_payload",
+            "autosecops.cases.service.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
     ):

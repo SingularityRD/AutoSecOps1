@@ -11,17 +11,17 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import ProgrammingError
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import Table, TableColumn, Workspace
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.query.errors import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import Table, TableColumn, Workspace
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.query.errors import (
     TracecatQueryOverflowError,
     TracecatQueryTimeoutError,
 )
-from tracecat.tables import internal_router as internal_tables_router
-from tracecat.tables.exceptions import TableRowError
-from tracecat.tables.schemas import AggregateResponse
+from autosecops.tables import internal_router as internal_tables_router
+from autosecops.tables.exceptions import TableRowError
+from autosecops.tables.schemas import AggregateResponse
 
 
 def _programming_error(cause: BaseException) -> ProgrammingError:

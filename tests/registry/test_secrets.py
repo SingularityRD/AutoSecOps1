@@ -1,5 +1,5 @@
 import pytest
-from tracecat_registry import SecretNotFoundError, secrets
+from autosecops_registry import SecretNotFoundError, secrets
 
 
 @pytest.mark.anyio

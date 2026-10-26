@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from tracecat.api.lifespan import LifespanTaskSupervisor
+from autosecops.api.lifespan import LifespanTaskSupervisor
 
 
 @pytest.mark.anyio
@@ -249,7 +249,7 @@ async def test_spawn_stoppable_rejects_after_drain_without_invoking_factory() ->
 async def test_drain_surfaces_completed_task_errors_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.api import lifespan as lifespan_module
+    from autosecops.api import lifespan as lifespan_module
 
     supervisor = LifespanTaskSupervisor(drain_timeout=5.0)
     logged_errors: list[tuple[str, dict[str, object]]] = []

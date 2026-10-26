@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from tracecat.expressions.formatters import (
+from autosecops.expressions.formatters import (
     _format_csv,
     _format_html,
     _format_markdown,

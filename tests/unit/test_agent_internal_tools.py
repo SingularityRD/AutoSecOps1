@@ -6,16 +6,16 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tracecat_registry import RegistryOAuthSecret
+from autosecops_registry import RegistryOAuthSecret
 
-from tracecat.agent.backends import registry
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.mcp import internal_tools
-from tracecat.agent.preset.schemas import AgentPresetRead
-from tracecat.agent.tokens import InternalToolContext, MCPTokenClaims
-from tracecat.db.models import AgentSession
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.schemas import ProviderKey
+from autosecops.agent.backends import registry
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.mcp import internal_tools
+from autosecops.agent.preset.schemas import AgentPresetRead
+from autosecops.agent.tokens import InternalToolContext, MCPTokenClaims
+from autosecops.db.models import AgentSession
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.schemas import ProviderKey
 
 
 class _AsyncContext:
@@ -114,7 +114,7 @@ async def test_list_sessions_scopes_to_preset_and_optional_creator(
 
     service = SimpleNamespace(list_sessions=_list_sessions)
     monkeypatch.setattr(
-        "tracecat.agent.session.service.AgentSessionService.with_session",
+        "autosecops.agent.session.service.AgentSessionService.with_session",
         lambda role: _AsyncContext(service),
     )
 
@@ -142,7 +142,7 @@ async def test_get_session_rejects_non_preset_entity(monkeypatch):
 
     service.get_session = _get_session
     monkeypatch.setattr(
-        "tracecat.agent.session.service.AgentSessionService.with_session",
+        "autosecops.agent.session.service.AgentSessionService.with_session",
         lambda role: _AsyncContext(service),
     )
 
@@ -182,7 +182,7 @@ async def test_internal_session_read_derives_readonly_from_backend_state(
     )
     with (
         patch(
-            "tracecat.agent.session.service.AgentSessionService.with_session",
+            "autosecops.agent.session.service.AgentSessionService.with_session",
             return_value=_AsyncContext(service),
         ),
         patch.object(
@@ -248,11 +248,11 @@ async def test_list_available_tools_includes_configuration_fields(monkeypatch):
         return set()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.AgentPresetService.with_session",
+        "autosecops.agent.preset.service.AgentPresetService.with_session",
         lambda role: _AsyncContext(preset_service),
     )
     monkeypatch.setattr(
-        "tracecat.agent.mcp.internal_tools.RegistryActionsService.with_session",
+        "autosecops.agent.mcp.internal_tools.RegistryActionsService.with_session",
         lambda role: _AsyncContext(registry_service),
     )
     monkeypatch.setattr(
@@ -304,11 +304,11 @@ async def test_update_preset_blocks_unconfigured_tool_add(monkeypatch):
         return set()
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.AgentPresetService.with_session",
+        "autosecops.agent.preset.service.AgentPresetService.with_session",
         lambda role: _AsyncContext(preset_service),
     )
     monkeypatch.setattr(
-        "tracecat.agent.mcp.internal_tools.RegistryActionsService.with_session",
+        "autosecops.agent.mcp.internal_tools.RegistryActionsService.with_session",
         lambda role: _AsyncContext(registry_service),
     )
     monkeypatch.setattr(
@@ -399,11 +399,11 @@ async def test_update_preset_allows_configured_oauth_tool_add(monkeypatch):
         }
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.AgentPresetService.with_session",
+        "autosecops.agent.preset.service.AgentPresetService.with_session",
         lambda role: _AsyncContext(preset_service),
     )
     monkeypatch.setattr(
-        "tracecat.agent.mcp.internal_tools.RegistryActionsService.with_session",
+        "autosecops.agent.mcp.internal_tools.RegistryActionsService.with_session",
         lambda role: _AsyncContext(registry_service),
     )
     monkeypatch.setattr(

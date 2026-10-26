@@ -13,16 +13,16 @@ from fastapi import HTTPException
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.models import OAuthStateDB
-from tracecat.integrations import router
-from tracecat.integrations.providers.base import AuthorizationCodeOAuthProvider
-from tracecat.integrations.providers.github.oauth import GitHubOAuthProvider
-from tracecat.integrations.providers.slack.oauth import SlackOAuthProvider
-from tracecat.integrations.service import IntegrationService
-from tracecat.logger import logger
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.models import OAuthStateDB
+from autosecops.integrations import router
+from autosecops.integrations.providers.base import AuthorizationCodeOAuthProvider
+from autosecops.integrations.providers.github.oauth import GitHubOAuthProvider
+from autosecops.integrations.providers.slack.oauth import SlackOAuthProvider
+from autosecops.integrations.service import IntegrationService
+from autosecops.logger import logger
 
 
 @pytest.fixture

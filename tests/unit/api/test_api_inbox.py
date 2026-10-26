@@ -8,11 +8,11 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.inbox.router as inbox_router_module
-from tracecat.auth.types import Role
-from tracecat.exceptions import EntitlementRequired
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.tiers.enums import Entitlement
+import autosecops.inbox.router as inbox_router_module
+from autosecops.auth.types import Role
+from autosecops.exceptions import EntitlementRequired
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.tiers.enums import Entitlement
 
 
 @pytest.mark.anyio

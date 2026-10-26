@@ -8,8 +8,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from tracecat_registry.sdk.exceptions import TracecatNotFoundError
-from tracecat_registry.sdk.variables import VariablesClient
+from autosecops_registry.sdk.exceptions import TracecatNotFoundError
+from autosecops_registry.sdk.variables import VariablesClient
 
 
 @pytest.fixture

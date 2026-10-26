@@ -6,10 +6,10 @@ import pytest
 import temporalio.api.common.v1
 from temporalio.api.common.v1 import Payload
 
-from tracecat.storage.object import CollectionObject, InlineObject, ObjectRef
-from tracecat.temporal.codec import TemporalPayloadCodecError
-from tracecat.workflow.executions import common as executions_common
-from tracecat.workflow.executions.common import (
+from autosecops.storage.object import CollectionObject, InlineObject, ObjectRef
+from autosecops.temporal.codec import TemporalPayloadCodecError
+from autosecops.workflow.executions import common as executions_common
+from autosecops.workflow.executions.common import (
     UnreadableTemporalPayload,
     extract_payload,
     unwrap_action_result,

@@ -20,8 +20,8 @@ from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from tracecat import config
-from tracecat.observability.otel import (
+from autosecops import config
+from autosecops.observability.otel import (
     initialize_platform_tracing,
     instrument_fastapi_app,
     platform_span,

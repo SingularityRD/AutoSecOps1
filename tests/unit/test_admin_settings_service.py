@@ -7,20 +7,20 @@ from unittest.mock import AsyncMock, MagicMock
 
 import orjson
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.admin.settings import service as admin_settings_service_module
-from tracecat_ee.admin.settings.schemas import (
+from autosecops_ee.admin.settings import service as admin_settings_service_module
+from autosecops_ee.admin.settings.schemas import (
     PlatformAuditSettingsUpdate,
     PlatformSecuritySettingsUpdate,
 )
-from tracecat_ee.admin.settings.service import AdminSettingsService
+from autosecops_ee.admin.settings.service import AdminSettingsService
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.audit.service import AuditService
-from tracecat.auth import ip_allowlist_enforcement
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import OrganizationSetting, PlatformSetting
-from tracecat.settings.schemas import IPAllowlist
+from autosecops.audit.service import AuditService
+from autosecops.auth import ip_allowlist_enforcement
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import OrganizationSetting, PlatformSetting
+from autosecops.settings.schemas import IPAllowlist
 
 pytestmark = pytest.mark.usefixtures("db")
 

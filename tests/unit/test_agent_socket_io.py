@@ -20,11 +20,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import orjson
 import pytest
 
-from tracecat.agent.common.protocol import RuntimeEventEnvelope, RuntimeInitPayload
-from tracecat.agent.common.socket_io import SocketStreamWriter, read_message
-from tracecat.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
-from tracecat.agent.common.types import SandboxAgentConfig
-from tracecat.agent.runtime.claude_code.runtime import ClaudeAgentRuntime
+from autosecops.agent.common.protocol import RuntimeEventEnvelope, RuntimeInitPayload
+from autosecops.agent.common.socket_io import SocketStreamWriter, read_message
+from autosecops.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
+from autosecops.agent.common.types import SandboxAgentConfig
+from autosecops.agent.runtime.claude_code.runtime import ClaudeAgentRuntime
 
 
 def make_init_payload() -> RuntimeInitPayload:
@@ -124,7 +124,7 @@ class TestRuntimeSocketCommunication:
                 # Create and run runtime with mocked SDK
                 with (
                     patch(
-                        "tracecat.agent.runtime.claude_code.runtime.ClaudeSDKClient",
+                        "autosecops.agent.runtime.claude_code.runtime.ClaudeSDKClient",
                         return_value=mock_claude_sdk_client,
                     ),
                 ):

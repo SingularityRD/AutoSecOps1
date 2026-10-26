@@ -4,13 +4,13 @@ import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from autosecops_ee.admin.users import router as users_router
 from fastapi import status
 from fastapi.testclient import TestClient
 from fastapi_users import InvalidPasswordException
-from tracecat_ee.admin.users import router as users_router
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError
 
 _USER_ID = uuid.uuid4()
 _NEW_USER = {"email": "new-user@example.com", "password": "short"}

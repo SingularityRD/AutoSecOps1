@@ -1,4 +1,4 @@
-from tracecat_registry import RegistryOAuthSecret, RegistrySecret, registry, secrets
+from autosecops_registry import RegistryOAuthSecret, RegistrySecret, registry, secrets
 
 
 @registry.register(

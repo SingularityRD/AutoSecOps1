@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.db.models import PlatformRegistryVersion
-from tracecat.registry.sync.jobs import _is_downgrade
+from autosecops.db.models import PlatformRegistryVersion
+from autosecops.registry.sync.jobs import _is_downgrade
 
 
 @pytest.mark.parametrize(

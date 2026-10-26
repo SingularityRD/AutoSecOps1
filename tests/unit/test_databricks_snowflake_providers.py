@@ -2,10 +2,10 @@
 
 import pytest
 
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.providers import PROVIDER_REGISTRY
-from tracecat.integrations.providers.base import AuthorizationCodeOAuthProvider
-from tracecat.integrations.schemas import ProviderKey
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.providers import PROVIDER_REGISTRY
+from autosecops.integrations.providers.base import AuthorizationCodeOAuthProvider
+from autosecops.integrations.schemas import ProviderKey
 
 AC = OAuthGrantType.AUTHORIZATION_CODE
 CC = OAuthGrantType.CLIENT_CREDENTIALS

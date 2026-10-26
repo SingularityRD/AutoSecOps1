@@ -11,23 +11,23 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from tracecat import config
-from tracecat.auth.dependencies import ExecutorWorkspaceRole, WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.internal_router import router as internal_cases_router
-from tracecat.cases.router import cases_router
-from tracecat.cases.schemas import CaseReadMinimal
-from tracecat.cases.service import CasesService
-from tracecat.cases.sorting import (
+from autosecops import config
+from autosecops.auth.dependencies import ExecutorWorkspaceRole, WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.internal_router import router as internal_cases_router
+from autosecops.cases.router import cases_router
+from autosecops.cases.schemas import CaseReadMinimal
+from autosecops.cases.service import CasesService
+from autosecops.cases.sorting import (
     CaseRelationshipSort,
     CaseSortDirection,
     case_relationship_sort_key,
 )
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session
-from tracecat.db.models import Case, CaseTag, CaseTagLink, User, Workspace
-from tracecat.pagination import (
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session
+from autosecops.db.models import Case, CaseTag, CaseTagLink, User, Workspace
+from autosecops.pagination import (
     CursorPaginatedResponse,
     CursorPaginationParams,
     Page,

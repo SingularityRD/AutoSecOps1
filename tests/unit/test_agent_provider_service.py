@@ -12,23 +12,23 @@ from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config as tracecat_config
-from tracecat.agent.provider import service as provider_service_module
-from tracecat.agent.provider.schemas import (
+from autosecops import config as tracecat_config
+from autosecops.agent.provider import service as provider_service_module
+from autosecops.agent.provider.schemas import (
     AgentCustomProviderCreate,
     AgentCustomProviderUpdate,
 )
-from tracecat.agent.provider.service import AgentCustomProviderService
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.agent.provider.service import AgentCustomProviderService
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
     Organization,
 )
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.pagination import CursorPaginationParams
-from tracecat.secrets.encryption import decrypt_value, encrypt_keyvalues
-from tracecat.secrets.schemas import SecretKeyValue
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.pagination import CursorPaginationParams
+from autosecops.secrets.encryption import decrypt_value, encrypt_keyvalues
+from autosecops.secrets.schemas import SecretKeyValue
 
 pytestmark = pytest.mark.usefixtures("db")
 

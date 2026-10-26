@@ -11,9 +11,9 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.service import workspace_membership_exists
-from tracecat.db.models import (
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.service import workspace_membership_exists
+from autosecops.db.models import (
     Group,
     GroupMember,
     GroupRoleAssignment,
@@ -22,7 +22,7 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
+from autosecops.db.models import Role as DBRole
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 

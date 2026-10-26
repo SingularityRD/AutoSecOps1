@@ -7,9 +7,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select, text, update
 
+from autosecops.db.models import SearchChunk, SearchDocument
+from autosecops.search.types import SearchError, SearchErrorCode
 from tests.integration import test_search_storage as storage
-from tracecat.db.models import SearchChunk, SearchDocument
-from tracecat.search.types import SearchError, SearchErrorCode
 
 pytestmark = pytest.mark.anyio
 storage_case = storage.storage_case

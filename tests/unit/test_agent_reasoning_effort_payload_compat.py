@@ -15,25 +15,25 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from autosecops_ee.agent.schemas import AgentActionArgs
 from pydantic import BaseModel
-from tracecat_ee.agent.schemas import AgentActionArgs
 
-from tracecat.agent.backends.schemas import AgentWorkflowArgs
-from tracecat.agent.common.types import SandboxAgentConfig, SandboxSubagentConfig
-from tracecat.agent.executor.activity import AgentExecutorInput
-from tracecat.agent.preset.resolver import (
+from autosecops.agent.backends.schemas import AgentWorkflowArgs
+from autosecops.agent.common.types import SandboxAgentConfig, SandboxSubagentConfig
+from autosecops.agent.executor.activity import AgentExecutorInput
+from autosecops.agent.preset.resolver import (
     ResolvedAgentsRuntimeConfig,
     ResolvedSubagentConfig,
 )
-from tracecat.agent.schemas import RunAgentArgs
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.subagents import ResolvedAttachedSubagentRef
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_config import agent_config_to_payload
-from tracecat.agent.workflow_schemas import AgentConfigPayload
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl._converter import PydanticORJSONPayloadConverter
+from autosecops.agent.schemas import RunAgentArgs
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.subagents import ResolvedAttachedSubagentRef
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_config import agent_config_to_payload
+from autosecops.agent.workflow_schemas import AgentConfigPayload
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl._converter import PydanticORJSONPayloadConverter
 
 # (keys written into each serialized agent config, expected enable_thinking)
 CONFIG_CASES: list[tuple[dict[str, Any], bool]] = [

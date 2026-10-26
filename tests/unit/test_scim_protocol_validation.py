@@ -4,13 +4,13 @@ import sqlite3
 from uuid import UUID
 
 import pytest
+from autosecops_ee.scim.protocol import _member_path, _member_refs, _resource_location
 from sqlalchemy import select
 from sqlalchemy.dialects import sqlite
-from tracecat_ee.scim.protocol import _member_path, _member_refs, _resource_location
 
-from tracecat import config
-from tracecat.db.models import Membership, effective_group_members
-from tracecat.exceptions import TracecatValidationError
+from autosecops import config
+from autosecops.db.models import Membership, effective_group_members
+from autosecops.exceptions import TracecatValidationError
 
 
 @pytest.mark.parametrize(

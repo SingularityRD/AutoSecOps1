@@ -1,7 +1,7 @@
 [allowlist]
 paths = [
-    '''tracecat/integrations/providers/microsoft\.py''',
-    '''tracecat/integrations/providers/microsoft_teams\.py''',
+    '''autosecops/integrations/providers/microsoft\.py''',
+    '''autosecops/integrations/providers/microsoft_teams\.py''',
 ]
 
 # Or allowlist the specific pattern:

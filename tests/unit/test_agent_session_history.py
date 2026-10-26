@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import orjson
 import pytest
 
-from tracecat.agent.session.history import (
+from autosecops.agent.session.history import (
     decode_raw_session_line,
     prepare_session_history,
 )

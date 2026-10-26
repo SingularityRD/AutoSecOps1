@@ -10,13 +10,13 @@ ExecuteChildWorkflowArgs has custom validators that prevent JSON schema generati
 import pytest  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
-from tracecat.exceptions import RegistryValidationError  # noqa: E402
+from autosecops.exceptions import RegistryValidationError  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def registry_repo():
     """Create a registry repository with all actions loaded."""
-    from tracecat.registry.repository import Repository
+    from autosecops.registry.repository import Repository
 
     repo = Repository()
     repo.init()
@@ -29,7 +29,7 @@ def test_execute_child_workflow_validation_equivalence(registry_repo):
     This ensures that inputs that pass model validation would also be accepted by the
     registry action, and vice versa.
     """
-    from tracecat.dsl.common import ExecuteSubflowArgs
+    from autosecops.dsl.common import ExecuteSubflowArgs
 
     # Get the registry action
     action = registry_repo.get("core.workflow.execute")

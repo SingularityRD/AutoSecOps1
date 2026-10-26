@@ -11,45 +11,45 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from autosecops_registry import RegistrySecret
 from pydantic import BaseModel, SecretStr, TypeAdapter
 from pytest import MonkeyPatch
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_registry import RegistrySecret
 
-from tests.shared import TEST_WF_ID, generate_test_exec_id
-from tests.support.executor_backend import TestBackend
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import RegistryRepository, RegistryVersion
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import RegistryRepository, RegistryVersion
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import (
     ActionStatement,
     RunActionInput,
     RunContext,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     ExecutionError,
     TracecatValidationError,
 )
-from tracecat.executor import service
-from tracecat.expressions.expectations import ExpectedField
-from tracecat.registry.actions.bound import BoundRegistryAction
-from tracecat.registry.actions.schemas import (
+from autosecops.executor import service
+from autosecops.expressions.expectations import ExpectedField
+from autosecops.registry.actions.bound import BoundRegistryAction
+from autosecops.registry.actions.schemas import (
     ActionStep,
     RegistryActionCreate,
     TemplateAction,
     TemplateActionDefinition,
 )
-from tracecat.registry.actions.service import RegistryActionsService
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.repository import Repository
-from tracecat.registry.versions.schemas import RegistryVersionManifestAction
-from tracecat.registry.versions.service import RegistryVersionsService
-from tracecat.secrets.schemas import SecretCreate, SecretKeyValue
-from tracecat.secrets.service import SecretsService
-from tracecat.variables.schemas import VariableCreate
-from tracecat.variables.service import VariablesService
+from autosecops.registry.actions.service import RegistryActionsService
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.repository import Repository
+from autosecops.registry.versions.schemas import RegistryVersionManifestAction
+from autosecops.registry.versions.service import RegistryVersionsService
+from autosecops.secrets.schemas import SecretCreate, SecretKeyValue
+from autosecops.secrets.service import SecretsService
+from autosecops.variables.schemas import VariableCreate
+from autosecops.variables.service import VariablesService
+from tests.shared import TEST_WF_ID, generate_test_exec_id
+from tests.support.executor_backend import TestBackend
 
 TEST_VERSION = "test-version"
 
@@ -90,7 +90,7 @@ async def create_manifest_for_actions(
     core_reshape_impl = {
         "type": "udf",
         "url": origin,  # Required field
-        "module": "tracecat_registry.core.transform",
+        "module": "autosecops_registry.core.transform",
         "name": "reshape",
     }
     manifest_actions["core.transform.reshape"] = {
@@ -131,7 +131,7 @@ async def create_manifest_for_actions(
 
 async def run_action_test(input: RunActionInput, role: Role) -> Any:
     """Test helper: execute action using production code path."""
-    from tracecat.contexts import ctx_role
+    from autosecops.contexts import ctx_role
 
     token = ctx_role.set(role)
     try:
@@ -161,7 +161,7 @@ def mock_package(tmp_path: Path) -> Iterator[ModuleType]:
             f.write(
                 textwrap.dedent(
                     """
-                from tracecat_registry import registry, RegistrySecret, secrets
+                from autosecops_registry import registry, RegistrySecret, secrets
 
                 secret = RegistrySecret(
                     name="the_secret",
@@ -927,10 +927,10 @@ def test_aggregate_secrets_from_manifest_collects_nested_secrets():
 
     This tests the API response path (not execution) to ensure the UI displays all required secrets.
     """
-    from tracecat_registry import RegistrySecret
+    from autosecops_registry import RegistrySecret
 
-    from tracecat.registry.actions.service import RegistryActionsService
-    from tracecat.registry.versions.schemas import (
+    from autosecops.registry.actions.service import RegistryActionsService
+    from autosecops.registry.versions.schemas import (
         RegistryVersionManifest,
         RegistryVersionManifestAction,
     )

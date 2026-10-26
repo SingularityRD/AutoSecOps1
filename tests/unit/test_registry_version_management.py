@@ -14,16 +14,16 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     RegistryRepository,
     RegistryVersion,
     Workflow,
     WorkflowDefinition,
 )
-from tracecat.exceptions import RegistryError
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.registry.versions.service import RegistryVersionsService
+from autosecops.exceptions import RegistryError
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.registry.versions.service import RegistryVersionsService
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -9,15 +9,15 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.search import indexing
-from tracecat.search.chunking_types import SourceSlice
-from tracecat.search.embeddings.types import ModelSpec, PinnedConfiguration
-from tracecat.search.indexing_types import (
+from autosecops.search import indexing
+from autosecops.search.chunking_types import SourceSlice
+from autosecops.search.embeddings.types import ModelSpec, PinnedConfiguration
+from autosecops.search.indexing_types import (
     CollectionWork,
     IndexingOutcome,
     IndexingProgress,
 )
-from tracecat.search.types import BuildClaim
+from autosecops.search.types import BuildClaim
 
 
 @pytest.mark.anyio

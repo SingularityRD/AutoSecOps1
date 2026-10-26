@@ -74,7 +74,7 @@ def _clean_docstring(text: str | None) -> str:
 
 def _load_functions_module(root_dir: Path) -> ModuleType:
     sys.path.insert(0, str(root_dir))
-    import tracecat.expressions.functions as functions_module
+    import autosecops.expressions.functions as functions_module
 
     return functions_module
 

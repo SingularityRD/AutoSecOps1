@@ -14,21 +14,21 @@ import pytest
 from fastapi import HTTPException, status
 from sqlalchemy import create_engine, text
 
-from tracecat.agent.adapter.vercel import UIMessage
-from tracecat.agent.session.router import get_session_vercel, send_message
-from tracecat.agent.session.schemas import AgentSessionCreate
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
-from tracecat.chat.enums import MessageKind
-from tracecat.chat.schemas import (
+from autosecops.agent.adapter.vercel import UIMessage
+from autosecops.agent.session.router import get_session_vercel, send_message
+from autosecops.agent.session.schemas import AgentSessionCreate
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
+from autosecops.chat.enums import MessageKind
+from autosecops.chat.schemas import (
     ApprovalDecision,
     BasicChatRequest,
     ContinueRunRequest,
     VercelChatRequest,
 )
-from tracecat.db.models import AgentSession
-from tracecat.exceptions import TracecatNotFoundError
+from autosecops.db.models import AgentSession
+from autosecops.exceptions import TracecatNotFoundError
 
 CHILD_TURN_REJECTION = (
     "Subagent sessions are read-only; message the parent session instead"
@@ -312,7 +312,7 @@ async def test_child_sessions_reject_direct_turns(
     )
     with (
         patch.object(service, "get_session", AsyncMock(return_value=child)),
-        patch("tracecat.agent.session.service.get_agent_backend") as resolve,
+        patch("autosecops.agent.session.service.get_agent_backend") as resolve,
     ):
         with pytest.raises(ValueError, match=CHILD_TURN_REJECTION):
             await service.run_turn(child.id, turn_request)
@@ -346,13 +346,13 @@ async def test_send_message_to_child_session_is_bad_request() -> None:
 
     with (
         patch(
-            "tracecat.agent.session.router.AgentSessionService.with_session",
+            "autosecops.agent.session.router.AgentSessionService.with_session",
             return_value=_Context(),
         ),
         patch.object(service, "is_legacy_session", AsyncMock(return_value=False)),
         patch.object(service, "get_session", AsyncMock(return_value=child)),
-        patch("tracecat.agent.session.router.AgentStream.new") as open_stream,
-        patch("tracecat.agent.session.service.get_agent_backend") as resolve,
+        patch("autosecops.agent.session.router.AgentStream.new") as open_stream,
+        patch("autosecops.agent.session.service.get_agent_backend") as resolve,
     ):
         raw_send_message = cast(Any, send_message).__wrapped__
         with pytest.raises(HTTPException) as exc_info:
@@ -405,7 +405,7 @@ async def test_child_session_messages_remain_readable(entitled: bool) -> None:
             AsyncMock(side_effect=lambda session_id: sessions.get(session_id)),
         ),
         patch(
-            "tracecat.agent.session.router.is_workspace_chat_entitled",
+            "autosecops.agent.session.router.is_workspace_chat_entitled",
             AsyncMock(return_value=entitled),
         ) as check_entitlement,
         patch.object(

@@ -1,0 +1,123 @@
+"""API models for VCS integrations."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field, SecretStr
+
+from autosecops.vcs.bitbucket.schemas import BitbucketTokenCredentials
+from autosecops.vcs.bitbucket_data_center.schemas import (
+    BitbucketDataCenterTokenCredentials,
+)
+from autosecops.vcs.github.manifest import GitHubAppManifest
+
+
+class GitHubAppInstallRequest(BaseModel):
+    """Request to set GitHub App installation ID for workspace."""
+
+    installation_id: int
+
+
+class GitHubAppCredentialsRequest(BaseModel):
+    """Request to register or update GitHub App credentials."""
+
+    app_id: str = Field(..., description="GitHub App ID")
+    private_key: SecretStr = Field(
+        ..., description="GitHub App private key in PEM format"
+    )
+    webhook_secret: SecretStr | None = Field(
+        None, description="GitHub App webhook secret"
+    )
+    client_id: str | None = Field(None, description="GitHub App client ID")
+
+
+class GitHubAppCredentialsStatus(BaseModel):
+    """Status of GitHub App credentials."""
+
+    exists: bool
+    is_corrupted: bool = False
+    app_id: str | None = None
+    has_webhook_secret: bool = False
+    webhook_secret_preview: str | None = None
+    client_id: str | None = None
+    created_at: str | None = None
+
+
+class GitHubAppManifestResponse(BaseModel):
+    """GitHub App manifest response."""
+
+    manifest: GitHubAppManifest
+    instructions: list[str]
+
+
+class GitHubAppCredentialsSaveResponse(BaseModel):
+    """Response after creating or updating GitHub App credentials."""
+
+    message: str
+    action: Literal["created", "updated"]
+    app_id: str
+
+
+class GitLabTokenCredentialsRequest(BaseModel):
+    """Request to register or update GitLab token credentials."""
+
+    base_url: str = Field(
+        default="https://gitlab.com",
+        description="Base URL for GitLab.com or a self-managed GitLab instance.",
+    )
+    token: SecretStr = Field(
+        ...,
+        description="GitLab personal/project/group access token with api scope.",
+    )
+
+
+class GitLabTokenCredentialsStatus(BaseModel):
+    """Status of GitLab token credentials."""
+
+    exists: bool
+    is_corrupted: bool = False
+    base_url: str | None = None
+    created_at: str | None = None
+
+
+class GitLabTokenCredentialsSaveResponse(BaseModel):
+    """Response after creating or updating GitLab token credentials."""
+
+    message: str
+    action: Literal["created", "updated"]
+    base_url: str
+
+
+class BitbucketTokenCredentialsRequest(BitbucketTokenCredentials):
+    """Register or rotate the organization Bitbucket Cloud API token."""
+
+
+class BitbucketTokenCredentialsStatus(BaseModel):
+    exists: bool
+    is_corrupted: bool = False
+    email: str | None = None
+    created_at: str | None = None
+
+
+class BitbucketTokenCredentialsSaveResponse(BaseModel):
+    message: str
+    action: Literal["created", "updated"]
+    email: str
+
+
+class BitbucketDataCenterTokenCredentialsRequest(BitbucketDataCenterTokenCredentials):
+    """Register or rotate the organization Bitbucket Data Center API token."""
+
+
+class BitbucketDataCenterTokenCredentialsStatus(BaseModel):
+    exists: bool
+    is_corrupted: bool = False
+    base_url: str | None = None
+    created_at: str | None = None
+
+
+class BitbucketDataCenterTokenCredentialsSaveResponse(BaseModel):
+    message: str
+    action: Literal["created", "updated"]
+    base_url: str

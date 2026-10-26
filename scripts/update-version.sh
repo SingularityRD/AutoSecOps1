@@ -67,8 +67,8 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 # Extract current version from __init__.py
-INIT_FILE="tracecat/__init__.py"
-REGISTRY_INIT_FILE="packages/tracecat-registry/tracecat_registry/__init__.py"
+INIT_FILE="autosecops/__init__.py"
+REGISTRY_INIT_FILE="packages/autosecops-registry/autosecops_registry/__init__.py"
 if [ ! -f "$INIT_FILE" ]; then
     echo "Error: Cannot find $INIT_FILE"
     exit 1
@@ -179,8 +179,8 @@ NEW_PYTHON_VERSION=$(to_python_version "$NEW_VERSION") || {
 
 # List of files to update
 FILES=(
-    "tracecat/__init__.py"
-    "packages/tracecat-registry/tracecat_registry/__init__.py"
+    "autosecops/__init__.py"
+    "packages/autosecops-registry/autosecops_registry/__init__.py"
     "CONTRIBUTING.md"
     ".github/ISSUE_TEMPLATE/bug_report.md"
 )

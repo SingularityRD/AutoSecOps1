@@ -8,11 +8,11 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.durations import CaseDurationAnchorSelection
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.event_schemas import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES, SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.durations import CaseDurationAnchorSelection
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.event_schemas import (
     AssigneeChangedEvent,
     CaseEventVariant,
     CommentCreatedEvent,
@@ -22,12 +22,12 @@ from tracecat.cases.event_schemas import (
     PriorityChangedEvent,
     StatusChangedEvent,
 )
-from tracecat.cases.schemas import (
+from autosecops.cases.schemas import (
     CaseCreate,
 )
-from tracecat.cases.service import CaseEventsService, CasesService
-from tracecat.db.models import CaseDurationDefinition, CaseEvent
-from tracecat.exceptions import TracecatAuthorizationError
+from autosecops.cases.service import CaseEventsService, CasesService
+from autosecops.db.models import CaseDurationDefinition, CaseEvent
+from autosecops.exceptions import TracecatAuthorizationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -40,11 +40,11 @@ COMMENT_ID = uuid.uuid4()
 def stub_case_duration_sync() -> Iterator[None]:
     with (
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.publish_case_event_payload",
+            "autosecops.cases.events.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -113,7 +113,7 @@ class TestCaseEventsService:
             enqueue_calls.append(kwargs)
 
         monkeypatch.setattr(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             fake_enqueue,
         )
         event_data = StatusChangedEvent(
@@ -399,7 +399,7 @@ class TestCaseEventsService:
             enqueue_calls.append(kwargs)
 
         monkeypatch.setattr(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             fake_enqueue,
         )
 
@@ -449,7 +449,7 @@ class TestCaseEventsService:
         )
         await case_events_service.session.flush()
         monkeypatch.setattr(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             fake_enqueue,
         )
 

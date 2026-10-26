@@ -6,8 +6,8 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from tracecat_registry.sdk.tables import TablesClient
-from tracecat_registry.types import TableSearchResponse
+from autosecops_registry.sdk.tables import TablesClient
+from autosecops_registry.types import TableSearchResponse
 
 
 @pytest.fixture

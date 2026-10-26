@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import temporalio.client
 
-from tracecat.identifiers import ScheduleUUID
-from tracecat.workflow.schedules import bridge
-from tracecat.workflow.schedules.schemas import ScheduleUpdate
+from autosecops.identifiers import ScheduleUUID
+from autosecops.workflow.schedules import bridge
+from autosecops.workflow.schedules.schemas import ScheduleUpdate
 
 
 @pytest.mark.anyio
@@ -82,7 +82,7 @@ async def test_update_schedule_spec(
     mock_handle.update = capture_update
 
     with patch(
-        "tracecat.workflow.schedules.bridge._get_handle", return_value=mock_handle
+        "autosecops.workflow.schedules.bridge._get_handle", return_value=mock_handle
     ):
         await bridge.update_schedule(ScheduleUUID.new_uuid4(), update)
 

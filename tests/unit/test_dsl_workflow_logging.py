@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tracecat.dsl import workflow_logging
+from autosecops.dsl import workflow_logging
 
 
 def _raise_runtime_error() -> object:

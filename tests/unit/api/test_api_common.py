@@ -2,16 +2,16 @@ import orjson
 import pytest
 from starlette.requests import Request
 
-from tracecat.api.common import (
+from autosecops.api.common import (
     auth_pool_exhausted_exception_handler,
     generic_exception_handler,
 )
-from tracecat.db.exceptions import AuthPoolExhaustedError
+from autosecops.db.exceptions import AuthPoolExhaustedError
 
 
 @pytest.mark.anyio
 async def test_generic_exception_handler_logs_with_exception(mocker):
-    logger = mocker.patch("tracecat.api.common.logger")
+    logger = mocker.patch("autosecops.api.common.logger")
     exc = RuntimeError("boom")
     request = Request(
         {
@@ -39,7 +39,7 @@ async def test_generic_exception_handler_logs_with_exception(mocker):
 
 
 def test_auth_pool_exhaustion_handler_returns_machine_readable_503(mocker) -> None:
-    logger = mocker.patch("tracecat.api.common.logger")
+    logger = mocker.patch("autosecops.api.common.logger")
     request = Request(
         {
             "type": "http",

@@ -14,20 +14,20 @@ from cryptography.x509.oid import NameOID
 from pydantic import SecretStr, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatCredentialsNotFoundError,
     TracecatNotFoundError,
 )
-from tracecat.secrets.enums import SecretType
-from tracecat.secrets.schemas import (
+from autosecops.secrets.enums import SecretType
+from autosecops.secrets.schemas import (
     SecretCreate,
     SecretKeyValue,
     SecretSearch,
     SecretUpdate,
 )
-from tracecat.secrets.service import SecretsService
+from autosecops.secrets.service import SecretsService
 
 pytestmark = pytest.mark.usefixtures("db")
 

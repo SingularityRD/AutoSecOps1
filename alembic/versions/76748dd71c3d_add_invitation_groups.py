@@ -11,7 +11,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from tracecat.db.tenant_rls import disable_org_table_rls, enable_org_table_rls
+from autosecops.db.tenant_rls import disable_org_table_rls, enable_org_table_rls
 
 revision: str = "76748dd71c3d"
 down_revision: str | None = "6d83f2a91c40"

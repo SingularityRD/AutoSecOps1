@@ -3,7 +3,7 @@ requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tracecat"
+name = "autosecops"
 description = "The AI-native security automation platform for security teams and agents."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -76,8 +76,8 @@ dependencies = [
     "tenacity==8.3.0",
     "tiktoken==0.14.0",
     "tomli==2.2.1",
-    "tracecat-ee",
-    "tracecat-registry",
+    "autosecops-ee",
+    "autosecops-registry",
     "uv==0.13.4",
     "uvicorn==0.35.0",
     "uvloop==0.22.1",
@@ -90,10 +90,10 @@ Documentation = "https://docs.singularityrd.com"
 Repository = "https://github.com/SingularityRD/AutoSecOps1"
 
 [tool.uv.sources]
-tracecat = { workspace = true }
-tracecat-admin = { workspace = true }
-tracecat-registry = { workspace = true }
-tracecat-ee = { workspace = true }
+autosecops = { workspace = true }
+autosecops-admin = { workspace = true }
+autosecops-registry = { workspace = true }
+autosecops-ee = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -124,7 +124,7 @@ constraint-dependencies = [
 ]
 
 [dependency-groups]
-admin = ["tracecat-admin"]
+admin = ["autosecops-admin"]
 lint = [
     "basedpyright==1.37.1",
     "types-aioboto3[sts,s3,secretsmanager]==15.5.0",
@@ -145,7 +145,7 @@ dev = [
 ]
 
 [tool.hatch.version]
-path = "tracecat/__init__.py"
+path = "autosecops/__init__.py"
 pattern = '^__pep440_version__ = "(?P<version>[^"]+)"'
 
 [tool.hatch.metadata]
@@ -154,17 +154,23 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 # Ship the package, including non-Python data files such as built-in skill
 # SKILL.md / reference markdown so importlib.resources can find them at runtime.
-packages = ["tracecat"]
+packages = ["autosecops"]
 artifacts = [
-    "tracecat/agent/skill/builtin/**/*.md",
+    "autosecops/agent/skill/builtin/**/*.md",
 ]
 
 [tool.ruff]
 line-length = 88
 fix = true
 # Vendored third-party skill content ships as upstream wrote it.
-extend-exclude = ["tracecat/agent/skill/library/skills"]
+extend-exclude = ["autosecops/agent/skill/library/skills"]
 force-exclude = true
+
+[tool.ruff.format]
+# Existing migrations are immutable (scripts/check_migrations.py). The
+# `tracecat` -> `autosecops` module rename pushed one line past the limit, and
+# reflowing it would change bytes beyond the sanctioned rename rewrite.
+exclude = ["alembic/versions/96470fdcc686_v2_backfill_catalog_and_access.py"]
 
 [tool.ruff.lint]
 select = [
@@ -230,12 +236,12 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
-include = ["tracecat", "packages", "alembic", "tests"]
+include = ["autosecops", "packages", "alembic", "tests"]
 exclude = [
     "scripts/",
     "**/__pycache__",
     "**/node_modules",
-    "tracecat/agent/skill/library/skills/",
+    "autosecops/agent/skill/library/skills/",
 ]
 # `scripts/` stays out of the checked set, but tests/unit/test_commit_conventions.py
 # and tests/unit/test_check_pr_title.py import from it, so it has to resolve.

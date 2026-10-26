@@ -10,8 +10,8 @@ from temporalio.api.operatorservice.v1 import ListSearchAttributesResponse
 from temporalio.service import RPCError, RPCStatusCode
 from tenacity import stop_after_attempt, wait_none
 
-from tracecat.api import common
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.api import common
+from autosecops.workflow.executions.enums import TemporalSearchAttr
 
 
 @pytest.mark.anyio

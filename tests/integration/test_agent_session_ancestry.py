@@ -7,26 +7,26 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.agent.session.router import (
+from autosecops import config
+from autosecops.agent.session.router import (
     create_session,
     fork_session,
     get_session,
     get_session_vercel,
 )
-from tracecat.agent.session.schemas import AgentSessionCreate, AgentSessionForkRequest
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.agent.session.schemas import AgentSessionCreate, AgentSessionForkRequest
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     AgentSession,
     AgentSessionHistory,
     Organization,
     Workspace,
 )
-from tracecat.exceptions import EntitlementRequired, TracecatNotFoundError
-from tracecat.tiers import defaults
+from autosecops.exceptions import EntitlementRequired, TracecatNotFoundError
+from autosecops.tiers import defaults
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration, pytest.mark.usefixtures("db")]
 

@@ -1,0 +1,1033 @@
+"""Agent Session API router for unified session management.
+
+This router consolidates chat and session endpoints into a unified /agent/sessions API.
+"""
+
+import uuid
+from typing import Annotated, Any
+
+from autosecops_ee.workspace_chat.policy import (
+    is_workspace_chat_entitled,
+    require_workspace_chat_entitlement_for_entity,
+)
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response, StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from autosecops import config
+from autosecops.agent.adapter import vercel
+from autosecops.agent.backends.registry import (
+    get_agent_backends,
+)
+from autosecops.agent.backends.types import (
+    AgentControlRejected,
+    AgentControlUncertain,
+    SessionDispatchUncertain,
+)
+from autosecops.agent.control.schemas import AgentControlReceipt, AgentControlRequest
+from autosecops.agent.session.schemas import (
+    AgentBackendRead,
+    AgentSessionArtifactsRead,
+    AgentSessionCancelRequest,
+    AgentSessionCancelResponse,
+    AgentSessionCreate,
+    AgentSessionForkRequest,
+    AgentSessionRead,
+    AgentSessionReadVercel,
+    AgentSessionReadWithMessages,
+    AgentSessionUpdate,
+)
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import (
+    AgentSessionEntity,
+    TurnLifecycle,
+    is_session_readonly,
+)
+from autosecops.agent.session.views import build_session_read
+from autosecops.agent.stream.artifacts import artifact_stream_event
+from autosecops.agent.stream.connector import AgentStream
+from autosecops.agent.stream.events import StreamFormat
+from autosecops.artifacts.bindings import ArtifactSideEffect
+from autosecops.artifacts.schemas import ArtifactType
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.authz.controls import require_scope
+from autosecops.chat.schemas import (
+    ChatRead,
+    ChatReadMinimal,
+    ChatReadVercel,
+    ChatRequest,
+    ContinueRunRequest,
+)
+from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.models import AgentSession
+from autosecops.exceptions import (
+    EntitlementRequired,
+    TracecatConflictError,
+    TracecatNotFoundError,
+    TracecatValidationError,
+)
+from autosecops.logger import logger
+from autosecops.observability.otel import set_current_span_attributes
+
+router = APIRouter(prefix="/agent/sessions", tags=["agent-sessions"])
+
+# Chats that take the configured backend when the request omits one. The preset
+# builder and external channels depend on the built-in backend's workflow.
+CHAT_BACKEND_ENTITIES = frozenset(
+    {
+        AgentSessionEntity.WORKSPACE_CHAT,
+        AgentSessionEntity.AGENT_PRESET,
+        AgentSessionEntity.CASE,
+    }
+)
+
+SSE_HEADERS = {
+    "Cache-Control": "no-cache, no-transform",
+    "Transfer-Encoding": "chunked",
+    "Connection": "keep-alive",
+    "Keep-Alive": "timeout=120",
+    "Pragma": "no-cache",
+    "X-Accel-Buffering": "no",
+}
+VERCEL_SSE_HEADERS = {
+    **SSE_HEADERS,
+    "x-vercel-ai-ui-message-stream": "v1",
+}
+
+
+def _sse_headers(format: StreamFormat) -> dict[str, str]:
+    """Return SSE headers for the requested stream format."""
+    if format == "vercel":
+        return dict(VERCEL_SSE_HEADERS)
+    return dict(SSE_HEADERS)
+
+
+async def _release_request_db_connection(db_session: AsyncSession) -> None:
+    """Return the request's pooled DB connection before a long-lived SSE stream.
+
+    FastAPI tears down ``yield`` dependencies only after a streaming response
+    finishes, so the request-scoped session shared with the auth dependency
+    would otherwise stay idle in transaction for the stream's lifetime. Its
+    open transaction keeps table locks that make DDL (such as a migration)
+    wait, and every query queued behind that DDL waits with it.
+
+    Args:
+        db_session: The request-scoped session from ``AsyncDBSession``.
+    """
+    await db_session.close()
+
+
+def _bubble_id(session_id: uuid.UUID, curr_run_id: uuid.UUID | None) -> str | None:
+    """Stable assistant-bubble id for a turn, if the turn is known.
+
+    ``session_id:curr_run_id`` is stable for the whole run, so the AI SDK upserts
+    the live assistant in place across reconnects instead of spawning a duplicate
+    bubble.
+    """
+    return f"{session_id}:{curr_run_id}" if curr_run_id else None
+
+
+def _require_session_write_access(
+    role: WorkspaceActorRouteRole,
+    agent_session: AgentSession,
+) -> None:
+    """Reject writes to sessions owned by another workspace actor."""
+    if not is_session_readonly(role, agent_session.created_by):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "session_read_only",
+            "message": "Teammate sessions are read-only.",
+        },
+    )
+
+
+async def _require_workspace_chat_entitlement_for_session_tree(
+    *,
+    svc: AgentSessionService,
+    session: AsyncDBSession,
+    role: WorkspaceActorRouteRole,
+    agent_session: Any,
+) -> None:
+    """Require Workspace Chat access for all related session sources."""
+    seen: set[uuid.UUID] = set()
+    pending = [agent_session]
+    while pending:
+        current = pending.pop()
+        if current.id in seen:
+            continue
+        seen.add(current.id)
+        await require_workspace_chat_entitlement_for_entity(
+            session=session,
+            role=role,
+            entity_type=AgentSessionEntity(current.entity_type),
+        )
+        for related_id in (
+            current.spawned_by_session_id,
+            current.forked_from_session_id,
+        ):
+            if related_id is not None:
+                related = await svc.get_session(related_id)
+                if related is None:
+                    raise TracecatNotFoundError(
+                        "Related session not found in workspace"
+                    )
+                pending.append(related)
+
+
+async def _build_session_read_with_entitlement(
+    *,
+    svc: AgentSessionService,
+    session: AsyncDBSession,
+    role: WorkspaceActorRouteRole,
+    agent_session: AgentSession,
+) -> AgentSessionRead:
+    """Keep existing history readable when execution is no longer entitled."""
+    readonly = False
+    if not await is_workspace_chat_entitled(session, role):
+        readonly_ids = await svc.get_workspace_chat_session_ids([agent_session.id])
+        readonly = agent_session.id in readonly_ids
+    return build_session_read(agent_session, role, readonly=readonly)
+
+
+@router.get("/backends")
+@require_scope("agent:read")
+async def list_agent_backends(
+    role: WorkspaceActorRouteRole,
+) -> list[AgentBackendRead]:
+    """List enabled installed backends available to new sessions."""
+    return [
+        AgentBackendRead(id=key, name=backend.name)
+        for key, backend in get_agent_backends().items()
+        if backend.is_enabled()
+    ]
+
+
+@router.post(
+    "",
+    responses={
+        403: {
+            "description": "Workspace Chat entitlement or parent session write access required"
+        },
+        404: {"description": "Parent session not found in this workspace"},
+    },
+)
+@require_scope("agent:execute")
+async def create_session(
+    request: AgentSessionCreate,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionRead:
+    """Create a new agent session associated with an entity."""
+    if (
+        "backend_id" not in request.model_fields_set
+        and request.entity_type in CHAT_BACKEND_ENTITIES
+    ):
+        request = request.model_copy(
+            update={"backend_id": config.TRACECAT__AGENT_CHAT_BACKEND}
+        )
+    await require_workspace_chat_entitlement_for_entity(
+        session=session,
+        role=role,
+        entity_type=request.entity_type,
+    )
+    svc = AgentSessionService(session, role)
+    try:
+        if request.spawned_by_session_id is not None:
+            parent = await svc.get_session(request.spawned_by_session_id)
+            if parent is None:
+                raise TracecatNotFoundError("Parent session not found in workspace")
+            _require_session_write_access(role, parent)
+            await _require_workspace_chat_entitlement_for_session_tree(
+                svc=svc, session=session, role=role, agent_session=parent
+            )
+        agent_session = await svc.create_session(request)
+    except TracecatValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except TracecatNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    return build_session_read(agent_session, role)
+
+
+async def _resolve_fork_source(
+    forked_from_session_id: uuid.UUID | None = Query(
+        None, description="Filter by history source session ID"
+    ),
+    parent_session_id: uuid.UUID | None = Query(
+        None, description="Legacy alias for forked_from_session_id", deprecated=True
+    ),
+) -> uuid.UUID | None:
+    """Resolve the history source filter across old and new API clients."""
+    if (
+        forked_from_session_id is not None
+        and parent_session_id is not None
+        and forked_from_session_id != parent_session_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="parent_session_id and forked_from_session_id must match",
+        )
+    return forked_from_session_id or parent_session_id
+
+
+@router.get(
+    "",
+    responses={
+        400: {
+            "description": "Conflicting parent_session_id and forked_from_session_id filters"
+        }
+    },
+)
+@require_scope("agent:read")
+async def list_sessions(
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    forked_from_session_id: Annotated[uuid.UUID | None, Depends(_resolve_fork_source)],
+    entity_type: AgentSessionEntity | None = Query(
+        None, description="Filter by entity type"
+    ),
+    entity_id: uuid.UUID | None = Query(None, description="Filter by entity ID"),
+    created_by: uuid.UUID | None = Query(
+        None,
+        description="Filter by session creator. Omit to list the entire workspace.",
+    ),
+    exclude_entity_types: list[AgentSessionEntity] | None = Query(
+        None, description="Entity types to exclude from results"
+    ),
+    spawned_by_session_id: uuid.UUID | None = Query(
+        None, description="Filter by spawning parent session ID"
+    ),
+    include_children: bool = Query(
+        False, description="Include spawned children without a parent filter"
+    ),
+    limit: int = Query(
+        config.TRACECAT__LIMIT_AGENT_SESSIONS_DEFAULT,
+        ge=config.TRACECAT__LIMIT_MIN,
+        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        description="Maximum number of sessions to return",
+    ),
+) -> list[AgentSessionRead | ChatReadMinimal]:
+    """List agent sessions for the current workspace with optional filtering.
+
+    Returns root sessions by default, including standalone history forks and
+    legacy chats. Filter by spawned_by_session_id to find spawned children.
+    Legacy chats have is_readonly=True.
+    """
+    svc = AgentSessionService(session, role)
+    return await svc.list_sessions(
+        created_by=created_by,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        exclude_entity_types=exclude_entity_types,
+        spawned_by_session_id=spawned_by_session_id,
+        forked_from_session_id=forked_from_session_id,
+        include_children=include_children,
+        limit=limit,
+    )
+
+
+@router.get("/{session_id}")
+@require_scope("agent:read")
+async def get_session(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionReadWithMessages | ChatRead:
+    """Get an agent session or legacy chat with its message history.
+
+    Legacy chats have is_readonly=True.
+    """
+    svc = AgentSessionService(session, role)
+
+    # Try AgentSession first
+    agent_session = await svc.get_session(session_id)
+    if agent_session:
+        session_read = await _build_session_read_with_entitlement(
+            svc=svc,
+            session=session,
+            role=role,
+            agent_session=agent_session,
+        )
+        messages = await svc.list_messages(session_id)
+        logger.info("Session read", session_id=agent_session.id, messages=len(messages))
+        return AgentSessionReadWithMessages(
+            **session_read.model_dump(),
+            messages=messages,
+        )
+
+    # Try legacy Chat (user_id remains for legacy Chat model)
+    legacy_chat = await svc.get_legacy_chat(session_id)
+    if legacy_chat:
+        messages = await svc.list_messages(session_id)
+        logger.info(
+            "Legacy chat read", session_id=legacy_chat.id, messages=len(messages)
+        )
+        return ChatRead(
+            id=legacy_chat.id,
+            title=legacy_chat.title,
+            user_id=legacy_chat.user_id,
+            entity_type=AgentSessionEntity(legacy_chat.entity_type),
+            entity_id=legacy_chat.entity_id,
+            tools=legacy_chat.tools or [],
+            agent_preset_id=legacy_chat.agent_preset_id,
+            agent_preset_version_id=None,
+            created_at=legacy_chat.created_at,
+            updated_at=legacy_chat.updated_at,
+            last_stream_id=legacy_chat.last_stream_id,
+            messages=messages,
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Session not found",
+    )
+
+
+@router.get("/{session_id}/vercel")
+@require_scope("agent:read")
+async def get_session_vercel(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionReadVercel | ChatReadVercel:
+    """Get an agent session or legacy chat with message history in Vercel format.
+
+    Legacy chats have is_readonly=True.
+    """
+    svc = AgentSessionService(session, role)
+
+    # Try AgentSession first
+    agent_session = await svc.get_session(session_id)
+    if agent_session:
+        session_read = await _build_session_read_with_entitlement(
+            svc=svc,
+            session=session,
+            role=role,
+            agent_session=agent_session,
+        )
+        messages = await svc.list_messages(session_id)
+        ui_messages = vercel.convert_chat_messages_to_ui(messages)
+        return AgentSessionReadVercel(
+            **session_read.model_dump(),
+            messages=ui_messages,
+        )
+
+    # Try legacy Chat (user_id remains for legacy Chat model)
+    legacy_chat = await svc.get_legacy_chat(session_id)
+    if legacy_chat:
+        messages = await svc.list_messages(session_id)
+        ui_messages = vercel.convert_chat_messages_to_ui(messages)
+        return ChatReadVercel(
+            id=legacy_chat.id,
+            title=legacy_chat.title,
+            user_id=legacy_chat.user_id,
+            entity_type=AgentSessionEntity(legacy_chat.entity_type),
+            entity_id=legacy_chat.entity_id,
+            tools=legacy_chat.tools or [],
+            agent_preset_id=legacy_chat.agent_preset_id,
+            agent_preset_version_id=None,
+            created_at=legacy_chat.created_at,
+            updated_at=legacy_chat.updated_at,
+            last_stream_id=legacy_chat.last_stream_id,
+            messages=ui_messages,
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Session not found",
+    )
+
+
+@router.patch("/{session_id}")
+@require_scope("agent:execute")
+async def update_session(
+    session_id: uuid.UUID,
+    params: AgentSessionUpdate,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionRead:
+    """Update session properties."""
+    svc = AgentSessionService(session, role)
+
+    # Check if this is a legacy chat (read-only)
+    if await svc.is_legacy_session(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Legacy chat sessions are read-only and cannot be modified",
+        )
+
+    agent_session = await svc.get_session(session_id)
+    if not agent_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    _require_session_write_access(role, agent_session)
+
+    await _require_workspace_chat_entitlement_for_session_tree(
+        session=session,
+        role=role,
+        svc=svc,
+        agent_session=agent_session,
+    )
+
+    try:
+        updated = await svc.update_session(agent_session, params=params)
+    except TracecatValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    return build_session_read(updated, role)
+
+
+@router.delete("/{session_id}/artifacts/{artifact_type}/{artifact_id}")
+@require_scope("agent:execute")
+async def remove_session_artifact(
+    session_id: uuid.UUID,
+    artifact_type: ArtifactType,
+    artifact_id: str,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionArtifactsRead:
+    """Remove one artifact from a session's persisted artifact projection."""
+    svc = AgentSessionService(session, role)
+
+    if await svc.is_legacy_session(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Legacy chat sessions do not support artifacts",
+        )
+
+    try:
+        agent_session = await svc.get_session(session_id)
+        if agent_session is None:
+            raise TracecatNotFoundError(f"Session {session_id} not found")
+        _require_session_write_access(role, agent_session)
+        await _require_workspace_chat_entitlement_for_session_tree(
+            session=session,
+            role=role,
+            svc=svc,
+            agent_session=agent_session,
+        )
+        artifacts = await svc.remove_artifact(
+            session_id,
+            artifact_type=artifact_type,
+            artifact_id=artifact_id,
+        )
+    except TracecatNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+    return AgentSessionArtifactsRead(artifacts=artifacts)
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+@require_scope("agent:execute")
+async def delete_session(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> None:
+    """Delete an agent session."""
+    svc = AgentSessionService(session, role)
+
+    # Check if this is a legacy chat (read-only)
+    if await svc.is_legacy_session(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Legacy chat sessions are read-only and cannot be deleted",
+        )
+
+    agent_session = await svc.get_session(session_id)
+    if not agent_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    _require_session_write_access(role, agent_session)
+
+    await _require_workspace_chat_entitlement_for_session_tree(
+        session=session,
+        role=role,
+        svc=svc,
+        agent_session=agent_session,
+    )
+
+    await svc.delete_session(agent_session)
+
+
+@router.post("/{session_id}/messages")
+@require_scope("agent:execute")
+async def send_message(
+    session_id: uuid.UUID,
+    request: ChatRequest,
+    role: WorkspaceActorRouteRole,
+    http_request: Request,
+    db_session: AsyncDBSession,
+) -> StreamingResponse:
+    """Send a message to the agent session with streaming response.
+
+    This endpoint combines message sending with streaming response,
+    compatible with Vercel's AI SDK useChat hook. It:
+    1. Accepts Vercel UI message format or continuation requests
+    2. Starts the agent execution
+    3. Streams the response back in Vercel's data protocol format
+    """
+    try:
+        workspace_id = role.workspace_id
+        if workspace_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Workspace access required",
+            )
+        set_current_span_attributes(
+            {
+                "tracecat.organization.id": role.organization_id,
+                "tracecat.workspace.id": workspace_id,
+                "tracecat.agent.session.id": session_id,
+            }
+        )
+
+        message_id: str | None = None
+        async with AgentSessionService.with_session(role=role) as svc:
+            # Check if this is a legacy chat (read-only)
+            if await svc.is_legacy_session(session_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Legacy chat sessions are read-only and cannot receive new messages",
+                )
+
+            agent_session = await svc.validate_turn_request(
+                session_id=session_id,
+                request=request,
+            )
+            _require_session_write_access(role, agent_session)
+            await _require_workspace_chat_entitlement_for_session_tree(
+                svc=svc,
+                session=svc.session,
+                role=role,
+                agent_session=agent_session,
+            )
+
+            is_first_prompt: bool | None = None
+            if isinstance(request, ContinueRunRequest):
+                turn_response = await svc.run_turn(
+                    session_id=session_id,
+                    request=request,
+                    active_stream_id=None,
+                )
+                rotated_stream_id = (
+                    turn_response.active_stream_id
+                    if turn_response is not None
+                    else None
+                )
+
+                run_id = (
+                    turn_response.curr_run_id
+                    if turn_response is not None
+                    else agent_session.curr_run_id
+                )
+                set_current_span_attributes({"tracecat.agent.run.id": run_id})
+                message_id = _bubble_id(session_id, run_id)
+
+                if rotated_stream_id is None:
+                    logger.info(
+                        "No-op continuation; returning finished stream",
+                        session_id=session_id,
+                    )
+                    return StreamingResponse(
+                        AgentStream.finished_sse(
+                            format="vercel", message_id=message_id
+                        ),
+                        media_type="text/event-stream",
+                        headers=_sse_headers("vercel"),
+                    )
+
+                stream = await AgentStream.new(
+                    session_id=session_id,
+                    workspace_id=workspace_id,
+                    stream_id=rotated_stream_id,
+                )
+            else:
+                stream_id = uuid.uuid4()
+                stream = await AgentStream.new(
+                    session_id=session_id,
+                    workspace_id=workspace_id,
+                    stream_id=stream_id,
+                )
+                is_first_prompt = await svc.is_first_prompt_for_session(session_id)
+                if is_first_prompt and (
+                    artifact := await svc.build_initial_artifact(agent_session)
+                ):
+                    await svc.apply_artifact_side_effects(
+                        session_id,
+                        [ArtifactSideEffect(op="upsert", artifact=artifact)],
+                    )
+                    await stream.append(artifact_stream_event("upsert", artifact))
+
+                try:
+                    turn_response = await svc.run_turn(
+                        session_id=session_id,
+                        request=request,
+                        active_stream_id=stream_id,
+                        is_first_prompt=is_first_prompt,
+                    )
+                except SessionDispatchUncertain:
+                    # The workflow may already be producing a reply. Preserve
+                    # both its reservation and stream so reconnect can resume it.
+                    raise
+                except Exception as turn_exc:
+                    logger.warning(
+                        "Failed to start agent turn",
+                        session_id=session_id,
+                        error=str(turn_exc),
+                    )
+                    try:
+                        await stream.error(
+                            f"Failed to start agent turn for session {session_id}"
+                        )
+                        await stream.done()
+                        await svc.clear_active_turn(
+                            session_id, expected_stream_id=stream_id
+                        )
+                    except Exception as rollback_exc:
+                        logger.warning(
+                            "Failed to clear stream state after turn startup failure",
+                            session_id=session_id,
+                            error=str(rollback_exc),
+                        )
+                    raise
+
+                if turn_response is None:
+                    raise RuntimeError(
+                        "New agent turn completed without a stream response"
+                    )
+                set_current_span_attributes(
+                    {"tracecat.agent.run.id": turn_response.curr_run_id}
+                )
+                message_id = _bubble_id(session_id, turn_response.curr_run_id)
+
+        logger.info(
+            "Starting Vercel streaming session",
+            session_id=session_id,
+            start_id="0-0",
+        )
+
+        await _release_request_db_connection(db_session)
+        # Create stream and return with Vercel format
+        return StreamingResponse(
+            stream.sse(
+                http_request.is_disconnected,
+                last_id="0-0",
+                format="vercel",
+                message_id=message_id,
+            ),
+            media_type="text/event-stream",
+            headers=_sse_headers("vercel"),
+        )
+    except TracecatNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except TracecatConflictError as e:
+        # A decision contradicting one already recorded: the client is acting on
+        # stale state and should refresh, not retry.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=e.detail or str(e),
+        ) from e
+    except (ValueError, TracecatValidationError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except EntitlementRequired:
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to start streaming session",
+            session_id=session_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start streaming session",
+        ) from e
+
+
+@router.get("/{session_id}/stream")
+@require_scope("agent:read")
+async def stream_session_events(
+    role: WorkspaceActorRouteRole,
+    request: Request,
+    session_id: uuid.UUID,
+    db_session: AsyncDBSession,
+    format: StreamFormat = Query(
+        default="vercel", description="Streaming format (e.g. 'vercel')"
+    ),
+):
+    """Stream session events via Server-Sent Events (SSE).
+
+    This endpoint provides real-time streaming of AI agent execution steps
+    using Server-Sent Events. It supports automatic reconnection via the
+    Last-Event-ID header.
+    """
+    workspace_id = role.workspace_id
+    if workspace_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Workspace access required",
+        )
+
+    headers = _sse_headers(format)
+
+    last_event_id = request.headers.get("Last-Event-ID")
+
+    # Resolve the turn lifecycle. Temporal owns it: we describe the current run
+    # live rather than reading a cached DB status. Don't fail if the session row
+    # doesn't exist yet (the frontend may connect before it is created).
+    async with AgentSessionService.with_session(role=role) as svc:
+        agent_session = await svc.get_session(session_id)
+        if agent_session is None:
+            # Legacy chat fallback: no Temporal workflow / per-turn key. Keep the
+            # old per-session behaviour driven by the stored cursor.
+            legacy_chat = await svc.get_legacy_chat(session_id)
+            if legacy_chat is None:
+                return Response(status_code=status.HTTP_204_NO_CONTENT)
+            last_stream_id = legacy_chat.last_stream_id
+            if last_stream_id is None and not last_event_id:
+                return Response(status_code=status.HTTP_204_NO_CONTENT)
+            start_id = last_event_id or last_stream_id or "0-0"
+            legacy_stream = await AgentStream.new(
+                session_id=session_id, workspace_id=workspace_id
+            )
+            await _release_request_db_connection(db_session)
+            return StreamingResponse(
+                legacy_stream.sse(
+                    request.is_disconnected, last_id=start_id, format=format
+                ),
+                media_type="text/event-stream",
+                headers=headers,
+            )
+
+        stream_state = await svc.get_stream_resume_state(agent_session)
+
+    message_id = _bubble_id(session_id, stream_state.curr_run_id)
+
+    # FAILED | TERMINATED (incl. failed-to-start) | CANCELLED: the workflow will
+    # not produce a terminal frame, so emit one ourselves and let the client
+    # refetch DB history.
+    if stream_state.lifecycle in (TurnLifecycle.FAILED, TurnLifecycle.CANCELLED):
+        return StreamingResponse(
+            AgentStream.finished_sse(format=format, message_id=message_id),
+            media_type="text/event-stream",
+            headers=headers,
+        )
+
+    # No live run, or the run is already COMPLETED: nothing to attach to. The
+    # canonical assistant message is in DB history; the client refetches.
+    if not stream_state.has_live_stream:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # RUNNING: join the per-turn Redis stream and always replay the whole active
+    # turn from the start. The mid-turn DB load hides the active run's rows, so
+    # Redis is the sole source for the live assistant; a partial (Last-Event-ID)
+    # resume would drop everything before the cursor. Full 0-0 replay keeps the
+    # bubble whole at the cost of re-streaming the in-flight turn on reconnect.
+    # (Cursor/frame-precise resume is intentionally not used here; revisit if we
+    # reconcile committed partial rows with the live stream id.)
+    stream = await AgentStream.new(
+        session_id=session_id,
+        workspace_id=workspace_id,
+        stream_id=stream_state.active_stream_id,
+    )
+    start_id = "0-0"
+    resume_from: str | None = None
+
+    logger.info(
+        "Starting session stream",
+        last_id=start_id,
+        session_id=session_id,
+    )
+    await _release_request_db_connection(db_session)
+    return StreamingResponse(
+        stream.sse(
+            request.is_disconnected,
+            last_id=start_id,
+            format=format,
+            message_id=message_id,
+            resume_from=resume_from,
+        ),
+        media_type="text/event-stream",
+        headers=headers,
+    )
+
+
+@router.post("/{session_id}/fork")
+@require_scope("agent:execute")
+async def fork_session(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    request: AgentSessionForkRequest | None = None,
+) -> AgentSessionRead:
+    """Fork an existing session to continue conversation post-decision.
+
+    Creates a new session linked to a history source, allowing users
+    to ask the agent for context after making approval decisions.
+
+    Set entity_type to 'approval' for inbox forks to hide from main chat list.
+    """
+    try:
+        svc = AgentSessionService(session, role)
+        parent_session = await svc.get_session(session_id)
+        if parent_session is None:
+            raise TracecatNotFoundError(
+                f"Parent session with ID {session_id} not found"
+            )
+        _require_session_write_access(role, parent_session)
+        await _require_workspace_chat_entitlement_for_session_tree(
+            svc=svc,
+            session=session,
+            role=role,
+            agent_session=parent_session,
+        )
+        entity_type = request.entity_type if request else None
+        if entity_type is None:
+            entity_type = AgentSessionEntity(parent_session.entity_type)
+        await require_workspace_chat_entitlement_for_entity(
+            session=session,
+            role=role,
+            entity_type=entity_type,
+        )
+        spawning_parent_id = request.spawned_by_session_id if request else None
+        if spawning_parent_id is not None:
+            spawning_parent = await svc.get_session(spawning_parent_id)
+            if spawning_parent is None:
+                raise TracecatNotFoundError("Parent session not found in workspace")
+            _require_session_write_access(role, spawning_parent)
+            await _require_workspace_chat_entitlement_for_session_tree(
+                svc=svc, session=session, role=role, agent_session=spawning_parent
+            )
+        forked = await svc.fork_session(
+            session_id,
+            entity_type=entity_type,
+            spawned_by_session_id=spawning_parent_id,
+        )
+        return build_session_read(forked, role)
+    except TracecatNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except TracecatValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.post("/{session_id}/cancel", deprecated=True)
+@require_scope("agent:execute")
+async def cancel_session(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    request: AgentSessionCancelRequest | None = None,
+) -> AgentSessionCancelResponse:
+    """Request graceful cancellation for the active agent session turn.
+
+    Deprecated: send a `cancel` control to `/control` instead.
+    """
+    svc = AgentSessionService(session, role)
+    reason = request.reason if request else "user_cancel"
+    try:
+        agent_session = await svc.get_session(session_id)
+        if agent_session is None:
+            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+        _require_session_write_access(role, agent_session)
+        await _require_workspace_chat_entitlement_for_session_tree(
+            svc=svc,
+            session=session,
+            role=role,
+            agent_session=agent_session,
+        )
+        return await svc.request_cancel(session_id, reason=reason)
+    except TracecatNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except TracecatConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=e.detail or str(e),
+        ) from e
+
+
+@router.post("/{session_id}/control")
+@require_scope("agent:execute")
+async def control_session(
+    session_id: uuid.UUID,
+    request: Annotated[AgentControlRequest, Body()],
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentControlReceipt:
+    """Steer, withdraw from, or cancel the active turn without waiting for it."""
+    logger.info(
+        "Agent session control requested",
+        session_id=str(session_id),
+        control_type=request.type,
+        control_id=str(request.id),
+    )
+    svc = AgentSessionService(session, role)
+    try:
+        agent_session = await svc.get_session(session_id)
+        if agent_session is None:
+            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+        _require_session_write_access(role, agent_session)
+        await _require_workspace_chat_entitlement_for_session_tree(
+            svc=svc,
+            session=session,
+            role=role,
+            agent_session=agent_session,
+        )
+        return await svc.control(session_id, request)
+    except TracecatNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except TracecatValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except TracecatConflictError as e:
+        # The message, which the composer shows as the reason.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
+    except AgentControlRejected as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The turn is no longer running",
+        ) from e
+    except AgentControlUncertain as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Control outcome is unknown; retry with the same ID",
+        ) from e

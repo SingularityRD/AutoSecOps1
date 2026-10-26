@@ -10,15 +10,15 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from temporalio.client import WorkflowExecutionStatus
 
-from tracecat.api.app import app as api_app
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session
-from tracecat.dsl.common import DSLInput
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.validation.schemas import ValidationResult, ValidationResultType
-from tracecat.workflow.executions import internal_router as internal_executions_router
-from tracecat.workflow.executions import router as executions_router
-from tracecat.workflow.executions.correlation import build_case_task_correlation_id
+from autosecops.api.app import app as api_app
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session
+from autosecops.dsl.common import DSLInput
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.validation.schemas import ValidationResult, ValidationResultType
+from autosecops.workflow.executions import internal_router as internal_executions_router
+from autosecops.workflow.executions import router as executions_router
+from autosecops.workflow.executions.correlation import build_case_task_correlation_id
 
 
 def _workflow_definition_content(title: str = "Test Workflow") -> dict:

@@ -40,28 +40,28 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.api.app import app
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.cases.durations import consumer as duration_sync_consumer
-from tracecat.cases.durations.consumer import CaseDurationSyncConsumer
-from tracecat.cases.durations.schemas import (
+from autosecops import config
+from autosecops.api.app import app
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.cases.durations import consumer as duration_sync_consumer
+from autosecops.cases.durations.consumer import CaseDurationSyncConsumer
+from autosecops.cases.durations.schemas import (
     CaseDurationAnchorSelection,
     CaseDurationDefinitionCreate,
     CaseDurationEventAnchor,
     CaseDurationEventFilters,
 )
-from tracecat.cases.durations.service import (
+from autosecops.cases.durations.service import (
     CaseDurationDefinitionService,
     CaseDurationService,
 )
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseCreate, CaseUpdate
-from tracecat.cases.service import CasesService
-from tracecat.db.models import CaseEvent, Organization, Workspace
-from tracecat.redis.client import get_redis_client
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseCreate, CaseUpdate
+from autosecops.cases.service import CasesService
+from autosecops.db.models import CaseEvent, Organization, Workspace
+from autosecops.redis.client import get_redis_client
+from tests.database import TEST_DB_CONFIG
 
 RUN_BENCHMARKS = os.environ.get("TRACECAT_RUN_CASE_DURATION_BENCHMARKS") == "1"
 BENCHMARK_OUTPUT_PATH = os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_OUTPUT")
@@ -589,9 +589,11 @@ async def test_hot_case_load_latency_during_async_duration_mutation_burst(
             # mutation phase below exercises the real enqueue path.
             with (
                 patch(
-                    "tracecat.cases.durations.service.enqueue_case_duration_sync_after_commit"
+                    "autosecops.cases.durations.service.enqueue_case_duration_sync_after_commit"
                 ),
-                patch("tracecat.cases.events.enqueue_case_duration_sync_after_commit"),
+                patch(
+                    "autosecops.cases.events.enqueue_case_duration_sync_after_commit"
+                ),
             ):
                 case_ids = await _seed_cases_definitions_and_history(
                     async_engine=async_engine,

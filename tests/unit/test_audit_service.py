@@ -20,29 +20,29 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import wait_none
 
-from tracecat.audit import service as audit_service_module
-from tracecat.audit.enums import AuditEventActor, AuditEventStatus
-from tracecat.audit.logger import (
+from autosecops.audit import service as audit_service_module
+from autosecops.audit.enums import AuditEventActor, AuditEventStatus
+from autosecops.audit.logger import (
     AuditEventDetails,
     audit_log,
 )
-from tracecat.audit.sanitization import sanitize_audit_metadata
-from tracecat.audit.service import (
+from autosecops.audit.sanitization import sanitize_audit_metadata
+from autosecops.audit.service import (
     AuditService,
     _AuditDelivery,
     _spawn_delivery,
 )
-from tracecat.audit.types import (
+from autosecops.audit.types import (
     AuditAction,
     AuditEvent,
     AuditMetadata,
     AuditWebhookConfig,
 )
-from tracecat.auth.types import PlatformRole, Role
-from tracecat.auth.users import UserManager
-from tracecat.authz.scopes import ADMIN_SCOPES
-from tracecat.contexts import RequestAuditContext, ctx_request_audit, ctx_role
-from tracecat.service import BaseService
+from autosecops.auth.types import PlatformRole, Role
+from autosecops.auth.users import UserManager
+from autosecops.authz.scopes import ADMIN_SCOPES
+from autosecops.contexts import RequestAuditContext, ctx_request_audit, ctx_role
+from autosecops.service import BaseService
 
 
 @pytest.fixture
@@ -757,11 +757,11 @@ async def test_on_after_register_emits_user_create_audit(
 
     monkeypatch.setattr(AuditService, "with_session", fake_with_session)
     monkeypatch.setattr(
-        "tracecat.auth.users.ensure_single_tenant_user_defaults",
+        "autosecops.auth.users.ensure_single_tenant_user_defaults",
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "tracecat.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
+        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
         "superadmin@example.com",
     )
 
@@ -845,7 +845,7 @@ async def test_audit_setting_cache_separates_sinks_and_orgs(
         assert role is not None and role.organization_id is not None
         return org_values[role.organization_id]
 
-    monkeypatch.setattr("tracecat.settings.service.get_setting", fake_get_setting)
+    monkeypatch.setattr("autosecops.settings.service.get_setting", fake_get_setting)
 
     assert (
         await platform_service._get_webhook_url()
@@ -905,7 +905,7 @@ async def test_post_event_uses_custom_payload_headers_and_verify_ssl(
     )
 
     with patch(
-        "tracecat.audit.service.httpx.AsyncClient",
+        "autosecops.audit.service.httpx.AsyncClient",
         return_value=async_client_context_mock,
     ) as async_client_ctor:
         await audit_service._post_event(webhook_url=webhook_url, payload=event)
@@ -978,7 +978,7 @@ async def test_post_event_wraps_payload_when_attribute_configured(
     )
 
     with patch(
-        "tracecat.audit.service.httpx.AsyncClient",
+        "autosecops.audit.service.httpx.AsyncClient",
         return_value=async_client_context_mock,
     ) as async_client_ctor:
         await audit_service._post_event(webhook_url=webhook_url, payload=event)
@@ -1032,10 +1032,10 @@ async def test_post_event_failure_does_not_log_webhook_url(
 
     with (
         patch(
-            "tracecat.audit.service.httpx.AsyncClient",
+            "autosecops.audit.service.httpx.AsyncClient",
             return_value=async_client_context_mock,
         ),
-        patch("tracecat.audit.service.logger.warning", side_effect=capture_warning),
+        patch("autosecops.audit.service.logger.warning", side_effect=capture_warning),
     ):
         await audit_service._post_event(webhook_url=webhook_url, payload=event)
         await flush_audit_deliveries()
@@ -1171,7 +1171,7 @@ async def test_deliver_failure_does_not_affect_other_deliveries(
     def capture_warning(msg: str, **kwargs: object) -> None:
         warnings.append((msg, kwargs))
 
-    with patch("tracecat.audit.service.logger.warning", side_effect=capture_warning):
+    with patch("autosecops.audit.service.logger.warning", side_effect=capture_warning):
         _spawn_delivery(_delivery("first", url="https://fail.example.com/audit"))
         _spawn_delivery(_delivery("second"))
         _spawn_delivery(_delivery("third"))
@@ -1217,7 +1217,7 @@ async def test_deliver_http_status_failures_log_status_without_secrets(
         workspace_id=None,
     )
 
-    with patch("tracecat.audit.service.logger.warning", side_effect=capture_warning):
+    with patch("autosecops.audit.service.logger.warning", side_effect=capture_warning):
         _spawn_delivery(delivery)
         await flush_audit_deliveries()
 
@@ -1250,7 +1250,7 @@ async def test_deliver_success_logs_outcome_without_secrets(
     def capture_info(msg: str, **kwargs: object) -> None:
         infos.append((msg, kwargs))
 
-    with patch("tracecat.audit.service.logger.info", side_effect=capture_info):
+    with patch("autosecops.audit.service.logger.info", side_effect=capture_info):
         _spawn_delivery(_delivery(payload_marker, url=webhook_url))
         await flush_audit_deliveries()
 
@@ -1290,8 +1290,8 @@ async def test_deliver_retry_outcomes_are_logged(
         warnings.append(msg)
 
     with (
-        patch("tracecat.audit.service.logger.info", side_effect=capture_info),
-        patch("tracecat.audit.service.logger.warning", side_effect=capture_warning),
+        patch("autosecops.audit.service.logger.info", side_effect=capture_info),
+        patch("autosecops.audit.service.logger.warning", side_effect=capture_warning),
     ):
         _spawn_delivery(_delivery("retried", url=flaky_url))
         await flush_audit_deliveries()
@@ -1325,7 +1325,7 @@ async def test_slow_delivery_does_not_block_later_deliveries(
             await gate.wait()
         delivered.append(tag)
 
-    with patch("tracecat.audit.service._deliver", gated_deliver):
+    with patch("autosecops.audit.service._deliver", gated_deliver):
         _spawn_delivery(_delivery("first"))
         _spawn_delivery(_delivery("second"))
         _spawn_delivery(_delivery("third"))
@@ -1375,7 +1375,7 @@ async def test_decorator_delivers_attempt_and_terminal(
     service = _AuditedService(AsyncMock(), role)
     token = ctx_role.set(role)
     try:
-        with patch("tracecat.audit.service._deliver", deliver):
+        with patch("autosecops.audit.service._deliver", deliver):
             assert await service.mutate(uuid.uuid4()) == "result"
             await flush_audit_deliveries()
     finally:
@@ -1421,9 +1421,13 @@ async def test_settings_resolution_failure_is_non_fatal_and_leaks_no_url(
     token = ctx_role.set(role)
     try:
         with (
-            patch("tracecat.audit.service._deliver", deliver),
-            patch("tracecat.audit.logger.logger.warning", side_effect=capture_warning),
-            patch("tracecat.audit.service.logger.warning", side_effect=capture_warning),
+            patch("autosecops.audit.service._deliver", deliver),
+            patch(
+                "autosecops.audit.logger.logger.warning", side_effect=capture_warning
+            ),
+            patch(
+                "autosecops.audit.service.logger.warning", side_effect=capture_warning
+            ),
         ):
             # The decorated business op still succeeds despite settings failure.
             assert await service.mutate(uuid.uuid4()) == "result"
@@ -1457,8 +1461,8 @@ async def test_spawn_delivery_drops_past_pending_cap(
         warnings.append((msg, kwargs))
 
     with (
-        patch("tracecat.audit.service._deliver", gated_deliver),
-        patch("tracecat.audit.service.logger.warning", side_effect=capture_warning),
+        patch("autosecops.audit.service._deliver", gated_deliver),
+        patch("autosecops.audit.service.logger.warning", side_effect=capture_warning),
     ):
         _spawn_delivery(_delivery("first"))
         _spawn_delivery(_delivery("second"))
@@ -1518,7 +1522,7 @@ async def test_spawn_delivery_evicts_closed_loop_tasks(
     async def deliver(delivery: _AuditDelivery) -> None:
         return None
 
-    with patch("tracecat.audit.service._deliver", deliver):
+    with patch("autosecops.audit.service._deliver", deliver):
         _spawn_delivery(_delivery("live"))
         await flush_audit_deliveries()
 
@@ -1543,7 +1547,7 @@ async def test_deliver_does_not_retry_terminal_status(
     def capture_warning(msg: str, **kwargs: object) -> None:
         warnings.append((msg, kwargs))
 
-    with patch("tracecat.audit.service.logger.warning", side_effect=capture_warning):
+    with patch("autosecops.audit.service.logger.warning", side_effect=capture_warning):
         _spawn_delivery(_delivery("rejected"))
         await flush_audit_deliveries()
 

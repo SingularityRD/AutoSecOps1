@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from psycopg import Connection, sql
 
-from tracecat.query.lexical_types import TEXT_SEARCH_CONFIG as CONFIG
+from autosecops.query.lexical_types import TEXT_SEARCH_CONFIG as CONFIG
 
 
 @dataclass(frozen=True, slots=True)

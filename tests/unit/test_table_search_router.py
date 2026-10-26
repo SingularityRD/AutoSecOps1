@@ -9,27 +9,27 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session
-from tracecat.exceptions import ScopeDeniedError, TracecatNotFoundError
-from tracecat.pagination import PaginationError, PaginationErrorCode
-from tracecat.search.embeddings.service import WorkspaceEmbeddingService
-from tracecat.tables.search.router import (
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session
+from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.pagination import PaginationError, PaginationErrorCode
+from autosecops.search.embeddings.service import WorkspaceEmbeddingService
+from autosecops.tables.search.router import (
     get_table_search,
     get_table_search_progress,
     require_semantic_search_entitlement,
     router,
     select_table_search_column,
 )
-from tracecat.tables.search.schemas import (
+from autosecops.tables.search.schemas import (
     TableSearchConfiguration,
     TableSearchProgressPage,
     TableSearchProgressParams,
     TableSearchSelection,
     TableSearchSelectionErrorResponse,
 )
-from tracecat.tables.search.service import TableSearchService
+from autosecops.tables.search.service import TableSearchService
 
 pytestmark = pytest.mark.anyio
 

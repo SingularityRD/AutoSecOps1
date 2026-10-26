@@ -8,8 +8,8 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.query import (
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.query import (
     BOOLEAN_OPS,
     ENUM_OPS,
     NUMBER_OPS,
@@ -20,13 +20,13 @@ from tracecat.cases.query import (
     CaseFieldResolver,
     referenced_dropdown_refs,
 )
-from tracecat.cases.schemas import CaseAggregateRequest
-from tracecat.db.models import Case
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.compiler import compile_filter
-from tracecat.query.filters import Condition, Filter, FilterOp, NotClause
-from tracecat.query.resolver import FieldKind
-from tracecat.tables.enums import SqlType
+from autosecops.cases.schemas import CaseAggregateRequest
+from autosecops.db.models import Case
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.compiler import compile_filter
+from autosecops.query.filters import Condition, Filter, FilterOp, NotClause
+from autosecops.query.resolver import FieldKind
+from autosecops.tables.enums import SqlType
 
 WORKSPACE_ID = UUID("00000000-0000-4000-8000-000000000001")
 

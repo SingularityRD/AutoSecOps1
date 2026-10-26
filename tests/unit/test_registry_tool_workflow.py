@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import pytest
+from autosecops_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 from temporalio.exceptions import (
     ActivityError,
     ApplicationError,
@@ -13,23 +14,22 @@ from temporalio.exceptions import (
     CancelledError as TemporalCancelledError,
 )
 from temporalio.exceptions import TimeoutError as TemporalTimeoutError
-from tracecat_ee.agent.workflows.registry_tool import ExecuteRegistryToolWorkflow
 
-from tracecat.agent.workflows.tool_execution import ExecuteRegistryToolWorkflowInput
-from tracecat.runtime.errors import (
+from autosecops.agent.workflows.tool_execution import ExecuteRegistryToolWorkflowInput
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import (
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import (
     application_error_from_classification,
     extract_error_classifications,
 )
-from tracecat.temporal.patches import ExecuteRegistryToolWorkflowPatch
+from autosecops.temporal.patches import ExecuteRegistryToolWorkflowPatch
 
-MODULE = "tracecat_ee.agent.workflows.registry_tool"
+MODULE = "autosecops_ee.agent.workflows.registry_tool"
 
 
 def _activity_error(cause: Exception) -> ActivityError:

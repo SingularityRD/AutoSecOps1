@@ -20,19 +20,23 @@ from temporalio.client import (
 )
 from temporalio.exceptions import ApplicationError
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.backends.schemas import AgentWorkflowArgs
-from tracecat.agent.backends.types import AgentControlRejected, AgentControlUncertain
-from tracecat.agent.executor.schemas import ToolExecutionResult
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity, TurnLifecycle
-from tracecat.agent.types import AgentConfig, ToolApproved
-from tracecat.auth.types import Role
-from tracecat.chat import tokens
-from tracecat.chat.enums import MessageKind
-from tracecat.chat.schemas import ApprovalDecision, BasicChatRequest, ContinueRunRequest
-from tracecat.db.models import AgentSession, AgentSessionHistory, Approval
-from tracecat.exceptions import TracecatConflictError
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.backends.schemas import AgentWorkflowArgs
+from autosecops.agent.backends.types import AgentControlRejected, AgentControlUncertain
+from autosecops.agent.executor.schemas import ToolExecutionResult
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity, TurnLifecycle
+from autosecops.agent.types import AgentConfig, ToolApproved
+from autosecops.auth.types import Role
+from autosecops.chat import tokens
+from autosecops.chat.enums import MessageKind
+from autosecops.chat.schemas import (
+    ApprovalDecision,
+    BasicChatRequest,
+    ContinueRunRequest,
+)
+from autosecops.db.models import AgentSession, AgentSessionHistory, Approval
+from autosecops.exceptions import TracecatConflictError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -116,15 +120,15 @@ def _mock_approval_continuation_dependencies(
     )
     with (
         patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             AsyncMock(return_value=temporal_client),
         ),
         patch(
-            "tracecat.agent.stream.connector.get_redis_client",
+            "autosecops.agent.stream.connector.get_redis_client",
             AsyncMock(return_value=redis_client),
         ),
         patch(
-            "tracecat.agent.session.service.get_redis_client",
+            "autosecops.agent.session.service.get_redis_client",
             AsyncMock(return_value=redis_client),
         ),
     ):
@@ -265,7 +269,7 @@ async def test_stream_resume_distinguishes_pause_from_rotated_continuation(
             AsyncMock(return_value=(TurnLifecycle.RUNNING, run_id)),
         ),
         patch(
-            "tracecat.agent.session.service.AgentStream.new",
+            "autosecops.agent.session.service.AgentStream.new",
             AsyncMock(return_value=stream),
         ) as stream_new,
     ):
@@ -1523,7 +1527,7 @@ async def test_approval_continuation_cas_loser_reuses_winning_stream(
     assert agent_session.active_stream_id == previous_stream_id
 
     with patch(
-        "tracecat.agent.stream.connector.get_redis_client",
+        "autosecops.agent.stream.connector.get_redis_client",
         AsyncMock(return_value=fake_redis),
     ):
         attempt = await service._prepare_approval_continuation_attempt(
@@ -1588,11 +1592,11 @@ async def test_run_turn_rejects_invalid_approval_ids_before_stream_rotation(
 
     with (
         patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             get_temporal_client,
         ),
         patch(
-            "tracecat.agent.session.service.AgentStream.new",
+            "autosecops.agent.session.service.AgentStream.new",
             new_stream,
         ),
         pytest.raises(ValueError, match=error_match),
@@ -1661,7 +1665,7 @@ async def test_run_turn_continue_without_pending_approvals(
     get_workflow_handle_for = Mock(return_value=fake_handle)
     fake_client = SimpleNamespace(get_workflow_handle_for=get_workflow_handle_for)
     with patch(
-        "tracecat.agent.backends.base.get_temporal_client",
+        "autosecops.agent.backends.base.get_temporal_client",
         AsyncMock(return_value=fake_client),
     ):
         with expectation:
@@ -1786,7 +1790,7 @@ async def test_run_turn_merges_basic_chat_request_instructions(
             AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             AsyncMock(return_value=temporal_client),
         ),
     ):
@@ -1888,7 +1892,7 @@ async def test_apply_decisions_warns_on_missing_row(
     agent_session = await _seed_approval_session(session, svc_role, approvals=[])
 
     service = AgentSessionService(session=session, role=svc_role)
-    with patch("tracecat.agent.session.service.logger") as mock_logger:
+    with patch("autosecops.agent.session.service.logger") as mock_logger:
         await service._apply_submitted_approval_decisions(
             session_id=agent_session.id,
             approval_map={"tool_call_missing": True, "tool_call_absent": False},
@@ -2014,7 +2018,7 @@ async def test_approval_connection_failure_rolls_back_and_allows_retry(
     with _mock_approval_continuation_dependencies(fake_redis, execute_update):
         with (
             patch(
-                "tracecat.agent.backends.base.get_temporal_client",
+                "autosecops.agent.backends.base.get_temporal_client",
                 side_effect=RuntimeError("connect failed"),
             ),
             pytest.raises(AgentControlRejected),

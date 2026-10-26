@@ -26,20 +26,20 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from tracecat.auth.users import optional_current_active_user
-from tracecat.db.engine import get_async_session_bypass_rls
-from tracecat.db.models import User
-from tracecat.mcp.oidc import config as oidc_config
-from tracecat.mcp.oidc import signing
-from tracecat.mcp.oidc.endpoints import router
-from tracecat.mcp.oidc.refresh_tokens import RefreshTokenError
-from tracecat.mcp.oidc.schemas import (
+from autosecops.auth.users import optional_current_active_user
+from autosecops.db.engine import get_async_session_bypass_rls
+from autosecops.db.models import User
+from autosecops.mcp.oidc import config as oidc_config
+from autosecops.mcp.oidc import signing
+from autosecops.mcp.oidc.endpoints import router
+from autosecops.mcp.oidc.refresh_tokens import RefreshTokenError
+from autosecops.mcp.oidc.schemas import (
     AuthCodeData,
     RefreshTokenContext,
     RefreshTokenMetadata,
     ResumeTransaction,
 )
-from tracecat.mcp.oidc.session import SessionResult
+from autosecops.mcp.oidc.session import SessionResult
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -212,18 +212,18 @@ def _pkce_pair() -> tuple[str, str]:
 def _setup_config(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnusedFunction]
     """Set config values and clear signing caches."""
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.signing.get_user_auth_secret",
+        "autosecops.mcp.oidc.signing.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(oidc_config, "TRACECAT__PUBLIC_API_URL", _TEST_API_URL)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.config.get_user_auth_secret",
+        "autosecops.mcp.oidc.config.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
+        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
     )
-    monkeypatch.setattr("tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
+    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
     signing.get_signing_key.cache_clear()
     signing.get_public_jwk.cache_clear()
     yield
@@ -281,47 +281,47 @@ def app(
         _stub_session_dependency
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         _stub_bypass_session_context_manager,
     )
 
     # Wire in-memory storage
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_auth_code",
+        "autosecops.mcp.oidc.endpoints.store_auth_code",
         mem_storage.store_auth_code,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         mem_storage.load_and_delete_auth_code,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.store_resume_transaction",
         mem_storage.store_resume_transaction,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         mem_storage.load_and_delete_resume_transaction,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_jti",
+        "autosecops.mcp.oidc.endpoints.store_jti",
         mem_storage.store_jti,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         mem_storage.check_token_rate_limit,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.issue_refresh_token",
+        "autosecops.mcp.oidc.endpoints.issue_refresh_token",
         mem_storage.issue_refresh_token,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         mem_storage.rotate_refresh_token,
     )
 
     # Mock session resolution to return the test user + org
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             return_value=SessionResult(
                 user=cast(User, mock_user), organization_id=org_id

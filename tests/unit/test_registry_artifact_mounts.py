@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat import config
-from tracecat.executor import registry_artifact_mounts
+from autosecops import config
+from autosecops.executor import registry_artifact_mounts
 
 
 def _process(*, returncode: int) -> AsyncMock:
@@ -24,12 +24,12 @@ async def test_sync_loop_device_nodes_parses_valid_counts() -> None:
 
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             return_value=process,
         ) as create_subprocess_exec,
         patch(
-            "tracecat.executor.registry_artifact_mounts.communicate_process_group",
+            "autosecops.executor.registry_artifact_mounts.communicate_process_group",
             new_callable=AsyncMock,
             return_value=(b"7 2 5\n", b""),
         ),
@@ -71,12 +71,12 @@ async def test_sync_loop_device_nodes_rejects_helper_failures(
 
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             return_value=process,
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts.communicate_process_group",
+            "autosecops.executor.registry_artifact_mounts.communicate_process_group",
             new_callable=AsyncMock,
             return_value=(stdout, stderr),
         ),
@@ -93,7 +93,7 @@ async def test_sync_loop_device_nodes_wraps_startup_failure() -> None:
     """An unavailable capability helper becomes a structured sync failure."""
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             side_effect=PermissionError("not permitted"),
         ),
@@ -114,11 +114,11 @@ async def test_mount_squashfs_classifies_spawn_permission_error(
     """A deployment-level spawn denial becomes a typed extract-only outcome."""
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.is_mount",
+            "autosecops.executor.registry_artifact_mounts.is_mount",
             return_value=False,
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             side_effect=PermissionError("not permitted"),
         ),
@@ -147,26 +147,26 @@ async def test_mount_squashfs_recovers_after_synchronizing_nodes(
 
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.is_mount",
+            "autosecops.executor.registry_artifact_mounts.is_mount",
             return_value=False,
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             side_effect=processes,
         ) as create_subprocess_exec,
         patch(
-            "tracecat.executor.registry_artifact_mounts.communicate_process_group",
+            "autosecops.executor.registry_artifact_mounts.communicate_process_group",
             new_callable=AsyncMock,
             side_effect=[(b"", b"failed"), (b"", b"")],
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts._sync_loop_device_nodes",
+            "autosecops.executor.registry_artifact_mounts._sync_loop_device_nodes",
             new_callable=AsyncMock,
             return_value=sync_result,
         ) as sync_nodes,
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.sleep",
+            "autosecops.executor.registry_artifact_mounts.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep,
     ):
@@ -187,21 +187,21 @@ async def test_mount_squashfs_preserves_mount_error_when_sync_fails(
 
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.is_mount",
+            "autosecops.executor.registry_artifact_mounts.is_mount",
             return_value=False,
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             return_value=process,
         ) as create_subprocess_exec,
         patch(
-            "tracecat.executor.registry_artifact_mounts.communicate_process_group",
+            "autosecops.executor.registry_artifact_mounts.communicate_process_group",
             new_callable=AsyncMock,
             return_value=(b"", b"mount failed"),
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts._sync_loop_device_nodes",
+            "autosecops.executor.registry_artifact_mounts._sync_loop_device_nodes",
             new_callable=AsyncMock,
             side_effect=sync_error,
         ),
@@ -230,26 +230,26 @@ async def test_mount_squashfs_stops_after_bounded_retries(tmp_path: Path) -> Non
 
     with (
         patch(
-            "tracecat.executor.registry_artifact_mounts.is_mount",
+            "autosecops.executor.registry_artifact_mounts.is_mount",
             return_value=False,
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
+            "autosecops.executor.registry_artifact_mounts.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
             side_effect=processes,
         ) as create_subprocess_exec,
         patch(
-            "tracecat.executor.registry_artifact_mounts.communicate_process_group",
+            "autosecops.executor.registry_artifact_mounts.communicate_process_group",
             new_callable=AsyncMock,
             return_value=(b"", b"still failing"),
         ),
         patch(
-            "tracecat.executor.registry_artifact_mounts._sync_loop_device_nodes",
+            "autosecops.executor.registry_artifact_mounts._sync_loop_device_nodes",
             new_callable=AsyncMock,
             return_value=sync_result,
         ) as sync_nodes,
         patch(
-            "tracecat.executor.registry_artifact_mounts.asyncio.sleep",
+            "autosecops.executor.registry_artifact_mounts.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep,
         pytest.raises(

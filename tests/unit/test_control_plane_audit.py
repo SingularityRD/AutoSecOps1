@@ -13,47 +13,47 @@ import pytest
 from fastapi import HTTPException
 from temporalio.service import RPCError, RPCStatusCode
 
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.audit.types import AuditEvent
-from tracecat.auth.types import Role
-from tracecat.contexts import RequestAuditContext, ctx_request_audit, ctx_role
-from tracecat.db.models import WebhookApiKey
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import (
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.audit.types import AuditEvent
+from autosecops.auth.types import Role
+from autosecops.contexts import RequestAuditContext, ctx_request_audit, ctx_role
+from autosecops.db.models import WebhookApiKey
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatConflictError,
     TracecatValidationError,
 )
-from tracecat.identifiers import ScheduleUUID
-from tracecat.identifiers.workflow import (
+from autosecops.identifiers import ScheduleUUID
+from autosecops.identifiers.workflow import (
     WorkflowUUID,
     exec_id_to_parts,
     generate_exec_id,
 )
-from tracecat.webhooks import service as webhook_service
-from tracecat.webhooks.schemas import WebhookCreate, WebhookUpdate
-from tracecat.workflow.case_triggers.schemas import (
+from autosecops.webhooks import service as webhook_service
+from autosecops.webhooks.schemas import WebhookCreate, WebhookUpdate
+from autosecops.workflow.case_triggers.schemas import (
     CaseTriggerConfig,
     CaseTriggerUpdate,
 )
-from tracecat.workflow.case_triggers.service import CaseTriggersService
-from tracecat.workflow.executions.service import WorkflowExecutionsService
-from tracecat.workflow.graph.service import WorkflowGraphService
-from tracecat.workflow.management import draft as workflow_management_draft
-from tracecat.workflow.management import router as workflow_management_router
-from tracecat.workflow.management.draft import (
+from autosecops.workflow.case_triggers.service import CaseTriggersService
+from autosecops.workflow.executions.service import WorkflowExecutionsService
+from autosecops.workflow.graph.service import WorkflowGraphService
+from autosecops.workflow.management import draft as workflow_management_draft
+from autosecops.workflow.management import router as workflow_management_router
+from autosecops.workflow.management.draft import (
     build_workflow_edit_document,
     persist_workflow_edit_document,
 )
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import (
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import (
     GraphOperation,
     GraphOperationType,
     WorkflowUpdate,
 )
-from tracecat.workflow.schedules.schemas import ScheduleCreate, ScheduleUpdate
-from tracecat.workflow.schedules.service import WorkflowSchedulesService
+from autosecops.workflow.schedules.schemas import ScheduleCreate, ScheduleUpdate
+from autosecops.workflow.schedules.service import WorkflowSchedulesService
 
 type AuditCall = dict[str, object]
 type Runner = Callable[

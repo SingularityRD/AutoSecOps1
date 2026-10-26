@@ -7,18 +7,18 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.enums import CaseEventType
-from tracecat.db.models import Workflow
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.sync import CommitInfo, PushStatus
-from tracecat.workflow.store.schemas import WorkflowDslPublish
-from tracecat.workflow.store.service import WorkflowStoreService
-from tracecat.workspace_sync.schemas import WorkspaceSyncExportResult
-from tracecat.workspace_sync.workflow import workflow_spec_from_orm
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.enums import CaseEventType
+from autosecops.db.models import Workflow
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.sync import CommitInfo, PushStatus
+from autosecops.workflow.store.schemas import WorkflowDslPublish
+from autosecops.workflow.store.service import WorkflowStoreService
+from autosecops.workspace_sync.schemas import WorkspaceSyncExportResult
+from autosecops.workspace_sync.workflow import workflow_spec_from_orm
 
 
 @pytest.fixture
@@ -167,7 +167,7 @@ async def test_publish_workflow_legacy_branch_still_creates_pr(
     workflow = _workflow_fixture(workflow_id, case_trigger=None)
 
     with patch(
-        "tracecat.workflow.store.service.WorkspaceSyncService.for_workspace",
+        "autosecops.workflow.store.service.WorkspaceSyncService.for_workspace",
         new_callable=AsyncMock,
     ) as for_workspace:
         sync_service = AsyncMock()

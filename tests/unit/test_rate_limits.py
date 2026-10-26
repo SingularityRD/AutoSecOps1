@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK, HTTP_429_TOO_MANY_REQUESTS
 
-from tracecat.middleware import RateLimitMiddleware
+from autosecops.middleware import RateLimitMiddleware
 
 
 @pytest.fixture

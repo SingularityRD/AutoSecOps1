@@ -7,19 +7,18 @@ from typing import cast
 from unittest.mock import patch
 
 import pytest
+from autosecops_ee.admin.users.schemas import AdminUserCreate
+from autosecops_ee.admin.users.service import AdminUserService
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
-from tracecat_ee.admin.users.schemas import AdminUserCreate
-from tracecat_ee.admin.users.service import AdminUserService
 
-from tests.support.membership import grant_org_membership, grant_workspace_membership
-from tracecat import config
-from tracecat.audit.enums import AuditEventStatus
-from tracecat.audit.service import AuditService
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.service import AuditService
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import (
     AccessToken,
     LegacyMembership,
     Membership,
@@ -29,7 +28,8 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
+from autosecops.db.models import Role as DBRole
+from tests.support.membership import grant_org_membership, grant_workspace_membership
 
 pytestmark = pytest.mark.usefixtures("db")
 

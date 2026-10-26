@@ -5,15 +5,15 @@ from typing import Any
 
 import pytest
 import yaml
-from tracecat_registry import RegistryOAuthSecret, RegistrySecret
+from autosecops_registry import RegistryOAuthSecret, RegistrySecret
 
-from tracecat.registry.actions.schemas import TemplateAction
+from autosecops.registry.actions.schemas import TemplateAction
 
 TEMPLATES = (
     Path(__file__).resolve().parents[2]
     / "packages"
-    / "tracecat-registry"
-    / "tracecat_registry"
+    / "autosecops-registry"
+    / "autosecops_registry"
     / "templates"
     / "tools"
 )

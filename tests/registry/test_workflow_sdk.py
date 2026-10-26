@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from tracecat_registry.sdk.workflows import (
+from autosecops_registry.sdk.workflows import (
     DEFAULT_MAX_WAIT_TIME,
     DEFAULT_POLL_INTERVAL,
     TERMINAL_STATUSES,
@@ -494,12 +494,12 @@ class TestDefaultConstants:
 
 
 class TestWorkflowExecutionIDPattern:
-    """Pin the registry's execution ID pattern to the tracecat source of truth."""
+    """Pin the registry's execution ID pattern to the autosecops source of truth."""
 
     def test_pattern_matches_tracecat_schema_pattern(self):
         """The registry copy must stay byte-identical to WF_EXEC_ID_SCHEMA_PATTERN."""
-        from tracecat_registry._internal.models import WF_EXEC_ID_PATTERN
+        from autosecops_registry._internal.models import WF_EXEC_ID_PATTERN
 
-        from tracecat.identifiers.workflow import WF_EXEC_ID_SCHEMA_PATTERN
+        from autosecops.identifiers.workflow import WF_EXEC_ID_SCHEMA_PATTERN
 
         assert WF_EXEC_ID_PATTERN == WF_EXEC_ID_SCHEMA_PATTERN

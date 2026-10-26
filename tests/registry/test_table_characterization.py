@@ -22,12 +22,9 @@ from typing import get_args
 import httpx
 import pytest
 import sqlalchemy as sa
-from httpx import ASGITransport
-from pydantic import TypeAdapter
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_registry import types
-from tracecat_registry.context import RegistryContext, clear_context, set_context
-from tracecat_registry.core.table import (
+from autosecops_registry import types
+from autosecops_registry.context import RegistryContext, clear_context, set_context
+from autosecops_registry.core.table import (
     aggregate_rows,
     create_table,
     delete_row,
@@ -42,24 +39,29 @@ from tracecat_registry.core.table import (
     search_rows,
     update_row,
 )
-from tracecat_registry.sdk.exceptions import (
+from autosecops_registry.sdk.exceptions import (
     TracecatNotFoundError,
     TracecatValidationError,
 )
+from httpx import ASGITransport
+from pydantic import TypeAdapter
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.auth.dependencies import ExecutorWorkspaceRole
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.contexts import ctx_role
-from tracecat.db.dependencies import get_async_session
-from tracecat.db.models import Workspace
-from tracecat.executor.action_gateway.app import create_app as create_action_gateway_app
-from tracecat.registry.repository import Repository
-from tracecat.tables.common import sanitize_identifier
-from tracecat.tables.schemas import TableCreate
-from tracecat.tables.service import TablesService
-from tracecat.validation.common import json_schema_to_pydantic
+from autosecops import config
+from autosecops.auth.dependencies import ExecutorWorkspaceRole
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.contexts import ctx_role
+from autosecops.db.dependencies import get_async_session
+from autosecops.db.models import Workspace
+from autosecops.executor.action_gateway.app import (
+    create_app as create_action_gateway_app,
+)
+from autosecops.registry.repository import Repository
+from autosecops.tables.common import sanitize_identifier
+from autosecops.tables.schemas import TableCreate
+from autosecops.tables.service import TablesService
+from autosecops.validation.common import json_schema_to_pydantic
 
 _ACTION_GATEWAY_SOCKET = "/tmp/tracecat-test-action-gateway.sock"
 app = create_action_gateway_app()

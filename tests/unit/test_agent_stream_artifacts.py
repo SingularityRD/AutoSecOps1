@@ -9,32 +9,32 @@ import orjson
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.adapter.vercel import (
+from autosecops.agent.adapter.vercel import (
     DataEventPayload,
     VercelSSEPayload,
     VercelStreamContext,
 )
-from tracecat.agent.common.stream_types import StreamEventType
-from tracecat.agent.stream.artifacts import (
+from autosecops.agent.common.stream_types import StreamEventType
+from autosecops.agent.stream.artifacts import (
     artifact_stream_event,
     artifact_stream_events_for_tool_result,
 )
-from tracecat.agent.stream.connector import AgentStream
-from tracecat.artifacts.bindings import (
+from autosecops.agent.stream.connector import AgentStream
+from autosecops.artifacts.bindings import (
     ArtifactIdentityRef,
     ArtifactSideEffect,
     artifact_side_effects_for_tool_result,
 )
-from tracecat.artifacts.projection import (
+from autosecops.artifacts.projection import (
     apply_artifact_side_effects,
     serialize_artifacts,
 )
-from tracecat.artifacts.resolution import resolve_artifact_side_effects
-from tracecat.artifacts.schemas import ArtifactAdapter
-from tracecat.auth.types import Role
-from tracecat.chat import tokens
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.redis.client import RedisClient
+from autosecops.artifacts.resolution import resolve_artifact_side_effects
+from autosecops.artifacts.schemas import ArtifactAdapter
+from autosecops.auth.types import Role
+from autosecops.chat import tokens
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.redis.client import RedisClient
 
 
 async def collect_frames(
@@ -131,11 +131,11 @@ async def test_resolve_artifact_side_effects_resolves_table_identity(
         return SimpleNamespace(id=table_id, name="indicators")
 
     monkeypatch.setattr(
-        "tracecat.artifacts.resolution.TablesService.get_table_by_name",
+        "autosecops.artifacts.resolution.TablesService.get_table_by_name",
         fake_get_table_by_name,
     )
     monkeypatch.setattr(
-        "tracecat.artifacts.resolution.TablesService.get_table",
+        "autosecops.artifacts.resolution.TablesService.get_table",
         fake_get_table,
     )
 
@@ -182,7 +182,7 @@ async def test_resolve_artifact_side_effects_skips_invalid_table_name_ref(
         raise ValueError("Invalid table name")
 
     monkeypatch.setattr(
-        "tracecat.artifacts.resolution.TablesService.get_table_by_name",
+        "autosecops.artifacts.resolution.TablesService.get_table_by_name",
         fake_get_table_by_name,
     )
 

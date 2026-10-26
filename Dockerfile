@@ -233,7 +233,7 @@ FROM base AS plugin-skills
 # TracecatHQ/tracecat-plugins, see the NOTICE file there), so the image build
 # does not depend on an upstream download. Only the skill directories are
 # copied; the runtime expects exactly these three under /skills/<name>/.
-COPY ./tracecat/agent/skill/builtin/skills /tmp/platform-skills
+COPY ./autosecops/agent/skill/builtin/skills /tmp/platform-skills
 
 RUN set -eux; \
     mkdir -p /skills; \
@@ -328,14 +328,14 @@ ENV PYTHONPATH="/home/apiuser/.local"
 RUN mkdir -p /home/apiuser/.local/bin && ln -s $(which uv) /home/apiuser/.local/bin/uv
 
 EXPOSE $PORT
-CMD ["sh", "-c", "python3 -m uvicorn tracecat.api.app:app --host $HOST --port $PORT --reload"]
+CMD ["sh", "-c", "python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT --reload"]
 
 # ====================
 # Stage 7: Development registry manifest
 # ====================
 FROM development-app AS development-registry-manifest
 
-RUN /app/.venv/bin/python -m tracecat.registry.sync.prebuild
+RUN /app/.venv/bin/python -m autosecops.registry.sync.prebuild
 
 # ====================
 # Stage 8: Development target
@@ -386,7 +386,7 @@ RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-workspace --no-dev --no-editable
 
-COPY --chown=apiuser:apiuser ./tracecat /app/tracecat
+COPY --chown=apiuser:apiuser ./autosecops /app/autosecops
 COPY --chown=apiuser:apiuser ./packages /app/packages
 COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/tracecat/copilot-skills/
 COPY --chown=apiuser:apiuser ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
@@ -404,7 +404,7 @@ RUN ln -sf $(which uv) /home/apiuser/.local/bin/uv
 # ====================
 FROM production-app AS registry-manifest
 
-RUN /app/.venv/bin/python -m tracecat.registry.sync.prebuild
+RUN /app/.venv/bin/python -m autosecops.registry.sync.prebuild
 
 # ====================
 # Stage 12: Production target
@@ -438,4 +438,4 @@ COPY ./deployments/fargate /opt/autosecops/fargate/
 RUN nsjail --help > /dev/null 2>&1 && echo "nsjail available"
 
 EXPOSE $PORT
-CMD ["sh", "-c", "python3 -m uvicorn tracecat.api.app:app --host $HOST --port $PORT"]
+CMD ["sh", "-c", "python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT"]

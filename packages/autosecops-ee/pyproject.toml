@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autosecops-ee"
+description = "Enterprise Edition features for AutoSecOps"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE.md"]
+authors = [{ name = "SingularityRD" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = []
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://docs.singularityrd.com"
+Documentation = "https://docs.singularityrd.com"
+Repository = "https://github.com/SingularityRD/AutoSecOps1"
+
+[project.entry-points."autosecops.workflows.git_sync"]
+ee_impl = "autosecops_ee.store.git_sync:sync_repo_workflows"
+
+[project.entry-points."autosecops.workflows.git_store"]
+ee_impl = "autosecops_ee.store.git_store:GitWorkflowStore"
+
+[project.entry-points."autosecops.agent_artifact_provider"]
+workspace_chat = "autosecops_ee.agent.artifacts.mount_only_provider:build_provider"
+
+[tool.hatch.version]
+path = "autosecops_ee/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["autosecops_ee"]

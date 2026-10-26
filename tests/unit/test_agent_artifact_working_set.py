@@ -6,37 +6,37 @@ from types import SimpleNamespace
 
 import orjson
 import pytest
-from tracecat_ee.agent.artifacts.hydrators import (
+from autosecops_ee.agent.artifacts.hydrators import (
     AgentArtifactHydrator,
     CaseArtifactHydrator,
     TableArtifactHydrator,
 )
-from tracecat_ee.agent.artifacts.mount_only_provider import (
+from autosecops_ee.agent.artifacts.mount_only_provider import (
     MountOnlyArtifactWorkingSetProvider,
 )
 
-from tracecat.agent.artifacts import providers as provider_module
-from tracecat.agent.artifacts.hydration import (
+from autosecops.agent.artifacts import providers as provider_module
+from autosecops.agent.artifacts.hydration import (
     ArtifactHydrationContext,
     ArtifactHydratorRegistry,
     MountedArtifactContent,
 )
-from tracecat.agent.artifacts.providers import (
+from autosecops.agent.artifacts.providers import (
     ARTIFACT_PROVIDER_ENTRY_POINT_GROUP,
     ARTIFACT_PROVIDER_ENV,
     NoopArtifactWorkingSetProvider,
     get_artifact_working_set_provider,
 )
-from tracecat.agent.artifacts.working_set import ArtifactWorkingSetContext
-from tracecat.artifacts.schemas import (
+from autosecops.agent.artifacts.working_set import ArtifactWorkingSetContext
+from autosecops.artifacts.schemas import (
     AgentArtifact,
     Artifact,
     CaseArtifact,
     TableArtifact,
 )
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseSeverity, CaseStatus
-from tracecat.exceptions import ScopeDeniedError
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseSeverity, CaseStatus
+from autosecops.exceptions import ScopeDeniedError
 
 
 def _role(workspace_id: uuid.UUID) -> Role:
@@ -83,7 +83,7 @@ def test_provider_resolution_uses_configured_import_path(monkeypatch) -> None:
     get_artifact_working_set_provider.cache_clear()
     monkeypatch.setenv(
         ARTIFACT_PROVIDER_ENV,
-        "tracecat_ee.agent.artifacts.mount_only_provider:build_provider",
+        "autosecops_ee.agent.artifacts.mount_only_provider:build_provider",
     )
 
     try:

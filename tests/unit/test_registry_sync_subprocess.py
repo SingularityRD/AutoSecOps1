@@ -7,16 +7,16 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.exceptions import RegistryError, RegistrySyncContentError
-from tracecat.registry.sync.schemas import SyncErrorCode, SyncResultError
-from tracecat.registry.sync.subprocess import fetch_actions_from_subprocess
+from autosecops.exceptions import RegistryError, RegistrySyncContentError
+from autosecops.registry.sync.schemas import SyncErrorCode, SyncResultError
+from autosecops.registry.sync.subprocess import fetch_actions_from_subprocess
 
 
 def _mock_subprocess(mocker, *, stdout: str, returncode: int) -> None:
     process = mocker.Mock(returncode=returncode)
     process.communicate = mocker.AsyncMock(return_value=(stdout.encode(), b""))
     mocker.patch(
-        "tracecat.registry.sync.subprocess.asyncio.create_subprocess_exec",
+        "autosecops.registry.sync.subprocess.asyncio.create_subprocess_exec",
         mocker.AsyncMock(return_value=process),
     )
 
@@ -34,7 +34,7 @@ async def test_fetch_actions_raises_typed_error_for_error_code(mocker) -> None:
 
     with pytest.raises(RegistrySyncContentError) as exc_info:
         await fetch_actions_from_subprocess(
-            origin="tracecat_registry", repository_id=uuid4()
+            origin="autosecops_registry", repository_id=uuid4()
         )
 
     assert exc_info.value.code == SyncErrorCode.PACKAGE_NOT_FOUND
@@ -51,7 +51,7 @@ async def test_fetch_actions_raises_plain_error_without_error_code(mocker) -> No
 
     with pytest.raises(RegistryError) as exc_info:
         await fetch_actions_from_subprocess(
-            origin="tracecat_registry", repository_id=uuid4()
+            origin="autosecops_registry", repository_id=uuid4()
         )
 
     assert type(exc_info.value) is RegistryError
@@ -64,7 +64,7 @@ async def test_fetch_actions_reports_exit_code_for_unparseable_output(mocker) ->
 
     with pytest.raises(RegistryError, match="exited with code 2"):
         await fetch_actions_from_subprocess(
-            origin="tracecat_registry", repository_id=uuid4()
+            origin="autosecops_registry", repository_id=uuid4()
         )
 
 
@@ -83,7 +83,7 @@ async def test_fetch_actions_maps_zero_exit_error_result(mocker) -> None:
 
     with pytest.raises(RegistrySyncContentError) as exc_info:
         await fetch_actions_from_subprocess(
-            origin="tracecat_registry", repository_id=uuid4()
+            origin="autosecops_registry", repository_id=uuid4()
         )
 
     assert exc_info.value.code == SyncErrorCode.TEMPLATE_LOAD_FAILED

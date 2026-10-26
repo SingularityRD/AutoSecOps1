@@ -12,20 +12,24 @@ import orjson
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-import tracecat.agent.executor.loopback as loopback_module
-from tracecat.agent.channels.sinks.slack import SlackStreamSink
-from tracecat.agent.common.protocol import RuntimeEventEnvelope
-from tracecat.agent.common.socket_io import MAX_PAYLOAD_SIZE, MessageType, build_message
-from tracecat.agent.common.stream_types import (
+import autosecops.agent.executor.loopback as loopback_module
+from autosecops.agent.channels.sinks.slack import SlackStreamSink
+from autosecops.agent.common.protocol import RuntimeEventEnvelope
+from autosecops.agent.common.socket_io import (
+    MAX_PAYLOAD_SIZE,
+    MessageType,
+    build_message,
+)
+from autosecops.agent.common.stream_types import (
     StreamEventType,
     ToolCallContent,
     UnifiedStreamEvent,
 )
-from tracecat.agent.error_policy import (
+from autosecops.agent.error_policy import (
     agent_executor_unclassified,
     user_agent_execution_failed,
 )
-from tracecat.agent.executor.loopback import (
+from autosecops.agent.executor.loopback import (
     AgentStreamSink,
     FanoutStreamSink,
     LoopbackHandler,
@@ -33,14 +37,14 @@ from tracecat.agent.executor.loopback import (
     RuntimeEnvelopeProtocolError,
     _runtime_envelope_from_json,
 )
-from tracecat.agent.stream.connector import AgentStream
-from tracecat.artifacts.bindings import ArtifactSideEffect
-from tracecat.artifacts.schemas import CaseArtifact
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseSeverity, CaseStatus
-from tracecat.db.models import AgentSessionHistory
-from tracecat.observability.types import PlatformErrorCapture
-from tracecat.runtime.errors import (
+from autosecops.agent.stream.connector import AgentStream
+from autosecops.artifacts.bindings import ArtifactSideEffect
+from autosecops.artifacts.schemas import CaseArtifact
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseSeverity, CaseStatus
+from autosecops.db.models import AgentSessionHistory
+from autosecops.observability.types import PlatformErrorCapture
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
@@ -118,7 +122,9 @@ async def test_terminal_error_falls_back_to_redis_on_external_lookup_error(
 
     fake_stream = _FakeStream()
     stream_new = AsyncMock(return_value=fake_stream)
-    monkeypatch.setattr("tracecat.agent.executor.loopback.AgentStream.new", stream_new)
+    monkeypatch.setattr(
+        "autosecops.agent.executor.loopback.AgentStream.new", stream_new
+    )
 
     emitted = await handler.emit_terminal_error(
         "runtime exited before connect",
@@ -153,7 +159,9 @@ async def test_initialize_stream_sink_uses_fanout_when_external_sink_available(
     )
     fake_stream = _FakeStream()
     stream_new = AsyncMock(return_value=fake_stream)
-    monkeypatch.setattr("tracecat.agent.executor.loopback.AgentStream.new", stream_new)
+    monkeypatch.setattr(
+        "autosecops.agent.executor.loopback.AgentStream.new", stream_new
+    )
 
     sink = await handler._initialize_stream_sink()
     event = UnifiedStreamEvent(type=StreamEventType.TEXT_DELTA, text="hello")
@@ -177,7 +185,9 @@ async def test_emit_terminal_error_emits_failed_compaction_when_pending(
 
     fake_stream = _FakeStream()
     stream_new = AsyncMock(return_value=fake_stream)
-    monkeypatch.setattr("tracecat.agent.executor.loopback.AgentStream.new", stream_new)
+    monkeypatch.setattr(
+        "autosecops.agent.executor.loopback.AgentStream.new", stream_new
+    )
 
     handler._started_compaction_event = True
 
@@ -319,7 +329,7 @@ async def test_persist_session_line_preserves_raw_nul_content(
     handler._sdk_session_id = "sdk-session"
     session = _FakeHistoryPersistenceSession()
     monkeypatch.setattr(
-        "tracecat.agent.executor.loopback.get_async_session_bypass_rls_context_manager",
+        "autosecops.agent.executor.loopback.get_async_session_bypass_rls_context_manager",
         lambda: _FakeSessionContext(session),
     )
     raw_line = (
@@ -549,11 +559,11 @@ async def test_persist_artifact_side_effects_uses_workspace_organization(
             self.apply_artifact_side_effects = apply_artifact_side_effects
 
     monkeypatch.setattr(
-        "tracecat.agent.executor.loopback.get_async_session_bypass_rls_context_manager",
+        "autosecops.agent.executor.loopback.get_async_session_bypass_rls_context_manager",
         lambda: _FakeSessionContext(fake_session),
     )
     monkeypatch.setattr(
-        "tracecat.agent.executor.loopback.AgentSessionService",
+        "autosecops.agent.executor.loopback.AgentSessionService",
         FakeAgentSessionService,
     )
 

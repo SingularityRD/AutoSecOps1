@@ -6,9 +6,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.settings.router as settings_router_module
-from tracecat.auth.types import Role
-from tracecat.exceptions import EntitlementRequired
+import autosecops.settings.router as settings_router_module
+from autosecops.auth.types import Role
+from autosecops.exceptions import EntitlementRequired
 
 
 @pytest.mark.anyio

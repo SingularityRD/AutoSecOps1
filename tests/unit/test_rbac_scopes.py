@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.controls import (
+from autosecops.auth.types import Role
+from autosecops.authz.controls import (
     ensure_can_grant_scopes,
     get_missing_scopes,
     has_any_scope,
@@ -15,7 +15,7 @@ from tracecat.authz.controls import (
     scope_matches,
     validate_scope_string,
 )
-from tracecat.authz.scopes import (
+from autosecops.authz.scopes import (
     ADMIN_SCOPES,
     EDITOR_SCOPES,
     ORG_ADMIN_SCOPES,
@@ -26,8 +26,8 @@ from tracecat.authz.scopes import (
     VIEWER_SCOPES,
     WORKSPACE_OPERATIONAL_SCOPES,
 )
-from tracecat.contexts import ctx_role
-from tracecat.exceptions import ScopeDeniedError, TracecatAuthorizationError
+from autosecops.contexts import ctx_role
+from autosecops.exceptions import ScopeDeniedError, TracecatAuthorizationError
 
 
 @pytest.fixture(autouse=True)

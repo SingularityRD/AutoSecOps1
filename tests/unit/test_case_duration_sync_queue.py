@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, call
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.cases.durations.schemas import CaseDurationAnchorSelection
-from tracecat.cases.durations.sync_queue import (
+from autosecops import config
+from autosecops.cases.durations.schemas import CaseDurationAnchorSelection
+from autosecops.cases.durations.sync_queue import (
     ROLLOUT_BACKFILL_LEASE_SECONDS,
     ROLLOUT_BACKFILL_MARKER_KEY,
     ROLLOUT_BACKFILL_PENDING_SENTINEL,
@@ -20,8 +20,8 @@ from tracecat.cases.durations.sync_queue import (
     enqueue_rollout_backfill_once,
     publish_case_duration_sync,
 )
-from tracecat.cases.enums import CaseEventType
-from tracecat.db.models import CaseDurationDefinition, Organization, Workspace
+from autosecops.cases.enums import CaseEventType
+from autosecops.db.models import CaseDurationDefinition, Organization, Workspace
 
 
 def _duration_definition(
@@ -48,7 +48,7 @@ async def test_publish_does_not_cap_unconsumed_jobs(
     redis_mock = MagicMock()
     redis_mock.xadd = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_redis_client",
+        "autosecops.cases.durations.sync_queue.get_redis_client",
         AsyncMock(return_value=redis_mock),
     )
     workspace_id = uuid.uuid4()
@@ -132,12 +132,12 @@ async def test_org_backfill_publishes_only_defined_workspaces_for_org(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     publish_mock = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
 
@@ -211,12 +211,12 @@ async def test_orgs_backfill_publishes_defined_workspaces_for_all_selected_orgs(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     publish_mock = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
 
@@ -256,12 +256,12 @@ def _mock_org_backfill_environment(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     publish_mock = AsyncMock(side_effect=[ConnectionError("redis unavailable"), "1-0"])
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
     return publish_mock
@@ -283,7 +283,7 @@ async def test_org_backfill_publish_failure_syncs_inline_and_continues(
     )
     sync_mock = AsyncMock(return_value=True)
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.sync_case_duration",
+        "autosecops.cases.durations.materialization.sync_case_duration",
         sync_mock,
     )
 
@@ -324,12 +324,14 @@ async def test_org_backfill_inline_sync_failure_isolated_and_retried(
     sleep_mock = AsyncMock()
     warning_mock = MagicMock()
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.sync_case_duration",
+        "autosecops.cases.durations.materialization.sync_case_duration",
         sync_mock,
     )
-    monkeypatch.setattr("tracecat.cases.durations.sync_queue.asyncio.sleep", sleep_mock)
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.logger.warning", warning_mock
+        "autosecops.cases.durations.sync_queue.asyncio.sleep", sleep_mock
+    )
+    monkeypatch.setattr(
+        "autosecops.cases.durations.sync_queue.logger.warning", warning_mock
     )
 
     await enqueue_case_duration_backfill_for_org(organization_id)
@@ -366,15 +368,17 @@ async def test_org_backfill_inline_failure_does_not_block_other_workspaces(
     warning_mock = MagicMock()
     exception_mock = MagicMock()
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.sync_case_duration",
+        "autosecops.cases.durations.materialization.sync_case_duration",
         sync_mock,
     )
-    monkeypatch.setattr("tracecat.cases.durations.sync_queue.asyncio.sleep", sleep_mock)
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.logger.warning", warning_mock
+        "autosecops.cases.durations.sync_queue.asyncio.sleep", sleep_mock
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.logger.exception", exception_mock
+        "autosecops.cases.durations.sync_queue.logger.warning", warning_mock
+    )
+    monkeypatch.setattr(
+        "autosecops.cases.durations.sync_queue.logger.exception", exception_mock
     )
 
     await enqueue_case_duration_backfill_for_org(organization_id)
@@ -407,7 +411,7 @@ def _mock_rollout_environment(
     redis_mock.set = AsyncMock()
     redis_mock.delete = AsyncMock()
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_redis_client",
+        "autosecops.cases.durations.sync_queue.get_redis_client",
         AsyncMock(return_value=redis_mock),
     )
 
@@ -421,12 +425,12 @@ def _mock_rollout_environment(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     publish_mock = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
     return redis_mock, publish_mock
@@ -525,7 +529,7 @@ def capture_after_commit_callback(
             callbacks.append(callback)
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.AfterCommitQueue.of",
+        "autosecops.cases.durations.sync_queue.AfterCommitQueue.of",
         classmethod(lambda _cls, _session: _StubQueue()),
     )
     return callbacks
@@ -554,11 +558,11 @@ async def test_case_sync_publish_failure_retries_inline_fallback(
     publish_mock = AsyncMock(side_effect=ConnectionError("redis unavailable"))
     fallback_mock = AsyncMock(side_effect=fallback_effect)
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS",
+        "autosecops.cases.durations.sync_queue.INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS",
         delays,
     )
 
@@ -584,7 +588,7 @@ async def test_definition_sync_publish_failure_runs_inline_backfill(
     publish_mock = AsyncMock(side_effect=ConnectionError("redis unavailable"))
     inline_backfill_mock = AsyncMock(return_value=None)
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
 

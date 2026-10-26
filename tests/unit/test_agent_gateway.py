@@ -26,8 +26,8 @@ from litellm.router import Router
 from openai import AsyncOpenAI
 from starlette.requests import Request
 
-from tracecat.agent.diagnostics import MAX_LLM_ERROR_BODY_BYTES
-from tracecat.agent.gateway import (
+from autosecops.agent.diagnostics import MAX_LLM_ERROR_BODY_BYTES
+from autosecops.agent.gateway import (
     TracecatCallbackHandler,
     _filter_allowed_model_settings,
     _inject_provider_credentials,
@@ -35,11 +35,11 @@ from tracecat.agent.gateway import (
     get_provider_credentials,
     user_api_key_auth,
 )
-from tracecat.agent.gateway_providers import GATEWAY_PROVIDER_SPECS
-from tracecat.agent.sandbox.llm_proxy import _http_error_classification
-from tracecat.agent.tokens import verify_llm_token
-from tracecat.exceptions import AgentModelNotEnabledError, TracecatAuthorizationError
-from tracecat.runtime.errors import (
+from autosecops.agent.gateway_providers import GATEWAY_PROVIDER_SPECS
+from autosecops.agent.sandbox.llm_proxy import _http_error_classification
+from autosecops.agent.tokens import verify_llm_token
+from autosecops.exceptions import AgentModelNotEnabledError, TracecatAuthorizationError
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
@@ -247,7 +247,7 @@ async def test_bedrock_resolves_assumed_role_credentials(
         }
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway._assume_bedrock_role",
+        "autosecops.agent.gateway._assume_bedrock_role",
         mock_assume_bedrock_role,
     )
 
@@ -305,7 +305,7 @@ def test_bedrock_rejects_ambient_credential_fallback() -> None:
 def test_litellm_config_routes_provider_placeholders_before_catch_all() -> None:
     config_path = (
         Path(__file__).resolve().parents[2]
-        / "tracecat"
+        / "autosecops"
         / "agent"
         / "litellm_config.yaml"
     )
@@ -391,7 +391,7 @@ async def test_user_api_key_auth_rejects_invalid_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.gateway.verify_llm_token",
+        "autosecops.agent.gateway.verify_llm_token",
         lambda _: (_ for _ in ()).throw(ValueError("bad token")),
     )
 
@@ -446,7 +446,7 @@ def _patch_catalog_credentials_error(
         yield _FailingCatalogService()
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.AgentManagementService.with_session",
+        "autosecops.agent.gateway.AgentManagementService.with_session",
         _with_session,
     )
 
@@ -562,7 +562,7 @@ async def test_user_api_key_auth_applies_anthropic_beta_metadata_by_route(
         else {}
     )
     monkeypatch.setattr(
-        "tracecat.agent.gateway.verify_llm_token",
+        "autosecops.agent.gateway.verify_llm_token",
         lambda _: SimpleNamespace(
             workspace_id="00000000-0000-0000-0000-000000000001",
             organization_id="00000000-0000-0000-0000-000000000002",
@@ -598,7 +598,7 @@ async def test_user_api_key_auth_preserves_legacy_workspace_credentials_claim(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.gateway.verify_llm_token",
+        "autosecops.agent.gateway.verify_llm_token",
         lambda _: SimpleNamespace(
             workspace_id="00000000-0000-0000-0000-000000000001",
             organization_id="00000000-0000-0000-0000-000000000002",
@@ -631,7 +631,7 @@ async def test_pre_call_hook_filters_model_settings(
         return {"OPENAI_API_KEY": "test-openai-key"}
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         mock_get_provider_credentials,
     )
 
@@ -692,11 +692,11 @@ async def test_pre_call_hook_logs_proxy_trace_request_id(
         return {"OPENAI_API_KEY": "test-openai-key"}
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         mock_get_provider_credentials,
     )
     log = Mock()
-    monkeypatch.setattr("tracecat.agent.gateway.logger", log)
+    monkeypatch.setattr("autosecops.agent.gateway.logger", log)
 
     await TracecatCallbackHandler().async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
@@ -733,7 +733,7 @@ async def test_pre_call_hook_uses_request_model_route_claim(
         return {"OPENAI_API_KEY": "test-openai-key"}
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         mock_get_provider_credentials,
     )
 
@@ -780,7 +780,7 @@ async def test_pre_call_hook_does_not_inject_reasoning_effort_without_model_sett
         return {"OPENAI_API_KEY": "test-openai-key"}
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         mock_get_provider_credentials,
     )
 
@@ -815,7 +815,7 @@ async def test_pre_call_hook_strips_anthropic_beta_payload_fields_for_non_anthro
         return {"OPENAI_API_KEY": "test-openai-key"}
 
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         mock_get_provider_credentials,
     )
 

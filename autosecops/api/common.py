@@ -1,0 +1,370 @@
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from fastapi import HTTPException, Request, Response, status
+from fastapi.exception_handlers import http_exception_handler as default_http_handler
+from fastapi.responses import ORJSONResponse
+from fastapi.routing import APIRoute
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from temporalio.api.enums.v1 import IndexedValueType
+from temporalio.api.operatorservice.v1 import (
+    AddSearchAttributesRequest,
+    ListSearchAttributesRequest,
+    RemoveSearchAttributesRequest,
+)
+from temporalio.service import RPCError, RPCStatusCode
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from autosecops.auth.types import Role
+from autosecops.config import TEMPORAL__CLUSTER_NAMESPACE
+from autosecops.contexts import ctx_role
+from autosecops.db.exceptions import AuthPoolExhaustedError
+from autosecops.dsl.client import get_temporal_client
+from autosecops.exceptions import TracecatException
+from autosecops.identifiers import OrganizationID
+from autosecops.logger import logger
+from autosecops.observability.sentry import capture_auth_pool_exhaustion
+from autosecops.query.errors import (
+    TracecatQueryOverflowError,
+    TracecatQueryTimeoutError,
+)
+from autosecops.tables.exceptions import TableRowError
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+
+# All AutoSecOps search attributes are Keyword-typed.
+_SEARCH_ATTRIBUTE_TYPES: dict[str, IndexedValueType.ValueType] = {
+    attr.value: IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD
+    for attr in TemporalSearchAttr
+}
+
+
+def without_inputs(errors: Sequence[Any]) -> list[Any]:
+    """Request validation errors without the rejected input.
+
+    The input can be large or sensitive, such as an inline image, so it is
+    never logged.
+    """
+    return [
+        {key: value for key, value in error.items() if key != "input"}
+        if isinstance(error, Mapping)
+        else error
+        for error in errors
+    ]
+
+
+async def generic_exception_handler(request: Request, exc: Exception) -> Response:
+    logger.exception(
+        "Unexpected error",
+        exc=exc,
+        role=ctx_role.get(),
+        params=request.query_params,
+        path=request.url.path,
+    )
+    return ORJSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "An unexpected error occurred. Please try again later."},
+    )
+
+
+async def http_exception_handler(request: Request, exc: Exception) -> Response:
+    """Log HTTP exceptions with tenant context for observability."""
+    http_exc = (
+        exc if isinstance(exc, StarletteHTTPException) else HTTPException(500, str(exc))
+    )
+    role = ctx_role.get()
+    log_method = logger.warning if http_exc.status_code < 500 else logger.error
+    log_method(
+        "HTTP error",
+        status_code=http_exc.status_code,
+        detail=http_exc.detail,
+        path=request.url.path,
+        method=request.method,
+        role=role,
+    )
+    return await default_http_handler(request, http_exc)
+
+
+def auth_pool_exhausted_exception_handler(
+    request: Request,
+    exc: Exception,
+) -> Response:
+    """Return a machine-readable 503 for caller-controlled retry handling."""
+    auth_exc = (
+        exc
+        if isinstance(exc, AuthPoolExhaustedError)
+        else AuthPoolExhaustedError(str(exc))
+    )
+    if isinstance(exc, AuthPoolExhaustedError):
+        capture_auth_pool_exhaustion(exc)
+    logger.error(
+        "Authentication database pool exhausted",
+        exc=auth_exc,
+        path=request.url.path,
+        method=request.method,
+        role=ctx_role.get(),
+    )
+    return ORJSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "detail": {
+                "code": "auth_database_unavailable",
+                "message": (
+                    "Authentication database capacity is temporarily unavailable. "
+                    "Please retry."
+                ),
+            }
+        },
+    )
+
+
+def bootstrap_role(organization_id: OrganizationID | None = None) -> Role:
+    """Role to bootstrap AutoSecOps services.
+
+    Args:
+        organization_id: Optional organization ID to scope the bootstrap role to.
+            If None, creates a role without org scope (for platform-level operations).
+
+    Returns:
+        Role: A service role with platform superuser privileges for the specified organization.
+    """
+    return Role(
+        type="service",
+        service_id="tracecat-bootstrap",
+        organization_id=organization_id,
+        is_platform_superuser=True,
+        scopes=frozenset({"*"}),
+    )
+
+
+async def get_default_organization_id(session: AsyncSession) -> OrganizationID:
+    """Get the default (first) organization ID.
+
+    This is used by auth modules that need to read platform-level settings
+    before user authentication provides an org context.
+
+    Args:
+        session: Database session.
+
+    Returns:
+        OrganizationID: The ID of the first organization.
+
+    Raises:
+        ValueError: If no organizations exist.
+    """
+    # Import here to avoid circular imports
+    from autosecops.db.models import Organization
+
+    result = await session.execute(
+        select(Organization).order_by(Organization.created_at).limit(1)
+    )
+    org = result.scalar_one_or_none()
+    if org is None:
+        raise ValueError("No organizations exist. Run bootstrap first.")
+    return org.id
+
+
+def tracecat_exception_handler(request: Request, exc: Exception) -> Response:
+    """Generic exception handler for AutoSecOps exceptions.
+
+    We can customize exceptions to expose only what should be user facing.
+    """
+    tracecat_exc = (
+        exc if isinstance(exc, TracecatException) else TracecatException(str(exc))
+    )
+    msg = str(tracecat_exc)
+    logger.error(
+        msg,
+        role=ctx_role.get(),
+        params=request.query_params,
+        path=request.url.path,
+        detail=tracecat_exc.detail,
+    )
+    return ORJSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "type": type(exc).__name__,
+            "message": msg,
+            "detail": tracecat_exc.detail,
+        },
+    )
+
+
+async def table_row_exception_handler(request: Request, exc: Exception) -> Response:
+    """Report invalid row input as a client error, without capturing an outage."""
+    if not isinstance(exc, TableRowError):
+        raise exc
+    status_code = (
+        status.HTTP_409_CONFLICT
+        if exc.code == "duplicate_value"
+        else status.HTTP_400_BAD_REQUEST
+    )
+    return await http_exception_handler(
+        request, HTTPException(status_code=status_code, detail=exc.detail)
+    )
+
+
+def _query_exception_response(
+    request: Request,
+    exc: TracecatQueryTimeoutError | TracecatQueryOverflowError,
+    *,
+    status_code: int,
+) -> Response:
+    logger.warning(
+        "Query execution rejected",
+        status_code=status_code,
+        exception_type=type(exc).__name__,
+        path=request.url.path,
+        role=ctx_role.get(),
+        detail=exc.detail,
+    )
+    return ORJSONResponse(
+        status_code=status_code,
+        content={
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "detail": exc.detail,
+        },
+    )
+
+
+def query_timeout_exception_handler(request: Request, exc: Exception) -> Response:
+    """Return the stable 422 contract for timed-out shared queries."""
+    query_exc = (
+        exc
+        if isinstance(exc, TracecatQueryTimeoutError)
+        else TracecatQueryTimeoutError(str(exc))
+    )
+    return _query_exception_response(
+        request,
+        query_exc,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
+
+
+def query_overflow_exception_handler(request: Request, exc: Exception) -> Response:
+    """Return the stable 400 contract for shared-query numeric overflow."""
+    query_exc = (
+        exc
+        if isinstance(exc, TracecatQueryOverflowError)
+        else TracecatQueryOverflowError(str(exc))
+    )
+    return _query_exception_response(
+        request,
+        query_exc,
+        status_code=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def custom_generate_unique_id(route: APIRoute):
+    if route.tags:
+        return f"{route.tags[0]}-{route.name}"
+    return route.name
+
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=5, min=5, max=20),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+async def add_temporal_search_attributes():
+    """Add search attributes to the Temporal cluster.
+
+    This is an idempotent operation and is safe to run multiple times.
+    """
+    client = await get_temporal_client()
+    namespace = TEMPORAL__CLUSTER_NAMESPACE
+    attrs = _SEARCH_ATTRIBUTE_TYPES
+    try:
+        registered = await client.operator_service.list_search_attributes(
+            ListSearchAttributesRequest(namespace=namespace)
+        )
+        missing_attrs: dict[str, IndexedValueType.ValueType] = {}
+        for name, expected_type in attrs.items():
+            registered_type = registered.custom_attributes.get(name)
+            if registered_type is None:
+                missing_attrs[name] = expected_type
+            elif registered_type != expected_type:
+                raise RuntimeError(
+                    "Temporal search attribute has an unexpected type: "
+                    f"{name} (expected {expected_type}, got {registered_type})"
+                )
+
+        if not missing_attrs:
+            logger.info(
+                "Temporal search attributes already registered",
+                namespace=namespace,
+                search_attributes=list(_SEARCH_ATTRIBUTE_TYPES),
+            )
+            return
+
+        await client.operator_service.add_search_attributes(
+            AddSearchAttributesRequest(
+                search_attributes=missing_attrs,
+                namespace=namespace,
+            )
+        )
+    except Exception as e:
+        if isinstance(e, RPCError) and e.status == RPCStatusCode.PERMISSION_DENIED:
+            # Cloud runtime credentials may lack operator-service access.
+            # Attributes must be provisioned externally in these deployments.
+            logger.warning(
+                "Skipping automatic Temporal search attribute registration: "
+                "operator access denied; provision search attributes externally",
+                namespace=namespace,
+                exc=e,
+            )
+            return
+        logger.error(
+            "Error adding temporal search attributes",
+            exc=e,
+            namespace=namespace,
+        )
+        raise
+    logger.info(
+        "Temporal search attributes added",
+        namespace=namespace,
+        search_attributes=list(missing_attrs.keys()),
+    )
+
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=5, min=5, max=20),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+async def remove_temporal_search_attributes():
+    """Remove search attributes from the Temporal cluster.
+
+    This is an idempotent operation and is safe to run multiple times.
+    """
+    client = await get_temporal_client()
+    namespace = TEMPORAL__CLUSTER_NAMESPACE
+    try:
+        await client.operator_service.remove_search_attributes(
+            RemoveSearchAttributesRequest(
+                search_attributes=list(_SEARCH_ATTRIBUTE_TYPES),
+                namespace=namespace,
+            )
+        )
+    except Exception as e:
+        logger.error(
+            "Error removing temporal search attributes",
+            exc=e,
+            namespace=namespace,
+            search_attributes=list(_SEARCH_ATTRIBUTE_TYPES),
+        )
+    else:
+        logger.info(
+            "Temporal search attributes removed",
+            namespace=namespace,
+            search_attributes=list(_SEARCH_ATTRIBUTE_TYPES),
+        )

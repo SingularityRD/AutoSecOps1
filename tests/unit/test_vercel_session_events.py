@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from tracecat.agent.adapter.vercel import sse_vercel
-from tracecat.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
-from tracecat.agent.stream.events import (
+from autosecops.agent.adapter.vercel import sse_vercel
+from autosecops.agent.common.stream_types import StreamEventType, UnifiedStreamEvent
+from autosecops.agent.stream.events import (
     StreamDelta,
     StreamEnd,
     StreamEvent,

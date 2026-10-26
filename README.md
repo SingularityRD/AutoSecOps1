@@ -99,7 +99,7 @@ Check out the [Contribution Guide](CONTRIBUTING.md) for development setup and co
 ## License
 
 AutoSecOps is proprietary software owned by SingularityRD. All rights reserved.
-The entire repository, including `packages/tracecat-ee`, is covered by the single SingularityRD proprietary license in [LICENSE](LICENSE).
+The entire repository, including `packages/autosecops-ee`, is covered by the single SingularityRD proprietary license in [LICENSE](LICENSE).
 Use, copying, modification, or distribution requires a written license agreement with SingularityRD.
 Third-party components remain under their respective licenses.
 

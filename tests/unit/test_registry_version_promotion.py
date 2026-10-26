@@ -14,10 +14,10 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import RegistryRepository, RegistryVersion
-from tracecat.exceptions import RegistryError
-from tracecat.registry.repositories.service import RegistryReposService
+from autosecops.auth.types import Role
+from autosecops.db.models import RegistryRepository, RegistryVersion
+from autosecops.exceptions import RegistryError
+from autosecops.registry.repositories.service import RegistryReposService
 
 pytestmark = pytest.mark.usefixtures("db")
 

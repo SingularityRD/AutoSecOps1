@@ -10,9 +10,9 @@ from _pytest.fixtures import FixtureRequest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tracecat.api.app import app as api_app
-from tracecat.auth.credentials import AuthenticatedUserOnly, SuperuserRole
-from tracecat.auth.dependencies import (
+from autosecops.api.app import app as api_app
+from autosecops.auth.credentials import AuthenticatedUserOnly, SuperuserRole
+from autosecops.auth.dependencies import (
     ExecutorWorkspaceRole,
     OrgActorRole,
     OrganizationServiceAccountRole,
@@ -24,18 +24,20 @@ from tracecat.auth.dependencies import (
     WorkspaceUserRole,
     WorkspaceUserRouteRole,
 )
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import (
     ADMIN_SCOPES,
     ORG_ADMIN_SCOPES,
     SERVICE_PRINCIPAL_SCOPES,
 )
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session, get_async_session_bypass_rls
-from tracecat.db.models import Workspace
-from tracecat.executor.action_gateway.app import create_app as create_action_gateway_app
-from tracecat.service_accounts.router import WorkspaceUserOnlyInPath
-from tracecat.workspaces.router import (
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session, get_async_session_bypass_rls
+from autosecops.db.models import Workspace
+from autosecops.executor.action_gateway.app import (
+    create_app as create_action_gateway_app,
+)
+from autosecops.service_accounts.router import WorkspaceUserOnlyInPath
+from autosecops.workspaces.router import (
     WorkspaceUserInPath,
 )
 

@@ -3,21 +3,21 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import VIEWER_SCOPES
-from tracecat.cases.dropdowns.schemas import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import VIEWER_SCOPES
+from autosecops.cases.dropdowns.schemas import (
     CaseDropdownDefinitionCreate,
     CaseDropdownDefinitionUpdate,
     CaseDropdownOptionCreate,
     CaseDropdownOptionUpdate,
     CaseDropdownValueInput,
 )
-from tracecat.cases.dropdowns.service import (
+from autosecops.cases.dropdowns.service import (
     CaseDropdownDefinitionsService,
     CaseDropdownValuesService,
 )
-from tracecat.db.models import Case
-from tracecat.exceptions import (
+from autosecops.db.models import Case
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatNotFoundError,
     TracecatValidationError,

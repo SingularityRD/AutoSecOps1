@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat import config
-from tracecat.invitations.email import (
+from autosecops import config
+from autosecops.invitations.email import (
     ORG_SCOPE_LABEL,
     InvitationGrantLine,
     build_accept_url,

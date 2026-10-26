@@ -1,14 +1,14 @@
 from contextlib import contextmanager
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-from tracecat_registry._internal import secrets as registry_secrets
-from tracecat_registry.core.sql import (
+from autosecops_registry._internal import secrets as registry_secrets
+from autosecops_registry.core.sql import (
     SQLConnectionValidationError,
     _validate_connection_url,
     execute_query,
 )
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from tests.database import TEST_DB_CONFIG
 
@@ -31,7 +31,7 @@ def test_validate_connection_url_blocks_internal_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Reject user URLs that target the configured internal DB endpoint/port."""
-    from tracecat_registry import config as registry_config
+    from autosecops_registry import config as registry_config
 
     monkeypatch.setattr(
         registry_config,
@@ -57,7 +57,7 @@ def test_validate_connection_url_allows_external_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Allow user URLs that point to a different endpoint."""
-    from tracecat_registry import config as registry_config
+    from autosecops_registry import config as registry_config
 
     monkeypatch.setattr(
         registry_config,
@@ -78,7 +78,7 @@ def test_validate_connection_url_uses_internal_uri_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Fallback to TRACECAT__DB_URI when TRACECAT__DB_ENDPOINT is unset."""
-    from tracecat_registry import config as registry_config
+    from autosecops_registry import config as registry_config
 
     monkeypatch.setattr(
         registry_config,
@@ -104,7 +104,7 @@ def setup_sql_test_table(db, monkeypatch: pytest.MonkeyPatch):  # noqa: ARG001
     Mocks the internal database config to use a different endpoint
     so the test database on localhost:5432 is allowed by validation.
     """
-    from tracecat_registry import config as registry_config
+    from autosecops_registry import config as registry_config
 
     # Mock internal database config to use a different endpoint
     # This allows the test database on localhost:5432 to pass validation
@@ -346,7 +346,7 @@ async def test_execute_query_invalid_sql(setup_sql_test_table):
 @pytest.mark.anyio
 async def test_execute_query_invalid_connection_url(monkeypatch: pytest.MonkeyPatch):
     """Test that invalid connection URL raises an error."""
-    from tracecat_registry import config as registry_config
+    from autosecops_registry import config as registry_config
 
     # Mock internal database config to avoid validation issues
     monkeypatch.setattr(

@@ -7,16 +7,15 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from autosecops_ee.admin.organizations.schemas import AdminOrgInvitationCreate
+from autosecops_ee.admin.organizations.service import AdminOrgService
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.admin.organizations.schemas import AdminOrgInvitationCreate
-from tracecat_ee.admin.organizations.service import AdminOrgService
 
-from tests.support.membership import grant_org_membership
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import (
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import (
     Invitation,
     InvitationGrant,
     Organization,
@@ -24,11 +23,12 @@ from tracecat.db.models import (
     User,
     UserRoleAssignment,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import TracecatConflictError, TracecatValidationError
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.service import RESEND_COOLDOWN, accept_invitation_for_user
-from tracecat.pagination import CursorPaginationParams
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import TracecatConflictError, TracecatValidationError
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import RESEND_COOLDOWN, accept_invitation_for_user
+from autosecops.pagination import CursorPaginationParams
+from tests.support.membership import grant_org_membership
 
 
 @pytest.fixture

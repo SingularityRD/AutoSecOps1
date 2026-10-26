@@ -28,25 +28,25 @@ pytestmark = [
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.enums import WaitStrategy
-from tracecat.dsl.schemas import ActionStatement, GatherArgs, ScatterArgs
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.storage import blob
-from tracecat.storage.object import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.dsl.common import RETRY_POLICIES, DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.enums import WaitStrategy
+from autosecops.dsl.schemas import ActionStatement, GatherArgs, ScatterArgs
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.storage import blob
+from autosecops.storage.object import (
     CollectionObject,
     ExternalObject,
     StoredObjectValidator,
     get_object_storage,
 )
-from tracecat.workflow.management.definitions import WorkflowDefinitionsService
-from tracecat.workflow.management.management import WorkflowsManagementService
-from tracecat.workflow.management.schemas import WorkflowUpdate
+from autosecops.workflow.management.definitions import WorkflowDefinitionsService
+from autosecops.workflow.management.management import WorkflowsManagementService
+from autosecops.workflow.management.schemas import WorkflowUpdate
+from tests.shared import TEST_WF_ID, generate_test_exec_id, to_data
 
 type WorkerFactory = Callable[[Client], Worker]
 

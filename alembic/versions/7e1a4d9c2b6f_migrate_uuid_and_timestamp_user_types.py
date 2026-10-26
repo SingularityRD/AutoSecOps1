@@ -13,9 +13,9 @@ import orjson
 import sqlalchemy as sa
 
 from alembic import op
-from tracecat.identifiers.workflow import WorkspaceUUID
-from tracecat.tables.common import parse_postgres_default, prepare_default_value
-from tracecat.tables.enums import SqlType
+from autosecops.identifiers.workflow import WorkspaceUUID
+from autosecops.tables.common import parse_postgres_default, prepare_default_value
+from autosecops.tables.enums import SqlType
 
 # revision identifiers, used by Alembic.
 revision: str = "7e1a4d9c2b6f"

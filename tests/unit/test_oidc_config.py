@@ -6,9 +6,9 @@ from unittest.mock import patch
 
 import pytest
 
-from tracecat import config
-from tracecat.auth.enums import AuthType
-from tracecat.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
+from autosecops import config
+from autosecops.auth.enums import AuthType
+from autosecops.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
 
 
 def test_oidc_auth_type_enabled(monkeypatch) -> None:
@@ -27,7 +27,7 @@ def test_create_platform_oauth_client_uses_openid_when_issuer_set(
     monkeypatch.setattr(config, "OIDC_CLIENT_SECRET", "oidc-client-secret")
     monkeypatch.setattr(config, "OIDC_SCOPES", ("openid", "email", "profile"))
 
-    with patch("tracecat.auth.oidc.OpenID", autospec=True) as mock_openid:
+    with patch("autosecops.auth.oidc.OpenID", autospec=True) as mock_openid:
         mock_client = object()
         mock_openid.return_value = mock_client
 
@@ -53,7 +53,7 @@ def test_create_platform_oauth_client_requires_issuer(
     monkeypatch.setattr(config, "OIDC_CLIENT_SECRET", "legacy-client-secret")
     monkeypatch.setattr(config, "OIDC_SCOPES", ("openid", "email"))
 
-    with patch("tracecat.auth.oidc.OpenID", autospec=True) as mock_openid:
+    with patch("autosecops.auth.oidc.OpenID", autospec=True) as mock_openid:
         with pytest.raises(ValueError, match="OIDC_ISSUER must be configured"):
             create_platform_oauth_client()
 

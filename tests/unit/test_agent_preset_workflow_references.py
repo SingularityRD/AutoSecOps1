@@ -6,16 +6,16 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.preset.schemas import AgentPresetCreate
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.preset.workflow_references import (
+from autosecops.agent.preset.schemas import AgentPresetCreate
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.preset.workflow_references import (
     AgentPresetWorkflowReferenceService,
     _literal_preset_slug,
 )
-from tracecat.auth.types import Role
-from tracecat.db.models import Action, Workflow, Workspace
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.pagination import PageParams, PaginationError
+from autosecops.auth.types import Role
+from autosecops.db.models import Action, Workflow, Workspace
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.pagination import PageParams, PaginationError
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from tracecat.agent.skill.frontmatter import parse_skill_markdown
+from autosecops.agent.skill.frontmatter import parse_skill_markdown
 
 
 def test_parse_skill_frontmatter_canonicalizes_and_deduplicates_tools() -> None:

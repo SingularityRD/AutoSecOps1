@@ -24,9 +24,9 @@ from openai import AsyncOpenAI
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from tracecat.agent.gateway import TracecatCallbackHandler
-from tracecat.agent.sandbox.llm_proxy import _http_error_classification
-from tracecat.runtime.errors import (
+from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.sandbox.llm_proxy import _http_error_classification
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,

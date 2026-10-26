@@ -11,10 +11,22 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import autosecops_ee.agent.workflows.durable as durable_workflow_module
 import httpx
 import orjson
 import pytest
-import tracecat_ee.agent.workflows.durable as durable_workflow_module
+from autosecops_ee.agent.activities import (
+    BuildAgentToolDefsArgs,
+    BuildAgentToolDefsResult,
+    BuildToolDefsResult,
+    EmitSessionDoneInputs,
+    EmitSessionErrorInputs,
+)
+from autosecops_ee.agent.types import AgentWorkflowID
+from autosecops_ee.agent.workflows.durable import (
+    AgentWorkflowArgs,
+    DurableAgentWorkflow,
+)
 from temporalio import activity
 from temporalio.client import (
     Client,
@@ -25,27 +37,18 @@ from temporalio.client import (
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
-from tracecat_ee.agent.activities import (
-    BuildAgentToolDefsArgs,
-    BuildAgentToolDefsResult,
-    BuildToolDefsResult,
-    EmitSessionDoneInputs,
-    EmitSessionErrorInputs,
-)
-from tracecat_ee.agent.types import AgentWorkflowID
-from tracecat_ee.agent.workflows.durable import AgentWorkflowArgs, DurableAgentWorkflow
 
-from tracecat import config
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.executor.activity import AgentExecutorInput, AgentExecutorResult
-from tracecat.agent.sandbox.llm_proxy import (
+from autosecops import config
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.executor.activity import AgentExecutorInput, AgentExecutorResult
+from autosecops.agent.sandbox.llm_proxy import (
     LLMProxyError,
     LLMRoute,
     LLMRoutingPlan,
     LLMSocketProxy,
 )
-from tracecat.agent.schemas import RunAgentArgs
-from tracecat.agent.session.activities import (
+from autosecops.agent.schemas import RunAgentArgs
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     CreateSessionResult,
     FinalizeTurnInput,
@@ -53,18 +56,18 @@ from tracecat.agent.session.activities import (
     LoadSessionInput,
     LoadSessionResult,
 )
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.tokens import mint_llm_token
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.common import RETRY_POLICIES
-from tracecat.dsl.interceptor import RuntimeErrorAttributionInterceptor
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import RuntimeErrorClassification
-from tracecat.temporal.errors import raise_application_error_from_classification
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.tokens import mint_llm_token
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.common import RETRY_POLICIES
+from autosecops.dsl.interceptor import RuntimeErrorAttributionInterceptor
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import RuntimeErrorClassification
+from autosecops.temporal.errors import raise_application_error_from_classification
+from autosecops.workflow.executions.enums import TemporalSearchAttr
 
 
 class FaultPoint(StrEnum):

@@ -1,11 +1,11 @@
 import pytest
 
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     RegistryError,
     RegistrySyncContentError,
     RegistryTemplateLoadError,
 )
-from tracecat.registry.sync.schemas import (
+from autosecops.registry.sync.schemas import (
     RegistrySyncResult,
     SyncErrorCode,
     SyncResultError,

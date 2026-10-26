@@ -11,26 +11,26 @@ from dataclasses import replace
 from typing import Any, Self
 
 import pytest
-from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
-from tracecat_ee.secrets.providers import aws_secrets_manager as asm
-from tracecat_ee.secrets.providers.aws_secrets_manager import (
+from autosecops_ee.secrets.providers import aws_secrets_manager as asm
+from autosecops_ee.secrets.providers.aws_secrets_manager import (
     AwsSecretResolutionError,
     check_aws_secret_reference,
     project_secret_string,
     resolve_aws_secret_references,
 )
+from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 
-from tracecat.secrets.enums import (
+from autosecops.secrets.enums import (
     AwsSecretMappingMode,
     AwsSecretResolutionErrorCode,
     SecretStoreProvider,
 )
-from tracecat.secrets.schemas import (
+from autosecops.secrets.schemas import (
     AwsSecretJsonField,
     AwsSecretKeyMapping,
     AwsSecretsManagerStoreConfig,
 )
-from tracecat.secrets.types import CheckResult, ExternalSecretReference
+from autosecops.secrets.types import CheckResult, ExternalSecretReference
 
 pytestmark = pytest.mark.anyio
 

@@ -7,14 +7,14 @@ import pytest
 from temporalio.api.enums.v1 import EventType
 from temporalio.client import Client, WorkflowHandle
 
-from tracecat.identifiers.workflow import WorkflowExecutionID
-from tracecat.storage.object import (
+from autosecops.identifiers.workflow import WorkflowExecutionID
+from autosecops.storage.object import (
     CollectionObject,
     ExternalObject,
     InlineObject,
     ObjectRef,
 )
-from tracecat.workflow.executions.service import (
+from autosecops.workflow.executions.service import (
     WorkflowExecutionResultMaskedError,
     WorkflowExecutionResultNotFoundError,
     WorkflowExecutionsService,
@@ -133,11 +133,11 @@ class TestWorkflowExecutionObjectResolution:
                 AsyncMock(return_value=Mock()),
             ),
             patch(
-                "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
+                "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
                 AsyncMock(return_value=compact_event),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_stored_result",
+                "autosecops.workflow.executions.service.get_stored_result",
                 AsyncMock(return_value=external),
             ),
         ):
@@ -174,11 +174,11 @@ class TestWorkflowExecutionObjectResolution:
                 AsyncMock(return_value=Mock()),
             ),
             patch(
-                "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
+                "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
                 AsyncMock(side_effect=ValueError("bad source metadata")),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_stored_result",
+                "autosecops.workflow.executions.service.get_stored_result",
                 AsyncMock(return_value=external),
             ),
         ):
@@ -214,11 +214,11 @@ class TestWorkflowExecutionObjectResolution:
                 AsyncMock(return_value=Mock()),
             ),
             patch(
-                "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
+                "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
                 AsyncMock(side_effect=RuntimeError("metadata parser crashed")),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_stored_result",
+                "autosecops.workflow.executions.service.get_stored_result",
                 AsyncMock(),
             ) as mock_get_stored_result,
         ):
@@ -270,7 +270,7 @@ class TestWorkflowExecutionObjectResolution:
                 AsyncMock(return_value=collection),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_storage_collection_page",
+                "autosecops.workflow.executions.service.get_storage_collection_page",
                 AsyncMock(return_value=[stored_item]),
             ) as mock_get_page,
         ):
@@ -317,15 +317,15 @@ class TestWorkflowExecutionObjectResolution:
                 AsyncMock(return_value=Mock()),
             ),
             patch(
-                "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
+                "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
                 AsyncMock(return_value=compact_event),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_stored_result",
+                "autosecops.workflow.executions.service.get_stored_result",
                 AsyncMock(return_value=collection),
             ),
             patch(
-                "tracecat.workflow.executions.service.get_storage_collection_page",
+                "autosecops.workflow.executions.service.get_storage_collection_page",
                 AsyncMock(return_value=[]),
             ) as mock_get_page,
         ):

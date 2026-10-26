@@ -43,20 +43,20 @@ from temporalio.service import (
     WorkflowService,
 )
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.backends.schemas import AgentWorkflowArgs
-from tracecat.agent.backends.types import (
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.backends.schemas import AgentWorkflowArgs
+from autosecops.agent.backends.types import (
     SessionDispatchUncertain,
     SessionTurnContext,
     SessionWorkflowContext,
 )
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentSession, AgentSessionHistory
-from tracecat.dsl._converter import get_data_converter
-from tracecat.exceptions import TracecatConflictError
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentSession, AgentSessionHistory
+from autosecops.dsl._converter import get_data_converter
+from autosecops.exceptions import TracecatConflictError
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.dbtest]
 
@@ -224,14 +224,14 @@ async def test_failed_start_preserves_history_and_retry_reserves_once(
         context = await make_context(db)
         session_id = context.session.id
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client", return_value=client
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
         ):
             with pytest.MonkeyPatch.context() as patcher:
                 if failure == "preparation":
                     patcher.setattr(backend, "fail_preparation", True)
                 elif failure == "encoding":
                     patcher.setattr(
-                        "tracecat.dsl._converter.orjson.dumps",
+                        "autosecops.dsl._converter.orjson.dumps",
                         Mock(side_effect=TypeError("invalid value")),
                     )
                 elif failure == "validation":
@@ -301,7 +301,7 @@ async def test_uncertain_dispatch_keeps_history_and_blocks_another_turn(
         context = await make_context(db)
         session_id = context.session.id
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client", return_value=client
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
         ):
             with pytest.raises(SessionDispatchUncertain):
                 await backend.start_turn(context)
@@ -357,7 +357,7 @@ async def test_terminal_turn_recovery_persists_before_new_preparation(
         await db.commit()
         with (
             patch(
-                "tracecat.agent.backends.base.get_temporal_client",
+                "autosecops.agent.backends.base.get_temporal_client",
                 return_value=temporal_client(rpc),
             ),
             patch.object(backend, "handle", return_value=handle) as resolve,
@@ -449,12 +449,13 @@ async def test_caller_cancellation_settles_commit_dispatch_and_cleanup(
 
         with (
             patch(
-                "tracecat.agent.backends.base.get_temporal_client", return_value=client
+                "autosecops.agent.backends.base.get_temporal_client",
+                return_value=client,
             ),
             patch.object(db, "commit", side_effect=commit_at_boundary),
             patch.object(db, "rollback", rollback),
             patch(
-                "tracecat.agent.backends.base.get_async_session_context_manager",
+                "autosecops.agent.backends.base.get_async_session_context_manager",
                 side_effect=lambda: AsyncSession(connection),
             ),
         ):
@@ -523,12 +524,12 @@ async def test_lost_commit_acknowledgement_releases_only_matching_reservation(
         rpc = AsyncMock(return_value=StartWorkflowExecutionResponse(run_id="run-1"))
         with (
             patch(
-                "tracecat.agent.backends.base.get_temporal_client",
+                "autosecops.agent.backends.base.get_temporal_client",
                 return_value=temporal_client(rpc),
             ),
             patch.object(db, "commit", side_effect=commit_then_lose_acknowledgement),
             patch(
-                "tracecat.agent.backends.base.get_async_session_context_manager",
+                "autosecops.agent.backends.base.get_async_session_context_manager",
                 side_effect=lambda: AsyncSession(connection),
             ) as fresh_session,
             pytest.raises(RuntimeError) as caught,
@@ -591,7 +592,7 @@ async def test_rpc_rejection_releases_only_matching_reservation(
         rpc = AsyncMock(side_effect=reject)
         client = temporal_client(rpc)
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client", return_value=client
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
         ):
             error = RuntimeError if mismatch is None else SessionDispatchUncertain
             message = "was rejected" if mismatch is None else "requires reconciliation"
@@ -651,7 +652,7 @@ async def test_lost_start_is_released_without_replay_once_a_tombstone_claims_it(
         session_id = context.session.id
         next_turn = replace(context, run_id=uuid4(), stream_id=uuid4())
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await lose_first_start(backend, connection, context)
@@ -712,7 +713,7 @@ async def test_lost_acknowledgement_keeps_the_session_until_the_original_ends(
         session_id = context.session.id
         next_turn = replace(context, run_id=uuid4(), stream_id=uuid4())
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await lose_first_start(backend, connection, context)
@@ -752,7 +753,7 @@ async def test_unknown_tombstone_outcome_keeps_the_session_and_next_send_retries
         session_id = context.session.id
         next_turn = replace(context, run_id=uuid4(), stream_id=uuid4())
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await lose_first_start(backend, connection, context)
@@ -794,7 +795,7 @@ async def test_fresh_reservation_is_never_tombstoned(
         session_id = context.session.id
         next_turn = replace(context, run_id=uuid4(), stream_id=uuid4())
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await lose_first_start(backend, connection, context)
@@ -830,7 +831,7 @@ async def test_reservation_is_stamped_at_commit_not_transaction_start(
         assert began is not None
         await asyncio.sleep(0.2)
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(rpc),
         ):
             await PreparationBackend().start_turn(context)
@@ -856,7 +857,7 @@ async def test_successor_reserved_by_another_writer_is_never_tombstoned(
         session_id = context.session.id
         successor = uuid4()
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await backend.start_turn(context)
@@ -912,7 +913,7 @@ async def test_caller_owned_reservation_is_never_tombstoned(
             yield context.config
 
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             if adopts_direct_dispatch:
@@ -986,7 +987,7 @@ async def test_stale_preparation_keeps_a_newer_reservation_recoverable(
             yield context.config
 
         with patch(
-            "tracecat.agent.backends.base.get_temporal_client",
+            "autosecops.agent.backends.base.get_temporal_client",
             return_value=temporal_client(AsyncMock(side_effect=temporal.rpc)),
         ):
             await lose_first_start(backend, connection, context)
@@ -1043,7 +1044,7 @@ async def test_real_tombstone_rejects_a_delayed_start_of_the_lost_turn(
         session_id = context.session.id
         with (
             patch(
-                "tracecat.agent.backends.base.get_temporal_client",
+                "autosecops.agent.backends.base.get_temporal_client",
                 return_value=temporal_client,
             ),
             pytest.raises(RuntimeError, match="before dispatch"),
@@ -1094,7 +1095,7 @@ async def test_real_tombstone_never_displaces_an_original_that_landed(
             missing = Mock(describe=AsyncMock(side_effect=not_found()))
             with (
                 patch(
-                    "tracecat.agent.backends.base.get_temporal_client",
+                    "autosecops.agent.backends.base.get_temporal_client",
                     return_value=temporal_client,
                 ),
                 patch.object(backend, "handle", return_value=missing),

@@ -3,8 +3,8 @@
 import pytest
 from pydantic import ValidationError
 
-from tracecat.dsl.constants import MAX_DO_WHILE_ITERATIONS
-from tracecat.dsl.schemas import LoopEndArgs
+from autosecops.dsl.constants import MAX_DO_WHILE_ITERATIONS
+from autosecops.dsl.schemas import LoopEndArgs
 
 
 class TestLoopEndArgsModel:

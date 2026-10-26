@@ -7,19 +7,19 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from tracecat.contexts import ctx_secret_masks
-from tracecat.dsl.schemas import ActionRetryPolicy
-from tracecat.exceptions import ExecutionError, TracecatExpressionError
-from tracecat.executor import service
-from tracecat.executor.schemas import (
+from autosecops.contexts import ctx_secret_masks
+from autosecops.dsl.schemas import ActionRetryPolicy
+from autosecops.exceptions import ExecutionError, TracecatExpressionError
+from autosecops.executor import service
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ExecutorResultFailure,
     ResolvedContext,
 )
-from tracecat.expressions.eval import eval_templated_object
-from tracecat.expressions.policy import build_provenance
-from tracecat.secrets.masking import SecretMaskCollector
+from autosecops.expressions.eval import eval_templated_object
+from autosecops.expressions.policy import build_provenance
+from autosecops.secrets.masking import SecretMaskCollector
 
 SECRET = "synthetic-credential-value"
 ENCODED = base64.b64encode(SECRET.encode()).decode()

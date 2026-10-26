@@ -11,7 +11,7 @@ Run from the repository root:
     uv run python scripts/license_tool.py inspect "<token>"
 
 Keep the private key offline. The public key that verifies licenses is embedded
-in ``tracecat/licensing/keys.py``; a key printed by ``keygen`` must replace it
+in ``autosecops/licensing/keys.py``; a key printed by ``keygen`` must replace it
 before a release for licenses signed with that keygen's private key to verify.
 
 Exit codes:
@@ -39,15 +39,15 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from pydantic import ValidationError
 
-from tracecat.licensing import keys
-from tracecat.licensing.service import evaluate_license
-from tracecat.licensing.token import (
+from autosecops.licensing import keys
+from autosecops.licensing.service import evaluate_license
+from autosecops.licensing.token import (
     encode_license,
     load_private_key,
     load_public_key,
 )
-from tracecat.licensing.types import LicenseClaims, LicenseStatus
-from tracecat.tiers.enums import Entitlement
+from autosecops.licensing.types import LicenseClaims, LicenseStatus
+from autosecops.tiers.enums import Entitlement
 
 _PRIVATE_KEY_NAME = "license-private.pem"
 _PUBLIC_KEY_NAME = "license-public.pem"
@@ -83,7 +83,7 @@ def _cmd_keygen(args: argparse.Namespace) -> int:
     private_path.write_bytes(private_pem)
     public_path.write_bytes(public_pem)
     print(f"Wrote {private_path} (keep offline) and {public_path}", file=sys.stderr)
-    print("Paste this into tracecat/licensing/keys.py LICENSE_PUBLIC_KEY_PEM:")
+    print("Paste this into autosecops/licensing/keys.py LICENSE_PUBLIC_KEY_PEM:")
     print(public_pem.decode("ascii"), end="")
     return 0
 

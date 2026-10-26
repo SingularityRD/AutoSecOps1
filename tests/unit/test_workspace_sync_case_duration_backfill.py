@@ -6,16 +6,16 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.durations.schemas import CaseDurationAnchorSelection
-from tracecat.cases.enums import CaseEventType
-from tracecat.workspace_sync.schemas import (
+from autosecops.auth.types import Role
+from autosecops.cases.durations.schemas import CaseDurationAnchorSelection
+from autosecops.cases.enums import CaseEventType
+from autosecops.workspace_sync.schemas import (
     CaseDurationAnchorSpec,
     CaseDurationResourceSpec,
     WorkspaceRemoteSnapshot,
     WorkspaceSpec,
 )
-from tracecat.workspace_sync.service import WorkspaceSyncService
+from autosecops.workspace_sync.service import WorkspaceSyncService
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -67,7 +67,7 @@ async def test_workspace_sync_backfills_only_materialization_changes(
 ) -> None:
     publish_mock = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
     service = WorkspaceSyncService(session=session, role=svc_role)
@@ -130,7 +130,7 @@ async def test_workspace_sync_discards_backfill_when_outer_commit_fails(
 ) -> None:
     publish_mock = AsyncMock(return_value="1-0")
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.publish_case_duration_sync",
+        "autosecops.cases.durations.sync_queue.publish_case_duration_sync",
         publish_mock,
     )
     monkeypatch.setattr(

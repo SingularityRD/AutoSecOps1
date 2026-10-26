@@ -25,11 +25,11 @@ def upgrade() -> None:
         sa.text(
             "UPDATE registry_repository "
             "SET current_version_id = NULL "
-            "WHERE origin = 'tracecat_registry'"
+            "WHERE origin = 'autosecops_registry'"
         )
     )
     op.execute(
-        sa.text("DELETE FROM registry_repository WHERE origin = 'tracecat_registry'")
+        sa.text("DELETE FROM registry_repository WHERE origin = 'autosecops_registry'")
     )
 
 

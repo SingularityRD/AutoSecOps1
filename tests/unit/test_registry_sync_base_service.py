@@ -11,46 +11,48 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.client import WorkflowFailureError
 from temporalio.exceptions import ActivityError
 
-from tests.shared import capture_application_error
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     Organization,
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     RegistryRepository,
 )
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.registry.actions.schemas import (
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.registry.actions.schemas import (
     RegistryActionCreate,
     RegistryActionOptions,
     RegistryActionUDFImpl,
 )
-from tracecat.registry.artifact_keys import get_artifact_local_dir
-from tracecat.registry.constants import (
+from autosecops.registry.artifact_keys import get_artifact_local_dir
+from autosecops.registry.constants import (
     DEFAULT_LOCAL_REGISTRY_ORIGIN,
     DEFAULT_REGISTRY_ORIGIN,
     REGISTRY_GIT_SSH_KEY_SECRET_NAME,
 )
-from tracecat.registry.repositories.platform_service import PlatformRegistryReposService
-from tracecat.registry.repositories.schemas import RegistryRepositoryCreate
-from tracecat.registry.repositories.service import RegistryReposService
-from tracecat.registry.sync.artifact import RegistryArtifactBuildResult
-from tracecat.registry.sync.base_service import ArtifactsBuildResult
-from tracecat.registry.sync.platform_service import PlatformRegistrySyncService
-from tracecat.registry.sync.prebuilt import write_prebuilt_registry_manifest
-from tracecat.registry.sync.service import (
+from autosecops.registry.repositories.platform_service import (
+    PlatformRegistryReposService,
+)
+from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
+from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.registry.sync.artifact import RegistryArtifactBuildResult
+from autosecops.registry.sync.base_service import ArtifactsBuildResult
+from autosecops.registry.sync.platform_service import PlatformRegistrySyncService
+from autosecops.registry.sync.prebuilt import write_prebuilt_registry_manifest
+from autosecops.registry.sync.service import (
     RegistryActionShadowsBuiltinError,
     RegistrySyncError,
     RegistrySyncService,
 )
-from tracecat.registry.versions.schemas import RegistryVersionManifest
-from tracecat.registry.versions.service import RegistryVersionsService
-from tracecat.runtime.errors import (
+from autosecops.registry.versions.schemas import RegistryVersionManifest
+from autosecops.registry.versions.service import RegistryVersionsService
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
 )
+from tests.shared import capture_application_error
 
 
 def _make_action(
@@ -69,7 +71,7 @@ def _make_action(
         implementation=RegistryActionUDFImpl(
             type="udf",
             url=DEFAULT_REGISTRY_ORIGIN,
-            module="tracecat_registry.core.transform",
+            module="autosecops_registry.core.transform",
             name="reshape",
         ),
         secrets=None,
@@ -131,7 +133,7 @@ async def test_sync_creates_collision_version_for_manifest_changes(
     second_actions = [_make_action(repository_id=repo_id, default_title="New title")]
 
     mocker.patch(
-        "tracecat.registry.sync.base_service.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.base_service.fetch_actions_from_subprocess",
         side_effect=[
             SimpleNamespace(
                 actions=first_actions, commit_sha=None, validation_errors={}
@@ -251,7 +253,7 @@ async def test_custom_sync_rejects_actions_that_shadow_builtin_registry(
     distinct_action = _make_action(repository_id=repo.id, default_title="Distinct")
     distinct_action.namespace = "tools.acme_custom"
     mocker.patch(
-        "tracecat.registry.sync.base_service.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.base_service.fetch_actions_from_subprocess",
         side_effect=[
             SimpleNamespace(
                 actions=[shadowing_action, distinct_action],
@@ -337,19 +339,19 @@ async def test_platform_builtin_sync_reuses_existing_artifact_objects(
     monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True)
 
     ensure_bucket_exists = mocker.patch(
-        "tracecat.registry.sync.base_service.blob.ensure_bucket_exists",
+        "autosecops.registry.sync.base_service.blob.ensure_bucket_exists",
         mocker.AsyncMock(),
     )
     file_exists = mocker.patch(
-        "tracecat.registry.sync.base_service.blob.file_exists",
+        "autosecops.registry.sync.base_service.blob.file_exists",
         mocker.AsyncMock(return_value=True),
     )
     build_builtin_registry_artifact = mocker.patch(
-        "tracecat.registry.sync.base_service.build_builtin_registry_artifact",
+        "autosecops.registry.sync.base_service.build_builtin_registry_artifact",
         mocker.AsyncMock(),
     )
     upload_squashfs_venv = mocker.patch(
-        "tracecat.registry.sync.base_service.upload_squashfs_venv",
+        "autosecops.registry.sync.base_service.upload_squashfs_venv",
         mocker.AsyncMock(),
     )
 
@@ -362,12 +364,12 @@ async def test_platform_builtin_sync_reuses_existing_artifact_objects(
     )
 
     assert result.artifact_uri == (
-        "s3://registry/platform/tarball-venvs/tracecat_registry/1.2.3/"
+        "s3://registry/platform/tarball-venvs/autosecops_registry/1.2.3/"
         "site-packages.squashfs"
     )
     ensure_bucket_exists.assert_awaited_once_with("registry")
     file_exists.assert_awaited_once_with(
-        key="platform/tarball-venvs/tracecat_registry/1.2.3/site-packages.squashfs",
+        key="platform/tarball-venvs/autosecops_registry/1.2.3/site-packages.squashfs",
         bucket="registry",
     )
     build_builtin_registry_artifact.assert_not_awaited()
@@ -384,22 +386,22 @@ async def test_platform_builtin_sync_uploads_squashfs_artifact(
     artifact_result = _make_artifact_result(tmp_path)
 
     mocker.patch(
-        "tracecat.registry.sync.base_service.blob.ensure_bucket_exists",
+        "autosecops.registry.sync.base_service.blob.ensure_bucket_exists",
         mocker.AsyncMock(),
     )
     mocker.patch(
-        "tracecat.registry.sync.base_service.blob.file_exists",
+        "autosecops.registry.sync.base_service.blob.file_exists",
         mocker.AsyncMock(return_value=False),
     )
     build_builtin_registry_artifact = mocker.patch(
-        "tracecat.registry.sync.base_service.build_builtin_registry_artifact",
+        "autosecops.registry.sync.base_service.build_builtin_registry_artifact",
         mocker.AsyncMock(return_value=artifact_result),
     )
     upload_squashfs_venv = mocker.patch(
-        "tracecat.registry.sync.base_service.upload_squashfs_venv",
+        "autosecops.registry.sync.base_service.upload_squashfs_venv",
         mocker.AsyncMock(
             return_value=(
-                "s3://registry/platform/tarball-venvs/tracecat_registry/1.2.3/"
+                "s3://registry/platform/tarball-venvs/autosecops_registry/1.2.3/"
                 "site-packages.squashfs"
             )
         ),
@@ -417,7 +419,7 @@ async def test_platform_builtin_sync_uploads_squashfs_artifact(
     build_builtin_registry_artifact.assert_awaited_once()
     upload_squashfs_venv.assert_awaited_once_with(
         squashfs_path=artifact_result.squashfs_path,
-        key="platform/tarball-venvs/tracecat_registry/1.2.3/site-packages.squashfs",
+        key="platform/tarball-venvs/autosecops_registry/1.2.3/site-packages.squashfs",
         bucket="registry",
     )
 
@@ -462,7 +464,7 @@ async def test_platform_builtin_sync_uses_prebuilt_manifest_or_falls_back(
         default_title="Recovered title",
     )
     fetch_actions_from_subprocess = mocker.patch(
-        "tracecat.registry.sync.base_service.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.base_service.fetch_actions_from_subprocess",
         mocker.AsyncMock(
             return_value=SimpleNamespace(
                 actions=[fallback_action],
@@ -545,7 +547,7 @@ async def test_platform_builtin_sync_can_create_pending_version(
     write_prebuilt_registry_manifest(artifact_dir=artifact_dir, manifest=manifest)
 
     mocker.patch(
-        "tracecat.registry.sync.base_service.fetch_actions_from_subprocess",
+        "autosecops.registry.sync.base_service.fetch_actions_from_subprocess",
         mocker.AsyncMock(),
     )
     mocker.patch.object(
@@ -624,7 +626,7 @@ async def test_sync_via_temporal_reads_validation_classification_through_activit
     mock_client = mocker.Mock()
     mock_client.execute_workflow = mocker.AsyncMock(side_effect=workflow_error)
     mocker.patch(
-        "tracecat.dsl.client.get_temporal_client",
+        "autosecops.dsl.client.get_temporal_client",
         mocker.AsyncMock(return_value=mock_client),
     )
 
@@ -663,15 +665,15 @@ async def test_sync_via_temporal_git_requires_registry_ssh_key_before_workflow(
     mock_client = mocker.Mock()
     mock_client.execute_workflow = mocker.AsyncMock()
     get_temporal_client = mocker.patch(
-        "tracecat.dsl.client.get_temporal_client",
+        "autosecops.dsl.client.get_temporal_client",
         mocker.AsyncMock(return_value=mock_client),
     )
     get_org_secret_by_name = mocker.patch(
-        "tracecat.registry.sync.base_service.SecretsService.get_org_secret_by_name",
+        "autosecops.registry.sync.base_service.SecretsService.get_org_secret_by_name",
         mocker.AsyncMock(side_effect=TracecatNotFoundError("missing")),
     )
     get_ssh_key = mocker.patch(
-        "tracecat.registry.sync.base_service.SecretsService.get_ssh_key",
+        "autosecops.registry.sync.base_service.SecretsService.get_ssh_key",
         mocker.AsyncMock(),
     )
 
@@ -708,11 +710,11 @@ async def test_sync_via_temporal_git_preserves_unexpected_secret_check_error(
     )
 
     get_temporal_client = mocker.patch(
-        "tracecat.dsl.client.get_temporal_client",
+        "autosecops.dsl.client.get_temporal_client",
         mocker.AsyncMock(),
     )
     get_org_secret_by_name = mocker.patch(
-        "tracecat.registry.sync.base_service.SecretsService.get_org_secret_by_name",
+        "autosecops.registry.sync.base_service.SecretsService.get_org_secret_by_name",
         mocker.AsyncMock(side_effect=RuntimeError("database unavailable")),
     )
 

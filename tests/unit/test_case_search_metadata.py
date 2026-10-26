@@ -4,17 +4,17 @@ from uuid import UUID
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.search_metadata import validate_case_filter_metadata
-from tracecat.cases.search_schemas import CaseQuery
-from tracecat.db.models import (
+from autosecops.cases.search_metadata import validate_case_filter_metadata
+from autosecops.cases.search_schemas import CaseQuery
+from autosecops.db.models import (
     CaseDropdownDefinition,
     CaseDropdownOption,
     CaseTag,
     Organization,
     Workspace,
 )
-from tracecat.exceptions import EntitlementRequired, TracecatValidationError
-from tracecat.query.filters import Condition, FilterOp
+from autosecops.exceptions import EntitlementRequired, TracecatValidationError
+from autosecops.query.filters import Condition, FilterOp
 
 pytestmark = pytest.mark.anyio
 WORKSPACE_ID = UUID("00000000-0000-4000-8000-000000000001")

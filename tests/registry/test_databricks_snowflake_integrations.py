@@ -3,11 +3,11 @@
 from io import BytesIO
 
 import pytest
+from autosecops_registry.integrations import databricks_sdk
+from autosecops_registry.integrations.databricks_sdk import _get_sdk_method, _serialize
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service._internal import Wait
 from databricks.sdk.service.files import DownloadResponse
-from tracecat_registry.integrations import databricks_sdk
-from tracecat_registry.integrations.databricks_sdk import _get_sdk_method, _serialize
 
 
 @pytest.mark.parametrize(

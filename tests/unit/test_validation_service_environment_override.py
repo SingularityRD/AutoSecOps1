@@ -13,12 +13,12 @@ import uuid
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement, DSLConfig
-from tracecat.expressions.common import ExprType
-from tracecat.validation.service import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement, DSLConfig
+from autosecops.expressions.common import ExprType
+from autosecops.validation.service import (
     get_effective_environment,
     validate_dsl_expressions,
 )
@@ -241,7 +241,7 @@ class TestSecretValidationWithEnvironmentOverride:
         """Test that effective environments are used when validating secrets."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from tracecat.validation.service import validate_actions_have_defined_secrets
+        from autosecops.validation.service import validate_actions_have_defined_secrets
 
         mock_role = Role(
             type="service",
@@ -285,17 +285,21 @@ class TestSecretValidationWithEnvironmentOverride:
 
         with (
             patch(
-                "tracecat.validation.service.get_async_session_context_manager"
+                "autosecops.validation.service.get_async_session_context_manager"
             ) as mock_session_mgr,
-            patch("tracecat.validation.service.SecretsService") as mock_secrets_service,
             patch(
-                "tracecat.validation.service.RegistryActionsService"
+                "autosecops.validation.service.SecretsService"
+            ) as mock_secrets_service,
+            patch(
+                "autosecops.validation.service.RegistryActionsService"
             ) as mock_registry_service,
             patch(
-                "tracecat.validation.service.check_action_secrets_from_manifest",
+                "autosecops.validation.service.check_action_secrets_from_manifest",
                 side_effect=mock_check_action_secrets_from_manifest,
             ),
-            patch("tracecat.validation.service.GatheringTaskGroup") as mock_task_group,
+            patch(
+                "autosecops.validation.service.GatheringTaskGroup"
+            ) as mock_task_group,
         ):
             # Setup mocks
             mock_session = AsyncMock()

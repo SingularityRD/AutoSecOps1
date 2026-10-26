@@ -11,9 +11,9 @@ import pytest
 from sqlalchemy import Connection, Engine, create_engine, select, text, update
 from sqlalchemy.exc import IntegrityError
 
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.db.models import ScimConnection
 from tests.database import TEST_DB_CONFIG
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.db.models import ScimConnection
 
 MIGRATION_REVISION = "a667d946cca1"
 PREVIOUS_REVISION = "e847d14eeb86"

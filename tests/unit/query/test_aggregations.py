@@ -9,8 +9,8 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.aggregations import (
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.aggregations import (
     MAX_AGGREGATIONS,
     MAX_GROUP_BY_FIELDS,
     AggFunction,
@@ -20,8 +20,8 @@ from tracecat.query.aggregations import (
     SortDirection,
     TimeBucket,
 )
-from tracecat.query.compiler import compile_aggregation
-from tracecat.query.resolver import FieldKind, ResolvedAggregationField
+from autosecops.query.compiler import compile_aggregation
+from autosecops.query.resolver import FieldKind, ResolvedAggregationField
 
 
 def _sql(statement: Select[Any]) -> str:

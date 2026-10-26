@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat import config
-from tracecat.agent.channels.service import AgentChannelService
-from tracecat.exceptions import TracecatValidationError
+from autosecops import config
+from autosecops.agent.channels.service import AgentChannelService
+from autosecops.exceptions import TracecatValidationError
 
 
 def test_slack_approval_action_token_round_trip(

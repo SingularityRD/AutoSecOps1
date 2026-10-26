@@ -21,42 +21,42 @@ from pathlib import Path
 from typing import Any, NoReturn
 from unittest.mock import patch
 
+import autosecops_registry
 import pytest
-import tracecat_registry
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.executor.action_gateway.config import ACTION_GATEWAY_SANDBOX_SOCKET
-from tracecat.executor.action_gateway.server import ActionGateway
-from tracecat.executor.action_runner import ActionRunner
-from tracecat.executor.backends.direct import DirectBackend
-from tracecat.executor.backends.ephemeral import EphemeralBackend
-from tracecat.executor.enums import ExecutorBackendType
-from tracecat.executor.registry_artifact_storage import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.executor.action_gateway.config import ACTION_GATEWAY_SANDBOX_SOCKET
+from autosecops.executor.action_gateway.server import ActionGateway
+from autosecops.executor.action_runner import ActionRunner
+from autosecops.executor.backends.direct import DirectBackend
+from autosecops.executor.backends.ephemeral import EphemeralBackend
+from autosecops.executor.enums import ExecutorBackendType
+from autosecops.executor.registry_artifact_storage import (
     RegistryArtifactMaterializationContext,
 )
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.registry_artifacts import (
     SQUASHFS_MOUNT_OPTIONS,
     RegistryArtifactFormat,
     SquashfsArtifact,
     TarballArtifact,
     compute_registry_artifact_cache_key,
 )
-from tracecat.executor.schemas import (
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ResolvedContext,
 )
-from tracecat.executor.secret_preprocessors import SecretEnvProjection
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.sandbox.executor import ActionSandboxConfig, NsjailExecutor
-from tracecat.sandbox.networking import NSTUN_GATEWAY_IP4, write_sandbox_network_files
-from tracecat.sandbox.nsjail_protocol import NsjailCompletedProcess, invoke_nsjail
-from tracecat.sandbox.types import (
+from autosecops.executor.secret_preprocessors import SecretEnvProjection
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.sandbox.executor import ActionSandboxConfig, NsjailExecutor
+from autosecops.sandbox.networking import NSTUN_GATEWAY_IP4, write_sandbox_network_files
+from autosecops.sandbox.nsjail_protocol import NsjailCompletedProcess, invoke_nsjail
+from autosecops.sandbox.types import (
     ResourceLimits,
     SandboxConfig,
     SandboxEgressRule,
@@ -276,7 +276,7 @@ def _run_executor_action_smoke_in_docker_or_skip(smoke_case: SmokeCase) -> None:
                 "python",
                 "executor",
                 "-m",
-                "tracecat.sandbox.bootstrap",
+                "autosecops.sandbox.bootstrap",
                 "sh",
                 "-c",
                 "uv run python -m tests.unit.test_executor_sandbox_nsjail "
@@ -359,8 +359,8 @@ def _make_builtin_action_input(action_name: str) -> RunActionInput:
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": tracecat_registry.__version__},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": autosecops_registry.__version__},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 
@@ -402,9 +402,9 @@ def _make_builtin_resolved_context(
         action_impl=ActionImplementation(
             type="udf",
             action_name=action_name,
-            module="tracecat_registry.core.transform",
+            module="autosecops_registry.core.transform",
             name="reshape",
-            origin="tracecat_registry",
+            origin="autosecops_registry",
         ),
         evaluated_args={"value": {"source": "current-builtin"}},
         workspace_id=str(role.workspace_id),
@@ -786,7 +786,7 @@ async def _run_executor_action_smoke_case(
 
             patches.append(
                 patch(
-                    "tracecat.sandbox.networking.write_sandbox_network_files",
+                    "autosecops.sandbox.networking.write_sandbox_network_files",
                     side_effect=write_test_network_files,
                 )
             )
@@ -927,9 +927,9 @@ async def _run_current_builtin_smoke_case(
     runner = ActionRunner(cache_dir=tmp_path / "registry-cache")
     backend = EphemeralBackend() if smoke_case.use_sandbox else DirectBackend()
     get_action_runner_path = (
-        "tracecat.executor.backends.ephemeral.get_action_runner"
+        "autosecops.executor.backends.ephemeral.get_action_runner"
         if smoke_case.use_sandbox
-        else "tracecat.executor.backends.direct.get_action_runner"
+        else "autosecops.executor.backends.direct.get_action_runner"
     )
     action_gateway = ActionGateway()
     try:
@@ -983,7 +983,7 @@ async def _run_nstun_socket_budget_smoke_case(tmp_path: Path) -> None:
         return completed
 
     invoke_patch = patch(
-        "tracecat.sandbox.executor.invoke_nsjail", capture_invoke_nsjail
+        "autosecops.sandbox.executor.invoke_nsjail", capture_invoke_nsjail
     )
     invoke_patch.start()
     try:
@@ -1060,7 +1060,7 @@ async def _run_nsjail_fatal_signal_smoke_case(tmp_path: Path) -> None:
         return process
 
     with patch(
-        "tracecat.sandbox.nsjail_protocol.asyncio.create_subprocess_exec",
+        "autosecops.sandbox.nsjail_protocol.asyncio.create_subprocess_exec",
         side_effect=capture_subprocess,
     ):
         execution = asyncio.create_task(
@@ -1141,7 +1141,7 @@ async def test_cancelled_nsjail_operation_kills_process_group(
         return process
 
     with patch(
-        "tracecat.sandbox.nsjail_protocol.asyncio.create_subprocess_exec",
+        "autosecops.sandbox.nsjail_protocol.asyncio.create_subprocess_exec",
         side_effect=capture_subprocess,
     ):
         match operation:

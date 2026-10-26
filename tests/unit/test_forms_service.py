@@ -9,25 +9,16 @@ from fastapi import HTTPException
 from sqlalchemy import Select, event, false, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests._forms_utils import (
-    create_form,
-    create_org_user,
-    create_organization_with_workspace,
-    create_submission,
-    create_workflow,
-    publish_workflow,
-    use_session,
-)
-from tracecat.auth import credentials
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScopeSource
-from tracecat.authz.scopes import (
+from autosecops.auth import credentials
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScopeSource
+from autosecops.authz.scopes import (
     EDITOR_SCOPES,
     INTAKE_SCOPES,
     SERVICE_PRINCIPAL_SCOPES,
     VIEWER_SCOPES,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     Form,
     FormView,
     RoleScope,
@@ -37,22 +28,31 @@ from tracecat.db.models import (
     Workflow,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.forms import internal_router
-from tracecat.forms import router as forms_router
-from tracecat.forms import service as forms_service
-from tracecat.forms.constants import FORM_VIEW_DEDUP_WINDOW
-from tracecat.forms.enums import FormErrorCode, FormIssueCode, FormStatus
-from tracecat.forms.exceptions import FormError
-from tracecat.forms.schemas import (
+from autosecops.db.models import Role as DBRole
+from autosecops.forms import internal_router
+from autosecops.forms import router as forms_router
+from autosecops.forms import service as forms_service
+from autosecops.forms.constants import FORM_VIEW_DEDUP_WINDOW
+from autosecops.forms.enums import FormErrorCode, FormIssueCode, FormStatus
+from autosecops.forms.exceptions import FormError
+from autosecops.forms.schemas import (
     FormConfig,
     FormCreate,
     FormUpdate,
     FormValidateRequest,
 )
-from tracecat.forms.service import FormsIntakeService, FormsService
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.pagination import PageParams
+from autosecops.forms.service import FormsIntakeService, FormsService
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.pagination import PageParams
+from tests._forms_utils import (
+    create_form,
+    create_org_user,
+    create_organization_with_workspace,
+    create_submission,
+    create_workflow,
+    publish_workflow,
+    use_session,
+)
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 

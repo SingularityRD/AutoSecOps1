@@ -5,14 +5,17 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.enums import CaseEventType
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.db.models import CaseTrigger, Workflow, WorkflowDefinition
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.case_triggers.schemas import CaseTriggerConfig, CaseTriggerUpdate
-from tracecat.workflow.case_triggers.service import CaseTriggersService
+from autosecops.cases.enums import CaseEventType
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.db.models import CaseTrigger, Workflow, WorkflowDefinition
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.case_triggers.schemas import (
+    CaseTriggerConfig,
+    CaseTriggerUpdate,
+)
+from autosecops.workflow.case_triggers.service import CaseTriggersService
 
 pytestmark = pytest.mark.usefixtures("db")
 

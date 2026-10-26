@@ -7,25 +7,25 @@ from unittest.mock import patch
 import pytest
 from temporalio.exceptions import ApplicationError, CancelledError
 
-from tests.shared import capture_application_error as _capture_application_error
-from tracecat.dsl.error_policy import raise_child_failures_application_error
-from tracecat.dsl.error_transport import (
+from autosecops.dsl.error_policy import raise_child_failures_application_error
+from autosecops.dsl.error_transport import (
     ActionErrorTransportDetail,
     parse_classified_action_error_payload,
 )
-from tracecat.dsl.types import ActionErrorInfo, TaskExceptionInfo
-from tracecat.dsl.workflow import DSLWorkflow, _raise_workflow_application_error
-from tracecat.runtime.errors import (
+from autosecops.dsl.types import ActionErrorInfo, TaskExceptionInfo
+from autosecops.dsl.workflow import DSLWorkflow, _raise_workflow_application_error
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     build_error_transport_detail,
     extract_error_classification,
     extract_error_classifications,
 )
+from tests.shared import capture_application_error as _capture_application_error
 
 
 def _action_error_info(
@@ -309,7 +309,7 @@ def test_mixed_child_failures_use_unclassified_aggregate_with_every_child() -> N
         user_classification.message,
         "Legacy platform failure",
     ]
-    with patch("tracecat.dsl.workflow.workflow.patched") as patched_mock:
+    with patch("autosecops.dsl.workflow.workflow.patched") as patched_mock:
         DSLWorkflow._upsert_terminal_error_owner(error)
     patched_mock.assert_not_called()
 
@@ -394,7 +394,7 @@ def test_mixed_workflow_errors_use_the_unclassified_terminal_raise() -> None:
         {"user_action": user_detail, "legacy_action": legacy_detail},
     )
     assert extract_error_classifications(error) == ()
-    with patch("tracecat.dsl.workflow.workflow.patched") as patched_mock:
+    with patch("autosecops.dsl.workflow.workflow.patched") as patched_mock:
         assert DSLWorkflow._has_user_error_cause(error) is False
     patched_mock.assert_not_called()
 

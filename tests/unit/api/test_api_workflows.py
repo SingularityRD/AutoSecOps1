@@ -12,8 +12,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     Action,
     Schedule,
     Webhook,
@@ -21,22 +21,22 @@ from tracecat.db.models import (
     WorkflowTag,
     Workspace,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     TracecatConflictError,
     TracecatNotFoundError,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.validation.schemas import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.validation.schemas import (
     ValidationDetail,
     ValidationResult,
     ValidationResultType,
 )
-from tracecat.workflow.management import draft
-from tracecat.workflow.management import router as workflow_management_router
-from tracecat.workflow.management.management import WorkflowPublishResult
-from tracecat.workflow.management.types import (
+from autosecops.workflow.management import draft
+from autosecops.workflow.management import router as workflow_management_router
+from autosecops.workflow.management.management import WorkflowPublishResult
+from autosecops.workflow.management.types import (
     WorkflowDefinitionMinimal,
     WorkflowTriggerSummaryMinimal,
 )
@@ -176,7 +176,7 @@ async def test_create_workflow_import_builtin_registry_not_ready_returns_validat
         mock_svc.create_workflow_from_external_definition.side_effect = (
             BuiltinRegistryHasNoSelectionError(
                 "Builtin registry sync is still in progress. Please retry shortly.",
-                detail={"origin": "tracecat_registry"},
+                detail={"origin": "autosecops_registry"},
             )
         )
         MockService.return_value = mock_svc
@@ -406,11 +406,11 @@ async def test_export_workflow_includes_layout(
 
     with (
         patch(
-            "tracecat.workflow.management.router.get_setting",
+            "autosecops.workflow.management.router.get_setting",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "tracecat.workflow.management.router.WorkflowDefinitionsService"
+            "autosecops.workflow.management.router.WorkflowDefinitionsService"
         ) as MockDefinitionsService,
     ):
         mock_svc = AsyncMock()
@@ -468,10 +468,10 @@ async def test_restore_workflow_definition_duplicate_alias_returns_conflict(
     """Test restore maps duplicate alias constraint violations to 409."""
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockManagementService,
         patch(
-            "tracecat.workflow.management.router.WorkflowDefinitionsService"
+            "autosecops.workflow.management.router.WorkflowDefinitionsService"
         ) as MockDefinitionsService,
     ):
         definition = SimpleNamespace(
@@ -529,7 +529,7 @@ async def test_get_workflow_with_relationships(
     """Test GET /workflows/{id} properly serializes relationships (tags, actions, schedules)."""
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockService,
     ):
         mock_svc = AsyncMock()
@@ -618,7 +618,7 @@ async def test_move_workflow_rejects_unknown_fields(
 ) -> None:
     """POST /workflows/{id}/move with an unsupported key must not silently succeed."""
     with patch(
-        "tracecat.workflow.management.router.WorkflowFolderService.move_workflow",
+        "autosecops.workflow.management.router.WorkflowFolderService.move_workflow",
         new_callable=AsyncMock,
     ) as mock_move:
         response = client.post(
@@ -638,7 +638,7 @@ async def test_create_schedule_unpublished_workflow_returns_conflict(
     mock_workflow: Workflow,
 ) -> None:
     with patch(
-        "tracecat.workflow.schedules.router.WorkflowSchedulesService.create_schedule",
+        "autosecops.workflow.schedules.router.WorkflowSchedulesService.create_schedule",
         new_callable=AsyncMock,
         side_effect=TracecatConflictError(
             "Workflow must be saved before creating a schedule."
@@ -681,7 +681,7 @@ async def test_delete_missing_schedule_returns_not_found(
     test_admin_role: Role,
 ) -> None:
     with patch(
-        "tracecat.workflow.schedules.router.WorkflowSchedulesService.delete_schedule",
+        "autosecops.workflow.schedules.router.WorkflowSchedulesService.delete_schedule",
         new_callable=AsyncMock,
         side_effect=TracecatNotFoundError("Schedule not found"),
     ):
@@ -710,7 +710,7 @@ async def test_get_workflow_draft_returns_document_and_revision(
     """Test GET /workflows/{id}/draft returns the editable document."""
     workflow = _draft_workflow(mock_workflow)
     with patch(
-        "tracecat.workflow.management.router.WorkflowsManagementService"
+        "autosecops.workflow.management.router.WorkflowsManagementService"
     ) as MockService:
         mock_svc = AsyncMock()
         mock_svc.get_workflow.return_value = workflow
@@ -749,14 +749,14 @@ async def test_replace_workflow_draft_persists_changed_sections(
 
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockService,
         patch(
-            "tracecat.workflow.management.router.validate_workflow_edit_document",
+            "autosecops.workflow.management.router.validate_workflow_edit_document",
             new_callable=AsyncMock,
         ) as mock_validate,
         patch(
-            "tracecat.workflow.management.router.persist_workflow_edit_document",
+            "autosecops.workflow.management.router.persist_workflow_edit_document",
             new_callable=AsyncMock,
         ) as mock_persist,
     ):
@@ -826,14 +826,14 @@ async def test_replace_workflow_draft_omitted_schedules_left_untouched(
 
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockService,
         patch(
-            "tracecat.workflow.management.router.validate_workflow_edit_document",
+            "autosecops.workflow.management.router.validate_workflow_edit_document",
             new_callable=AsyncMock,
         ),
         patch(
-            "tracecat.workflow.management.router.persist_workflow_edit_document",
+            "autosecops.workflow.management.router.persist_workflow_edit_document",
             new_callable=AsyncMock,
         ) as mock_persist,
     ):
@@ -867,10 +867,10 @@ async def test_replace_workflow_draft_stale_base_revision_returns_conflict(
 
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockService,
         patch(
-            "tracecat.workflow.management.router.persist_workflow_edit_document",
+            "autosecops.workflow.management.router.persist_workflow_edit_document",
             new_callable=AsyncMock,
         ) as mock_persist,
     ):
@@ -912,17 +912,17 @@ async def test_replace_workflow_draft_validation_error_returns_400(
 
     with (
         patch(
-            "tracecat.workflow.management.router.WorkflowsManagementService"
+            "autosecops.workflow.management.router.WorkflowsManagementService"
         ) as MockService,
         patch(
-            "tracecat.workflow.management.router.validate_workflow_edit_document",
+            "autosecops.workflow.management.router.validate_workflow_edit_document",
             new_callable=AsyncMock,
             side_effect=draft.WorkflowEditError(
                 "1 validation error(s)", code="validation_error", details=details
             ),
         ),
         patch(
-            "tracecat.workflow.management.router.persist_workflow_edit_document",
+            "autosecops.workflow.management.router.persist_workflow_edit_document",
             new_callable=AsyncMock,
         ) as mock_persist,
     ):
@@ -954,7 +954,7 @@ async def test_replace_workflow_draft_rejects_unknown_fields(
     payload["metadata"]["folder_id"] = str(uuid.uuid4())
 
     with patch(
-        "tracecat.workflow.management.router.WorkflowsManagementService"
+        "autosecops.workflow.management.router.WorkflowsManagementService"
     ) as MockService:
         mock_svc = AsyncMock()
         mock_svc.get_workflow.return_value = workflow

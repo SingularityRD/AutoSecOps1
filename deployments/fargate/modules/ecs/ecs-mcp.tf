@@ -27,7 +27,7 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
           appProtocol   = "http"
         }
       ]
-      command = ["python", "-m", "tracecat.mcp"]
+      command = ["python", "-m", "autosecops.mcp"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {

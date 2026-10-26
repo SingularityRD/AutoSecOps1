@@ -6,16 +6,16 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import SecretStr
 
-from tracecat.auth.types import Role
-from tracecat.dsl.action import _resolve_environment
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.action import _resolve_environment
+from autosecops.dsl.schemas import (
     ActionStatement,
     MaterializedExecutionContext,
     RunContext,
 )
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.secrets.schemas import SecretCreate, SecretKeyValue
-from tracecat.secrets.service import SecretsService
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.secrets.schemas import SecretCreate, SecretKeyValue
+from autosecops.secrets.service import SecretsService
 
 
 @pytest.mark.integration

@@ -3,15 +3,15 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from tracecat.authz.enums import ScopeSource
-from tracecat.db.models import ServiceAccount, ServiceAccountApiKey
-from tracecat.exceptions import TracecatValidationError
-from tracecat.pagination import CursorPaginationParams
-from tracecat.service_accounts.constants import (
+from autosecops.authz.enums import ScopeSource
+from autosecops.db.models import ServiceAccount, ServiceAccountApiKey
+from autosecops.exceptions import TracecatValidationError
+from autosecops.pagination import CursorPaginationParams
+from autosecops.service_accounts.constants import (
     is_org_service_account_assignable_scope,
     is_workspace_service_account_assignable_scope,
 )
-from tracecat.service_accounts.service import (
+from autosecops.service_accounts.service import (
     _apply_api_key_created_cursor,
     _apply_created_cursor,
 )

@@ -7,12 +7,12 @@ from typing import Any
 
 import pytest
 
-from tracecat.agent.session.schemas import (
+from autosecops.agent.session.schemas import (
     AgentSessionCreate,
     AgentSessionRead,
     AgentSessionUpdate,
 )
-from tracecat.agent.session.types import AgentSessionEntity
+from autosecops.agent.session.types import AgentSessionEntity
 
 _CREATE_BASE = {
     "title": "New session",

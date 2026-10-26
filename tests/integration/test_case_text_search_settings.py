@@ -10,16 +10,16 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from autosecops.cases.text_search import case_search_execution_context
+from autosecops.cases.text_search_indexes import ensure_case_text_indexes
+from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.lexical_types import LexicalSearchError, LexicalSearchErrorCode
 from tests.integration.test_case_text_search_postgres import (
     apply_search_migration,
 )
 from tests.integration.test_case_text_search_postgres import (
     search_database as _search_database,
 )
-from tracecat.cases.text_search import case_search_execution_context
-from tracecat.cases.text_search_indexes import ensure_case_text_indexes
-from tracecat.query.errors import TracecatQueryTimeoutError
-from tracecat.query.lexical_types import LexicalSearchError, LexicalSearchErrorCode
 
 pytestmark = pytest.mark.integration
 search_database = _search_database

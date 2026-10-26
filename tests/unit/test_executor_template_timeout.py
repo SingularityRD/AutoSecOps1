@@ -13,29 +13,29 @@ from uuid import UUID
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.enums import PlatformAction
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.enums import PlatformAction
+from autosecops.dsl.schemas import (
     ActionRetryPolicy,
     ActionStatement,
     RunActionInput,
     RunContext,
 )
-from tracecat.exceptions import ExecutionError
-from tracecat.executor import service
-from tracecat.executor.error_policy import classify_execute_action_error
-from tracecat.executor.minimal_runner import ActionTimeoutError
-from tracecat.executor.schemas import (
+from autosecops.exceptions import ExecutionError
+from autosecops.executor import service
+from autosecops.executor.error_policy import classify_execute_action_error
+from autosecops.executor.minimal_runner import ActionTimeoutError
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ExecutorResultFailure,
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import RetryDisposition
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import RetryDisposition
 
 pytestmark = pytest.mark.anyio
 

@@ -8,27 +8,27 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.agent.activities import (
+from autosecops_ee.agent.activities import (
     ApplyApprovalResultsActivityInputs,
     ApprovalDecisionPayload,
     PersistApprovalsActivityInputs,
     ToolApprovalPayload,
 )
-from tracecat_ee.agent.approvals.schemas import ApprovalCreate, ApprovalUpdate
-from tracecat_ee.agent.approvals.service import (
+from autosecops_ee.agent.approvals.schemas import ApprovalCreate, ApprovalUpdate
+from autosecops_ee.agent.approvals.service import (
     ApprovalManager,
     ApprovalMap,
     ApprovalService,
 )
-from tracecat_ee.agent.context import AgentContext
+from autosecops_ee.agent.context import AgentContext
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.agent.common.stream_types import ToolCallContent
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import AgentSession, Approval, User
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.agent.common.stream_types import ToolCallContent
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import AgentSession, Approval, User
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -242,7 +242,7 @@ class TestApprovalManager:
 
         execute_activity = AsyncMock(return_value=None)
         with patch(
-            "tracecat_ee.agent.approvals.service.workflow.execute_activity",
+            "autosecops_ee.agent.approvals.service.workflow.execute_activity",
             execute_activity,
         ):
             await approval_manager.handle_decisions()
@@ -331,7 +331,7 @@ class TestRecordApprovalRequestsActivity:
                 )
             )
             # Simulate it being approved
-            from tracecat_ee.agent.approvals.schemas import ApprovalUpdate
+            from autosecops_ee.agent.approvals.schemas import ApprovalUpdate
 
             await service.update_approval(
                 initial,

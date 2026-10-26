@@ -10,9 +10,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pydantic import TypeAdapter
-from tracecat_registry import config
-from tracecat_registry.core.table import (
+from autosecops_registry import config
+from autosecops_registry.core.table import (
     create_table,
     delete_row,
     download,
@@ -27,7 +26,8 @@ from tracecat_registry.core.table import (
     search_rows,
     update_row,
 )
-from tracecat_registry.types import SemanticSearchPage
+from autosecops_registry.types import SemanticSearchPage
+from pydantic import TypeAdapter
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def mock_tables_client():
 def mock_get_context(mock_tables_client: AsyncMock):
     """Mock get_context to return a fake context with mock tables client."""
     fake_ctx = SimpleNamespace(tables=mock_tables_client)
-    with patch("tracecat_registry.ctx.get_context", return_value=fake_ctx):
+    with patch("autosecops_registry.ctx.get_context", return_value=fake_ctx):
         yield
 
 

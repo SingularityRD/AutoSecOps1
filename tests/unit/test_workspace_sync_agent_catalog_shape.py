@@ -8,15 +8,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import yaml
 
-from tracecat.agent.catalog.service import AgentCatalogService
-from tracecat.agent.catalog.types import ModelKey
-from tracecat.exceptions import RegistryValidationError
-from tracecat.registry.repository import Repository
-from tracecat.sync import CatalogMappingCandidate
-from tracecat.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
-from tracecat.workspace_sync.adapters.base import SyncMappingService
-from tracecat.workspace_sync.schemas import WorkflowResourceSpec
-from tracecat.workspace_sync.workflow import serialize_workflow_spec
+from autosecops.agent.catalog.service import AgentCatalogService
+from autosecops.agent.catalog.types import ModelKey
+from autosecops.exceptions import RegistryValidationError
+from autosecops.registry.repository import Repository
+from autosecops.sync import CatalogMappingCandidate
+from autosecops.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
+from autosecops.workspace_sync.adapters.base import SyncMappingService
+from autosecops.workspace_sync.schemas import WorkflowResourceSpec
+from autosecops.workspace_sync.workflow import serialize_workflow_spec
 
 
 @pytest.fixture

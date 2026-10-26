@@ -10,7 +10,7 @@ from types import ModuleType
 
 import pytest
 
-from tracecat.registry.repository import import_and_reload as safe_import_and_reload
+from autosecops.registry.repository import import_and_reload as safe_import_and_reload
 
 pytestmark = pytest.mark.regression
 

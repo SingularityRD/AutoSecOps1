@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from tracecat.variables.schemas import VariableCreate, VariableUpdate
+from autosecops.variables.schemas import VariableCreate, VariableUpdate
 
 
 @pytest.mark.parametrize("name", ["TF-Probe Bad!", "Upper", "has space", "a.b"])

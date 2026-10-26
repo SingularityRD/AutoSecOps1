@@ -1,11 +1,11 @@
 import pytest
-from pydantic import ValidationError
-from tracecat_ee.tunnels.schemas import (
+from autosecops_ee.tunnels.schemas import (
     ManagedTunnelCreate,
     TunnelCreate,
     TunnelTarget,
     TunnelUpdate,
 )
+from pydantic import ValidationError
 
 
 def _create(**overrides: object) -> TunnelCreate:

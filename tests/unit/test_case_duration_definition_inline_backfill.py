@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.durations.service import CaseDurationDefinitionService
+from autosecops.cases.durations.service import CaseDurationDefinitionService
 
 
 @pytest.mark.anyio
@@ -29,11 +29,11 @@ async def test_after_commit_inline_backfill_syncs_each_case_under_lock(
         yield fresh_session
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
+        "autosecops.cases.durations.sync_queue.get_async_session_bypass_rls_context_manager",
         fake_session_context,
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.materialization.sync_case_duration",
+        "autosecops.cases.durations.materialization.sync_case_duration",
         sync_mock,
     )
     definition_service = CaseDurationDefinitionService(

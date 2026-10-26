@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 
-from tracecat import config
-from tracecat.auth.users import SessionMetadataDatabaseStrategy
-from tracecat.contexts import RequestAuditContext, ctx_request_audit
+from autosecops import config
+from autosecops.auth.users import SessionMetadataDatabaseStrategy
+from autosecops.contexts import RequestAuditContext, ctx_request_audit
 
 
 def _strategy() -> tuple[SessionMetadataDatabaseStrategy, MagicMock]:

@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from tracecat.workflow.management.types import build_workflow_trigger_summary
+from autosecops.workflow.management.types import build_workflow_trigger_summary
 
 
 def test_build_workflow_trigger_summary_returns_none_without_trigger_metadata() -> None:

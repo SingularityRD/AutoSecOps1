@@ -8,15 +8,15 @@ from typing import Any
 
 import httpx
 import pytest
+from autosecops_ee.admin.settings import router as admin_settings_router
 from fastapi import status
 from fastapi.testclient import TestClient
-from tracecat_ee.admin.settings import router as admin_settings_router
 
-from tracecat import network
-from tracecat.audit import service as audit_service_module
-from tracecat.auth.types import Role
-from tracecat.settings import router as settings_router
-from tracecat.settings.schemas import AuditSettingsUpdate
+from autosecops import network
+from autosecops.audit import service as audit_service_module
+from autosecops.auth.types import Role
+from autosecops.settings import router as settings_router
+from autosecops.settings.schemas import AuditSettingsUpdate
 
 _TEST_BODY: dict[str, Any] = {
     "audit_webhook_url": "https://audit.example.test/ingest",
@@ -128,7 +128,7 @@ async def test_org_audit_webhook_test_posts_marked_event_from_submitted_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -165,7 +165,7 @@ async def test_org_audit_webhook_test_probes_submitted_not_saved_url(
 ) -> None:
     """The probe must target exactly the submitted configuration."""
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     client.post("/settings/audit/test", json=_TEST_BODY)
@@ -189,7 +189,7 @@ async def test_org_audit_webhook_test_surfaces_receiver_error(
 ) -> None:
     FakeAuditWebhookClient.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -209,10 +209,10 @@ async def test_org_audit_webhook_test_enforces_wall_clock_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
+        "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
     )
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", HangingAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", HangingAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -237,13 +237,13 @@ async def test_org_audit_webhook_test_timeout_includes_dns_resolution(
         await asyncio.Event().wait()
 
     monkeypatch.setattr(
-        "tracecat.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
+        "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
     )
     monkeypatch.setattr(
         audit_service_module, "validate_url_resolves_public_async", _hang
     )
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -273,7 +273,7 @@ async def test_org_audit_webhook_test_returns_400_without_url(
     body: dict[str, Any],
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=body)
@@ -290,10 +290,10 @@ async def test_probe_times_out_when_socket_budget_exhausted(
 ) -> None:
     """A probe shares the delivery socket cap and honors the wall clock."""
     monkeypatch.setattr(
-        "tracecat.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.05
+        "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.05
     )
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
     loop = asyncio.get_running_loop()
     audit_service_module._post_semaphores[loop] = asyncio.Semaphore(0)
@@ -329,7 +329,7 @@ async def test_probe_rejects_private_address_without_connecting(
         audit_service_module, "validate_url_resolves_public_async", _reject
     )
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -369,7 +369,7 @@ async def test_org_audit_webhook_test_returns_400_for_malformed_url(
         network.validate_url_resolves_public_async,
     )
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post(
@@ -388,7 +388,7 @@ async def test_platform_audit_webhook_test_posts_platform_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
     )
 
     response = client.post("/admin/settings/audit/test", json=_TEST_BODY)

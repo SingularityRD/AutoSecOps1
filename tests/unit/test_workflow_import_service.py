@@ -6,24 +6,24 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseEventType
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseEventType
+from autosecops.db.models import (
     Schedule,
     Workflow,
     WorkflowDefinition,
     WorkflowTag,
     WorkflowTagLink,
 )
-from tracecat.dsl.common import DSLConfig, DSLEntrypoint, DSLInput
-from tracecat.dsl.enums import PlatformAction
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.expressions.expectations import ExpectedField
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.workflow.case_triggers.schemas import CaseTriggerConfig
-from tracecat.workflow.case_triggers.service import CaseTriggersService
-from tracecat.workflow.store.import_service import WorkflowImportService
-from tracecat.workflow.store.schemas import (
+from autosecops.dsl.common import DSLConfig, DSLEntrypoint, DSLInput
+from autosecops.dsl.enums import PlatformAction
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.expressions.expectations import ExpectedField
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
+from autosecops.workflow.case_triggers.service import CaseTriggersService
+from autosecops.workflow.store.import_service import WorkflowImportService
+from autosecops.workflow.store.schemas import (
     RemoteCaseTrigger,
     RemoteWebhook,
     RemoteWorkflowDefinition,
@@ -274,7 +274,7 @@ class TestWorkflowImportService:
         )
 
         with patch(
-            "tracecat.workflow.store.import_service.CaseTriggersService.sync_case_trigger",
+            "autosecops.workflow.store.import_service.CaseTriggersService.sync_case_trigger",
             new_callable=AsyncMock,
         ) as mock_sync:
             await import_service._update_case_trigger(
@@ -306,7 +306,7 @@ class TestWorkflowImportService:
         await _publish_workflow(import_service.session, workflow, sample_dsl)
 
         with patch(
-            "tracecat.workflow.store.import_service.CaseTriggersService.sync_case_trigger",
+            "autosecops.workflow.store.import_service.CaseTriggersService.sync_case_trigger",
             new_callable=AsyncMock,
         ) as mock_sync:
             await import_service._update_case_trigger(

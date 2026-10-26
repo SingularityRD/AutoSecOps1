@@ -1,7 +1,7 @@
 import httpx
 import pytest
-from tracecat_registry.sdk.client import TracecatClient
-from tracecat_registry.sdk.exceptions import (
+from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.exceptions import (
     TracecatAPIError,
     TracecatNotFoundError,
     TracecatValidationError,

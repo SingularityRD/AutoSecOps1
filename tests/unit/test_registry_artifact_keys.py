@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tracecat.registry.artifact_keys import (
+from autosecops.registry.artifact_keys import (
     get_artifact_local_dir,
     get_artifact_s3_key,
     get_artifact_s3_prefix,
@@ -42,10 +42,10 @@ class TestParseS3Uri:
 def test_get_artifact_s3_prefix_returns_directory() -> None:
     prefix = get_artifact_s3_prefix(
         organization_id="platform",
-        repository_origin="tracecat_registry",
+        repository_origin="autosecops_registry",
         version="1.0.0",
     )
-    assert prefix == "platform/tarball-venvs/tracecat_registry/1.0.0"
+    assert prefix == "platform/tarball-venvs/autosecops_registry/1.0.0"
 
 
 def test_get_artifact_s3_key_returns_squashfs_path() -> None:
@@ -92,7 +92,9 @@ def test_get_artifact_local_dir_matches_s3_prefix() -> None:
     local_dir = get_artifact_local_dir(
         root=Path("/prebuilt"),
         organization_id="platform",
-        repository_origin="tracecat_registry",
+        repository_origin="autosecops_registry",
         version="1.0.0",
     )
-    assert local_dir == Path("/prebuilt/platform/tarball-venvs/tracecat_registry/1.0.0")
+    assert local_dir == Path(
+        "/prebuilt/platform/tarball-venvs/autosecops_registry/1.0.0"
+    )

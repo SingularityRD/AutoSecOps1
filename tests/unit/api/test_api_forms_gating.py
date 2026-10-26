@@ -13,22 +13,22 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from autosecops import config
+from autosecops.api.app import app as api_app
+from autosecops.auth.types import Role
+from autosecops.exceptions import EntitlementRequired
+from autosecops.executor.action_gateway.app import create_app as create_gateway_app
+from autosecops.feature_flags import FeatureFlag
+from autosecops.forms.dependencies import check_forms_enabled
+from autosecops.forms.enums import FormErrorCode, FormFieldErrorCode
+from autosecops.forms.exceptions import FormError, form_error_handler
+from autosecops.forms.schemas import FormFieldError
+from autosecops.licensing import keys as license_keys
+from autosecops.licensing import service as license_service
+from autosecops.licensing.token import encode_license
+from autosecops.licensing.types import LicenseClaims
+from autosecops.tiers import defaults as tier_defaults
 from tests._route_utils import EffectiveRoute, iter_effective_api_routes
-from tracecat import config
-from tracecat.api.app import app as api_app
-from tracecat.auth.types import Role
-from tracecat.exceptions import EntitlementRequired
-from tracecat.executor.action_gateway.app import create_app as create_gateway_app
-from tracecat.feature_flags import FeatureFlag
-from tracecat.forms.dependencies import check_forms_enabled
-from tracecat.forms.enums import FormErrorCode, FormFieldErrorCode
-from tracecat.forms.exceptions import FormError, form_error_handler
-from tracecat.forms.schemas import FormFieldError
-from tracecat.licensing import keys as license_keys
-from tracecat.licensing import service as license_service
-from tracecat.licensing.token import encode_license
-from tracecat.licensing.types import LicenseClaims
-from tracecat.tiers import defaults as tier_defaults
 
 GATEWAY_APP = create_gateway_app()
 
@@ -99,7 +99,7 @@ async def test_every_forms_route_needs_the_flag_and_the_entitlement(
     [method] = route.methods
     is_org_entitled = AsyncMock(return_value=entitled)
 
-    with patch("tracecat.tiers.access.is_org_entitled", new=is_org_entitled):
+    with patch("autosecops.tiers.access.is_org_entitled", new=is_org_entitled):
         response = client.request(
             method,
             path,

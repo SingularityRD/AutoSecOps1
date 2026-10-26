@@ -1,16 +1,16 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import (
     CaseEventType,
     CasePriority,
     CaseSeverity,
     CaseStatus,
     CaseTaskStatus,
 )
-from tracecat.cases.schemas import CaseCreate, CaseTaskCreate, CaseTaskUpdate
-from tracecat.cases.service import CaseEventsService, CasesService, CaseTasksService
+from autosecops.cases.schemas import CaseCreate, CaseTaskCreate, CaseTaskUpdate
+from autosecops.cases.service import CaseEventsService, CasesService, CaseTasksService
 
 pytestmark = pytest.mark.usefixtures("db")
 

@@ -7,26 +7,26 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 
 import pytest
-from fastapi import HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.scim.connections import ScimConnectionService
-from tracecat_ee.scim.credentials import (
+from autosecops_ee.scim.connections import ScimConnectionService
+from autosecops_ee.scim.credentials import (
     SCIM_ROLE_SCOPES,
     authenticate_scim_connection,
 )
-from tracecat_ee.scim.service import SCIMService
+from autosecops_ee.scim.service import SCIMService
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth import ip_allowlist_enforcement
-from tracecat.auth.api_keys import SCIM_API_KEY_PREFIX
-from tracecat.auth.ip_allowlist import OrgIPAllowlist, compile_allowlist
-from tracecat.auth.types import Role
-from tracecat.authz.controls import has_scope
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES
-from tracecat.contexts import RequestAuditContext, ctx_request_audit
-from tracecat.db.engine import AuthSession
-from tracecat.db.models import Organization, User
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.auth import ip_allowlist_enforcement
+from autosecops.auth.api_keys import SCIM_API_KEY_PREFIX
+from autosecops.auth.ip_allowlist import OrgIPAllowlist, compile_allowlist
+from autosecops.auth.types import Role
+from autosecops.authz.controls import has_scope
+from autosecops.authz.scopes import ORG_ADMIN_SCOPES
+from autosecops.contexts import RequestAuditContext, ctx_request_audit
+from autosecops.db.engine import AuthSession
+from autosecops.db.models import Organization, User
+from autosecops.tiers import defaults as tier_defaults
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -62,7 +62,7 @@ def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None
         yield AuthSession(session)
 
     monkeypatch.setattr(
-        "tracecat_ee.scim.credentials.get_async_session_auth_context_manager",
+        "autosecops_ee.scim.credentials.get_async_session_auth_context_manager",
         _session_cm,
     )
 
@@ -253,7 +253,7 @@ async def test_allowlist_cache_miss_does_not_nest_auth_sessions(
             auth_session_open = False
 
     monkeypatch.setattr(
-        "tracecat_ee.scim.credentials.get_async_session_auth_context_manager",
+        "autosecops_ee.scim.credentials.get_async_session_auth_context_manager",
         guarded_session,
     )
     monkeypatch.setattr(

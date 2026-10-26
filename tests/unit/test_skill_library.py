@@ -14,68 +14,68 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.agent.common.types import SandboxAgentConfig
-from tracecat.agent.executor.activity import SandboxedAgentExecutor
-from tracecat.agent.preset.schemas import AgentPresetCreate, AgentPresetUpdate
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.preset.tool_policy import resolve_tool_policy
-from tracecat.agent.preset.types import PresetToolInputs
-from tracecat.agent.skill.builtin import PLATFORM_SKILLS
-from tracecat.agent.skill.builtin.staging import stage_platform_skill_plugin
-from tracecat.agent.skill.library import catalog
-from tracecat.agent.skill.library.catalog import (
+from autosecops.agent.common.types import SandboxAgentConfig
+from autosecops.agent.executor.activity import SandboxedAgentExecutor
+from autosecops.agent.preset.schemas import AgentPresetCreate, AgentPresetUpdate
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.preset.tool_policy import resolve_tool_policy
+from autosecops.agent.preset.types import PresetToolInputs
+from autosecops.agent.skill.builtin import PLATFORM_SKILLS
+from autosecops.agent.skill.builtin.staging import stage_platform_skill_plugin
+from autosecops.agent.skill.library import catalog
+from autosecops.agent.skill.library.catalog import (
     get_library_skills,
     load_library,
     load_library_from,
 )
-from tracecat.agent.skill.library.execution import render_library_skill_markdown
-from tracecat.agent.skill.library.schemas import LibrarySkillSourceRead
-from tracecat.agent.skill.library.service import (
+from autosecops.agent.skill.library.execution import render_library_skill_markdown
+from autosecops.agent.skill.library.schemas import LibrarySkillSourceRead
+from autosecops.agent.skill.library.service import (
     SkillLibraryErrorCode,
     SkillLibraryService,
     _skill_read,
     normalize_library_slugs,
 )
-from tracecat.agent.skill.library.sources import (
+from autosecops.agent.skill.library.sources import (
     load_sources,
     read_tree,
     skill_sources,
     tree_digest,
     verify_library,
 )
-from tracecat.agent.skill.library.sources import parse_sources as parse_manifest
-from tracecat.agent.skill.library.types import LibrarySource, LibrarySourceEntry
-from tracecat.agent.skill.manifest import normalize_skill_path
-from tracecat.agent.skill.service import SkillService
-from tracecat.agent.types import AgentConfig
-from tracecat.agent.workflow_config import (
+from autosecops.agent.skill.library.sources import parse_sources as parse_manifest
+from autosecops.agent.skill.library.types import LibrarySource, LibrarySourceEntry
+from autosecops.agent.skill.manifest import normalize_skill_path
+from autosecops.agent.skill.service import SkillService
+from autosecops.agent.types import AgentConfig
+from autosecops.agent.workflow_config import (
     agent_config_from_payload,
     agent_config_to_payload,
 )
-from tracecat.auth.types import Role
-from tracecat.db.models import AgentPreset, SkillLibraryInstall, Workspace
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.db.models import AgentPreset, SkillLibraryInstall, Workspace
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.git.types import GitUrl
-from tracecat.pagination import BaseCursorPaginator, CursorPaginationParams
-from tracecat.registry.actions.service import RegistryActionsService
-from tracecat.sync import PullOptions
-from tracecat.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
-from tracecat.workspace_sync.adapters.agent_preset import AgentPresetAdapter
-from tracecat.workspace_sync.adapters.base import SyncMappingService
-from tracecat.workspace_sync.importer import WorkspaceResourceImportService
-from tracecat.workspace_sync.schemas import (
+from autosecops.git.types import GitUrl
+from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
+from autosecops.registry.actions.service import RegistryActionsService
+from autosecops.sync import PullOptions
+from autosecops.workspace_sync.adapters import AGENT_PRESET_RESOURCE_ADAPTER
+from autosecops.workspace_sync.adapters.agent_preset import AgentPresetAdapter
+from autosecops.workspace_sync.adapters.base import SyncMappingService
+from autosecops.workspace_sync.importer import WorkspaceResourceImportService
+from autosecops.workspace_sync.schemas import (
     AgentPresetResourceSpec,
     WorkspaceManifest,
     WorkspaceRemoteSnapshot,
     WorkspaceSpec,
 )
-from tracecat.workspace_sync.service import WorkspaceSyncService
-from tracecat.workspace_sync.transport import VcsTreeSnapshot
+from autosecops.workspace_sync.service import WorkspaceSyncService
+from autosecops.workspace_sync.transport import VcsTreeSnapshot
+from tests.database import TEST_DB_CONFIG
 
 SLUG = "phishing-triage"
 

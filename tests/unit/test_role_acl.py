@@ -8,12 +8,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tracecat.auth import credentials, ip_allowlist_enforcement
-from tracecat.auth.credentials import RoleACL
-from tracecat.auth.ip_allowlist import OrgIPAllowlist
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_session
+from autosecops.auth import credentials, ip_allowlist_enforcement
+from autosecops.auth.credentials import RoleACL
+from autosecops.auth.ip_allowlist import OrgIPAllowlist
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session
 
 
 @pytest.fixture

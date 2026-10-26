@@ -12,28 +12,28 @@ from uuid import uuid4
 
 import pytest
 
-from tracecat.exceptions import RegistryError, RegistrySyncContentError
-from tracecat.registry.sync.artifact import (
+from autosecops.exceptions import RegistryError, RegistrySyncContentError
+from autosecops.registry.sync.artifact import (
     RegistryArtifactBuildError,
 )
-from tracecat.registry.sync.sandbox import (
+from autosecops.registry.sync.sandbox import (
     _DISCOVERY_SCRIPT,
     _PACKAGING_SCRIPT,
     RegistrySyncSandbox,
 )
-from tracecat.registry.sync.schemas import (
+from autosecops.registry.sync.schemas import (
     SyncErrorCode,
     SyncResultAdapter,
     SyncResultError,
     SyncResultSuccess,
 )
-from tracecat.sandbox.exceptions import SandboxTimeoutError
-from tracecat.sandbox.types import (
+from autosecops.sandbox.exceptions import SandboxTimeoutError
+from autosecops.sandbox.types import (
     SandboxConfig,
     SandboxNetworkPurpose,
     SandboxResult,
 )
-from tracecat.ssh import SshEnv
+from autosecops.ssh import SshEnv
 
 
 @pytest.fixture(autouse=True)
@@ -78,7 +78,7 @@ async def test_registry_install_runs_in_nsjail_with_private_cache(
         execute_install=mocker.AsyncMock(side_effect=execute_install)
     )
     executor_cls = mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=executor,
     )
     result = await RegistrySyncSandbox().install_package(
@@ -185,15 +185,15 @@ async def test_registry_clone_uses_scoped_agent_and_strict_host_keys(
         )
 
     add_key = mocker.patch(
-        "tracecat.registry.sync.sandbox.add_ssh_key_to_agent",
+        "autosecops.registry.sync.sandbox.add_ssh_key_to_agent",
         mocker.AsyncMock(),
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox.temporary_ssh_agent",
+        "autosecops.registry.sync.sandbox.temporary_ssh_agent",
         side_effect=fake_agent,
     )
     executor_cls = mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=mocker.Mock(execute=mocker.AsyncMock(side_effect=execute)),
     )
 
@@ -252,10 +252,12 @@ async def test_registry_clone_stops_when_keyscan_fails(
 ) -> None:
     execute = mocker.AsyncMock(**execute_kwargs)
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=mocker.Mock(execute=execute),
     )
-    temporary_agent = mocker.patch("tracecat.registry.sync.sandbox.temporary_ssh_agent")
+    temporary_agent = mocker.patch(
+        "autosecops.registry.sync.sandbox.temporary_ssh_agent"
+    )
 
     with pytest.raises(RegistryError, match=error):
         await RegistrySyncSandbox().clone_repository(
@@ -294,8 +296,10 @@ async def test_registry_clone_rejects_invalid_ssh_target_before_keyscan(
     git_url: str,
     error: str,
 ) -> None:
-    executor_cls = mocker.patch("tracecat.registry.sync.sandbox.NsjailExecutor")
-    temporary_agent = mocker.patch("tracecat.registry.sync.sandbox.temporary_ssh_agent")
+    executor_cls = mocker.patch("autosecops.registry.sync.sandbox.NsjailExecutor")
+    temporary_agent = mocker.patch(
+        "autosecops.registry.sync.sandbox.temporary_ssh_agent"
+    )
 
     with pytest.raises(RegistryError, match=error):
         await RegistrySyncSandbox().clone_repository(
@@ -341,7 +345,7 @@ async def test_registry_packaging_runs_in_fresh_no_network_jail(
         return SandboxResult(success=True)
 
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=mocker.Mock(execute=mocker.AsyncMock(side_effect=execute)),
     )
 
@@ -422,8 +426,8 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
     site_packages.mkdir(parents=True)
     host_site_packages = tmp_path / "host-site-packages"
     host_site_packages.mkdir()
-    trusted_tracecat = tmp_path / "trusted" / "tracecat"
-    trusted_registry = tmp_path / "trusted" / "tracecat_registry"
+    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_registry = tmp_path / "trusted" / "autosecops_registry"
     trusted_tracecat.mkdir(parents=True)
     trusted_registry.mkdir()
     (trusted_tracecat / "__init__.py").write_text("")
@@ -455,9 +459,11 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
             host_site_packages,
             job_dir.parent / "trusted" / "1",
         ]
-        assert (job_dir.parent / "trusted" / "0" / "tracecat" / "__init__.py").exists()
         assert (
-            job_dir.parent / "trusted" / "1" / "tracecat_registry" / "__init__.py"
+            job_dir.parent / "trusted" / "0" / "autosecops" / "__init__.py"
+        ).exists()
+        assert (
+            job_dir.parent / "trusted" / "1" / "autosecops_registry" / "__init__.py"
         ).exists()
         inputs = json.loads((job_dir / "inputs.json").read_text())
         assert set(inputs) == {
@@ -477,15 +483,15 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
 
     executor = mocker.Mock(execute=mocker.AsyncMock(side_effect=execute))
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=executor,
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._host_site_packages_paths",
+        "autosecops.registry.sync.sandbox._host_site_packages_paths",
         return_value=[host_site_packages],
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._trusted_runtime_package_paths",
+        "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
         return_value=[trusted_tracecat, trusted_registry],
     )
 
@@ -516,8 +522,8 @@ async def test_registry_discovery_ignores_installer_planted_symlinks(
     executor_owned_file.write_text("SAFE\n")
     (old_job_dir / "script.py").symlink_to(executor_owned_file)
 
-    trusted_tracecat = tmp_path / "trusted" / "tracecat"
-    trusted_registry = tmp_path / "trusted" / "tracecat_registry"
+    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_registry = tmp_path / "trusted" / "autosecops_registry"
     trusted_tracecat.mkdir(parents=True)
     trusted_registry.mkdir()
     discovery_job_dirs: list[Path] = []
@@ -542,22 +548,22 @@ async def test_registry_discovery_ignores_installer_planted_symlinks(
         )
 
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=mocker.Mock(execute=mocker.AsyncMock(side_effect=execute)),
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._host_site_packages_paths",
+        "autosecops.registry.sync.sandbox._host_site_packages_paths",
         return_value=[],
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._trusted_runtime_package_paths",
+        "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
         return_value=[trusted_tracecat, trusted_registry],
     )
 
     await RegistrySyncSandbox().discover_actions(
         site_packages=site_packages,
-        origin="tracecat_registry",
-        package_name="tracecat_registry",
+        origin="autosecops_registry",
+        package_name="autosecops_registry",
         repository_id=uuid4(),
         commit_sha=None,
         validate=True,
@@ -592,13 +598,13 @@ async def test_registry_discovery_rejects_symlinked_installation_components(
         cache_dir.mkdir()
         site_packages.symlink_to(executor_owned_dir, target_is_directory=True)
 
-    executor_cls = mocker.patch("tracecat.registry.sync.sandbox.NsjailExecutor")
+    executor_cls = mocker.patch("autosecops.registry.sync.sandbox.NsjailExecutor")
 
     with pytest.raises(RegistryArtifactBuildError, match="unsafe component"):
         await RegistrySyncSandbox().discover_actions(
             site_packages=site_packages,
-            origin="tracecat_registry",
-            package_name="tracecat_registry",
+            origin="autosecops_registry",
+            package_name="autosecops_registry",
             repository_id=uuid4(),
             commit_sha=None,
             validate=True,
@@ -616,8 +622,8 @@ async def test_registry_discovery_preserves_structured_registry_errors(
 ) -> None:
     site_packages = tmp_path / "sandbox-install" / "cache" / "site-packages"
     site_packages.mkdir(parents=True)
-    trusted_tracecat = tmp_path / "trusted" / "tracecat"
-    trusted_registry = tmp_path / "trusted" / "tracecat_registry"
+    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_registry = tmp_path / "trusted" / "autosecops_registry"
     trusted_tracecat.mkdir(parents=True)
     trusted_registry.mkdir()
     executor = mocker.Mock(
@@ -631,23 +637,23 @@ async def test_registry_discovery_preserves_structured_registry_errors(
         )
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=executor,
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._host_site_packages_paths",
+        "autosecops.registry.sync.sandbox._host_site_packages_paths",
         return_value=[],
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._trusted_runtime_package_paths",
+        "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
         return_value=[trusted_tracecat, trusted_registry],
     )
 
     with pytest.raises(RegistryError, match="Failed to load template action"):
         await RegistrySyncSandbox().discover_actions(
             site_packages=site_packages,
-            origin="tracecat_registry",
-            package_name="tracecat_registry",
+            origin="autosecops_registry",
+            package_name="autosecops_registry",
             repository_id=uuid4(),
             commit_sha=None,
             validate=True,
@@ -663,8 +669,8 @@ async def test_registry_discovery_raises_typed_content_error(
 ) -> None:
     site_packages = tmp_path / "sandbox-install" / "cache" / "site-packages"
     site_packages.mkdir(parents=True)
-    trusted_tracecat = tmp_path / "trusted" / "tracecat"
-    trusted_registry = tmp_path / "trusted" / "tracecat_registry"
+    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_registry = tmp_path / "trusted" / "autosecops_registry"
     trusted_tracecat.mkdir(parents=True)
     trusted_registry.mkdir()
     executor = mocker.Mock(
@@ -679,23 +685,23 @@ async def test_registry_discovery_raises_typed_content_error(
         )
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox.NsjailExecutor",
+        "autosecops.registry.sync.sandbox.NsjailExecutor",
         return_value=executor,
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._host_site_packages_paths",
+        "autosecops.registry.sync.sandbox._host_site_packages_paths",
         return_value=[],
     )
     mocker.patch(
-        "tracecat.registry.sync.sandbox._trusted_runtime_package_paths",
+        "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
         return_value=[trusted_tracecat, trusted_registry],
     )
 
     with pytest.raises(RegistrySyncContentError) as exc_info:
         await RegistrySyncSandbox().discover_actions(
             site_packages=site_packages,
-            origin="tracecat_registry",
-            package_name="tracecat_registry",
+            origin="autosecops_registry",
+            package_name="autosecops_registry",
             repository_id=uuid4(),
             commit_sha=None,
             validate=True,
@@ -715,7 +721,7 @@ def test_discovery_script_reports_registry_dependency_conflicts(
     tmp_path: Path,
     scenario: str,
 ) -> None:
-    module_name = "tracecat.registry.sync.entrypoint"
+    module_name = "autosecops.registry.sync.entrypoint"
     registry_site_packages = tmp_path / "registry-site-packages"
     from_registry = scenario != "trusted"
     root = registry_site_packages if from_registry else tmp_path / "trusted"
@@ -804,7 +810,7 @@ def test_discovery_script_attributes_action_load_import_failures(
             path=dependency.__file__,
         )
 
-    entrypoint = ModuleType("tracecat.registry.sync.entrypoint")
+    entrypoint = ModuleType("autosecops.registry.sync.entrypoint")
     entrypoint.__dict__["load_and_serialize_installed_actions"] = (
         load_and_serialize_installed_actions
     )

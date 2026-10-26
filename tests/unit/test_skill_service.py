@@ -20,16 +20,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.agent.preset.schemas import (
+from autosecops import config
+from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
     AgentPresetSkillBindingBase,
     AgentPresetUpdate,
 )
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.skill import service as skill_service_module
-from tracecat.agent.skill.schemas import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.skill import service as skill_service_module
+from autosecops.agent.skill.schemas import (
     SkillCreate,
     SkillDraftAttachUploadedBlobOp,
     SkillDraftDeleteFileOp,
@@ -45,15 +44,15 @@ from tracecat.agent.skill.schemas import (
     SkillVersionRead,
     SkillVersionReadMinimal,
 )
-from tracecat.agent.skill.service import (
+from autosecops.agent.skill.service import (
     SKILL_SLUG_UNIQUE_CONSTRAINT,
     PreparedDraftAttachUploadedBlobOp,
     PublishedBlobObject,
     SkillBlobPublicationClaim,
     SkillService,
 )
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     MCPIntegration,
     RegistryIndex,
     RegistryRepository,
@@ -65,19 +64,20 @@ from tracecat.db.models import (
     SkillVersionTool,
     Workspace,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     SkillUpload as SkillUploadModel,
 )
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.service import IntegrationService
-from tracecat.pagination import CursorPaginationParams
-from tracecat.registry.actions.schemas import RegistryActionType
-from tracecat.registry.versions.schemas import (
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.service import IntegrationService
+from autosecops.pagination import CursorPaginationParams
+from autosecops.registry.actions.schemas import RegistryActionType
+from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     RegistryVersionManifestAction,
 )
-from tracecat.storage.blob import ensure_bucket_exists, file_exists, upload_file
+from autosecops.storage.blob import ensure_bucket_exists, file_exists, upload_file
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -654,7 +654,7 @@ class TestSkillService:
             upload_called = True
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.upload_file",
+            "autosecops.agent.skill.service.blob.upload_file",
             fake_upload_file,
         )
 
@@ -1234,14 +1234,14 @@ class TestSkillService:
             uploaded["key"] = destination_key
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.open_download_stream",
+            "autosecops.agent.skill.service.blob.open_download_stream",
             fake_open_download_stream,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.copy_file",
+            "autosecops.agent.skill.service.blob.copy_file",
             fake_copy_file,
         )
 
@@ -1285,7 +1285,7 @@ class TestSkillService:
         )
         mock_logger = MagicMock()
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", delete_file
+            "autosecops.agent.skill.service.blob.delete_file", delete_file
         )
         monkeypatch.setattr(skill_service, "logger", mock_logger)
 
@@ -1483,17 +1483,17 @@ class TestSkillService:
             deleted.append(key)
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.open_download_stream",
+            "autosecops.agent.skill.service.blob.open_download_stream",
             fake_open_download_stream,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.copy_file", fake_copy_file
+            "autosecops.agent.skill.service.blob.copy_file", fake_copy_file
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", fake_delete_file
+            "autosecops.agent.skill.service.blob.delete_file", fake_delete_file
         )
 
         with pytest.raises(TracecatValidationError) as excinfo:
@@ -1565,11 +1565,11 @@ class TestSkillService:
             stored_keys.discard(key)
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.upload_file",
+            "autosecops.agent.skill.service.blob.upload_file",
             cancel_after_accepted_upload,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", fake_delete_file
+            "autosecops.agent.skill.service.blob.delete_file", fake_delete_file
         )
 
         with pytest.raises(asyncio.CancelledError):
@@ -1682,19 +1682,19 @@ class TestSkillService:
 
         mock_logger = MagicMock()
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.get_storage_client",
+            "autosecops.agent.skill.service.blob.get_storage_client",
             fake_get_storage_client,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.copy_file", fake_copy_file
+            "autosecops.agent.skill.service.blob.copy_file", fake_copy_file
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", fake_delete_file
+            "autosecops.agent.skill.service.blob.delete_file", fake_delete_file
         )
-        monkeypatch.setattr("tracecat.storage.blob.logger", mock_logger)
+        monkeypatch.setattr("autosecops.storage.blob.logger", mock_logger)
 
         with pytest.raises(skill_service_module.blob.StorageDownloadError) as raised:
             await skill_service.patch_draft(
@@ -1784,7 +1784,7 @@ class TestSkillService:
             stored_keys.discard(key)
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
             skill_service,
@@ -1792,11 +1792,11 @@ class TestSkillService:
             fake_stream_verify_object,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.copy_file",
+            "autosecops.agent.skill.service.blob.copy_file",
             cancel_after_accepted_copy,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", fake_delete_file
+            "autosecops.agent.skill.service.blob.delete_file", fake_delete_file
         )
 
         with pytest.raises(asyncio.CancelledError):
@@ -1865,7 +1865,7 @@ class TestSkillService:
             deleted.append((key, bucket))
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file", blocked_delete_file
+            "autosecops.agent.skill.service.blob.delete_file", blocked_delete_file
         )
 
         patched = await asyncio.wait_for(
@@ -2064,7 +2064,7 @@ class TestSkillService:
             return f"https://uploads.example/{len(captured)}"
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.generate_presigned_upload_url",
+            "autosecops.agent.skill.service.blob.generate_presigned_upload_url",
             generate_presigned_upload_url,
         )
         params = [
@@ -2123,7 +2123,7 @@ class TestSkillService:
             return "https://uploads.example/first"
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.generate_presigned_upload_url",
+            "autosecops.agent.skill.service.blob.generate_presigned_upload_url",
             generate_presigned_upload_url,
         )
         params = [
@@ -2192,7 +2192,7 @@ class TestSkillService:
             raise RuntimeError("signing failed")
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.generate_presigned_upload_url",
+            "autosecops.agent.skill.service.blob.generate_presigned_upload_url",
             generate_presigned_upload_url,
         )
         content = b"payload"
@@ -2296,7 +2296,7 @@ class TestSkillService:
             raise AssertionError("Presigning must not start")
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.generate_presigned_upload_url",
+            "autosecops.agent.skill.service.blob.generate_presigned_upload_url",
             unexpected_generate_presigned_upload_url,
         )
         with pytest.raises(TracecatValidationError) as exc_info:
@@ -2437,7 +2437,7 @@ class TestSkillService:
             deleted["bucket"] = bucket
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file",
+            "autosecops.agent.skill.service.blob.delete_file",
             fake_delete_file,
         )
 
@@ -2510,7 +2510,7 @@ class TestSkillService:
             await allow_deletion.wait()
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file",
+            "autosecops.agent.skill.service.blob.delete_file",
             blocked_delete_file,
         )
 
@@ -2588,10 +2588,10 @@ class TestSkillService:
             yield FakeStream(), len(content)
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.open_download_stream",
+            "autosecops.agent.skill.service.blob.open_download_stream",
             fake_open_download_stream,
         )
 
@@ -2647,7 +2647,7 @@ class TestSkillService:
             deleted["bucket"] = bucket
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file",
+            "autosecops.agent.skill.service.blob.delete_file",
             fake_delete_file,
         )
 
@@ -2722,10 +2722,10 @@ class TestSkillService:
             yield FakeStream(), None
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.open_download_stream",
+            "autosecops.agent.skill.service.blob.open_download_stream",
             fake_open_download_stream,
         )
 
@@ -2809,18 +2809,18 @@ class TestSkillService:
             deleted["bucket"] = bucket
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists", fake_file_exists
+            "autosecops.agent.skill.service.blob.file_exists", fake_file_exists
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.open_download_stream",
+            "autosecops.agent.skill.service.blob.open_download_stream",
             fake_open_download_stream,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.copy_file",
+            "autosecops.agent.skill.service.blob.copy_file",
             fake_copy_file,
         )
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.delete_file",
+            "autosecops.agent.skill.service.blob.delete_file",
             fake_delete_file,
         )
 
@@ -2869,7 +2869,7 @@ class TestSkillService:
             raise AssertionError("Upload materialization should not start yet")
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists",
+            "autosecops.agent.skill.service.blob.file_exists",
             unexpected_file_exists,
         )
 
@@ -2936,7 +2936,7 @@ class TestSkillService:
             raise AssertionError("Upload materialization must not start")
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.file_exists",
+            "autosecops.agent.skill.service.blob.file_exists",
             unexpected_file_exists,
         )
 
@@ -4423,7 +4423,7 @@ class TestBatchBlobMaterialization:
             in_flight -= 1
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.upload_file", fake_upload_file
+            "autosecops.agent.skill.service.blob.upload_file", fake_upload_file
         )
         contents = [f"file {index}".encode() for index in range(12)]
         contents.append(contents[0])
@@ -4461,7 +4461,7 @@ class TestBatchBlobMaterialization:
                 raise RuntimeError("object storage unavailable")
 
         monkeypatch.setattr(
-            "tracecat.agent.skill.service.blob.upload_file", fake_upload_file
+            "autosecops.agent.skill.service.blob.upload_file", fake_upload_file
         )
 
         with pytest.raises(RuntimeError, match="object storage unavailable"):

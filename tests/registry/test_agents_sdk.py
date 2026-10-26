@@ -6,7 +6,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from tracecat_registry.sdk.agents import AgentsClient
+from autosecops_registry.sdk.agents import AgentsClient
 
 
 @pytest.fixture

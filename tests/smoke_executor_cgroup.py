@@ -6,9 +6,9 @@ import tempfile
 from pathlib import Path
 from typing import Literal
 
-from tracecat.sandbox.cgroup import sandbox_cgroup
-from tracecat.sandbox.executor import ActionSandboxConfig, NsjailExecutor
-from tracecat.sandbox.types import ResourceLimits, SandboxConfig, SandboxErrorCode
+from autosecops.sandbox.cgroup import sandbox_cgroup
+from autosecops.sandbox.executor import ActionSandboxConfig, NsjailExecutor
+from autosecops.sandbox.types import ResourceLimits, SandboxConfig, SandboxErrorCode
 
 # Each process stays below the address-space cap; their combined resident memory
 # exceeds memory.max. The child alone cannot exceed the cgroup budget.

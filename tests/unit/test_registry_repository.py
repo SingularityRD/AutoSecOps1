@@ -9,8 +9,8 @@ from typing import Annotated, Any, ForwardRef, Literal, TypedDict, get_args, get
 import pytest
 from typing_extensions import Doc
 
-from tracecat.expressions.validation import TemplateValidator
-from tracecat.registry.repository import (
+from autosecops.expressions.validation import TemplateValidator
+from autosecops.registry.repository import (
     RegisterKwargs,
     attach_validators,
     generate_model_from_function,
@@ -46,7 +46,7 @@ def test_attach_validators_idempotent() -> None:
 def test_import_and_reload_falls_back_when_loader_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module_name = "tracecat._test_dummy_registry"
+    module_name = "autosecops._test_dummy_registry"
     dummy = ModuleType(module_name)
     dummy.__spec__ = importlib.machinery.ModuleSpec(name=module_name, loader=None)
 
@@ -62,13 +62,13 @@ def test_import_and_reload_falls_back_when_loader_missing(
 
     monkeypatch.setitem(sys.modules, module_name, dummy)
     monkeypatch.setattr(
-        "tracecat.registry.repository.importlib.import_module", fake_import
+        "autosecops.registry.repository.importlib.import_module", fake_import
     )
 
     def boom(_: ModuleType) -> ModuleType:  # pragma: no cover - should not run
         raise AssertionError("reload should not have been called")
 
-    monkeypatch.setattr("tracecat.registry.repository.importlib.reload", boom)
+    monkeypatch.setattr("autosecops.registry.repository.importlib.reload", boom)
 
     try:
         result = import_and_reload(module_name)
@@ -156,11 +156,11 @@ def test_generate_model_extracts_base_type_from_annotated() -> None:
 def test_generate_model_preserves_component_metadata() -> None:
     """Ensure `x-tracecat-component` propagates to JSON schema.
 
-    Registry modules use lightweight dataclasses from `tracecat_registry.fields`
-    which are not instances of `tracecat.registry.fields.Component` but should
+    Registry modules use lightweight dataclasses from `autosecops_registry.fields`
+    which are not instances of `autosecops.registry.fields.Component` but should
     still propagate to JSON schema so the UI can render specialized editors.
     """
-    import tracecat_registry.fields as registry_fields
+    import autosecops_registry.fields as registry_fields
 
     Code = registry_fields.Code
 
@@ -194,7 +194,7 @@ def test_registry_module_with_future_annotations_resolves_types() -> None:
     3. Return types (including TypedDict) are correctly resolved
     4. JSON schemas can be generated
     """
-    from tracecat_registry.core.table import lookup
+    from autosecops_registry.core.table import lookup
 
     kwargs = RegisterKwargs(
         namespace="core.table",
@@ -225,7 +225,7 @@ def test_registry_module_literal_types_preserved() -> None:
     This verifies that parameters with Literal types (like format options)
     are not stripped down to just `typing.Literal` without the actual values.
     """
-    from tracecat_registry.core.table import download
+    from autosecops_registry.core.table import download
 
     kwargs = RegisterKwargs(
         namespace="core.table",

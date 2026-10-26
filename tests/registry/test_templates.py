@@ -5,14 +5,14 @@ from typing import Any
 
 import pytest
 
-from tracecat.expressions.policy import ExpressionPolicy, expression_policy
-from tracecat.registry.actions.schemas import (
+from autosecops.expressions.policy import ExpressionPolicy, expression_policy
+from autosecops.registry.actions.schemas import (
     RegistryActionValidationErrorInfo,
     TemplateAction,
 )
-from tracecat.registry.actions.service import validate_action_template
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.repository import Repository
+from autosecops.registry.actions.service import validate_action_template
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.repository import Repository
 
 
 def _contains_secret_expression(value: Any) -> bool:
@@ -82,7 +82,7 @@ async def test_base_registry_validate_template_actions():
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "file_path",
-    Path("packages/tracecat-registry/tracecat_registry/templates").rglob("*.yml"),
+    Path("packages/autosecops-registry/autosecops_registry/templates").rglob("*.yml"),
     ids=lambda path: str(path.parts[-2:]),
 )
 async def test_template_action_validation(file_path):
@@ -113,7 +113,7 @@ async def test_template_action_validation(file_path):
 # credentials: each template pins its product OAuth provider and declares that
 # provider ahead of the generic Microsoft Graph fallback.
 
-TEMPLATES_DIR = Path("packages/tracecat-registry/tracecat_registry/templates/tools")
+TEMPLATES_DIR = Path("packages/autosecops-registry/autosecops_registry/templates/tools")
 
 MICROSOFT_GRAPH_FALLBACK_SECRETS = [
     ("microsoft_graph", "client_credentials"),

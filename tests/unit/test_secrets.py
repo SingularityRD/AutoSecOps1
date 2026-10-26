@@ -3,10 +3,10 @@ import os
 import pytest
 from cryptography.fernet import Fernet, InvalidToken
 
-from tracecat.secrets import common as secrets_common
-from tracecat.secrets.common import apply_masks, apply_masks_object
-from tracecat.secrets.constants import MASK_VALUE
-from tracecat.secrets.encryption import (
+from autosecops.secrets import common as secrets_common
+from autosecops.secrets.common import apply_masks, apply_masks_object
+from autosecops.secrets.constants import MASK_VALUE
+from autosecops.secrets.encryption import (
     decrypt_bytes,
     decrypt_value,
     encrypt_bytes,

@@ -7,9 +7,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.admin.registry.router as registry_router_module
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
+import autosecops.admin.registry.router as registry_router_module
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 
 _REPO_ID = uuid.uuid4()
 _VERSION_ID = uuid.uuid4()

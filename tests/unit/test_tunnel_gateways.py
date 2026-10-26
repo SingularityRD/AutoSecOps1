@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock
 import httpcore
 import httpx
 import pytest
-from tracecat_ee.tunnels import k8s
-from tracecat_ee.tunnels.k8s import (
+from autosecops_ee.tunnels import k8s
+from autosecops_ee.tunnels.k8s import (
     GatewaySettings,
     GatewaySpec,
     KubernetesClient,
@@ -24,27 +24,27 @@ from tracecat_ee.tunnels.k8s import (
     build_service,
     gateway_name,
 )
-from tracecat_ee.tunnels.routing import (
+from autosecops_ee.tunnels.routing import (
     TunnelRouteError,
     effective_tunnel,
     tunnel_proxy_env,
 )
 
-from tracecat import config
-from tracecat.dsl.schemas import RunActionInput
-from tracecat.executor.action_runner import _tunnel_route
-from tracecat.executor.schemas import ResolvedContext
-from tracecat.outbound import (
+from autosecops import config
+from autosecops.dsl.schemas import RunActionInput
+from autosecops.executor.action_runner import _tunnel_route
+from autosecops.executor.schemas import ResolvedContext
+from autosecops.outbound import (
     TUNNEL_PROXY_ENV,
     OutboundNetworkBackend,
     create_outbound_http_client,
 )
-from tracecat.sandbox.networking import (
+from autosecops.sandbox.networking import (
     SandboxDnsRoute,
     gateway_only_network_policy,
     nstun_user_net_config_lines,
 )
-from tracecat.sandbox.types import SandboxNetworkPolicy
+from autosecops.sandbox.types import SandboxNetworkPolicy
 
 TUNNEL_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 SETTINGS = GatewaySettings(
@@ -282,7 +282,7 @@ class TestOutboundTunnelProxy:
 async def test_pangolin_api_key_arn_is_read_once_and_wins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat_ee.tunnels import pangolin
+    from autosecops_ee.tunnels import pangolin
 
     monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", "https://p.test/v1")
     monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", "https://p.test")
@@ -306,7 +306,7 @@ async def test_pangolin_api_key_arn_is_read_once_and_wins(
 async def test_pangolin_api_key_without_arn_uses_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat_ee.tunnels import pangolin
+    from autosecops_ee.tunnels import pangolin
 
     monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", "https://p.test/v1")
     monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", "https://p.test")

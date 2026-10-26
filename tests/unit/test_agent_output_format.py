@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.agent.common.output_format import (
+from autosecops.agent.common.output_format import (
     build_output_schema,
     build_sdk_output_format,
 )

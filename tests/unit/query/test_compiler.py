@@ -13,9 +13,9 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
 
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.compiler import compile_filter
-from tracecat.query.filters import (
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.compiler import compile_filter
+from autosecops.query.filters import (
     AndClause,
     Condition,
     FilterOp,
@@ -23,7 +23,7 @@ from tracecat.query.filters import (
     NotClause,
     OrClause,
 )
-from tracecat.query.resolver import FieldKind, ResolvedField
+from autosecops.query.resolver import FieldKind, ResolvedField
 
 ALL_OPS = frozenset(FilterOp)
 KIND_OPS: Mapping[FieldKind, frozenset[FilterOp]] = {

@@ -7,29 +7,29 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from autosecops_ee.secrets.providers.aws_secrets_manager import AwsSecretsManagerBackend
+from autosecops_ee.secrets.references import router, workflows
+from autosecops_ee.secrets.references.service import SecretReferencesService
+from autosecops_ee.secrets.stores.service import SecretStoresService
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.secrets.providers.aws_secrets_manager import AwsSecretsManagerBackend
-from tracecat_ee.secrets.references import router, workflows
-from tracecat_ee.secrets.references.service import SecretReferencesService
-from tracecat_ee.secrets.stores.service import SecretStoresService
 
-from tracecat import config
-from tracecat.agent import service as agent_service
-from tracecat.api.app import create_app
-from tracecat.auth import sandbox as auth_sandbox
-from tracecat.auth.types import Role
-from tracecat.db.models import OrganizationSecretStore, Secret
-from tracecat.exceptions import EntitlementRequired, TracecatConflictError
-from tracecat.expressions.parser.core import parser
-from tracecat.identifiers import SecretUUID
-from tracecat.pagination import PageParams, PaginationError
-from tracecat.secrets.encryption import encrypt_keyvalues
-from tracecat.secrets.enums import SecretSource
-from tracecat.secrets.schemas import (
+from autosecops import config
+from autosecops.agent import service as agent_service
+from autosecops.api.app import create_app
+from autosecops.auth import sandbox as auth_sandbox
+from autosecops.auth.types import Role
+from autosecops.db.models import OrganizationSecretStore, Secret
+from autosecops.exceptions import EntitlementRequired, TracecatConflictError
+from autosecops.expressions.parser.core import parser
+from autosecops.identifiers import SecretUUID
+from autosecops.pagination import PageParams, PaginationError
+from autosecops.secrets.encryption import encrypt_keyvalues
+from autosecops.secrets.enums import SecretSource
+from autosecops.secrets.schemas import (
     AwsSecretKeyMapping,
     AwsSecretReferenceCreate,
     AwsSecretReferenceUpdate,
@@ -39,8 +39,8 @@ from tracecat.secrets.schemas import (
     SecretReferenceCheckRequest,
     SecretReferenceCheckResult,
 )
-from tracecat.secrets.service import SecretsService
-from tracecat.tiers.enums import Entitlement
+from autosecops.secrets.service import SecretsService
+from autosecops.tiers.enums import Entitlement
 
 
 @pytest.fixture

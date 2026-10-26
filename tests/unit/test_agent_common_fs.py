@@ -4,7 +4,7 @@ import shutil
 import stat
 from pathlib import Path
 
-from tracecat.agent.common.fs import force_rmtree
+from autosecops.agent.common.fs import force_rmtree
 
 
 def test_force_rmtree_does_not_follow_symlinks(tmp_path: Path) -> None:

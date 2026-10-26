@@ -8,15 +8,15 @@ from dataclasses import dataclass, field
 import httpx
 import pytest
 
-from tracecat.search.embeddings.catalog import default_model
-from tracecat.search.embeddings.client import EmbeddingClient
-from tracecat.search.embeddings.self_hosted import select_self_hosted_model
-from tracecat.search.embeddings.types import (
+from autosecops.search.embeddings.catalog import default_model
+from autosecops.search.embeddings.client import EmbeddingClient
+from autosecops.search.embeddings.self_hosted import select_self_hosted_model
+from autosecops.search.embeddings.types import (
     EmbeddingError,
     PinnedConfiguration,
     ResolvedCredential,
 )
-from tracecat.search.types import EmbeddingInput, EmbeddingRequest, SearchScope
+from autosecops.search.types import EmbeddingInput, EmbeddingRequest, SearchScope
 
 
 def request_for(configuration, texts=("summary: alpha", "summary: beta")):

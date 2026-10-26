@@ -6,13 +6,13 @@ import pytest
 from claude_agent_sdk.types import AssistantMessage, TextBlock, ThinkingBlock
 from pydantic import ValidationError
 
-from tracecat.agent.mcp.metadata import (
+from autosecops.agent.mcp.metadata import (
     PROXY_TOOL_CALL_ID_KEY,
     PROXY_TOOL_METADATA_KEY,
     sanitize_message_tool_inputs,
     strip_proxy_tool_metadata,
 )
-from tracecat.agent.types import ClaudeSDKMessageTA
+from autosecops.agent.types import ClaudeSDKMessageTA
 
 
 def test_strip_proxy_tool_metadata_removes_internal_key() -> None:
@@ -161,7 +161,7 @@ def test_sanitize_message_tool_inputs_drops_and_logs_unknown_block_types() -> No
         ],
     }
 
-    with patch("tracecat.agent.mcp.metadata.logger") as mock_logger:
+    with patch("autosecops.agent.mcp.metadata.logger") as mock_logger:
         sanitized = sanitize_message_tool_inputs(message)
 
     assert [block["type"] for block in sanitized["content"]] == [
@@ -183,7 +183,7 @@ def test_sanitize_message_tool_inputs_keeps_supported_user_blocks() -> None:
         ],
     }
 
-    with patch("tracecat.agent.mcp.metadata.logger") as mock_logger:
+    with patch("autosecops.agent.mcp.metadata.logger") as mock_logger:
         sanitized = sanitize_message_tool_inputs(message)
 
     assert sanitized == message

@@ -7,10 +7,10 @@ import sqlalchemy as sa
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.query.aggregations import AggregationSpec
-from tracecat.query.compiler import compile_aggregation
-from tracecat.query.errors import TracecatQueryTimeoutError
-from tracecat.query.execution import query_execution_context
+from autosecops.query.aggregations import AggregationSpec
+from autosecops.query.compiler import compile_aggregation
+from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.execution import query_execution_context
 
 
 @pytest.mark.anyio

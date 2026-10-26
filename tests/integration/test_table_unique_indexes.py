@@ -10,17 +10,17 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import ORG_ADMIN_SCOPES
+from autosecops.db.models import Organization, Workspace
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tables.common import quote_identifier
+from autosecops.tables.enums import SqlType
+from autosecops.tables.importer import CSVImporter
+from autosecops.tables.router import _build_table_read
+from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
+from autosecops.tables.service import TablesService
 from tests.database import TEST_DB_CONFIG
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES
-from tracecat.db.models import Organization, Workspace
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tables.common import quote_identifier
-from tracecat.tables.enums import SqlType
-from tracecat.tables.importer import CSVImporter
-from tracecat.tables.router import _build_table_read
-from tracecat.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
-from tracecat.tables.service import TablesService
 
 pytestmark = pytest.mark.anyio
 

@@ -2,8 +2,8 @@
 
 import uuid
 
-from tracecat.agent.catalog.schemas import AgentCatalogRead
-from tracecat.agent.default_model import resolve_legacy_default_model
+from autosecops.agent.catalog.schemas import AgentCatalogRead
+from autosecops.agent.default_model import resolve_legacy_default_model
 
 
 def entry(*, custom: bool) -> AgentCatalogRead:

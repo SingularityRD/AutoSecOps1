@@ -12,24 +12,22 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    seed_external_group,
-    seed_external_group_members,
-    seed_external_user,
+from autosecops import config
+from autosecops.auth.api_keys import ORG_API_KEY_PREFIX, generate_managed_api_key
+from autosecops.auth.schemas import UserRole
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.scopes import (
+    ORG_ADMIN_SCOPES,
+    ORG_MEMBER_SCOPES,
+    ORG_OWNER_SCOPES,
 )
-from tracecat import config
-from tracecat.auth.api_keys import ORG_API_KEY_PREFIX, generate_managed_api_key
-from tracecat.auth.schemas import UserRole
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.scopes import ORG_ADMIN_SCOPES, ORG_MEMBER_SCOPES, ORG_OWNER_SCOPES
-from tracecat.authz.seeding import (
+from autosecops.authz.seeding import (
     seed_system_roles_for_org,
     seed_system_scopes,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     AccessToken,
     ExternalGroupMapping,
     Group,
@@ -53,26 +51,32 @@ from tracecat.db.models import (
     WatchtowerAgentToolCall,
     Workspace,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     InvitationGrant as InvitationGrantRow,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     Role as DBRole,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatValidationError,
 )
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.router import create_invitation
-from tracecat.invitations.schemas import InvitationCreate, InvitationGrant
-from tracecat.invitations.service import (
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.router import create_invitation
+from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
+from autosecops.invitations.service import (
     InvitationService,
     accept_invitation_for_user,
     find_invitation_by_token,
 )
-from tracecat.organization.service import OrgService
+from autosecops.organization.service import OrgService
+from tests.support.membership import (
+    grant_org_membership,
+    seed_external_group,
+    seed_external_group_members,
+    seed_external_user,
+)
 
 
 async def _system_role(

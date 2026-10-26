@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-import tracecat.sandbox.file_io as file_io_module
-from tracecat.sandbox.exceptions import SandboxFileSafetyError
-from tracecat.sandbox.file_io import (
+import autosecops.sandbox.file_io as file_io_module
+from autosecops.sandbox.exceptions import SandboxFileSafetyError
+from autosecops.sandbox.file_io import (
     atomic_write_file_beneath,
     copy_tree_without_following_symlinks,
     read_complete_lines_beneath,

@@ -6,15 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Action, Workflow, WorkflowDefinition
-from tracecat.dsl.common import DSLInput
-from tracecat.exceptions import TracecatNotFoundError, TracecatValidationError
-from tracecat.expressions.expectations import ExpectedField
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.workflow.management import management
-from tracecat.workflow.management.management import WorkflowsManagementService
+from autosecops.auth.types import Role
+from autosecops.db.models import Action, Workflow, WorkflowDefinition
+from autosecops.dsl.common import DSLInput
+from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.expressions.expectations import ExpectedField
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.workflow.management import management
+from autosecops.workflow.management.management import WorkflowsManagementService
 
 
 class _ScalarResult:
@@ -310,8 +310,8 @@ async def test_external_import_publishes_before_online_case_trigger(
 ) -> None:
     role = _role()
     registry_lock = {
-        "origins": {"tracecat_registry": "test-version"},
-        "actions": {"core.transform.reshape": "tracecat_registry"},
+        "origins": {"autosecops_registry": "test-version"},
+        "actions": {"core.transform.reshape": "autosecops_registry"},
         "origin_fingerprints": {},
     }
     workflow = SimpleNamespace(
@@ -481,11 +481,11 @@ async def test_persist_edit_document_wraps_case_trigger_validation_error(
     (which only catches ``WorkflowEditError``/``ToolError``) returns a 400 the
     caller can fix instead of letting it escape as a 500.
     """
-    from tracecat.cases.enums import CaseEventType
-    from tracecat.exceptions import TracecatValidationError
-    from tracecat.workflow.case_triggers.schemas import CaseTriggerConfig
-    from tracecat.workflow.management import draft as draft_module
-    from tracecat.workflow.management.draft import (
+    from autosecops.cases.enums import CaseEventType
+    from autosecops.exceptions import TracecatValidationError
+    from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
+    from autosecops.workflow.management import draft as draft_module
+    from autosecops.workflow.management.draft import (
         WorkflowEditError,
         build_workflow_edit_document,
         persist_workflow_edit_document,
@@ -723,11 +723,11 @@ async def test_validate_edit_document_runs_case_trigger_check_on_dry_run(
     now runs inside ``validate_workflow_edit_document`` (no commit), so a dry run
     reports the same WorkflowEditError a real apply would.
     """
-    from tracecat.cases.enums import CaseEventType
-    from tracecat.exceptions import TracecatValidationError
-    from tracecat.workflow.case_triggers.schemas import CaseTriggerConfig
-    from tracecat.workflow.management import draft as draft_module
-    from tracecat.workflow.management.draft import (
+    from autosecops.cases.enums import CaseEventType
+    from autosecops.exceptions import TracecatValidationError
+    from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
+    from autosecops.workflow.management import draft as draft_module
+    from autosecops.workflow.management.draft import (
         WorkflowEditError,
         build_workflow_edit_document,
         validate_workflow_edit_document,
@@ -789,7 +789,7 @@ async def test_validate_edit_document_alias_uniqueness(alias_taken: bool) -> Non
     pre-checks uniqueness and raises WorkflowEditError (-> 400/409). A free
     alias passes validation.
     """
-    from tracecat.workflow.management.draft import (
+    from autosecops.workflow.management.draft import (
         WorkflowEditError,
         build_workflow_edit_document,
         validate_workflow_edit_document,
@@ -848,8 +848,8 @@ async def test_persist_edit_document_maps_alias_integrity_error(
     from asyncpg import UniqueViolationError
     from sqlalchemy.exc import IntegrityError
 
-    from tracecat.db.common import DBConstraints
-    from tracecat.workflow.management.draft import (
+    from autosecops.db.common import DBConstraints
+    from autosecops.workflow.management.draft import (
         WorkflowEditError,
         build_workflow_edit_document,
         persist_workflow_edit_document,
@@ -909,9 +909,9 @@ async def test_publish_workflow_invalid_draft_returns_errors(
     internal route can each render them; only the internal route turns them into a
     400. version is None and the result is not ``ok``.
     """
-    from tracecat.exceptions import TracecatValidationError
-    from tracecat.identifiers.workflow import WorkflowUUID
-    from tracecat.workflow.management.management import WorkflowPublishResult
+    from autosecops.exceptions import TracecatValidationError
+    from autosecops.identifiers.workflow import WorkflowUUID
+    from autosecops.workflow.management.management import WorkflowPublishResult
 
     role = _role()
     session = SimpleNamespace(commit=AsyncMock(), refresh=AsyncMock())
@@ -944,8 +944,8 @@ def test_normalize_persisted_revision_adds_missing_layout_entries() -> None:
     causing the next edit to 409. The normalizer now adds the default entry so the
     dry-run and post-persist revisions agree.
     """
-    from tracecat.mcp.schemas import WorkflowEditDocument
-    from tracecat.workflow.management.draft import (
+    from autosecops.mcp.schemas import WorkflowEditDocument
+    from autosecops.workflow.management.draft import (
         build_workflow_edit_document,
         compute_workflow_edit_revision,
         normalize_workflow_edit_document_for_persisted_revision,
@@ -986,8 +986,8 @@ def test_normalize_persisted_revision_adds_missing_layout_entries() -> None:
 
 def test_normalize_persisted_revision_drops_orphan_layout_entries() -> None:
     """Layout entries for refs no longer in the definition are still dropped."""
-    from tracecat.mcp.schemas import WorkflowEditDocument
-    from tracecat.workflow.management.draft import (
+    from autosecops.mcp.schemas import WorkflowEditDocument
+    from autosecops.workflow.management.draft import (
         build_workflow_edit_document,
         normalize_workflow_edit_document_for_persisted_revision,
     )
@@ -1053,7 +1053,7 @@ class _FakeExecService:
 
 def _patch_exec_service(monkeypatch: pytest.MonkeyPatch) -> _FakeExecService:
     """Patch the locally-imported WorkflowExecutionsService.connect."""
-    from tracecat.workflow.executions import service as exec_service_module
+    from autosecops.workflow.executions import service as exec_service_module
 
     fake = _FakeExecService()
 
@@ -1127,7 +1127,7 @@ async def test_locked_action_results_skips_unusable_locks(
 async def test_list_lock_statuses_flags_only_missing_runs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.workflow.actions.service import WorkflowActionService
+    from autosecops.workflow.actions.service import WorkflowActionService
 
     wf_id = WorkflowUUID.new_uuid4()
     ok = f"{wf_id.short()}/exec_ok"
@@ -1168,7 +1168,7 @@ async def test_list_lock_statuses_flags_only_missing_runs(
 async def test_list_lock_statuses_without_locks_skips_exec_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tracecat.workflow.actions.service import WorkflowActionService
+    from autosecops.workflow.actions.service import WorkflowActionService
 
     service = WorkflowActionService(cast(Any, object()), role=_role())
     service.session = _locked_session([])
@@ -1208,8 +1208,8 @@ async def test_run_workflow_published_latest_uses_definition_lock(
     wf_id = WorkflowUUID.new_uuid4()
     dsl = _run_dsl()
     lock = {
-        "origins": {"tracecat_registry": "test-version"},
-        "actions": {"core.transform.reshape": "tracecat_registry"},
+        "origins": {"autosecops_registry": "test-version"},
+        "actions": {"core.transform.reshape": "autosecops_registry"},
         "origin_fingerprints": {},
     }
     defn = SimpleNamespace(content=dsl.model_dump(), registry_lock=lock, version=1)

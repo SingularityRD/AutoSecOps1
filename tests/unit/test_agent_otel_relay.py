@@ -20,14 +20,14 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
 from pydantic import SecretStr
 
-from tracecat import config
-from tracecat.agent.otel_delivery import (
+from autosecops import config
+from autosecops.agent.otel_delivery import (
     DeliveryLimits,
     OtelDeliveryPool,
     collector_client,
 )
-from tracecat.agent.sandbox import otel_relay
-from tracecat.agent.sandbox.otel_relay import (
+from autosecops.agent.sandbox import otel_relay
+from autosecops.agent.sandbox.otel_relay import (
     MAX_BODY_SIZE,
     OtelRoutingPlan,
     OtelSocketReceiver,
@@ -37,7 +37,7 @@ from tracecat.agent.sandbox.otel_relay import (
     resolve_collector_url,
     tenant_signal_enabled,
 )
-from tracecat.agent.tokens import mint_agent_otel_token
+from autosecops.agent.tokens import mint_agent_otel_token
 
 
 @dataclass(frozen=True, slots=True)

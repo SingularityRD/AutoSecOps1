@@ -15,23 +15,23 @@ from temporalio.client import (
 )
 from temporalio.common import TypedSearchAttributes
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.pagination import CursorPaginationParams
-from tracecat.workflow.executions.common import build_query
-from tracecat.workflow.executions.enums import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.pagination import CursorPaginationParams
+from autosecops.workflow.executions.common import build_query
+from autosecops.workflow.executions.enums import (
     WORKFLOW_RUN_EXCLUDED_WORKFLOW_TYPES,
     ExecutionType,
     TemporalSearchAttr,
 )
-from tracecat.workflow.executions.schemas import (
+from autosecops.workflow.executions.schemas import (
     WorkflowExecutionRelationFilter,
     WorkflowExecutionStatusFilterMode,
     WorkflowExecutionStatusLiteral,
     WorkflowRunReadMinimal,
 )
-from tracecat.workflow.executions.service import (
+from autosecops.workflow.executions.service import (
     WorkflowExecutionNotFoundError,
     WorkflowExecutionsService,
 )

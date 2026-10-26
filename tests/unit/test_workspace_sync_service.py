@@ -18,36 +18,35 @@ import pytest
 import respx
 from github.GithubException import GithubException
 
-from tests.support.fake_vcs import FakeVcsServer
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.cases.enums import CaseEventType
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.exceptions import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.cases.enums import CaseEventType
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatSettingsError,
     TracecatValidationError,
 )
-from tracecat.feature_flags import FeatureFlag
-from tracecat.git.types import GitUrl
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.logger import logger
-from tracecat.sync import CommitInfo, PullOptions, PushStatus
-from tracecat.vcs.github.app import GitHubAppError
-from tracecat.workflow.store.schemas import (
+from autosecops.feature_flags import FeatureFlag
+from autosecops.git.types import GitUrl
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.logger import logger
+from autosecops.sync import CommitInfo, PullOptions, PushStatus
+from autosecops.vcs.github.app import GitHubAppError
+from autosecops.workflow.store.schemas import (
     RemoteCaseTrigger,
     RemoteForm,
     RemoteWorkflowSchedule,
 )
-from tracecat.workspace_sync.adapters import (
+from autosecops.workspace_sync.adapters import (
     AGENT_PRESET_RESOURCE_ADAPTER,
     SECRET_METADATA_RESOURCE_ADAPTER,
     VARIABLE_RESOURCE_ADAPTER,
 )
-from tracecat.workspace_sync.enums import SyncResourceType, VcsProvider
-from tracecat.workspace_sync.schemas import (
+from autosecops.workspace_sync.enums import SyncResourceType, VcsProvider
+from autosecops.workspace_sync.schemas import (
     MANIFEST_FILENAME,
     AgentPresetResourceSpec,
     AgentPresetSkillBinding,
@@ -64,24 +63,25 @@ from tracecat.workspace_sync.schemas import (
     WorkspaceSyncExportPreviewRequest,
     WorkspaceSyncExportRequest,
 )
-from tracecat.workspace_sync.serialization import canonical_json_text
-from tracecat.workspace_sync.service import (
+from autosecops.workspace_sync.serialization import canonical_json_text
+from autosecops.workspace_sync.service import (
     WorkspaceSyncService,
     _table_names,
 )
-from tracecat.workspace_sync.transport import (
+from autosecops.workspace_sync.transport import (
     _GITHUB_TREE_CHUNK_SIZE,
     GitHubWorkspaceSyncTransport,
     VcsTreeSnapshot,
     _git_blob_sha,
     _git_blob_sha_bytes,
 )
-from tracecat.workspace_sync.workflow import (
+from autosecops.workspace_sync.workflow import (
     serialize_workflow_spec,
     workflow_source_path,
     workflow_spec_to_remote,
     workflow_spec_with_source_workflow_ids,
 )
+from tests.support.fake_vcs import FakeVcsServer
 
 
 @pytest.fixture
@@ -150,11 +150,11 @@ async def test_pull_does_not_sync_schedules_by_default(
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch(
-            "tracecat.workspace_sync.service.WorkflowImportService",
+            "autosecops.workspace_sync.service.WorkflowImportService",
             return_value=import_service,
         ),
     ):
@@ -212,11 +212,11 @@ async def test_pull_dry_run_returns_resource_diffs_without_import(
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch(
-            "tracecat.workspace_sync.service.WorkflowImportService",
+            "autosecops.workspace_sync.service.WorkflowImportService",
             return_value=import_service,
         ),
     ):
@@ -296,11 +296,11 @@ async def test_pull_dry_run_projects_current_workspace_by_target_resource_types(
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch(
-            "tracecat.workspace_sync.service.WorkflowImportService",
+            "autosecops.workspace_sync.service.WorkflowImportService",
             return_value=import_service,
         ),
     ):
@@ -365,11 +365,11 @@ async def test_pull_dry_run_ignores_schedule_diff_when_schedule_sync_is_disabled
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         patch(
-            "tracecat.workspace_sync.service.WorkflowImportService",
+            "autosecops.workspace_sync.service.WorkflowImportService",
             return_value=import_service,
         ),
     ):
@@ -853,7 +853,7 @@ async def test_workflow_export_allows_projected_dependencies_with_publish_scope(
     )
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         result = await service.export_workflow(
@@ -1054,7 +1054,7 @@ async def test_pull_dry_run_requires_read_scopes_for_incoming_resources() -> Non
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         pytest.raises(ScopeDeniedError) as exc_info,
@@ -1107,7 +1107,7 @@ async def test_pull_apply_requires_create_scopes_for_incoming_resources() -> Non
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         pytest.raises(ScopeDeniedError) as exc_info,
@@ -1151,7 +1151,7 @@ async def test_pull_blocks_entitled_resource_without_entitlement() -> None:
 
     with (
         patch(
-            "tracecat.workspace_sync.service.vcs_transport_for_provider",
+            "autosecops.workspace_sync.service.vcs_transport_for_provider",
             return_value=transport,
         ),
         pytest.raises(EntitlementRequired) as exc_info,
@@ -1204,7 +1204,7 @@ async def test_pull_allows_workflow_case_trigger_without_entitlement(
     )
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         result = await service.pull(
@@ -1400,7 +1400,7 @@ async def test_export_workspace_commits_mapping_changes(
     workspace_sync_service.project_workspace = AsyncMock(return_value=projection)
 
     with patch(
-        "tracecat.workspace_sync.service.vcs_transport_for_provider",
+        "autosecops.workspace_sync.service.vcs_transport_for_provider",
         return_value=transport,
     ):
         result = await workspace_sync_service.export_workspace(
@@ -1491,7 +1491,7 @@ async def test_for_workspace_rejects_malformed_git_provider(
     workspace_service.get_workspace.return_value = workspace
 
     with patch(
-        "tracecat.workspace_sync.service.WorkspaceService",
+        "autosecops.workspace_sync.service.WorkspaceService",
         return_value=workspace_service,
     ):
         with pytest.raises(TracecatSettingsError) as exc_info:
@@ -1968,7 +1968,7 @@ async def test_github_write_files_retries_with_retry_after(
     )
 
     with patch(
-        "tracecat.workspace_sync.transport.asyncio.sleep", new_callable=AsyncMock
+        "autosecops.workspace_sync.transport.asyncio.sleep", new_callable=AsyncMock
     ) as sleep:
         result = await _write_files_with_fake_repo(
             repo,
@@ -2003,7 +2003,7 @@ async def test_github_write_files_reraises_nonpositive_retry_after(
 
     with (
         patch(
-            "tracecat.workspace_sync.transport.asyncio.sleep", new_callable=AsyncMock
+            "autosecops.workspace_sync.transport.asyncio.sleep", new_callable=AsyncMock
         ) as sleep,
         pytest.raises(GitHubAppError),
     ):
@@ -2034,7 +2034,7 @@ async def test_github_write_files_splits_tree_chunks_by_payload_size(
     # Every element stays under the 700-byte cap individually (manifest ~525,
     # workflow entries ~387 serialized), but no two fit a chunk together, so
     # the packer must emit one chunk per element despite the 128-entry limit.
-    with patch("tracecat.workspace_sync.transport._GITHUB_TREE_CHUNK_MAX_BYTES", 700):
+    with patch("autosecops.workspace_sync.transport._GITHUB_TREE_CHUNK_MAX_BYTES", 700):
         result = await _write_files_with_fake_repo(
             repo,
             service=workspace_sync_service,
@@ -2063,7 +2063,9 @@ async def test_github_write_files_uploads_oversized_entries_as_blobs(
     # Only the big file's inline entry serializes past the 1000-byte cap
     # (manifest ~525, small ~103), so it alone must ship through the blob
     # endpoint and appear in the tree as a SHA reference.
-    with patch("tracecat.workspace_sync.transport._GITHUB_TREE_CHUNK_MAX_BYTES", 1000):
+    with patch(
+        "autosecops.workspace_sync.transport._GITHUB_TREE_CHUNK_MAX_BYTES", 1000
+    ):
         result = await _write_files_with_fake_repo(
             repo,
             service=workspace_sync_service,
@@ -2158,9 +2160,9 @@ async def test_github_write_files_retry_budget_exhaustion_reraises(
     )
 
     with (
-        patch("tracecat.workspace_sync.transport._GITHUB_RETRY_BUDGET_SECONDS", 1.0),
+        patch("autosecops.workspace_sync.transport._GITHUB_RETRY_BUDGET_SECONDS", 1.0),
         patch(
-            "tracecat.workspace_sync.transport.asyncio.sleep",
+            "autosecops.workspace_sync.transport.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep,
         pytest.raises(GitHubAppError),
@@ -2237,7 +2239,7 @@ async def test_github_read_files_uses_commit_tree_sha(
         role=workspace_sync_service.role,
     )
     with patch(
-        "tracecat.workspace_sync.transport.GitHubAppService",
+        "autosecops.workspace_sync.transport.GitHubAppService",
         return_value=gh_service,
     ):
         snapshot = await transport.read_files(
@@ -2282,7 +2284,7 @@ async def test_github_list_branches_includes_default_beyond_limit(
         role=workspace_sync_service.role,
     )
     with patch(
-        "tracecat.workspace_sync.transport.GitHubAppService",
+        "autosecops.workspace_sync.transport.GitHubAppService",
         return_value=gh_service,
     ):
         branches = await transport.list_branches(
@@ -2377,7 +2379,7 @@ async def _read_with_archive_repo(
     gh_service.get_github_client_for_repo.return_value = gh
     transport = GitHubWorkspaceSyncTransport(session=service.session, role=service.role)
     with patch(
-        "tracecat.workspace_sync.transport.GitHubAppService",
+        "autosecops.workspace_sync.transport.GitHubAppService",
         return_value=gh_service,
     ):
         return await transport.read_files(url=_ARCHIVE_GIT_URL, ref="main")
@@ -2386,7 +2388,7 @@ async def _read_with_archive_repo(
 @pytest.fixture
 def github_archive_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "tracecat.feature_flags.config.TRACECAT__FEATURE_FLAGS",
+        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS",
         {FeatureFlag.WORKSPACE_SYNC_GITHUB_ARCHIVE},
     )
 
@@ -2396,7 +2398,9 @@ async def test_github_read_files_skips_archive_when_flag_disabled(
     workspace_sync_service: WorkspaceSyncService,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("tracecat.feature_flags.config.TRACECAT__FEATURE_FLAGS", set())
+    monkeypatch.setattr(
+        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS", set()
+    )
     repo = _FakeGitHubArchiveRepo(_archive_repo_files())
 
     snapshot = await _read_with_archive_repo(repo, workspace_sync_service)
@@ -2416,12 +2420,14 @@ async def test_github_read_files_archive_matches_blob_reads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     files = _archive_repo_files()
-    monkeypatch.setattr("tracecat.feature_flags.config.TRACECAT__FEATURE_FLAGS", set())
+    monkeypatch.setattr(
+        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS", set()
+    )
     blob_repo = _FakeGitHubArchiveRepo(files)
     blob_snapshot = await _read_with_archive_repo(blob_repo, workspace_sync_service)
 
     monkeypatch.setattr(
-        "tracecat.feature_flags.config.TRACECAT__FEATURE_FLAGS",
+        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS",
         {FeatureFlag.WORKSPACE_SYNC_GITHUB_ARCHIVE},
     )
     archive_repo = _FakeGitHubArchiveRepo(files)
@@ -2540,7 +2546,7 @@ async def test_github_read_files_falls_back_when_archive_exceeds_size_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.workspace_sync.transport._GITHUB_ARCHIVE_MAX_BYTES", 8
+        "autosecops.workspace_sync.transport._GITHUB_ARCHIVE_MAX_BYTES", 8
     )
     files = _archive_repo_files()
     repo = _FakeGitHubArchiveRepo(files)
@@ -2627,7 +2633,7 @@ async def _write_files_with_fake_repo(
     if logger is not None:
         transport.logger = logger
     with patch(
-        "tracecat.workspace_sync.transport.GitHubAppService",
+        "autosecops.workspace_sync.transport.GitHubAppService",
         return_value=gh_service,
     ):
         return await transport.write_files(

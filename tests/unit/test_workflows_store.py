@@ -2,7 +2,7 @@
 
 import pytest
 
-from tracecat.workflow.store.schemas import validate_short_branch_name
+from autosecops.workflow.store.schemas import validate_short_branch_name
 
 
 class TestWorkflowPublishBranchValidation:

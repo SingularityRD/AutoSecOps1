@@ -6,17 +6,17 @@ import uuid
 
 import pytest
 
-from tracecat.integrations.catalog.loader import (
+from autosecops.integrations.catalog.loader import (
     get_platform_mcp_catalog_entry_by_slug,
 )
-from tracecat.integrations.catalog.resolver import (
+from autosecops.integrations.catalog.resolver import (
     CatalogConnectionError,
     resolve_available_catalog_entry,
     resolve_catalog_connection,
 )
-from tracecat.integrations.catalog.types import PlatformMCPCatalogEntry
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.schemas import (
+from autosecops.integrations.catalog.types import PlatformMCPCatalogEntry
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.schemas import (
     MCPConnectionOption,
     MCPHTTPCustomConnectionSpec,
 )

@@ -6,8 +6,8 @@ Uses InlineObjectStorage as the test double - no mocks needed.
 import pytest
 from pydantic import TypeAdapter
 
-from tracecat.storage.backends import InlineObjectStorage, S3ObjectStorage
-from tracecat.storage.object import (
+from autosecops.storage.backends import InlineObjectStorage, S3ObjectStorage
+from autosecops.storage.object import (
     ExternalObject,
     InlineObject,
     ObjectRef,
@@ -17,7 +17,7 @@ from tracecat.storage.object import (
     get_object_storage,
     reset_object_storage,
 )
-from tracecat.storage.utils import (
+from autosecops.storage.utils import (
     compute_sha256,
     deserialize_object,
     serialize_object,
@@ -138,7 +138,7 @@ class TestSerializationHelpers:
 
 
 def test_default_storage_is_in_memory_when_externalization_disabled(monkeypatch):
-    from tracecat.storage import object as object_module
+    from autosecops.storage import object as object_module
 
     reset_object_storage()
     monkeypatch.setattr(
@@ -169,7 +169,7 @@ class TestS3ObjectStorageDuplicateAttempts:
 
     @pytest.fixture
     def blobs(self, monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
-        from tracecat.storage import blob, utils
+        from autosecops.storage import blob, utils
 
         stored: dict[str, bytes] = {}
 

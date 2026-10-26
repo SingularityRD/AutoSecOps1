@@ -4,19 +4,19 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from pydantic import BaseModel
 
-from tracecat.dsl.common import (
+from autosecops.dsl.common import (
     DSLEntrypoint,
     DSLInput,
     UpstreamEdgeData,
     build_action_statements_from_actions,
 )
-from tracecat.dsl.enums import EdgeType
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.dsl.view import RFEdge, RFGraph, TriggerNode, TriggerNodeData, UDFNode
-from tracecat.exceptions import TracecatValidationError
+from autosecops.dsl.enums import EdgeType
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.dsl.view import RFEdge, RFGraph, TriggerNode, TriggerNodeData, UDFNode
+from autosecops.exceptions import TracecatValidationError
 
 if TYPE_CHECKING:
-    from tracecat.db.models import Action, Workflow
+    from autosecops.db.models import Action, Workflow
 
 # Fixed UUIDs for testing - deterministic for reproducibility
 WORKFLOW_UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")

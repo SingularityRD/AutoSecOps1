@@ -4,9 +4,9 @@ import contextlib
 from collections.abc import Iterator
 
 import pytest
-from tracecat_registry import SecretNotFoundError
-from tracecat_registry._internal import secrets as registry_secrets
-from tracecat_registry.integrations import google_chronicle
+from autosecops_registry import SecretNotFoundError
+from autosecops_registry._internal import secrets as registry_secrets
+from autosecops_registry.integrations import google_chronicle
 
 
 @contextlib.contextmanager

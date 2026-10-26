@@ -7,9 +7,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.db.models import CaseTag
+from autosecops.auth.types import Role
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.db.models import CaseTag
 
 
 @pytest.mark.anyio

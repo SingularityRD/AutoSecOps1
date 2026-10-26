@@ -22,29 +22,28 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
-from temporalio import activity
-from temporalio.client import Client, WorkflowFailureError
-from temporalio.worker import Worker
-from tracecat_ee.agent.activities import AgentActivities
-from tracecat_ee.agent.approvals.service import ApprovalManager
-from tracecat_ee.agent.types import AgentWorkflowID
-from tracecat_ee.agent.workflows.durable import (
+from autosecops_ee.agent.activities import AgentActivities
+from autosecops_ee.agent.approvals.service import ApprovalManager
+from autosecops_ee.agent.types import AgentWorkflowID
+from autosecops_ee.agent.workflows.durable import (
     AgentWorkflowArgs,
     DurableAgentWorkflow,
     WorkflowApprovalSubmission,
 )
+from temporalio import activity
+from temporalio.client import Client, WorkflowFailureError
+from temporalio.worker import Worker
 
-from tests.conftest import AGENT_TASK_QUEUE
-from tracecat import config
-from tracecat.agent.common.stream_types import ToolCallContent
-from tracecat.agent.error_policy import user_agent_execution_failed
-from tracecat.agent.executor.activity import (
+from autosecops import config
+from autosecops.agent.common.stream_types import ToolCallContent
+from autosecops.agent.error_policy import user_agent_execution_failed
+from autosecops.agent.executor.activity import (
     AgentExecutorInput,
     AgentExecutorResult,
 )
-from tracecat.agent.executor.schemas import ToolExecutionResult
-from tracecat.agent.schemas import RunAgentArgs
-from tracecat.agent.session.activities import (
+from autosecops.agent.executor.schemas import ToolExecutionResult
+from autosecops.agent.schemas import RunAgentArgs
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     CreateSessionResult,
     LoadSessionInput,
@@ -55,14 +54,15 @@ from tracecat.agent.session.activities import (
     ReconcileToolResultsResult,
     get_session_activities,
 )
-from tracecat.agent.session.types import AgentSessionEntity
-from tracecat.agent.types import AgentConfig, StreamKey
-from tracecat.auth.types import Role
-from tracecat.dsl.common import RETRY_POLICIES
-from tracecat.dsl.worker import new_sandbox_runner
-from tracecat.redis.client import get_redis_client
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import extract_error_classification
+from autosecops.agent.session.types import AgentSessionEntity
+from autosecops.agent.types import AgentConfig, StreamKey
+from autosecops.auth.types import Role
+from autosecops.dsl.common import RETRY_POLICIES
+from autosecops.dsl.worker import new_sandbox_runner
+from autosecops.redis.client import get_redis_client
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import extract_error_classification
+from tests.conftest import AGENT_TASK_QUEUE
 
 # Use worker-specific queue from conftest for pytest-xdist isolation
 TEST_AGENT_QUEUE = AGENT_TASK_QUEUE
@@ -221,7 +221,7 @@ class TestAgentWorkerLifecycle:
     @pytest.mark.anyio
     async def test_worker_module_has_expected_structure(self) -> None:
         """Verify worker module can be imported and has expected attributes."""
-        from tracecat.agent import worker
+        from autosecops.agent import worker
 
         assert hasattr(worker, "get_activities")
         assert hasattr(worker, "main")
@@ -229,7 +229,7 @@ class TestAgentWorkerLifecycle:
     @pytest.mark.anyio
     async def test_mcp_modules_have_expected_structure(self) -> None:
         """Verify MCP modules have expected exports."""
-        from tracecat.agent.mcp import proxy_server, trusted_server
+        from autosecops.agent.mcp import proxy_server, trusted_server
 
         # proxy_server has UDS client factory for connecting to trusted server
         assert hasattr(proxy_server, "_UDSClientFactory")

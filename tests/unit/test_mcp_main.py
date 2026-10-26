@@ -7,7 +7,7 @@ import pytest
 from fastmcp import FastMCP
 from starlette.testclient import TestClient
 
-from tracecat.mcp import __main__ as mcp_main
+from autosecops.mcp import __main__ as mcp_main
 
 
 def _stateless_replica_app():
@@ -70,7 +70,7 @@ def test_run_mcp_server_uses_stateless_http(
         def run(self, **kwargs: object) -> None:
             run_kwargs.update(kwargs)
 
-    monkeypatch.delitem(sys.modules, "tracecat.mcp.server", raising=False)
+    monkeypatch.delitem(sys.modules, "autosecops.mcp.server", raising=False)
     monkeypatch.setattr(
         mcp_main.importlib,
         "import_module",

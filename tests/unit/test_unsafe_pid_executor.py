@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.sandbox import unsafe_pid_executor
-from tracecat.sandbox.exceptions import SandboxTimeoutError
-from tracecat.sandbox.unsafe_pid_executor import UnsafePidExecutor
+from autosecops.sandbox import unsafe_pid_executor
+from autosecops.sandbox.exceptions import SandboxTimeoutError
+from autosecops.sandbox.unsafe_pid_executor import UnsafePidExecutor
 
 
 def _process_is_running(pid: int) -> bool:
@@ -191,7 +191,7 @@ class TestUnsafePidExecutor:
             return True
 
         monkeypatch.setattr(
-            "tracecat.sandbox.unsafe_pid_executor.pid_namespace_available",
+            "autosecops.sandbox.unsafe_pid_executor.pid_namespace_available",
             pid_namespace_available,
         )
         command = await command_executor._build_execution_cmd(
@@ -243,15 +243,19 @@ class TestUnsafePidExecutor:
                 loguru_warnings.append((message, kwargs))
 
         monkeypatch.setattr(
-            "tracecat.sandbox.unsafe_pid_executor.pid_namespace_available",
+            "autosecops.sandbox.unsafe_pid_executor.pid_namespace_available",
             pid_namespace_unavailable,
         )
         monkeypatch.setattr(
-            "tracecat.sandbox.unsafe_pid_executor.pid_namespace_probe_error",
+            "autosecops.sandbox.unsafe_pid_executor.pid_namespace_probe_error",
             lambda: "fargate restriction",
         )
-        monkeypatch.setattr("tracecat.sandbox.unsafe_pid_executor.logger", FakeLogger())
-        caplog.set_level(logging.WARNING, logger="tracecat.sandbox.unsafe_pid_executor")
+        monkeypatch.setattr(
+            "autosecops.sandbox.unsafe_pid_executor.logger", FakeLogger()
+        )
+        caplog.set_level(
+            logging.WARNING, logger="autosecops.sandbox.unsafe_pid_executor"
+        )
 
         await command_executor._build_execution_cmd(
             "python3", command_executor.cache_dir / "wrapper.py"
@@ -294,9 +298,11 @@ class TestUnsafePidExecutor:
             awaitable.close()
             raise TimeoutError
 
-        monkeypatch.setattr("tracecat.sandbox.utils._PID_NAMESPACE_AVAILABLE", None)
-        monkeypatch.setattr("tracecat.sandbox.utils._PID_NAMESPACE_PROBE_ERROR", None)
-        monkeypatch.setattr("tracecat.sandbox.utils.shutil.which", lambda *_: "unshare")
+        monkeypatch.setattr("autosecops.sandbox.utils._PID_NAMESPACE_AVAILABLE", None)
+        monkeypatch.setattr("autosecops.sandbox.utils._PID_NAMESPACE_PROBE_ERROR", None)
+        monkeypatch.setattr(
+            "autosecops.sandbox.utils.shutil.which", lambda *_: "unshare"
+        )
         monkeypatch.setattr(
             asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )
@@ -587,7 +593,9 @@ def main():
 def main():
     return "ok"
 """
-        caplog.set_level(logging.WARNING, logger="tracecat.sandbox.unsafe_pid_executor")
+        caplog.set_level(
+            logging.WARNING, logger="autosecops.sandbox.unsafe_pid_executor"
+        )
         caplog.clear()
         await executor.execute(script=script, allow_network=False)
         await executor.execute(script=script, allow_network=False)
@@ -606,7 +614,9 @@ def main():
 def main():
     return "ok"
 """
-        caplog.set_level(logging.WARNING, logger="tracecat.sandbox.unsafe_pid_executor")
+        caplog.set_level(
+            logging.WARNING, logger="autosecops.sandbox.unsafe_pid_executor"
+        )
         caplog.clear()
         await executor.execute(script=script, allow_network=True)
         assert not any(

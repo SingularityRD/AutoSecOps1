@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
 
 import pytest
+from autosecops_ee.agent.approvals.service import ApprovalService
+from autosecops_ee.agent.workflows.durable import DurableAgentWorkflow
 from claude_agent_sdk.types import UserMessage
 from pydantic import TypeAdapter, ValidationError
 from temporalio import workflow
@@ -23,18 +25,16 @@ from temporalio.client import (
 from temporalio.converter import PayloadCodec
 from temporalio.exceptions import ApplicationError, WorkflowAlreadyStartedError
 from temporalio.service import ConnectConfig, RPCError, RPCStatusCode, ServiceClient
-from tracecat_ee.agent.approvals.service import ApprovalService
-from tracecat_ee.agent.workflows.durable import DurableAgentWorkflow
 
-from tracecat.agent.backends import registry
-from tracecat.agent.backends.base import AgentBackend
-from tracecat.agent.backends.default import DefaultBackend
-from tracecat.agent.backends.schemas import (
+from autosecops.agent.backends import registry
+from autosecops.agent.backends.base import AgentBackend
+from autosecops.agent.backends.default import DefaultBackend
+from autosecops.agent.backends.schemas import (
     AgentWorkflowArgs,
     WorkflowApprovalSubmission,
     WorkflowCancelRequest,
 )
-from tracecat.agent.backends.types import (
+from autosecops.agent.backends.types import (
     AgentControlRejected,
     AgentControlUncertain,
     SessionDispatchUncertain,
@@ -43,8 +43,8 @@ from tracecat.agent.backends.types import (
     SessionWorkflowContext,
     WithdrawResult,
 )
-from tracecat.agent.constants import AGENT_TIMEOUT_SECONDS_DEFAULT
-from tracecat.agent.control.schemas import (
+from autosecops.agent.constants import AGENT_TIMEOUT_SECONDS_DEFAULT
+from autosecops.agent.control.schemas import (
     AgentCancelControl,
     AgentControlReceipt,
     AgentControlRequest,
@@ -52,25 +52,25 @@ from tracecat.agent.control.schemas import (
     AgentSteerControl,
     AgentWithdrawControl,
 )
-from tracecat.agent.session.activities import (
+from autosecops.agent.session.activities import (
     CreateSessionInput,
     create_session_activity,
 )
-from tracecat.agent.session.schemas import AgentSessionCreate, AgentSessionUpdate
-from tracecat.agent.session.service import AgentSessionService
-from tracecat.agent.session.types import AgentSessionEntity, TurnLifecycle
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.chat.schemas import BasicChatRequest
-from tracecat.db.models import AgentSession, AgentSessionHistory
-from tracecat.dsl._converter import get_data_converter
-from tracecat.exceptions import (
+from autosecops.agent.session.schemas import AgentSessionCreate, AgentSessionUpdate
+from autosecops.agent.session.service import AgentSessionService
+from autosecops.agent.session.types import AgentSessionEntity, TurnLifecycle
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.chat.schemas import BasicChatRequest
+from autosecops.db.models import AgentSession, AgentSessionHistory
+from autosecops.dsl._converter import get_data_converter
+from autosecops.exceptions import (
     TracecatConflictError,
     TracecatServiceError,
     TracecatValidationError,
 )
-from tracecat.temporal.codec import TemporalPayloadCodecError
-from tracecat.tiers.enums import Entitlement
+from autosecops.temporal.codec import TemporalPayloadCodecError
+from autosecops.tiers.enums import Entitlement
 
 
 @pytest.fixture(autouse=True)
@@ -402,7 +402,7 @@ async def test_builtin_dispatch_preserves_workflow_contract():
 
     rpc.side_effect = start_workflow
     with patch(
-        "tracecat.agent.backends.base.get_temporal_client",
+        "autosecops.agent.backends.base.get_temporal_client",
         return_value=client,
     ):
         await DefaultBackend().start_turn(ctx)
@@ -458,7 +458,9 @@ async def test_argument_builder_receives_isolated_data_without_database_access(
             assert snapshot.role is not ctx.role
             return await super().build_workflow_args(snapshot)
 
-    with patch("tracecat.agent.backends.base.get_temporal_client", return_value=client):
+    with patch(
+        "autosecops.agent.backends.base.get_temporal_client", return_value=client
+    ):
         if rejected:
             with pytest.raises(RuntimeError, match="was rejected"):
                 await SnapshotBackend().start_turn(ctx)
@@ -490,7 +492,9 @@ async def test_dispatch_rejects_missing_or_owned_session_before_preparation(miss
     backend = DefaultBackend()
     client, rpc = temporal_client()
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "build_workflow_args") as prepare,
         patch.object(backend, "handle", side_effect=TimeoutError),
         pytest.raises(TracecatConflictError),
@@ -526,7 +530,9 @@ async def test_turn_admission_preserves_running_or_unconfirmed_ownership(outcome
     if isinstance(outcome, Exception):
         handle.describe.side_effect = outcome
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "handle", return_value=handle),
         patch.object(backend, "get_turn_lifecycle") as lifecycle,
         pytest.raises(TracecatConflictError),
@@ -555,7 +561,9 @@ async def test_recovery_rechecks_ownership_after_releasing_the_lock():
         )
     )
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "handle", return_value=handle),
         pytest.raises(TracecatConflictError),
     ):
@@ -592,7 +600,9 @@ async def test_default_backend_releases_terminal_turn_and_dispatches():
         )
     )
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "handle", return_value=handle),
         patch.object(
             backend,
@@ -638,7 +648,9 @@ async def test_backend_can_retain_ownership_of_terminal_turn(status, consulted):
     client, rpc = temporal_client()
     handle = Mock(describe=AsyncMock(return_value=SimpleNamespace(status=status)))
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "handle", return_value=handle),
         patch.object(backend, "build_workflow_args") as prepare,
         pytest.raises(TracecatConflictError),
@@ -660,7 +672,9 @@ async def test_preparation_failure_does_not_reserve_or_dispatch():
     backend = DefaultBackend()
     client, rpc = temporal_client()
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(backend, "build_workflow_args", side_effect=ValueError("invalid")),
         pytest.raises(RuntimeError, match="before dispatch"),
     ):
@@ -683,7 +697,9 @@ async def test_dispatch_cancellation_rolls_back_only_before_commit(after_commit)
     else:
         ctx.db.commit.side_effect = asyncio.CancelledError
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         pytest.raises(asyncio.CancelledError),
     ):
         await backend.start_turn(ctx)
@@ -711,7 +727,7 @@ async def test_service_dispatches_resolved_config_and_propagates_uncertainty():
         patch.object(service, "validate_turn_request", return_value=ctx.session),
         patch.object(service, "_build_agent_config", configuration),
         patch(
-            "tracecat.agent.session.service.get_agent_backend", return_value=provider
+            "autosecops.agent.session.service.get_agent_backend", return_value=provider
         ) as resolve,
         pytest.raises(SessionDispatchUncertain),
     ):
@@ -768,10 +784,10 @@ async def test_lifecycle_and_cancel_use_selected_backend():
         patch.object(service, "get_session", return_value=ctx.session),
         patch.object(service, "require_entitlement", return_value=None),
         patch(
-            "tracecat.agent.session.service.get_agent_backend", return_value=provider
+            "autosecops.agent.session.service.get_agent_backend", return_value=provider
         ),
         patch(
-            "tracecat.agent.session.service.find_agent_backend", return_value=provider
+            "autosecops.agent.session.service.find_agent_backend", return_value=provider
         ),
     ):
         result = await service.get_turn_lifecycle(ctx.session)
@@ -804,15 +820,15 @@ def _patched_control(
     """Route the service to `provider`; yields the Redis client getter."""
     with (
         patch(
-            "tracecat.agent.session.service.get_redis_client", AsyncMock()
+            "autosecops.agent.session.service.get_redis_client", AsyncMock()
         ) as get_redis_client,
         patch.object(service, "get_session", return_value=ctx.session),
         patch.object(service, "require_entitlement", AsyncMock(return_value=None)),
         patch(
-            "tracecat.agent.session.service.get_agent_backend", return_value=provider
+            "autosecops.agent.session.service.get_agent_backend", return_value=provider
         ),
         patch(
-            "tracecat.agent.session.service.find_agent_backend", return_value=provider
+            "autosecops.agent.session.service.find_agent_backend", return_value=provider
         ),
     ):
         yield get_redis_client
@@ -961,10 +977,10 @@ async def test_controlling_an_unavailable_backend_is_a_conflict(control: str):
         patch.object(service, "get_session", return_value=ctx.session),
         patch.object(service, "require_entitlement", return_value=None),
         patch(
-            "tracecat.agent.session.service.find_agent_backend", return_value=provider
+            "autosecops.agent.session.service.find_agent_backend", return_value=provider
         ),
         patch(
-            "tracecat.agent.session.service.get_agent_backend",
+            "autosecops.agent.session.service.get_agent_backend",
             side_effect=TracecatValidationError("Agent backend is unavailable"),
         ),
         pytest.raises(TracecatConflictError, match="unavailable"),
@@ -1062,7 +1078,7 @@ async def test_fork_delegates_to_required_backend_operation(preparation_fails):
     result.tuples.return_value.one_or_none.return_value = (ctx.session, None)
     db.execute.return_value = result
     with patch(
-        "tracecat.agent.session.service.get_agent_backend", return_value=provider
+        "autosecops.agent.session.service.get_agent_backend", return_value=provider
     ):
         if not preparation_fails:
             fork = await service.fork_session(ctx.session.id)
@@ -1106,7 +1122,7 @@ async def test_builtin_fork_copies_snapshot_without_mutating_parent():
     result.tuples.return_value.one_or_none.return_value = (ctx.session, None)
     ctx.db.execute.return_value = result
     with patch(
-        "tracecat.agent.session.service.get_agent_backend",
+        "autosecops.agent.session.service.get_agent_backend",
         return_value=DefaultBackend(),
     ):
         fork = await service.fork_session(ctx.session.id)
@@ -1177,7 +1193,9 @@ async def test_local_encoding_failure_rolls_back_preparation(error):
         }
     )
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         pytest.raises(RuntimeError) as caught,
     ):
         await DefaultBackend().start_turn(ctx)
@@ -1195,8 +1213,12 @@ async def test_real_client_encoding_failure_releases_reservation_before_rpc():
     assert isinstance(ctx.db, AsyncMock)
     client, dispatch = temporal_client()
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
-        patch("tracecat.dsl._converter.orjson.dumps", side_effect=TypeError("invalid")),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
+        patch(
+            "autosecops.dsl._converter.orjson.dumps", side_effect=TypeError("invalid")
+        ),
         pytest.raises(RuntimeError) as caught,
     ):
         await DefaultBackend().start_turn(ctx)
@@ -1226,7 +1248,9 @@ async def test_rpc_rejection_releases_reservation_without_raw_exception_context(
     client, rpc = temporal_client()
     rpc.side_effect = RPCError("private SDK details", status, b"")
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         pytest.raises(RuntimeError, match="was rejected") as caught,
     ):
         await DefaultBackend().start_turn(ctx)
@@ -1257,7 +1281,9 @@ async def test_rejection_cleanup_failure_preserves_uncertainty(failure):
     else:
         ctx.db.scalar.side_effect = [ctx.session, None]
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         pytest.raises(SessionDispatchUncertain) as caught,
     ):
         await DefaultBackend().start_turn(ctx)
@@ -1293,9 +1319,11 @@ async def test_commit_failure_reconciles_with_a_fresh_session(failure):
         yield cleanup_db
 
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
         patch(
-            "tracecat.agent.backends.base.get_async_session_context_manager",
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
+        patch(
+            "autosecops.agent.backends.base.get_async_session_context_manager",
             cleanup_session,
         ),
         pytest.raises(RuntimeError) as caught,
@@ -1326,7 +1354,9 @@ async def test_rpc_error_after_successful_start_does_not_release_reservation():
         raise RPCError("post-dispatch failure", RPCStatusCode.INVALID_ARGUMENT, b"")
 
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(Client, "start_workflow", start_then_fail),
         pytest.raises(SessionDispatchUncertain),
     ):
@@ -1355,7 +1385,9 @@ async def test_interceptor_cannot_retry_an_uncertain_start():
             return await start_workflow(client, *args, **kwargs)
 
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
+        patch(
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
         patch.object(Client, "start_workflow", retry_start),
         pytest.raises(SessionDispatchUncertain),
     ):
@@ -1391,7 +1423,7 @@ async def test_builtin_lost_ack_retains_ownership_without_raw_exception_context(
     client, rpc = temporal_client()
     rpc.side_effect = error
     with patch(
-        "tracecat.agent.backends.base.get_temporal_client",
+        "autosecops.agent.backends.base.get_temporal_client",
         return_value=client,
     ):
         with pytest.raises(SessionDispatchUncertain) as caught:
@@ -1537,7 +1569,9 @@ async def test_backend_maps_execution_lifecycle(status, expected):
     run_id = uuid4()
     handle = Mock(describe=AsyncMock(return_value=SimpleNamespace(status=status)))
     client = Mock(get_workflow_handle_for=Mock(return_value=handle))
-    with patch("tracecat.agent.backends.base.get_temporal_client", return_value=client):
+    with patch(
+        "autosecops.agent.backends.base.get_temporal_client", return_value=client
+    ):
         assert await DefaultBackend().get_turn_lifecycle(run_id) == expected
     client.get_workflow_handle_for.assert_called_once_with(
         DurableAgentWorkflow.run, f"agent/{run_id}"
@@ -1550,7 +1584,9 @@ async def test_backend_missing_execution_keeps_reconnect_terminal():
         describe=AsyncMock(side_effect=RPCError("gone", RPCStatusCode.NOT_FOUND, b""))
     )
     client = Mock(get_workflow_handle_for=Mock(return_value=handle))
-    with patch("tracecat.agent.backends.base.get_temporal_client", return_value=client):
+    with patch(
+        "autosecops.agent.backends.base.get_temporal_client", return_value=client
+    ):
         assert (
             await DefaultBackend().get_turn_lifecycle(uuid4()) == TurnLifecycle.FAILED
         )
@@ -1579,7 +1615,9 @@ async def test_backend_approval_errors_preserve_outcome_without_sdk_context(
     submission = WorkflowApprovalSubmission(approvals={}, new_stream_id=uuid4())
     handle = Mock(execute_update=AsyncMock(side_effect=failure))
     client = Mock(get_workflow_handle_for=Mock(return_value=handle))
-    with patch("tracecat.agent.backends.base.get_temporal_client", return_value=client):
+    with patch(
+        "autosecops.agent.backends.base.get_temporal_client", return_value=client
+    ):
         with pytest.raises(expected) as caught:
             await DefaultBackend().submit_approvals(uuid4(), submission)
     assert caught.value.__context__ is None
@@ -1590,7 +1628,7 @@ async def test_backend_approval_errors_preserve_outcome_without_sdk_context(
 async def test_backend_connection_failure_is_definitive_before_submission():
     submission = WorkflowApprovalSubmission(approvals={}, new_stream_id=uuid4())
     with patch(
-        "tracecat.agent.backends.base.get_temporal_client",
+        "autosecops.agent.backends.base.get_temporal_client",
         side_effect=RPCError("connection unavailable", RPCStatusCode.UNAVAILABLE, b""),
     ):
         with pytest.raises(AgentControlRejected):
@@ -1603,9 +1641,11 @@ async def test_default_cancel_keeps_workflow_control_when_executor_signal_fails(
     handle = Mock(execute_update=AsyncMock())
     client = Mock(get_workflow_handle_for=Mock(return_value=handle))
     with (
-        patch("tracecat.agent.backends.base.get_temporal_client", return_value=client),
         patch(
-            "tracecat.agent.backends.base.signal_turn_cancel",
+            "autosecops.agent.backends.base.get_temporal_client", return_value=client
+        ),
+        patch(
+            "autosecops.agent.backends.base.signal_turn_cancel",
             side_effect=RuntimeError,
         ),
     ):
@@ -1623,7 +1663,9 @@ async def test_handle_construction_failure_is_definitive_before_submission():
     client = Mock(
         get_workflow_handle_for=Mock(side_effect=ValueError("invalid workflow"))
     )
-    with patch("tracecat.agent.backends.base.get_temporal_client", return_value=client):
+    with patch(
+        "autosecops.agent.backends.base.get_temporal_client", return_value=client
+    ):
         with pytest.raises(AgentControlRejected) as caught:
             await DefaultBackend().submit_approvals(
                 uuid4(), WorkflowApprovalSubmission(approvals={}, new_stream_id=uuid4())
@@ -1636,7 +1678,7 @@ async def test_default_backend_caps_sessions_at_agent_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
+        "autosecops.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
         21600,
     )
     workspace_id = uuid4()

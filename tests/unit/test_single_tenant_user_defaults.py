@@ -9,24 +9,24 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 
-from tests.support.membership import grant_org_membership_via_group
-from tracecat import config
-from tracecat.auth.schemas import UserRole
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.seeding import seed_system_roles_for_org
-from tracecat.db.engine import get_async_session_bypass_rls_context_manager
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.schemas import UserRole
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.seeding import seed_system_roles_for_org
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
+from autosecops.db.models import (
     Organization,
     OrganizationMembership,
     User,
     UserRoleAssignment,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.organization.management import (
+from autosecops.db.models import Role as DBRole
+from autosecops.organization.management import (
     ensure_single_tenant_user_defaults,
     ensure_single_tenant_user_defaults_for_session,
     ensure_single_tenant_user_defaults_in_session,
 )
+from tests.support.membership import grant_org_membership_via_group
 
 pytestmark = pytest.mark.usefixtures("db")
 

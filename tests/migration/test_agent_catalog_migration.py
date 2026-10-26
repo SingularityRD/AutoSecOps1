@@ -28,7 +28,7 @@ from cryptography.fernet import Fernet
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.db.models import (
+from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
     AgentPreset,
@@ -38,9 +38,9 @@ from tracecat.db.models import (
     OrganizationSetting,
     Workspace,
 )
-from tracecat.secrets.encryption import encrypt_keyvalues
-from tracecat.secrets.enums import SecretType
-from tracecat.secrets.schemas import SecretKeyValue
+from autosecops.secrets.encryption import encrypt_keyvalues
+from autosecops.secrets.enums import SecretType
+from autosecops.secrets.schemas import SecretKeyValue
 
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[2]

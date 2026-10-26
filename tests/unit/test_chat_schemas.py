@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from tracecat.agent.approvals.enums import ApprovalStatus
-from tracecat.chat.schemas import ApprovalRead, ChatMessage
-from tracecat.db import models
+from autosecops.agent.approvals.enums import ApprovalStatus
+from autosecops.chat.schemas import ApprovalRead, ChatMessage
+from autosecops.db import models
 
 
 def approval_read_data(decision: object) -> dict[str, object]:

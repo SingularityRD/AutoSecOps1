@@ -5,19 +5,19 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from autosecops_ee.admin.organizations.schemas import OrgDomainCreate, OrgDomainUpdate
+from autosecops_ee.admin.organizations.service import AdminOrgService
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.admin.organizations.schemas import OrgDomainCreate, OrgDomainUpdate
-from tracecat_ee.admin.organizations.service import AdminOrgService
 
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import (
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import (
     Organization,
     OrganizationSecret,
     OrganizationSecretStore,
     Workspace,
 )
-from tracecat.exceptions import TracecatValidationError
+from autosecops.exceptions import TracecatValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 

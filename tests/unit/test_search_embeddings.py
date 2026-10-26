@@ -11,20 +11,20 @@ from email.utils import format_datetime
 import httpx
 import pytest
 
+from autosecops.search.embeddings import catalog as catalog_module
+from autosecops.search.embeddings import client as client_module
+from autosecops.search.embeddings.catalog import EmbeddingTokenCounter
+from autosecops.search.embeddings.client import _retry_after
+from autosecops.search.embeddings.types import (
+    EmbeddingError,
+    EmbeddingErrorCode,
+    ResolvedCredential,
+)
 from tests.embedding_helpers import (
     StubProvider,
     configuration_for,
     request_for,
     wire_response,
-)
-from tracecat.search.embeddings import catalog as catalog_module
-from tracecat.search.embeddings import client as client_module
-from tracecat.search.embeddings.catalog import EmbeddingTokenCounter
-from tracecat.search.embeddings.client import _retry_after
-from tracecat.search.embeddings.types import (
-    EmbeddingError,
-    EmbeddingErrorCode,
-    ResolvedCredential,
 )
 
 pytestmark = pytest.mark.anyio

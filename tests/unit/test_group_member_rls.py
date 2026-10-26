@@ -7,11 +7,11 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.db.tenant_rls import (
+from autosecops.db.tenant_rls import (
     disable_org_table_rls,
     enable_group_member_table_rls,
 )
+from tests.database import TEST_DB_CONFIG
 
 
 @pytest.fixture(scope="session", autouse=True)

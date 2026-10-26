@@ -2,26 +2,26 @@ from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 
 import pytest
+from autosecops_ee.tunnels import service as service_module
+from autosecops_ee.tunnels.gateways import TunnelGatewayUnavailableError
+from autosecops_ee.tunnels.routing import TunnelRouteError, resolve_tunnel_route
+from autosecops_ee.tunnels.schemas import TunnelCreate, TunnelUpdate
+from autosecops_ee.tunnels.service import TunnelsService
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.tunnels import service as service_module
-from tracecat_ee.tunnels.gateways import TunnelGatewayUnavailableError
-from tracecat_ee.tunnels.routing import TunnelRouteError, resolve_tunnel_route
-from tracecat_ee.tunnels.schemas import TunnelCreate, TunnelUpdate
-from tracecat_ee.tunnels.service import TunnelsService
 
-from tracecat import config
-from tracecat.auth.secrets import get_db_encryption_key
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import VIEWER_SCOPES
-from tracecat.db.models import Organization, Workspace, WorkspaceTunnel
-from tracecat.exceptions import (
+from autosecops import config
+from autosecops.auth.secrets import get_db_encryption_key
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import VIEWER_SCOPES
+from autosecops.db.models import Organization, Workspace, WorkspaceTunnel
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatNotFoundError,
 )
-from tracecat.pagination import PageParams
-from tracecat.secrets.encryption import decrypt_value
+from autosecops.pagination import PageParams
+from autosecops.secrets.encryption import decrypt_value
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -248,11 +248,11 @@ async def test_viewer_cannot_issue_gateway_key(
 async def test_delete_in_use_lists_every_reference(
     service: TunnelsService, session: AsyncSession, svc_role: Role
 ) -> None:
-    from tracecat_ee.tunnels.schemas import TunnelReferenceKind
-    from tracecat_ee.tunnels.service import TunnelInUseError
+    from autosecops_ee.tunnels.schemas import TunnelReferenceKind
+    from autosecops_ee.tunnels.service import TunnelInUseError
 
-    from tracecat.db.models import Action, AgentPreset, MCPIntegration, Workflow
-    from tracecat.integrations.enums import MCPAuthType
+    from autosecops.db.models import Action, AgentPreset, MCPIntegration, Workflow
+    from autosecops.integrations.enums import MCPAuthType
 
     tunnel = await service.create_tunnel(_params())
     other = await service.create_tunnel(_params("unused"))
@@ -346,7 +346,7 @@ async def test_presets_without_tool_tunnels_do_not_break_reference_checks(
     ``null``, are skipped by reference checks instead of failing them."""
     import sqlalchemy as sa
 
-    from tracecat.db.models import AgentPreset
+    from autosecops.db.models import AgentPreset
 
     tunnel = await service.create_tunnel(_params())
     assert svc_role.workspace_id is not None
@@ -405,7 +405,7 @@ async def test_route_to_missing_named_tunnel_has_actionable_error(
     """A stale name, e.g. in a pinned preset version, fails with a clear error."""
     from contextlib import asynccontextmanager
 
-    from tracecat_ee.tunnels import routing
+    from autosecops_ee.tunnels import routing
 
     @asynccontextmanager
     async def _session():
@@ -432,9 +432,9 @@ async def test_published_workflow_definition_references_tunnel(
     service: TunnelsService, session: AsyncSession, svc_role: Role
 ) -> None:
     """A draft that dropped the tunnel still counts while the published run uses it."""
-    from tracecat_ee.tunnels.schemas import TunnelReferenceKind
+    from autosecops_ee.tunnels.schemas import TunnelReferenceKind
 
-    from tracecat.db.models import Workflow, WorkflowDefinition
+    from autosecops.db.models import Workflow, WorkflowDefinition
 
     tunnel = await service.create_tunnel(_params())
     assert svc_role.workspace_id is not None
@@ -474,9 +474,9 @@ async def test_agent_tool_tunnels_reference_tunnel(
     service: TunnelsService, session: AsyncSession, svc_role: Role
 ) -> None:
     """``ai.agent`` per-tool tunnels in drafts and published definitions count."""
-    from tracecat_ee.tunnels.schemas import TunnelReferenceKind
+    from autosecops_ee.tunnels.schemas import TunnelReferenceKind
 
-    from tracecat.db.models import Action, Workflow, WorkflowDefinition
+    from autosecops.db.models import Action, Workflow, WorkflowDefinition
 
     tunnel = await service.create_tunnel(_params())
     assert svc_role.workspace_id is not None

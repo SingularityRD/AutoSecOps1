@@ -15,16 +15,12 @@ from fastapi_users.password import PasswordHelper
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_workspace_membership,
-)
-from tracecat import config
-from tracecat.api.common import bootstrap_role
-from tracecat.auth.enums import AuthErrorCode, AuthType
-from tracecat.auth.users import UserManager
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.api.common import bootstrap_role
+from autosecops.auth.enums import AuthErrorCode, AuthType
+from autosecops.auth.users import UserManager
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.db.models import (
     ExternalUser,
     OAuthAccount,
     Organization,
@@ -34,9 +30,13 @@ from tracecat.db.models import (
     User,
     Workspace,
 )
-from tracecat.organization.domains import normalize_domain
-from tracecat.settings.schemas import SAMLSettingsUpdate
-from tracecat.settings.service import SettingsService
+from autosecops.organization.domains import normalize_domain
+from autosecops.settings.schemas import SAMLSettingsUpdate
+from autosecops.settings.service import SettingsService
+from tests.support.membership import (
+    grant_org_membership,
+    grant_workspace_membership,
+)
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -62,7 +62,7 @@ def patch_auth_session_context_manager(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.auth.users.get_async_session_auth_context_manager",
+        "autosecops.auth.users.get_async_session_auth_context_manager",
         _session_cm,
     )
 

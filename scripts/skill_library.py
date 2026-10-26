@@ -1,6 +1,6 @@
 """Sync the bundled skill library from pinned upstream GitHub sources.
 
-Upstream entries in ``tracecat/agent/skill/library/sources.toml`` pin repository
+Upstream entries in ``autosecops/agent/skill/library/sources.toml`` pin repository
 commits and list the skills taken from them. Local entries are never downloaded
 or overwritten. This script copies each upstream skill
 directory, plus the repository's license and notice files, into
@@ -33,20 +33,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
-from tracecat.agent.skill.frontmatter import parse_skill_markdown
-from tracecat.agent.skill.library.catalog import (
+from autosecops.agent.skill.frontmatter import parse_skill_markdown
+from autosecops.agent.skill.library.catalog import (
     LIBRARY_ROOT,
     load_library_from,
     validate_library_skill,
 )
-from tracecat.agent.skill.library.sources import (
+from autosecops.agent.skill.library.sources import (
     SOURCES_PATH,
     load_sources,
     parse_sources,
     tree_digest,
     verify_library,
 )
-from tracecat.agent.skill.library.types import LibrarySource, LibrarySourceEntry
+from autosecops.agent.skill.library.types import LibrarySource, LibrarySourceEntry
 
 MANIFEST_HEADER = (
     "# Bundled skill library: platform groups, local skills, and upstream pins.\n"

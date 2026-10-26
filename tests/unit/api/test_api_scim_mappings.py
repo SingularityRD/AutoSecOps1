@@ -7,19 +7,19 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from autosecops_ee.scim.schemas import ExternalGroupMappingRead, ExternalGroupRead
 from fastapi import status
 from fastapi.testclient import TestClient
-from tracecat_ee.scim.schemas import ExternalGroupMappingRead, ExternalGroupRead
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.exceptions import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatNotFoundError,
 )
-from tracecat.pagination import Page, PageParams
-from tracecat.tiers.enums import Entitlement
+from autosecops.pagination import Page, PageParams
+from autosecops.tiers.enums import Entitlement
 
 EXTERNAL_GROUPS = "/scim/external-groups"
 MAPPINGS = "/scim/mappings"
@@ -54,11 +54,11 @@ async def test_list_external_groups_returns_member_counts(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.list_external_groups",
+            "autosecops_ee.scim.service.SCIMService.list_external_groups",
             new=AsyncMock(return_value=Page(items=groups)),
         ),
     ):
@@ -80,11 +80,11 @@ async def test_list_mappings_returns_joined_detail(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.list_mappings",
+            "autosecops_ee.scim.service.SCIMService.list_mappings",
             new=AsyncMock(return_value=Page(items=[mapping], next_cursor="next-page")),
         ) as list_mappings,
     ):
@@ -108,11 +108,11 @@ async def test_mapping_page_limit_is_validated(
 ) -> None:
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.list_mappings", new=AsyncMock()
+            "autosecops_ee.scim.service.SCIMService.list_mappings", new=AsyncMock()
         ) as list_mappings,
     ):
         response = client.get(MAPPINGS, params={"limit": limit})
@@ -130,15 +130,15 @@ async def test_create_returns_the_joined_mapping(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.create_mapping",
+            "autosecops_ee.scim.service.SCIMService.create_mapping",
             new=AsyncMock(return_value=created),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.get_mapping",
+            "autosecops_ee.scim.service.SCIMService.get_mapping",
             new=AsyncMock(return_value=mapping),
         ),
     ):
@@ -161,11 +161,11 @@ async def test_create_against_a_missing_group_is_404(
     """A group outside this organization is not found, never created."""
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.create_mapping",
+            "autosecops_ee.scim.service.SCIMService.create_mapping",
             new=AsyncMock(side_effect=TracecatNotFoundError("Group not found")),
         ),
     ):
@@ -187,11 +187,11 @@ async def test_delete_returns_no_content(
     """Removing a mapping answers 204."""
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.delete_mapping",
+            "autosecops_ee.scim.service.SCIMService.delete_mapping",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -207,11 +207,11 @@ async def test_delete_of_a_missing_mapping_is_404(
     """A mapping id from another organization is not found."""
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat_ee.scim.service.SCIMService.delete_mapping",
+            "autosecops_ee.scim.service.SCIMService.delete_mapping",
             new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
         ),
     ):
@@ -240,11 +240,11 @@ async def test_a_role_without_the_scope_is_refused(
 
     with (
         patch(
-            "tracecat_ee.scim.router.check_entitlement",
+            "autosecops_ee.scim.router.check_entitlement",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            f"tracecat_ee.scim.service.SCIMService.{target}",
+            f"autosecops_ee.scim.service.SCIMService.{target}",
             new=AsyncMock(side_effect=denied),
         ),
     ):
@@ -274,7 +274,7 @@ async def test_an_organization_without_the_entitlement_is_refused(
 ) -> None:
     """The router-level gate refuses every route without RBAC_ADDONS."""
     with patch(
-        "tracecat_ee.scim.router.check_entitlement",
+        "autosecops_ee.scim.router.check_entitlement",
         new=AsyncMock(side_effect=EntitlementRequired(Entitlement.RBAC_ADDONS)),
     ):
         response = client.request(

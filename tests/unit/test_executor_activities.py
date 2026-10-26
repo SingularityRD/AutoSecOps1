@@ -25,56 +25,56 @@ from temporalio.exceptions import (
     CancelledError as TemporalCancelledError,
 )
 
-from tracecat import config
-from tracecat.agent.executor.activity import (
+from autosecops import config
+from autosecops.agent.executor.activity import (
     _resolve_and_probe_stdio_config,
     probe_stdio_mcp_connection_activity,
 )
-from tracecat.agent.mcp.activities import persist_stdio_mcp_connection_activity
-from tracecat.agent.mcp.stdio_probe_types import (
+from autosecops.agent.mcp.activities import persist_stdio_mcp_connection_activity
+from autosecops.agent.mcp.stdio_probe_types import (
     MCP_STDIO_PROBE_TIMEOUT_CAP,
     StdioMCPPersistInput,
     StdioMCPProbeInput,
     StdioMCPProbeResult,
 )
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.error_transport import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.error_transport import (
     ActionErrorTransportDetail,
     parse_classified_action_error_payload,
 )
-from tracecat.dsl.schemas import (
+from autosecops.dsl.schemas import (
     ActionStatement,
     RunActionInput,
     RunContext,
     StreamID,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
     TracecatValidationError,
 )
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.executor.registry_artifacts import (
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.executor.registry_artifacts import (
     RegistryArtifactExtractionError,
 )
-from tracecat.executor.schemas import ExecutorActionErrorInfo
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.integrations.schemas import MCPToolSummary
-from tracecat.observability.otel import (
+from autosecops.executor.schemas import ExecutorActionErrorInfo
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.integrations.schemas import MCPToolSummary
+from autosecops.observability.otel import (
     initialize_platform_tracing,
     shutdown_platform_tracing,
 )
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.runtime.errors import (
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     build_error_transport_detail,
     extract_error_classification,
 )
@@ -124,8 +124,8 @@ def mock_run_action_input() -> RunActionInput:
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test-version"},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": "test-version"},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 
@@ -163,10 +163,10 @@ def _activity_error_from(cause: BaseException) -> ActivityError:
 @pytest.fixture
 def activity_mocks() -> Iterator[SimpleNamespace]:
     with (
-        patch("tracecat.executor.activities.activity") as mock_activity,
-        patch("tracecat.executor.activities.get_executor_backend") as mock_backend,
+        patch("autosecops.executor.activities.activity") as mock_activity,
+        patch("autosecops.executor.activities.get_executor_backend") as mock_backend,
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new_callable=AsyncMock,
         ) as mock_dispatch,
     ):
@@ -210,7 +210,7 @@ class TestExecuteActionActivity:
 
         try:
             with patch(
-                "tracecat.executor.activities.materialize_context",
+                "autosecops.executor.activities.materialize_context",
                 new_callable=AsyncMock,
             ) as mock_materialize:
                 activity_mocks.activity.info.return_value = MagicMock(
@@ -398,7 +398,7 @@ class TestExecuteActionActivity:
         )
         activity_mocks.dispatch.return_value = {"ok": True}
         with patch(
-            "tracecat.executor.activities.get_object_storage",
+            "autosecops.executor.activities.get_object_storage",
             return_value=storage,
         ):
             with pytest.raises(ApplicationError) as exc_info:
@@ -539,7 +539,7 @@ class TestProbeStdioMCPConnectionActivity:
         )
 
         with patch(
-            "tracecat.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
+            "autosecops.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
             new_callable=AsyncMock,
             return_value=expected,
         ) as probe_stdio:
@@ -616,17 +616,17 @@ class TestProbeStdioMCPConnectionActivity:
                 del command, args, env
 
         with (
-            patch("tracecat.agent.executor.activity.activity") as mock_activity,
+            patch("autosecops.agent.executor.activity.activity") as mock_activity,
             patch(
-                "tracecat.agent.executor.activity.AgentPresetService.with_session",
+                "autosecops.agent.executor.activity.AgentPresetService.with_session",
                 lambda *_, **__: _AsyncContext(preset_svc),
             ),
             patch(
-                "tracecat.agent.executor.activity.IntegrationService",
+                "autosecops.agent.executor.activity.IntegrationService",
                 FakeIntegrationService,
             ),
             patch(
-                "tracecat.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
+                "autosecops.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
                 new_callable=AsyncMock,
             ) as probe_stdio,
         ):
@@ -689,17 +689,17 @@ class TestProbeStdioMCPConnectionActivity:
                 del command, args, env
 
         with (
-            patch("tracecat.agent.executor.activity.activity") as mock_activity,
+            patch("autosecops.agent.executor.activity.activity") as mock_activity,
             patch(
-                "tracecat.agent.executor.activity.AgentPresetService.with_session",
+                "autosecops.agent.executor.activity.AgentPresetService.with_session",
                 lambda *_, **__: _AsyncContext(preset_svc),
             ),
             patch(
-                "tracecat.agent.executor.activity.IntegrationService",
+                "autosecops.agent.executor.activity.IntegrationService",
                 FakeIntegrationService,
             ),
             patch(
-                "tracecat.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
+                "autosecops.agent.executor.activity.probe_stdio_mcp_tools_in_sandbox",
                 new_callable=AsyncMock,
             ) as probe_stdio,
         ):
@@ -747,9 +747,9 @@ class TestProbeStdioMCPConnectionActivity:
         fake_svc = FakeIntegrationService()
 
         with (
-            patch("tracecat.agent.mcp.activities.activity") as mock_activity,
+            patch("autosecops.agent.mcp.activities.activity") as mock_activity,
             patch(
-                "tracecat.agent.mcp.activities.IntegrationService.with_session",
+                "autosecops.agent.mcp.activities.IntegrationService.with_session",
                 lambda *_, **__: _AsyncContext(fake_svc),
             ),
         ):

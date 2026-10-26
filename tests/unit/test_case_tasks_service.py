@@ -4,13 +4,18 @@ from collections.abc import AsyncGenerator
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CasePriority, CaseSeverity, CaseStatus, CaseTaskStatus
-from tracecat.cases.schemas import CaseCreate, CaseTaskCreate, CaseTaskUpdate
-from tracecat.cases.service import CasesService, CaseTasksService
-from tracecat.db.models import Case, Workflow, Workspace
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.identifiers import WorkflowUUID
+from autosecops.auth.types import Role
+from autosecops.cases.enums import (
+    CasePriority,
+    CaseSeverity,
+    CaseStatus,
+    CaseTaskStatus,
+)
+from autosecops.cases.schemas import CaseCreate, CaseTaskCreate, CaseTaskUpdate
+from autosecops.cases.service import CasesService, CaseTasksService
+from autosecops.db.models import Case, Workflow, Workspace
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.identifiers import WorkflowUUID
 
 pytestmark = pytest.mark.usefixtures("db")
 

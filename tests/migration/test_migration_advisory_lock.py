@@ -14,14 +14,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import NullPool
 
-from tests.database import TEST_DB_CONFIG
-from tracecat.db.migration_lock import (
+from autosecops.db.migration_lock import (
     MIGRATION_ADVISORY_LOCK_ID,
     MIGRATION_ADVISORY_LOCK_NAMESPACE,
     acquire_migration_advisory_lock,
     migration_advisory_lock_id,
     release_migration_advisory_lock,
 )
+from tests.database import TEST_DB_CONFIG
 
 EXPECTED_MIGRATION_ADVISORY_LOCK_ID = 5978149383827159724
 

@@ -4,12 +4,12 @@ on:
   push:
     branches: ["main"]
     paths:
-      - tracecat/**
+      - autosecops/**
       - alembic/**
       - registry/**
       - tests/**
-      - packages/tracecat-ee/**
-      - packages/tracecat-registry/**
+      - packages/autosecops-ee/**
+      - packages/autosecops-registry/**
       - pyproject.toml
       - uv.lock
       - docker-compose.yml
@@ -268,7 +268,7 @@ jobs:
           elif [ "${{ matrix.test_group }}" = "unit-sandbox" ]; then
             uv run pytest "${sandbox_tests[@]}" -m "not live_secret" -n auto -ra -o faulthandler_timeout=300
           elif [ "${{ matrix.test_group }}" = "ee" ]; then
-            uv run pytest packages/tracecat-ee/tests/ -m "not live_secret" -ra
+            uv run pytest packages/autosecops-ee/tests/ -m "not live_secret" -ra
           elif [ "${{ matrix.test_group }}" = "temporal" ]; then
             # Temporal tests run with compression enabled and parallelization
             # Worker-specific task queues in conftest.py enable safe parallel execution

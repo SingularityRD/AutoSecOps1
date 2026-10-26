@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 import httpx
 import pytest
 
-from tracecat.agent.mcp.http_limits import (
+from autosecops.agent.mcp.http_limits import (
     BoundedResponseTransport,
     MCPResponseTooLargeError,
     create_bounded_mcp_http_client,

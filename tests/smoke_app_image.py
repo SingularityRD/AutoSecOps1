@@ -8,8 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tracecat import config
-from tracecat.sandbox.service import SandboxService
+from autosecops import config
+from autosecops.sandbox.service import SandboxService
 
 SCRIPT = """
 import os
@@ -19,7 +19,7 @@ from pathlib import Path
 
 def main():
     assert os.getuid() == 1000
-    assert not Path('/app/tracecat').exists()
+    assert not Path('/app/autosecops').exists()
     assert not os.access('/usr/local/bin/python3', os.W_OK)
     probe = Path('/tmp/image-smoke.txt')
     probe.write_text('sandbox-write-ok')

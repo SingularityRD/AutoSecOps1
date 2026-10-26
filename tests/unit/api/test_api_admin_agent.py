@@ -7,9 +7,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.admin.agent.router as admin_agent_router
-from tracecat.agent.catalog.schemas import AgentCatalogRead
-from tracecat.auth.types import Role
+import autosecops.admin.agent.router as admin_agent_router
+from autosecops.agent.catalog.schemas import AgentCatalogRead
+from autosecops.auth.types import Role
 
 
 @pytest.mark.anyio

@@ -6,10 +6,10 @@ import uuid
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 
+import autosecops_ee.tunnels.gateway.proxy as proxy_module
 import httpx
 import pytest
-import tracecat_ee.tunnels.gateway.proxy as proxy_module
-from tracecat_ee.tunnels.gateway.proxy import (
+from autosecops_ee.tunnels.gateway.proxy import (
     GatewayConfig,
     GatewayPolicy,
     PolicyFetcher,
@@ -17,8 +17,8 @@ from tracecat_ee.tunnels.gateway.proxy import (
     fetch_policy,
     start_gateway,
 )
-from tracecat_ee.tunnels.pangolin import managed_alias
-from tracecat_ee.tunnels.tokens import (
+from autosecops_ee.tunnels.pangolin import managed_alias
+from autosecops_ee.tunnels.tokens import (
     generate_gateway_key,
     mint_tunnel_token,
     verify_gateway_policy_token,

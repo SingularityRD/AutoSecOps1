@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 import tenacity
 
-from tracecat.redis.client import RedisClient
+from autosecops.redis.client import RedisClient
 
 
 class DummyConnectionPool:
@@ -89,8 +89,8 @@ def patch_redis(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
     DummyConnectionPool.reset()
     reset_singleton()
 
-    monkeypatch.setattr("tracecat.redis.client.redis.Redis", DummyRedis)
-    monkeypatch.setattr("tracecat.redis.client.redis.from_url", fake_from_url)
+    monkeypatch.setattr("autosecops.redis.client.redis.Redis", DummyRedis)
+    monkeypatch.setattr("autosecops.redis.client.redis.from_url", fake_from_url)
 
     yield
 

@@ -9,11 +9,8 @@ import pytest
 import sqlalchemy as sa
 from cryptography.fernet import Fernet
 
-from tests.integration import test_embedding_configuration as providers
-from tests.integration import test_search_indexing as indexing
-from tests.integration import test_table_search_lifecycle as lifecycle
-from tracecat import config
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.db.models import (
     AgentCatalog,
     AgentModelAccess,
     Organization,
@@ -21,20 +18,20 @@ from tracecat.db.models import (
     SearchCollection,
     Workspace,
 )
-from tracecat.exceptions import ScopeDeniedError, TracecatNotFoundError
-from tracecat.redis.client import RedisClient
-from tracecat.search.cursors import SearchWindow, WindowStore
-from tracecat.search.embeddings.client import EmbeddingClient
-from tracecat.search.embeddings.service import resolve_embedding_configuration
-from tracecat.search.embeddings.types import (
+from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.redis.client import RedisClient
+from autosecops.search.cursors import SearchWindow, WindowStore
+from autosecops.search.embeddings.client import EmbeddingClient
+from autosecops.search.embeddings.service import resolve_embedding_configuration
+from autosecops.search.embeddings.types import (
     EmbeddingError,
     EmbeddingErrorCode,
     ModelSpec,
     PinnedConfiguration,
 )
-from tracecat.search.retrieval import TableRetrievalService
-from tracecat.search.schemas import SearchRequest
-from tracecat.search.types import (
+from autosecops.search.retrieval import TableRetrievalService
+from autosecops.search.schemas import SearchRequest
+from autosecops.search.types import (
     ChunkerSettings,
     ChunkManifest,
     EmbeddingResult,
@@ -42,9 +39,12 @@ from tracecat.search.types import (
     SearchError,
     SearchErrorCode,
 )
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
-from tracecat.tables.service import TablesService
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
+from autosecops.tables.service import TablesService
+from tests.integration import test_embedding_configuration as providers
+from tests.integration import test_search_indexing as indexing
+from tests.integration import test_table_search_lifecycle as lifecycle
 
 pytestmark = pytest.mark.anyio
 tables = lifecycle.tables

@@ -2,7 +2,7 @@
 
 import pytest
 
-from tracecat.registry.dependencies import (
+from autosecops.registry.dependencies import (
     ConflictStatementType,
     ConflictSummary,
     DependencyConflictResult,

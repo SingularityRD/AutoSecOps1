@@ -10,25 +10,25 @@ from temporalio.client import WorkflowExecutionStatus
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 
-from tests.temporal import durable_agent_failure_harness as harness
-from tracecat.agent.common.exceptions import UserMCPDiscoveryTimeoutError
-from tracecat.agent.diagnostics import LLMErrorDiagnostics
-from tracecat.agent.error_policy import (
+from autosecops.agent.common.exceptions import UserMCPDiscoveryTimeoutError
+from autosecops.agent.diagnostics import LLMErrorDiagnostics
+from autosecops.agent.error_policy import (
     agent_executor_protocol_failed,
     mcp_discovery_failure,
     tenant_entitlement_denied,
     user_agent_execution_failed,
 )
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import (
+from autosecops.temporal.errors import (
     extract_error_classifications,
     extract_error_diagnostics,
 )
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+from tests.temporal import durable_agent_failure_harness as harness
 
 pytestmark = [pytest.mark.temporal]
 

@@ -12,25 +12,25 @@ import pytest
 from temporalio.client import WorkflowFailureError
 from temporalio.testing import WorkflowEnvironment
 
+from autosecops import config
+from autosecops.dsl import action as action_module
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.init_activities import (
+    resolve_time_anchor_activity,
+    resolve_workflow_concurrency_limits_enabled_activity,
+)
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import InlineObject
+from autosecops.workflow.management.management import WorkflowsManagementService
 from tests.temporal.runtime_error_attribution_harness import (
     ScenarioObservation,
     _inline_run_args,
     _role,
 )
-from tracecat import config
-from tracecat.dsl import action as action_module
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.init_activities import (
-    resolve_time_anchor_activity,
-    resolve_workflow_concurrency_limits_enabled_activity,
-)
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import InlineObject
-from tracecat.workflow.management.management import WorkflowsManagementService
 
 
 async def run_handled_platform_activity_failure_uses_authored_error_edge(
@@ -63,8 +63,8 @@ async def run_handled_platform_activity_failure_uses_authored_error_edge(
         ),
         trigger_inputs=InlineObject(data={"source": "inline-trigger"}),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "test"},
-            actions={recovery_action: "tracecat_registry"},
+            origins={"autosecops_registry": "test"},
+            actions={recovery_action: "autosecops_registry"},
         ),
     )
     prepare_subflow = AsyncMock(
@@ -74,12 +74,12 @@ async def run_handled_platform_activity_failure_uses_authored_error_edge(
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
 
     with (
-        patch("tracecat.dsl.action._prepare_subflow", new=prepare_subflow),
+        patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow),
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
-        patch("tracecat.executor.activities.dispatch_action", new=dispatch),
+        patch("autosecops.executor.activities.dispatch_action", new=dispatch),
     ):
         async with (
             test_worker_factory(
@@ -131,11 +131,11 @@ async def run_engine_terminal_status_does_not_set_error_owner(
 
     with (
         patch(
-            "tracecat.executor.activities.get_executor_backend",
+            "autosecops.executor.activities.get_executor_backend",
             return_value=object(),
         ),
         patch(
-            "tracecat.executor.activities.dispatch_action",
+            "autosecops.executor.activities.dispatch_action",
             new=blocking_dispatch,
         ),
     ):

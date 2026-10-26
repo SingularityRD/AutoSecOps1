@@ -1,4 +1,4 @@
-"""Unit tests for tracecat.mcp.oidc.endpoints — OIDC issuer HTTP endpoints."""
+"""Unit tests for autosecops.mcp.oidc.endpoints — OIDC issuer HTTP endpoints."""
 
 from __future__ import annotations
 
@@ -18,21 +18,21 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from tracecat.auth.users import optional_current_active_user
-from tracecat.db.engine import get_async_session_bypass_rls
-from tracecat.db.models import User
-from tracecat.mcp.oidc import config as oidc_config
-from tracecat.mcp.oidc import signing
-from tracecat.mcp.oidc.endpoints import router
-from tracecat.mcp.oidc.refresh_tokens import RefreshTokenError
-from tracecat.mcp.oidc.schemas import (
+from autosecops.auth.users import optional_current_active_user
+from autosecops.db.engine import get_async_session_bypass_rls
+from autosecops.db.models import User
+from autosecops.mcp.oidc import config as oidc_config
+from autosecops.mcp.oidc import signing
+from autosecops.mcp.oidc.endpoints import router
+from autosecops.mcp.oidc.refresh_tokens import RefreshTokenError
+from autosecops.mcp.oidc.schemas import (
     AuthCodeData,
     OrganizationSelectionTransaction,
     RefreshTokenContext,
     RefreshTokenMetadata,
     ResumeTransaction,
 )
-from tracecat.mcp.oidc.session import (
+from autosecops.mcp.oidc.session import (
     NeedsAction,
     OrganizationOption,
     OrgResolutionError,
@@ -107,18 +107,18 @@ def _make_auth_code_data(
 def _setup_config(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnusedFunction]
     """Set config values and clear signing caches for each test."""
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.signing.get_user_auth_secret",
+        "autosecops.mcp.oidc.signing.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(oidc_config, "TRACECAT__PUBLIC_API_URL", _TEST_API_URL)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.config.get_user_auth_secret",
+        "autosecops.mcp.oidc.config.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
+        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
     )
-    monkeypatch.setattr("tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
+    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
     signing.get_signing_key.cache_clear()
     signing.get_public_jwk.cache_clear()
     yield
@@ -194,7 +194,7 @@ def app(monkeypatch: pytest.MonkeyPatch):
         _stub_session_dependency
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         _stub_bypass_session_context_manager,
     )
     return test_app
@@ -242,7 +242,7 @@ def test_openid_configuration_includes_root_path_when_proxied(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When X-Forwarded-Host is present, endpoint URLs include root_path."""
-    monkeypatch.setattr("tracecat.config.TRACECAT__PUBLIC_APP_URL", _TEST_MCP_URL)
+    monkeypatch.setattr("autosecops.config.TRACECAT__PUBLIC_APP_URL", _TEST_MCP_URL)
 
     test_app = FastAPI(root_path="/api")
     test_app.include_router(router)
@@ -269,7 +269,7 @@ def test_openid_configuration_omits_refresh_support_when_disabled(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
 
     response = client.get("/.well-known/openid-configuration")
 
@@ -352,15 +352,15 @@ def test_authorize_accepts_redirect_uri_without_explicit_default_http_port(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL",
+        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL",
         "http://localhost:80",
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(return_value=SessionNeedsAction(action=NeedsAction.LOGIN)),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_resume_transaction", AsyncMock()
+        "autosecops.mcp.oidc.endpoints.store_resume_transaction", AsyncMock()
     )
 
     response = client.get(
@@ -417,14 +417,14 @@ async def test_authorize_defaults_resource_when_omitted(
         stored_codes.append(data)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             return_value=SessionResult(
                 user=cast(User, mock_user), organization_id=org_id
             )
         ),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", _store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", _store_code)
 
     params = _authorize_params()
     del params["resource"]
@@ -451,11 +451,11 @@ async def test_authorize_redirects_to_login_when_no_session(
         stored.append(txn)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(return_value=SessionNeedsAction(action=NeedsAction.LOGIN)),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_resume_transaction", _store_resume
+        "autosecops.mcp.oidc.endpoints.store_resume_transaction", _store_resume
     )
 
     response = client.get(
@@ -483,14 +483,14 @@ async def test_authorize_issues_code_on_valid_session(
         stored_codes.append(data)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             return_value=SessionResult(
                 user=cast(User, mock_user), organization_id=org_id
             )
         ),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", _store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", _store_code)
 
     response = client.get(
         "/authorize",
@@ -513,7 +513,7 @@ async def test_authorize_access_denied_when_no_org_membership(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             side_effect=OrgResolutionError(
                 "User user@example.com cannot use MCP: no organization membership"
@@ -578,7 +578,7 @@ async def test_token_rate_limits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=False),
     )
 
@@ -601,7 +601,7 @@ def test_token_rejects_wrong_grant_type(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
 
@@ -627,7 +627,7 @@ def test_token_rejects_invalid_client_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
 
@@ -644,7 +644,7 @@ def test_token_rejects_invalid_client_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
 
@@ -665,11 +665,11 @@ async def test_token_rejects_unknown_auth_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=None),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -695,11 +695,11 @@ async def test_token_rejects_expired_auth_code(
         created_at=time.time() - oidc_config.AUTH_CODE_LIFETIME_SECONDS - 10
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=expired_code),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -725,11 +725,11 @@ async def test_token_rejects_redirect_uri_mismatch(
 ) -> None:
     code_data = _make_auth_code_data(redirect_uri="https://other.com/callback")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -756,11 +756,11 @@ async def test_token_rejects_failed_pkce(
     _verifier, challenge = _pkce_pair()
     code_data = _make_auth_code_data(challenge=challenge)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -789,14 +789,14 @@ async def test_token_success_returns_tokens(
     code_data = _make_auth_code_data(challenge=challenge)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
     secret = oidc_config.get_internal_client_secret()
 
     response = client.post(
@@ -834,14 +834,14 @@ async def test_token_accepts_basic_auth(
     code_data = _make_auth_code_data(challenge=challenge)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
     secret = oidc_config.get_internal_client_secret()
     basic_creds = base64.b64encode(
         f"{oidc_config.INTERNAL_CLIENT_ID}:{secret}".encode()
@@ -878,21 +878,21 @@ async def test_token_auth_code_grant_omits_refresh_without_offline_access(
 
     issued = AsyncMock(return_value="should-not-be-called")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         lambda: (_ for _ in ()).throw(
             AssertionError("refresh-token session should not be opened")
         ),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.issue_refresh_token", issued)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.issue_refresh_token", issued)
     secret = oidc_config.get_internal_client_secret()
 
     response = client.post(
@@ -930,19 +930,19 @@ async def test_token_auth_code_grant_includes_refresh_with_offline_access(
 
     issued = AsyncMock(return_value="opaque-refresh-token-value")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         tracked_bypass_session_context_manager,
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.issue_refresh_token", issued)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.issue_refresh_token", issued)
     secret = oidc_config.get_internal_client_secret()
 
     response = client.post(
@@ -981,17 +981,17 @@ async def test_token_auth_code_grant_strips_offline_access_when_disabled(
     )
 
     issued = AsyncMock(return_value="should-not-be-called")
-    monkeypatch.setattr("tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.issue_refresh_token", issued)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.issue_refresh_token", issued)
     secret = oidc_config.get_internal_client_secret()
 
     response = client.post(
@@ -1023,7 +1023,7 @@ def _org_option(org_id: uuid.UUID, name: str = "Org") -> OrganizationOption:
 def _patch_active_orgs(monkeypatch: pytest.MonkeyPatch, *org_ids: uuid.UUID) -> None:
     """Make ``list_active_organizations`` return these orgs, oldest first."""
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.list_active_organizations",
+        "autosecops.mcp.oidc.endpoints.list_active_organizations",
         AsyncMock(return_value=[_org_option(org_id) for org_id in org_ids]),
     )
 
@@ -1051,7 +1051,7 @@ async def test_token_refresh_grant_rejects_missing_refresh_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -1077,15 +1077,15 @@ async def test_token_refresh_grant_returns_new_tokens_without_id_token(
     ctx = _make_refresh_context()
     rotated = AsyncMock(return_value=(ctx, "new-rotated-refresh-token"))
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     _patch_active_orgs(monkeypatch, ctx.organization_id)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         rotated,
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
     secret = oidc_config.get_internal_client_secret()
 
     response = client.post(
@@ -1127,11 +1127,11 @@ async def test_token_refresh_grant_maps_invalid_grant_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         AsyncMock(
             side_effect=RefreshTokenError(
                 "invalid_grant", "Refresh token is invalid or expired"
@@ -1162,11 +1162,11 @@ async def test_token_refresh_grant_maps_replay_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         AsyncMock(
             side_effect=RefreshTokenError(
                 "invalid_grant",
@@ -1205,20 +1205,20 @@ async def test_token_refresh_grant_rolls_back_if_store_jti_fails_before_commit(
 
     ctx = _make_refresh_context()
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         tracked_bypass_session_context_manager,
     )
     _patch_active_orgs(monkeypatch, ctx.organization_id)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         AsyncMock(return_value=(ctx, "new-rotated-refresh-token")),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_jti",
+        "autosecops.mcp.oidc.endpoints.store_jti",
         AsyncMock(side_effect=RuntimeError("redis unavailable")),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -1243,9 +1243,9 @@ async def test_token_refresh_grant_rejects_when_refresh_tokens_disabled(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("tracecat.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     secret = oidc_config.get_internal_client_secret()
@@ -1335,7 +1335,7 @@ async def test_authorize_resume_rejects_unknown_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         AsyncMock(return_value=None),
     )
 
@@ -1357,7 +1357,7 @@ async def test_authorize_resume_rejects_expired_transaction(
         bound_ip=_TESTCLIENT_IP_HASH,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         AsyncMock(return_value=expired_txn),
     )
 
@@ -1379,7 +1379,7 @@ async def test_authorize_resume_rejects_ip_mismatch(
         bound_ip="different-ip-hash",
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         AsyncMock(return_value=txn),
     )
 
@@ -1403,18 +1403,18 @@ async def test_authorize_resume_replays_authorize_on_success(
         bound_ip=_TESTCLIENT_IP_HASH,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         AsyncMock(return_value=txn),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             return_value=SessionResult(
                 user=cast(User, mock_user), organization_id=org_id
             )
         ),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", AsyncMock())
 
     response = client.get(
         "/authorize/resume",
@@ -1440,11 +1440,11 @@ async def test_authorize_resume_redirects_access_denied_to_client_callback(
         bound_ip=_TESTCLIENT_IP_HASH,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_resume_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_resume_transaction",
         AsyncMock(return_value=txn),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             side_effect=OrgResolutionError(
                 "User user@example.com cannot use MCP: no organization membership"
@@ -1539,12 +1539,12 @@ def _patch_selection_store(
     txn: OrganizationSelectionTransaction | None,
 ) -> AsyncMock:
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_org_selection_transaction",
+        "autosecops.mcp.oidc.endpoints.load_org_selection_transaction",
         AsyncMock(return_value=txn),
     )
     consume = AsyncMock(return_value=txn)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_org_selection_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_org_selection_transaction",
         consume,
     )
     return consume
@@ -1564,12 +1564,12 @@ async def test_authorize_single_org_user_skips_selection(
         stored_codes.append(data)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(return_value=_multi_org_session_result(mock_user, org_id)),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", _store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", _store_code)
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_org_selection_transaction",
+        "autosecops.mcp.oidc.endpoints.store_org_selection_transaction",
         store_selection,
     )
 
@@ -1598,7 +1598,7 @@ async def test_authorize_multi_org_user_redirects_to_selection(
         stored.append(txn)
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.resolve_authorize_session",
+        "autosecops.mcp.oidc.endpoints.resolve_authorize_session",
         AsyncMock(
             return_value=_multi_org_session_result(
                 mock_user, org_a, org_b, active=org_b
@@ -1606,10 +1606,10 @@ async def test_authorize_multi_org_user_redirects_to_selection(
         ),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.store_org_selection_transaction",
+        "autosecops.mcp.oidc.endpoints.store_org_selection_transaction",
         _store_selection,
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", store_code)
 
     response = client.get(
         "/authorize",
@@ -1683,7 +1683,7 @@ async def test_authorize_organizations_rejects_invalid_transaction(
         monkeypatch, _selection_txn(owner_id, org_id, **txn_overrides)
     )
     store_code = AsyncMock()
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", store_code)
     _patch_active_orgs(monkeypatch, org_id)
 
     get_response = client.get("/authorize/organizations", params={"txn": "select-txn"})
@@ -1731,7 +1731,7 @@ async def test_submit_authorize_organizations_issues_code_for_selection(
     app.dependency_overrides[optional_current_active_user] = lambda: mock_user
     consume = _patch_selection_store(monkeypatch, _selection_txn(mock_user.id, org_c))
     _patch_active_orgs(monkeypatch, org_a, org_b, org_c)
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", _store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", _store_code)
 
     response = client.post(
         "/authorize/organizations",
@@ -1774,7 +1774,7 @@ async def test_submit_authorize_organizations_falls_back_to_first_selected(
     app.dependency_overrides[optional_current_active_user] = lambda: mock_user
     _patch_selection_store(monkeypatch, _selection_txn(mock_user.id, org_a))
     _patch_active_orgs(monkeypatch, org_a, org_b, org_c)
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", _store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", _store_code)
 
     response = client.post(
         "/authorize/organizations",
@@ -1798,7 +1798,7 @@ async def test_submit_authorize_organizations_requires_a_member_org(
     consume = _patch_selection_store(monkeypatch, _selection_txn(mock_user.id, org_id))
     _patch_active_orgs(monkeypatch, org_id)
     store_code = AsyncMock()
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", store_code)
 
     response = client.post(
         "/authorize/organizations",
@@ -1822,12 +1822,12 @@ async def test_submit_authorize_organizations_rejects_reused_transaction(
     app.dependency_overrides[optional_current_active_user] = lambda: mock_user
     _patch_selection_store(monkeypatch, _selection_txn(mock_user.id, org_id))
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_org_selection_transaction",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_org_selection_transaction",
         AsyncMock(return_value=None),
     )
     _patch_active_orgs(monkeypatch, org_id)
     store_code = AsyncMock()
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", store_code)
 
     response = client.post(
         "/authorize/organizations",
@@ -1850,7 +1850,7 @@ async def test_submit_authorize_organizations_deny_redirects_access_denied(
     app.dependency_overrides[optional_current_active_user] = lambda: mock_user
     consume = _patch_selection_store(monkeypatch, _selection_txn(mock_user.id, org_id))
     store_code = AsyncMock()
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_auth_code", store_code)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_auth_code", store_code)
 
     response = client.post(
         "/authorize/organizations",
@@ -1904,15 +1904,15 @@ async def test_token_auth_code_grant_issues_organization_ids(
     )
     issued = AsyncMock(return_value="opaque-refresh-token-value")
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.load_and_delete_auth_code",
+        "autosecops.mcp.oidc.endpoints.load_and_delete_auth_code",
         AsyncMock(return_value=code_data),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.issue_refresh_token", issued)
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.issue_refresh_token", issued)
 
     response = client.post(
         "/token",
@@ -1962,18 +1962,18 @@ def _patch_refresh(
         yield tracked_session
 
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.check_token_rate_limit",
+        "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
+        "autosecops.mcp.oidc.endpoints.get_async_session_bypass_rls_context_manager",
         tracked_bypass_session_context_manager,
     )
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.endpoints.rotate_refresh_token",
+        "autosecops.mcp.oidc.endpoints.rotate_refresh_token",
         AsyncMock(return_value=(ctx, "new-rotated-refresh-token")),
     )
-    monkeypatch.setattr("tracecat.mcp.oidc.endpoints.store_jti", AsyncMock())
+    monkeypatch.setattr("autosecops.mcp.oidc.endpoints.store_jti", AsyncMock())
     return tracked_session
 
 

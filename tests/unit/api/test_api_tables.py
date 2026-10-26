@@ -11,14 +11,14 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
-from tracecat.auth.types import Role
-from tracecat.db.models import Table, TableColumn, Workspace
-from tracecat.exceptions import TracecatNotFoundError
-from tracecat.pagination import CursorPaginatedResponse
-from tracecat.tables import internal_router as internal_tables_router
-from tracecat.tables import router as tables_router
-from tracecat.tables.enums import SqlType
-from tracecat.tables.exceptions import TableRowError
+from autosecops.auth.types import Role
+from autosecops.db.models import Table, TableColumn, Workspace
+from autosecops.exceptions import TracecatNotFoundError
+from autosecops.pagination import CursorPaginatedResponse
+from autosecops.tables import internal_router as internal_tables_router
+from autosecops.tables import router as tables_router
+from autosecops.tables.enums import SqlType
+from autosecops.tables.exceptions import TableRowError
 
 
 @pytest.fixture

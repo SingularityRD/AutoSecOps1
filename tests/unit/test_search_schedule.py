@@ -7,10 +7,10 @@ import pytest
 from pydantic import ValidationError
 from temporalio.client import Client, ScheduleAlreadyRunningError
 
-from tracecat.search import indexing_schedule as schedule
-from tracecat.search.embeddings.types import EmbeddingErrorCode
-from tracecat.search.indexing_types import IndexingOutcome, IndexingProgress
-from tracecat.search.types import SearchErrorCode
+from autosecops.search import indexing_schedule as schedule
+from autosecops.search.embeddings.types import EmbeddingErrorCode
+from autosecops.search.indexing_types import IndexingOutcome, IndexingProgress
+from autosecops.search.types import SearchErrorCode
 
 
 @pytest.mark.parametrize(

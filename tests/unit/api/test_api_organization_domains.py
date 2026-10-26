@@ -4,8 +4,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
 
 
 @pytest.mark.anyio

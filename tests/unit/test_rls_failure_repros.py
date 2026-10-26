@@ -11,35 +11,35 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import Request
 
-from tracecat.agent.executor.loopback import LoopbackHandler
-from tracecat.api.app import info, lifespan
-from tracecat.auth.credentials import _role_dependency
-from tracecat.auth.discovery import AuthDiscoveryService
-from tracecat.auth.enums import AuthType
-from tracecat.auth.org_context import resolve_auth_organization_id
-from tracecat.auth.saml import login as saml_login
-from tracecat.auth.saml import sso_acs
-from tracecat.auth.types import Role
-from tracecat.auth.users import UserManager
-from tracecat.cases.triggers.consumer import CaseTriggerConsumer
-from tracecat.contexts import ctx_role
-from tracecat.db import rls as rls_module
-from tracecat.db.engine import get_async_session
-from tracecat.dsl.worker import get_activities as get_worker_activities
-from tracecat.executor.registry_resolver import _load_manifest_entry
-from tracecat.executor.service import get_registry_artifacts_for_lock
-from tracecat.integrations.router import oauth_callback
-from tracecat.integrations.service import IntegrationService
-from tracecat.invitations.router import (
+from autosecops.agent.executor.loopback import LoopbackHandler
+from autosecops.api.app import info, lifespan
+from autosecops.auth.credentials import _role_dependency
+from autosecops.auth.discovery import AuthDiscoveryService
+from autosecops.auth.enums import AuthType
+from autosecops.auth.org_context import resolve_auth_organization_id
+from autosecops.auth.saml import login as saml_login
+from autosecops.auth.saml import sso_acs
+from autosecops.auth.types import Role
+from autosecops.auth.users import UserManager
+from autosecops.cases.triggers.consumer import CaseTriggerConsumer
+from autosecops.contexts import ctx_role
+from autosecops.db import rls as rls_module
+from autosecops.db.engine import get_async_session
+from autosecops.dsl.worker import get_activities as get_worker_activities
+from autosecops.executor.registry_resolver import _load_manifest_entry
+from autosecops.executor.service import get_registry_artifacts_for_lock
+from autosecops.integrations.router import oauth_callback
+from autosecops.integrations.service import IntegrationService
+from autosecops.invitations.router import (
     accept_invitation,
     get_invitation_by_token,
     list_my_pending_invitations,
 )
-from tracecat.registry.sync.jobs import sync_platform_registry_on_startup
-from tracecat.service import BaseOrgService
-from tracecat.settings.service import get_setting
-from tracecat.webhooks.dependencies import validate_incoming_webhook
-from tracecat.workspaces.activities import get_workspace_organization_id_activity
+from autosecops.registry.sync.jobs import sync_platform_registry_on_startup
+from autosecops.service import BaseOrgService
+from autosecops.settings.service import get_setting
+from autosecops.webhooks.dependencies import validate_incoming_webhook
+from autosecops.workspaces.activities import get_workspace_organization_id_activity
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -101,11 +101,11 @@ async def test_authenticate_user_membership_check_is_not_done_under_deny_default
 
     with (
         patch(
-            "tracecat.auth.credentials._authenticate_user",
+            "autosecops.auth.credentials._authenticate_user",
             new=AsyncMock(side_effect=_assert_authenticate_user_context),
         ),
         patch(
-            "tracecat.auth.credentials._validate_role",
+            "autosecops.auth.credentials._validate_role",
             new=AsyncMock(return_value=validated_role),
         ),
     ):
@@ -142,7 +142,7 @@ def test_rls_after_begin_reapplies_cached_context_when_feature_flag_is_off(
         )
     }
 
-    monkeypatch.setattr("tracecat.db.rls.is_rls_enabled", lambda: False)
+    monkeypatch.setattr("autosecops.db.rls.is_rls_enabled", lambda: False)
 
     rls_module._reapply_rls_context_after_begin(  # pyright: ignore[reportPrivateUsage]
         session=session,
@@ -223,17 +223,17 @@ def _patch_user_manager_pool_sessions(
         session_cm.__aexit__.side_effect = _exit
         return session_cm
 
-    monkeypatch.setattr("tracecat.db.engine.AsyncSession", _session_factory)
+    monkeypatch.setattr("autosecops.db.engine.AsyncSession", _session_factory)
     monkeypatch.setattr(
-        "tracecat.db.engine.get_async_engine",
+        "autosecops.db.engine.get_async_engine",
         lambda: main_bind,
     )
     monkeypatch.setattr(
-        "tracecat.db.engine.get_async_auth_engine",
+        "autosecops.db.engine.get_async_auth_engine",
         lambda: auth_bind,
     )
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context", AsyncMock())
-    monkeypatch.setattr("tracecat.db.engine.set_rls_context_from_role", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
+    monkeypatch.setattr("autosecops.db.engine.set_rls_context_from_role", AsyncMock())
 
     return (
         main_bind,
@@ -290,7 +290,7 @@ async def test_user_manager_validate_email_first_user_lookup_uses_auth_pool(
     auth_session.execute.return_value = result
     email = "admin@example.com"
     monkeypatch.setattr(
-        "tracecat.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
+        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
         email,
     )
     manager = UserManager.__new__(UserManager)
@@ -382,7 +382,7 @@ async def test_user_manager_saml_policy_uses_auth_pool_with_held_main_session(
 
     auth_session.execute.side_effect = _execute_on_auth
     monkeypatch.setattr(
-        "tracecat.auth.users.config.TRACECAT__AUTH_TYPES",
+        "autosecops.auth.users.config.TRACECAT__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
     manager = UserManager.__new__(UserManager)
@@ -492,11 +492,11 @@ async def test_info_endpoint_handles_missing_saml_setting_without_keyerror(
 
     session = AsyncMock()
     monkeypatch.setattr(
-        "tracecat.api.app.get_default_organization_id",
+        "autosecops.api.app.get_default_organization_id",
         AsyncMock(return_value=uuid.uuid4()),
     )
-    monkeypatch.setattr("tracecat.api.app.SettingsService", FakeSettingsService)
-    monkeypatch.setattr("tracecat.api.app.get_setting_override", lambda key: None)
+    monkeypatch.setattr("autosecops.api.app.SettingsService", FakeSettingsService)
+    monkeypatch.setattr("autosecops.api.app.get_setting_override", lambda key: None)
 
     response = await info(session)
 
@@ -527,7 +527,7 @@ async def test_base_org_service_with_session_sets_role_before_session_open(
         yield session
 
     monkeypatch.setattr(
-        "tracecat.service.get_async_session_context_manager", _fake_session_cm
+        "autosecops.service.get_async_session_context_manager", _fake_session_cm
     )
 
     async with DummyOrgService.with_session(role=role):

@@ -4,7 +4,7 @@ import base64
 
 import pytest
 
-from tracecat.auth.api_keys import (
+from autosecops.auth.api_keys import (
     DEFAULT_API_KEY_PREFIX,
     ORG_API_KEY_PREFIX,
     WORKSPACE_API_KEY_PREFIX,

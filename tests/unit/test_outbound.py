@@ -32,19 +32,19 @@ from litellm.llms.base_llm.chat.transformation import BaseLLMException
 from litellm.proxy._types import UserAPIKeyAuth
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.agent.gateway import TracecatCallbackHandler
-from tracecat.agent.gateway_outbound import OutboundLLMHTTPHandler
-from tracecat.agent.mcp.user_client import _create_transport, list_remote_mcp_tools
-from tracecat.agent.provider.service import (
+from autosecops import config
+from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway_outbound import OutboundLLMHTTPHandler
+from autosecops.agent.mcp.user_client import _create_transport, list_remote_mcp_tools
+from autosecops.agent.provider.service import (
     AgentCustomProviderService,
     fetch_openai_compatible_models,
 )
-from tracecat.auth.types import Role
-from tracecat.integrations.schemas import MCPHttpIntegrationTestConnectionRequest
-from tracecat.integrations.service import IntegrationService
-from tracecat.network import DisallowedUrlError
-from tracecat.outbound import (
+from autosecops.auth.types import Role
+from autosecops.integrations.schemas import MCPHttpIntegrationTestConnectionRequest
+from autosecops.integrations.service import IntegrationService
+from autosecops.network import DisallowedUrlError
+from autosecops.outbound import (
     OutboundHTTPTransport,
     OutboundNetworkBackend,
     SocketOption,
@@ -115,7 +115,7 @@ def network(monkeypatch: pytest.MonkeyPatch) -> RecordingBackend:
     monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
     monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9999")
     backend = RecordingBackend()
-    monkeypatch.setattr("tracecat.outbound.AnyIOBackend", lambda: backend)
+    monkeypatch.setattr("autosecops.outbound.AnyIOBackend", lambda: backend)
     monkeypatch.setattr(config, "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS", ())
     return backend
 
@@ -418,7 +418,7 @@ async def test_gateway_hook_installs_guard_for_custom_provider(
     network: RecordingBackend, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials",
+        "autosecops.agent.gateway.get_provider_credentials",
         AsyncMock(
             return_value={
                 "CUSTOM_MODEL_PROVIDER_BASE_URL": "http://127.0.0.1/v1",
@@ -569,7 +569,7 @@ async def test_gateway_credential_urls_use_guarded_transport(
         lambda: native_request,
     )
     resolver = AsyncMock(wraps=resolve_outbound_addresses)
-    monkeypatch.setattr("tracecat.outbound.resolve_outbound_addresses", resolver)
+    monkeypatch.setattr("autosecops.outbound.resolve_outbound_addresses", resolver)
     base = "http://127.0.0.1/v1" if private else "https://8.8.8.8/v1"
     if provider == "azure_openai_cloudflare":
         provider = "azure_openai"
@@ -584,7 +584,8 @@ async def test_gateway_credential_urls_use_guarded_transport(
         "AZURE_AI_MODEL_NAME": "synthetic-model",
     }
     monkeypatch.setattr(
-        "tracecat.agent.gateway.get_provider_credentials", AsyncMock(return_value=creds)
+        "autosecops.agent.gateway.get_provider_credentials",
+        AsyncMock(return_value=creds),
     )
     handler = TracecatCallbackHandler()
     data = await handler.async_pre_call_hook(
@@ -694,7 +695,7 @@ async def test_litellm_protocol_switches_cannot_bypass_guard(
 ) -> None:
     # Assert the policy ran, not merely that an SDK rejected our test input.
     resolver = AsyncMock(wraps=resolve_outbound_addresses)
-    monkeypatch.setattr("tracecat.outbound.resolve_outbound_addresses", resolver)
+    monkeypatch.setattr("autosecops.outbound.resolve_outbound_addresses", resolver)
     model = f"{provider}/synthetic-model"
     kwargs: dict[str, Any] = {
         "model": model,

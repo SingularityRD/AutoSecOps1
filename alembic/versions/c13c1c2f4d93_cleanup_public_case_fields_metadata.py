@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine.interfaces import ReflectedColumn
 
 from alembic import op
-from tracecat.identifiers.workflow import WorkspaceUUID
+from autosecops.identifiers.workflow import WorkspaceUUID
 
 # Alembic migration metadata
 revision: str = "c13c1c2f4d93"

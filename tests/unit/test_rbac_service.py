@@ -7,38 +7,30 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import delete, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.rbac.schemas import (
+from autosecops_ee.rbac.schemas import (
     RoleAssignmentSnapshot,
     UserRoleAssignmentSpec,
     UserRoleAssignmentsReplace,
 )
-from tracecat_ee.rbac.service import RBACService
+from autosecops_ee.rbac.service import RBACService
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.membership import (
-    grant_org_membership,
-    grant_org_membership_via_group,
-    grant_workspace_membership,
-    seed_external_group,
-    seed_external_group_members,
-    seed_external_user,
-)
-from tracecat.auth.types import Role
-from tracecat.authz.enums import ScopeSource
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.scopes import (
+from autosecops.auth.types import Role
+from autosecops.authz.enums import ScopeSource
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.scopes import (
     ORG_ADMIN_SCOPES,
     ORG_MEMBER_FLOOR_SCOPES,
 )
-from tracecat.authz.seeding import seed_system_roles_for_org, seed_system_scopes
-from tracecat.authz.service import (
+from autosecops.authz.seeding import seed_system_roles_for_org, seed_system_scopes
+from autosecops.authz.service import (
     MembershipService,
     query_effective_scopes,
     query_effective_scopes_by_workspace,
     workspace_membership_exists,
 )
-from tracecat.db.models import (
+from autosecops.db.models import (
     AccessToken,
     ExternalGroupMapping,
     ExternalUser,
@@ -56,15 +48,23 @@ from tracecat.db.models import (
     UserRoleAssignment,
     Workspace,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import (
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatAuthorizationError,
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.invitations.enums import InvitationStatus
+from autosecops.invitations.enums import InvitationStatus
+from tests.support.membership import (
+    grant_org_membership,
+    grant_org_membership_via_group,
+    grant_workspace_membership,
+    seed_external_group,
+    seed_external_group_members,
+    seed_external_user,
+)
 
 
 async def create_bare_member(
@@ -395,7 +395,7 @@ class TestRBACServiceRoles:
         custom_role = await service.create_role(name="Locked Role")
 
         with patch(
-            "tracecat_ee.rbac.service.lock_role_changes", new_callable=AsyncMock
+            "autosecops_ee.rbac.service.lock_role_changes", new_callable=AsyncMock
         ) as lock:
             await service.update_role(custom_role.id, scope_ids=[])
 

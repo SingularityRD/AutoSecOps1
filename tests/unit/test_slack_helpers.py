@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from slack_sdk.errors import SlackClientError
 
-from tracecat.agent.channels.handlers.slack_helpers import notify_error
+from autosecops.agent.channels.handlers.slack_helpers import notify_error
 
 
 @pytest.mark.anyio
@@ -14,12 +14,12 @@ async def test_notify_error_continues_when_reaction_update_hits_slack_error() ->
 
     with (
         patch(
-            "tracecat.agent.channels.handlers.slack_helpers.set_error",
+            "autosecops.agent.channels.handlers.slack_helpers.set_error",
             new_callable=AsyncMock,
             side_effect=SlackClientError("reaction update failed"),
         ),
         patch(
-            "tracecat.agent.channels.handlers.slack_helpers.logger.warning"
+            "autosecops.agent.channels.handlers.slack_helpers.logger.warning"
         ) as warning,
     ):
         await notify_error(
@@ -45,7 +45,7 @@ async def test_notify_error_propagates_unexpected_reaction_update_errors() -> No
     client = AsyncMock()
 
     with patch(
-        "tracecat.agent.channels.handlers.slack_helpers.set_error",
+        "autosecops.agent.channels.handlers.slack_helpers.set_error",
         new_callable=AsyncMock,
         side_effect=RuntimeError("unexpected failure"),
     ):

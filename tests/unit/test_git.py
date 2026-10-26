@@ -4,15 +4,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tracecat.git.utils import (
+from autosecops.git.utils import (
     GitUrl,
     list_git_commits,
     parse_git_url,
     resolve_git_ref,
     run_git,
 )
-from tracecat.registry.repositories.schemas import GitCommitInfo
-from tracecat.ssh import SshEnv
+from autosecops.registry.repositories.schemas import GitCommitInfo
+from autosecops.ssh import SshEnv
 
 
 @pytest.mark.parametrize(
@@ -193,7 +193,7 @@ class TestResolveGitRef:
         """Test resolving HEAD ref."""
         mock_run_git = AsyncMock(return_value=(0, "abc123\tHEAD\n", ""))
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             sha = await resolve_git_ref(
                 "git+ssh://git@github.com/myorg/myrepo.git",
                 ref=None,
@@ -212,7 +212,7 @@ class TestResolveGitRef:
         """Test resolving a branch ref."""
         mock_run_git = AsyncMock(return_value=(0, "def456\trefs/heads/main\n", ""))
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             sha = await resolve_git_ref(
                 "git+ssh://git@github.com/myorg/myrepo.git",
                 ref="main",
@@ -242,7 +242,7 @@ class TestResolveGitRef:
             ]
         )
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             sha = await resolve_git_ref(
                 "git+ssh://git@github.com/myorg/myrepo.git",
                 ref="v1.0",
@@ -262,7 +262,7 @@ class TestResolveGitRef:
             ]
         )
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             with pytest.raises(
                 RuntimeError, match="Failed to resolve git ref 'nonexistent'"
             ):
@@ -277,7 +277,7 @@ class TestResolveGitRef:
         """Test resolving HEAD that fails."""
         mock_run_git = AsyncMock(return_value=(1, "", "repository not found"))
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             with pytest.raises(RuntimeError, match="Failed to resolve git HEAD"):
                 await resolve_git_ref(
                     "git+ssh://git@github.com/myorg/nonexistent.git",
@@ -290,7 +290,7 @@ class TestResolveGitRef:
         """Test resolving ref with empty output."""
         mock_run_git = AsyncMock(return_value=(0, "", ""))
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             with pytest.raises(RuntimeError, match="No output from git ls-remote"):
                 await resolve_git_ref(
                     "git+ssh://git@github.com/myorg/myrepo.git",
@@ -358,7 +358,7 @@ class TestListGitCommits:
             ]
         )
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             # Create a proper async context manager mock
             mock_temp_dir = AsyncMock()
             mock_temp_dir.__aenter__ = AsyncMock(return_value="/tmp/test_repo")
@@ -438,7 +438,7 @@ class TestListGitCommits:
             ]
         )
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             # Create a proper async context manager mock
             mock_temp_dir = AsyncMock()
             mock_temp_dir.__aenter__ = AsyncMock(return_value="/tmp/test_repo")
@@ -494,7 +494,7 @@ class TestListGitCommits:
             ]
         )
 
-        with patch("tracecat.git.utils.run_git", mock_run_git):
+        with patch("autosecops.git.utils.run_git", mock_run_git):
             # Create a proper async context manager mock
             mock_temp_dir = AsyncMock()
             mock_temp_dir.__aenter__ = AsyncMock(return_value="/tmp/test_repo")

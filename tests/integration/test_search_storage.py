@@ -10,11 +10,10 @@ from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.contexts import ctx_role
-from tracecat.db.engine import get_async_engine, reset_async_engine
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_engine, reset_async_engine
+from autosecops.db.models import (
     Organization,
     SearchChunk,
     SearchCollection,
@@ -24,15 +23,15 @@ from tracecat.db.models import (
     Table,
     Workspace,
 )
-from tracecat.db.tenant_rls import (
+from autosecops.db.tenant_rls import (
     disable_workspace_special_rls,
     enable_search_table_rls,
     enable_workspace_special_rls,
 )
-from tracecat.search.cleanup import cleanup_orphans
-from tracecat.search.query import eligible_chunks
-from tracecat.search.service import SearchStorage
-from tracecat.search.types import (
+from autosecops.search.cleanup import cleanup_orphans
+from autosecops.search.query import eligible_chunks
+from autosecops.search.service import SearchStorage
+from autosecops.search.types import (
     BuildClaim,
     ChunkerSettings,
     ChunkManifest,
@@ -43,6 +42,7 @@ from tracecat.search.types import (
     SearchScope,
     SearchState,
 )
+from tests.database import TEST_DB_CONFIG
 
 
 @dataclass

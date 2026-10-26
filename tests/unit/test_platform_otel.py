@@ -16,10 +16,10 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import SpanKind, TraceFlags
 from temporalio.contrib.opentelemetry import TracingInterceptor
 
-from tracecat import config
-from tracecat.logger._logger import _add_trace_context
-from tracecat.observability import otel as platform_otel
-from tracecat.observability.otel import (
+from autosecops import config
+from autosecops.logger._logger import _add_trace_context
+from autosecops.observability import otel as platform_otel
+from autosecops.observability.otel import (
     TRACE_ID_HEADER,
     TRACE_SAMPLED_HEADER,
     current_trace_id,

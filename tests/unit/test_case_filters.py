@@ -3,7 +3,7 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
-from tracecat.cases.filters import parse_assignee_filter
+from autosecops.cases.filters import parse_assignee_filter
 
 
 def test_parse_assignee_filter_accepts_legacy_unassigned() -> None:

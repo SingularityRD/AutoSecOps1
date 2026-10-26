@@ -7,23 +7,23 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from autosecops_ee.tunnels import router as tunnels_router_module
+from autosecops_ee.tunnels import service as tunnels_service_module
+from autosecops_ee.tunnels.router import gateway_router as tunnel_gateway_router
+from autosecops_ee.tunnels.router import router as tunnels_router
+from autosecops_ee.tunnels.service import TunnelsService
+from autosecops_ee.tunnels.tokens import generate_gateway_key, mint_gateway_policy_token
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.tunnels import router as tunnels_router_module
-from tracecat_ee.tunnels import service as tunnels_service_module
-from tracecat_ee.tunnels.router import gateway_router as tunnel_gateway_router
-from tracecat_ee.tunnels.router import router as tunnels_router
-from tracecat_ee.tunnels.service import TunnelsService
-from tracecat_ee.tunnels.tokens import generate_gateway_key, mint_gateway_policy_token
 
-from tracecat import config
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session, get_async_session_bypass_rls
-from tracecat.db.models import Organization, Workspace
-from tracecat.exceptions import EntitlementRequired
-from tracecat.tiers.enums import Entitlement
+from autosecops import config
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session, get_async_session_bypass_rls
+from autosecops.db.models import Organization, Workspace
+from autosecops.exceptions import EntitlementRequired
+from autosecops.tiers.enums import Entitlement
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -276,8 +276,8 @@ MANAGED_BODY = {
 
 @pytest.fixture
 def fake_pangolin(monkeypatch: pytest.MonkeyPatch) -> type:
-    from tracecat_ee.tunnels import service as service_module
-    from tracecat_ee.tunnels.pangolin import (
+    from autosecops_ee.tunnels import service as service_module
+    from autosecops_ee.tunnels.pangolin import (
         PangolinClient,
         PangolinCredentials,
         PangolinError,
@@ -406,8 +406,8 @@ async def test_tunnel_references_need_read_access_to_each_resource(
 ) -> None:
     """``tunnel:read`` alone shows the tunnel but not the names or IDs of the
     workflows, agents and integrations that use it."""
-    from tracecat.db.models import AgentPreset, MCPIntegration, Workflow
-    from tracecat.integrations.enums import MCPAuthType
+    from autosecops.db.models import AgentPreset, MCPIntegration, Workflow
+    from autosecops.integrations.enums import MCPAuthType
 
     created = await client.post("/tunnels", json=CREATE_BODY)
     tunnel = created.json()

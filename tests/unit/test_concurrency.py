@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tracecat.concurrency import (
+from autosecops.concurrency import (
     GatheringTaskGroup,
     apartial,
     cooperative,

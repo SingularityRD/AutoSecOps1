@@ -198,7 +198,7 @@ services:
       TRACECAT__BLOB_STORAGE_BUCKET_AGENT: ${TRACECAT__BLOB_STORAGE_BUCKET_AGENT:-tracecat-agent}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: ["python", "-m", "tracecat.dsl.worker"]
+    command: ["python", "-m", "autosecops.dsl.worker"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -317,7 +317,7 @@ services:
     volumes:
       - ${TRACECAT__LOCAL_REPOSITORY_PATH}:/app/local_registry
       - sandbox-cache:/var/lib/tracecat/sandbox-cache
-    command: ["python", "-m", "tracecat.executor.worker"]
+    command: ["python", "-m", "autosecops.executor.worker"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -402,7 +402,7 @@ services:
         TRACECAT__BLOB_STORAGE_BUCKET_AGENT: ${TRACECAT__BLOB_STORAGE_BUCKET_AGENT:-tracecat-agent}
         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      command: ["python", "-m", "tracecat.agent.worker"]
+      command: ["python", "-m", "autosecops.agent.worker"]
       depends_on:
         migrations:
           condition: service_completed_successfully
@@ -436,8 +436,8 @@ services:
       TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS: ${TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS:-}
       TRACECAT__OUTBOUND_PROXY_URL: ${TRACECAT__OUTBOUND_PROXY_URL:-} # Sensitive
       TRACECAT__OUTBOUND_NO_PROXY: ${TRACECAT__OUTBOUND_NO_PROXY:-}
-      PYTHONPATH: /app:/app/packages/tracecat-registry:/app/packages/tracecat-ee
-    command: ["python", "-m", "tracecat.agent.litellm"]
+      PYTHONPATH: /app:/app/packages/autosecops-registry:/app/packages/autosecops-ee
+    command: ["python", "-m", "autosecops.agent.litellm"]
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -560,7 +560,7 @@ services:
       volumes:
         - ${TRACECAT__LOCAL_REPOSITORY_PATH}:/app/local_registry
         - sandbox-cache:/var/lib/tracecat/sandbox-cache
-      command: ["python", "-m", "tracecat.agent.executor_worker"]
+      command: ["python", "-m", "autosecops.agent.executor_worker"]
       depends_on:
         litellm:
           condition: service_healthy
@@ -622,7 +622,7 @@ services:
       TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT: ${TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT:-${TRACECAT__PUBLIC_APP_URL}/s3}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: ["python", "-m", "tracecat.mcp"]
+    command: ["python", "-m", "autosecops.mcp"]
     depends_on:
       api:
         condition: service_healthy

@@ -6,19 +6,19 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from tracecat.agent.skill.tags.service import SkillTagsService
-from tracecat.auth.types import Role
-from tracecat.db.models import SkillTag, SkillTagLink
-from tracecat.exceptions import (
+from autosecops.agent.skill.tags.service import SkillTagsService
+from autosecops.auth.types import Role
+from autosecops.db.models import SkillTag, SkillTagLink
+from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
     TracecatConflictError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.pagination import BaseCursorPaginator, CursorPaginationParams
-from tracecat.tags.schemas import TagCreate, TagUpdate
-from tracecat.tiers.enums import Entitlement
+from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
+from autosecops.tags.schemas import TagCreate, TagUpdate
+from autosecops.tiers.enums import Entitlement
 
 
 def _role_with_scopes(scopes: frozenset[str] | None) -> Role:

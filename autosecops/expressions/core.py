@@ -1,0 +1,357 @@
+from __future__ import annotations
+
+import abc
+import re
+from collections import defaultdict
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+
+from lark import Token, Tree, Visitor
+
+from autosecops.contexts import ctx_secret_masks
+from autosecops.exceptions import TracecatExpressionError
+from autosecops.expressions import patterns
+from autosecops.expressions.common import ExprContext, ExprOperand, ExprType
+from autosecops.expressions.jsonpath import find_with_secret_masks
+from autosecops.expressions.parser.core import parser
+from autosecops.expressions.parser.evaluator import ExprEvaluator
+from autosecops.expressions.validator.validator import BaseExprValidator
+from autosecops.logger import logger
+from autosecops.parse import traverse_expressions
+from autosecops.secrets.masking import SecretMaskCollector
+
+if TYPE_CHECKING:
+    from autosecops.expressions.policy import ProvenanceMap
+
+ExtractorResult = TypeVar("ExtractorResult", covariant=True)
+ValidatorResult = TypeVar("ValidatorResult")
+
+
+class ExprResolutionPolicy(Protocol):
+    """Lifecycle policy for a parsed template expression."""
+
+    def resolve(
+        self,
+        source: str,
+        tree: Tree[Token],
+        default: Callable[[], Any],
+        *,
+        standalone: bool,
+    ) -> Any:
+        """Run after parsing and immediately before ordinary evaluation.
+
+        The policy may return its own value or call ``default`` exactly where
+        normal expression evaluation should occur.
+
+        Args:
+            source: Exact authored template occurrence, including ``${{ }}``.
+            tree: Parsed expression AST.
+            default: Performs ordinary expression evaluation when called.
+            standalone: Whether the entire traversed string is exactly this one
+                template expression. Inline occurrences are ``False``. Policies
+                use this to materialize a field-level carrier without evaluating
+                expressions nested inside otherwise preserved source.
+        """
+        ...
+
+
+class Expression:
+    """An expression that can be evaluated."""
+
+    def __init__(
+        self,
+        expression: str,
+        *,
+        operand: ExprOperand[str] | None = None,
+        visitor: Visitor[Token] | None = None,
+        policy: ExprResolutionPolicy | None = None,
+        source: str | None = None,
+        standalone: bool = True,
+        provenance: ProvenanceMap | None = None,
+    ) -> None:
+        self._expr = expression
+        self._operand = operand
+        self._parser = parser
+        self._visitor = visitor
+        self._policy = policy
+        self._source = source
+        self._standalone = standalone
+        self._provenance = provenance
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        return f"Expression(expression={self._expr}, operand={self._operand})"
+
+    def __call__(self) -> Any:
+        return self.visit()
+
+    def visit(self) -> Any:
+        match self._visitor:
+            case BaseExprValidator():
+                return self.result()
+            case ExprExtractor():
+                return self.extract(self._visitor)
+            case None:
+                raise TracecatExpressionError(
+                    "Visitor is required to evaluate an expression"
+                )
+            case _:
+                raise TracecatExpressionError(f"Unsupported visitor: {self._visitor}")
+
+    def result(self) -> Any:
+        """Evaluate the expression and return the result."""
+
+        # NOTE: These exceptions are the top-level exceptions caught by the workflow engine
+        try:
+            parse_tree = self._parser.parse(self._expr)
+        except TracecatExpressionError as e:
+            raise TracecatExpressionError(
+                f"Error parsing expression `{self._expr}`\n\n{e}",
+                detail=str(e),
+            ) from e
+
+        # policy imports this module through eval; defer this dependency until
+        # evaluation, as with the existing provenance policy hook.
+        from autosecops.expressions.policy import SecretValueObserver
+
+        masks = ctx_secret_masks.get() or SecretMaskCollector()
+        masks.observe((self._operand or {}).get(ExprContext.SECRETS, {}))
+        observer = SecretValueObserver(masks, self._provenance)
+        try:
+            visitor = ExprEvaluator(
+                operand=self._operand,
+                observe=observer.observe,
+                format_error=observer.format_error,
+                find_jsonpath=lambda path, data: find_with_secret_masks(
+                    path, data, masks
+                ),
+            )
+            if parse_tree is None:
+                raise ValueError(f"Parser returned None for expression `{self._expr}`")
+
+            def default() -> Any:
+                return visitor.evaluate(parse_tree)
+
+            if self._policy is not None:
+                return self._policy.resolve(
+                    self._source or self._expr,
+                    parse_tree,
+                    default,
+                    standalone=self._standalone,
+                )
+            return default()
+        except TracecatExpressionError as e:
+            error = TracecatExpressionError(
+                masks.redact(f"Error evaluating expression `{self._expr}`\n\n{e}"),
+                detail=masks.redact(e.detail if e.detail is not None else str(e)),
+            )
+        # Raise outside the handler so no unmasked exception remains reachable.
+        raise error
+
+    def validate(
+        self,
+        visitor: BaseExprValidator[ValidatorResult],
+        *,
+        loc: tuple[str | int, ...] | None = None,
+        exclude: set[ExprType] | None = None,
+        ref: str | None = None,
+    ) -> None:
+        """Validate the expression."""
+        # 1) Parse the expression into AST
+        try:
+            parse_tree = self._parser.parse(self._expr)
+            if parse_tree is None:
+                raise TracecatExpressionError(
+                    f"Parser returned None for expression `{self._expr}`"
+                )
+        except TracecatExpressionError as e:
+            return visitor.add(
+                status="error",
+                msg=str(e),
+                ref=ref,
+                loc=("parsing", self._expr),
+            )
+
+        # 2) Validate the AST
+        try:
+            return visitor.visit_with_locator(parse_tree, loc=loc, exclude=exclude)
+        except TracecatExpressionError as e:
+            return visitor.add(
+                status="error",
+                msg=str(e),
+                ref=ref,
+                loc=("validation", self._expr),
+            )
+
+    def extract(self, visitor: ExprExtractor[ExtractorResult]) -> ExtractorResult:
+        parse_tree = self._parser.parse(self._expr)
+        if parse_tree is None:
+            raise TracecatExpressionError(
+                f"Parser returned None for expression `{self._expr}`"
+            )
+        try:
+            visitor.visit(parse_tree)
+            return visitor.results()
+        except Exception as e:
+            raise TracecatExpressionError(
+                f"Error extracting components from expression `{self._expr}`\n\n{e}"
+            ) from e
+
+
+class TemplateExpression:
+    """Expression with template syntax."""
+
+    expr: Expression
+
+    def __init__(
+        self,
+        template: str,
+        operand: ExprOperand[str] | None = None,
+        pattern: re.Pattern[str] = patterns.TEMPLATE_STRING,
+        policy: ExprResolutionPolicy | None = None,
+        standalone: bool = True,
+        provenance: ProvenanceMap | None = None,
+        **kwargs: Any,
+    ) -> None:
+        match = pattern.match(template)
+        if match is None:
+            raise TracecatExpressionError(
+                f"Template expression {template!r} does not match expected pattern. "
+            )
+        expr = match.group("expr")
+        if expr is None:
+            raise TracecatExpressionError(
+                f"Template expression {template!r} matched pattern but contained no expression. "
+            )
+        self.expr = Expression(
+            expr,
+            operand=operand,
+            policy=policy,
+            source=match.group("template"),
+            standalone=standalone,
+            provenance=provenance,
+        )
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        return f"TemplateExpression(expr={self.expr})"
+
+    def result(self) -> Any:
+        return self.expr.result()
+
+
+class ExprExtractor[ExtractorResult](Visitor[Token], abc.ABC):
+    """Extract components from an expression."""
+
+    _visitor_name = "ExprExtractor"
+
+    @abc.abstractmethod
+    def results(self) -> ExtractorResult:
+        raise NotImplementedError
+
+
+class RegistryActionExtractor(ExprExtractor[Mapping[ExprContext, set[str]]]):
+    def __init__(self) -> None:
+        self._results = defaultdict[ExprContext, set[str]](set)
+        self.logger = logger.bind(visitor=self._visitor_name)
+
+    def results(self) -> Mapping[ExprContext, set[str]]:
+        return self._results
+
+    def actions(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit action expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        jsonpath = token.lstrip(".")
+        # ACTIONS.<ref>.<jsonpath...>
+        ref, _ = jsonpath.split(".", 1)
+        self._results[ExprContext.ACTIONS].add(ref)
+
+    def secrets(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit secret expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        jsonpath = token.lstrip(".")
+        # SECRETS.<secret>.<key>
+        secret, _ = jsonpath.split(".", 1)
+        self._results[ExprContext.SECRETS].add(secret)
+
+    def vars(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit vars expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        jsonpath = token.lstrip(".")
+        var_name = jsonpath.split(".", 1)[0]
+        self._results[ExprContext.VARS].add(var_name)
+
+
+def extract_expressions(args: Mapping[str, Any]) -> Mapping[ExprContext, set[str]]:
+    extractor = RegistryActionExtractor()
+    for expr_str in traverse_expressions(args):
+        Expression(expr_str, visitor=extractor).visit()
+    return extractor.results()
+
+
+class SecretPathExtractor(ExprExtractor[Mapping[ExprContext, set[str]]]):
+    """Extracts full secret paths including keys."""
+
+    def __init__(self) -> None:
+        self._results = defaultdict[ExprContext, set[str]](set)
+        self.logger = logger.bind(visitor="SecretPathExtractor")
+
+    def results(self) -> Mapping[ExprContext, set[str]]:
+        return self._results
+
+    def secrets(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit secret expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        # Get the full path after SECRETS.
+        jsonpath = token.lstrip(".")
+        # Store the full path (e.g., "a.K1" not just "a")
+        self._results[ExprContext.SECRETS].add(jsonpath)
+
+
+@dataclass(slots=True)
+class CollectedExprs:
+    secrets: set[str] = field(default_factory=set)
+    variables: set[str] = field(default_factory=set)
+
+
+class ExprPathCollector(ExprExtractor[CollectedExprs]):
+    """Collects secrets and variables from expressions."""
+
+    def __init__(self) -> None:
+        self._results = CollectedExprs()
+        self.logger = logger.bind(visitor="SecretPathExtractor")
+
+    def results(self) -> CollectedExprs:
+        return self._results
+
+    def secrets(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit secret expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        # Get the full path after SECRETS.
+        jsonpath = token.lstrip(".")
+        # Store the full path (e.g., "a.K1" not just "a")
+        self._results.secrets.add(jsonpath)
+
+    def vars(self, node: Tree[Token]) -> None:
+        token = node.children[0]
+        self.logger.trace("Visit vars expression", node=node, child=token)
+        if not isinstance(token, Token):
+            raise ValueError("Expected a string token")
+        jsonpath = token.lstrip(".")
+        var_name = jsonpath.split(".", 1)[0]
+        self._results.variables.add(var_name)

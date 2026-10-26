@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.agent.preset.router import (
+from autosecops.agent.preset.router import (
     compare_agent_preset_versions,
     create_agent_preset,
     get_agent_preset_version,
@@ -20,17 +20,17 @@ from tracecat.agent.preset.router import (
     router,
     update_agent_preset,
 )
-from tracecat.agent.preset.schemas import (
+from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
     AgentPresetToolPolicyPreview,
     AgentPresetUpdate,
     AgentPresetValidationErrorResponse,
 )
-from tracecat.auth.dependencies import WorkspaceActorRouteRole
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session
-from tracecat.exceptions import TracecatValidationError
-from tracecat.pagination import PaginationError, PaginationErrorCode
+from autosecops.auth.dependencies import WorkspaceActorRouteRole
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session
+from autosecops.exceptions import TracecatValidationError
+from autosecops.pagination import PaginationError, PaginationErrorCode
 
 
 @pytest.mark.parametrize(
@@ -57,7 +57,7 @@ def test_preset_validation_error_response_contract(
     app.dependency_overrides[get_async_session] = lambda: AsyncMock(spec=AsyncSession)
     with (
         patch(
-            "tracecat.agent.preset.router.AgentPresetService.create_preset",
+            "autosecops.agent.preset.router.AgentPresetService.create_preset",
             new_callable=AsyncMock,
             side_effect=TracecatValidationError(
                 "Invalid preset configuration", detail=detail
@@ -113,7 +113,7 @@ async def test_preview_preserves_validation_details(
     error = TracecatValidationError("Invalid skill selection", detail=detail)
     with (
         patch(
-            "tracecat.agent.preset.router.AgentPresetService.preview_tool_policy",
+            "autosecops.agent.preset.router.AgentPresetService.preview_tool_policy",
             new_callable=AsyncMock,
             side_effect=error,
         ),
@@ -150,7 +150,9 @@ async def test_preset_routes_preserve_validation_details(operation: str) -> None
     session = AsyncMock(spec=AsyncSession)
     error = TracecatValidationError("Invalid preset configuration", detail=detail)
     with (
-        patch("tracecat.agent.preset.router.AgentPresetService", autospec=True) as cls,
+        patch(
+            "autosecops.agent.preset.router.AgentPresetService", autospec=True
+        ) as cls,
         pytest.raises(HTTPException) as exc_info,
     ):
         service = cls.return_value
@@ -229,7 +231,7 @@ async def test_workflow_references_invalid_cursor_is_400() -> None:
     error = PaginationError("Invalid cursor", code=PaginationErrorCode.INVALID_CURSOR)
     with (
         patch(
-            "tracecat.agent.preset.router.AgentPresetWorkflowReferenceService.list_references",
+            "autosecops.agent.preset.router.AgentPresetWorkflowReferenceService.list_references",
             new_callable=AsyncMock,
             side_effect=error,
         ),

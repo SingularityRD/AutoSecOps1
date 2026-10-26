@@ -8,14 +8,14 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnClause
 
-from tracecat.db.models import TableColumn
-from tracecat.exceptions import TracecatValidationError
-from tracecat.query.compiler import compile_filter
-from tracecat.query.filters import Condition, FilterOp
-from tracecat.query.resolver import FieldKind
-from tracecat.tables.common import sanitize_identifier
-from tracecat.tables.enums import SqlType
-from tracecat.tables.query import TableFieldResolver
+from autosecops.db.models import TableColumn
+from autosecops.exceptions import TracecatValidationError
+from autosecops.query.compiler import compile_filter
+from autosecops.query.filters import Condition, FilterOp
+from autosecops.query.resolver import FieldKind
+from autosecops.tables.common import sanitize_identifier
+from autosecops.tables.enums import SqlType
+from autosecops.tables.query import TableFieldResolver
 
 TEXT_OPS = frozenset(
     {

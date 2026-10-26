@@ -9,19 +9,19 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from autosecops_ee.scim.provisioning import ScimProvisioningService
+from autosecops_ee.scim.service import SCIMService
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_ee.scim.provisioning import ScimProvisioningService
-from tracecat_ee.scim.service import SCIMService
 
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.auth.users import UserManager, get_user_db_context
-from tracecat.authz.enums import ScimConnectionStatus
-from tracecat.authz.membership import ensure_member
-from tracecat.authz.seeding import seed_system_roles_for_org
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.auth.users import UserManager, get_user_db_context
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.authz.membership import ensure_member
+from autosecops.authz.seeding import seed_system_roles_for_org
+from autosecops.db.models import (
     ExternalUser,
     Invitation,
     InvitationGrant,
@@ -32,12 +32,12 @@ from tracecat.db.models import (
     User,
     UserRoleAssignment,
 )
-from tracecat.db.models import Role as DBRole
-from tracecat.exceptions import TracecatAuthorizationError, TracecatValidationError
-from tracecat.invitations.enums import InvitationStatus
-from tracecat.invitations.schemas import InvitationCreate
-from tracecat.invitations.schemas import InvitationGrant as InvitationGrantRequest
-from tracecat.invitations.service import (
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.schemas import InvitationCreate
+from autosecops.invitations.schemas import InvitationGrant as InvitationGrantRequest
+from autosecops.invitations.service import (
     accept_invitation_for_user,
     create_invitation_row,
 )
@@ -62,7 +62,7 @@ def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None
         yield session
 
     monkeypatch.setattr(
-        "tracecat.auth.users.get_async_session_auth_context_manager",
+        "autosecops.auth.users.get_async_session_auth_context_manager",
         _session_cm,
     )
 

@@ -3,18 +3,18 @@
 import httpx
 import pytest
 
+from autosecops.search.embeddings import client as client_module
+from autosecops.search.embeddings.self_hosted import select_self_hosted_model
+from autosecops.search.embeddings.types import (
+    EmbeddingError,
+    EmbeddingErrorCode,
+)
 from tests.embedding_helpers import (
     StubProvider,
     configuration_for,
     credential_for,
     request_for,
     wire_response,
-)
-from tracecat.search.embeddings import client as client_module
-from tracecat.search.embeddings.self_hosted import select_self_hosted_model
-from tracecat.search.embeddings.types import (
-    EmbeddingError,
-    EmbeddingErrorCode,
 )
 
 pytestmark = pytest.mark.anyio

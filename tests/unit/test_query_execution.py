@@ -10,12 +10,12 @@ from asyncpg import NumericValueOutOfRangeError, QueryCanceledError
 from sqlalchemy.exc import DataError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.query.errors import (
+from autosecops.query.errors import (
     QueryErrorCode,
     TracecatQueryOverflowError,
     TracecatQueryTimeoutError,
 )
-from tracecat.query.execution import query_execution_context
+from autosecops.query.execution import query_execution_context
 
 
 def _wrapped_driver_error(driver_error: BaseException) -> RuntimeError:
@@ -42,7 +42,7 @@ async def test_query_execution_reads_configured_default_at_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tracecat.query.execution.config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS",
+        "autosecops.query.execution.config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS",
         4321,
     )
     session = AsyncMock(spec=AsyncSession)

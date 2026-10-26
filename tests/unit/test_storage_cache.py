@@ -11,7 +11,7 @@ import pytest
 from aiohttp import ClientPayloadError
 from botocore.exceptions import ClientError, HTTPClientError
 
-from tracecat.storage.utils import (
+from autosecops.storage.utils import (
     SizedMemoryCache,
     cached_blob_download,
     is_retryable_storage_transport_error,
@@ -104,10 +104,10 @@ class TestBlobStorageTransportRetries:
             return b"payload"
 
         monkeypatch.setattr(
-            "tracecat.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
+            "autosecops.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
         )
         monkeypatch.setattr(
-            "tracecat.storage.utils.blob.download_file",
+            "autosecops.storage.utils.blob.download_file",
             fake_download_file,
         )
 
@@ -133,10 +133,10 @@ class TestBlobStorageTransportRetries:
             raise error
 
         monkeypatch.setattr(
-            "tracecat.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
+            "autosecops.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
         )
         monkeypatch.setattr(
-            "tracecat.storage.utils.blob.download_file", fake_download_file
+            "autosecops.storage.utils.blob.download_file", fake_download_file
         )
 
         with pytest.raises(ClientPayloadError) as exc_info:
@@ -162,10 +162,10 @@ class TestBlobStorageTransportRetries:
             )
 
         monkeypatch.setattr(
-            "tracecat.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
+            "autosecops.storage.utils.STORAGE_TRANSPORT_RETRY_BASE_DELAY_SECONDS", 0
         )
         monkeypatch.setattr(
-            "tracecat.storage.utils.blob.download_file",
+            "autosecops.storage.utils.blob.download_file",
             fake_download_file,
         )
 
@@ -312,7 +312,7 @@ class TestSizedMemoryCache:
     async def test_ttl_expiry_syncs_tracking(self, monkeypatch: pytest.MonkeyPatch):
         """Test that TTL expiry syncs size tracking on get."""
         now = 100.0
-        monkeypatch.setattr("tracecat.storage.utils.time.monotonic", lambda: now)
+        monkeypatch.setattr("autosecops.storage.utils.time.monotonic", lambda: now)
         cache = SizedMemoryCache(max_bytes=1024, ttl=0.1)
 
         await cache.set("key1", b"hello")
@@ -330,7 +330,7 @@ class TestSizedMemoryCache:
     ):
         """Test that writes purge expired entries before capacity accounting."""
         now = 100.0
-        monkeypatch.setattr("tracecat.storage.utils.time.monotonic", lambda: now)
+        monkeypatch.setattr("autosecops.storage.utils.time.monotonic", lambda: now)
         cache = SizedMemoryCache(max_bytes=1024, ttl=0.1)
 
         await cache.set("expired", b"hello")
@@ -349,7 +349,7 @@ class TestSizedMemoryCache:
     ):
         """Test that expired MRU entries do not cause fresh LRU eviction."""
         now = 100.0
-        monkeypatch.setattr("tracecat.storage.utils.time.monotonic", lambda: now)
+        monkeypatch.setattr("autosecops.storage.utils.time.monotonic", lambda: now)
         cache = SizedMemoryCache(max_bytes=100, ttl=0.2)
 
         await cache.set("expires_first", b"a" * 50)
@@ -371,7 +371,7 @@ class TestSizedMemoryCache:
     ):
         """Test that rejected writes still purge expired entries."""
         now = 100.0
-        monkeypatch.setattr("tracecat.storage.utils.time.monotonic", lambda: now)
+        monkeypatch.setattr("autosecops.storage.utils.time.monotonic", lambda: now)
         cache = SizedMemoryCache(max_bytes=100, ttl=0.1)
 
         await cache.set("expired", b"a" * 50)
@@ -390,7 +390,7 @@ class TestSizedMemoryCache:
     ):
         """Test that non-positive TTL preserves existing no-expiry behavior."""
         now = 100.0
-        monkeypatch.setattr("tracecat.storage.utils.time.monotonic", lambda: now)
+        monkeypatch.setattr("autosecops.storage.utils.time.monotonic", lambda: now)
         cache = SizedMemoryCache(max_bytes=1024, ttl=0.0)
 
         await cache.set("key1", b"hello")

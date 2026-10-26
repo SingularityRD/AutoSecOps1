@@ -8,18 +8,18 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi import HTTPException
 
-from tracecat.agent.channels.management_router import (
+from autosecops.agent.channels.management_router import (
     start_slack_oauth,
     update_channel_token,
 )
-from tracecat.agent.channels.router import handle_slack_oauth_callback
-from tracecat.agent.channels.schemas import (
+from autosecops.agent.channels.router import handle_slack_oauth_callback
+from autosecops.agent.channels.schemas import (
     AgentChannelTokenUpdate,
     SlackChannelTokenConfig,
     SlackOAuthStartRequest,
 )
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatNotFoundError
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatNotFoundError
 
 
 class _AsyncContext:
@@ -58,7 +58,7 @@ async def _start_oauth_error(
     params: SlackOAuthStartRequest, service: object
 ) -> HTTPException:
     with patch(
-        "tracecat.agent.channels.management_router.AgentChannelService",
+        "autosecops.agent.channels.management_router.AgentChannelService",
         return_value=service,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -184,19 +184,19 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
 
     with (
         patch(
-            "tracecat.agent.channels.router.AgentChannelService",
+            "autosecops.agent.channels.router.AgentChannelService",
             FakeAgentChannelService,
         ),
         patch(
-            "tracecat.agent.channels.router.get_async_session_context_manager",
+            "autosecops.agent.channels.router.get_async_session_context_manager",
             return_value=_AsyncContext(AsyncMock()),
         ),
         patch(
-            "tracecat.agent.channels.router._resolve_service_role_for_workspace",
+            "autosecops.agent.channels.router._resolve_service_role_for_workspace",
             AsyncMock(return_value=role),
         ),
         patch(
-            "tracecat.agent.channels.router.config.TRACECAT__PUBLIC_APP_URL",
+            "autosecops.agent.channels.router.config.TRACECAT__PUBLIC_APP_URL",
             "https://app.tracecat.com",
         ),
     ):
@@ -233,7 +233,7 @@ async def test_update_channel_token_returns_404_for_soft_deleted_preset() -> Non
     )
 
     with patch(
-        "tracecat.agent.channels.management_router.AgentChannelService",
+        "autosecops.agent.channels.management_router.AgentChannelService",
         return_value=mock_service,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -253,8 +253,8 @@ async def test_update_channel_token_returns_404_for_soft_deleted_preset() -> Non
 
 @pytest.mark.anyio
 async def test_handle_channel_event_ignores_events_without_agent_channels() -> None:
-    from tracecat.agent.channels.router import handle_channel_event
-    from tracecat.agent.channels.schemas import ChannelType, ValidatedChannelToken
+    from autosecops.agent.channels.router import handle_channel_event
+    from autosecops.agent.channels.schemas import ChannelType, ValidatedChannelToken
 
     validated_token = MagicMock(spec=ValidatedChannelToken)
     validated_token.workspace_id = uuid.uuid4()
@@ -262,11 +262,11 @@ async def test_handle_channel_event_ignores_events_without_agent_channels() -> N
 
     with (
         patch(
-            "tracecat.agent.channels.router.validate_channel_token",
+            "autosecops.agent.channels.router.validate_channel_token",
             AsyncMock(return_value=validated_token),
         ),
         patch(
-            "tracecat.agent.channels.router._is_workspace_entitled_to_channels",
+            "autosecops.agent.channels.router._is_workspace_entitled_to_channels",
             AsyncMock(return_value=False),
         ),
     ):

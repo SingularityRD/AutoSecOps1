@@ -10,19 +10,19 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.audit.service import AuditService
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.hierarchy import CaseHierarchyService
-from tracecat.cases.schemas import CaseCreate
-from tracecat.cases.service import CasesService
-from tracecat.db.models import Case, CaseEvent
-from tracecat.exceptions import (
+from autosecops.audit.service import AuditService
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.hierarchy import CaseHierarchyService
+from autosecops.cases.schemas import CaseCreate
+from autosecops.cases.service import CasesService
+from autosecops.db.models import Case, CaseEvent
+from autosecops.exceptions import (
     EntitlementRequired,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.pagination import CursorPaginationParams
+from autosecops.pagination import CursorPaginationParams
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -31,19 +31,19 @@ pytestmark = pytest.mark.usefixtures("db")
 def stub_case_side_effects() -> Iterator[None]:
     with (
         patch(
-            "tracecat.cases.events.sync_case_duration",
+            "autosecops.cases.events.sync_case_duration",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.publish_case_event_payload",
+            "autosecops.cases.events.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "tracecat.cases.service.publish_case_event_payload",
+            "autosecops.cases.service.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
         patch.object(AuditService, "create_event", new_callable=AsyncMock),

@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tracecat.agent.session.activities import (
+from autosecops.agent.session.activities import (
     FinalizeTurnInput,
     PendingToolResult,
     ReconcileToolResultsInput,
     finalize_turn_activity,
     reconcile_tool_results_activity,
 )
-from tracecat.auth.types import Role
-from tracecat.storage.object import ExternalObject, ObjectRef
+from autosecops.auth.types import Role
+from autosecops.storage.object import ExternalObject, ObjectRef
 
 
 @pytest.mark.anyio
@@ -31,7 +31,7 @@ async def test_finalize_turn_activity_bridges_workflow_versions(
     ctx = AsyncMock()
     ctx.__aenter__.return_value = service
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentSessionService.with_session",
+        "autosecops.agent.session.activities.AgentSessionService.with_session",
         MagicMock(return_value=ctx),
     )
 
@@ -77,11 +77,11 @@ async def test_reconcile_tool_results_raises_on_materialization_failure(
     stream.append = AsyncMock()
 
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentStream.new",
+        "autosecops.agent.session.activities.AgentStream.new",
         AsyncMock(return_value=stream),
     )
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.retrieve_stored_object",
+        "autosecops.agent.session.activities.retrieve_stored_object",
         AsyncMock(side_effect=RuntimeError("blob unavailable")),
     )
 
@@ -128,11 +128,11 @@ async def test_reconcile_tool_results_removes_interrupts_and_returns_tool_result
     ctx.__aenter__.return_value = service
 
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentStream.new",
+        "autosecops.agent.session.activities.AgentStream.new",
         AsyncMock(return_value=stream),
     )
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentSessionService.with_session",
+        "autosecops.agent.session.activities.AgentSessionService.with_session",
         MagicMock(return_value=ctx),
     )
 
@@ -178,11 +178,11 @@ async def test_reconcile_tool_results_appends_artifact_side_effect(
     ctx.__aenter__.return_value = service
 
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentStream.new",
+        "autosecops.agent.session.activities.AgentStream.new",
         AsyncMock(return_value=stream),
     )
     monkeypatch.setattr(
-        "tracecat.agent.session.activities.AgentSessionService.with_session",
+        "autosecops.agent.session.activities.AgentSessionService.with_session",
         MagicMock(return_value=ctx),
     )
 

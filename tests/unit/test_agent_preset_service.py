@@ -14,40 +14,42 @@ from dotenv import dotenv_values
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.database import TEST_DB_CONFIG
-from tracecat import config
-from tracecat.agent.channels.schemas import (
+from autosecops import config
+from autosecops.agent.channels.schemas import (
     AgentChannelTokenCreate,
     ChannelType,
     SlackChannelTokenConfig,
 )
-from tracecat.agent.channels.service import PENDING_SLACK_BOT_TOKEN, AgentChannelService
-from tracecat.agent.preset.resolver import resolve_agents_config
-from tracecat.agent.preset.schemas import (
+from autosecops.agent.channels.service import (
+    PENDING_SLACK_BOT_TOKEN,
+    AgentChannelService,
+)
+from autosecops.agent.preset.resolver import resolve_agents_config
+from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
     AgentPresetSkillBindingBase,
     AgentPresetSkillBindingRead,
     AgentPresetToolPolicyPreview,
     AgentPresetUpdate,
 )
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.preset.types import SkillBindingSpec
-from tracecat.agent.skill.schemas import (
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.preset.types import SkillBindingSpec
+from autosecops.agent.skill.schemas import (
     SkillCreate,
     SkillDraftPatch,
     SkillDraftUpsertTextFileOp,
 )
-from tracecat.agent.skill.service import SkillService
-from tracecat.agent.subagents import (
+from autosecops.agent.skill.service import SkillService
+from autosecops.agent.subagents import (
     AgentSubagentsConfig,
     AttachedSubagentRef,
     ResolvedAgentsConfig,
     ResolvedAttachedSubagentRef,
     has_manual_tool_approvals,
 )
-from tracecat.agent.types import AgentConfig
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.agent.types import AgentConfig
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     AgentCatalog,
     AgentChannelToken,
     AgentFolder,
@@ -69,20 +71,21 @@ from tracecat.db.models import (
     SkillVersionTool,
     Workspace,
 )
-from tracecat.exceptions import (
+from autosecops.exceptions import (
     ScopeDeniedError,
     TracecatNotFoundError,
     TracecatValidationError,
 )
-from tracecat.integrations.enums import MCPAuthType
-from tracecat.integrations.service import IntegrationService
-from tracecat.pagination import BaseCursorPaginator, CursorPaginationParams
-from tracecat.registry.actions.schemas import RegistryActionType
-from tracecat.registry.versions.schemas import (
+from autosecops.integrations.enums import MCPAuthType
+from autosecops.integrations.service import IntegrationService
+from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
+from autosecops.registry.actions.schemas import RegistryActionType
+from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     RegistryVersionManifestAction,
 )
-from tracecat.storage.blob import ensure_bucket_exists
+from autosecops.storage.blob import ensure_bucket_exists
+from tests.database import TEST_DB_CONFIG
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -3800,7 +3803,7 @@ class TestAgentPresetService:
     ) -> None:
         """Only a backend that runs approval-gated subagents lets a parent attach one."""
         monkeypatch.setattr(
-            "tracecat.agent.preset.service.subagent_approvals_available",
+            "autosecops.agent.preset.service.subagent_approvals_available",
             lambda: backend_runs_approvals,
         )
         child_params = agent_preset_create_params.model_copy(
@@ -4361,7 +4364,7 @@ async def test_registry_default_approval_is_shared_by_eligibility_and_attachment
     child is then eligible only where a backend runs subagent approvals.
     """
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.subagent_approvals_available",
+        "autosecops.agent.preset.service.subagent_approvals_available",
         lambda: backend_runs_approvals,
     )
     action = "tools.test.another_action"
@@ -4453,10 +4456,10 @@ async def test_tool_tunnels_follow_effective_tool_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Tunnel keys match the tools the runtime builds: skills grant, namespaces filter."""
-    from tracecat.db.models import WorkspaceTunnel
+    from autosecops.db.models import WorkspaceTunnel
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
+        "autosecops.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
     )
     assert svc_role.workspace_id is not None
     session.add(
@@ -4535,7 +4538,7 @@ async def _tunneled_preset(
     agent_preset_service: AgentPresetService,
     agent_preset_create_params: AgentPresetCreate,
 ) -> AgentPreset:
-    from tracecat.db.models import WorkspaceTunnel
+    from autosecops.db.models import WorkspaceTunnel
 
     assert svc_role.workspace_id is not None
     session.add(
@@ -4565,7 +4568,7 @@ async def test_stale_tool_tunnel_is_left_out_of_run_config(
     """A tunnel for a tool the agent lost after the version was saved (e.g. a
     republished skill dropped it) doesn't fail the run's tool build."""
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
+        "autosecops.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
     )
     preset = await _tunneled_preset(
         session, svc_role, agent_preset_service, agent_preset_create_params
@@ -4604,7 +4607,7 @@ async def test_save_without_tunnel_entitlement_prunes_unused_tunnels(
     """After a plan downgrade, removing the tunneled tool still saves although
     the builder resends the stale map."""
     entitled = AsyncMock(return_value=True)
-    monkeypatch.setattr("tracecat.agent.preset.service.is_org_entitled", entitled)
+    monkeypatch.setattr("autosecops.agent.preset.service.is_org_entitled", entitled)
     preset = await _tunneled_preset(
         session, svc_role, agent_preset_service, agent_preset_create_params
     )
@@ -4631,10 +4634,10 @@ async def test_compare_versions_reports_tool_tunnel_changes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A version that only reroutes a tool still shows up in the diff."""
-    from tracecat.db.models import WorkspaceTunnel
+    from autosecops.db.models import WorkspaceTunnel
 
     monkeypatch.setattr(
-        "tracecat.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
+        "autosecops.agent.preset.service.is_org_entitled", AsyncMock(return_value=True)
     )
     assert svc_role.workspace_id is not None
     for name in ("onprem", "dmz"):

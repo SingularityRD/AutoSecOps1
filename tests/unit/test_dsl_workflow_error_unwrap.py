@@ -1,4 +1,4 @@
-from tracecat.dsl.workflow import DSLWorkflow
+from autosecops.dsl.workflow import DSLWorkflow
 
 
 class CauseError(Exception):

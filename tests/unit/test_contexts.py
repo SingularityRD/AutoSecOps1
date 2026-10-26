@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.contexts import ctx_session, with_session
+from autosecops.contexts import ctx_session, with_session
 
 
 class TestSessionContext:

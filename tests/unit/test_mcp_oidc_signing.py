@@ -1,4 +1,4 @@
-"""Unit tests for tracecat.mcp.oidc.signing — ECDSA P-256 key derivation and JWT ops."""
+"""Unit tests for autosecops.mcp.oidc.signing — ECDSA P-256 key derivation and JWT ops."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ import time
 import pytest
 from jwt import InvalidTokenError
 
-from tracecat.mcp.oidc import signing
+from autosecops.mcp.oidc import signing
 
 
 @pytest.fixture(autouse=True)
 def _clear_signing_caches(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnusedFunction]
     """Clear lru_cache on signing functions and set a stable test secret."""
     monkeypatch.setattr(
-        "tracecat.mcp.oidc.signing.get_user_auth_secret",
+        "autosecops.mcp.oidc.signing.get_user_auth_secret",
         lambda: "test-signing-secret",
     )
     signing.get_signing_key.cache_clear()

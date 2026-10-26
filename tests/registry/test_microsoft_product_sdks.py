@@ -13,17 +13,17 @@ from typing import Any
 
 import httpx
 import pytest
-from tracecat_registry import (
+from autosecops_registry import (
     RegistryOAuthSecret,
     SecretNotFoundError,
 )
-from tracecat_registry.integrations import microsoft_graph_sdk as graph
-from tracecat_registry.integrations._microsoft_graph_products import (
+from autosecops_registry.integrations import microsoft_graph_sdk as graph
+from autosecops_registry.integrations._microsoft_graph_products import (
     MICROSOFT_GRAPH_SECURITY,
     MICROSOFT_OUTLOOK,
     MicrosoftGraphOAuthProvider,
 )
-from tracecat_registry.integrations._microsoft_graph_transport import (
+from autosecops_registry.integrations._microsoft_graph_transport import (
     GraphProduct,
     MicrosoftGraphAuthMode,
 )

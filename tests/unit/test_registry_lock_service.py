@@ -15,23 +15,23 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     PlatformRegistryRepository,
     PlatformRegistryVersion,
     RegistryRepository,
     RegistryVersion,
 )
-from tracecat.dsl.enums import PlatformAction
-from tracecat.exceptions import (
+from autosecops.dsl.enums import PlatformAction
+from autosecops.exceptions import (
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryLockAmbiguousActionError,
     RegistryLockInvalidDataError,
 )
-from tracecat.registry.constants import DEFAULT_REGISTRY_ORIGIN
-from tracecat.registry.lock.service import RegistryLockService
-from tracecat.registry.versions.schemas import (
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.lock.service import RegistryLockService
+from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     registry_manifest_fingerprint,
 )
@@ -103,10 +103,10 @@ def _make_template_manifest(
 
     if include_step_action:
         step_namespace, step_name = step_action.rsplit(".", 1)
-        step_module = "tracecat_registry.core.script"
+        step_module = "autosecops_registry.core.script"
         step_fn = "run_python"
         if step_action == PlatformAction.CHILD_WORKFLOW_EXECUTE:
-            step_module = "tracecat_registry.core.workflow"
+            step_module = "autosecops_registry.core.workflow"
             step_fn = "execute"
         actions[step_action] = {
             "namespace": step_namespace,
@@ -116,7 +116,7 @@ def _make_template_manifest(
             "interface": {"expects": {}, "returns": None},
             "implementation": {
                 "type": "udf",
-                "url": "tracecat_registry",
+                "url": "autosecops_registry",
                 "module": step_module,
                 "name": step_fn,
             },
@@ -424,11 +424,11 @@ async def test_resolve_lock_allows_template_step_with_run_python(
     platform_action = PlatformAction.RUN_PYTHON
 
     # Use org-scoped origin override to avoid ambiguity with the built-in
-    # `tracecat_registry` definition of `core.script.run_python`.
+    # `autosecops_registry` definition of `core.script.run_python`.
     await _add_org_version(
         session,
         svc_role,
-        "tracecat_registry",
+        "autosecops_registry",
         "1.0.0",
         _make_template_manifest(
             template_action=template_action,
@@ -450,15 +450,15 @@ async def test_resolve_lock_always_includes_builtin_registry(
     svc_role: Role,
     session: AsyncSession,
 ) -> None:
-    """Builtin tracecat_registry must be in the lock as a runtime dependency.
+    """Builtin autosecops_registry must be in the lock as a runtime dependency.
 
-    Custom actions import decorators/secrets/context from tracecat_registry,
+    Custom actions import decorators/secrets/context from autosecops_registry,
     so the ephemeral nsjail sandbox must always mount the builtin tarball —
     even when no workflow action directly resolves to it.
     """
     await _add_platform_version(
         session,
-        "tracecat_registry",
+        "autosecops_registry",
         "1.0.0-beta.39",
         _make_manifest(["core.transform"]),
     )
@@ -472,7 +472,7 @@ async def test_resolve_lock_always_includes_builtin_registry(
     )
     await session.commit()
 
-    # Workflow uses only the custom action — does NOT map to tracecat_registry
+    # Workflow uses only the custom action — does NOT map to autosecops_registry
     service = RegistryLockService(session, role=svc_role)
     lock = await service.resolve_lock_with_bindings(
         {"integrations.greetings.say_hello"}
@@ -486,10 +486,10 @@ async def test_resolve_lock_always_includes_builtin_registry(
 
     # Builtin registry is present as a runtime dependency, even though no
     # workflow action resolves to it.
-    assert "tracecat_registry" in lock.origins
-    assert lock.origins["tracecat_registry"] == "1.0.0-beta.39"
+    assert "autosecops_registry" in lock.origins
+    assert lock.origins["autosecops_registry"] == "1.0.0-beta.39"
     # But no action is bound to it
-    assert "tracecat_registry" not in lock.actions.values()
+    assert "autosecops_registry" not in lock.actions.values()
 
 
 @pytest.mark.anyio
@@ -499,12 +499,15 @@ async def test_resolve_lock_overwrites_builtin_origin_with_platform_version(
 ) -> None:
     """Builtin lock origin should always resolve to the platform selected version."""
     platform_version = await _add_platform_version(
-        session, "tracecat_registry", "2.0.0-beta.1", _make_manifest(["core.transform"])
+        session,
+        "autosecops_registry",
+        "2.0.0-beta.1",
+        _make_manifest(["core.transform"]),
     )
     await _add_org_version(
         session,
         svc_role,
-        "tracecat_registry",
+        "autosecops_registry",
         "org-override-1",
         _make_manifest(["tools.custom.same_origin"]),
     )
@@ -513,10 +516,10 @@ async def test_resolve_lock_overwrites_builtin_origin_with_platform_version(
     service = RegistryLockService(session, role=svc_role)
     lock = await service.resolve_lock_with_bindings({"tools.custom.same_origin"})
 
-    assert lock.actions["tools.custom.same_origin"] == "tracecat_registry"
-    assert lock.origins["tracecat_registry"] == "2.0.0-beta.1"
+    assert lock.actions["tools.custom.same_origin"] == "autosecops_registry"
+    assert lock.origins["autosecops_registry"] == "2.0.0-beta.1"
     assert lock.origin_fingerprints[
-        "tracecat_registry"
+        "autosecops_registry"
     ] == registry_manifest_fingerprint(
         RegistryVersionManifest.model_validate(platform_version.manifest)
     )
@@ -532,7 +535,7 @@ async def test_resolve_lock_raises_when_platform_builtin_not_synced(
     # Simulate an unsynced platform by clearing any seeded builtin version.
     seeded_platform_repo = await session.scalar(
         select(PlatformRegistryRepository).where(
-            PlatformRegistryRepository.origin == "tracecat_registry",
+            PlatformRegistryRepository.origin == "autosecops_registry",
         )
     )
     if seeded_platform_repo is not None:

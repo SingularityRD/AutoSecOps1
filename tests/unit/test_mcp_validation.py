@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from tracecat.agent.common.config import AGENT_RUNTIME_PROTECTED_ENV_VARS
-from tracecat.integrations.mcp_validation import (
+from autosecops.agent.common.config import AGENT_RUNTIME_PROTECTED_ENV_VARS
+from autosecops.integrations.mcp_validation import (
     MCPValidationError,
     validate_mcp_command_config,
     validate_mcp_env,

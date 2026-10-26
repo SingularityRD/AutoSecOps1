@@ -18,30 +18,30 @@ from starlette.types import Message, Scope
 from temporalio.client import WorkflowFailureError
 from temporalio.exceptions import ApplicationError
 
-from tracecat.api.common import generic_exception_handler, http_exception_handler
-from tracecat.db.models import WorkflowDefinition
-from tracecat.dsl.common import DSLInput
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.observability import sentry as sentry_module
-from tracecat.observability.sentry import SentryTag, initialize_api_sentry
-from tracecat.observability.types import AlertPriority
-from tracecat.runtime.errors import (
+from autosecops.api.common import generic_exception_handler, http_exception_handler
+from autosecops.db.models import WorkflowDefinition
+from autosecops.dsl.common import DSLInput
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.observability import sentry as sentry_module
+from autosecops.observability.sentry import SentryTag, initialize_api_sentry
+from autosecops.observability.types import AlertPriority
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
 )
-from tracecat.storage.object import InlineObject
-from tracecat.temporal.errors import (
+from autosecops.storage.object import InlineObject
+from autosecops.temporal.errors import (
     application_error_from_classification,
     build_error_transport_detail,
 )
-from tracecat.webhooks.dependencies import (
+from autosecops.webhooks.dependencies import (
     validate_incoming_webhook,
     validate_workflow_definition,
 )
-from tracecat.webhooks.router import router
-from tracecat.webhooks.schemas import WebhookWaitErrorResponse
-from tracecat.workflow.executions.service import WorkflowExecutionsService
+from autosecops.webhooks.router import router
+from autosecops.webhooks.schemas import WebhookWaitErrorResponse
+from autosecops.workflow.executions.service import WorkflowExecutionsService
 
 _WORKFLOW_ID = WorkflowUUID.new_uuid4()
 _WEBHOOK_PATH = f"/webhooks/{_WORKFLOW_ID.short()}/synthetic-secret/wait"
@@ -246,7 +246,7 @@ def test_trace_annotation_failure_does_not_block_workflow(
         webhook.execute.return_value = {"result": InlineObject(data={"ok": True})}
 
     with patch(
-        "tracecat.webhooks.router.set_current_span_attributes",
+        "autosecops.webhooks.router.set_current_span_attributes",
         side_effect=RuntimeError(_PRIVATE_VALUE),
     ) as annotate:
         response = webhook.client.post(

@@ -29,42 +29,42 @@ from temporalio.api.history.v1 import (
 from temporalio.client import Client, WorkflowHandle
 from temporalio.converter import DefaultPayloadConverter
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import Workspace
-from tracecat.dsl.common import AgentActionMemo, ChildWorkflowMemo, DSLInput
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext, StreamID
-from tracecat.identifiers.workflow import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import Workspace
+from autosecops.dsl.common import AgentActionMemo, ChildWorkflowMemo, DSLInput
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext, StreamID
+from autosecops.identifiers.workflow import (
     ExecutionUUID,
     WorkflowExecutionID,
     WorkflowUUID,
 )
-from tracecat.pagination import CursorPaginationParams
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.storage.object import (
+from autosecops.pagination import CursorPaginationParams
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.storage.object import (
     CollectionObject,
     ExternalObject,
     InlineObject,
     ObjectRef,
 )
-from tracecat.workflow.executions.common import UnreadableTemporalPayload
-from tracecat.workflow.executions.enums import (
+from autosecops.workflow.executions.common import UnreadableTemporalPayload
+from autosecops.workflow.executions.enums import (
     TriggerType,
     WorkflowEventType,
     WorkflowExecutionEventStatus,
 )
-from tracecat.workflow.executions.schemas import (
+from autosecops.workflow.executions.schemas import (
     EventFailure,
     WorkflowExecutionEventCompact,
 )
-from tracecat.workflow.executions.service import (
+from autosecops.workflow.executions.service import (
     WF_COMPLETED_REF,
     WF_FAILURE_REF,
     WF_TRIGGER_REF,
     WorkflowExecutionsService,
     _sanitize_action_result,
 )
-from tracecat.workspaces.service import WorkspaceService
+from autosecops.workspaces.service import WorkspaceService
 
 
 @pytest.fixture
@@ -257,7 +257,7 @@ class TestWorkflowExecutionEvents:
 
         # Mock EventFailure.from_history_event
         with patch(
-            "tracecat.workflow.executions.service.EventFailure.from_history_event",
+            "autosecops.workflow.executions.service.EventFailure.from_history_event",
             new_callable=AsyncMock,
         ) as mock_event_failure:
             mock_failure = EventFailure(
@@ -384,7 +384,7 @@ class TestWorkflowExecutionEvents:
 
         expected_result = {"status": "ok", "items_processed": 3}
         with patch(
-            "tracecat.workflow.executions.service.get_result"
+            "autosecops.workflow.executions.service.get_result"
         ) as mock_get_result:
             mock_get_result.return_value = expected_result
 
@@ -437,11 +437,11 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value={}),
             ),
             patch(
-                "tracecat.workflow.executions.service.DSLRunArgs",
+                "autosecops.workflow.executions.service.DSLRunArgs",
                 return_value=Mock(trigger_inputs=trigger_inputs),
             ),
         ):
@@ -488,11 +488,11 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value={}),
             ),
             patch(
-                "tracecat.workflow.executions.service.DSLRunArgs",
+                "autosecops.workflow.executions.service.DSLRunArgs",
                 return_value=Mock(trigger_inputs=None),
             ),
         ):
@@ -536,10 +536,10 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value=unreadable),
             ),
-            patch("tracecat.workflow.executions.service.DSLRunArgs") as mock_run_args,
+            patch("autosecops.workflow.executions.service.DSLRunArgs") as mock_run_args,
         ):
             events = await workflow_executions_service.list_workflow_execution_events_compact(
                 workflow_exec_id
@@ -589,15 +589,15 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value={}),
             ),
             patch(
-                "tracecat.workflow.executions.service.DSLRunArgs",
+                "autosecops.workflow.executions.service.DSLRunArgs",
                 return_value=Mock(trigger_inputs=trigger_inputs),
             ),
             patch(
-                "tracecat.storage.backends.s3.cached_blob_download",
+                "autosecops.storage.backends.s3.cached_blob_download",
                 AsyncMock(return_value=serialized_payload),
             ) as mock_cached_blob_download,
         ):
@@ -657,15 +657,15 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value={}),
             ),
             patch(
-                "tracecat.workflow.executions.service.DSLRunArgs",
+                "autosecops.workflow.executions.service.DSLRunArgs",
                 return_value=Mock(trigger_inputs=None),
             ),
             patch(
-                "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
+                "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event",
                 AsyncMock(return_value=action_event),
             ),
         ):
@@ -714,7 +714,7 @@ class TestWorkflowExecutionEvents:
 
         # Mock WorkflowExecutionEventCompact.from_source_event
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_compact_event = Mock(spec=WorkflowExecutionEventCompact)
             mock_compact_event.action_ref = "action-1"
@@ -732,25 +732,25 @@ class TestWorkflowExecutionEvents:
 
             # Mock other dependencies
             with patch(
-                "tracecat.workflow.executions.service.get_source_event_id"
+                "autosecops.workflow.executions.service.get_source_event_id"
             ) as mock_get_source:
                 mock_get_source.return_value = 1
 
                 with patch(
-                    "tracecat.workflow.executions.service.is_start_event"
+                    "autosecops.workflow.executions.service.is_start_event"
                 ) as mock_is_start:
                     with patch(
-                        "tracecat.workflow.executions.service.is_close_event"
+                        "autosecops.workflow.executions.service.is_close_event"
                     ) as mock_is_close:
                         with patch(
-                            "tracecat.workflow.executions.service.is_error_event"
+                            "autosecops.workflow.executions.service.is_error_event"
                         ) as mock_is_error:
                             mock_is_start.return_value = False
                             mock_is_close.return_value = True
                             mock_is_error.return_value = False
 
                             with patch(
-                                "tracecat.workflow.executions.service.get_result"
+                                "autosecops.workflow.executions.service.get_result"
                             ) as mock_get_result:
                                 mock_get_result.return_value = {"result": "success"}
 
@@ -814,7 +814,7 @@ class TestWorkflowExecutionEvents:
 
         # Mock WorkflowExecutionEventCompact.from_source_event
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_action_event = Mock(spec=WorkflowExecutionEventCompact)
             mock_action_event.action_ref = "action-1"
@@ -833,7 +833,7 @@ class TestWorkflowExecutionEvents:
 
             # Mock EventFailure.from_history_event
             with patch(
-                "tracecat.workflow.executions.service.EventFailure.from_history_event",
+                "autosecops.workflow.executions.service.EventFailure.from_history_event",
                 new_callable=AsyncMock,
             ) as mock_event_failure:
                 mock_action_failure = EventFailure(message="Action failed", cause=None)
@@ -847,18 +847,18 @@ class TestWorkflowExecutionEvents:
 
                 # Mock other dependencies
                 with patch(
-                    "tracecat.workflow.executions.service.get_source_event_id"
+                    "autosecops.workflow.executions.service.get_source_event_id"
                 ) as mock_get_source:
                     mock_get_source.return_value = 1
 
                     with patch(
-                        "tracecat.workflow.executions.service.is_start_event"
+                        "autosecops.workflow.executions.service.is_start_event"
                     ) as mock_is_start:
                         with patch(
-                            "tracecat.workflow.executions.service.is_close_event"
+                            "autosecops.workflow.executions.service.is_close_event"
                         ) as mock_is_close:
                             with patch(
-                                "tracecat.workflow.executions.service.is_error_event"
+                                "autosecops.workflow.executions.service.is_error_event"
                             ) as mock_is_error:
                                 mock_is_start.return_value = False
                                 mock_is_close.return_value = False
@@ -953,7 +953,7 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             compact = Mock(spec=WorkflowExecutionEventCompact)
             compact.action_ref = "action-42"
@@ -1018,7 +1018,7 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             compact = Mock(spec=WorkflowExecutionEventCompact)
             compact.action_ref = "action-99"
@@ -1112,11 +1112,11 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.side_effect = [source_1, source_2]
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.side_effect = [0, 1]
 
@@ -1162,13 +1162,13 @@ class TestWorkflowExecutionEvents:
                 logical_time=datetime.datetime.now(datetime.UTC),
             ),
             registry_lock=RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={action_name: "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={action_name: "autosecops_registry"},
             ),
         )
 
         with patch(
-            "tracecat.workflow.executions.schemas.extract_first",
+            "autosecops.workflow.executions.schemas.extract_first",
             AsyncMock(return_value=run_input.model_dump(mode="json")),
         ):
             event = await WorkflowExecutionEventCompact.from_scheduled_activity(
@@ -1245,11 +1245,11 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                f"tracecat.workflow.executions.schemas.{memo_target}.from_temporal",
+                f"autosecops.workflow.executions.schemas.{memo_target}.from_temporal",
                 memo_mock,
             ),
             patch(
-                "tracecat.workflow.executions.schemas.extract_first",
+                "autosecops.workflow.executions.schemas.extract_first",
                 AsyncMock(return_value=unreadable),
             ),
         ):
@@ -1307,11 +1307,11 @@ class TestWorkflowExecutionEvents:
         source.set_mask_output(True)
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.return_value = source
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.return_value = {
                     "secret": "hidden-output",
@@ -1448,18 +1448,18 @@ class TestWorkflowExecutionEvents:
                 logical_time=datetime.datetime.now(datetime.UTC),
             ),
             registry_lock=RegistryLock(
-                origins={"tracecat_registry": "test-version"},
-                actions={action_name: "tracecat_registry"},
+                origins={"autosecops_registry": "test-version"},
+                actions={action_name: "autosecops_registry"},
             ),
         )
 
         with (
             patch(
-                "tracecat.workflow.executions.schemas.extract_first",
+                "autosecops.workflow.executions.schemas.extract_first",
                 new_callable=AsyncMock,
             ) as mock_source_extract_first,
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 new_callable=AsyncMock,
             ) as mock_result_extract_first,
         ):
@@ -1510,15 +1510,15 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                "tracecat.workflow.executions.schemas.ChildWorkflowMemo.from_temporal",
+                "autosecops.workflow.executions.schemas.ChildWorkflowMemo.from_temporal",
                 new_callable=AsyncMock,
             ) as mock_memo,
             patch(
-                "tracecat.workflow.executions.schemas.extract_first",
+                "autosecops.workflow.executions.schemas.extract_first",
                 new_callable=AsyncMock,
             ) as mock_source_extract_first,
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 new_callable=AsyncMock,
             ) as mock_result_extract_first,
         ):
@@ -1586,15 +1586,15 @@ class TestWorkflowExecutionEvents:
 
         with (
             patch(
-                f"tracecat.workflow.executions.schemas.{memo_target}.from_temporal",
+                f"autosecops.workflow.executions.schemas.{memo_target}.from_temporal",
                 AsyncMock(side_effect=ValueError("bad memo")),
             ),
             patch(
-                "tracecat.workflow.executions.schemas.extract_first",
+                "autosecops.workflow.executions.schemas.extract_first",
                 AsyncMock(return_value=unreadable),
             ),
             patch(
-                "tracecat.workflow.executions.service.extract_first",
+                "autosecops.workflow.executions.service.extract_first",
                 AsyncMock(return_value={"secret": "child-output"}),
             ),
         ):
@@ -1677,15 +1677,15 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.side_effect = [source_1, source_2]
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.return_value = "ok"
                 with patch(
-                    "tracecat.workflow.executions.service.EventFailure.from_history_event",
+                    "autosecops.workflow.executions.service.EventFailure.from_history_event",
                     new_callable=AsyncMock,
                 ) as mock_event_failure:
                     mock_event_failure.return_value = EventFailure(
@@ -1773,11 +1773,11 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.side_effect = [source_1, source_2]
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.side_effect = [10, 20]
 
@@ -1837,11 +1837,11 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.return_value = source
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.return_value = {"result": {"data": {"iteration": 3}}}
 
@@ -1901,11 +1901,11 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.return_value = source
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.return_value = {"result": {"data": {"continue": False}}}
 
@@ -1988,11 +1988,11 @@ class TestWorkflowExecutionEvents:
         )
 
         with patch(
-            "tracecat.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
+            "autosecops.workflow.executions.service.WorkflowExecutionEventCompact.from_source_event"
         ) as mock_from_source:
             mock_from_source.side_effect = [source_1, source_2]
             with patch(
-                "tracecat.workflow.executions.service.get_result"
+                "autosecops.workflow.executions.service.get_result"
             ) as mock_get_result:
                 mock_get_result.side_effect = ["subflow-0", "subflow-1"]
 
@@ -2141,7 +2141,7 @@ async def test_event_failure_from_history_event_populates_root_cause_message() -
     }
 
     with patch(
-        "tracecat.workflow.executions.schemas.MessageToDict",
+        "autosecops.workflow.executions.schemas.MessageToDict",
         return_value=nested_cause,
     ):
         failure = await EventFailure.from_history_event(event)
@@ -2210,7 +2210,7 @@ async def test_event_failure_from_history_event_sanitizes_sensitive_data() -> No
     }
 
     with patch(
-        "tracecat.workflow.executions.schemas.MessageToDict",
+        "autosecops.workflow.executions.schemas.MessageToDict",
         return_value=nested_cause,
     ):
         failure = await EventFailure.from_history_event(event)
@@ -2232,7 +2232,7 @@ async def test_event_failure_from_history_event_include_raw_cause() -> None:
     nested_cause = {"message": "raw-cause"}
 
     with patch(
-        "tracecat.workflow.executions.schemas.MessageToDict",
+        "autosecops.workflow.executions.schemas.MessageToDict",
         return_value=nested_cause,
     ):
         failure = await EventFailure.from_history_event(event, include_raw_cause=True)

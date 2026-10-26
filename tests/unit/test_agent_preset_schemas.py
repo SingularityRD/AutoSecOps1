@@ -9,15 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.schema import CallableColumnDefault
 
-from tracecat.agent.preset.internal_router import (
+from autosecops.agent.preset.internal_router import (
     PresetCreateRequest,
     PresetUpdateRequest,
 )
-from tracecat.agent.preset.resolver import (
+from autosecops.agent.preset.resolver import (
     ResolvedAgentsRuntimeConfig,
     ResolvedSubagentConfig,
 )
-from tracecat.agent.preset.schemas import (
+from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
     AgentPresetRead,
     AgentPresetToolSummary,
@@ -26,15 +26,15 @@ from tracecat.agent.preset.schemas import (
     build_agent_preset_tool_summary,
     build_subagent_eligibility,
 )
-from tracecat.agent.preset.types import EffectivePresetTools
-from tracecat.agent.subagents import (
+from autosecops.agent.preset.types import EffectivePresetTools
+from autosecops.agent.subagents import (
     AgentSubagentsConfig,
     AnyAttachedSubagentRef,
     ResolvedAgentsConfig,
     ResolvedAttachedSubagentRef,
 )
-from tracecat.agent.workflow_schemas import AgentConfigPayload
-from tracecat.db.models import AgentPreset, AgentPresetVersion
+from autosecops.agent.workflow_schemas import AgentConfigPayload
+from autosecops.db.models import AgentPreset, AgentPresetVersion
 
 
 def make_agent_preset(

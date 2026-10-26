@@ -8,10 +8,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-import tracecat.auth.credentials as auth_credentials_module
-import tracecat.registry.actions.router as registry_actions_router
-from tracecat.auth.types import Role
-from tracecat.registry.actions.types import IndexEntry
+import autosecops.auth.credentials as auth_credentials_module
+import autosecops.registry.actions.router as registry_actions_router
+from autosecops.auth.types import Role
+from autosecops.registry.actions.types import IndexEntry
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ async def test_list_registry_actions_include_locked_returns_availability_metadat
                     options={"required_entitlements": ["case_addons"]},
                     missing_entitlements=("case_addons",),
                 ),
-                "tracecat_registry",
+                "autosecops_registry",
             )
         ]
         mock_service_cls.return_value = mock_service

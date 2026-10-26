@@ -7,10 +7,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from tracecat.auth.types import Role
-from tracecat.exceptions import TracecatSettingsError, TracecatValidationError
-from tracecat.vcs.github.app import GitHubAppError
-from tracecat.vcs.gitlab.app import GitLabError
+from autosecops.auth.types import Role
+from autosecops.exceptions import TracecatSettingsError, TracecatValidationError
+from autosecops.vcs.github.app import GitHubAppError
+from autosecops.vcs.gitlab.app import GitLabError
 
 
 def _sample_dsl_content() -> dict[str, object]:
@@ -68,9 +68,11 @@ async def test_publish_workflow_errors_return_400(
 
     with (
         patch(
-            "tracecat.workflow.store.router.WorkflowDefinitionsService"
+            "autosecops.workflow.store.router.WorkflowDefinitionsService"
         ) as mock_defn_cls,
-        patch("tracecat.workflow.store.router.WorkflowStoreService") as mock_store_cls,
+        patch(
+            "autosecops.workflow.store.router.WorkflowStoreService"
+        ) as mock_store_cls,
     ):
         mock_defn_svc = AsyncMock()
         mock_defn_svc.get_definition_by_workflow_id.return_value = definition
@@ -99,7 +101,7 @@ async def test_publish_workflow_definition_not_found_returns_404(
     workflow_id = str(uuid.uuid4())
 
     with patch(
-        "tracecat.workflow.store.router.WorkflowDefinitionsService"
+        "autosecops.workflow.store.router.WorkflowDefinitionsService"
     ) as mock_defn_cls:
         mock_defn_svc = AsyncMock()
         mock_defn_svc.get_definition_by_workflow_id.return_value = None
@@ -159,7 +161,9 @@ async def test_list_workflow_branches_errors_return_400(
     detail_fragment: str,
 ) -> None:
     """GET /workflows/sync/branches maps settings and provider errors to 400."""
-    with patch("tracecat.workflow.store.router.WorkspaceSyncService") as mock_sync_cls:
+    with patch(
+        "autosecops.workflow.store.router.WorkspaceSyncService"
+    ) as mock_sync_cls:
         mock_sync_svc = AsyncMock()
         mock_sync_svc.list_branches.side_effect = error
         mock_sync_cls.for_workspace = AsyncMock(return_value=mock_sync_svc)
@@ -190,7 +194,9 @@ async def test_workspace_sync_export_routes_map_service_construction_errors_to_4
     path: str,
     payload: dict[str, object],
 ) -> None:
-    with patch("tracecat.workflow.store.router.WorkspaceSyncService") as mock_sync_cls:
+    with patch(
+        "autosecops.workflow.store.router.WorkspaceSyncService"
+    ) as mock_sync_cls:
         mock_sync_cls.for_workspace = AsyncMock(
             side_effect=TracecatSettingsError(
                 "Unsupported Git provider configured for this workspace: unknown"

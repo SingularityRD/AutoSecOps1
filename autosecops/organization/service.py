@@ -1,0 +1,958 @@
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncGenerator, Sequence
+from contextlib import asynccontextmanager
+from typing import Any
+from typing import cast as type_cast
+
+from sqlalchemy import (
+    String,
+    and_,
+    case,
+    cast,
+    delete,
+    func,
+    literal,
+    select,
+    union,
+    union_all,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID, aggregate_order_by
+from sqlalchemy.orm import contains_eager
+
+from autosecops.audit.logger import audit_log
+from autosecops.auth.schemas import SessionRead, UserUpdate
+from autosecops.auth.users import (
+    UserManager,
+    get_user_db_context,
+    get_user_manager_context,
+)
+from autosecops.authz.controls import has_scope, require_scope
+from autosecops.authz.enums import ScimConnectionStatus
+from autosecops.authz.membership import (
+    drop_workspace_membership_mirror,
+    lock_role_changes,
+)
+from autosecops.authz.scopes import ORG_MEMBER_ROLE_SLUG
+from autosecops.db.models import (
+    AccessToken,
+    ExternalGroup,
+    ExternalGroupMapping,
+    ExternalGroupMember,
+    ExternalUser,
+    Group,
+    GroupMember,
+    GroupRoleAssignment,
+    Invitation,
+    InvitationGroup,
+    Membership,
+    Organization,
+    OrganizationMembership,
+    RoleScope,
+    ScimConnection,
+    Scope,
+    User,
+    UserRoleAssignment,
+    Workspace,
+    effective_group_members,
+)
+from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import (
+    TracecatAuthorizationError,
+    TracecatConflictError,
+    TracecatNotFoundError,
+)
+from autosecops.identifiers import SessionID, UserID
+from autosecops.organization.management import (
+    delete_organization_with_cleanup,
+    validate_organization_delete_confirmation,
+)
+from autosecops.organization.schemas import (
+    MemberAccessTrace,
+    MemberRoleRead,
+    OrgMemberAccess,
+    OrgMemberGroupRead,
+    OrgMemberRoleRead,
+    OrgMemberWorkspaceRead,
+)
+from autosecops.service import BaseOrgService
+from autosecops.tiers.enums import Entitlement
+
+
+class OrgService(BaseOrgService):
+    """Manage the organization."""
+
+    service_name = "org"
+
+    @asynccontextmanager
+    async def _manager(self) -> AsyncGenerator[UserManager, None]:
+        async with get_user_db_context(self.session) as user_db:
+            async with get_user_manager_context(user_db) as user_manager:
+                yield user_manager
+
+    # === Manage members ===
+    @require_scope("org:member:read")
+    async def list_members(self) -> Sequence[User]:
+        """
+        Retrieve a list of all members in the organization.
+
+        This method queries the database to obtain all user records
+        associated with the organization via OrganizationMembership.
+
+        Returns:
+            Sequence[User]: A sequence of User objects.
+        """
+        statement = select(User).join(
+            OrganizationMembership,
+            and_(
+                OrganizationMembership.user_id == User.id,
+                OrganizationMembership.organization_id == self.organization_id,
+            ),
+        )
+        result = await self.session.execute(statement)
+        return result.scalars().all()
+
+    async def get_member(self, user_id: UserID) -> User:
+        """Retrieve a member of the organization by their user ID.
+
+        Args:
+            user_id (UserID): The unique identifier of the user.
+
+        Returns:
+            User: The user object.
+
+        Raises:
+            NoResultFound: If no user with the given ID exists in this organization.
+        """
+        statement = (
+            select(User)
+            .join(
+                OrganizationMembership,
+                and_(
+                    OrganizationMembership.user_id == User.id,
+                    OrganizationMembership.organization_id == self.organization_id,
+                ),
+            )
+            .where(cast(User.id, UUID) == user_id)
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one()
+
+    @require_scope("org:member:remove")
+    @audit_log(resource_type="organization_member", action="delete")
+    async def delete_member(
+        self,
+        user_id: UserID,
+        *,
+        allow_idp_managed: bool = False,
+        member: User | None = None,
+        commit: bool = True,
+    ) -> None:
+        """
+        Remove a member of the organization.
+
+        This method removes a specified member from the current organization
+        without deleting the global user record, so memberships in other
+        organizations are preserved. It revokes global app sessions; deleting
+        the membership row cascades the user's role paths and fires the trigger
+        that revokes their organization-scoped MCP tokens. It raises an
+        authorization error for superusers, as superusers cannot be removed.
+
+        The identity provider is the source of truth for the users it manages,
+        so an actively linked member cannot be removed here: the next sync would
+        re-provision them and the removal would silently revert. The linkage is
+        per-tenant, so another organization's admin is unaffected.
+
+        Args:
+            user_id (UserID): The unique identifier of the user to be removed.
+            allow_idp_managed (bool): Bypass the guard. Reserved for the SCIM
+                deprovisioning path, which removes the member precisely because
+                the provider has already deprovisioned them.
+            member (User | None): An already-resolved member, for a caller whose
+                own preceding writes remove the last row this lookup joins on.
+            commit (bool): Commit on success. The SCIM path passes ``False`` so
+                deactivation and removal land in one transaction.
+
+        Raises:
+            TracecatAuthorizationError: If the user is a superuser and cannot be deleted.
+            TracecatConflictError: If the user is managed by the identity
+                provider and ``allow_idp_managed`` is not set.
+        """
+        await lock_role_changes(self.session, self.organization_id)
+        user = member if member is not None else await self.get_member(user_id)
+        # Checked before the provider guard: a superuser is never removable
+        # here, whichever directory happens to manage them.
+        if user.is_superuser:
+            raise TracecatAuthorizationError("Cannot delete superuser")
+
+        idp_managed = await self.session.scalar(
+            select(
+                select(ExternalUser.id)
+                .join(
+                    ScimConnection,
+                    ScimConnection.organization_id == ExternalUser.organization_id,
+                )
+                .where(
+                    ScimConnection.status == ScimConnectionStatus.ACTIVE,
+                    ExternalUser.user_id == user_id,
+                    ExternalUser.organization_id == self.organization_id,
+                    ExternalUser.active,
+                )
+                .exists()
+            )
+        )
+        if idp_managed and not allow_idp_managed:
+            raise TracecatConflictError(
+                "Member is managed by the identity provider; deprovision them there."
+            )
+
+        await self.session.execute(
+            delete(AccessToken).where(type_cast(Any, AccessToken.user_id) == user.id)
+        )
+        workspace_ids = select(Workspace.id).where(
+            Workspace.organization_id == self.organization_id
+        )
+        await drop_workspace_membership_mirror(
+            self.session, user_id=user.id, workspace_ids=workspace_ids
+        )
+        # Rows written by older app versions carry no organization_id, so the
+        # composite-FK cascade below cannot reach them.
+        group_ids = select(Group.id).where(
+            Group.organization_id == self.organization_id
+        )
+        await self.session.execute(
+            delete(GroupMember).where(
+                GroupMember.user_id == user.id,
+                GroupMember.group_id.in_(group_ids),
+            )
+        )
+        # Deleting the aggregate root cascades assignments and group members.
+        await self.session.execute(
+            delete(OrganizationMembership).where(
+                OrganizationMembership.user_id == user.id,
+                OrganizationMembership.organization_id == self.organization_id,
+            )
+        )
+        if commit:
+            await self.session.commit()
+
+    @require_scope("org:member:read")
+    async def list_member_access(self) -> dict[UserID, OrgMemberAccess]:
+        """List each member's display role and caller-visible RBAC access."""
+        direct_roles = select(
+            UserRoleAssignment.user_id.label("user_id"),
+            UserRoleAssignment.role_id.label("role_id"),
+            UserRoleAssignment.workspace_id.label("workspace_id"),
+        ).where(UserRoleAssignment.organization_id == self.organization_id)
+        group_roles = (
+            select(
+                effective_group_members.c.user_id.label("user_id"),
+                GroupRoleAssignment.role_id.label("role_id"),
+                GroupRoleAssignment.workspace_id.label("workspace_id"),
+            )
+            .join_from(
+                GroupRoleAssignment,
+                effective_group_members,
+                effective_group_members.c.group_id == GroupRoleAssignment.group_id,
+            )
+            .where(GroupRoleAssignment.organization_id == self.organization_id)
+        )
+        role_assignments = union(direct_roles, group_roles).subquery()
+
+        ranked_org_roles = (
+            select(
+                role_assignments.c.user_id,
+                DBRole.name.label("role_name"),
+                DBRole.slug.label("role_slug"),
+                func.row_number()
+                .over(
+                    partition_by=role_assignments.c.user_id,
+                    order_by=(
+                        case(
+                            (DBRole.slug == "organization-owner", 0),
+                            (DBRole.slug == "organization-admin", 1),
+                            else_=2,
+                        ),
+                        DBRole.name,
+                        DBRole.id,
+                    ),
+                )
+                .label("rank"),
+            )
+            .join(DBRole, DBRole.id == role_assignments.c.role_id)
+            .where(
+                role_assignments.c.workspace_id.is_(None),
+                DBRole.organization_id == self.organization_id,
+                DBRole.slug.is_distinct_from(ORG_MEMBER_ROLE_SLUG),
+            )
+            .subquery("ranked_org_roles")
+        )
+        display_roles = (
+            select(
+                ranked_org_roles.c.user_id,
+                ranked_org_roles.c.role_name,
+                ranked_org_roles.c.role_slug,
+            )
+            .where(ranked_org_roles.c.rank == 1)
+            .subquery("display_roles")
+        )
+
+        members = (
+            select(OrganizationMembership.user_id.label("user_id"))
+            .where(OrganizationMembership.organization_id == self.organization_id)
+            .subquery("organization_members")
+        )
+        can_read_rbac = has_scope(self.role.scopes or frozenset(), "org:rbac:read")
+        stmt = (
+            select(
+                members.c.user_id,
+                func.coalesce(display_roles.c.role_name, "Member").label("role_name"),
+                display_roles.c.role_slug,
+            )
+            .outerjoin(display_roles, display_roles.c.user_id == members.c.user_id)
+            .order_by(members.c.user_id)
+        )
+        if not can_read_rbac:
+            empty = literal([], type_=JSONB)
+            stmt = stmt.add_columns(
+                empty.label("roles"),
+                empty.label("workspaces"),
+                empty.label("groups"),
+            )
+        else:
+            roles = (
+                select(
+                    role_assignments.c.user_id,
+                    literal("role").label("kind"),
+                    DBRole.id.label("id"),
+                    DBRole.name.label("name"),
+                )
+                .join(DBRole, DBRole.id == role_assignments.c.role_id)
+                .where(
+                    DBRole.organization_id == self.organization_id,
+                    DBRole.slug.is_distinct_from(ORG_MEMBER_ROLE_SLUG),
+                )
+                .distinct()
+            )
+            membership_workspaces = (
+                select(
+                    Membership.user_id,
+                    literal("workspace").label("kind"),
+                    Workspace.id.label("id"),
+                    Workspace.name.label("name"),
+                )
+                .join(Workspace, Workspace.id == Membership.workspace_id)
+                .where(
+                    Membership.organization_id == self.organization_id,
+                    Workspace.organization_id == self.organization_id,
+                )
+            )
+            all_workspace_users = (
+                select(role_assignments.c.user_id)
+                .join(RoleScope, RoleScope.role_id == role_assignments.c.role_id)
+                .join(Scope, Scope.id == RoleScope.scope_id)
+                .where(
+                    role_assignments.c.workspace_id.is_(None),
+                    Scope.name == "org:workspace:read",
+                )
+                .distinct()
+                .subquery("all_workspace_users")
+            )
+            org_wide_workspaces = (
+                select(
+                    all_workspace_users.c.user_id,
+                    literal("workspace").label("kind"),
+                    Workspace.id.label("id"),
+                    Workspace.name.label("name"),
+                )
+                .join(Workspace, Workspace.organization_id == self.organization_id)
+                .where(Workspace.organization_id == self.organization_id)
+            )
+            workspaces = union(membership_workspaces, org_wide_workspaces)
+            arms = [roles, workspaces]
+            if await self.has_entitlement(Entitlement.RBAC_ADDONS):
+                groups = (
+                    select(
+                        effective_group_members.c.user_id,
+                        literal("group").label("kind"),
+                        Group.id.label("id"),
+                        Group.name.label("name"),
+                    )
+                    .join(Group, Group.id == effective_group_members.c.group_id)
+                    .where(Group.organization_id == self.organization_id)
+                )
+                arms.append(groups)
+
+            access = union(*arms).subquery()
+
+            def aggregate_kind(kind: str):
+                return func.coalesce(
+                    func.jsonb_agg(
+                        aggregate_order_by(
+                            func.jsonb_build_object(
+                                "id", access.c.id, "name", access.c.name
+                            ),
+                            access.c.name,
+                            access.c.id,
+                        )
+                    ).filter(access.c.kind == kind),
+                    literal([], type_=JSONB),
+                )
+
+            aggregated_access = (
+                select(
+                    access.c.user_id,
+                    aggregate_kind("role").label("roles"),
+                    aggregate_kind("workspace").label("workspaces"),
+                    aggregate_kind("group").label("groups"),
+                )
+                .group_by(access.c.user_id)
+                .subquery("aggregated_member_access")
+            )
+            stmt = stmt.add_columns(
+                func.coalesce(
+                    aggregated_access.c.roles, literal([], type_=JSONB)
+                ).label("roles"),
+                func.coalesce(
+                    aggregated_access.c.workspaces, literal([], type_=JSONB)
+                ).label("workspaces"),
+                func.coalesce(
+                    aggregated_access.c.groups, literal([], type_=JSONB)
+                ).label("groups"),
+            ).outerjoin(
+                aggregated_access,
+                aggregated_access.c.user_id == members.c.user_id,
+            )
+
+        rows = (await self.session.execute(stmt)).mappings().all()
+        return {row["user_id"]: OrgMemberAccess.model_validate(row) for row in rows}
+
+    @require_scope("org:member:read")
+    async def list_invitation_access(
+        self, invitations: Sequence[Invitation]
+    ) -> dict[uuid.UUID, OrgMemberAccess]:
+        """Resolve display roles and caller-visible access for invitations."""
+        if not invitations:
+            return {}
+
+        can_read_rbac = has_scope(self.role.scopes or frozenset(), "org:rbac:read")
+        role_ids = {grant.role_id for inv in invitations for grant in inv.grants}
+        role_rows = (
+            (
+                await self.session.execute(
+                    select(DBRole.id, DBRole.name, DBRole.slug).where(
+                        DBRole.organization_id == self.organization_id,
+                        DBRole.id.in_(role_ids),
+                    )
+                )
+            )
+            .tuples()
+            .all()
+        )
+        roles_by_id = {
+            role_id: OrgMemberRoleRead(id=role_id, name=name)
+            for role_id, name, _slug in role_rows
+        }
+        role_slugs = {role_id: slug for role_id, _name, slug in role_rows}
+
+        groups_by_invitation: dict[uuid.UUID, list[OrgMemberGroupRead]] = {}
+        group_roles_by_invitation: dict[
+            uuid.UUID, list[tuple[uuid.UUID, uuid.UUID | None]]
+        ] = {}
+        include_groups = can_read_rbac and await self.has_entitlement(
+            Entitlement.RBAC_ADDONS
+        )
+        if include_groups:
+            invitation_ids = {invitation.id for invitation in invitations}
+            group_rows = (
+                (
+                    await self.session.execute(
+                        select(
+                            InvitationGroup.invitation_id,
+                            Group.id,
+                            Group.name,
+                            DBRole.id,
+                            DBRole.name,
+                            DBRole.slug,
+                            GroupRoleAssignment.workspace_id,
+                        )
+                        .join(Group, Group.id == InvitationGroup.group_id)
+                        .outerjoin(
+                            GroupRoleAssignment,
+                            and_(
+                                GroupRoleAssignment.group_id == Group.id,
+                                GroupRoleAssignment.organization_id
+                                == self.organization_id,
+                            ),
+                        )
+                        .outerjoin(
+                            DBRole,
+                            and_(
+                                DBRole.id == GroupRoleAssignment.role_id,
+                                DBRole.organization_id == self.organization_id,
+                            ),
+                        )
+                        .where(
+                            InvitationGroup.organization_id == self.organization_id,
+                            InvitationGroup.invitation_id.in_(invitation_ids),
+                            Group.organization_id == self.organization_id,
+                            # Acceptance skips IdP-managed groups.
+                            ~select(ExternalGroupMapping.id)
+                            .where(
+                                ExternalGroupMapping.group_id == Group.id,
+                                ExternalGroupMapping.organization_id
+                                == self.organization_id,
+                            )
+                            .exists(),
+                        )
+                        .order_by(Group.name, Group.id)
+                    )
+                )
+                .tuples()
+                .all()
+            )
+            seen_groups: dict[uuid.UUID, set[uuid.UUID]] = {}
+            for (
+                invitation_id,
+                group_id,
+                group_name,
+                group_role_id,
+                group_role_name,
+                group_role_slug,
+                workspace_id,
+            ) in group_rows:
+                invitation_group_ids = seen_groups.setdefault(invitation_id, set())
+                if group_id not in invitation_group_ids:
+                    groups_by_invitation.setdefault(invitation_id, []).append(
+                        OrgMemberGroupRead(id=group_id, name=group_name)
+                    )
+                    invitation_group_ids.add(group_id)
+                if group_role_id is not None and group_role_name is not None:
+                    roles_by_id[group_role_id] = OrgMemberRoleRead(
+                        id=group_role_id, name=group_role_name
+                    )
+                    role_slugs[group_role_id] = group_role_slug
+                    group_roles_by_invitation.setdefault(invitation_id, []).append(
+                        (group_role_id, workspace_id)
+                    )
+
+        workspaces_by_id: dict[uuid.UUID, OrgMemberWorkspaceRead] = {}
+        all_workspace_role_ids: set[uuid.UUID] = set()
+        if can_read_rbac:
+            org_wide_role_ids = {
+                grant.role_id
+                for invitation in invitations
+                for grant in invitation.grants
+                if grant.workspace_id is None
+                and grant.role_id in role_slugs
+                and role_slugs[grant.role_id] != ORG_MEMBER_ROLE_SLUG
+            }
+            org_wide_role_ids.update(
+                role_id
+                for group_roles in group_roles_by_invitation.values()
+                for role_id, workspace_id in group_roles
+                if workspace_id is None
+                and role_slugs.get(role_id) != ORG_MEMBER_ROLE_SLUG
+            )
+            if org_wide_role_ids:
+                role_scope_rows = (
+                    (
+                        await self.session.execute(
+                            select(RoleScope.role_id, Scope.name)
+                            .join(Scope, Scope.id == RoleScope.scope_id)
+                            .where(RoleScope.role_id.in_(org_wide_role_ids))
+                        )
+                    )
+                    .tuples()
+                    .all()
+                )
+                org_scoped_role_ids = {
+                    role_id
+                    for role_id, scope_name in role_scope_rows
+                    if scope_name.startswith("org:")
+                }
+                workspace_read_role_ids = {
+                    role_id
+                    for role_id, scope_name in role_scope_rows
+                    if scope_name == "org:workspace:read"
+                }
+                all_workspace_role_ids = (
+                    org_wide_role_ids - org_scoped_role_ids
+                ) | workspace_read_role_ids
+
+            workspace_ids = {
+                grant.workspace_id
+                for inv in invitations
+                for grant in inv.grants
+                if grant.workspace_id is not None
+            }
+            workspace_ids.update(
+                workspace_id
+                for group_roles in group_roles_by_invitation.values()
+                for _role_id, workspace_id in group_roles
+                if workspace_id is not None
+            )
+            if workspace_ids or all_workspace_role_ids:
+                workspace_stmt = select(Workspace.id, Workspace.name).where(
+                    Workspace.organization_id == self.organization_id
+                )
+                if not all_workspace_role_ids:
+                    workspace_stmt = workspace_stmt.where(
+                        Workspace.id.in_(workspace_ids)
+                    )
+                workspace_rows = (
+                    (await self.session.execute(workspace_stmt)).tuples().all()
+                )
+                workspaces_by_id = {
+                    workspace_id: OrgMemberWorkspaceRead(
+                        id=workspace_id, name=workspace_name
+                    )
+                    for workspace_id, workspace_name in workspace_rows
+                }
+
+        access_by_invitation: dict[uuid.UUID, OrgMemberAccess] = {}
+        for invitation in invitations:
+            org_grant = next(
+                (grant for grant in invitation.grants if grant.workspace_id is None),
+                None,
+            )
+            group_roles = group_roles_by_invitation.get(invitation.id, [])
+            roles = []
+            workspaces = []
+            if can_read_rbac:
+                invitation_role_ids = {
+                    grant.role_id
+                    for grant in invitation.grants
+                    if role_slugs.get(grant.role_id) != ORG_MEMBER_ROLE_SLUG
+                }
+                invitation_role_ids.update(
+                    role_id
+                    for role_id, _workspace_id in group_roles
+                    if role_slugs.get(role_id) != ORG_MEMBER_ROLE_SLUG
+                )
+                roles = sorted(
+                    (
+                        roles_by_id[role_id]
+                        for role_id in invitation_role_ids
+                        if role_id in roles_by_id
+                    ),
+                    key=lambda item: (item.name, item.id),
+                )
+                invitation_workspace_ids = {
+                    grant.workspace_id
+                    for grant in invitation.grants
+                    if grant.workspace_id is not None
+                }
+                invitation_workspace_ids.update(
+                    workspace_id
+                    for _role_id, workspace_id in group_roles
+                    if workspace_id is not None
+                )
+                if any(
+                    grant.workspace_id is None
+                    and grant.role_id in all_workspace_role_ids
+                    for grant in invitation.grants
+                ) or any(
+                    workspace_id is None and role_id in all_workspace_role_ids
+                    for role_id, workspace_id in group_roles
+                ):
+                    invitation_workspace_ids.update(workspaces_by_id)
+                workspaces = sorted(
+                    (
+                        workspaces_by_id[workspace_id]
+                        for workspace_id in invitation_workspace_ids
+                        if workspace_id in workspaces_by_id
+                    ),
+                    key=lambda item: (item.name, item.id),
+                )
+                display_role_ids = {
+                    grant.role_id
+                    for grant in invitation.grants
+                    if grant.workspace_id is None
+                }
+                display_role_ids.update(
+                    role_id
+                    for role_id, workspace_id in group_roles
+                    if workspace_id is None
+                )
+                role_slug = self._select_invitation_role_slug(
+                    display_role_ids, roles_by_id, role_slugs
+                )
+            else:
+                role_slug = role_slugs.get(org_grant.role_id) if org_grant else None
+            access_by_invitation[invitation.id] = OrgMemberAccess(
+                role_name="Invited",
+                role_slug=role_slug,
+                roles=roles,
+                workspaces=workspaces,
+                groups=groups_by_invitation.get(invitation.id, []),
+            )
+        return access_by_invitation
+
+    @staticmethod
+    def _select_invitation_role_slug(
+        role_ids: set[uuid.UUID],
+        roles_by_id: dict[uuid.UUID, OrgMemberRoleRead],
+        role_slugs: dict[uuid.UUID, str | None],
+    ) -> str | None:
+        """Select an invitation's highest-precedence effective org role."""
+        candidates = [
+            role_id
+            for role_id in role_ids
+            if role_id in roles_by_id
+            and role_slugs.get(role_id) != ORG_MEMBER_ROLE_SLUG
+        ]
+        if not candidates:
+            return None
+
+        def sort_key(role_id: uuid.UUID) -> tuple[int, str, uuid.UUID]:
+            slug = role_slugs.get(role_id)
+            precedence = 2
+            if slug == "organization-owner":
+                precedence = 0
+            elif slug == "organization-admin":
+                precedence = 1
+            return precedence, roles_by_id[role_id].name, role_id
+
+        return role_slugs.get(min(candidates, key=sort_key))
+
+    # Group and IdP group names are RBAC detail, not member-list detail.
+    @require_scope("org:member:read", "org:rbac:read")
+    async def trace_member_access(self, user_id: UserID) -> MemberAccessTrace:
+        """Trace a member's roles to their direct and group sources.
+
+        Group sources by role and workspace so a role appears once even when
+        held through multiple groups or a direct assignment.
+
+        Args:
+            user_id: The member whose access is being traced.
+
+        Returns:
+            The member's roles and the direct, group, or IdP group sources of each.
+
+        Raises:
+            NoResultFound: The user is not a member of this organization.
+        """
+        await self.get_member(user_id)
+        direct = (
+            select(
+                UserRoleAssignment.workspace_id,
+                DBRole.id.label("role_id"),
+                DBRole.name.label("role_name"),
+                literal(None, type_=UUID).label("group_id"),
+                literal(None, type_=String).label("group_name"),
+                literal(None, type_=UUID).label("external_group_id"),
+                literal(None, type_=String).label("external_group_display_name"),
+            )
+            .join(DBRole, DBRole.id == UserRoleAssignment.role_id)
+            .where(
+                UserRoleAssignment.user_id == user_id,
+                UserRoleAssignment.organization_id == self.organization_id,
+            )
+        )
+        via_group = (
+            select(
+                GroupRoleAssignment.workspace_id,
+                DBRole.id,
+                DBRole.name,
+                Group.id.label("group_id"),
+                Group.name.label("group_name"),
+                literal(None, type_=UUID).label("external_group_id"),
+                literal(None, type_=String).label("external_group_display_name"),
+            )
+            .join(DBRole, DBRole.id == GroupRoleAssignment.role_id)
+            .join(Group, Group.id == GroupRoleAssignment.group_id)
+            .join(GroupMember, GroupMember.group_id == GroupRoleAssignment.group_id)
+            .where(
+                GroupMember.user_id == user_id,
+                GroupRoleAssignment.organization_id == self.organization_id,
+            )
+        )
+        via_idp = (
+            select(
+                GroupRoleAssignment.workspace_id,
+                DBRole.id,
+                DBRole.name,
+                Group.id.label("group_id"),
+                Group.name.label("group_name"),
+                ExternalGroup.id.label("external_group_id"),
+                ExternalGroup.display_name.label("external_group_display_name"),
+            )
+            .join(DBRole, DBRole.id == GroupRoleAssignment.role_id)
+            .join(Group, Group.id == GroupRoleAssignment.group_id)
+            .join(
+                ExternalGroupMapping,
+                ExternalGroupMapping.group_id == GroupRoleAssignment.group_id,
+            )
+            .join(
+                ExternalGroup,
+                ExternalGroup.id == ExternalGroupMapping.external_group_id,
+            )
+            .join(
+                ExternalGroupMember,
+                ExternalGroupMember.external_group_id == ExternalGroup.id,
+            )
+            .join(ExternalUser, ExternalUser.id == ExternalGroupMember.external_user_id)
+            .where(
+                ExternalUser.user_id == user_id,
+                ExternalUser.active,
+                GroupRoleAssignment.organization_id == self.organization_id,
+            )
+        )
+        sources = union_all(
+            direct.add_columns(literal("direct").label("type")),
+            via_group.add_columns(literal("group").label("type")),
+            via_idp.add_columns(literal("idp_group").label("type")),
+        ).subquery()
+        stmt = (
+            select(
+                sources.c.role_id,
+                sources.c.role_name,
+                sources.c.workspace_id,
+                func.jsonb_agg(
+                    aggregate_order_by(
+                        func.jsonb_build_object(
+                            "type",
+                            sources.c.type,
+                            "group_id",
+                            sources.c.group_id,
+                            "group_name",
+                            sources.c.group_name,
+                            "external_group_id",
+                            sources.c.external_group_id,
+                            "external_group_display_name",
+                            sources.c.external_group_display_name,
+                        ),
+                        sources.c.type,
+                        sources.c.group_id,
+                        sources.c.external_group_id,
+                    )
+                ).label("sources"),
+            )
+            .group_by(sources.c.role_id, sources.c.role_name, sources.c.workspace_id)
+            .order_by(
+                sources.c.workspace_id.nulls_first(),
+                sources.c.role_name,
+                sources.c.role_id,
+            )
+        )
+        rows = (await self.session.execute(stmt)).mappings().all()
+        return MemberAccessTrace(
+            user_id=user_id,
+            roles=[MemberRoleRead.model_validate(row) for row in rows],
+        )
+
+    @require_scope("org:member:update")
+    @audit_log(resource_type="organization_member", action="update")
+    async def update_member(self, user_id: UserID, params: UserUpdate) -> User:
+        """
+        Update a member of the organization.
+
+        This method updates the details of a specified member within the organization.
+        It checks if the member is a superuser and raises an authorization error if so.
+
+        Args:
+            user_id (UserID): The unique identifier of the user to be updated.
+            params (UserUpdate): The parameters containing the updated user information.
+
+        Returns:
+            User: The updated user object.
+
+        Raises:
+            TracecatAuthorizationError: If the user is a superuser and cannot be updated.
+        """
+        user = await self.get_member(user_id)
+        if user.is_superuser:
+            raise TracecatAuthorizationError("Cannot update superuser")
+        async with self._manager() as user_manager:
+            updated_user = await user_manager.update(
+                user_update=params, user=user, safe=True
+            )
+        return updated_user
+
+    @audit_log(resource_type="organization", action="delete")
+    @require_scope("org:delete")
+    async def delete_organization(self, *, confirmation: str | None) -> None:
+        """Delete the current organization and all associated resources."""
+        statement = select(Organization).where(Organization.id == self.organization_id)
+        result = await self.session.execute(statement)
+        organization = result.scalar_one_or_none()
+        if organization is None:
+            raise TracecatNotFoundError("Organization not found")
+
+        validate_organization_delete_confirmation(
+            organization, confirmation=confirmation
+        )
+        await delete_organization_with_cleanup(
+            self.session,
+            organization=organization,
+            operator_user_id=self.role.user_id,
+        )
+        await self.session.commit()
+
+    # === Manage settings ===
+    async def get_settings(self) -> dict[str, str]:
+        """Get the organization settings."""
+        raise NotImplementedError
+
+    # === Manage sessions ===
+    async def list_sessions(self) -> list[SessionRead]:
+        """List all sessions for users in this organization.
+
+        Client metadata (IP address, user agent, last seen) is only returned
+        for callers who can manage sessions (``org:member:remove``); other
+        members see it for their own sessions only.
+        """
+        can_view_metadata = has_scope(
+            self.role.scopes or frozenset(), "org:member:remove"
+        )
+        statement = (
+            select(AccessToken)
+            .join(User, cast(AccessToken.user_id, UUID) == User.id)
+            .join(
+                OrganizationMembership,
+                and_(
+                    OrganizationMembership.user_id == User.id,
+                    OrganizationMembership.organization_id == self.organization_id,
+                ),
+            )
+            .options(contains_eager(AccessToken.user))
+        )
+        result = await self.session.execute(statement)
+        sessions: list[SessionRead] = []
+        for s in result.scalars().all():
+            reveal = can_view_metadata or s.user.id == self.role.user_id
+            sessions.append(
+                SessionRead(
+                    id=s.id,
+                    created_at=s.created_at,
+                    user_id=s.user.id,
+                    user_email=s.user.email,
+                    ip_address=s.ip_address if reveal else None,
+                    user_agent=s.user_agent if reveal else None,
+                    last_seen_at=s.last_seen_at if reveal else None,
+                )
+            )
+        return sessions
+
+    @require_scope("org:member:remove")
+    @audit_log(resource_type="organization_session", action="delete")
+    async def delete_session(self, session_id: SessionID) -> None:
+        """Delete a session by its ID (must belong to a user in this organization)."""
+        statement = (
+            select(AccessToken)
+            .join(User, cast(AccessToken.user_id, UUID) == User.id)
+            .join(
+                OrganizationMembership,
+                and_(
+                    OrganizationMembership.user_id == User.id,
+                    OrganizationMembership.organization_id == self.organization_id,
+                ),
+            )
+            .where(AccessToken.id == session_id)
+        )
+        result = await self.session.execute(statement)
+        db_token = result.scalar_one()
+        await self.session.delete(db_token)
+        await self.session.commit()

@@ -7,53 +7,53 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
+from autosecops_registry import RegistryOAuthSecret, registry
 from pydantic import SecretStr, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tracecat_registry import RegistryOAuthSecret, registry
 from typing_extensions import Doc
 
-from tests.support.executor_backend import TestBackend
-from tracecat.auth.types import Role
-from tracecat.db.models import RegistryRepository, RegistryVersion
-from tracecat.dsl.common import (
+from autosecops.auth.types import Role
+from autosecops.db.models import RegistryRepository, RegistryVersion
+from autosecops.dsl.common import (
     DSLEntrypoint,
     DSLInput,
     create_default_execution_context,
 )
-from tracecat.dsl.schemas import ActionStatement, RunActionInput, RunContext
-from tracecat.exceptions import (
+from autosecops.dsl.schemas import ActionStatement, RunActionInput, RunContext
+from autosecops.exceptions import (
     ExecutionError,
     RegistryValidationError,
 )
-from tracecat.executor.service import dispatch_action
-from tracecat.expressions.expectations import ExpectedField
+from autosecops.executor.service import dispatch_action
+from autosecops.expressions.expectations import ExpectedField
 
 # Add imports for expression validation
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.integrations.schemas import ProviderKey
-from tracecat.integrations.service import IntegrationService
-from tracecat.registry.actions.bound import BoundRegistryAction
-from tracecat.registry.actions.schemas import (
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.integrations.schemas import ProviderKey
+from autosecops.integrations.service import IntegrationService
+from autosecops.registry.actions.bound import BoundRegistryAction
+from autosecops.registry.actions.schemas import (
     ActionStep,
     RegistryActionCreate,
     TemplateAction,
     TemplateActionDefinition,
 )
-from tracecat.registry.actions.service import (
+from autosecops.registry.actions.service import (
     RegistryActionsService,
     validate_action_template,
 )
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.registry.repository import Repository
-from tracecat.registry.versions.schemas import RegistryVersionManifestAction
-from tracecat.registry.versions.service import RegistryVersionsService
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.validation.schemas import (
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.registry.repository import Repository
+from autosecops.registry.versions.schemas import RegistryVersionManifestAction
+from autosecops.registry.versions.service import RegistryVersionsService
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.validation.schemas import (
     ValidationResultType,
 )
-from tracecat.validation.service import validate_dsl, validate_registry_action_args
+from autosecops.validation.service import validate_dsl, validate_registry_action_args
+from tests.support.executor_backend import TestBackend
 
 TEST_VERSION = "test-version"
 
@@ -89,7 +89,7 @@ async def create_manifest_for_actions(
     core_reshape_impl = {
         "type": "udf",
         "url": origin,
-        "module": "tracecat_registry.core.transform",
+        "module": "autosecops_registry.core.transform",
         "name": "reshape",
     }
     manifest_actions["core.transform.reshape"] = {
@@ -133,7 +133,7 @@ async def create_manifest_for_actions(
 
 async def run_action_test(input: RunActionInput, role) -> Any:
     """Test helper: execute action using production code path."""
-    from tracecat.contexts import ctx_role
+    from autosecops.contexts import ctx_role
 
     token = ctx_role.set(role)
     try:
@@ -450,7 +450,7 @@ async def test_template_action_with_optional_oauth_both_ac_and_cc(
     session, db_repo_id = db_session_with_repo
 
     # Disable secrets masking for this test
-    monkeysession.setattr("tracecat.config.TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr("autosecops.config.TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
 
     # Test OAuth token values
     ac_token_value = "__TEST_AC_TOKEN__"
@@ -854,7 +854,7 @@ async def test_scatter_args_validation_matches_runtime_parse(
         )
     )
 
-    with patch("tracecat.validation.service.RegistryActionsService", new=registry):
+    with patch("autosecops.validation.service.RegistryActionsService", new=registry):
         result = await validate_registry_action_args(
             session=AsyncMock(),
             role=Role(type="service", service_id="tracecat-runner"),

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from tracecat.cases.enums import CaseEventType
+from autosecops.cases.enums import CaseEventType
 
 _DESCRIPTION_PLACEHOLDERS = {
     "{_CASE_EVENT_TYPE_VALUES_CSV}": ", ".join(
@@ -141,7 +141,7 @@ def _decorator_description(
 
 def main() -> None:
     root_dir = Path(__file__).resolve().parent.parent
-    server_file = root_dir / "tracecat" / "mcp" / "server.py"
+    server_file = root_dir / "autosecops" / "mcp" / "server.py"
     output_file = root_dir / "docs" / "snippets" / "mcp-tools.mdx"
 
     source = server_file.read_text(encoding="utf-8")

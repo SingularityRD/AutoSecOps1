@@ -7,22 +7,22 @@ import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat import config
-from tracecat.agent.preset.schemas import AgentPresetToolPolicyPreview
-from tracecat.agent.preset.service import AgentPresetService
-from tracecat.agent.preset.tool_policy import resolve_tool_policy
-from tracecat.agent.preset.types import PresetToolInputs
-from tracecat.auth.types import Role
-from tracecat.db.models import (
+from autosecops import config
+from autosecops.agent.preset.schemas import AgentPresetToolPolicyPreview
+from autosecops.agent.preset.service import AgentPresetService
+from autosecops.agent.preset.tool_policy import resolve_tool_policy
+from autosecops.agent.preset.types import PresetToolInputs
+from autosecops.auth.types import Role
+from autosecops.db.models import (
     AgentPresetVersion,
     MCPIntegration,
     SkillVersion,
     SkillVersionMcpTool,
     SkillVersionTool,
 )
-from tracecat.exceptions import TracecatValidationError
-from tracecat.integrations.service import IntegrationService
-from tracecat.registry.actions.service import RegistryActionsService
+from autosecops.exceptions import TracecatValidationError
+from autosecops.integrations.service import IntegrationService
+from autosecops.registry.actions.service import RegistryActionsService
 
 
 def test_namespace_policy_preserves_blocked_tool_provenance() -> None:

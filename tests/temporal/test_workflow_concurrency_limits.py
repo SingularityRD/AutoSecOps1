@@ -23,35 +23,35 @@ from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from tests.shared import TEST_WF_ID, generate_test_exec_id
-from tracecat import config
-from tracecat.auth.types import Role
-from tracecat.db.engine import get_async_session_context_manager
-from tracecat.db.models import Organization, OrganizationTier, Tier
-from tracecat.dsl._converter import get_data_converter
-from tracecat.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
-from tracecat.dsl.schemas import (
+from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.models import Organization, OrganizationTier, Tier
+from autosecops.dsl._converter import get_data_converter
+from autosecops.dsl.common import DSLEntrypoint, DSLInput, DSLRunArgs
+from autosecops.dsl.schemas import (
     ActionRetryPolicy,
     ActionStatement,
     GatherArgs,
     RunActionInput,
     ScatterArgs,
 )
-from tracecat.dsl.worker import get_activities
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.executor.activities import ExecutorActivities
-from tracecat.feature_flags.enums import FeatureFlag
-from tracecat.redis import client as redis_client_module
-from tracecat.redis.client import get_redis_client
-from tracecat.runtime.errors import (
+from autosecops.dsl.worker import get_activities
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.executor.activities import ExecutorActivities
+from autosecops.feature_flags.enums import FeatureFlag
+from autosecops.redis import client as redis_client_module
+from autosecops.redis.client import get_redis_client
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.storage.object import InlineObject, StoredObject
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.tiers.limits_cache import invalidate_effective_limits_cache
-from tracecat.workflow.executions.enums import TemporalSearchAttr
+from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.tiers.limits_cache import invalidate_effective_limits_cache
+from autosecops.workflow.executions.enums import TemporalSearchAttr
+from tests.shared import TEST_WF_ID, generate_test_exec_id
 
 pytestmark = [
     pytest.mark.temporal,

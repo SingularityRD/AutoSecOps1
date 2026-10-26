@@ -6,38 +6,38 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
-from pydantic import SecretStr
-from tracecat_registry import (
+from autosecops_registry import (
     RegistryOAuthSecret,
     RegistrySecret,
     RegistrySecretType,
 )
+from pydantic import SecretStr
 
-from tracecat.auth.types import Role
-from tracecat.dsl.common import create_default_execution_context
-from tracecat.dsl.schemas import (
+from autosecops.auth.types import Role
+from autosecops.dsl.common import create_default_execution_context
+from autosecops.dsl.schemas import (
     ActionRetryPolicy,
     ActionStatement,
     RunActionInput,
     RunContext,
 )
-from tracecat.exceptions import ExecutionError, TracecatCredentialsError
-from tracecat.executor import service as executor_service
-from tracecat.executor.schemas import (
+from autosecops.exceptions import ExecutionError, TracecatCredentialsError
+from autosecops.executor import service as executor_service
+from autosecops.executor.schemas import (
     ActionImplementation,
     ExecutorActionErrorInfo,
     ExecutorResultSuccess,
     ResolvedContext,
 )
-from tracecat.executor.secret_preprocessors import SecretEnvProjection
-from tracecat.executor.service import prepare_resolved_context
-from tracecat.expressions.policy import build_provenance
-from tracecat.identifiers import InternalServiceID
-from tracecat.identifiers.workflow import WorkflowUUID, generate_exec_id
-from tracecat.integrations.enums import OAuthGrantType
-from tracecat.registry.lock.types import RegistryLock
-from tracecat.secrets import secrets_manager
-from tracecat.secrets.constants import MASK_VALUE
+from autosecops.executor.secret_preprocessors import SecretEnvProjection
+from autosecops.executor.service import prepare_resolved_context
+from autosecops.expressions.policy import build_provenance
+from autosecops.identifiers import InternalServiceID
+from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
+from autosecops.integrations.enums import OAuthGrantType
+from autosecops.registry.lock.types import RegistryLock
+from autosecops.secrets import secrets_manager
+from autosecops.secrets.constants import MASK_VALUE
 
 
 def test_flatten_secrets_supports_runtime_scalar_entries() -> None:
@@ -77,11 +77,11 @@ async def test_get_action_secrets_passes_sets_to_auth_sandbox(mocker):
 
     # Mock templated secrets from args
     mocker.patch(
-        "tracecat.expressions.eval.extract_templated_secrets",
+        "autosecops.expressions.eval.extract_templated_secrets",
         return_value=["args_secret1", "args_secret2"],
     )
     mocker.patch(
-        "tracecat.secrets.secrets_manager.get_runtime_env", return_value="test_env"
+        "autosecops.secrets.secrets_manager.get_runtime_env", return_value="test_env"
     )
 
     # Mock AuthSandbox to capture call arguments
@@ -90,7 +90,7 @@ async def test_get_action_secrets_passes_sets_to_auth_sandbox(mocker):
     mock_sandbox.__aenter__.return_value = mock_sandbox
     mock_sandbox.__aexit__.return_value = None
 
-    auth_sandbox_mock = mocker.patch("tracecat.secrets.secrets_manager.AuthSandbox")
+    auth_sandbox_mock = mocker.patch("autosecops.secrets.secrets_manager.AuthSandbox")
     auth_sandbox_mock.return_value = mock_sandbox
 
     # Run the function
@@ -132,7 +132,7 @@ async def test_get_action_secrets_injects_runtime_aws_external_id(
         RegistrySecret(name=secret_name, keys=["AWS_ROLE_ARN"], optional=False),
     }
     mocker.patch(
-        "tracecat.secrets.secrets_manager.get_runtime_env", return_value="test_env"
+        "autosecops.secrets.secrets_manager.get_runtime_env", return_value="test_env"
     )
 
     sandbox = mocker.AsyncMock()
@@ -143,9 +143,9 @@ async def test_get_action_secrets_injects_runtime_aws_external_id(
     }
     sandbox.__aenter__.return_value = sandbox
     sandbox.__aexit__.return_value = None
-    mocker.patch("tracecat.secrets.secrets_manager.AuthSandbox", return_value=sandbox)
+    mocker.patch("autosecops.secrets.secrets_manager.AuthSandbox", return_value=sandbox)
     mocker.patch(
-        "tracecat.secrets.secrets_manager.build_workspace_external_id",
+        "autosecops.secrets.secrets_manager.build_workspace_external_id",
         return_value="tracecat-ws-deadbeef",
     )
 
@@ -184,16 +184,18 @@ _OAUTH_TOKENS = {
 
 
 def _patch_oauth_secret_env(mocker, grant_types: list[OAuthGrantType]) -> None:
-    mocker.patch("tracecat.expressions.eval.extract_templated_secrets", return_value=[])
     mocker.patch(
-        "tracecat.secrets.secrets_manager.get_runtime_env", return_value="test_env"
+        "autosecops.expressions.eval.extract_templated_secrets", return_value=[]
+    )
+    mocker.patch(
+        "autosecops.secrets.secrets_manager.get_runtime_env", return_value="test_env"
     )
 
     sandbox = mocker.AsyncMock()
     sandbox.secrets = {}
     sandbox.__aenter__.return_value = sandbox
     sandbox.__aexit__.return_value = None
-    mocker.patch("tracecat.secrets.secrets_manager.AuthSandbox", return_value=sandbox)
+    mocker.patch("autosecops.secrets.secrets_manager.AuthSandbox", return_value=sandbox)
 
     integrations = []
     for grant_type in grant_types:
@@ -214,7 +216,7 @@ def _patch_oauth_secret_env(mocker, grant_types: list[OAuthGrantType]) -> None:
         yield service
 
     mocker.patch(
-        "tracecat.secrets.secrets_manager.IntegrationService.with_session",
+        "autosecops.secrets.secrets_manager.IntegrationService.with_session",
         return_value=service_cm(),
     )
 
@@ -346,8 +348,8 @@ def _expression_policy_input(
             logical_time=datetime.now(UTC),
         ),
         registry_lock=RegistryLock(
-            origins={"tracecat_registry": "v1"},
-            actions={action_name: "tracecat_registry"},
+            origins={"autosecops_registry": "v1"},
+            actions={action_name: "autosecops_registry"},
         ),
     )
 
@@ -368,7 +370,7 @@ def _patch_expression_policy_resolution(
             return_value=ActionImplementation(
                 type="udf",
                 action_name=action_name,
-                module="tracecat_registry.integrations.core.transform",
+                module="autosecops_registry.integrations.core.transform",
                 name="reshape",
             )
         ),
@@ -1134,7 +1136,7 @@ async def test_invoke_once_returns_none_result_as_success(mocker):
 @pytest.mark.anyio
 async def test_invoke_once_keeps_unknown_carrier_error_without_chain(mocker):
     """Unknown carrier lineage retains diagnostics; exception chains stay severed."""
-    from tracecat.exceptions import ExecutionError
+    from autosecops.exceptions import ExecutionError
 
     canary = "SUPERSECRET-chain-canary"
     role = _expression_policy_role("tracecat-executor")
@@ -1405,7 +1407,7 @@ async def test_invoke_once_masks_template_expression_errors(
 @pytest.mark.anyio
 async def test_template_expects_validation_leaves_no_plaintext_in_chain(mocker):
     """The sanitized message is only clean if nothing plaintext is chained."""
-    from tracecat.exceptions import RegistryValidationError
+    from autosecops.exceptions import RegistryValidationError
 
     canary = "SUPERSECRET-expects-canary"
     action_input = _expression_policy_input("testing.typed", {"count": canary})

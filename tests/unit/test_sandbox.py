@@ -9,21 +9,21 @@ import pytest
 import pytest_mock
 from pydantic import SecretStr
 
-from tracecat.auth.credentials import TemporaryRole
-from tracecat.auth.sandbox import AuthSandbox
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.contexts import ctx_role, get_env
-from tracecat.db.models import Secret
-from tracecat.exceptions import TracecatCredentialsError
-from tracecat.secrets import secrets_manager
-from tracecat.secrets.encryption import encrypt_keyvalues
-from tracecat.secrets.schemas import (
+from autosecops.auth.credentials import TemporaryRole
+from autosecops.auth.sandbox import AuthSandbox
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.contexts import ctx_role, get_env
+from autosecops.db.models import Secret
+from autosecops.exceptions import TracecatCredentialsError
+from autosecops.secrets import secrets_manager
+from autosecops.secrets.encryption import encrypt_keyvalues
+from autosecops.secrets.schemas import (
     SecretCreate,
     SecretKeyValue,
     SecretSearch,
 )
-from tracecat.secrets.service import SecretsService
+from autosecops.secrets.service import SecretsService
 
 
 @pytest.mark.anyio
@@ -190,7 +190,7 @@ def secrets_service_returning(
         service = mocker.AsyncMock(spec=SecretsService)
         service.search_secrets.return_value = list(secrets)
         mocker.patch(
-            "tracecat.auth.sandbox.SecretsService.with_session",
+            "autosecops.auth.sandbox.SecretsService.with_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=service)
             ),

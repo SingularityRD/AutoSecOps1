@@ -6,16 +6,16 @@ import shutil
 
 import pytest
 
-from tracecat import config
-from tracecat.config import TRACECAT__SANDBOX_PYPI_INDEX_URL
-from tracecat.sandbox import (
+from autosecops import config
+from autosecops.config import TRACECAT__SANDBOX_PYPI_INDEX_URL
+from autosecops.sandbox import (
     SandboxExecutionError,
     SandboxService,
     SandboxTimeoutError,
     validate_run_python_script,
 )
-from tracecat.sandbox.executor import NsjailExecutor
-from tracecat.sandbox.types import SandboxConfig
+from autosecops.sandbox.executor import NsjailExecutor
+from autosecops.sandbox.types import SandboxConfig
 
 # Check if nsjail is available (required for the sandbox)
 NSJAIL_AVAILABLE = shutil.which("nsjail") is not None

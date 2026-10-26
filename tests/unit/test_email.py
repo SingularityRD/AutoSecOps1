@@ -11,16 +11,16 @@ import aiosmtplib
 import pytest
 from aiosmtplib.response import SMTPResponse
 
-from tracecat import config
-from tracecat.email import transport as transport_module
-from tracecat.email.transport import (
+from autosecops import config
+from autosecops.email import transport as transport_module
+from autosecops.email.transport import (
     OPERATION_TIMEOUT_SECONDS,
     SEND_DEADLINE_SECONDS,
     EmailDeliveryError,
     OutboundEmail,
     SMTPTransport,
 )
-from tracecat.invitations.service import RESEND_COOLDOWN
+from autosecops.invitations.service import RESEND_COOLDOWN
 
 
 @pytest.fixture

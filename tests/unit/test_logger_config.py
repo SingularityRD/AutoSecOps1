@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from tracecat.logger.config import LogFormat, log_format_from_env
+from autosecops.logger.config import LogFormat, log_format_from_env
 
 
 @pytest.mark.parametrize(
@@ -65,7 +65,7 @@ def _emit_log(
             sys.executable,
             "-c",
             (
-                "from tracecat.logger import logger; "
+                "from autosecops.logger import logger; "
                 f"logger = logger.bind({bindings}); {statement}"
             ),
         ],

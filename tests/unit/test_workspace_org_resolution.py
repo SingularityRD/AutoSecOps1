@@ -8,18 +8,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from temporalio.exceptions import ApplicationError
 
-from tracecat.auth.types import Role
-from tracecat.contexts import ctx_role
-from tracecat.dsl.common import DSLRunArgs
-from tracecat.dsl.workflow import DSLWorkflow
-from tracecat.identifiers.workflow import WorkflowUUID
-from tracecat.runtime.errors import (
+from autosecops.auth.types import Role
+from autosecops.contexts import ctx_role
+from autosecops.dsl.common import DSLRunArgs
+from autosecops.dsl.workflow import DSLWorkflow
+from autosecops.identifiers.workflow import WorkflowUUID
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classification
-from tracecat.workspaces.activities import get_workspace_organization_id_activity
+from autosecops.temporal.errors import extract_error_classification
+from autosecops.workspaces.activities import get_workspace_organization_id_activity
 
 
 def test_dsl_workflow_sets_role_during_workflow_initialization():
@@ -54,7 +54,7 @@ async def test_get_workspace_organization_id_activity_returns_match(monkeypatch)
         yield mock_session
 
     monkeypatch.setattr(
-        "tracecat.workspaces.activities.get_async_session_bypass_rls_context_manager",
+        "autosecops.workspaces.activities.get_async_session_bypass_rls_context_manager",
         fake_session_manager,
     )
 
@@ -79,7 +79,7 @@ async def test_get_workspace_organization_id_activity_raises_when_missing(
         yield mock_session
 
     monkeypatch.setattr(
-        "tracecat.workspaces.activities.get_async_session_bypass_rls_context_manager",
+        "autosecops.workspaces.activities.get_async_session_bypass_rls_context_manager",
         fake_session_manager,
     )
 
@@ -107,7 +107,7 @@ async def test_get_workspace_organization_id_activity_classifies_query_failure(
         yield mock_session
 
     monkeypatch.setattr(
-        "tracecat.workspaces.activities.get_async_session_bypass_rls_context_manager",
+        "autosecops.workspaces.activities.get_async_session_bypass_rls_context_manager",
         fake_session_manager,
     )
 
@@ -145,9 +145,9 @@ async def test_dsl_workflow_auto_heals_missing_organization_id():
     )
 
     with (
-        patch("tracecat.dsl.workflow.workflow.info", return_value=fake_wf_info),
+        patch("autosecops.dsl.workflow.workflow.info", return_value=fake_wf_info),
         patch(
-            "tracecat.dsl.workflow.workflow.execute_activity",
+            "autosecops.dsl.workflow.workflow.execute_activity",
             new=AsyncMock(return_value=organization_id),
         ),
     ):
@@ -177,7 +177,7 @@ async def test_dsl_workflow_classifies_missing_workspace_during_run_initializati
     dsl_workflow = DSLWorkflow(args)
 
     with (
-        patch("tracecat.dsl.workflow.workflow.info", return_value=fake_wf_info),
+        patch("autosecops.dsl.workflow.workflow.info", return_value=fake_wf_info),
         pytest.raises(ApplicationError) as exc_info,
     ):
         dsl_workflow._initialize_run(args)

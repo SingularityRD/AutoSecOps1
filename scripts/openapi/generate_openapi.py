@@ -14,7 +14,7 @@ sys.path.insert(0, str(project_root))
 # Import and configure logger before importing the app
 from httpx_oauth.oauth2 import BaseOAuth2  # noqa: E402
 
-from tracecat.logger import logger  # noqa: E402
+from autosecops.logger import logger  # noqa: E402
 
 logger.remove()  # Remove all handlers
 logger.add(lambda _: None)  # Add a no-op handler to prevent any output
@@ -150,8 +150,8 @@ def main() -> None:
     os.environ["OIDC_CLIENT_SECRET"] = "openapi-client-secret"
     os.environ["USER_AUTH_SECRET"] = "openapi-stub-secret"
 
-    with patch("tracecat.auth.oidc.OpenID", _OpenAPIOpenIDStub):
-        from tracecat.api.app import app
+    with patch("autosecops.auth.oidc.OpenID", _OpenAPIOpenIDStub):
+        from autosecops.api.app import app
 
         openapi_spec = app.openapi()
 

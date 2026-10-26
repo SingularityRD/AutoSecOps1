@@ -1,0 +1,360 @@
+"""MCP utility functions for tool name normalization and definition fetching.
+
+This module provides pure utility functions for MCP tool name conversion
+that can be imported without pulling in heavy dependencies (DB, logging).
+
+The tool definition fetchers require DB access and use lazy imports.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING
+
+from mcp.types import (
+    AudioContent,
+    BlobResourceContents,
+    ContentBlock,
+    EmbeddedResource,
+    ImageContent,
+    ResourceLink,
+    TextContent,
+    TextResourceContents,
+)
+
+from autosecops.agent.common.types import MCPToolDefinition
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from autosecops.identifiers import OrganizationID
+    from autosecops.registry.lock.types import RegistryLock
+
+REGISTRY_MCP_SERVER_NAME = "tracecat-registry"
+LEGACY_REGISTRY_MCP_SERVER_NAME = "tracecat_registry"
+
+
+def is_tracecat_registry_server_name(server_name: str) -> bool:
+    """Return whether a server name routes to the built-in registry."""
+    return (
+        server_name in {REGISTRY_MCP_SERVER_NAME, LEGACY_REGISTRY_MCP_SERVER_NAME}
+        or server_name.startswith(f"{REGISTRY_MCP_SERVER_NAME}-")
+        or server_name.startswith(f"{LEGACY_REGISTRY_MCP_SERVER_NAME}_")
+    )
+
+
+def strip_tracecat_registry_server_prefix(tool_name: str) -> str:
+    """Drop a leading built-in registry server segment from a tool name.
+
+    Example: mcp__tracecat-registry__core__http_request -> core__http_request
+    """
+    if tool_name.startswith("mcp__"):
+        parts = tool_name.split("__", 2)
+        if len(parts) == 3 and is_tracecat_registry_server_name(parts[1]):
+            return parts[2]
+    if tool_name.startswith("mcp."):
+        parts = tool_name.split(".", 2)
+        if len(parts) == 3 and is_tracecat_registry_server_name(parts[1]):
+            return parts[2]
+    return tool_name
+
+
+# Lone surrogates cannot cross JSON serialization.
+_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+
+
+def _render_content_block(block: ContentBlock) -> str:
+    """Render a single MCP content block as text.
+
+    EmbeddedResource has no `.text`; the payload is nested on `.resource`.
+    """
+    if isinstance(block, TextContent):
+        return block.text
+    if isinstance(block, EmbeddedResource):
+        resource = block.resource
+        if isinstance(resource, TextResourceContents):
+            return resource.text
+        if isinstance(resource, BlobResourceContents):
+            return (
+                f"[binary resource: {resource.uri} ({resource.mimeType or 'unknown'})]"
+            )
+        return f"[resource: {resource.uri}]"
+    if isinstance(block, ImageContent):
+        return f"[image: {block.mimeType}]"
+    if isinstance(block, AudioContent):
+        return f"[audio: {block.mimeType}]"
+    if isinstance(block, ResourceLink):
+        return f"[resource link: {block.uri} ({block.mimeType or 'unknown'})]"
+    return f"[unsupported content block: {type(block).__name__}]"
+
+
+def flatten_mcp_content_blocks(
+    content: Sequence[ContentBlock] | None,
+) -> str:
+    """Flatten an MCP CallToolResult into one string.
+
+    Size is bounded upstream by the HTTP byte cap in ``http_limits`` and
+    downstream by the CLI's MAX_MCP_OUTPUT_TOKENS spill-to-file limit.
+    """
+    if not content:
+        return ""
+    text = "\n\n".join(_render_content_block(block) for block in content)
+    if _SURROGATE_RE.search(text):
+        text = text.encode("utf-8", errors="replace").decode("utf-8")
+    return text
+
+
+# Anthropic tool names must match this pattern; MCP servers can report
+# names (e.g. "issue.get") that would put invalid entries in allowed_tools.
+MCP_TOOL_NAME_RE = re.compile(r"\A[a-zA-Z0-9_-]{1,64}\Z")
+
+
+def action_name_to_mcp_tool_name(action_name: str) -> str:
+    """Convert action name (dots) to MCP tool name format (underscores).
+
+    Example: core.http_request -> core__http_request
+    """
+    return action_name.replace(".", "__")
+
+
+def mcp_tool_name_to_action_name(tool_name: str) -> str:
+    """Convert MCP tool name (underscores) back to action name (dots).
+
+    Example: core__script__run_python -> core.script.run_python
+    """
+    return tool_name.replace("__", ".")
+
+
+def normalize_mcp_tool_name(mcp_tool_name: str) -> str:
+    """Convert MCP tool name to readable action name for display.
+
+    MCP tool naming convention: mcp__{server_name}__{tool_name}
+
+    Handles AutoSecOps registry tools:
+    - mcp__tracecat-registry__core__http_request -> core.http_request
+    - mcp__tracecat_registry__core__script__run_python -> core.script.run_python
+    - mcp.tracecat-registry.core.http_request -> core.http_request
+    - mcp.tracecat_registry.core.script.run_python -> core.script.run_python
+
+    Handles user MCP servers routed through the proxy:
+    - mcp__tracecat-registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
+    - mcp__tracecat_registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
+    - mcp.tracecat-registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
+    - mcp.tracecat_registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
+
+    Other MCP tool names are returned as-is.
+
+    Args:
+        mcp_tool_name: The MCP tool name to normalize
+
+    Returns:
+        Human-readable action/tool name
+    """
+    # Handle user MCP tools routed through proxy (dot-separated, persisted)
+    # Pattern: mcp.tracecat-registry.mcp.{server}.{tool}
+    if mcp_tool_name.startswith(
+        f"mcp.{REGISTRY_MCP_SERVER_NAME}.mcp."
+    ) or mcp_tool_name.startswith(f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}.mcp."):
+        # Extract mcp.{server}.{tool} part
+        return mcp_tool_name.replace(f"mcp.{REGISTRY_MCP_SERVER_NAME}.", "", 1).replace(
+            f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}.", "", 1
+        )
+
+    # Handle user MCP tools routed through proxy (underscore-separated, runtime)
+    # Pattern: mcp__tracecat-registry__mcp__{server}__{tool}
+    if mcp_tool_name.startswith(
+        f"mcp__{REGISTRY_MCP_SERVER_NAME}__mcp__"
+    ) or mcp_tool_name.startswith(f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__mcp__"):
+        # Extract mcp__{server}__{tool} part and convert to mcp.{server}.{tool}
+        tool_part = mcp_tool_name.replace(
+            f"mcp__{REGISTRY_MCP_SERVER_NAME}__", ""
+        ).replace(f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__", "")
+        return mcp_tool_name_to_action_name(tool_part)
+
+    # Handle dot-separated format (persisted messages) for registry tools
+    if mcp_tool_name.startswith(
+        f"mcp.{REGISTRY_MCP_SERVER_NAME}."
+    ) or mcp_tool_name.startswith(f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}."):
+        return mcp_tool_name.replace(f"mcp.{REGISTRY_MCP_SERVER_NAME}.", "", 1).replace(
+            f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}.", "", 1
+        )
+
+    # Handle underscore-separated format (runtime MCP tool names) for registry tools
+    if mcp_tool_name.startswith(
+        f"mcp__{REGISTRY_MCP_SERVER_NAME}__"
+    ) or mcp_tool_name.startswith(f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__"):
+        tool_part = mcp_tool_name.replace(
+            f"mcp__{REGISTRY_MCP_SERVER_NAME}__", ""
+        ).replace(f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__", "")
+        return mcp_tool_name_to_action_name(tool_part)
+
+    # Generic MCP prefix stripping for any other servers
+    # Handle pattern: mcp.{server-name}.{tool_name}
+    if mcp_tool_name.startswith("mcp."):
+        parts = mcp_tool_name.split(".", 2)
+        if len(parts) >= 3:
+            # Return everything after mcp.{server-name}.
+            return parts[2]
+
+    # Handle pattern: mcp__{server-name}__{tool_name}
+    if mcp_tool_name.startswith("mcp__"):
+        parts = mcp_tool_name.split("__", 2)
+        if len(parts) >= 3:
+            # Return everything after mcp__{server-name}__ with underscores -> dots
+            return mcp_tool_name_to_action_name(parts[2])
+
+    # Other tool names returned as-is
+    return mcp_tool_name
+
+
+def canonical_mcp_tool_name(tool_name: str) -> str:
+    """Return the name the trusted MCP server authorizes a tool call under.
+
+    Drops a registry server prefix, keeps user MCP tools as
+    ``mcp__{server}__{tool}``, and turns registry and internal tools into
+    dotted action names. Every accepted spelling of one tool therefore maps
+    to the same name.
+
+    Example: mcp__tracecat-registry__core__http_request -> core.http_request
+
+    Raises:
+        ValueError: If the name uses the dotted user MCP spelling
+            ``mcp.{server}.{tool}``. That spelling replaces ``__`` with
+            ``.``, so ``mcp.example.a.b`` could be tool ``a__b`` or ``a.b``.
+    """
+    routed = strip_tracecat_registry_server_prefix(tool_name)
+    if _is_user_mcp_name(routed.split("__", 2)):
+        return routed
+    if _is_user_mcp_name(routed.split(".", 2)):
+        raise ValueError(
+            f"Ambiguous user MCP tool name {tool_name!r}: use mcp__{{server}}__{{tool}}"
+        )
+    return normalize_mcp_tool_name(mcp_tool_name_to_action_name(routed))
+
+
+def _is_user_mcp_name(parts: list[str]) -> bool:
+    return (
+        len(parts) == 3
+        and parts[0] == "mcp"
+        and not is_tracecat_registry_server_name(parts[1])
+    )
+
+
+async def fetch_tool_definitions(
+    action_names: list[str],
+) -> dict[str, MCPToolDefinition]:
+    """Fetch tool definitions from registry index/manifest for given action names.
+
+    Called by the job creator (who has DB access) before launching proxy.
+    Returns dict mapping action names to their full definitions.
+
+    Note: This function uses lazy imports to avoid pulling in DB dependencies
+    when only the pure utility functions are needed.
+
+    Args:
+        action_names: List of action names to fetch definitions for.
+
+    Returns:
+        Dict mapping action names to MCPToolDefinition objects.
+    """
+    # Lazy imports - only orchestrator calls this function
+    from autosecops.agent.common.types import MCPToolDefinition
+    from autosecops.logger import logger
+    from autosecops.registry.actions.service import RegistryActionsService
+
+    definitions: dict[str, MCPToolDefinition] = {}
+
+    async with RegistryActionsService.with_session() as svc:
+        # Batch fetch all actions from index/manifest
+        actions_data = await svc.get_actions_from_index(action_names)
+
+        for action_name in action_names:
+            try:
+                action_data = actions_data.get(action_name)
+                if action_data is None:
+                    logger.warning(
+                        "Action not found in registry index",
+                        action_name=action_name,
+                    )
+                    continue
+
+                manifest_action = action_data.manifest.actions.get(action_name)
+                if manifest_action is None:
+                    logger.warning(
+                        "Action not found in manifest",
+                        action_name=action_name,
+                    )
+                    continue
+
+                # Use interface from manifest
+                json_schema = manifest_action.interface["expects"]
+
+                definitions[action_name] = MCPToolDefinition(
+                    name=action_name,
+                    description=action_data.index_entry.description
+                    or f"Execute {action_name}",
+                    parameters_json_schema=json_schema,
+                )
+
+                logger.debug(
+                    "Fetched tool definition from index/manifest",
+                    action_name=action_name,
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "Failed to build tool definition",
+                    action_name=action_name,
+                    error=str(e),
+                )
+
+    logger.info(
+        "Fetched tool definitions",
+        count=len(definitions),
+        action_names=list(definitions.keys()),
+    )
+
+    return definitions
+
+
+async def fetch_tool_definitions_for_lock(
+    action_names: list[str],
+    registry_lock: RegistryLock,
+    organization_id: OrganizationID,
+) -> dict[str, MCPToolDefinition]:
+    """Fetch tool definitions from the versions pinned in a registry lock."""
+    from autosecops.executor import registry_resolver
+    from autosecops.logger import logger
+
+    definitions: dict[str, MCPToolDefinition] = {}
+    await registry_resolver.prefetch_lock(registry_lock, organization_id)
+
+    for action_name in action_names:
+        try:
+            manifest_action = await registry_resolver.resolve_manifest_action(
+                action_name,
+                registry_lock,
+                organization_id,
+            )
+            definitions[action_name] = MCPToolDefinition(
+                name=action_name,
+                description=manifest_action.description or f"Execute {action_name}",
+                parameters_json_schema=manifest_action.interface["expects"],
+            )
+            logger.debug(
+                "Fetched tool definition from registry lock",
+                action_name=action_name,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to build locked tool definition",
+                action_name=action_name,
+                error=str(e),
+            )
+
+    logger.info(
+        "Fetched tool definitions from registry lock",
+        count=len(definitions),
+        action_names=list(definitions.keys()),
+    )
+    return definitions

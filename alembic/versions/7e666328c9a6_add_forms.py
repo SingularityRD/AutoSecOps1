@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import SchemaItem
 
 from alembic import op
-from tracecat.db.tenant_rls import (
+from autosecops.db.tenant_rls import (
     disable_workspace_table_rls,
     enable_workspace_table_rls,
 )

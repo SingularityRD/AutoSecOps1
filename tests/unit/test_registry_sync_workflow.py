@@ -10,31 +10,31 @@ from uuid import uuid4
 import pytest
 from temporalio.exceptions import ActivityError, ApplicationError
 
-from tracecat.registry.actions.enums import TemplateActionValidationErrorType
-from tracecat.registry.actions.schemas import RegistryActionValidationErrorInfo
-from tracecat.registry.sync.runner import (
+from autosecops.registry.actions.enums import TemplateActionValidationErrorType
+from autosecops.registry.actions.schemas import RegistryActionValidationErrorInfo
+from autosecops.registry.sync.runner import (
     ActionDiscoveryError,
     RegistrySyncValidationError,
 )
-from tracecat.registry.sync.schemas import (
+from autosecops.registry.sync.schemas import (
     RegistryArtifactsBackfillItem,
     RegistryArtifactsBackfillItemResult,
     RegistryArtifactsBackfillRequest,
     RegistrySyncRequest,
 )
-from tracecat.registry.sync.workflow import (
+from autosecops.registry.sync.workflow import (
     REGISTRY_SYNC_WORKFLOW_EXECUTION_TIMEOUT,
     RegistryArtifactsBackfillWorkflow,
     RegistrySyncWorkflow,
     backfill_registry_artifacts_activity,
     sync_registry_activity,
 )
-from tracecat.runtime.errors import (
+from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
     RuntimeErrorOwner,
 )
-from tracecat.temporal.errors import extract_error_classifications
+from autosecops.temporal.errors import extract_error_classifications
 
 
 def _assert_registry_validation_classification(error: ApplicationError) -> None:
@@ -72,12 +72,12 @@ async def test_sync_registry_activity_raises_validation_application_error(
             )
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
+        "autosecops.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
     )
 
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
     )
 
@@ -108,12 +108,12 @@ async def test_sync_registry_activity_raises_non_retryable_error_for_content_dis
             )
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
+        "autosecops.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
     )
 
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
     )
 
@@ -140,12 +140,12 @@ async def test_sync_registry_activity_keeps_transient_discovery_errors_retryable
             )
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
+        "autosecops.registry.sync.workflow.RegistrySyncRunner", _FakeRunner
     )
 
     request = RegistrySyncRequest(
         repository_id=uuid4(),
-        origin="tracecat_registry",
+        origin="autosecops_registry",
         origin_type="builtin",
     )
 
@@ -188,11 +188,11 @@ async def test_backfill_registry_artifacts_activity_checks_existing_squashfs(
         raise AssertionError(f"download should not be called: {kwargs}")
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.blob.file_exists",
+        "autosecops.registry.sync.workflow.blob.file_exists",
         fake_file_exists,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.download_tarball_venv",
+        "autosecops.registry.sync.workflow.download_tarball_venv",
         fail_download_tarball_venv,
     )
 
@@ -261,19 +261,19 @@ async def test_backfill_registry_artifacts_activity_creates_sidecar(
         uploaded.update(kwargs)
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.blob.file_exists",
+        "autosecops.registry.sync.workflow.blob.file_exists",
         fake_file_exists,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.download_tarball_venv",
+        "autosecops.registry.sync.workflow.download_tarball_venv",
         fake_download_tarball_venv,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.build_squashfs_sidecar_from_tarball",
+        "autosecops.registry.sync.workflow.build_squashfs_sidecar_from_tarball",
         fake_build_squashfs_sidecar_from_tarball,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.blob.upload_file_from_path",
+        "autosecops.registry.sync.workflow.blob.upload_file_from_path",
         fake_upload_file_from_path,
     )
 
@@ -303,7 +303,7 @@ async def test_backfill_registry_artifacts_activity_reraises_unexpected_errors(
         raise RuntimeError("storage unavailable")
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.blob.file_exists",
+        "autosecops.registry.sync.workflow.blob.file_exists",
         fake_file_exists,
     )
 
@@ -351,11 +351,11 @@ async def test_backfill_workflow_continues_after_item_failure(
         )
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.workflow.execute_activity",
+        "autosecops.registry.sync.workflow.workflow.execute_activity",
         fake_execute_activity,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.workflow.logger",
+        "autosecops.registry.sync.workflow.workflow.logger",
         SimpleNamespace(
             info=lambda *_args, **_kwargs: None,
             warning=lambda *_args, **_kwargs: None,
@@ -401,11 +401,11 @@ async def test_registry_sync_workflow_bounds_activity_retries(
         return SimpleNamespace(actions=[], artifact_uri=None)
 
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.workflow.execute_activity",
+        "autosecops.registry.sync.workflow.workflow.execute_activity",
         fake_execute_activity,
     )
     monkeypatch.setattr(
-        "tracecat.registry.sync.workflow.workflow.logger",
+        "autosecops.registry.sync.workflow.workflow.logger",
         SimpleNamespace(info=lambda *_args, **_kwargs: None),
     )
 

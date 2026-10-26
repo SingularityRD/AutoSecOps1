@@ -18,12 +18,12 @@ from sqlalchemy.schema import DropTable
 from sqlalchemy.sql.schema import MetaData
 from sqlalchemy.sql.schema import Table as SqlTable
 
-from tracecat.auth.types import Role
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseFieldCreate
-from tracecat.cases.search_schemas import CaseSearchRequest
-from tracecat.cases.service import CasesService
-from tracecat.db.models import (
+from autosecops.auth.types import Role
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseFieldCreate
+from autosecops.cases.search_schemas import CaseSearchRequest
+from autosecops.cases.service import CasesService
+from autosecops.db.models import (
     Case,
     CaseDropdownDefinition,
     CaseDropdownOption,
@@ -34,10 +34,10 @@ from tracecat.db.models import (
     CaseTag,
     User,
 )
-from tracecat.pagination import CursorPaginationParams
-from tracecat.tables.enums import SqlType
-from tracecat.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
-from tracecat.tiers import defaults as tier_defaults
+from autosecops.pagination import CursorPaginationParams
+from autosecops.tables.enums import SqlType
+from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
+from autosecops.tiers import defaults as tier_defaults
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration, pytest.mark.usefixtures("db")]
 

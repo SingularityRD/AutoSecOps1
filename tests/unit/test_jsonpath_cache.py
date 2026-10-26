@@ -8,9 +8,9 @@ from types import ModuleType
 
 import jsonpath_ng.jsonpath as jsonpath_nodes
 import pytest
-from tracecat_registry._internal import jsonpath as registry_jsonpath
+from autosecops_registry._internal import jsonpath as registry_jsonpath
 
-from tracecat.expressions import common as core_jsonpath
+from autosecops.expressions import common as core_jsonpath
 
 
 @dataclass(frozen=True, slots=True)

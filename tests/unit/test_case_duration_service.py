@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracecat.cases.durations import (
+from autosecops.cases.durations import (
     CaseDurationAnchorSelection,
     CaseDurationComputation,
     CaseDurationDefinitionCreate,
@@ -16,17 +16,17 @@ from tracecat.cases.durations import (
     CaseDurationEventAnchor,
     CaseDurationEventFilters,
 )
-from tracecat.cases.durations.service import (
+from autosecops.cases.durations.service import (
     CaseDurationDefinitionService,
     CaseDurationService,
 )
-from tracecat.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
-from tracecat.cases.schemas import CaseCreate, CaseUpdate
-from tracecat.cases.service import CasesService
-from tracecat.cases.tags.service import CaseTagsService
-from tracecat.db.models import Case, CaseDuration, CaseEvent
-from tracecat.db.models import CaseDurationDefinition as CaseDurationDefinitionDB
-from tracecat.tags.schemas import TagCreate
+from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
+from autosecops.cases.schemas import CaseCreate, CaseUpdate
+from autosecops.cases.service import CasesService
+from autosecops.cases.tags.service import CaseTagsService
+from autosecops.db.models import Case, CaseDuration, CaseEvent
+from autosecops.db.models import CaseDurationDefinition as CaseDurationDefinitionDB
+from autosecops.tags.schemas import TagCreate
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -50,15 +50,15 @@ def stub_case_duration_entitlements() -> Iterator[None]:
             new=AsyncMock(return_value=False),
         ),
         patch(
-            "tracecat.cases.durations.service.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.durations.service.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.enqueue_case_duration_sync_after_commit",
+            "autosecops.cases.events.enqueue_case_duration_sync_after_commit",
             return_value=None,
         ),
         patch(
-            "tracecat.cases.events.publish_case_event_payload",
+            "autosecops.cases.events.publish_case_event_payload",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -203,7 +203,7 @@ async def test_create_definition_enqueues_backfill_after_commit(
         calls.append(kwargs)
 
     monkeypatch.setattr(
-        "tracecat.cases.durations.service.enqueue_case_duration_sync_after_commit",
+        "autosecops.cases.durations.service.enqueue_case_duration_sync_after_commit",
         fake_enqueue,
     )
 
@@ -282,7 +282,7 @@ async def test_update_definition_enqueues_backfill_only_for_anchor_changes(
         )
     )
     monkeypatch.setattr(
-        "tracecat.cases.durations.service.enqueue_case_duration_sync_after_commit",
+        "autosecops.cases.durations.service.enqueue_case_duration_sync_after_commit",
         fake_enqueue,
     )
 

@@ -17,25 +17,25 @@ import pytest
 from temporalio.client import Client
 from temporalio.common import TypedSearchAttributes
 
-from tracecat.auth.types import Role
-from tracecat.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from tracecat.db.models import Workspace
-from tracecat.dsl.common import DSLEntrypoint, DSLInput
-from tracecat.dsl.schemas import ActionStatement
-from tracecat.identifiers import UserID, WorkflowID
-from tracecat.workflow.executions.common import build_query
-from tracecat.workflow.executions.correlation import (
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
+from autosecops.db.models import Workspace
+from autosecops.dsl.common import DSLEntrypoint, DSLInput
+from autosecops.dsl.schemas import ActionStatement
+from autosecops.identifiers import UserID, WorkflowID
+from autosecops.workflow.executions.common import build_query
+from autosecops.workflow.executions.correlation import (
     build_agent_session_correlation_id,
     build_case_task_correlation_id,
     build_tracecat_correlation_id,
 )
-from tracecat.workflow.executions.enums import (
+from autosecops.workflow.executions.enums import (
     ExecutionType,
     TemporalSearchAttr,
     TriggerType,
 )
-from tracecat.workflow.executions.service import WorkflowExecutionsService
-from tracecat.workflow.schedules.bridge import build_schedule_search_attributes
+from autosecops.workflow.executions.service import WorkflowExecutionsService
+from autosecops.workflow.schedules.bridge import build_schedule_search_attributes
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -181,7 +181,7 @@ class TestWorkflowExecutionSearchAttributes:
             patch.object(service, "_resolve_execution_timeout", return_value=None),
             patch.object(service, "_handle_background_task_exception", Mock()),
             patch(
-                "tracecat.workflow.executions.service.asyncio.ensure_future",
+                "autosecops.workflow.executions.service.asyncio.ensure_future",
                 side_effect=_capture_ensure_future,
             ),
         ):

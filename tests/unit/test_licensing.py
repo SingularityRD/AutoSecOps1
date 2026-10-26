@@ -20,25 +20,25 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from pydantic import ValidationError
 
-from tracecat import config
-from tracecat.admin.license.router import get_license
-from tracecat.auth.types import PlatformRole
-from tracecat.db.models import Tier
-from tracecat.licensing import keys
-from tracecat.licensing import service as license_service
-from tracecat.licensing.service import LICENSE_GRACE_PERIOD, evaluate_license
-from tracecat.licensing.token import (
+from autosecops import config
+from autosecops.admin.license.router import get_license
+from autosecops.auth.types import PlatformRole
+from autosecops.db.models import Tier
+from autosecops.licensing import keys
+from autosecops.licensing import service as license_service
+from autosecops.licensing.service import LICENSE_GRACE_PERIOD, evaluate_license
+from autosecops.licensing.token import (
     LicenseVerificationError,
     decode_license,
     encode_license,
 )
-from tracecat.licensing.types import LicenseClaims, LicenseErrorCode, LicenseStatus
-from tracecat.tiers import access as tier_access
-from tracecat.tiers import defaults as tier_defaults
-from tracecat.tiers import service as tier_service_module
-from tracecat.tiers.access import is_org_entitled
-from tracecat.tiers.enums import Entitlement
-from tracecat.tiers.service import TierService
+from autosecops.licensing.types import LicenseClaims, LicenseErrorCode, LicenseStatus
+from autosecops.tiers import access as tier_access
+from autosecops.tiers import defaults as tier_defaults
+from autosecops.tiers import service as tier_service_module
+from autosecops.tiers.access import is_org_entitled
+from autosecops.tiers.enums import Entitlement
+from autosecops.tiers.service import TierService
 
 ISSUED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 EXPIRES_AT = datetime(2027, 1, 1, tzinfo=UTC)

@@ -10,7 +10,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from tracecat.agent.references.contracts import (
+from autosecops.agent.references.contracts import (
     AuthoredSource,
     ExecutionAuthority,
     LogicalArtifact,
@@ -20,12 +20,12 @@ from tracecat.agent.references.contracts import (
     ResolvedReferenceSnapshot,
     SkillManifest,
 )
-from tracecat.agent.references.markdown import (
+from autosecops.agent.references.markdown import (
     parse_markdown_references,
     scan_markdown_files,
 )
-from tracecat.agent.references.types import ReferenceDiagnostic
-from tracecat.agent.references.uri import (
+from autosecops.agent.references.types import ReferenceDiagnostic
+from autosecops.agent.references.uri import (
     ReferenceDiagnosticCode,
     ReferenceKind,
     ReferenceTarget,
@@ -183,7 +183,7 @@ def test_independent_consumer_imports_no_workflow_or_native_sdk():
         [
             sys.executable,
             "-c",
-            "from tracecat.agent.references.contracts import ReferenceSnapshotRef, RuntimeReferenceBinding; import sys; assert not any(k.startswith(('claude_agent_sdk', 'tracecat_ee.agent.workflows', 'tracecat.agent.runtime')) for k in sys.modules)",
+            "from autosecops.agent.references.contracts import ReferenceSnapshotRef, RuntimeReferenceBinding; import sys; assert not any(k.startswith(('claude_agent_sdk', 'autosecops_ee.agent.workflows', 'autosecops.agent.runtime')) for k in sys.modules)",
         ],
         capture_output=True,
         text=True,
