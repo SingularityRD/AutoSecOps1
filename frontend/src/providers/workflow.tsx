@@ -23,7 +23,11 @@ import {
 } from "@/client"
 import { ToastAction } from "@/components/ui/toast"
 import { toast } from "@/components/ui/use-toast"
-import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
+import {
+  type AutoSecOpsApiError,
+  getApiErrorBodyMessage,
+  getApiErrorDetail,
+} from "@/lib/errors"
 import {
   type MutateFunction,
   useMutation,
@@ -57,10 +61,6 @@ type WorkflowContextType = {
   >
   validationErrors: ValidationResult[] | null
   setValidationErrors: React.Dispatch<SetStateAction<ValidationResult[] | null>>
-}
-type AutoSecOpsErrorMessage = {
-  type?: string
-  message: string
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(
@@ -131,7 +131,7 @@ export function WorkflowProvider({
       toast({
         title: "Error saving workflow",
         description:
-          (error.body as AutoSecOpsErrorMessage).message ||
+          getApiErrorBodyMessage(error) ??
           "Could not save workflow. Please try again.",
         variant: "destructive",
       })
