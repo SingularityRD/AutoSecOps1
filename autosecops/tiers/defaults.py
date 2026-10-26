@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from autosecops import config
+from autosecops.licensing import keys
 from autosecops.licensing.service import get_license_state
 from autosecops.logger import logger
 from autosecops.tiers.enums import Entitlement
@@ -119,13 +120,23 @@ def warn_on_legacy_entitlement_flags() -> None:
 
 def log_license_startup() -> None:
     """Log license status and legacy-flag warnings once at API startup."""
+    if keys.is_development_public_key(keys.LICENSE_PUBLIC_KEY_PEM):
+        logger.error(
+            "This build verifies licenses with the DEVELOPMENT license public"
+            " key. Release builds must embed the production key",
+            public_key_sha256=keys.DEVELOPMENT_PUBLIC_KEY_SHA256,
+        )
     if config.AUTOSECOPS__EE_MULTI_TENANT:
-        if config.AUTOSECOPS__LICENSE_KEY:
-            logger.info(
-                "AUTOSECOPS__LICENSE_KEY is ignored in multi-tenant mode;"
-                " entitlements come from database tiers"
-            )
+        logger.info(
+            "Multi-tenant mode is licensed; entitlements come from database tiers"
+        )
         return
+    if config.AUTOSECOPS__EE_MULTI_TENANT_REQUESTED:
+        logger.error(
+            "AUTOSECOPS__EE_MULTI_TENANT=true needs a valid license key that"
+            " grants multi_tenant; running single-tenant with license-based"
+            " entitlements instead"
+        )
     # The first evaluation in a process logs the license state.
     get_license_state()
     warn_on_legacy_entitlement_flags()

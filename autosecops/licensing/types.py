@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal, Self
 
@@ -33,6 +33,28 @@ class LicenseErrorCode(StrEnum):
     MALFORMED = "malformed"
     BAD_SIGNATURE = "bad_signature"
     INVALID_CLAIMS = "invalid_claims"
+    NOT_YET_VALID = "not_yet_valid"
+    """``issued_at`` is in the future beyond the allowed clock skew."""
+
+
+class LicenseGrant(StrEnum):
+    """Deployment-wide capabilities a license can grant.
+
+    These are not organization entitlements: they never appear in tiers or in
+    ``EffectiveEntitlements``. A license lists them in ``entitlements`` next to
+    organization entitlement keys.
+    """
+
+    MULTI_TENANT = "multi_tenant"
+    """Lets ``AUTOSECOPS__EE_MULTI_TENANT=true`` take effect."""
+
+
+MAX_LICENSE_EXPIRY = datetime(9000, 1, 1, tzinfo=UTC)
+"""Latest accepted ``expires_at``.
+
+Keeps grace-period arithmetic far away from ``datetime.max``. Issue a license
+with a long but finite expiry instead of a "perpetual" one.
+"""
 
 
 class LicenseClaims(BaseModel):
@@ -58,6 +80,10 @@ class LicenseClaims(BaseModel):
     def _check_validity_window(self) -> Self:
         if self.expires_at <= self.issued_at:
             raise ValueError("expires_at must be after issued_at")
+        if self.expires_at >= MAX_LICENSE_EXPIRY:
+            raise ValueError(
+                f"expires_at must be before {MAX_LICENSE_EXPIRY.date().isoformat()}"
+            )
         return self
 
 
@@ -69,6 +95,8 @@ class LicenseState:
     claims: LicenseClaims | None = None
     granted: frozenset[Entitlement] = frozenset()
     """Entitlements that apply now; empty unless the status is VALID or GRACE."""
+    grants: frozenset[LicenseGrant] = frozenset()
+    """Deployment grants that apply now; empty unless the status is VALID or GRACE."""
     unknown_entitlements: tuple[str, ...] = ()
     """Entitlement keys in the license that this release does not recognize."""
     grace_ends_at: datetime | None = None

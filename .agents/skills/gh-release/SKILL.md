@@ -52,6 +52,32 @@ Verify the selected branch contains the stable-only image guard and the current
 release workflow before cutting its tag; old train branches may need those
 changes cherry-picked first.
 
+## License signing key
+
+Release builds must verify licenses with SingularityRD's production public key,
+not the development key committed for local work and tests. The image and Helm
+chart publish workflows run `python3 scripts/check_license_public_key.py` for
+release tags and fail while `autosecops/licensing/keys.py` still embeds the
+development key. The API also logs an error at startup when it runs with the
+development key.
+
+Never generate, request, or commit a production private key yourself. If the
+check fails, stop and ask the key owner to rotate the key:
+
+1. On an offline machine, generate the pair with the repo's license tool:
+   `uv run python scripts/license_tool.py keygen --out-dir <offline-dir>`.
+2. Keep `license-private.pem` offline. It never enters the repository, CI,
+   chat, or a shared machine.
+3. Replace `LICENSE_PUBLIC_KEY_PEM` in `autosecops/licensing/keys.py` with the
+   printed public key. Leave `DEVELOPMENT_PUBLIC_KEY_SHA256` unchanged so the
+   guard keeps recognizing the development key.
+4. Land that change on `main` through a reviewed PR, then cherry-pick it onto
+   the release branch.
+5. Issue customer licenses with the new private key
+   (`scripts/license_tool.py issue`). Rotating the key invalidates every
+   license signed with the previous key, and tokens signed with the
+   development key never verify on release builds.
+
 ## Preflight and confirmation
 
 Fetch branches and tags, inspect the working tree, and verify the public tag is

@@ -517,8 +517,10 @@ Profiles:
   prod      docker-compose.yml
 
 Tenant mode:
-  Always defaults to AUTOSECOPS__EE_MULTI_TENANT=true for cluster development.
+  Always defaults to AUTOSECOPS__EE_MULTI_TENANT=false for cluster development.
   .env and shell values are ignored; only the flags below override it.
+  Multi-tenant mode also needs AUTOSECOPS__LICENSE_KEY to grant multi_tenant;
+  without it the services log an error and run single-tenant.
   --single-tenant                 Set AUTOSECOPS__EE_MULTI_TENANT=false
   --multi-tenant                  Set AUTOSECOPS__EE_MULTI_TENANT=true
   --ee-multi-tenant true|false    Set AUTOSECOPS__EE_MULTI_TENANT explicitly
@@ -720,11 +722,12 @@ build_env() {
         export AUTOSECOPS__EXECUTOR_BACKEND=direct
     fi
 
-    # Cluster development always defaults to multi-tenant mode. Only the
+    # Cluster development always defaults to single-tenant mode, because
+    # multi-tenant mode needs a license that grants multi_tenant. Only the
     # explicit cluster flags (--single-tenant / --multi-tenant /
     # --ee-multi-tenant) override it; .env and shell values are ignored so
     # fresh worktrees behave consistently.
-    export AUTOSECOPS__EE_MULTI_TENANT="${CLUSTER_EE_MULTI_TENANT:-true}"
+    export AUTOSECOPS__EE_MULTI_TENANT="${CLUSTER_EE_MULTI_TENANT:-false}"
     FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from autosecops.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
     if [[ -n "$FEATURE_FLAGS" ]]; then
         export AUTOSECOPS__FEATURE_FLAGS="$FEATURE_FLAGS"

@@ -40,13 +40,13 @@ from cryptography.hazmat.primitives.serialization import (
 from pydantic import ValidationError
 
 from autosecops.licensing import keys
-from autosecops.licensing.service import evaluate_license
+from autosecops.licensing.evaluation import LICENSE_CLOCK_SKEW, evaluate_license
 from autosecops.licensing.token import (
     encode_license,
     load_private_key,
     load_public_key,
 )
-from autosecops.licensing.types import LicenseClaims, LicenseStatus
+from autosecops.licensing.types import LicenseClaims, LicenseGrant, LicenseStatus
 from autosecops.tiers.enums import Entitlement
 
 _PRIVATE_KEY_NAME = "license-private.pem"
@@ -89,10 +89,13 @@ def _cmd_keygen(args: argparse.Namespace) -> int:
 
 
 def _cmd_issue(args: argparse.Namespace) -> int:
-    known = {e.value for e in Entitlement}
-    entitlements: list[str] = sorted(set(args.entitlement or []))
+    entitlement_keys = {e.value for e in Entitlement}
+    known = entitlement_keys | {g.value for g in LicenseGrant}
+    requested = set(args.entitlement or [])
     if args.all_entitlements:
-        entitlements = sorted(known)
+        # Deployment grants such as multi_tenant must be named explicitly.
+        requested |= entitlement_keys
+    entitlements: list[str] = sorted(requested)
     if unknown := [e for e in entitlements if e not in known]:
         print(
             f"Unknown entitlement(s): {', '.join(unknown)}."
@@ -123,6 +126,11 @@ def _cmd_issue(args: argparse.Namespace) -> int:
     except (ValidationError, ValueError) as exc:
         print(f"Invalid license claims: {exc}", file=sys.stderr)
         return 2
+    if issued_at - datetime.now(UTC) > LICENSE_CLOCK_SKEW:
+        print(
+            "Warning: issued_at is in the future; the license stays invalid until then",
+            file=sys.stderr,
+        )
     print(encode_license(claims, private_key))
     print(
         orjson.dumps(
@@ -157,6 +165,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         if state.grace_ends_at
         else None,
         "claims": state.claims.model_dump(mode="json") if state.claims else None,
+        "grants": sorted(g.value for g in state.grants),
         "unknown_entitlements": list(state.unknown_entitlements),
     }
     print(orjson.dumps(report, option=orjson.OPT_INDENT_2).decode())
@@ -186,12 +195,14 @@ def _build_parser() -> argparse.ArgumentParser:
     issue.add_argument(
         "--entitlement",
         action="append",
-        help="Entitlement key to grant; repeat for several",
+        help="Entitlement key (or deployment grant such as multi_tenant) to"
+        " grant; repeat for several",
     )
     issue.add_argument(
         "--all-entitlements",
         action="store_true",
-        help="Grant every entitlement this release knows",
+        help="Grant every organization entitlement this release knows;"
+        " multi_tenant still needs --entitlement multi_tenant",
     )
     issue.set_defaults(func=_cmd_issue)
 

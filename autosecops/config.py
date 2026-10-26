@@ -16,6 +16,7 @@ from autosecops.agent.constants import (
 from autosecops.auth.enums import AuthType
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.feature_flags.enums import FeatureFlag
+from autosecops.licensing.evaluation import license_grants_multi_tenant
 
 # === Logger === #
 logger = logging.getLogger(__name__)
@@ -1627,15 +1628,32 @@ AUTOSECOPS__ALLOWED_ATTACHMENT_MIME_TYPES = {
 ENTERPRISE_EDITION = env_bool("ENTERPRISE_EDITION", default=False)
 """Whether enterprise features (the bundled `autosecops_ee` package) are enabled."""
 
-AUTOSECOPS__EE_MULTI_TENANT = env_bool("AUTOSECOPS__EE_MULTI_TENANT", default=False)
-"""Whether multi-tenant enterprise features are enabled."""
-
 AUTOSECOPS__LICENSE_KEY = (
     os.environ.get("AUTOSECOPS__LICENSE_KEY") or ""
 ).strip() or None
 """Signed license key that unlocks paid entitlements on single-tenant installs.
 
-Ignored in multi-tenant mode, where entitlements come from database tiers.
+In multi-tenant mode it only has to grant ``multi_tenant``; entitlements then
+come from database tiers.
+"""
+
+AUTOSECOPS__EE_MULTI_TENANT_REQUESTED = env_bool(
+    "AUTOSECOPS__EE_MULTI_TENANT", default=False
+)
+"""Whether ``AUTOSECOPS__EE_MULTI_TENANT`` is set to true.
+
+Read ``AUTOSECOPS__EE_MULTI_TENANT`` to know whether multi-tenant mode is on.
+"""
+
+AUTOSECOPS__EE_MULTI_TENANT = (
+    AUTOSECOPS__EE_MULTI_TENANT_REQUESTED
+    and license_grants_multi_tenant(AUTOSECOPS__LICENSE_KEY)
+)
+"""Whether multi-tenant enterprise features are enabled.
+
+Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a license key that is valid
+or in its grace period and grants ``multi_tenant``, evaluated at process start.
+Otherwise the process runs single-tenant with license-based entitlements.
 """
 
 # === Managed tunnels (Pangolin) === #

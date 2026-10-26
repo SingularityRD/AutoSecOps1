@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from autosecops.licensing.types import LicenseErrorCode, LicenseStatus
+from autosecops.licensing.types import LicenseErrorCode, LicenseGrant, LicenseStatus
 from autosecops.tiers.enums import Entitlement
 
 
@@ -26,6 +26,11 @@ class LicenseRead(BaseModel):
     entitlements: list[Entitlement] = Field(
         default_factory=list,
         description="Paid entitlements the license grants right now",
+    )
+    grants: list[LicenseGrant] = Field(
+        default_factory=list,
+        description="Deployment-wide grants the license applies right now,"
+        " such as multi_tenant",
     )
     included_entitlements: list[Entitlement] = Field(
         default_factory=list,

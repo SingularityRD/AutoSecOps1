@@ -44,11 +44,18 @@ def _b64url_encode(data: bytes) -> str:
 
 
 def _b64url_decode(data: str) -> bytes:
-    """Strictly decode unpadded base64url; reject any non-alphabet character."""
+    """Strictly decode canonical unpadded base64url.
+
+    Rejects non-alphabet characters and non-zero unused trailing bits, so each
+    byte string has exactly one accepted encoding.
+    """
     if not _B64URL_SEGMENT.fullmatch(data):
         raise ValueError("Not an unpadded base64url segment")
     padding = "=" * (-len(data) % 4)
-    return base64.b64decode(data + padding, altchars=b"-_", validate=True)
+    decoded = base64.b64decode(data + padding, altchars=b"-_", validate=True)
+    if _b64url_encode(decoded) != data:
+        raise ValueError("Not a canonical base64url segment")
+    return decoded
 
 
 def load_public_key(pem: bytes) -> Ed25519PublicKey:

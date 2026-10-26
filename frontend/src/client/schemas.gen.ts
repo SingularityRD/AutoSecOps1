@@ -22266,9 +22266,20 @@ export const $LibrarySkillSourceRead = {
 
 export const $LicenseErrorCode = {
   type: "string",
-  enum: ["malformed", "bad_signature", "invalid_claims"],
+  enum: ["malformed", "bad_signature", "invalid_claims", "not_yet_valid"],
   title: "LicenseErrorCode",
   description: "Why a license key failed verification.",
+} as const
+
+export const $LicenseGrant = {
+  type: "string",
+  enum: ["multi_tenant"],
+  title: "LicenseGrant",
+  description: `Deployment-wide capabilities a license can grant.
+
+These are not organization entitlements: they never appear in tiers or in
+\`\`EffectiveEntitlements\`\`. A license lists them in \`\`entitlements\`\` next to
+organization entitlement keys.`,
 } as const
 
 export const $LicenseRead = {
@@ -22347,6 +22358,15 @@ export const $LicenseRead = {
       type: "array",
       title: "Entitlements",
       description: "Paid entitlements the license grants right now",
+    },
+    grants: {
+      items: {
+        $ref: "#/components/schemas/LicenseGrant",
+      },
+      type: "array",
+      title: "Grants",
+      description:
+        "Deployment-wide grants the license applies right now, such as multi_tenant",
     },
     included_entitlements: {
       items: {
