@@ -2,9 +2,13 @@
 """Check Alembic topology without running env.py or connecting to a database."""
 
 import argparse
+import re
+import shutil
 import sys
+import tempfile
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 from alembic.config import Config
@@ -62,14 +66,82 @@ AUDITED_REWRITES: Mapping[str, tuple[tuple[bytes, bytes], ...]] = {
 }
 
 
+# The AutoSecOps rename (phase 1) moved the Python packages `tracecat`,
+# `tracecat_registry` and `tracecat_ee` to `autosecops`, `autosecops_registry`
+# and `autosecops_ee`. Existing migrations import those packages, and one reads
+# a data file through the package directory, so they had to change in lockstep.
+# This sanctioned rewrite permits exactly that token substitution and nothing
+# else: an existing migration may differ from its base only if it equals the
+# base with every module-path token below rewritten. The rename is all or
+# nothing per file; any other byte change still fails. It leaves SQL object
+# names (such as `tracecat_case_safe_vector_v1`), environment variable names,
+# URLs and marker strings such as `tracecat:` byte-identical. `tracecat_registry`
+# is also the built-in registry origin, which a migration compares against, so
+# the origin literal moves with the package. Once every base carries the rename,
+# rewriting a base is a no-op and this rule is inert; it may then be deleted.
+MODULE_RENAME_REWRITES: tuple[tuple[re.Pattern[bytes], bytes], ...] = (
+    # Dotted module paths: `from tracecat.db import x`, `tracecat.db.models`.
+    (re.compile(rb"(?<![\w.\-/@])tracecat(?=\.[A-Za-z_])"), b"autosecops"),
+    # Bare package imports: `import tracecat`, `from tracecat import x`.
+    (
+        re.compile(rb"^(\s*(?:from|import)\s+)tracecat(?=[ \t,\n])", re.MULTILINE),
+        rb"\1autosecops",
+    ),
+    # Package directory path segments: `tracecat/agent/...`.
+    (re.compile(rb"(?<![\w.\-/@:])tracecat(?=/)"), b"autosecops"),
+    # Quoted path segments: `Path(...) / "tracecat" / "agent"`.
+    (re.compile(rb'(?<=/ )"tracecat"(?= /)'), b'"autosecops"'),
+    # Sibling packages: `tracecat_registry`, `tracecat_ee` as whole tokens.
+    (
+        re.compile(rb"(?<![\w.\-])tracecat_(registry|ee)(?![\w\-])"),
+        rb"autosecops_\1",
+    ),
+)
+
+
+def rename_module_paths(content: bytes) -> bytes:
+    """Apply the sanctioned AutoSecOps module-path rename to migration bytes."""
+    for pattern, replacement in MODULE_RENAME_REWRITES:
+        content = pattern.sub(replacement, content)
+    return content
+
+
+def _matches_base(current: bytes, expected: bytes) -> bool:
+    """Whether current is the expected bytes, as-is or with the module rename."""
+    return current == expected or current == rename_module_paths(expected)
+
+
+@contextmanager
+def importable_base(base_dir: str) -> Iterator[ScriptDirectory]:
+    """Load a base Alembic directory whose revisions may import pre-rename packages.
+
+    Alembic executes each revision module to read its metadata, and base revisions
+    written before the rename import `tracecat`, which no longer exists. Load them
+    from a temporary copy with `rename_module_paths` applied. Revision metadata is
+    unaffected by the rename; byte comparisons still use the original base files
+    through `base_source_dir`.
+    """
+    with tempfile.TemporaryDirectory(prefix="alembic-base-") as tmp:
+        copy = Path(tmp) / "alembic"
+        shutil.copytree(base_dir, copy)
+        for path in copy.rglob("*.py"):
+            path.write_bytes(rename_module_paths(path.read_bytes()))
+        yield ScriptDirectory(str(copy))
+
+
 def check_migrations(
     scripts: ScriptDirectory,
     *,
     linear_since: str = LINEAR_HISTORY_BASE,
     base: ScriptDirectory | None = None,
+    base_source_dir: Path | None = None,
     audited_rewrites: Mapping[str, tuple[tuple[bytes, bytes], ...]] = AUDITED_REWRITES,
 ) -> str:
-    """Return the sole head, rejecting invalid graphs and new non-linear history."""
+    """Return the sole head, rejecting invalid graphs and new non-linear history.
+
+    When `base` was loaded from a rewritten copy (see `importable_base`),
+    `base_source_dir` is the original base directory whose bytes are compared.
+    """
     # Alembic warns rather than fails for some invalid metadata (e.g. duplicate
     # revision IDs). Those must fail CI too.
     with warnings.catch_warnings():
@@ -111,7 +183,10 @@ def check_migrations(
                             "rewriting existing revision metadata."
                         )
                 current_bytes = Path(current.path).read_bytes()
-                base_bytes = Path(previous.path).read_bytes()
+                base_path = Path(previous.path)
+                if base_source_dir is not None and base is not None:
+                    base_path = base_source_dir / base_path.relative_to(base.dir)
+                base_bytes = base_path.read_bytes()
                 if audited_rewrite is not None:
                     expected_bytes = base_bytes
                     for old_line, new_line in audited_rewrite:
@@ -127,12 +202,12 @@ def check_migrations(
                                 f"The audited rewrite for {previous.revision} no "
                                 "longer matches the base file."
                             )
-                    if current_bytes != expected_bytes:
+                    if not _matches_base(current_bytes, expected_bytes):
                         raise ValueError(
                             f"Existing revision {previous.revision} changed file "
                             "contents beyond its audited rewrite."
                         )
-                elif current_bytes != base_bytes:
+                elif not _matches_base(current_bytes, base_bytes):
                     raise ValueError(
                         f"Existing revision {previous.revision} changed file contents. "
                         "Existing migration files are immutable, including formatting; "
@@ -166,10 +241,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        head = check_migrations(
-            ScriptDirectory.from_config(Config("alembic.ini")),
-            base=ScriptDirectory(args.base_dir) if args.base_dir is not None else None,
-        )
+        scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+        if args.base_dir is None:
+            head = check_migrations(scripts)
+        else:
+            # Fail fast on a missing base, as ScriptDirectory would.
+            ScriptDirectory(args.base_dir)
+            with importable_base(args.base_dir) as base:
+                head = check_migrations(
+                    scripts, base=base, base_source_dir=Path(args.base_dir)
+                )
     except (
         ValueError,
         KeyError,

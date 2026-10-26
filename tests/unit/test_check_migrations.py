@@ -12,6 +12,7 @@ from check_migrations import (
     LINEAR_HISTORY_BASE,
     check_migrations,
     main,
+    rename_module_paths,
 )
 
 type Parent = str | tuple[str, ...] | None
@@ -274,6 +275,138 @@ def test_rejects_changed_metadata_for_audited_revision(
             base=ScriptDirectory(str(base_history)),
             audited_rewrites=TEST_AUDITED_REWRITES,
         )
+
+
+# Module-path tokens sit in a string so loading the revision never imports them.
+PRE_RENAME_BODY = b'''from pathlib import PurePath
+MODULE_PATHS = """
+from tracecat.db.models import Workflow
+from tracecat import config
+import tracecat_registry
+import tracecat_ee.agent
+``tracecat/agent/platform_catalog.json``
+"""
+CATALOG = PurePath("root") / "tracecat" / "agent"
+ORIGIN_SQL = "DELETE FROM registry_repository WHERE origin = 'tracecat_registry'"
+SQL_FUNCTION = "public.tracecat_case_safe_vector_v1"
+ENV_VAR = "TRACECAT__DB_URI"
+MARKER = "tracecat:legacy-internal-column:"
+DOCS_URL = "https://docs.tracecat.com/self-hosting/pgvector"
+'''
+
+POST_RENAME_BODY = b'''from pathlib import PurePath
+MODULE_PATHS = """
+from autosecops.db.models import Workflow
+from autosecops import config
+import autosecops_registry
+import autosecops_ee.agent
+``autosecops/agent/platform_catalog.json``
+"""
+CATALOG = PurePath("root") / "autosecops" / "agent"
+ORIGIN_SQL = "DELETE FROM registry_repository WHERE origin = 'autosecops_registry'"
+SQL_FUNCTION = "public.tracecat_case_safe_vector_v1"
+ENV_VAR = "TRACECAT__DB_URI"
+MARKER = "tracecat:legacy-internal-column:"
+DOCS_URL = "https://docs.tracecat.com/self-hosting/pgvector"
+'''
+
+
+def test_module_rename_rewrites_only_module_path_tokens() -> None:
+    assert rename_module_paths(PRE_RENAME_BODY) == POST_RENAME_BODY
+    # Inert once the base carries the rename.
+    assert rename_module_paths(POST_RENAME_BODY) == POST_RENAME_BODY
+
+
+def _append(directory: Path, revision: str, body: bytes) -> None:
+    with (directory / "versions" / f"{revision}.py").open("ab") as file:
+        file.write(body)
+
+
+def test_accepts_sanctioned_module_rename(history: Path, base_history: Path) -> None:
+    _append(base_history, "right", PRE_RENAME_BODY)
+    _append(history, "right", POST_RENAME_BODY)
+    assert (
+        check_migrations(
+            ScriptDirectory(str(history)),
+            linear_since="baseline",
+            base=ScriptDirectory(str(base_history)),
+        )
+        == "baseline"
+    )
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        # Partial rename: the rewrite is all or nothing per file.
+        (b"import autosecops_ee.agent", b"import tracecat_ee.agent"),
+        # SQL object names, environment variables, markers and URLs stay.
+        (b"public.tracecat_case_safe", b"public.autosecops_case_safe"),
+        (b"TRACECAT__DB_URI", b"AUTOSECOPS__DB_URI"),
+        (b'"tracecat:legacy', b'"autosecops:legacy'),
+        (b"docs.tracecat.com", b"docs.autosecops.com"),
+    ],
+)
+def test_rejects_changes_beyond_sanctioned_module_rename(
+    history: Path, base_history: Path, old: bytes, new: bytes
+) -> None:
+    assert POST_RENAME_BODY.count(old) == 1
+    _append(base_history, "right", PRE_RENAME_BODY)
+    _append(history, "right", POST_RENAME_BODY.replace(old, new))
+    with pytest.raises(ValueError, match="right changed file contents"):
+        check_migrations(
+            ScriptDirectory(str(history)),
+            linear_since="baseline",
+            base=ScriptDirectory(str(base_history)),
+        )
+
+
+def test_accepts_sanctioned_module_rename_on_audited_revision(
+    history: Path, base_history: Path
+) -> None:
+    _append(base_history, "right", PRE_RENAME_BODY)
+    write_revision(history, "right", ("root",))
+    _append(history, "right", POST_RENAME_BODY)
+    assert (
+        check_migrations(
+            ScriptDirectory(str(history)),
+            linear_since="baseline",
+            base=ScriptDirectory(str(base_history)),
+            audited_rewrites=TEST_AUDITED_REWRITES,
+        )
+        == "baseline"
+    )
+
+
+@pytest.mark.parametrize("extra_change", [False, True])
+def test_cli_loads_base_revisions_that_import_pre_rename_packages(
+    history: Path,
+    base_history: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    extra_change: bool,
+) -> None:
+    (history / "alembic.ini").write_text("[alembic]\nscript_location = .\n")
+    for directory in (history, base_history):
+        write_revision(directory, LINEAR_HISTORY_BASE, "baseline")
+    # The base revision imports the pre-rename package, which no longer exists.
+    _append(base_history, "right", b"import tracecat\n")
+    _append(history, "right", b"import autosecops\n")
+    if extra_change:
+        _append(history, "right", b"# Additional change.\n")
+    monkeypatch.chdir(history)
+    assert main(["--base-dir", str(base_history)]) == (1 if extra_change else 0)
+    output = capsys.readouterr()
+    if extra_change:
+        assert "right changed file contents" in output.err
+    else:
+        assert "Alembic migration history OK" in output.out
+    # The base checkout itself is never rewritten.
+    assert (
+        (base_history / "versions" / "right.py")
+        .read_bytes()
+        .endswith(b"import tracecat\n")
+    )
 
 
 def test_real_audited_rewrites_are_exact_whole_line_pairs() -> None:
