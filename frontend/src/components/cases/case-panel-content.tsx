@@ -9,6 +9,7 @@ import { CasePayloadSection } from "@/components/cases/case-payload-section"
 import { CaseSubCasesPanel } from "@/components/cases/case-sub-cases"
 import { CaseTasksPanel } from "@/components/cases/case-tasks-panel"
 import { CaseFeed } from "@/components/cases/cases-feed"
+import { RobodrCasePanel } from "@/components/robot-edr/robodr-case-panel"
 
 /** Props for {@link CasePanelContent}. */
 export interface CasePanelContentProps {
@@ -39,11 +40,16 @@ export function CasePanelContent({
   switch (panel) {
     case "description":
       return (
-        <CasePanelDescription
-          caseData={caseData}
-          updateCase={updateCase}
-          compact={embedded}
-        />
+        <>
+          {/* RoboDR cases lead with the structured finding view; it renders
+              nothing for other cases. */}
+          <RobodrCasePanel caseData={caseData} workspaceId={workspaceId} />
+          <CasePanelDescription
+            caseData={caseData}
+            updateCase={updateCase}
+            compact={embedded}
+          />
+        </>
       )
     case "tasks":
       return (

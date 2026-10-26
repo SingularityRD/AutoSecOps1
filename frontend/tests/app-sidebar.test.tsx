@@ -303,4 +303,33 @@ describe("AppSidebar", () => {
       "false"
     )
   })
+
+  it.each([
+    ["entitled with robot:read", { "robot:read": true }, true, true, true],
+    ["without the entitlement", { "robot:read": true }, false, true, false],
+    ["without robot:read", { "case:read": true }, true, true, false],
+    [
+      "while entitlements are unknown",
+      { "robot:read": true },
+      true,
+      false,
+      false,
+    ],
+  ])(
+    "shows Robots only when %s",
+    (_label, scopes, entitled, entitlementData, shown) => {
+      mockScopes = scopes
+      mockEntitlements = { ...mockEntitlements, robot_edr: entitled }
+      mockHasEntitlementData = entitlementData
+
+      render(<AppSidebar />)
+
+      const link = screen.queryByRole("link", { name: "Robots" })
+      if (shown) {
+        expect(link).toHaveAttribute("href", "/workspaces/workspace-1/robots")
+      } else {
+        expect(link).not.toBeInTheDocument()
+      }
+    }
+  )
 })
