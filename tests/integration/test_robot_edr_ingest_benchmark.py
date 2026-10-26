@@ -18,15 +18,14 @@ Run with:
 
 Tune with TRACECAT_ROBOT_EDR_BENCHMARK_BATCH_SIZES (comma-separated, default
 ``50,1000``) and TRACECAT_ROBOT_EDR_BENCHMARK_FINDINGS (findings per size,
-default 10 000). TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=1 calls
-``gc.freeze()`` first, as an API process could after start-up: full
-collections then skip the start-up objects (here they cost about 0.45 s
-each, every few 1000-line batches).
+default 10 000). The benchmark calls ``freeze_startup_heap()`` first, as the
+API lifespan does after start-up, so full collections skip the start-up
+objects; TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 measures without it (full
+collections then cost about 0.45 s each, every few 1000-line batches).
 """
 
 from __future__ import annotations
 
-import gc
 import os
 import statistics
 import time
@@ -39,6 +38,7 @@ from fastapi import FastAPI
 from sqlalchemy import delete
 
 from autosecops import config
+from autosecops.api.lifespan import freeze_startup_heap, unfreeze_startup_heap
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES
 from autosecops.db.engine import get_async_session_context_manager
@@ -93,16 +93,18 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
 
 @pytest.fixture
 def gc_frozen() -> Iterator[None]:
-    """Opt-in: ``gc.freeze()`` as an API process could after start-up."""
-    if os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE") != "1":
+    """``gc.freeze()`` as the API lifespan does after start-up.
+
+    Set TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 to measure without it.
+    """
+    if os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE") == "0":
         yield
         return
-    gc.collect()
-    gc.freeze()
+    freeze_startup_heap()
     try:
         yield
     finally:
-        gc.unfreeze()
+        unfreeze_startup_heap()
 
 
 def _p95(values: list[float]) -> float:

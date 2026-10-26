@@ -1,8 +1,13 @@
 import asyncio
+import gc
 
 import pytest
 
-from autosecops.api.lifespan import LifespanTaskSupervisor
+from autosecops.api.lifespan import (
+    LifespanTaskSupervisor,
+    freeze_startup_heap,
+    unfreeze_startup_heap,
+)
 
 
 @pytest.mark.anyio
@@ -290,3 +295,18 @@ async def test_drain_surfaces_completed_task_errors_once(
     captured_error, task_name = captured_failures[0]
     assert captured_error is context["err"]
     assert task_name == "failing_task"
+
+
+def test_freeze_startup_heap_moves_survivors_out_of_full_collections() -> None:
+    before = gc.get_freeze_count()
+    freeze_startup_heap()
+    try:
+        assert gc.get_freeze_count() > before
+        # New objects stay collectable while the start-up heap is frozen.
+        cycle: list[object] = []
+        cycle.append(cycle)
+        del cycle
+        assert gc.collect() >= 1
+    finally:
+        unfreeze_startup_heap()
+    assert gc.get_freeze_count() == 0

@@ -86,7 +86,11 @@ from autosecops.api.common import (
     without_inputs,
 )
 from autosecops.api.docs import install_api_docs
-from autosecops.api.lifespan import LifespanTaskSupervisor
+from autosecops.api.lifespan import (
+    LifespanTaskSupervisor,
+    freeze_startup_heap,
+    unfreeze_startup_heap,
+)
 from autosecops.auth.credentials import authenticated_user_only, require_superuser
 from autosecops.auth.dependencies import (
     require_any_auth_type_enabled,
@@ -331,10 +335,14 @@ async def lifespan(app: FastAPI):
     )
     logger.info("RLS mode", rls_mode=config.TRACECAT__RLS_MODE.value)
     log_license_startup()
+    # Last start-up step: everything alive now lives for the process, so take
+    # it out of full garbage collections (see freeze_startup_heap).
+    freeze_startup_heap()
     logger.info("API startup complete")
 
     yield
 
+    unfreeze_startup_heap()
     await supervisor.drain()
     await close_storage_client_cache()
     shutdown_platform_tracing()
