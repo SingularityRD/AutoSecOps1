@@ -492,12 +492,15 @@ class FakeRobotEdr:
     registered_blackbox_keys: list[str] = field(default_factory=list)
     key_reads: list[str] = field(default_factory=list)
     key_ranges: list[tuple[int | None, int | None]] = field(default_factory=list)
+    access_error: Exception | None = None
 
     async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
         self.stored.append({"case_id": case_id, **kwargs})
         return {"attachment_id": str(uuid.uuid4()), "attachment_name": "x.txt"}
 
     async def record_evidence_access(self, **kwargs: Any) -> None:
+        if self.access_error is not None:
+            raise self.access_error
         self.accesses.append(kwargs)
 
     async def blackbox_public_keys(
@@ -2149,6 +2152,38 @@ async def test_list_evidence_is_signed_and_audit_logged(stub, platform) -> None:
     assert _robot_edr(platform).accesses == [
         {"robot_id": ROBOT_ID, "operation": "list", "export_id": None}
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("operation", ["list", "create_export", "download_export"])
+async def test_an_unaudited_evidence_read_is_refused(
+    stub, platform, operation: str
+) -> None:
+    # The platform audit event is written before the robot is asked; when it
+    # cannot be written (e.g. a 403), the evidence call fails closed instead of
+    # reading evidence unaudited (e2e defect D1b).
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    _robot_edr(platform).access_error = PermissionError("403 Forbidden")
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="audit") as excinfo:
+            match operation:
+                case "list":
+                    await cp.list_evidence(**_conn(base_url))
+                case "create_export":
+                    await cp.create_evidence_export(
+                        **_evidence_kwargs(base_url), requested_by="analyst@soc"
+                    )
+                case _:
+                    await cp.download_evidence_export(
+                        **_evidence_kwargs(base_url),
+                        blackbox_public_keys=[BLACKBOX_PUB],
+                        case_id="CASE-0042",
+                    )
+    assert "PermissionError" in str(excinfo.value)
+    assert robot.requests == []
+    assert _robot_edr(platform).accesses == []
+    assert _robot_edr(platform).stored == []
 
 
 @pytest.mark.anyio

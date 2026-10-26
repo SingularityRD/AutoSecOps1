@@ -90,7 +90,8 @@ Evidence (contract §11)
 `list_evidence`, `create_evidence_export` and `download_evidence_export`
 read black-box evidence. Exporting changes nothing on the robot (it is
 recorded in its black box), so these need no sign-off; each call is written
-to the platform audit log. A download verifies the export as §11.6 requires
+to the platform audit log first, and a call it cannot audit-log is refused
+before anything is read. A download verifies the export as §11.6 requires
 (`robodr_evidence`) before the bundle is stored for the case; nothing that
 fails verification is stored.
 """
@@ -2228,13 +2229,21 @@ def _check_export_id(export_id: object) -> str:
 async def _record_access(
     robot_id: str, operation: EvidenceOperation, export_id: str | None = None
 ) -> bool:
-    """Write the platform audit event for an evidence read; True if written."""
+    """Write the platform audit event for an evidence read, before the read.
+
+    Fails closed: an evidence read the platform cannot audit-log (the audit
+    route refused or failed) is refused, never done unaudited. Returns True.
+    """
     try:
         await get_context().robot_edr.record_evidence_access(
             robot_id=robot_id, operation=operation, export_id=export_id
         )
-    except Exception:  # the robot's black box records every export regardless
-        return False
+    except Exception as exc:
+        raise EvidenceError(
+            f"the platform did not audit-log this evidence read ({operation}: "
+            f"{type(exc).__name__}: {exc}); nothing was read from the robot. "
+            "Check that the workflow's executor may record evidence access"
+        ) from exc
     return True
 
 

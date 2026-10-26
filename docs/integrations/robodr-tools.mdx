@@ -254,6 +254,7 @@ The bundle sits outside the case attachment limits; `TRACECAT__ROBOT_EDR_MAX_EVI
 
 Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
 AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.
+AutoSecOps records the call before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
 
 ## Humanoid and quadruped safety
 
