@@ -529,6 +529,12 @@ function SocKeysSummary({
           </div>
         )
       })}
+      <p className="pt-1 text-xs text-muted-foreground">
+        The control-plane signing key (robodr_control_plane secret) rotates
+        separately: keep the old and new keys listed in the robot&apos;s
+        soc_keys and executor soc.keys until every action the old key approved
+        has expired, or the robot does not re-arm those actions after a reboot.
+      </p>
       <RegisterApprovalKeyDialog
         workspaceId={workspaceId}
         open={registerOpen}

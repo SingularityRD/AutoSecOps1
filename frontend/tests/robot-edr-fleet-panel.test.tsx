@@ -191,6 +191,15 @@ describe("RobotFleetPanel", () => {
     expect(screen.getByText("ed25519:370ede82195fa32b")).toBeTruthy()
   })
 
+  it("explains how to rotate the control-plane signing key", async () => {
+    renderPanel()
+    expect(
+      await screen.findByText(
+        /keep the old and new keys listed .* until every action the old key approved\s+has expired/
+      )
+    ).toBeTruthy()
+  })
+
   it("issues a token and shows it once with its expiry", async () => {
     const user = userEvent.setup()
     const issued: FleetTokenIssued = {

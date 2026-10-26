@@ -70,6 +70,9 @@ A new key stays `pending` until you activate it.
 Install its public file on every robot next to the old one, then activate it; the old key is retired and stops signing.
 A user other than the one who registered an approval key must activate it, and the first approval key also waits for that second user.
 
+The SOC key that signs control-plane action requests is separate: it lives in the `robodr_control_plane` secret, not in the fleet.
+Rotate it with the old and new keys both listed on the robot until every action the old key approved has expired; see [RoboDR tools](/integrations/robodr-tools#connection-and-credentials).
+
 A key id or public key registered on the instance is never registered again, for any workspace or robot, even after you delete the key.
 AutoSecOps refuses the contract test vectors' keys as SOC keys and trust roots.
 
