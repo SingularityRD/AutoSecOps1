@@ -16,10 +16,13 @@ concurrency:
 
 jobs:
   plan-run:
-    # The suite needs the internal-registry-ci environment, its
-    # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key, and a private registry repository
-    # the key can read. Skip every job cleanly until an operator has provisioned
-    # them and set the INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
+    # The suite runs in the internal-registry-ci environment. Skip every job
+    # cleanly until an operator has provisioned it and set the
+    # INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
+    # The private custom registry test also needs a repository the
+    # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key can read, named by the
+    # CUSTOM_REGISTRY_REPOSITORY (owner/name) and CUSTOM_REGISTRY_COMMIT_SHA
+    # Actions variables. Without them that one test is skipped.
     if: vars.INTERNAL_REGISTRY_CI_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -96,7 +99,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────
   ssh-sanity:
     needs: plan-run
-    if: needs.plan-run.outputs.should_run == 'true'
+    if: needs.plan-run.outputs.should_run == 'true' && vars.CUSTOM_REGISTRY_REPOSITORY != ''
     environment: internal-registry-ci
     runs-on: ubuntu-latest
     timeout-minutes: 5 # short fail-fast window
@@ -121,26 +124,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Lightweight connectivity check — choose ONE:
-      #
-      # A) Strict git connectivity (fastest, no deps):
       - name: Verify git over SSH
-        run: git ls-remote git@github.com:TracecatHQ/internal-registry.git HEAD
-      #
-      # B) End-to-end install smoke-test (still <10 s):
-      #- name: Smoke-test pip install via SSH
-      #  run: |
-      #    uv pip install --no-deps --quiet \
-      #      "git+ssh://git@github.com/TracecatHQ/internal-registry.git@main"
-      #    python -c "import importlib, sys; print('import ok:', bool(importlib.import_module('internal_registry', package=None))); sys.exit(0)"
+        env:
+          CUSTOM_REGISTRY_REPOSITORY: ${{ vars.CUSTOM_REGISTRY_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$CUSTOM_REGISTRY_REPOSITORY" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]]; then
+            echo "CUSTOM_REGISTRY_REPOSITORY must be owner/name" >&2
+            exit 1
+          fi
+          git ls-remote "git@github.com:${CUSTOM_REGISTRY_REPOSITORY}.git" HEAD
 
   # ──────────────────────────────────────────────────────────────────
   # 2.  FULL INTEGRATION TESTS (with pytest-xdist for parallelization)
   #     Uses worker-specific task queues from conftest.py for isolation
   # ──────────────────────────────────────────────────────────────────
   test-integration:
-    needs: [plan-run, ssh-sanity] # only start if key check passed
-    if: needs.plan-run.outputs.should_run == 'true' && needs.ssh-sanity.result == 'success'
+    # Start when the key check passed, or when it was skipped because no
+    # private registry repository is configured.
+    needs: [plan-run, ssh-sanity]
+    if: >-
+      !cancelled() &&
+      needs.plan-run.outputs.should_run == 'true' &&
+      (needs.ssh-sanity.result == 'success' || needs.ssh-sanity.result == 'skipped')
     environment: internal-registry-ci
     runs-on: ubuntu-22.04
     timeout-minutes: 60
@@ -279,6 +285,9 @@ jobs:
         env:
           # Expect a base64 encoded key
           CUSTOM_REPO_SSH_PRIVATE_KEY: ${{ secrets.CUSTOM_REPO_SSH_PRIVATE_KEY }}
+          # Empty when unconfigured, which skips the private registry test.
+          AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL: ${{ vars.CUSTOM_REGISTRY_REPOSITORY && format('git+ssh://git@github.com/{0}.git', vars.CUSTOM_REGISTRY_REPOSITORY) || '' }}
+          AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA: ${{ vars.CUSTOM_REGISTRY_COMMIT_SHA }}
           # Keep executor-hosted registry sync enabled (run via Temporal)
           AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
           # Tests run on the host, so Temporal must be reachable via localhost
