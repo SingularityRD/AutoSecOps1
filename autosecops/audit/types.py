@@ -49,6 +49,7 @@ AuditAction = Literal[
     "enroll",
     "retire",
     "approve",
+    "withdraw",
 ]
 AuditResourceType = Literal[
     "user",

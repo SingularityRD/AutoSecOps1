@@ -38,6 +38,7 @@ from autosecops.robot_edr.schemas import RobotCreate, RobotKeyCreate
 from autosecops.robot_edr.service import RobotsService
 from autosecops.robot_edr.types import RobotKeyRole
 from autosecops.tiers import defaults as tier_defaults
+from tests.support.robot_keys import forget_registered_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -85,6 +86,9 @@ async def _register_manifest_workspace(ws: Workspace) -> None:
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,
+    )
+    await forget_registered_keys(
+        bytes.fromhex(entry["public_key_hex"]) for entry in MANIFEST["keys"]
     )
     async with get_async_session_context_manager() as session:
         service = RobotsService(session, role=role)

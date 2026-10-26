@@ -8,33 +8,18 @@ talks to the public fleet routes exactly as `robodr-enroll` does.
 from __future__ import annotations
 
 import json
-import secrets
-import time
-import uuid
-from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
 import httpx
 import pytest
-from fastapi import FastAPI
 from pydantic import ValidationError
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
-from autosecops import config
-from autosecops.audit.service import AuditService
-from autosecops.auth.types import Role
-from autosecops.authz.scopes import ADMIN_SCOPES
 from autosecops.db.engine import get_async_session_context_manager
-from autosecops.db.models import Organization, Robot, RobotKey, User, Workspace
+from autosecops.db.models import Robot, RobotKey
 from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
 from autosecops.pagination import PageParams
-from autosecops.robot_edr import fleet_replay
 from autosecops.robot_edr import fleet_wire as wire
 from autosecops.robot_edr.evidence import RobotEvidenceService
-from autosecops.robot_edr.fleet_router import router as fleet_router
-from autosecops.robot_edr.fleet_service import RobotFleetService
 from autosecops.robot_edr.schemas import (
     FleetApprovalCreate,
     FleetOfferUpdate,
@@ -42,6 +27,7 @@ from autosecops.robot_edr.schemas import (
     FleetRingUpdate,
     FleetSocKeyCreate,
     FleetTokenCreate,
+    FleetTrustRootCreate,
 )
 from autosecops.robot_edr.service import RobotConflictError
 from autosecops.robot_edr.types import (
@@ -49,222 +35,23 @@ from autosecops.robot_edr.types import (
     FleetSocKeyKind,
     FleetSocKeyStatus,
 )
-from autosecops.tiers import defaults as tier_defaults
+from tests.support.robot_fleet import (
+    DISTRIBUTION,
+    SimRobot,
+    Soc,
+    enrolled,
+    issue,
+    new_key,
+    revocation_list,
+    robot_api,
+    robot_edr_entitled,
+    setup_keys_and_robot,
+    soc,
+)
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
-VECTORS = Path(__file__).parents[1] / "data" / "robot_edr" / "fleet_vectors"
-DISTRIBUTION = VECTORS / "cases" / "13-distribution" / "setup"
-
-
-@pytest.fixture(autouse=True)
-def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__API_ROOT_PATH", "/api")
-    monkeypatch.setattr(
-        tier_defaults,
-        "DEFAULT_ENTITLEMENTS",
-        tier_defaults.BASELINE_ENTITLEMENTS.model_copy(update={"robot_edr": True}),
-    )
-
-    async def _no_webhook(self: AuditService) -> None:
-        return None
-
-    monkeypatch.setattr(AuditService, "_get_webhook_url", _no_webhook)
-    yield
-
-
-@dataclass
-class Soc:
-    workspace: Workspace
-    alice: Role
-    bob: Role
-    service: Role
-
-    def fleet(self, role: Role, session: Any) -> RobotFleetService:
-        return RobotFleetService(session, role=role)
-
-
-async def _user(email: str) -> uuid.UUID:
-    user = User(
-        email=email,
-        hashed_password="hashed_password_for_testing",
-        is_active=True,
-        is_verified=True,
-        is_superuser=False,
-    )
-    async with get_async_session_context_manager() as session:
-        session.add(user)
-        await session.commit()
-        return user.id
-
-
-@pytest.fixture
-async def soc(svc_organization: Organization) -> AsyncIterator[Soc]:
-    ws = Workspace(
-        id=uuid.uuid4(),
-        name=f"fleet-{uuid.uuid4().hex[:8]}",
-        organization_id=svc_organization.id,
-    )
-    async with get_async_session_context_manager() as session:
-        session.add(ws)
-        await session.commit()
-    suffix = uuid.uuid4().hex[:8]
-    alice_id = await _user(f"alice-{suffix}@example.com")
-    bob_id = await _user(f"bob-{suffix}@example.com")
-
-    def role(user_id: uuid.UUID | None) -> Role:
-        return Role(
-            type="user" if user_id else "service",
-            service_id="tracecat-api",
-            user_id=user_id,
-            workspace_id=ws.id,
-            organization_id=ws.organization_id,
-            scopes=ADMIN_SCOPES,
-        )
-
-    await fleet_replay.clear_local()
-    try:
-        yield Soc(
-            workspace=ws, alice=role(alice_id), bob=role(bob_id), service=role(None)
-        )
-    finally:
-        async with get_async_session_context_manager() as session:
-            await session.execute(delete(Workspace).where(Workspace.id == ws.id))
-            for user_id in (alice_id, bob_id):
-                await session.execute(
-                    delete(User).where(User.__table__.c.id == user_id)
-                )
-            await session.commit()
-
-
-async def _setup_keys_and_robot(soc: Soc, robot_id: str = "ugv-101") -> uuid.UUID:
-    async with get_async_session_context_manager() as session:
-        service = soc.fleet(soc.alice, session)
-        await service.create_fleet_key(FleetSocKeyCreate(kind=FleetSocKeyKind.FLEET))
-        await service.create_approval_key(
-            FleetSocKeyCreate(kind=FleetSocKeyKind.APPROVAL)
-        )
-        robot = Robot(workspace_id=soc.workspace.id, robot_id=robot_id, site="lab-9")
-        session.add(robot)
-        await session.commit()
-        return robot.id
-
-
-# --- a simulated robot ------------------------------------------------------------
-
-
-@dataclass
-class SimRobot:
-    robot_id: str
-    site: str | None
-    uplink: wire.SigningKey
-    finding: wire.SigningKey
-    blackbox: wire.SigningKey
-
-    @classmethod
-    def new(cls, robot_id: str, site: str | None) -> SimRobot:
-        def key() -> wire.SigningKey:
-            return wire.SigningKey.from_seed(secrets.token_bytes(32))
-
-        return cls(robot_id, site, key(), key(), key())
-
-    def enroll_body(
-        self, token: wire.ParsedToken, request_id: str | None = None
-    ) -> bytes:
-        p = token.payload
-        keys = [
-            {
-                "role": role,
-                "key_id": k.key_id,
-                "public_hex": k.public_key.hex(),
-                "fingerprint": wire.fingerprint(k.public_key),
-            }
-            for role, k in (
-                ("uplink", self.uplink),
-                ("finding", self.finding),
-                ("blackbox", self.blackbox),
-            )
-        ]
-        payload = wire.dumps_compact(
-            {
-                "format": wire.ENROLL_REQUEST_FORMAT,
-                "request_id": request_id or f"rfe1-{secrets.token_hex(16)}",
-                "token_id": p.token_id,
-                "workspace": p.workspace,
-                "robot_id": self.robot_id,
-                "site": self.site,
-                "created_at_ms": int(time.time() * 1000),
-                "agentd_version": "0.2.0",
-                "profile_digest": None,
-                "keys": keys,
-            }
-        )
-        signed = json.loads(
-            wire.sign_envelope(
-                wire.T_ENROLL_REQUEST,
-                payload,
-                [self.uplink, self.finding, self.blackbox],
-            )
-        )
-        mac = wire.token_mac(bytes.fromhex(p.nonce), p.token_id, payload).hex()
-        signed["mac"] = {"alg": "hmac-sha256", "token_id": p.token_id, "mac": mac}
-        return wire.dumps_compact(signed) + b"\n"
-
-    def auth_headers(
-        self,
-        method: str,
-        path: str,
-        body: bytes = b"",
-        key: wire.SigningKey | None = None,
-    ) -> dict[str, str]:
-        key = key or self.uplink
-        ts = int(time.time() * 1000)
-        message = wire.request_message(method, f"/api{path}", key.key_id, ts, body)
-        headers = {
-            "X-RoboDR-Key-Id": key.key_id,
-            "X-RoboDR-Timestamp": str(ts),
-            "X-RoboDR-Signature": key.sign(message).hex(),
-        }
-        if method == "POST":
-            headers["Content-Type"] = "application/json"
-        return headers
-
-
-@pytest.fixture
-async def robot_api() -> AsyncIterator[httpx.AsyncClient]:
-    app = FastAPI()
-    app.include_router(fleet_router)
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        yield client
-
-
-async def _issue(soc: Soc, robot_uuid: uuid.UUID, hours: int = 24) -> wire.ParsedToken:
-    async with get_async_session_context_manager() as session:
-        issued = await soc.fleet(soc.alice, session).issue_token(
-            robot_uuid, FleetTokenCreate(validity_hours=hours)
-        )
-    assert issued.status == "active"
-    assert issued.workspace == str(soc.workspace.id)
-    return wire.parse_token(issued.token)
-
-
-async def _enrolled(
-    soc: Soc, robot_api: httpx.AsyncClient
-) -> tuple[uuid.UUID, SimRobot]:
-    robot_uuid = await _setup_keys_and_robot(soc)
-    token = await _issue(soc, robot_uuid)
-    sim = SimRobot.new("ugv-101", "lab-9")
-    response = await robot_api.post(
-        "/robot-edr/v2/fleet/enroll",
-        content=sim.enroll_body(token),
-        headers={"Content-Type": "application/json"},
-    )
-    assert response.status_code == 200, response.text
-    return robot_uuid, sim
-
+__all__ = ["robot_api", "robot_edr_entitled", "soc"]
 
 # --- tests ------------------------------------------------------------------------
 
@@ -272,8 +59,8 @@ async def _enrolled(
 async def test_issue_token_and_enroll_registers_three_roles(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    robot_uuid = await _setup_keys_and_robot(soc)
-    token = await _issue(soc, robot_uuid)
+    robot_uuid = await setup_keys_and_robot(soc)
+    token = await issue(soc, robot_uuid)
     async with get_async_session_context_manager() as session:
         keys = await soc.fleet(soc.alice, session).list_soc_keys()
     fleet_key = next(k for k in keys if k.kind is FleetSocKeyKind.FLEET)
@@ -358,8 +145,8 @@ async def test_issue_token_and_enroll_registers_three_roles(
 async def test_revoked_token_answers_bad_token(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    robot_uuid = await _setup_keys_and_robot(soc)
-    token = await _issue(soc, robot_uuid)
+    robot_uuid = await setup_keys_and_robot(soc)
+    token = await issue(soc, robot_uuid)
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         status = await service.get_status(robot_uuid)
@@ -376,8 +163,8 @@ async def test_revoked_token_answers_bad_token(
 async def test_token_validity_is_at_most_seven_days(soc: Soc) -> None:
     with pytest.raises(ValidationError):
         FleetTokenCreate(validity_hours=169)
-    robot_uuid = await _setup_keys_and_robot(soc)
-    token = await _issue(soc, robot_uuid, hours=168)
+    robot_uuid = await setup_keys_and_robot(soc)
+    token = await issue(soc, robot_uuid, hours=168)
     assert (
         token.payload.expires_at_ms - token.payload.issued_at_ms == 7 * 24 * 3_600_000
     )
@@ -394,46 +181,55 @@ async def test_token_needs_a_fleet_key(soc: Soc) -> None:
             )
 
 
+def _secret_file(key: wire.SigningKey) -> str:
+    return json.dumps(
+        {
+            "format": "robodr-blackbox-key/v2",
+            "kind": "secret",
+            "algorithm": "ed25519",
+            "key_id": key.key_id,
+            "public_hex": key.public_key.hex(),
+            "secret_hex": key.seed.hex(),
+        }
+    )
+
+
 async def test_soc_key_rotation_keeps_one_active_key(soc: Soc) -> None:
+    imported = new_key()
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         first = await service.create_fleet_key(
             FleetSocKeyCreate(kind=FleetSocKeyKind.FLEET)
         )
         second = await service.create_fleet_key(
-            FleetSocKeyCreate(kind=FleetSocKeyKind.FLEET)
+            FleetSocKeyCreate(
+                kind=FleetSocKeyKind.FLEET, secret_key_file=_secret_file(imported)
+            )
         )
         assert (first.status, second.status) == ("active", "pending")
+        assert second.key_id == imported.key_id
         first_id, second_id = first.key_id, second.key_id
         await service.activate_fleet_key(second)
         keys = {k.key_id: k.status for k in await service.list_soc_keys()}
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(TracecatAuthorizationError):
             await service.activate_approval_key(second)
-        imported = wire.parse_key_file((VECTORS / "keys/soc.key").read_text())
-        await service.create_approval_key(
-            FleetSocKeyCreate(
-                kind=FleetSocKeyKind.APPROVAL,
-                secret_key_file=(VECTORS / "keys/soc.key").read_text(),
-            )
-        )
+        # A key is registered once on the whole SOC.
         with pytest.raises(RobotConflictError):
             await service.create_fleet_key(
                 FleetSocKeyCreate(
-                    kind=FleetSocKeyKind.FLEET,
-                    secret_key_file=(VECTORS / "keys/soc.key").read_text(),
+                    kind=FleetSocKeyKind.FLEET, secret_key_file=_secret_file(imported)
                 )
             )
     assert keys == {
         first_id: FleetSocKeyStatus.RETIRED,
         second_id: FleetSocKeyStatus.ACTIVE,
     }
-    assert imported.key_id == "ed25519:370ede82195fa32b"
 
 
 async def test_approval_needs_two_distinct_platform_users(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    robot_uuid, sim = await _enrolled(soc, robot_api)
+    robot_uuid, sim = await enrolled(soc, robot_api)
     offer = wire.parse_offer((DISTRIBUTION / "offers-ugv-001.body").read_bytes())
     profile = offer.profile.decode()
     async with get_async_session_context_manager() as session:
@@ -518,7 +314,7 @@ async def test_approval_needs_two_distinct_platform_users(
 async def test_ring_serial_rises_and_is_fleet_signed(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    robot_uuid, sim = await _enrolled(soc, robot_api)
+    robot_uuid, sim = await enrolled(soc, robot_api)
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         await service.set_ring(robot_uuid, FleetRingUpdate(ring=0))
@@ -549,7 +345,7 @@ async def test_ring_serial_rises_and_is_fleet_signed(
 async def test_replayed_request_headers_are_refused(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    _robot_uuid, sim = await _enrolled(soc, robot_api)
+    _robot_uuid, sim = await enrolled(soc, robot_api)
     headers = sim.auth_headers("GET", "/robot-edr/v2/fleet/ring")
     first = await robot_api.get("/robot-edr/v2/fleet/ring", headers=headers)
     replay = await robot_api.get("/robot-edr/v2/fleet/ring", headers=headers)
@@ -560,53 +356,43 @@ async def test_replayed_request_headers_are_refused(
 async def test_revocation_lists_are_monotonic(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
-    _robot_uuid, sim = await _enrolled(soc, robot_api)
-    body = (DISTRIBUTION / "revocations-ugv-x1.body").read_text()
-    root = (VECTORS / "keys/trust-root.key.pub").read_text()
-    other_root = (VECTORS / "keys/profile-signer.key.pub").read_text()
+    _robot_uuid, sim = await enrolled(soc, robot_api)
+    root, other_root = new_key(), new_key()
+    body = revocation_list(root, serial=2)
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
+        await service.add_trust_root(
+            FleetTrustRootCreate(public_key=root.public_key.hex(), label="oem root")
+        )
         with pytest.raises(TracecatValidationError, match="does not verify"):
             await service.publish_revocation_list(
-                FleetRevocationCreate(
-                    revocation_list=body, trust_root_public_key=other_root
-                )
+                FleetRevocationCreate(revocation_list=revocation_list(other_root))
             )
         published = await service.publish_revocation_list(
-            FleetRevocationCreate(revocation_list=body, trust_root_public_key=root)
+            FleetRevocationCreate(revocation_list=body)
         )
         assert published.serial == 2 and published.signature_checked
+        assert published.trust_root_key_id == root.key_id
         # The same list again is idempotent; a lower serial or another list
         # with the same serial is refused.
         again = await service.publish_revocation_list(
             FleetRevocationCreate(revocation_list=body)
         )
         assert again.id == published.id
-        lower = json.loads(body)
-        lower["serial"] = 1
         with pytest.raises(TracecatValidationError, match="lower"):
             await service.publish_revocation_list(
-                FleetRevocationCreate(revocation_list=json.dumps(lower))
+                FleetRevocationCreate(revocation_list=revocation_list(root, serial=1))
             )
-        equivocation = json.loads(body)
-        equivocation["revoked_digests"] = ["sha256:" + "1" * 64]
         with pytest.raises(RobotConflictError):
             await service.publish_revocation_list(
-                FleetRevocationCreate(revocation_list=json.dumps(equivocation))
+                FleetRevocationCreate(
+                    revocation_list=revocation_list(
+                        root, serial=2, digests=["sha256:" + "1" * 64]
+                    )
+                )
             )
         page = await service.list_revocation_lists(PageParams(limit=10, cursor=None))
     assert [r.serial for r in page.items] == [2]
     path = "/robot-edr/v2/fleet/revocations/ugv-x1"
     served = await robot_api.get(path, headers=sim.auth_headers("GET", path))
     assert served.content == body.encode()
-
-
-async def test_redis_replay_cache_remembers_a_signature() -> None:
-    signature = secrets.token_hex(64)
-    assert (
-        await fleet_replay.seen_before("ed25519:0000000000000000", signature) is False
-    )
-    assert await fleet_replay.seen_before("ed25519:0000000000000000", signature) is True
-    assert (
-        await fleet_replay.seen_before("ed25519:0000000000000001", signature) is False
-    )

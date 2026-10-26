@@ -48,6 +48,7 @@ from autosecops.storage import blob
 from autosecops.storage.exceptions import FileNameError
 from autosecops.tiers import defaults as tier_defaults
 from tests._route_utils import iter_effective_api_routes
+from tests.support.robot_keys import forget_registered_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -119,6 +120,7 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
         name=f"evidence-{uuid.uuid4().hex[:8]}",
         organization_id=svc_organization.id,
     )
+    await forget_registered_keys([bytes.fromhex(FINDING_KEY["public_hex"])])
     async with get_async_session_context_manager() as session:
         session.add(ws)
         await session.commit()
@@ -516,6 +518,7 @@ def _signed(manifest: dict[str, Any]) -> tuple[str, str]:
 @pytest.fixture
 async def test_finding_key(workspace: Workspace) -> None:
     public = TEST_FINDING_KEY.public_key().public_bytes_raw().hex()
+    await forget_registered_keys([bytes.fromhex(public)])
     async with get_async_session_context_manager() as session:
         await RobotsService(session, role=_role(workspace)).create_key(
             RobotKeyCreate(

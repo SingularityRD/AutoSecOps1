@@ -10,7 +10,9 @@ Robots carry no user identity: an enrollment request is authenticated by the
 token MAC and the signatures of its three new keys, every other request by
 an active ``uplink`` key (§2.5). Requests therefore run on a session that
 bypasses tenant RLS and act only on the workspace the token or key belongs
-to. Every action, and every ``401``, is written to the audit log.
+to. Every action, every ``401``, every other refusal of an identified request
+and every enrollment answered from storage is written to the audit log;
+refusals are aggregated per source and presented id (:mod:`fleet_throttle`).
 """
 
 from __future__ import annotations
@@ -18,15 +20,16 @@ from __future__ import annotations
 import re
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops import config
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
 from autosecops.audit.types import AuditAction, AuditMetadataValue
@@ -40,22 +43,27 @@ from autosecops.db.models import (
     RobotFleetRevocationList,
     RobotFleetRing,
     RobotFleetRotation,
-    RobotFleetSocKey,
     RobotFleetToken,
     RobotKey,
     Workspace,
 )
 from autosecops.logger import logger
-from autosecops.robot_edr import fleet_replay
+from autosecops.robot_edr import fleet_replay, fleet_throttle
 from autosecops.robot_edr import fleet_wire as wire
 from autosecops.robot_edr.fleet_keys import active_signing_key, decrypt_secret
 from autosecops.robot_edr.fleet_profiles import ProfileFileError, check_draft_profile
+from autosecops.robot_edr.key_registry import (
+    ClaimedKey,
+    KeyConflictError,
+    claim_keys,
+)
 from autosecops.robot_edr.types import (
     FleetErrorCode,
     FleetFailureReason,
     FleetRobot,
     FleetRotationStatus,
     FleetSocKeyKind,
+    RobotKeyProvenance,
     RobotKeyRole,
 )
 from autosecops.tiers.access import is_org_entitled
@@ -69,7 +77,6 @@ JSON_MEDIA_TYPE: Final = "application/json"
 _TIMESTAMP_RE: Final = re.compile(r"0|[1-9][0-9]{0,19}")
 _DIGEST_HEX_RE: Final = re.compile(r"[0-9a-f]{64}")
 _FLEET_SCOPES: Final = frozenset({"robot:read", "robot:update"})
-_KEY_REGISTRATION_LOCK: Final = "robot_edr_fleet_key_registration"
 _UNKNOWN_ACTOR_NAMESPACE: Final = uuid.UUID("4c7d5a0e-2f2b-4b1e-9a51-0b6f3f3e8d21")
 
 
@@ -192,23 +199,75 @@ async def _audit_auth_failure(
     operation: str,
     robot: FleetRobot | None = None,
 ) -> None:
-    """Log and audit a ``401`` (key id, source address, reason; no body)."""
-    logger.warning(
-        "Robot EDR fleet authentication failed",
-        presented_key_id=presented_key_id,
-        reason=reason.value,
+    """Log and audit a ``401`` (key id, source address, reason; no body).
+
+    Aggregated: a repeated failure of one source and key id is written at
+    the 1st, 10th, 100th, ... occurrence of a minute (:mod:`fleet_throttle`).
+    """
+    await _audit_refused(
+        presented_id=presented_key_id,
         operation=operation,
+        robot=robot,
+        data={"presented_key_id": presented_key_id, "failure_reason": reason.value},
+    )
+
+
+async def _audit_refused(
+    *,
+    presented_id: str,
+    operation: str,
+    robot: FleetRobot | None,
+    data: Mapping[str, AuditMetadataValue],
+) -> None:
+    count = await fleet_throttle.count_refusal(presented_id)
+    if not count.audit:
+        logger.debug(
+            "Robot EDR fleet refusal aggregated",
+            presented_id=presented_id,
+            operation=operation,
+            failures_this_minute=count.pair,
+        )
+        return
+    logger.warning(
+        "Robot EDR fleet request refused",
+        presented_id=presented_id,
+        operation=operation,
+        failures_this_minute=count.pair,
+        **{k: v for k, v in data.items() if isinstance(v, str)},
     )
     await _audit(
-        actor_id=robot.key_fk if robot else _unknown_actor(presented_key_id),
+        actor_id=robot.key_fk if robot else _unknown_actor(presented_id),
         workspace_id=robot.workspace_id if robot else None,
         organization_id=robot.organization_id if robot else None,
         action="read" if operation.startswith("get_") else "update",
         status=AuditEventStatus.FAILURE,
         data={
-            "presented_key_id": presented_key_id,
-            "failure_reason": reason.value,
+            **data,
             "operation": operation,
+            "failures_this_minute": count.pair,
+            "source_failures_this_minute": count.source,
+        },
+    )
+
+
+async def _audit_refusal(
+    exc: FleetRejectedError,
+    *,
+    operation: str,
+    presented_id: str,
+    robot: FleetRobot | None = None,
+) -> None:
+    """Audit a refusal other than a ``401`` (those are audited where raised)."""
+    if exc.status == 401:
+        return
+    await _audit_refused(
+        presented_id=presented_id,
+        operation=operation,
+        robot=robot,
+        data={
+            "presented_key_id": presented_id,
+            "refusal_status": str(exc.status),
+            "refusal_code": exc.code.value,
         },
     )
 
@@ -343,6 +402,47 @@ async def authenticate(
     return robot
 
 
+def _well_formed_key_id(request: FleetRequest) -> str | None:
+    """The presented key id when all three auth headers are well formed."""
+    values = [request.headers.get(name, ()) for name in AUTH_HEADERS]
+    if any(len(v) != 1 for v in values):
+        return None
+    key_id, timestamp, signature = (v[0] for v in values)
+    if (
+        not wire.is_key_id(key_id)
+        or _TIMESTAMP_RE.fullmatch(timestamp) is None
+        or int(timestamp) > wire.MAX_U64
+        or not wire.is_lower_hex(signature, 128)
+    ):
+        return None
+    return key_id
+
+
+async def precheck_key(request: FleetRequest, operation: str) -> None:
+    """Refuse an unknown key id before the request body is read (§2.5).
+
+    Runs on the headers only, so a client without an active uplink key
+    cannot make the API buffer a body (up to 8 MiB for drafts). Requests
+    with malformed headers are left to :func:`authenticate`, which answers
+    in the contract's order once the body is read.
+
+    Raises:
+        FleetRejectedError: ``401 unknown_key`` (audited).
+    """
+    key_id = _well_formed_key_id(request)
+    if key_id is None:
+        return
+    async with get_async_session_bypass_rls_context_manager() as session:
+        found = await _lookup_uplink(session, key_id)
+    if found is None:
+        await _audit_auth_failure(
+            presented_key_id=key_id,
+            reason=FleetFailureReason.UNKNOWN_KEY,
+            operation=operation,
+        )
+        raise _reject(401, FleetErrorCode.UNKNOWN_KEY, "not an active uplink key")
+
+
 async def _require_entitled(session: AsyncSession, organization_id: uuid.UUID) -> None:
     if not await is_org_entitled(session, organization_id, Entitlement.ROBOT_EDR):
         raise _reject(
@@ -363,35 +463,18 @@ async def _fleet_key(session: AsyncSession, workspace_id: uuid.UUID) -> wire.Sig
     return key
 
 
-async def _key_conflict(
-    session: AsyncSession, key_ids: Sequence[str], public_keys: Sequence[bytes]
-) -> bool:
-    """Whether a key id or public key (fingerprint) is registered anywhere (§4).
+async def _claim(session: AsyncSession, keys: Sequence[ClaimedKey]) -> bool:
+    """Register ``keys`` SOC-wide; False when one is already registered (§4).
 
-    Takes a transaction-scoped advisory lock first, so concurrent enrollments
-    and rotations cannot register the same key twice.
+    Every registration path shares :mod:`key_registry` (an advisory lock and
+    a global, never-pruned registry), so a key id or fingerprint names one
+    key across every workspace, active and retired alike.
     """
-    await session.execute(
-        select(func.pg_advisory_xact_lock(func.hashtext(_KEY_REGISTRATION_LOCK)))
-    )
-    robot_hit = await session.scalar(
-        select(RobotKey.id)
-        .where(or_(RobotKey.key_id.in_(key_ids), RobotKey.public_key.in_(public_keys)))
-        .limit(1)
-    )
-    if robot_hit is not None:
-        return True
-    soc_hit = await session.scalar(
-        select(RobotFleetSocKey.id)
-        .where(
-            or_(
-                RobotFleetSocKey.key_id.in_(key_ids),
-                RobotFleetSocKey.public_key.in_(public_keys),
-            )
-        )
-        .limit(1)
-    )
-    return soc_hit is not None
+    try:
+        await claim_keys(session, keys, "robot")
+    except KeyConflictError:
+        return False
+    return True
 
 
 # --- enrollment (§3.3) ------------------------------------------------------------
@@ -411,16 +494,21 @@ async def enroll(request: FleetRequest) -> FleetAnswer:
         raise _bad_request(str(exc)) from exc
     if opened.mac is None or opened.mac.token_id != enroll_request.token_id:
         raise _bad_request("mac.token_id differs from the request's token_id")
-    async with get_async_session_bypass_rls_context_manager() as session:
-        answer, robot = await _enroll(session, opened, enroll_request)
-    if robot is not None:
-        await _audit_success(
-            robot,
-            "enroll",
-            "enroll",
-            token_id=enroll_request.token_id,
-            request_id=enroll_request.request_id,
+    try:
+        async with get_async_session_bypass_rls_context_manager() as session:
+            answer, robot, replayed = await _enroll(session, opened, enroll_request)
+    except FleetRejectedError as exc:
+        await _audit_refusal(
+            exc, operation="enroll", presented_id=enroll_request.token_id
         )
+        raise
+    await _audit_success(
+        robot,
+        "enroll",
+        "enroll_replay" if replayed else "enroll",
+        token_id=enroll_request.token_id,
+        request_id=enroll_request.request_id,
+    )
     return FleetAnswer(body=answer)
 
 
@@ -430,9 +518,35 @@ async def _token_failure(token_id: str, reason: FleetFailureReason) -> None:
     )
 
 
+async def _enrolled_robot(
+    session: AsyncSession,
+    token: RobotFleetToken,
+    request: wire.EnrollRequest,
+    organization_id: uuid.UUID,
+) -> FleetRobot:
+    """The audit identity of an enrollment: the robot and its new uplink key."""
+    uplink = next(k for k in request.keys if k.role == RobotKeyRole.UPLINK.value)
+    uplink_fk = await session.scalar(
+        select(RobotKey.id).where(
+            RobotKey.workspace_id == token.workspace_id,
+            RobotKey.key_id == uplink.key_id,
+        )
+    )
+    return FleetRobot(
+        robot_fk=token.robot_fk or _unknown_actor(token.robot_id),
+        robot_id=token.robot_id,
+        workspace_id=token.workspace_id,
+        organization_id=organization_id,
+        fleet_workspace=token.fleet_workspace,
+        key_fk=uplink_fk or _unknown_actor(uplink.key_id),
+        key_id=uplink.key_id,
+    )
+
+
 async def _enroll(
     session: AsyncSession, opened: wire.Opened, request: wire.EnrollRequest
-) -> tuple[bytes, FleetRobot | None]:
+) -> tuple[bytes, FleetRobot, bool]:
+    """Process an enrollment; the answer, its robot and whether it was stored."""
     token = await session.scalar(
         select(RobotFleetToken)
         .where(RobotFleetToken.token_id == request.token_id)
@@ -457,7 +571,14 @@ async def _enroll(
     request_digest = opened.payload_digest
     if token.consumed_at is not None:
         if token.request_digest == request_digest and token.answer is not None:
-            return token.answer, None
+            organization_id = await session.scalar(
+                select(Workspace.organization_id).where(
+                    Workspace.id == token.workspace_id
+                )
+            )
+            if organization_id is not None:
+                robot = await _enrolled_robot(session, token, request, organization_id)
+                return token.answer, robot, True
         raise _reject(409, FleetErrorCode.TOKEN_USED, "token already consumed")
     server_now = now_ms()
     if server_now > token.expires_at_ms:
@@ -481,7 +602,8 @@ async def _enroll(
         raise _reject(401, FleetErrorCode.BAD_TOKEN, "unknown token")
     await _require_entitled(session, organization_id)
     fleet_key = await _fleet_key(session, token.workspace_id)
-    if await _key_conflict(session, key_ids, [k.public_key for k in request.keys]):
+    claimed = [ClaimedKey(k.key_id, k.public_key) for k in request.keys]
+    if not await _claim(session, claimed):
         raise _reject(409, FleetErrorCode.KEY_CONFLICT, "a key is already registered")
 
     robot = await _register_enrollment(session, token, request, server_now)
@@ -494,21 +616,10 @@ async def _enroll(
     token.answer = answer
     token.robot_fk = robot.id
     await session.commit()
-    uplink = next(k for k in request.keys if k.role == RobotKeyRole.UPLINK.value)
-    uplink_fk = await session.scalar(
-        select(RobotKey.id).where(
-            RobotKey.workspace_id == token.workspace_id,
-            RobotKey.key_id == uplink.key_id,
-        )
-    )
-    return answer, FleetRobot(
-        robot_fk=robot.id,
-        robot_id=robot.robot_id,
-        workspace_id=token.workspace_id,
-        organization_id=organization_id,
-        fleet_workspace=token.fleet_workspace,
-        key_fk=uplink_fk or _unknown_actor(uplink.key_id),
-        key_id=uplink.key_id,
+    return (
+        answer,
+        await _enrolled_robot(session, token, request, organization_id),
+        False,
     )
 
 
@@ -560,6 +671,7 @@ async def _register_enrollment(
                 role=key.role,
                 robot_fk=robot.id,
                 public_key=key.public_key,
+                provenance=RobotKeyProvenance.ENROLLMENT.value,
                 created_by=token.created_by,
             )
         )
@@ -574,8 +686,27 @@ async def _authenticated(
     session: AsyncSession, request: FleetRequest, operation: str
 ) -> FleetRobot:
     robot = await authenticate(session, request, operation)
-    await _require_entitled(session, robot.organization_id)
+    try:
+        await _require_entitled(session, robot.organization_id)
+    except FleetRejectedError as exc:
+        await _audit_refusal(
+            exc, operation=operation, presented_id=robot.key_id, robot=robot
+        )
+        raise
     return robot
+
+
+async def _refusals_audited[T](
+    robot: FleetRobot, operation: str, work: Awaitable[T]
+) -> T:
+    """Await ``work``; audit a refusal of the authenticated robot's request."""
+    try:
+        return await work
+    except FleetRejectedError as exc:
+        await _audit_refusal(
+            exc, operation=operation, presented_id=robot.key_id, robot=robot
+        )
+        raise
 
 
 async def rotate(request: FleetRequest) -> FleetAnswer:
@@ -587,7 +718,9 @@ async def rotate(request: FleetRequest) -> FleetAnswer:
     check_json_body(request, wire.MAX_ENVELOPE_BYTES)
     async with get_async_session_bypass_rls_context_manager() as session:
         robot = await _authenticated(session, request, "rotate")
-        answer, rotation_id = await _rotate(session, robot, request.body)
+        answer, rotation_id = await _refusals_audited(
+            robot, "rotate", _rotate(session, robot, request.body)
+        )
     await _audit_success(robot, "rotate", "rotate", rotation_id=rotation_id)
     return FleetAnswer(body=answer)
 
@@ -605,12 +738,32 @@ async def _wrong_key(
 
 
 async def _rotation(
-    session: AsyncSession, rotation_id: str
+    session: AsyncSession, robot: FleetRobot, rotation_id: str
 ) -> RobotFleetRotation | None:
+    """The robot's rotation with this id (rotation ids are per robot)."""
     return await session.scalar(
         select(RobotFleetRotation)
-        .where(RobotFleetRotation.rotation_id == rotation_id)
+        .where(
+            RobotFleetRotation.robot_fk == robot.robot_fk,
+            RobotFleetRotation.rotation_id == rotation_id,
+        )
         .with_for_update()
+    )
+
+
+async def _rotation_of_another_robot(
+    session: AsyncSession, robot: FleetRobot, rotation_id: str
+) -> bool:
+    return (
+        await session.scalar(
+            select(RobotFleetRotation.id)
+            .where(
+                RobotFleetRotation.rotation_id == rotation_id,
+                RobotFleetRotation.robot_fk != robot.robot_fk,
+            )
+            .limit(1)
+        )
+        is not None
     )
 
 
@@ -645,7 +798,7 @@ async def _rotate(
             robot, "rotate", "an uplink rotation is authenticated by its old uplink key"
         )
     request_digest = opened.payload_digest
-    if (known := await _rotation(session, req.rotation_id)) is not None:
+    if (known := await _rotation(session, robot, req.rotation_id)) is not None:
         if known.status == FleetRotationStatus.CANCELLED.value:
             raise _reject(
                 409, FleetErrorCode.ROTATION_CANCELLED, "this rotation was cancelled"
@@ -688,7 +841,7 @@ async def _rotate(
     if open_rotation is not None:
         raise _rotation_in_progress()
     fleet_key = await _fleet_key(session, robot.workspace_id)
-    if await _key_conflict(session, [req.new_key_id], [req.new_public_key]):
+    if not await _claim(session, [ClaimedKey(req.new_key_id, req.new_public_key)]):
         raise _reject(
             409, FleetErrorCode.KEY_CONFLICT, "the new key is already registered"
         )
@@ -713,6 +866,7 @@ async def _rotate(
             role=req.role,
             robot_fk=robot.robot_fk,
             public_key=req.new_public_key,
+            provenance=RobotKeyProvenance.ROTATION.value,
         )
     )
     session.add(
@@ -753,7 +907,9 @@ async def retire(request: FleetRequest) -> FleetAnswer:
     check_json_body(request, wire.MAX_ENVELOPE_BYTES)
     async with get_async_session_bypass_rls_context_manager() as session:
         robot = await _authenticated(session, request, "retire")
-        answer, rotation_id = await _retire(session, robot, request.body)
+        answer, rotation_id = await _refusals_audited(
+            robot, "retire", _retire(session, robot, request.body)
+        )
     await _audit_success(robot, "retire", "retire", rotation_id=rotation_id)
     return FleetAnswer(body=answer)
 
@@ -766,14 +922,14 @@ async def _retire(
         req = wire.parse_retire_request(opened.payload)
     except wire.WireError as exc:
         raise _bad_request(str(exc)) from exc
-    rotation = await _rotation(session, req.rotation_id)
+    rotation = await _rotation(session, robot, req.rotation_id)
     if rotation is None:
+        if await _rotation_of_another_robot(session, robot, req.rotation_id):
+            raise _reject(
+                403, FleetErrorCode.ROBOT_MISMATCH, "rotation of another robot"
+            )
         raise _reject(404, FleetErrorCode.UNKNOWN_ROTATION, "no such rotation")
-    if (
-        rotation.robot_fk != robot.robot_fk
-        or req.robot_id != robot.robot_id
-        or req.workspace != robot.fleet_workspace
-    ):
+    if req.robot_id != robot.robot_id or req.workspace != robot.fleet_workspace:
         raise _reject(403, FleetErrorCode.ROBOT_MISMATCH, "rotation of another robot")
     if (
         req.role != rotation.role
@@ -854,7 +1010,9 @@ async def cancel(request: FleetRequest) -> FleetAnswer:
     check_json_body(request, wire.MAX_ENVELOPE_BYTES)
     async with get_async_session_bypass_rls_context_manager() as session:
         robot = await _authenticated(session, request, "cancel")
-        answer, rotation_id = await _cancel(session, robot, request.body)
+        answer, rotation_id = await _refusals_audited(
+            robot, "cancel", _cancel(session, robot, request.body)
+        )
     await _audit_success(robot, "cancel", "cancel", rotation_id=rotation_id)
     return FleetAnswer(body=answer)
 
@@ -875,12 +1033,10 @@ async def _cancel(
             "cancel",
             "an uplink cancellation is authenticated by the old uplink key",
         )
-    rotation = await _rotation(session, req.rotation_id)
+    # Only this robot's rotations: a rotation id another robot uses is, for
+    # this robot, a rotation never received (recorded per robot below).
+    rotation = await _rotation(session, robot, req.rotation_id)
     if rotation is not None:
-        if rotation.robot_fk != robot.robot_fk:
-            raise _reject(
-                403, FleetErrorCode.ROBOT_MISMATCH, "rotation of another robot"
-            )
         if (
             req.role != rotation.role
             or req.old_key_id != rotation.old_key_id
@@ -974,35 +1130,61 @@ async def publish_draft(request: FleetRequest) -> FleetAnswer:
     check_json_body(request, wire.MAX_DRAFT_BYTES)
     async with get_async_session_bypass_rls_context_manager() as session:
         robot = await _authenticated(session, request, "publish_draft")
-        try:
-            draft_digest = check_draft_profile(request.body)
-        except ProfileFileError as exc:
-            raise _reject(400, FleetErrorCode.INVALID_PROFILE, str(exc)) from exc
-        exists = await session.scalar(
-            select(RobotFleetProfileDraft.id).where(
-                RobotFleetProfileDraft.robot_fk == robot.robot_fk,
-                RobotFleetProfileDraft.digest == draft_digest,
-            )
+        draft_digest = await _refusals_audited(
+            robot, "publish_draft", _store_draft(session, robot, request.body)
         )
-        if exists is None:
-            session.add(
-                RobotFleetProfileDraft(
-                    workspace_id=robot.workspace_id,
-                    robot_fk=robot.robot_fk,
-                    digest=draft_digest,
-                    body=request.body,
-                )
-            )
-            try:
-                await session.commit()
-            except IntegrityError:
-                await session.rollback()  # The same draft, published concurrently.
     await _audit_success(
         robot, "publish", "publish_draft", profile_digest_id=draft_digest
     )
     return FleetAnswer(
         body=wire.dumps_compact({"digest": draft_digest, "status": "received"})
     )
+
+
+async def _store_draft(session: AsyncSession, robot: FleetRobot, body: bytes) -> str:
+    """Queue a draft; keep at most the newest ``…_FLEET_MAX_DRAFTS`` per robot."""
+    try:
+        draft_digest = check_draft_profile(body)
+    except ProfileFileError as exc:
+        raise _reject(400, FleetErrorCode.INVALID_PROFILE, str(exc)) from exc
+    exists = await session.scalar(
+        select(RobotFleetProfileDraft.id).where(
+            RobotFleetProfileDraft.robot_fk == robot.robot_fk,
+            RobotFleetProfileDraft.digest == draft_digest,
+        )
+    )
+    if exists is not None:
+        return draft_digest
+    # Serialize this robot's draft publications so the cap holds.
+    await session.scalar(
+        select(Robot.id).where(Robot.id == robot.robot_fk).with_for_update()
+    )
+    keep = max(1, config.TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS) - 1
+    oldest = (
+        select(RobotFleetProfileDraft.id)
+        .where(RobotFleetProfileDraft.robot_fk == robot.robot_fk)
+        .order_by(
+            RobotFleetProfileDraft.created_at.desc(),
+            RobotFleetProfileDraft.surrogate_id.desc(),
+        )
+        .offset(keep)
+    )
+    await session.execute(
+        delete(RobotFleetProfileDraft).where(RobotFleetProfileDraft.id.in_(oldest))
+    )
+    session.add(
+        RobotFleetProfileDraft(
+            workspace_id=robot.workspace_id,
+            robot_fk=robot.robot_fk,
+            digest=draft_digest,
+            body=body,
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()  # The same draft, published concurrently.
+    return draft_digest
 
 
 async def get_revocation_list(request: FleetRequest, platform: str) -> FleetAnswer:
@@ -1020,6 +1202,8 @@ async def get_revocation_list(request: FleetRequest, platform: str) -> FleetAnsw
                 .where(
                     RobotFleetRevocationList.workspace_id == robot.workspace_id,
                     RobotFleetRevocationList.platform == platform,
+                    RobotFleetRevocationList.signature_checked.is_(True),
+                    RobotFleetRevocationList.withdrawn_at.is_(None),
                 )
                 .order_by(RobotFleetRevocationList.serial.desc())
                 .limit(1)

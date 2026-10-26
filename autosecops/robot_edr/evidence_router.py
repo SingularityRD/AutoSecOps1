@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 
 from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.authz.controls import require_scope
@@ -17,6 +17,9 @@ from autosecops.robot_edr.schemas import (
     EvidenceStoreResponse,
 )
 from autosecops.storage.exceptions import FileValidationError
+
+_MAX_MS = 253_402_300_799_999
+"""9999-12-31T23:59:59.999Z, the last instant a datetime holds."""
 
 router = APIRouter(
     tags=["internal-robot-edr"],
@@ -63,11 +66,19 @@ async def list_blackbox_keys(
     role: ExecutorWorkspaceRole,
     session: AsyncDBSession,
     robot_id: str = Path(..., pattern=ROBOT_ID_PATTERN),
+    from_ms: int | None = Query(default=None, ge=0, le=_MAX_MS),
+    to_ms: int | None = Query(default=None, ge=0, le=_MAX_MS),
 ) -> list[str]:
-    """The robot's registered black-box public key files (fleet enrollment)."""
+    """The robot's enrolled black-box public key files valid in the time range.
+
+    Newest first, the current key always included; more keys than a keyring
+    holds is a `409`, never a silent cut.
+    """
     try:
         return await RobotEvidenceService(session, role=role).blackbox_key_files(
-            robot_id
+            robot_id, from_ms=from_ms, to_ms=to_ms
         )
     except TracecatNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except TracecatValidationError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc

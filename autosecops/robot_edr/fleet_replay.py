@@ -5,8 +5,13 @@ fleet ``GET`` is read-only and every ``POST`` is idempotent, so a replay
 changes nothing. The SOC still remembers each accepted
 (``X-RoboDR-Key-Id``, ``X-RoboDR-Signature``) pair for twice the skew
 window and answers a repeat with ``401 replayed_request`` (a robot signs
-every send anew). The cache lives in Redis so every API replica shares it;
-if Redis is unreachable it falls back to a bounded per-process cache.
+every send anew). The cache lives in Redis so every API replica shares it.
+
+If Redis is unreachable the cache falls back to a bounded per-process cache
+(fail-open across replicas: with several API replicas a replay that reaches
+another replica is not detected). The answer stays correct, since a replay
+changes nothing, but the detection degrades: every fallback is logged at
+error level and counted (:func:`fallback_count`), so monitor that log line.
 """
 
 from __future__ import annotations
@@ -27,6 +32,12 @@ _MAX_LOCAL_ENTRIES = 50_000
 
 _local_seen: dict[str, float] = {}
 _local_lock = asyncio.Lock()
+_fallbacks = 0
+
+
+def fallback_count() -> int:
+    """How many lookups this process answered without Redis since it started."""
+    return _fallbacks
 
 
 async def _seen_locally(entry: str) -> bool:
@@ -67,9 +78,13 @@ async def seen_before(key_id: str, signature_hex: str) -> bool:
             return False
         return await client.get(entry) != marker
     except (RedisError, RuntimeError, OSError, RetryError) as exc:
-        logger.warning(
-            "Robot EDR fleet replay cache could not reach Redis",
+        global _fallbacks
+        _fallbacks += 1
+        logger.error(
+            "Robot EDR fleet replay cache could not reach Redis; replays are "
+            "detected per process only until it is back",
             error_type=type(exc).__name__,
+            fallbacks=_fallbacks,
         )
     return await _seen_locally(entry)
 

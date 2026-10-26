@@ -20,11 +20,13 @@ from autosecops.robot_edr.fleet_service import RobotFleetService, soc_key_read
 from autosecops.robot_edr.schemas import (
     FleetApprovalCreate,
     FleetApprovalRead,
+    FleetApprovalSignature,
     FleetDraftContent,
     FleetOfferRead,
     FleetOfferUpdate,
     FleetRevocationCreate,
     FleetRevocationRead,
+    FleetRevocationWithdraw,
     FleetRingRead,
     FleetRingUpdate,
     FleetSocKeyCreate,
@@ -32,6 +34,8 @@ from autosecops.robot_edr.schemas import (
     FleetTokenCreate,
     FleetTokenIssued,
     FleetTokenRead,
+    FleetTrustRootCreate,
+    FleetTrustRootRead,
     RobotFleetStatus,
 )
 from autosecops.robot_edr.service import RobotConflictError
@@ -93,9 +97,12 @@ async def create_fleet_soc_key(
     session: AsyncDBSession,
     params: FleetSocKeyCreate,
 ) -> FleetSocKeyRead:
-    """Generate (or import) a SOC key.
+    """Create a SOC key.
 
-    A fleet key needs `robot:enroll`, an approval key `robot:approve`.
+    A fleet key (`robot:enroll`) is generated or imported. An approval key
+    (`robot:approve`, platform users) is registered offline by its public key
+    file (recommended) or generated online; it is never imported and waits
+    for a second user's activation.
     """
     service = RobotFleetService(session, role=role)
     try:
@@ -113,7 +120,11 @@ async def create_fleet_soc_key(
 async def activate_fleet_soc_key(
     *, role: WorkspaceActorRouteRole, session: AsyncDBSession, key_id: uuid.UUID
 ) -> FleetSocKeyRead:
-    """Sign with a pending key from now on; the previous one is retired."""
+    """Sign with a pending key from now on; the previous one is retired.
+
+    An approval key is activated by a platform user other than the one who
+    registered it.
+    """
     service = RobotFleetService(session, role=role)
     try:
         row = await service.get_soc_key(key_id)
@@ -165,6 +176,77 @@ async def publish_fleet_revocation_list(
         return await RobotFleetService(session, role=role).publish_revocation_list(
             params
         )
+    except _HANDLED as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/fleet/revocations/{list_id}/withdrawal")
+@require_scope("robot:trust")
+async def request_fleet_revocation_withdrawal(
+    *,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    list_id: uuid.UUID,
+    params: FleetRevocationWithdraw,
+) -> FleetRevocationRead:
+    """First sign-off of withdrawing a revocation list."""
+    try:
+        return await RobotFleetService(
+            session, role=role
+        ).request_revocation_withdrawal(list_id, params)
+    except _HANDLED as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/fleet/revocations/{list_id}/withdrawal/confirm")
+@require_scope("robot:trust")
+async def confirm_fleet_revocation_withdrawal(
+    *, role: WorkspaceActorRouteRole, session: AsyncDBSession, list_id: uuid.UUID
+) -> FleetRevocationRead:
+    """Second sign-off by another user: the list is no longer served."""
+    try:
+        return await RobotFleetService(
+            session, role=role
+        ).confirm_revocation_withdrawal(list_id)
+    except _HANDLED as exc:
+        raise _http(exc) from exc
+
+
+# --- trust roots ------------------------------------------------------------------
+
+
+@router.get("/fleet/trust-roots")
+@require_scope("robot:read")
+async def list_fleet_trust_roots(
+    *, role: WorkspaceActorRouteRole, session: AsyncDBSession
+) -> list[FleetTrustRootRead]:
+    """The trust roots revocation lists must verify under."""
+    return await RobotFleetService(session, role=role).list_trust_roots()
+
+
+@router.post("/fleet/trust-roots", status_code=status.HTTP_201_CREATED)
+@require_scope("robot:trust")
+async def add_fleet_trust_root(
+    *,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    params: FleetTrustRootCreate,
+) -> FleetTrustRootRead:
+    """Trust a robodr-commission trust root for revocation lists."""
+    try:
+        return await RobotFleetService(session, role=role).add_trust_root(params)
+    except _HANDLED as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/fleet/trust-roots/{root_id}/revoke")
+@require_scope("robot:trust")
+async def revoke_fleet_trust_root(
+    *, role: WorkspaceActorRouteRole, session: AsyncDBSession, root_id: uuid.UUID
+) -> FleetTrustRootRead:
+    """Stop trusting a root for new revocation lists."""
+    try:
+        return await RobotFleetService(session, role=role).revoke_trust_root(root_id)
     except _HANDLED as exc:
         raise _http(exc) from exc
 
@@ -277,10 +359,34 @@ async def approve_robot_profile(
     robot_id: uuid.UUID,
     approval_id: uuid.UUID,
 ) -> FleetApprovalRead:
-    """Second sign-off by another user: sign the approval with the approval key."""
+    """Second sign-off by another user.
+
+    With an online approval key the approval is signed now; with an offline
+    key it is `prepared`: sign `signing_message_hex` with the key and submit
+    the signature.
+    """
     try:
         return await RobotFleetService(session, role=role).approve(
             robot_id, approval_id
+        )
+    except _HANDLED as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/robots/{robot_id}/fleet/approvals/{approval_id}/signature")
+@require_scope("robot:approve")
+async def submit_robot_profile_approval_signature(
+    *,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+    robot_id: uuid.UUID,
+    approval_id: uuid.UUID,
+    params: FleetApprovalSignature,
+) -> FleetApprovalRead:
+    """Attach the offline approval key's signature to a prepared approval."""
+    try:
+        return await RobotFleetService(session, role=role).submit_approval_signature(
+            robot_id, approval_id, params
         )
     except _HANDLED as exc:
         raise _http(exc) from exc

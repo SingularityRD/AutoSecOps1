@@ -76,19 +76,35 @@ class RobotEdrClient:
             },
         )
 
-    async def blackbox_public_keys(self, robot_id: str) -> list[str]:
-        """The robot's registered black-box public key files.
+    async def blackbox_public_keys(
+        self,
+        robot_id: str,
+        *,
+        from_ms: int | None = None,
+        to_ms: int | None = None,
+    ) -> list[str]:
+        """The robot's black-box public key files registered at enrollment.
 
-        Registered at fleet enrollment (``robodr.fleet`` §3, role
-        ``blackbox``); retired keys included, so a chain that spans a
-        re-enrollment still verifies.
+        Registered by fleet enrollment only (``robodr.fleet`` §3, role
+        ``blackbox``), newest first: the keys valid for records between
+        ``from_ms`` and ``to_ms`` (either open), so a chain that spans a
+        re-enrollment still verifies, and always the current key. More keys
+        than a keyring holds is an error, never a silent cut.
 
         Args:
             robot_id: The robot whose keys to read.
+            from_ms: Earliest record time of interest (Unix ms).
+            to_ms: Latest record time of interest (Unix ms).
 
         Returns:
             ``robodr-blackbox-key/v2`` public key files (JSON text).
         """
+        params = {
+            name: value
+            for name, value in (("from_ms", from_ms), ("to_ms", to_ms))
+            if value is not None
+        }
         return await self._client.get(
-            f"/robot-edr/robots/{quote(robot_id, safe='')}/blackbox-keys"
+            f"/robot-edr/robots/{quote(robot_id, safe='')}/blackbox-keys",
+            params=params or None,
         )

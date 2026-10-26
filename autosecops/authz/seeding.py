@@ -356,6 +356,12 @@ SYSTEM_SCOPE_DEFINITIONS: list[ScopeDefinition] = [
         "approve",
         "Sign off robot profile approvals (observe to enforce)",
     ),
+    ScopeDefinition(
+        "robot:trust",
+        "robot",
+        "trust",
+        "Manage revocation-list trust roots and withdraw revocation lists",
+    ),
     # Schedule scopes
     ScopeDefinition("schedule:read", "schedule", "read", "View schedules"),
     ScopeDefinition("schedule:create", "schedule", "create", "Create new schedules"),

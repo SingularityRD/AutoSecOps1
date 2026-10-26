@@ -31,7 +31,7 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final, Literal
 
 from autosecops_registry.integrations.robodr_evidence import (
@@ -65,12 +65,15 @@ from autosecops.robot_edr.schemas import (
     EvidenceStoreRequest,
     EvidenceStoreResponse,
 )
-from autosecops.robot_edr.types import RobotKeyRole
+from autosecops.robot_edr.types import RobotKeyProvenance, RobotKeyRole
 from autosecops.service import BaseWorkspaceService
 from autosecops.storage import blob
 from autosecops.tiers.enums import Entitlement
 
 MAX_VERIFICATION_JSON_BYTES: Final = 64 * 1024
+MAX_KEYRING_KEYS: Final = 16
+"""Keys a black-box keyring takes (``parse_blackbox_keyring``)."""
+_SKEW: Final = timedelta(milliseconds=300_000)
 _EVIDENCE_LOCK_NAMESPACE: Final = 0x524F424F44520001  # "ROBODR" + 1
 _REPORT_TEXT_RE: Final = re.compile(r"[!-~]{1,128}")
 _HEX64_RE: Final = re.compile(r"[0-9a-f]{64}")
@@ -184,6 +187,25 @@ def _check_verification(verification: dict[str, object]) -> None:
         raise TracecatValidationError("only intact evidence is stored")
 
 
+def _overlaps(
+    *,
+    valid_from: datetime | None,
+    valid_to: datetime,
+    from_ms: int | None,
+    to_ms: int | None,
+) -> bool:
+    """Whether a key's validity (with clock skew) meets ``[from_ms, to_ms]``."""
+    if from_ms is not None and valid_to + _SKEW < _ms(from_ms):
+        return False
+    if to_ms is not None and valid_from is not None and valid_from - _SKEW > _ms(to_ms):
+        return False
+    return True
+
+
+def _ms(value: int) -> datetime:
+    return datetime.fromtimestamp(value / 1000, tz=UTC)
+
+
 class RobotEvidenceService(BaseWorkspaceService):
     """Store verified evidence exports and audit evidence reads."""
 
@@ -206,34 +228,67 @@ class RobotEvidenceService(BaseWorkspaceService):
         rows = (await self.session.execute(stmt)).tuples().all()
         return {key_id: bytes(public_key) for key_id, public_key in rows}
 
-    async def blackbox_key_files(self, robot_id: str) -> list[str]:
-        """The robot's registered black-box public key files (``robodr-blackbox-key/v2``).
+    async def blackbox_key_files(
+        self,
+        robot_id: str,
+        *,
+        from_ms: int | None = None,
+        to_ms: int | None = None,
+    ) -> list[str]:
+        """The robot's black-box public key files (``robodr-blackbox-key/v2``).
 
-        Every black-box key the robot ever registered, retired ones included,
-        oldest first: an evidence chain may name keys across re-enrollments.
+        Only keys registered by fleet enrollment (the robot proved it holds
+        them; black-box keys are not rotated by the fleet API), newest first,
+        and only those valid for records between ``from_ms`` and ``to_ms``
+        (Unix ms, either open): a key is valid from its enrollment (its first
+        enrollment: since ever, as ``--reuse-existing-keys`` may register
+        agentd's existing key) until the next enrollment retired it, with the
+        contract's 300 s clock skew on both ends. The current key is always
+        included. Nothing is cut off silently: more than
+        :data:`MAX_KEYRING_KEYS` keys is an error.
 
         Raises:
-            TracecatNotFoundError: The robot has no registered black-box key.
+            TracecatNotFoundError: The robot has no enrolled black-box key.
+            TracecatValidationError: More keys match than a keyring holds.
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         stmt = (
-            select(RobotKey.public_key)
+            select(RobotKey.public_key, RobotKey.created_at, RobotKey.revoked_at)
             .join(Robot, Robot.id == RobotKey.robot_fk)
             .where(
                 Robot.workspace_id == self.workspace_id,
                 Robot.robot_id == robot_id,
                 RobotKey.workspace_id == self.workspace_id,
                 RobotKey.role == RobotKeyRole.BLACKBOX.value,
+                RobotKey.provenance == RobotKeyProvenance.ENROLLMENT.value,
             )
-            .order_by(RobotKey.created_at.asc(), RobotKey.id.asc())
-            .limit(16)
+            .order_by(RobotKey.created_at.desc(), RobotKey.surrogate_id.desc())
         )
-        keys = (await self.session.scalars(stmt)).all()
-        if not keys:
+        rows = (await self.session.execute(stmt)).tuples().all()
+        if not rows:
             raise TracecatNotFoundError(
-                "The robot has no registered black-box key (enroll it first)"
+                "The robot has no black-box key registered by enrollment "
+                "(enroll it with robodr-enroll)"
             )
-        return [public_key_file(bytes(key)) for key in keys]
+        oldest = len(rows) - 1
+        selected = [
+            bytes(public_key)
+            for index, (public_key, created_at, revoked_at) in enumerate(rows)
+            if revoked_at is None
+            or _overlaps(
+                valid_from=None if index == oldest else created_at,
+                valid_to=revoked_at,
+                from_ms=from_ms,
+                to_ms=to_ms,
+            )
+        ]
+        if len(selected) > MAX_KEYRING_KEYS:
+            raise TracecatValidationError(
+                f"{len(selected)} black-box keys are valid for this time range, "
+                f"more than a keyring holds ({MAX_KEYRING_KEYS}): narrow "
+                "from_ms/to_ms or pass the keys explicitly"
+            )
+        return [public_key_file(key) for key in selected]
 
     async def store_verified_export(
         self, case_id: uuid.UUID, params: EvidenceStoreRequest

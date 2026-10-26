@@ -17,6 +17,7 @@ from typing import Any, Final
 
 from autosecops.robot_edr.crypto import verify_strict
 from autosecops.robot_edr.fleet_wire import (
+    MAX_STORED_INT,
     WireError,
     digest,
     dumps_compact,
@@ -265,6 +266,10 @@ def check_locked_profile(body: bytes) -> LockedProfile:
         raise ProfileFileError("metadata.platform must be [A-Za-z0-9._-]{1,64}")
     if not _is_u64(version) or version == 0:
         raise ProfileFileError("metadata.profile_version must be >= 1")
+    if version > MAX_STORED_INT:
+        raise ProfileFileError(
+            "metadata.profile_version above 2^63-1, the largest the SOC stores"
+        )
     if unit_id is not None and not isinstance(unit_id, str):
         raise ProfileFileError("metadata.unit_id must be a string or null")
     return LockedProfile(
@@ -339,6 +344,10 @@ def parse_revocation_list(body: bytes) -> RevocationList:
     serial, issued_at, platform = obj["serial"], obj["issued_at"], obj["platform"]
     if not _is_u64(serial) or serial == 0 or not _is_u64(issued_at):
         raise ProfileFileError("revocation list: serial must be >= 1")
+    if serial > MAX_STORED_INT:
+        raise ProfileFileError(
+            "revocation list: serial above 2^63-1, the largest the SOC stores"
+        )
     if not isinstance(platform, str) or not is_label(platform):
         raise ProfileFileError("revocation list: platform must be [A-Za-z0-9._-]{1,64}")
     digests = _check_entries(obj["revoked_digests"], "revoked_digests")

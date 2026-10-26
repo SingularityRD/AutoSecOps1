@@ -491,6 +491,7 @@ class FakeRobotEdr:
     accesses: list[dict[str, Any]] = field(default_factory=list)
     registered_blackbox_keys: list[str] = field(default_factory=list)
     key_reads: list[str] = field(default_factory=list)
+    key_ranges: list[tuple[int | None, int | None]] = field(default_factory=list)
 
     async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
         self.stored.append({"case_id": case_id, **kwargs})
@@ -499,8 +500,11 @@ class FakeRobotEdr:
     async def record_evidence_access(self, **kwargs: Any) -> None:
         self.accesses.append(kwargs)
 
-    async def blackbox_public_keys(self, robot_id: str) -> list[str]:
+    async def blackbox_public_keys(
+        self, robot_id: str, *, from_ms: int | None = None, to_ms: int | None = None
+    ) -> list[str]:
         self.key_reads.append(robot_id)
+        self.key_ranges.append((from_ms, to_ms))
         return list(self.registered_blackbox_keys)
 
 
@@ -1723,6 +1727,8 @@ async def test_download_uses_the_registered_blackbox_keys(stub, platform) -> Non
         )
     assert result["verified"] is True
     assert _robot_edr(platform).key_reads == [ROBOT_ID]
+    # No record times selected: the keys of the whole history are read.
+    assert _robot_edr(platform).key_ranges == [(None, None)]
 
 
 @pytest.mark.anyio
@@ -1825,6 +1831,7 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
     )
     await client.robot_edr.record_evidence_access(robot_id=ROBOT_ID, operation="list")
     await client.robot_edr.blackbox_public_keys(ROBOT_ID)
+    await client.robot_edr.blackbox_public_keys(ROBOT_ID, from_ms=5, to_ms=9)
     assert [(r.method, str(r.url)) for r in sent] == [
         (
             "POST",
@@ -1835,6 +1842,11 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
             "GET",
             "http://tracecat-action-gateway/internal/robot-edr/robots/"
             f"{ROBOT_ID}/blackbox-keys",
+        ),
+        (
+            "GET",
+            "http://tracecat-action-gateway/internal/robot-edr/robots/"
+            f"{ROBOT_ID}/blackbox-keys?from_ms=5&to_ms=9",
         ),
     ]
     assert json.loads(sent[0].content)["export_id"] == EXPORT_ID

@@ -95,6 +95,9 @@ MAX_SIGS: Final = 4
 MAX_APPROVERS: Final = 8
 MAX_DRAFT_BYTES: Final = 8 * 1024 * 1024
 MAX_U64: Final = 2**64 - 1
+MAX_STORED_INT: Final = 2**63 - 1
+"""Largest integer the SOC stores (PostgreSQL ``bigint``); larger contract
+u64 values it would have to store are refused as client errors."""
 
 ROLES: Final = ("uplink", "finding", "blackbox")
 """Key roles a robot registers at enrollment, in request order (§3.2)."""
@@ -548,13 +551,27 @@ def parse_envelope(data: bytes, kind: str) -> Opened:
 
 def sign_envelope(kind: str, payload: bytes, signers: Sequence[SigningKey]) -> bytes:
     """An envelope over ``payload`` signed by ``signers`` in order: compact JSON + LF."""
+    return assemble_envelope(
+        kind,
+        payload,
+        [
+            (key.key_id, key.sign(sig_message(kind, key.key_id, payload)).hex())
+            for key in signers
+        ],
+    )
+
+
+def assemble_envelope(
+    kind: str, payload: bytes, signatures: Sequence[tuple[str, str]]
+) -> bytes:
+    """An envelope from detached ``(key_id, sig_hex)`` signatures, in order.
+
+    The signatures are not verified here: verify each with
+    :func:`verify_hex` over :func:`sig_message` first.
+    """
     sigs = [
-        {
-            "alg": "ed25519",
-            "key_id": key.key_id,
-            "sig": key.sign(sig_message(kind, key.key_id, payload)).hex(),
-        }
-        for key in signers
+        {"alg": "ed25519", "key_id": key_id, "sig": sig_hex}
+        for key_id, sig_hex in signatures
     ]
     envelope = {
         "format": ENVELOPE_FORMAT,

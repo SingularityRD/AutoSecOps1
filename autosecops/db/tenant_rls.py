@@ -113,6 +113,7 @@ POST_RLS_WORKSPACE_SCOPED_TABLES = (
     "robot_fleet_profile_offer",
     "robot_fleet_approval",
     "robot_fleet_ring",
+    "robot_fleet_trust_root",
 )
 
 POST_RLS_ORG_SCOPED_TABLES = (

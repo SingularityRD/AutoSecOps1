@@ -83,8 +83,13 @@ async def _read_body(request: Request, limit: int) -> bytes:
 
 
 async def _serve(
-    request: Request, handler: _Handler, *, body_limit: int = 0
+    request: Request,
+    handler: _Handler,
+    *,
+    body_limit: int = 0,
+    operation: str | None = None,
 ) -> Response:
+    """Run ``handler``; with ``operation``, refuse an unknown key before the body."""
     # The app middleware normally sets this; 401 audit entries carry the
     # source address and must not depend on middleware order.
     audit_token = (
@@ -97,12 +102,15 @@ async def _serve(
             raise FleetRejectedError(
                 403, FleetErrorCode.TLS_REQUIRED, "TLS is required"
             )
+        headers = {name: request.headers.getlist(name) for name in _HEADERS}
+        target = _target(request)
+        if operation is not None:
+            await fleet.precheck_key(
+                FleetRequest(request.method, target, headers, b""), operation
+            )
         body = await _read_body(request, body_limit) if body_limit else b""
         fleet_request = FleetRequest(
-            method=request.method,
-            target=_target(request),
-            headers={name: request.headers.getlist(name) for name in _HEADERS},
-            body=body,
+            method=request.method, target=target, headers=headers, body=body
         )
         answer = await handler(fleet_request)
     except FleetRejectedError as exc:
@@ -126,19 +134,25 @@ async def fleet_enroll(request: Request) -> Response:
 @router.post("/keys/rotate", responses=_ERRORS, openapi_extra=_ENVELOPE_BODY)
 async def fleet_rotate_key(request: Request) -> Response:
     """Register a robot's next key (overlap with the current one)."""
-    return await _serve(request, fleet.rotate, body_limit=MAX_ENVELOPE_BYTES)
+    return await _serve(
+        request, fleet.rotate, body_limit=MAX_ENVELOPE_BYTES, operation="rotate"
+    )
 
 
 @router.post("/keys/retire", responses=_ERRORS, openapi_extra=_ENVELOPE_BODY)
 async def fleet_retire_key(request: Request) -> Response:
     """Retire the old key of a rotation."""
-    return await _serve(request, fleet.retire, body_limit=MAX_ENVELOPE_BYTES)
+    return await _serve(
+        request, fleet.retire, body_limit=MAX_ENVELOPE_BYTES, operation="retire"
+    )
 
 
 @router.post("/keys/cancel", responses=_ERRORS, openapi_extra=_ENVELOPE_BODY)
 async def fleet_cancel_rotation(request: Request) -> Response:
     """Cancel a rotation the robot will not complete."""
-    return await _serve(request, fleet.cancel, body_limit=MAX_ENVELOPE_BYTES)
+    return await _serve(
+        request, fleet.cancel, body_limit=MAX_ENVELOPE_BYTES, operation="cancel"
+    )
 
 
 @router.get("/revocations/{platform}", responses=_ERRORS)
@@ -158,7 +172,12 @@ async def fleet_get_revocations(request: Request, platform: str) -> Response:
 )
 async def fleet_publish_draft(request: Request) -> Response:
     """Queue a draft profile for review."""
-    return await _serve(request, fleet.publish_draft, body_limit=MAX_DRAFT_BYTES)
+    return await _serve(
+        request,
+        fleet.publish_draft,
+        body_limit=MAX_DRAFT_BYTES,
+        operation="publish_draft",
+    )
 
 
 @router.get("/profiles/current", responses=_ERRORS)

@@ -2,9 +2,11 @@
 
 Each workspace holds at most one **active** key of each kind: the online
 fleet key (tokens, answers, ring information) and the approval key (profile
-approvals only, used after the two-person sign-off). Secret seeds are
+approvals only, used after the two-person sign-off). Online secret seeds are
 Fernet-encrypted with the database encryption key, the same way workspace
-secrets are stored, and decrypted only at the point of signing.
+secrets are stored, and decrypted only at the point of signing. An offline
+approval key has no seed here: the operator holding it signs prepared
+approvals and uploads the detached signature.
 """
 
 from __future__ import annotations
@@ -31,8 +33,10 @@ def decrypt_secret(value: bytes) -> bytes:
     return decrypt_value(value, key=get_db_encryption_key())
 
 
-def signing_key(row: RobotFleetSocKey) -> SigningKey:
-    """The signing key of a stored SOC key row."""
+def signing_key(row: RobotFleetSocKey) -> SigningKey | None:
+    """The signing key of a stored SOC key row; None for an offline key."""
+    if row.encrypted_seed is None:
+        return None
     return SigningKey.from_seed(decrypt_secret(row.encrypted_seed))
 
 
@@ -52,6 +56,6 @@ async def active_soc_key(
 async def active_signing_key(
     session: AsyncSession, workspace_id: uuid.UUID, kind: FleetSocKeyKind
 ) -> SigningKey | None:
-    """The workspace's active SOC signing key of ``kind``, decrypted."""
+    """The workspace's active online SOC signing key of ``kind``, decrypted."""
     row = await active_soc_key(session, workspace_id, kind)
     return signing_key(row) if row is not None else None

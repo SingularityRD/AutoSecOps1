@@ -13,9 +13,11 @@ from autosecops.core.schemas import Schema
 from autosecops.robot_edr.types import (
     FleetApprovalStatus,
     FleetRotationStatus,
+    FleetSocKeyCustody,
     FleetSocKeyKind,
     FleetSocKeyStatus,
     LineErrorCode,
+    RobotKeyProvenance,
     RobotKeyRole,
 )
 
@@ -116,6 +118,10 @@ class RobotKeyRead(Schema):
     vouches_origin: bool
     revoked_at: datetime | None
     expires_at: datetime | None
+    provenance: RobotKeyProvenance | None = Field(
+        default=None,
+        description="How the key was registered (null: before this was recorded)",
+    )
     created_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
@@ -226,17 +232,39 @@ class FleetDraftReceipt(BaseModel):
 
 
 class FleetSocKeyCreate(Schema):
-    """Generate a SOC key, or import one generated offline."""
+    """Create a SOC key.
+
+    Fleet keys are online: generated on the server, or imported from a secret
+    key file. Approval keys are ``offline`` (recommended: only the public key
+    file is registered and approvals are signed by the operator who holds the
+    secret) or ``online`` (generated on the server; lower assurance). An
+    approval key's secret is never imported.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     kind: FleetSocKeyKind
+    custody: FleetSocKeyCustody = Field(
+        default=FleetSocKeyCustody.ONLINE,
+        description=(
+            "online: the server holds the secret and signs; offline (approval "
+            "keys only): register public_key_file and upload detached signatures"
+        ),
+    )
     secret_key_file: str | None = Field(
         default=None,
         max_length=4096,
         description=(
-            "Optional robodr-blackbox-key/v2 secret key file to import instead of "
-            "generating a key on the server"
+            "Fleet keys only: a robodr-blackbox-key/v2 secret key file to import "
+            "instead of generating a key on the server"
+        ),
+    )
+    public_key_file: str | None = Field(
+        default=None,
+        max_length=4096,
+        description=(
+            "Offline approval keys: the robodr-blackbox-key/v2 public key file "
+            "(or 64 hex digits) of the operator-held approval key"
         ),
     )
 
@@ -248,10 +276,13 @@ class FleetSocKeyRead(Schema):
     kind: FleetSocKeyKind
     key_id: str
     fingerprint: str
+    custody: FleetSocKeyCustody
     status: FleetSocKeyStatus
     public_key_file: str = Field(
         ..., description="The robodr-blackbox-key/v2 public file robots install"
     )
+    created_by: uuid.UUID | None
+    activated_by: uuid.UUID | None
     created_at: datetime
     activated_at: datetime | None
     retired_at: datetime | None
@@ -375,7 +406,33 @@ class FleetApprovalRead(Schema):
     issued_at: datetime | None
     expires_at: datetime | None
     signer_key_id: str | None
+    signing_payload: str | None = Field(
+        default=None,
+        description=(
+            "Prepared approvals: the profile-approval payload (base64url, no "
+            "padding) the offline approval key signs"
+        ),
+    )
+    signing_message_hex: str | None = Field(
+        default=None,
+        description=(
+            "Prepared approvals: the exact bytes to sign with Ed25519 (contract "
+            "§2.3 message for type profile-approval and signer_key_id), as hex"
+        ),
+    )
     created_at: datetime
+
+
+class FleetApprovalSignature(Schema):
+    """The offline approval key's detached signature of a prepared approval."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    signature: str = Field(
+        ...,
+        pattern=r"^[0-9a-f]{128}$",
+        description="Ed25519 signature of signing_message_hex, 128 lower-case hex",
+    )
 
 
 class FleetRingUpdate(Schema):
@@ -411,13 +468,13 @@ class FleetRevocationCreate(Schema):
 
     model_config = ConfigDict(extra="forbid")
 
-    revocation_list: str = Field(..., min_length=1, max_length=1024 * 1024)
-    trust_root_public_key: str | None = Field(
-        default=None,
-        max_length=4096,
+    revocation_list: str = Field(
+        ...,
+        min_length=1,
+        max_length=1024 * 1024,
         description=(
-            "Optional trust-root public key (robodr-blackbox-key/v2 file or 64 hex) "
-            "to check the list's signature before publishing"
+            "The list, signed by one of the workspace's trust roots (it is "
+            "refused otherwise)"
         ),
     )
 
@@ -431,7 +488,47 @@ class FleetRevocationRead(Schema):
     list_digest: str
     signer_key_id: str
     signature_checked: bool
+    trust_root_key_id: str | None
+    withdrawal_reason: str | None
+    withdrawal_requested_by: uuid.UUID | None
+    withdrawal_requested_at: datetime | None
+    withdrawn_by: uuid.UUID | None
+    withdrawn_at: datetime | None
     created_at: datetime
+
+
+class FleetRevocationWithdraw(Schema):
+    """Request the withdrawal of a published revocation list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(..., min_length=1, max_length=512, pattern=LABEL_PATTERN)
+
+
+class FleetTrustRootCreate(Schema):
+    """Trust a robodr-commission trust root for revocation lists (§4.1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    public_key: str = Field(
+        ...,
+        min_length=64,
+        max_length=4096,
+        description="robodr-blackbox-key/v2 public key file, or 64 hex digits",
+    )
+    label: str | None = Field(default=None, max_length=128, pattern=LABEL_PATTERN)
+
+
+class FleetTrustRootRead(Schema):
+    """A trust root of the workspace."""
+
+    id: uuid.UUID
+    key_id: str
+    fingerprint: str
+    label: str | None
+    created_by: uuid.UUID | None
+    created_at: datetime
+    revoked_at: datetime | None
 
 
 class RobotFleetStatus(Schema):

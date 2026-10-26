@@ -14,13 +14,22 @@ from autosecops.db.models import Robot, RobotKey
 from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.robot_edr.crypto import derive_key_id, is_strict_public_key
+from autosecops.robot_edr.key_registry import (
+    ClaimedKey,
+    KeyConflictError,
+    claim_keys,
+)
 from autosecops.robot_edr.schemas import (
     RobotCreate,
     RobotKeyCreate,
     RobotKeyRead,
     RobotUpdate,
 )
-from autosecops.robot_edr.types import SENDER_KEY_ROLES, RobotKeyRole
+from autosecops.robot_edr.types import (
+    SENDER_KEY_ROLES,
+    RobotKeyProvenance,
+    RobotKeyRole,
+)
 from autosecops.service import BaseWorkspaceService
 from autosecops.tiers.enums import Entitlement
 
@@ -161,21 +170,31 @@ class RobotsService(BaseWorkspaceService):
     async def create_key(self, params: RobotKeyCreate) -> RobotKey:
         """Register a public key.
 
+        A ``blackbox`` key is refused: black-box keys are registered only by
+        fleet enrollment, with proof of possession (contract §3-§4), because
+        evidence verification trusts them.
+
         Raises:
             TracecatValidationError: The key is not a canonical, large-order
-                Ed25519 key, or the role/robot/key id combination is invalid.
+                Ed25519 key, the role/robot/key id combination is invalid, the
+                role is ``blackbox``.
             TracecatNotFoundError: The named robot is not registered.
-            RobotConflictError: The key id is already registered in this
-                workspace, or is an active sender key anywhere.
+            RobotConflictError: The key id or public key was ever registered
+                anywhere on the SOC (robot or SOC key, in any workspace).
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
+        if params.role is RobotKeyRole.BLACKBOX:
+            raise TracecatValidationError(
+                "Black-box keys are registered by fleet enrollment only "
+                "(robodr-enroll proves possession of the key)"
+            )
         public_key = bytes.fromhex(params.public_key)
         if not is_strict_public_key(public_key):
             raise TracecatValidationError(
                 "public_key is not a canonical, large-order Ed25519 public key"
             )
         derived = derive_key_id(public_key)
-        if params.role in SENDER_KEY_ROLES or params.role is RobotKeyRole.BLACKBOX:
+        if params.role in SENDER_KEY_ROLES:
             if params.key_id is not None and params.key_id != derived:
                 raise TracecatValidationError(
                     f"A {params.role} key's id is derived from its public key: {derived}"
@@ -183,6 +202,11 @@ class RobotsService(BaseWorkspaceService):
             key_id = derived
         else:
             key_id = params.key_id or derived
+            if key_id != derived and key_id.startswith("ed25519:"):
+                raise TracecatValidationError(
+                    "A key id of the form ed25519:<hex> is the derived id of "
+                    f"its public key: {derived}"
+                )
 
         robot_fk: uuid.UUID | None = None
         if params.role is RobotKeyRole.RELAY:
@@ -206,8 +230,18 @@ class RobotsService(BaseWorkspaceService):
             site=params.site,
             vouches_origin=params.vouches_origin,
             expires_at=params.expires_at,
+            provenance=RobotKeyProvenance.MANUAL.value,
             created_by=self.role.user_id,
         )
+        try:
+            # SOC-wide identity is the derived id and the public key; a
+            # producer-chosen finding key id only names the key in its workspace.
+            await claim_keys(self.session, [ClaimedKey(derived, public_key)], "robot")
+        except KeyConflictError as exc:
+            await self.session.rollback()
+            raise RobotConflictError(
+                "This key id or public key is already registered on this SOC"
+            ) from exc
         self.session.add(key)
         await self._commit_or_conflict("This key is already registered")
         await self.session.refresh(key)
@@ -227,7 +261,10 @@ class RobotsService(BaseWorkspaceService):
     @require_scope("robot:update")
     @audit_log(resource_type="robot_key", action="delete")
     async def delete_key(self, key: RobotKey) -> None:
-        """Delete a key and the replay records of the batches it signed."""
+        """Delete a key and the replay records of the batches it signed.
+
+        Its id and public key stay taken in the SOC-wide key registry.
+        """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         await self.session.delete(key)
         await self.session.commit()
@@ -245,6 +282,7 @@ class RobotsService(BaseWorkspaceService):
             vouches_origin=key.vouches_origin,
             revoked_at=key.revoked_at,
             expires_at=key.expires_at,
+            provenance=(RobotKeyProvenance(key.provenance) if key.provenance else None),
             created_by=key.created_by,
             created_at=key.created_at,
             updated_at=key.updated_at,

@@ -157,6 +157,27 @@ class FleetSocKeyKind(StrEnum):
     """Profile approvals only, used after the two-person sign-off."""
 
 
+class FleetSocKeyCustody(StrEnum):
+    """Where a SOC key's secret lives (contract §2.7)."""
+
+    ONLINE = "online"
+    """Generated on the server; the seed is stored encrypted and the API signs."""
+    OFFLINE = "offline"
+    """Approval keys only: the operator holds the secret (offline or in an
+    HSM) and uploads detached signatures; the SOC stores the public key only."""
+
+
+class RobotKeyProvenance(StrEnum):
+    """How a robot key was registered."""
+
+    MANUAL = "manual"
+    """Registered by an operator through the key API."""
+    ENROLLMENT = "enrollment"
+    """Registered by fleet enrollment (proof of possession, contract §3)."""
+    ROTATION = "rotation"
+    """Registered by a fleet key rotation (contract §5)."""
+
+
 class FleetSocKeyStatus(StrEnum):
     """Lifecycle of a SOC key (contract §2.7 rotation)."""
 
@@ -181,6 +202,9 @@ class FleetApprovalStatus(StrEnum):
 
     PENDING = "pending"
     """Requested by one operator; waits for a second, distinct operator."""
+    PREPARED = "prepared"
+    """Two people signed it off and the payload is fixed; it waits for the
+    detached signature of the offline approval key."""
     SIGNED = "signed"
     """Signed by the approval key; served to the robot."""
     CANCELLED = "cancelled"

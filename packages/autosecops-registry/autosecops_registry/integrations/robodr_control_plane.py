@@ -1826,10 +1826,18 @@ async def _record_access(
     return True
 
 
-async def _registered_blackbox_keys(robot_id: str) -> list[str]:
-    """The black-box keys the robot registered at fleet enrollment."""
+async def _registered_blackbox_keys(
+    robot_id: str, from_ms: int | None, to_ms: int | None
+) -> list[str]:
+    """The black-box keys the robot registered at fleet enrollment.
+
+    Only those valid for the selected record times (the whole history when
+    the selector names no times), newest first.
+    """
     try:
-        keys = await get_context().robot_edr.blackbox_public_keys(robot_id)
+        keys = await get_context().robot_edr.blackbox_public_keys(
+            robot_id, from_ms=from_ms, to_ms=to_ms
+        )
     except Exception as exc:  # fail closed: no keyring, no verification
         raise EvidenceError(
             "no black-box public keys given and none registered for the robot "
@@ -2097,7 +2105,8 @@ async def download_evidence_export(
             "The robot's black-box public key files (robodr-blackbox keygen "
             ".pub JSON), every key the chain names across rotations. Public "
             "key files only. Omit to use the black-box keys the robot "
-            "registered at fleet enrollment."
+            "registered at fleet enrollment that are valid for the selected "
+            "record times (newest first; more than 16 is an error)."
         ),
     ] = None,
     finding_id: Annotated[str | None, _FINDING_ID_DOC] = None,
@@ -2124,7 +2133,9 @@ async def download_evidence_export(
     )
     _check_export_id(export_id)
     if blackbox_public_keys is None:
-        blackbox_public_keys = await _registered_blackbox_keys(robot.robot_id)
+        blackbox_public_keys = await _registered_blackbox_keys(
+            robot.robot_id, from_ms, to_ms
+        )
     keyring = parse_blackbox_keyring(blackbox_public_keys)
     selector = _selector(
         robot.robot_id,

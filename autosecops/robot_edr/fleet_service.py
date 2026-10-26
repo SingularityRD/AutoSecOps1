@@ -9,6 +9,17 @@ An approval is signed by the workspace's approval key only after two
 distinct platform users signed it off: the requester and one approver, both
 holding ``robot:approve``. Nothing signs an approval automatically, and a
 service account cannot request or approve one.
+
+The approval key is held offline by default (contract §2.7): the SOC keeps
+its public key only, prepares the exact approval payload once both people
+signed it off, and accepts the detached signature of the operator holding
+the key. An online approval key (generated on the server, lower assurance)
+remains possible. Either way an approval key is never imported, and it
+signs only after a second platform user activated it.
+
+Revocation lists are published only when their signature verifies under one
+of the workspace's trust roots (``robot:trust``); a published list can be
+withdrawn by two platform users holding ``robot:trust``.
 """
 
 from __future__ import annotations
@@ -33,6 +44,7 @@ from autosecops.db.models import (
     RobotFleetRotation,
     RobotFleetSocKey,
     RobotFleetToken,
+    RobotFleetTrustRoot,
 )
 from autosecops.exceptions import (
     TracecatAuthorizationError,
@@ -41,26 +53,37 @@ from autosecops.exceptions import (
 )
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.robot_edr import fleet_wire as wire
+from autosecops.robot_edr.crypto import derive_key_id, is_strict_public_key
 from autosecops.robot_edr.fleet import now_ms
 from autosecops.robot_edr.fleet_keys import (
     active_signing_key,
     active_soc_key,
     encrypt_secret,
+    signing_key,
 )
 from autosecops.robot_edr.fleet_profiles import (
     ProfileFileError,
     check_locked_profile,
     parse_revocation_list,
 )
+from autosecops.robot_edr.key_registry import (
+    ClaimedKey,
+    KeyConflictError,
+    VectorKeyError,
+    claim_keys,
+    is_test_key,
+)
 from autosecops.robot_edr.schemas import (
     FleetApprovalCreate,
     FleetApprovalRead,
+    FleetApprovalSignature,
     FleetDraftContent,
     FleetDraftRead,
     FleetOfferRead,
     FleetOfferUpdate,
     FleetRevocationCreate,
     FleetRevocationRead,
+    FleetRevocationWithdraw,
     FleetRingRead,
     FleetRingUpdate,
     FleetRotationRead,
@@ -69,16 +92,20 @@ from autosecops.robot_edr.schemas import (
     FleetTokenCreate,
     FleetTokenIssued,
     FleetTokenRead,
+    FleetTrustRootCreate,
+    FleetTrustRootRead,
     RobotFleetStatus,
 )
 from autosecops.robot_edr.service import RobotConflictError
 from autosecops.robot_edr.types import (
     FleetApprovalStatus,
     FleetRotationStatus,
+    FleetSocKeyCustody,
     FleetSocKeyKind,
     FleetSocKeyStatus,
     RobotKeyRole,
 )
+from autosecops.robot_edr.versions import compare_versions
 from autosecops.service import BaseWorkspaceService
 from autosecops.tiers.enums import Entitlement
 
@@ -127,8 +154,11 @@ def soc_key_read(row: RobotFleetSocKey) -> FleetSocKeyRead:
         kind=FleetSocKeyKind(row.kind),
         key_id=row.key_id,
         fingerprint=wire.fingerprint(row.public_key),
+        custody=FleetSocKeyCustody(row.custody),
         status=FleetSocKeyStatus(row.status),
         public_key_file=wire.public_key_file(row.public_key),
+        created_by=row.created_by,
+        activated_by=row.activated_by,
         created_at=row.created_at,
         activated_at=row.activated_at,
         retired_at=row.retired_at,
@@ -136,7 +166,12 @@ def soc_key_read(row: RobotFleetSocKey) -> FleetSocKeyRead:
 
 
 def approval_read(row: RobotFleetApproval) -> FleetApprovalRead:
-    """Serialize an approval row."""
+    """Serialize an approval row (with what to sign while it is prepared)."""
+    prepared = (
+        row.status == FleetApprovalStatus.PREPARED.value
+        and row.payload is not None
+        and row.signer_key_id is not None
+    )
     return FleetApprovalRead(
         id=row.id,
         approval_id=row.approval_id,
@@ -150,6 +185,14 @@ def approval_read(row: RobotFleetApproval) -> FleetApprovalRead:
         issued_at=_dt(row.issued_at_ms) if row.issued_at_ms is not None else None,
         expires_at=_dt(row.expires_at_ms) if row.expires_at_ms is not None else None,
         signer_key_id=row.signer_key_id,
+        signing_payload=(
+            wire.b64_encode(row.payload) if prepared and row.payload else None
+        ),
+        signing_message_hex=(
+            wire.sig_message(wire.T_APPROVAL, row.signer_key_id, row.payload).hex()
+            if prepared and row.payload and row.signer_key_id
+            else None
+        ),
         created_at=row.created_at,
     )
 
@@ -174,20 +217,55 @@ def _revocation_read(row: RobotFleetRevocationList) -> FleetRevocationRead:
         list_digest=row.list_digest,
         signer_key_id=row.signer_key_id,
         signature_checked=row.signature_checked,
+        trust_root_key_id=row.trust_root_key_id,
+        withdrawal_reason=row.withdrawal_reason,
+        withdrawal_requested_by=row.withdrawal_requested_by,
+        withdrawal_requested_at=row.withdrawal_requested_at,
+        withdrawn_by=row.withdrawn_by,
+        withdrawn_at=row.withdrawn_at,
         created_at=row.created_at,
     )
 
 
-def _parse_public_key(text: str) -> bytes:
+def _trust_root_read(row: RobotFleetTrustRoot) -> FleetTrustRootRead:
+    return FleetTrustRootRead(
+        id=row.id,
+        key_id=row.key_id,
+        fingerprint=wire.fingerprint(row.public_key),
+        label=row.label,
+        created_by=row.created_by,
+        created_at=row.created_at,
+        revoked_at=row.revoked_at,
+    )
+
+
+def _parse_public_key(text: str, field: str) -> bytes:
+    """A strict Ed25519 public key from a key file or 64 hex digits."""
     stripped = text.strip()
     if wire.is_lower_hex(stripped, 64):
-        return bytes.fromhex(stripped)
-    try:
-        return wire.parse_key_file(stripped).public_key
-    except wire.WireError as exc:
+        public = bytes.fromhex(stripped)
+    else:
+        try:
+            key_file = wire.parse_key_file(stripped)
+        except wire.WireError as exc:
+            raise TracecatValidationError(
+                f"{field} must be a robodr-blackbox-key/v2 public key file or 64 hex"
+            ) from exc
+        if key_file.seed is not None:
+            raise TracecatValidationError(
+                f"{field} is a secret key file: give the public key file (.pub)"
+            )
+        public = key_file.public_key
+    if not is_strict_public_key(public):
+        raise TracecatValidationError(f"{field} is not a valid Ed25519 public key")
+    return public
+
+
+def _refuse_test_key(key_id: str, public_key: bytes) -> None:
+    if is_test_key(key_id, public_key):
         raise TracecatValidationError(
-            "trust_root_public_key must be a robodr-blackbox-key/v2 file or 64 hex"
-        ) from exc
+            "This is a robodr.fleet contract test key; never use it for real"
+        )
 
 
 class RobotFleetService(BaseWorkspaceService):
@@ -211,25 +289,19 @@ class RobotFleetService(BaseWorkspaceService):
     @require_scope("robot:enroll")
     @audit_log(resource_type="robot_fleet", action="create")
     async def create_fleet_key(self, params: FleetSocKeyCreate) -> RobotFleetSocKey:
-        """Generate or import the fleet key (tokens, answers, ring information)."""
-        return await self._create_soc_key(FleetSocKeyKind.FLEET, params)
+        """Generate or import the fleet key (tokens, answers, ring information).
 
-    @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="create")
-    async def create_approval_key(self, params: FleetSocKeyCreate) -> RobotFleetSocKey:
-        """Generate or import the approval key (profile approvals only)."""
-        return await self._create_soc_key(FleetSocKeyKind.APPROVAL, params)
-
-    async def _create_soc_key(
-        self, kind: FleetSocKeyKind, params: FleetSocKeyCreate
-    ) -> RobotFleetSocKey:
-        """The first key of a kind becomes active; later ones wait (§2.7 rotation).
-
-        Raises:
-            TracecatValidationError: The imported file is not a secret key file.
-            RobotConflictError: The key is already registered on this SOC.
+        The first fleet key becomes active; later ones wait (§2.7 rotation).
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
+        if params.custody is not FleetSocKeyCustody.ONLINE:
+            raise TracecatValidationError(
+                "The fleet key is online: the API signs answers with it"
+            )
+        if params.public_key_file is not None:
+            raise TracecatValidationError(
+                "public_key_file registers an offline approval key only"
+            )
         if params.secret_key_file is not None:
             try:
                 key_file = wire.parse_key_file(params.secret_key_file)
@@ -240,20 +312,103 @@ class RobotFleetService(BaseWorkspaceService):
             key = wire.SigningKey.from_seed(key_file.seed)
         else:
             key = wire.SigningKey.from_seed(secrets.token_bytes(32))
-        current = await active_soc_key(self.session, self.workspace_id, kind)
+        current = await active_soc_key(
+            self.session, self.workspace_id, FleetSocKeyKind.FLEET
+        )
+        return await self._store_soc_key(
+            FleetSocKeyKind.FLEET,
+            FleetSocKeyCustody.ONLINE,
+            key.public_key,
+            key.seed,
+            activate=current is None,
+        )
+
+    @require_scope("robot:approve")
+    @audit_log(resource_type="robot_fleet", action="create")
+    async def create_approval_key(self, params: FleetSocKeyCreate) -> RobotFleetSocKey:
+        """Register an offline approval key, or generate an online one.
+
+        ``offline`` (recommended, contract §2.7): only the public key file is
+        stored; approvals are signed by the operator who holds the secret.
+        ``online``: the server generates and holds the key (lower assurance:
+        whoever controls the server can sign approvals). An approval key's
+        secret is never imported, and every approval key starts ``pending``
+        until a second platform user activates it.
+
+        Raises:
+            TracecatAuthorizationError: Not a platform user.
+            TracecatValidationError: A secret key file, a missing or invalid
+                public key file, or a contract test key.
+            RobotConflictError: The key is already registered on this SOC.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        self._platform_user()
+        if params.secret_key_file is not None:
+            raise TracecatValidationError(
+                "An approval key's secret is never imported: register an offline "
+                "key with its public_key_file, or generate an online key"
+            )
+        seed: bytes | None = None
+        if params.custody is FleetSocKeyCustody.OFFLINE:
+            if params.public_key_file is None:
+                raise TracecatValidationError(
+                    "An offline approval key is registered by its public_key_file"
+                )
+            public_key = _parse_public_key(params.public_key_file, "public_key_file")
+        else:
+            if params.public_key_file is not None:
+                raise TracecatValidationError(
+                    "public_key_file registers an offline approval key only"
+                )
+            key = wire.SigningKey.from_seed(secrets.token_bytes(32))
+            public_key, seed = key.public_key, key.seed
+        return await self._store_soc_key(
+            FleetSocKeyKind.APPROVAL,
+            params.custody,
+            public_key,
+            seed,
+            activate=False,
+        )
+
+    async def _store_soc_key(
+        self,
+        kind: FleetSocKeyKind,
+        custody: FleetSocKeyCustody,
+        public_key: bytes,
+        seed: bytes | None,
+        *,
+        activate: bool,
+    ) -> RobotFleetSocKey:
+        """Register a SOC key SOC-wide (key registry) and store it.
+
+        Raises:
+            TracecatValidationError: A contract test key.
+            RobotConflictError: The key id or public key is already registered.
+        """
+        key_id = derive_key_id(public_key)
+        _refuse_test_key(key_id, public_key)
+        try:
+            await claim_keys(self.session, [ClaimedKey(key_id, public_key)], "soc")
+        except (KeyConflictError, VectorKeyError) as exc:
+            await self.session.rollback()
+            raise RobotConflictError(
+                "This key is already registered on this SOC"
+            ) from exc
         now = datetime.now(UTC)
         row = RobotFleetSocKey(
             workspace_id=self.workspace_id,
             kind=kind.value,
-            key_id=key.key_id,
-            public_key=key.public_key,
-            encrypted_seed=encrypt_secret(key.seed),
+            key_id=key_id,
+            public_key=public_key,
+            encrypted_seed=encrypt_secret(seed) if seed is not None else None,
+            custody=custody.value,
             status=(
-                FleetSocKeyStatus.PENDING.value
-                if current is not None
-                else FleetSocKeyStatus.ACTIVE.value
+                FleetSocKeyStatus.ACTIVE.value
+                if activate
+                else FleetSocKeyStatus.PENDING.value
             ),
-            activated_at=None if current is not None else now,
+            activated_at=now if activate else None,
+            activated_by=self.role.user_id if activate else None,
             created_by=self.role.user_id,
         )
         self.session.add(row)
@@ -286,7 +441,18 @@ class RobotFleetService(BaseWorkspaceService):
     @require_scope("robot:approve")
     @audit_log(resource_type="robot_fleet", action="update")
     async def activate_approval_key(self, row: RobotFleetSocKey) -> RobotFleetSocKey:
-        """Switch approval signing to a pending key."""
+        """Switch approval signing to a pending key: a second person's step.
+
+        Raises:
+            TracecatAuthorizationError: Not a platform user, or the user who
+                registered the key.
+        """
+        activator = self._platform_user()
+        if row.created_by is None or row.created_by == activator:
+            raise TracecatAuthorizationError(
+                "The user who registered an approval key cannot activate it: "
+                "a second person must"
+            )
         return await self._activate(row, FleetSocKeyKind.APPROVAL)
 
     async def _activate(
@@ -306,6 +472,7 @@ class RobotFleetService(BaseWorkspaceService):
             await self.session.flush()
         row.status = FleetSocKeyStatus.ACTIVE.value
         row.activated_at = now
+        row.activated_by = self.role.user_id
         await self.session.commit()
         await self.session.refresh(row)
         return row
@@ -682,11 +849,11 @@ class RobotFleetService(BaseWorkspaceService):
             row.platform,
         ):
             raise TracecatValidationError("The offered profile changed; request again")
-        approval_key = await active_signing_key(
+        approval_key = await active_soc_key(
             self.session, self.workspace_id, FleetSocKeyKind.APPROVAL
         )
         if approval_key is None:
-            raise TracecatValidationError("Generate a SOC approval key first")
+            raise TracecatValidationError("Activate a SOC approval key first")
         issued_at = now_ms()
         approval = wire.Approval(
             approval_id=row.approval_id,
@@ -700,14 +867,64 @@ class RobotFleetService(BaseWorkspaceService):
             expires_at_ms=issued_at + row.validity_ms,
         )
         approval.check()
-        row.envelope = wire.sign_envelope(
-            wire.T_APPROVAL, approval.to_bytes(), [approval_key]
-        )
-        row.status = FleetApprovalStatus.SIGNED.value
+        payload = approval.to_bytes()
+        row.payload = payload
         row.approved_by = approver
         row.issued_at_ms = issued_at
         row.expires_at_ms = approval.expires_at_ms
         row.signer_key_id = approval_key.key_id
+        if (online := signing_key(approval_key)) is not None:
+            row.envelope = wire.sign_envelope(wire.T_APPROVAL, payload, [online])
+            row.status = FleetApprovalStatus.SIGNED.value
+        else:  # Offline key: the holder signs the prepared payload.
+            row.status = FleetApprovalStatus.PREPARED.value
+        await self.session.commit()
+        await self.session.refresh(row)
+        return approval_read(row)
+
+    @require_scope("robot:approve")
+    @audit_log(resource_type="robot_fleet", action="approve")
+    async def submit_approval_signature(
+        self,
+        robot_uuid: uuid.UUID,
+        approval_uuid: uuid.UUID,
+        params: FleetApprovalSignature,
+    ) -> FleetApprovalRead:
+        """Attach the offline approval key's detached signature (§6.3, §2.3).
+
+        Raises:
+            TracecatAuthorizationError: Not a platform user.
+            TracecatValidationError: Not prepared, expired, the approval key
+                changed since, or the signature does not verify.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        self._platform_user()
+        _, row = await self._approval(robot_uuid, approval_uuid)
+        if (
+            row.status != FleetApprovalStatus.PREPARED.value
+            or row.payload is None
+            or row.signer_key_id is None
+        ):
+            raise TracecatValidationError("Only a prepared approval takes a signature")
+        if row.expires_at_ms is not None and now_ms() >= row.expires_at_ms:
+            raise TracecatValidationError("The approval expired; request it again")
+        approval_key = await active_soc_key(
+            self.session, self.workspace_id, FleetSocKeyKind.APPROVAL
+        )
+        if approval_key is None or approval_key.key_id != row.signer_key_id:
+            raise TracecatValidationError(
+                "The approval key changed since the approval was prepared; "
+                "cancel it and request again"
+            )
+        message = wire.sig_message(wire.T_APPROVAL, row.signer_key_id, row.payload)
+        if not wire.verify_hex(approval_key.public_key, message, params.signature):
+            raise TracecatValidationError(
+                "The signature does not verify under the active approval key"
+            )
+        row.envelope = wire.assemble_envelope(
+            wire.T_APPROVAL, row.payload, [(row.signer_key_id, params.signature)]
+        )
+        row.status = FleetApprovalStatus.SIGNED.value
         await self.session.commit()
         await self.session.refresh(row)
         return approval_read(row)
@@ -746,13 +963,22 @@ class RobotFleetService(BaseWorkspaceService):
         if fleet_key is None:
             raise TracecatValidationError("Generate a SOC fleet key first")
         last = await self.session.scalar(
-            select(func.max(RobotFleetRing.serial)).where(
-                RobotFleetRing.robot_fk == robot.id
-            )
+            select(RobotFleetRing)
+            .where(RobotFleetRing.robot_fk == robot.id)
+            .order_by(RobotFleetRing.serial.desc())
+            .limit(1)
         )
+        if last is not None and last.min_version is not None:
+            if params.min_version is None or (
+                compare_versions(params.min_version, last.min_version) < 0
+            ):
+                raise TracecatValidationError(
+                    f"min_version only rises: it is {last.min_version} (the "
+                    "robot's security floor); give it or a higher release"
+                )
         issued_at = now_ms()
         info = wire.RingInfo(
-            serial=(last or 0) + 1,
+            serial=(last.serial if last is not None else 0) + 1,
             workspace=robot.fleet_workspace,
             robot_id=robot.robot_id,
             ring=params.ring,
@@ -811,11 +1037,16 @@ class RobotFleetService(BaseWorkspaceService):
     async def publish_revocation_list(
         self, params: FleetRevocationCreate
     ) -> FleetRevocationRead:
-        """Publish a root-signed list for its platform; the serial only rises.
+        """Publish a list signed by a workspace trust root; the serial only rises.
+
+        Only a list whose signature verifies under an active trust root of the
+        workspace is stored, so only such lists are served and set the
+        platform's serial floor (the newest list not withdrawn).
 
         Raises:
-            TracecatValidationError: Malformed, the signature does not verify
-                under the given trust root, or a lower serial.
+            TracecatValidationError: Malformed, no trust root configured, the
+                signature verifies under none, a lower serial, or the serial
+                of a withdrawn list.
             RobotConflictError: The same serial with other content (equivocation).
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
@@ -824,40 +1055,65 @@ class RobotFleetService(BaseWorkspaceService):
             parsed = parse_revocation_list(body)
         except ProfileFileError as exc:
             raise TracecatValidationError(f"revocation_list: {exc}") from exc
-        checked = False
-        if params.trust_root_public_key is not None:
-            if not parsed.verify(_parse_public_key(params.trust_root_public_key)):
-                raise TracecatValidationError(
-                    "The list's signature does not verify under this trust root"
+        roots = (
+            await self.session.scalars(
+                select(RobotFleetTrustRoot).where(
+                    RobotFleetTrustRoot.workspace_id == self.workspace_id,
+                    RobotFleetTrustRoot.revoked_at.is_(None),
                 )
-            checked = True
-        current = await self.session.scalar(
-            select(RobotFleetRevocationList)
-            .where(
+            )
+        ).all()
+        if not roots:
+            raise TracecatValidationError(
+                "Add the trust root that signs revocation lists first (robot:trust)"
+            )
+        root = next((r for r in roots if parsed.verify(r.public_key)), None)
+        if root is None:
+            raise TracecatValidationError(
+                "The list's signature does not verify under any trust root of "
+                "this workspace"
+            )
+        same_serial = await self.session.scalar(
+            select(RobotFleetRevocationList).where(
                 RobotFleetRevocationList.workspace_id == self.workspace_id,
                 RobotFleetRevocationList.platform == parsed.platform,
+                RobotFleetRevocationList.serial == parsed.serial,
             )
-            .order_by(RobotFleetRevocationList.serial.desc())
-            .limit(1)
         )
-        if current is not None:
-            if parsed.serial < current.serial:
-                raise TracecatValidationError(
-                    f"Serial {parsed.serial} is lower than the published {current.serial}"
+        if same_serial is not None:
+            if same_serial.list_digest != parsed.list_digest:
+                raise RobotConflictError(
+                    "Another list with this serial is published (equivocation)"
                 )
-            if parsed.serial == current.serial:
-                if parsed.list_digest != current.list_digest:
-                    raise RobotConflictError(
-                        "Another list with this serial is published (equivocation)"
-                    )
-                return _revocation_read(current)
+            if (
+                same_serial.withdrawn_at is not None
+                or not same_serial.signature_checked
+            ):
+                raise TracecatValidationError(
+                    f"Serial {parsed.serial} belongs to a withdrawn or unverified "
+                    "list; publish the list again under a higher serial"
+                )
+            return _revocation_read(same_serial)
+        floor = await self.session.scalar(
+            select(func.max(RobotFleetRevocationList.serial)).where(
+                RobotFleetRevocationList.workspace_id == self.workspace_id,
+                RobotFleetRevocationList.platform == parsed.platform,
+                RobotFleetRevocationList.signature_checked.is_(True),
+                RobotFleetRevocationList.withdrawn_at.is_(None),
+            )
+        )
+        if floor is not None and parsed.serial < floor:
+            raise TracecatValidationError(
+                f"Serial {parsed.serial} is lower than the published {floor}"
+            )
         row = RobotFleetRevocationList(
             workspace_id=self.workspace_id,
             platform=parsed.platform,
             serial=parsed.serial,
             list_digest=parsed.list_digest,
             signer_key_id=parsed.signer_key_id,
-            signature_checked=checked,
+            signature_checked=True,
+            trust_root_key_id=root.key_id,
             body=body,
             created_by=self.role.user_id,
         )
@@ -867,6 +1123,133 @@ class RobotFleetService(BaseWorkspaceService):
         )
         await self.session.refresh(row)
         return _revocation_read(row)
+
+    async def _revocation_list(self, list_uuid: uuid.UUID) -> RobotFleetRevocationList:
+        row = await self.session.scalar(
+            select(RobotFleetRevocationList)
+            .where(
+                RobotFleetRevocationList.workspace_id == self.workspace_id,
+                RobotFleetRevocationList.id == list_uuid,
+            )
+            .with_for_update()
+        )
+        if row is None:
+            raise TracecatNotFoundError("Revocation list not found")
+        return row
+
+    @require_scope("robot:trust")
+    @audit_log(resource_type="robot_fleet", action="withdraw")
+    async def request_revocation_withdrawal(
+        self, list_uuid: uuid.UUID, params: FleetRevocationWithdraw
+    ) -> FleetRevocationRead:
+        """First sign-off of withdrawing a list (a second user confirms).
+
+        A withdrawn list is kept but no longer served, and no longer sets the
+        serial floor. Robots that installed it keep refusing lower serials
+        (contract §4.1): publish the replacement under a higher serial.
+
+        Raises:
+            TracecatAuthorizationError: Not a platform user.
+            TracecatValidationError: Already withdrawn or requested.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        requester = self._platform_user()
+        row = await self._revocation_list(list_uuid)
+        if row.withdrawn_at is not None or row.withdrawal_requested_at is not None:
+            raise TracecatValidationError(
+                "The list is already withdrawn or its withdrawal is requested"
+            )
+        row.withdrawal_reason = params.reason
+        row.withdrawal_requested_by = requester
+        row.withdrawal_requested_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(row)
+        return _revocation_read(row)
+
+    @require_scope("robot:trust")
+    @audit_log(resource_type="robot_fleet", action="withdraw")
+    async def confirm_revocation_withdrawal(
+        self, list_uuid: uuid.UUID
+    ) -> FleetRevocationRead:
+        """Second sign-off: withdraw the list.
+
+        Raises:
+            TracecatAuthorizationError: Not a platform user, or the requester.
+            TracecatValidationError: No pending withdrawal request.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        confirmer = self._platform_user()
+        row = await self._revocation_list(list_uuid)
+        if row.withdrawn_at is not None or row.withdrawal_requested_at is None:
+            raise TracecatValidationError("No withdrawal of this list is pending")
+        if row.withdrawal_requested_by == confirmer:
+            raise TracecatAuthorizationError(
+                "The requester cannot confirm their own withdrawal: a second "
+                "person must"
+            )
+        row.withdrawn_by = confirmer
+        row.withdrawn_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(row)
+        return _revocation_read(row)
+
+    # --- trust roots (§4.1) ----------------------------------------------------------
+
+    @require_scope("robot:read")
+    async def list_trust_roots(self) -> list[FleetTrustRootRead]:
+        """The workspace's trust roots, newest first."""
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        rows = await self.session.scalars(
+            select(RobotFleetTrustRoot)
+            .where(RobotFleetTrustRoot.workspace_id == self.workspace_id)
+            .order_by(RobotFleetTrustRoot.created_at.desc(), RobotFleetTrustRoot.id)
+        )
+        return [_trust_root_read(row) for row in rows]
+
+    @require_scope("robot:trust")
+    @audit_log(resource_type="robot_fleet", action="create")
+    async def add_trust_root(self, params: FleetTrustRootCreate) -> FleetTrustRootRead:
+        """Trust a robodr-commission trust root for this workspace's lists.
+
+        Raises:
+            TracecatValidationError: Not a public key, or a contract test key.
+            RobotConflictError: Already a trust root of this workspace.
+        """
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        public_key = _parse_public_key(params.public_key, "public_key")
+        key_id = derive_key_id(public_key)
+        _refuse_test_key(key_id, public_key)
+        row = RobotFleetTrustRoot(
+            workspace_id=self.workspace_id,
+            key_id=key_id,
+            public_key=public_key,
+            label=params.label,
+            created_by=self.role.user_id,
+        )
+        self.session.add(row)
+        await self._commit_or_conflict("This trust root is already configured")
+        await self.session.refresh(row)
+        return _trust_root_read(row)
+
+    @require_scope("robot:trust")
+    @audit_log(resource_type="robot_fleet", action="revoke")
+    async def revoke_trust_root(self, root_uuid: uuid.UUID) -> FleetTrustRootRead:
+        """Stop trusting a root for new lists (published lists stay)."""
+        await self.require_entitlement(Entitlement.ROBOT_EDR)
+        row = await self.session.scalar(
+            select(RobotFleetTrustRoot).where(
+                RobotFleetTrustRoot.workspace_id == self.workspace_id,
+                RobotFleetTrustRoot.id == root_uuid,
+            )
+        )
+        if row is None:
+            raise TracecatNotFoundError("Trust root not found")
+        if row.revoked_at is None:
+            row.revoked_at = datetime.now(UTC)
+            row.revoked_by = self.role.user_id
+            await self.session.commit()
+            await self.session.refresh(row)
+        return _trust_root_read(row)
 
     async def _commit_or_conflict(self, message: str) -> None:
         try:

@@ -15,6 +15,11 @@ keys and the case's tokens and publications; its requests run in order with
 the server clock set per request. Every `200` must be byte-identical to the
 reference answer (Ed25519 is deterministic), which is stricter than the
 manifest's comparison rule.
+
+The SOC refuses the vectors' SOC keys as real SOC keys and keeps a
+registered key id forever (`key_registry`): this suite stores the SOC keys
+directly (an approval key's secret is never imported through the API) and
+forgets the vectors' robot keys between cases.
 """
 
 from __future__ import annotations
@@ -43,18 +48,25 @@ from autosecops.db.models import (
     RobotFleetProfileOffer,
     RobotFleetRevocationList,
     RobotFleetRing,
+    RobotFleetSocKey,
+    RobotKeyRegistry,
     Workspace,
 )
-from autosecops.robot_edr import fleet, fleet_replay
+from autosecops.robot_edr import fleet, fleet_replay, fleet_throttle
 from autosecops.robot_edr import fleet_wire as wire
+from autosecops.robot_edr.fleet_keys import encrypt_secret
 from autosecops.robot_edr.fleet_profiles import (
     check_locked_profile,
     parse_revocation_list,
 )
 from autosecops.robot_edr.fleet_router import router as fleet_router
 from autosecops.robot_edr.fleet_service import RobotFleetService
-from autosecops.robot_edr.schemas import FleetSocKeyCreate
-from autosecops.robot_edr.types import FleetApprovalStatus, FleetSocKeyKind
+from autosecops.robot_edr.types import (
+    FleetApprovalStatus,
+    FleetSocKeyCustody,
+    FleetSocKeyKind,
+    FleetSocKeyStatus,
+)
 from autosecops.tiers import defaults as tier_defaults
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
@@ -93,6 +105,11 @@ def local_replay_cache(monkeypatch: pytest.MonkeyPatch) -> None:
         raise RuntimeError("redis disabled for the vectors")
 
     monkeypatch.setattr(fleet_replay, "get_redis_client", _no_redis)
+    monkeypatch.setattr(fleet_throttle, "get_redis_client", _no_redis)
+
+
+def _vector_key_ids() -> list[str]:
+    return [entry["key_id"] for entry in MANIFEST["keys"]]
 
 
 def _admin(ws: Workspace) -> Role:
@@ -116,8 +133,14 @@ async def _new_workspace(org_id: uuid.UUID) -> Workspace:
 
 
 async def _drop_workspace(ws: Workspace) -> None:
+    """Drop the case's SOC, and forget the vectors' keys (each case is fresh)."""
     async with get_async_session_context_manager() as session:
         await session.execute(delete(Workspace).where(Workspace.id == ws.id))
+        await session.execute(
+            delete(RobotKeyRegistry).where(
+                RobotKeyRegistry.key_id.in_(_vector_key_ids())
+            )
+        )
         await session.commit()
 
 
@@ -136,13 +159,19 @@ async def _setup_case(ws: Workspace, setup: dict[str, Any]) -> None:
             (FleetSocKeyKind.FLEET, "keys/soc.key"),
             (FleetSocKeyKind.APPROVAL, "keys/soc-approval.key"),
         ):
-            params = FleetSocKeyCreate(
-                kind=kind, secret_key_file=(VECTORS / path).read_text()
+            key_file = wire.parse_key_file((VECTORS / path).read_text())
+            assert key_file.seed is not None
+            session.add(
+                RobotFleetSocKey(
+                    workspace_id=ws.id,
+                    kind=kind.value,
+                    key_id=key_file.key_id,
+                    public_key=key_file.public_key,
+                    encrypted_seed=encrypt_secret(key_file.seed),
+                    custody=FleetSocKeyCustody.ONLINE.value,
+                    status=FleetSocKeyStatus.ACTIVE.value,
+                )
             )
-            if kind is FleetSocKeyKind.FLEET:
-                await service.create_fleet_key(params)
-            else:
-                await service.create_approval_key(params)
         soc_public = wire.parse_key_file((VECTORS / "keys/soc.key.pub").read_text())
         for token_file in setup.get("tokens", []):
             token = wire.parse_token((VECTORS / token_file).read_text())
@@ -207,6 +236,9 @@ async def _setup_case(ws: Workspace, setup: dict[str, Any]) -> None:
                     envelope=body,
                 )
             )
+        trust_root = wire.parse_key_file(
+            (VECTORS / "keys/trust-root.key.pub").read_text()
+        )
         for platform, path in setup.get("revocations", {}).items():
             body = (VECTORS / path).read_bytes()
             parsed = parse_revocation_list(body)
@@ -218,6 +250,8 @@ async def _setup_case(ws: Workspace, setup: dict[str, Any]) -> None:
                     serial=parsed.serial,
                     list_digest=parsed.list_digest,
                     signer_key_id=parsed.signer_key_id,
+                    signature_checked=parsed.verify(trust_root.public_key),
+                    trust_root_key_id=trust_root.key_id,
                     body=body,
                 )
             )
@@ -283,6 +317,7 @@ async def test_every_fleet_contract_vector(
     mismatches: list[str] = []
     for case in MANIFEST["cases"]:
         await fleet_replay.clear_local()
+        await fleet_throttle.clear_local()
         workspace = await _new_workspace(svc_organization.id)
         try:
             await _setup_case(workspace, case.get("setup", {}))

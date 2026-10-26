@@ -1798,6 +1798,16 @@ Defaults to 10 GiB. Counted over the bundles of every stored export
 (`robot_evidence_export`); deleting a case releases its share.
 """
 
+TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS = int(
+    os.environ.get("TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS") or 16
+)
+"""Draft profiles kept per robot (`robodr.fleet` §6.1, each up to 8 MiB).
+
+A new draft beyond the limit removes that robot's oldest draft, so a robot
+cannot fill the database with drafts; review drafts before the robot
+publishes more.
+"""
+
 TRACECAT__ROBOT_EDR_REQUIRE_TLS = env_bool(
     "TRACECAT__ROBOT_EDR_REQUIRE_TLS", default=True
 )
