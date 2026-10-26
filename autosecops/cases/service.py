@@ -1443,7 +1443,26 @@ class CaseFieldsService(CustomFieldsService):
         """Normalize case field values to their storage types."""
         if not fields:
             return {}
+        schema, reflected_types = await self._field_types()
+        return self._normalize_with(schema, reflected_types, fields)
 
+    async def normalize_field_values_many(
+        self, values: Sequence[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Normalize several cases' field values with one schema lookup.
+
+        Each result equals ``normalize_field_values`` of the same input.
+        """
+        if not any(values):
+            return [{} for _ in values]
+        schema, reflected_types = await self._field_types()
+        return [
+            self._normalize_with(schema, reflected_types, fields) if fields else {}
+            for fields in values
+        ]
+
+    async def _field_types(self) -> tuple[dict[str, Any], dict[str, SqlType]]:
+        """The field schema and the reflected storage type of each field."""
         schema = await self.get_field_schema()
         reflected_types: dict[str, SqlType] = {}
         for column in await self.editor.get_columns():
@@ -1455,6 +1474,14 @@ class CaseFieldsService(CustomFieldsService):
                 reflected_types[column_name] = SqlType(
                     _normalize_case_field_read_type(column["type"]).value
                 )
+        return schema, reflected_types
+
+    @staticmethod
+    def _normalize_with(
+        schema: dict[str, Any],
+        reflected_types: dict[str, SqlType],
+        fields: dict[str, Any],
+    ) -> dict[str, Any]:
         normalized: dict[str, Any] = {}
 
         for field_name, value in fields.items():

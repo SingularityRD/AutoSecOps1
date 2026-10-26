@@ -7,6 +7,7 @@ webhook delivery is captured.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -552,6 +553,171 @@ async def test_out_of_order_events(
     assert len(await _case_event_types(case.id)) == len(before) + 1
 
 
+# --- set-based upsert: per-line semantics, concurrency ----------------------------
+
+
+def _mixed_lines() -> list[bytes]:
+    """Creates, updates, duplicates, older emissions and a bad line, interleaved."""
+    a1 = synth_finding(label="mix-a", count=1, severity="low")
+    a3 = synth_finding(label="mix-a", count=3, severity="medium")
+    a2 = synth_finding(label="mix-a", count=2, severity="critical")
+    b1 = synth_finding(label="mix-b", count=1)
+    b2 = synth_finding(label="mix-b", count=2)
+    c1 = synth_finding(label="mix-c", count=1, severity="high")
+    return [
+        line(a1),
+        line(b1),
+        line(a3),
+        b"{not json",
+        line(a3),
+        line(a2),
+        line(c1),
+        line(b2),
+        line(b1),
+        line(a1),
+    ]
+
+
+async def _case_state(ws: Workspace) -> dict[str, Any]:
+    """Every finding of ``ws`` with its case, case fields and case events."""
+    state: dict[str, Any] = {}
+    async with get_async_session_context_manager() as session:
+        fields_service = CaseFieldsService(session, role=admin_role(ws))
+        for finding in await _findings(ws):
+            case = await _case(finding.case_id)
+            fields = await fields_service.get_fields(case)
+            assert fields is not None
+            events = (
+                await session.execute(
+                    select(CaseEvent.type, CaseEvent.data)
+                    .where(CaseEvent.case_id == case.id)
+                    .order_by(CaseEvent.surrogate_id)
+                )
+            ).all()
+            emissions = (
+                await session.scalars(
+                    select(RobotFindingEvent.event_uid)
+                    .where(RobotFindingEvent.finding_fk == finding.id)
+                    .order_by(RobotFindingEvent.surrogate_id)
+                )
+            ).all()
+            state[finding.external_id] = {
+                "finding": {
+                    name: getattr(finding, name)
+                    for name in (
+                        "occurrence_count",
+                        "severity_id",
+                        "first_seen",
+                        "last_seen",
+                        "last_event_uid",
+                        "raw_value",
+                        "rule_id",
+                        "signature_key_id",
+                    )
+                },
+                "emissions": list(emissions),
+                "case": (
+                    case.summary,
+                    case.description,
+                    case.severity,
+                    case.priority,
+                    case.status,
+                    case.payload,
+                ),
+                "fields": {
+                    k: v
+                    for k, v in fields.items()
+                    if k not in {"id", "case_id", "created_at", "updated_at"}
+                },
+                # The tag id is per workspace; everything else must match.
+                "events": [
+                    (t, {k: v for k, v in d.items() if k != "tag_id"})
+                    for t, d in events
+                ],
+            }
+    return state
+
+
+async def test_one_batch_equals_its_lines_one_by_one(
+    client: httpx.AsyncClient,
+    workspace: Workspace,
+    other_workspace: Workspace,
+    uplink: RoboKey,
+) -> None:
+    """The set-based upsert yields exactly the per-line outcomes and effects."""
+    relay = key(f"relay-{other_workspace.id}")
+    await register_robot(other_workspace, "ugv-001")
+    await register_key(other_workspace, relay, RobotKeyRole.RELAY)
+    lines = _mixed_lines()
+
+    batched = (await post_batch(client, uplink, lines)).json()
+    singles = [(await post_batch(client, relay, [raw])).json() for raw in lines]
+
+    for key_name in ("accepted", "created", "updated", "duplicates"):
+        assert batched[key_name] == sum(s[key_name] for s in singles), key_name
+    assert (batched["created"], batched["updated"], batched["duplicates"]) == (3, 3, 3)
+    assert [r["line"] for r in batched["rejected"]] == [4]
+    assert batched["rejected"][0]["code"] == singles[3]["rejected"][0]["code"]
+
+    assert await _case_state(workspace) == await _case_state(other_workspace)
+    async with get_async_session_context_manager() as session:
+        numbers = (
+            await session.scalars(
+                select(Case.case_number)
+                .where(Case.workspace_id == workspace.id)
+                .order_by(Case.case_number)
+            )
+        ).all()
+    assert list(numbers) == [1, 2, 3]
+
+
+async def test_concurrent_batches_on_the_same_findings(
+    client: httpx.AsyncClient, workspace: Workspace, uplink: RoboKey
+) -> None:
+    """Overlapping batches in opposite orders neither deadlock nor duplicate."""
+    for round_ in range(3):
+        a1, a2 = (synth_finding(label=f"race-a-{round_}", count=c) for c in (1, 2))
+        b1, b2 = (synth_finding(label=f"race-b-{round_}", count=c) for c in (1, 2))
+        first, second = await asyncio.gather(
+            post_batch(client, uplink, [line(a1), line(b1), line(a2)]),
+            post_batch(client, uplink, [line(b2), line(a2), line(b1)]),
+        )
+        assert first.status_code == second.status_code == 200, (
+            first.text,
+            second.text,
+        )
+        results = [first.json(), second.json()]
+        assert sum(r["created"] for r in results) == 2
+        assert sum(r["accepted"] for r in results) == 6
+        # Every emission is recorded once: 4 distinct events, 2 duplicates.
+        assert sum(r["created"] + r["updated"] for r in results) == 4
+    findings = await _findings(workspace)
+    assert len(findings) == 6
+    assert len({f.case_id for f in findings}) == 6
+    assert all(f.occurrence_count == 2 for f in findings)
+
+
+async def test_a_deleted_case_is_reopened(
+    client: httpx.AsyncClient, workspace: Workspace, uplink: RoboKey
+) -> None:
+    first = synth_finding(label="reopen", count=1)
+    again = synth_finding(label="reopen", count=2)
+    assert (await post_batch(client, uplink, [line(first)])).json()["created"] == 1
+    [finding] = await _findings(workspace)
+    async with get_async_session_context_manager() as session:
+        await session.execute(delete(Case).where(Case.id == finding.case_id))
+        await session.commit()
+    response = (await post_batch(client, uplink, [line(again), line(again)])).json()
+    assert (response["updated"], response["duplicates"]) == (1, 1)
+    [finding] = await _findings(workspace)
+    case = await _case(finding.case_id)
+    assert case.case_number == 2
+    assert await _case_event_types(case.id) == [
+        CaseEventType.CASE_CREATED,
+        CaseEventType.TAG_ADDED,
+    ]
+
+
 # --- 401 / audit -----------------------------------------------------------------------
 
 
@@ -769,21 +935,26 @@ async def test_failed_batch_leaves_nothing_behind(
     uplink: RoboKey,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = 0
-    original = ingest_module._BatchProcessor._create_case
+    original = ingest_module._BatchUpsert._write
 
-    async def _flaky(self: Any, *args: Any) -> Any:
-        nonlocal calls
-        calls += 1
-        if calls == 2:
-            raise RuntimeError("database went away")
-        return await original(self, *args)
+    async def _fail_after_writes(self: Any, *args: Any) -> None:
+        # Every effect of the batch is written, then the transaction fails.
+        await original(self, *args)
+        raise RuntimeError("database went away")
 
-    monkeypatch.setattr(ingest_module._BatchProcessor, "_create_case", _flaky)
+    monkeypatch.setattr(ingest_module._BatchUpsert, "_write", _fail_after_writes)
     lines = [line(synth_finding(label="tx-a")), line(synth_finding(label="tx-b"))]
     with pytest.raises(RuntimeError):
         await post_batch(client, uplink, lines, batch_id="atomic")
     assert await _findings(workspace) == []
+    async with get_async_session_context_manager() as session:
+        cases = await session.scalar(
+            select(func.count())
+            .select_from(Case)
+            .where(Case.workspace_id == workspace.id)
+        )
+    assert cases == 0
+    monkeypatch.setattr(ingest_module._BatchUpsert, "_write", original)
     retried = await post_batch(client, uplink, lines, batch_id="atomic")
     assert retried.json()["created"] == 2 and retried.json()["replayed"] is False
 

@@ -15,6 +15,18 @@ type PayloadSelection = dict[str, PayloadSelection | None]
 
 
 @dataclass(frozen=True, slots=True)
+class CreatedCase:
+    """A case created by ``BulkCasesService.create_cases``."""
+
+    id: UUID
+    case_number: int
+
+    @property
+    def short_id(self) -> str:
+        return f"CASE-{self.case_number:04d}"
+
+
+@dataclass(frozen=True, slots=True)
 class ResolvedCaseTag:
     """Workspace-owned tag identity resolved for a search filter."""
 

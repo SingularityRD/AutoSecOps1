@@ -26,23 +26,24 @@ import hashlib
 import re
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import sqlalchemy as sa
 from sqlalchemy import delete, func, select, text, update
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import noload
 
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
 from autosecops.auth.types import Role
-from autosecops.cases.enums import CaseSeverity, CaseStatus
+from autosecops.cases.bulk import BulkCasesService
+from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
 from autosecops.cases.event_schemas import (
+    CaseEventVariant,
     FieldDiff,
     FieldsChangedEvent,
     PayloadChangedEvent,
@@ -50,14 +51,16 @@ from autosecops.cases.event_schemas import (
     SeverityChangedEvent,
     TagAddedEvent,
 )
+from autosecops.cases.events import CaseEventItem
 from autosecops.cases.schemas import CaseCreate, CaseFieldCreate
-from autosecops.cases.service import CaseEventsService, CaseFieldsService, CasesService
+from autosecops.cases.service import CaseFieldsService
 from autosecops.contexts import ctx_role
 from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
     get_async_session_context_manager,
 )
 from autosecops.db.models import (
+    Base,
     Case,
     CaseTag,
     CaseTagLink,
@@ -75,7 +78,16 @@ from autosecops.robot_edr.crypto import (
     finding_signing_message,
     verify_strict,
 )
-from autosecops.robot_edr.ndjson import ParsedLine, parse_line, split_lines
+from autosecops.robot_edr.line_checks import (
+    CheckedLine,
+    LineCheck,
+    SignatureJob,
+    check_lines,
+    reject,
+    verify_signatures,
+    warm_pool,
+)
+from autosecops.robot_edr.ndjson import split_lines
 from autosecops.robot_edr.rate_limit import take_batch_token
 from autosecops.robot_edr.types import (
     SENDER_KEY_ROLES,
@@ -87,19 +99,13 @@ from autosecops.robot_edr.types import (
     SenderKey,
     UpsertOutcome,
 )
-from autosecops.robot_edr.validator import (
-    FindingValidationError,
-    UnsupportedContractError,
-    ValidatedFinding,
-    parse_and_validate,
-)
+from autosecops.robot_edr.validator import ValidatedFinding
 from autosecops.tables.enums import SqlType
 from autosecops.tiers.access import is_org_entitled
 from autosecops.tiers.enums import Entitlement
 
 MAX_BODY_BYTES: Final = 4 * 1024 * 1024
 MAX_LINES: Final = 1000
-MAX_VALUE_BYTES: Final = 256 * 1024
 MAX_CLOCK_SKEW_MS: Final = 300_000
 REPLAY_WINDOW: Final = timedelta(days=7)
 GLOBAL_SWEEP_INTERVAL_SECONDS: Final = 600.0
@@ -117,7 +123,7 @@ SIGNATURE_RE: Final = re.compile(r"[0-9a-f]{128}")
 INGEST_SCOPES: Final = frozenset({"case:read", "case:create", "case:update"})
 _UNKNOWN_KEY_NAMESPACE: Final = uuid.UUID("6f1b8c1e-6d1f-4d0b-9a4b-7c3c2a1e5d10")
 _SETUP_LOCK_PREFIX: Final = "robot_edr_case_setup:"
-_DETAIL_MAX: Final = 300
+_UPSERT_LOCK_PREFIX: Final = "robot_edr_upsert:"
 
 _last_global_sweep = 0.0
 
@@ -459,14 +465,17 @@ class RobotIngestService:
                 retry_after=decision.retry_after_seconds,
             )
 
+        # The per-line CPU work runs before the batch transaction.
+        warm_pool()
+        checked = await check_lines(lines)
         setup = await prepare_workspace(session, role)
+        results = await _LineChecker(session, sender).bind_and_verify(checked)
         try:
             claim = await self._claim(session, sender)
             if isinstance(claim, dict):
                 await session.rollback()
                 return claim
-            processor = _BatchProcessor(session, role, sender, setup)
-            tally = await processor.process(lines)
+            tally = await _BatchUpsert(session, role, sender, setup).process(results)
             response = tally.response(self.headers.batch_id)
             await session.execute(
                 update(RobotIngestBatch)
@@ -477,7 +486,7 @@ class RobotIngestService:
         except BaseException:
             await session.rollback()
             raise
-        await self._cleanup(session, sender)
+        await self._cleanup()
         await self._audit_success(session, role, sender, tally)
         return response
 
@@ -517,11 +526,11 @@ class RobotIngestService:
         until this transaction ends; it then answers from the stored row (or
         processes afresh if this one rolled back).
         """
-        # A record older than the replay window no longer identifies a retry.
+        # Records older than the replay window no longer identify a retry:
+        # drop this key's (this batch id's included) in the batch transaction.
         await session.execute(
             delete(RobotIngestBatch).where(
                 RobotIngestBatch.sender_key_fk == sender.id,
-                RobotIngestBatch.batch_id == self.headers.batch_id,
                 RobotIngestBatch.created_at < func.now() - REPLAY_WINDOW,
             )
         )
@@ -551,16 +560,12 @@ class RobotIngestService:
             raise RuntimeError("concurrent batch row vanished")
         return self._replay(row[0], row[1])
 
-    async def _cleanup(self, session: AsyncSession, sender: SenderKey) -> None:
-        """Drop replay records older than 7 days (this key; all keys every 10 min)."""
+    async def _cleanup(self) -> None:
+        """Drop all keys' replay records older than 7 days, every 10 minutes.
+
+        Each batch drops its own key's expired records in ``_claim``.
+        """
         global _last_global_sweep
-        await session.execute(
-            delete(RobotIngestBatch).where(
-                RobotIngestBatch.sender_key_fk == sender.id,
-                RobotIngestBatch.created_at < func.now() - REPLAY_WINDOW,
-            )
-        )
-        await session.commit()
         now = time.monotonic()
         if now - _last_global_sweep < GLOBAL_SWEEP_INTERVAL_SECONDS:
             return
@@ -693,10 +698,294 @@ async def prepare_workspace(session: AsyncSession, role: Role) -> WorkspaceSetup
 
 
 # --- step 5 ------------------------------------------------------------------------
+#
+# Step 5 runs in two phases. ``check_lines`` does the per-line CPU work
+# (framing, validation, rendering; in worker processes for large batches)
+# and ``_LineChecker`` the robot binding and finding signatures, with two
+# set-based lookups (robots, finding keys), all before the batch transaction
+# starts. ``_BatchUpsert`` then applies dedup and the case effects inside the
+# batch transaction with a constant number of statements: it takes the
+# workspace's upsert lock (batches of a workspace upsert one at a time) and
+# locks the batch's known findings in one query; replays the batch line by
+# line in memory against that state, which yields exactly the per-line
+# outcomes and case events of processing the lines one at a time; and writes
+# the resulting rows set-based.
 
 
-class _BatchProcessor:
-    """Validate, bind, verify and upsert each line, in line order."""
+@dataclass(frozen=True, slots=True)
+class _Accepted:
+    """A line that passed every check before dedup (steps 5.1-5.4)."""
+
+    number: int
+    value: bytes
+    finding: ValidatedFinding
+    inputs: rendering.CaseInputs
+    robot: _RobotRef
+    signature_key_id: str | None
+
+
+type _LineResult = LineRejection | _Accepted
+
+
+class _LineChecker:
+    """Steps 5.1-5.4 for a whole batch, outside the batch transaction."""
+
+    def __init__(self, session: AsyncSession, sender: SenderKey) -> None:
+        self.session = session
+        self.sender = sender
+
+    async def bind_and_verify(self, checked: Sequence[LineCheck]) -> list[_LineResult]:
+        """Steps 5.3-5.4: robot binding and finding signatures.
+
+        The robots and finding keys are read in two queries; the read
+        transaction ends before the signatures are verified.
+        """
+        valid = [c for c in checked if isinstance(c, CheckedLine)]
+        robots = await self._robots({c.finding.robot_id for c in valid})
+        wanted = {
+            (robot.id, c.sig.key_id)
+            for c in valid
+            if c.sig is not None
+            and (robot := robots.get(c.finding.robot_id)) is not None
+        }
+        keys = await self._finding_keys(wanted)
+        await self.session.commit()
+
+        # Binding and key lookup per line; the signatures are then verified
+        # together (in the worker pool for large batches).
+        pending: list[LineRejection | tuple[CheckedLine, _RobotRef]] = []
+        jobs: list[SignatureJob] = []
+        for item in checked:
+            if isinstance(item, LineRejection):
+                pending.append(item)
+                continue
+            robot = self._bound_robot(item, robots)
+            if isinstance(robot, LineRejection):
+                pending.append(robot)
+                continue
+            job = self._signature_job(item, robot, keys)
+            if isinstance(job, LineRejection):
+                pending.append(job)
+                continue
+            if job is not None:
+                jobs.append(job)
+            pending.append((item, robot))
+        verified = iter(await verify_signatures(jobs))
+
+        results: list[_LineResult] = []
+        for entry in pending:
+            if isinstance(entry, LineRejection):
+                results.append(entry)
+                continue
+            item, robot = entry
+            sig = item.sig
+            if sig is not None and not next(verified):
+                results.append(
+                    reject(
+                        item.number,
+                        LineErrorCode.BAD_FINDING_SIGNATURE,
+                        "finding signature does not verify",
+                    )
+                )
+                continue
+            results.append(
+                _Accepted(
+                    number=item.number,
+                    value=item.value,
+                    finding=item.finding,
+                    inputs=item.inputs,
+                    robot=robot,
+                    signature_key_id=sig.key_id if sig is not None else None,
+                )
+            )
+        return results
+
+    async def _robots(self, robot_ids: set[str]) -> dict[str, _RobotRef]:
+        if not robot_ids:
+            return {}
+        rows = await self.session.execute(
+            select(
+                Robot.id, Robot.robot_id, Robot.site, Robot.require_finding_signature
+            ).where(
+                Robot.workspace_id == self.sender.workspace_id,
+                Robot.robot_id == sa.any_(_text_array(robot_ids)),
+            )
+        )
+        return {
+            robot_id: _RobotRef(
+                id=row_id,
+                robot_id=robot_id,
+                site=site,
+                require_finding_signature=require_signature,
+            )
+            for row_id, robot_id, site, require_signature in rows.tuples().all()
+        }
+
+    async def _finding_keys(
+        self, wanted: set[tuple[uuid.UUID, str]]
+    ) -> dict[tuple[uuid.UUID, str], bytes]:
+        """Active finding keys per (robot, key id)."""
+        if not wanted:
+            return {}
+        now = datetime.now(UTC)
+        rows = await self.session.execute(
+            select(RobotKey.robot_fk, RobotKey.key_id, RobotKey.public_key)
+            .where(
+                RobotKey.workspace_id == self.sender.workspace_id,
+                RobotKey.robot_fk == sa.any_(_uuid_array({r for r, _ in wanted})),
+                RobotKey.role == RobotKeyRole.FINDING.value,
+                RobotKey.key_id == sa.any_(_text_array({k for _, k in wanted})),
+                RobotKey.revoked_at.is_(None),
+                (RobotKey.expires_at.is_(None)) | (RobotKey.expires_at > now),
+            )
+            .order_by(RobotKey.surrogate_id)
+        )
+        keys: dict[tuple[uuid.UUID, str], bytes] = {}
+        for robot_fk, key_id, public_key in rows.tuples().all():
+            if robot_fk is not None:
+                keys.setdefault((robot_fk, key_id), public_key)
+        return keys
+
+    def _bound_robot(
+        self, item: CheckedLine, robots: Mapping[str, _RobotRef]
+    ) -> _RobotRef | LineRejection:
+        """Step 5.3: the sender key may report on the finding's robot."""
+        finding = item.finding
+        if (
+            self.sender.role is RobotKeyRole.UPLINK
+            and finding.robot_id != self.sender.robot_id
+        ):
+            return reject(
+                item.number,
+                LineErrorCode.ROBOT_MISMATCH,
+                f"finding names robot {finding.robot_id}, key is bound to "
+                f"{self.sender.robot_id}",
+            )
+        robot = robots.get(finding.robot_id)
+        if robot is None:
+            return reject(
+                item.number,
+                LineErrorCode.UNKNOWN_ROBOT,
+                f"robot {finding.robot_id} is not registered in this workspace",
+            )
+        if self.sender.site is not None and robot.site != self.sender.site:
+            return reject(
+                item.number,
+                LineErrorCode.SITE_MISMATCH,
+                f"robot {finding.robot_id} is not registered at the relay key's site",
+            )
+        return robot
+
+    def _signature_job(
+        self,
+        item: CheckedLine,
+        robot: _RobotRef,
+        keys: Mapping[tuple[uuid.UUID, str], bytes],
+    ) -> SignatureJob | None | LineRejection:
+        """Step 5.4: a present `sig` needs an active key; some robots need one.
+
+        Returns:
+            The verification to run, ``None`` for an acceptable unsigned
+            line, or the line's rejection.
+        """
+        sig = item.sig
+        if sig is None:
+            if robot.require_finding_signature and not self.sender.vouches_origin:
+                return reject(
+                    item.number,
+                    LineErrorCode.MISSING_FINDING_SIGNATURE,
+                    f"robot {robot.robot_id} requires signed findings",
+                )
+            return None
+        public_key = keys.get((robot.id, sig.key_id))
+        if public_key is None:
+            return reject(
+                item.number,
+                LineErrorCode.BAD_FINDING_SIGNATURE,
+                f"no active finding key {sig.key_id[:64]!r} for robot {robot.robot_id}",
+            )
+        message = finding_signing_message(
+            alg=sig.alg, key_id=sig.key_id, value=item.value
+        )
+        return SignatureJob(public_key=public_key, message=message, signature=sig.sig)
+
+
+# --- step 5.5: dedup and cases ---------------------------------------------------
+
+
+@dataclass(slots=True)
+class _FindingState:
+    """A locked `robot_finding` row as the batch has left it so far."""
+
+    id: uuid.UUID
+    first_seen: datetime
+    last_seen: datetime
+    occurrence_count: int
+    severity_id: int
+    stored_case_id: uuid.UUID | None = None
+    """The case the row linked when it was locked."""
+    case: _CaseState | None = None
+    """The finding's case, if it exists (``None``: deleted or not yet)."""
+    insert_row: dict[str, Any] | None = None
+    """A new finding's row as its first line creates it (not inserted yet)."""
+    pending: dict[str, Any] = field(default_factory=dict)
+    """Column values set by later lines and the case link, merged in order."""
+
+
+@dataclass(slots=True)
+class _CaseState:
+    """A case the batch creates or updates, as the batch has left it so far."""
+
+    severity: CaseSeverity
+    priority: CasePriority
+    id: uuid.UUID | None = None
+    """``None`` until a case this batch creates is inserted."""
+    fields: dict[str, Any] = field(default_factory=dict)
+    """Current values of the RoboDR fields (loaded before the updates)."""
+    pending: dict[str, Any] = field(default_factory=dict)
+    """`case` column values to write back."""
+    pending_fields: dict[str, Any] = field(default_factory=dict)
+    """Custom-field values to write back."""
+
+    @property
+    def case_id(self) -> uuid.UUID:
+        if self.id is None:
+            raise RuntimeError("case is not inserted yet")
+        return self.id
+
+
+@dataclass(frozen=True, slots=True)
+class _NewCase:
+    """A case to create for a line (its finding's first or after deletion)."""
+
+    state: _CaseState
+    finding: _FindingState
+    accepted: _Accepted
+
+
+@dataclass(frozen=True, slots=True)
+class _CaseUpdate:
+    """A line's case effects on an existing case (contract §5)."""
+
+    case: _CaseState
+    fields: dict[str, Any]
+    payload: dict[str, Any] | None
+    severity: CaseSeverity | None
+
+
+_FINDING_STATE_COLUMNS: Final = (
+    RobotFinding.id,
+    RobotFinding.external_id,
+    RobotFinding.first_seen,
+    RobotFinding.last_seen,
+    RobotFinding.occurrence_count,
+    RobotFinding.severity_id,
+    RobotFinding.case_id,
+)
+
+
+class _BatchUpsert:
+    """Step 5.5 for every accepted line, inside the batch transaction."""
 
     def __init__(
         self,
@@ -706,178 +995,439 @@ class _BatchProcessor:
         setup: WorkspaceSetup,
     ) -> None:
         self.session = session
-        self.role = role
         self.sender = sender
         self.setup = setup
-        self.cases = CasesService(session, role=role)
-        self.events = CaseEventsService(session, role=role)
-        self._robots: dict[str, _RobotRef | None] = {}
-        self._finding_keys: dict[tuple[uuid.UUID, str], bytes | None] = {}
+        self.cases = BulkCasesService(session, role=role)
+        self.events: list[CaseEventItem] = []
+        self.finding_events: list[dict[str, Any]] = []
+        self.new_cases: list[_NewCase] = []
+        self.case_updates: list[_CaseUpdate] = []
 
-    async def process(self, lines: Sequence[bytes]) -> _Tally:
+    async def process(self, results: Sequence[_LineResult]) -> _Tally:
+        """Apply the accepted lines in order; tally every line's outcome."""
+        accepted = [r for r in results if isinstance(r, _Accepted)]
+        findings, created = await self._lock_findings(accepted)
+        known = await self._known_events(findings, accepted)
+        cases = await self._existing_cases(findings)
+        for state in findings.values():
+            if state.stored_case_id is not None:
+                state.case = cases.get(state.stored_case_id)
+
         tally = _Tally()
-        for number, raw in enumerate(lines, start=1):
-            outcome = await self._line(number, raw)
+        for result in results:
+            if isinstance(result, LineRejection):
+                tally.rejected.append(result)
+                continue
+            outcome = self._replay(result, findings, created, known)
             match outcome:
-                case LineRejection():
-                    tally.rejected.append(outcome)
                 case UpsertOutcome.CREATED:
                     tally.created += 1
                 case UpsertOutcome.UPDATED:
                     tally.updated += 1
                 case UpsertOutcome.DUPLICATE:
                     tally.duplicates += 1
+
+        await self._create_cases()
+        await self._load_case_fields()
+        for case_update in self.case_updates:
+            self._apply_case_update(case_update)
+        await self._write(findings)
         return tally
 
-    async def _line(self, number: int, raw: bytes) -> LineRejection | UpsertOutcome:
-        parsed = parse_line(number, raw)
-        if isinstance(parsed, LineRejection):
-            return parsed
-        value = parsed.value.encode("utf-8")
-        if len(value) > MAX_VALUE_BYTES:
-            return _reject(
-                number,
-                LineErrorCode.TOO_LARGE,
-                f"decoded value is {len(value)} bytes; at most {MAX_VALUE_BYTES}",
-            )
-        try:
-            finding = parse_and_validate(value)
-            inputs = rendering.case_inputs(parsed.value)
-        except UnsupportedContractError as exc:
-            return _reject(
-                number,
-                LineErrorCode.UNSUPPORTED_CONTRACT,
-                f"contract version {exc.contract_version[:32]!r} is not 2.x",
-            )
-        except FindingValidationError as exc:
-            return _reject(
-                number, LineErrorCode.INVALID_FINDING, "; ".join(exc.problems[:3])
-            )
-        except rendering.CaseRenderError as exc:
-            return _reject(number, LineErrorCode.INVALID_FINDING, str(exc))
+    # --- locking and preloading ---------------------------------------------------
 
-        robot = await self._bound_robot(number, finding)
-        if isinstance(robot, LineRejection):
-            return robot
-        signature_key_id = await self._check_signature(number, parsed, value, robot)
-        if isinstance(signature_key_id, LineRejection):
-            return signature_key_id
-        return await self._upsert(finding, inputs, value, robot, signature_key_id)
+    async def _lock_findings(
+        self, accepted: Sequence[_Accepted]
+    ) -> tuple[dict[str, _FindingState], set[str]]:
+        """Lock the workspace's upserts and the batch's known findings.
 
-    async def _robot(self, robot_id: str) -> _RobotRef | None:
-        if robot_id not in self._robots:
-            row = (
-                await self.session.execute(
-                    select(
-                        Robot.id,
-                        Robot.robot_id,
-                        Robot.site,
-                        Robot.require_finding_signature,
-                    ).where(
-                        Robot.workspace_id == self.sender.workspace_id,
-                        Robot.robot_id == robot_id,
-                    )
-                )
-            ).first()
-            self._robots[robot_id] = (
-                _RobotRef(
-                    id=row[0],
-                    robot_id=row[1],
-                    site=row[2],
-                    require_finding_signature=row[3],
-                )
-                if row is not None
-                else None
-            )
-        return self._robots[robot_id]
+        Batches of one workspace apply their upserts one at a time (a
+        transaction-scoped advisory lock), so a finding absent here stays
+        absent until this transaction ends: new findings are inserted once,
+        at the end, already linked to their new case.
 
-    async def _bound_robot(
-        self, number: int, finding: ValidatedFinding
-    ) -> _RobotRef | LineRejection:
-        """Step 5.3: the sender key may report on the finding's robot."""
-        if (
-            self.sender.role is RobotKeyRole.UPLINK
-            and finding.robot_id != self.sender.robot_id
-        ):
-            return _reject(
-                number,
-                LineErrorCode.ROBOT_MISMATCH,
-                f"finding names robot {finding.robot_id}, key is bound to "
-                f"{self.sender.robot_id}",
+        Returns:
+            Every finding the batch names, by external id, and the external
+            ids that are new.
+        """
+        first: dict[str, _Accepted] = {}
+        for item in accepted:
+            first.setdefault(item.finding.external_id, item)
+        if not first:
+            return {}, set()
+        await self.session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+            {"lock_key": f"{_UPSERT_LOCK_PREFIX}{self.sender.workspace_id}"},
+        )
+        findings = await self._select_locked(sorted(first))
+        created = set(first) - set(findings)
+        for external_id in created:
+            row = self._insert_row(first[external_id])
+            findings[external_id] = _FindingState(
+                id=row["id"],
+                first_seen=row["first_seen"],
+                last_seen=row["last_seen"],
+                occurrence_count=row["occurrence_count"],
+                severity_id=row["severity_id"],
+                insert_row=row,
             )
-        robot = await self._robot(finding.robot_id)
-        if robot is None:
-            return _reject(
-                number,
-                LineErrorCode.UNKNOWN_ROBOT,
-                f"robot {finding.robot_id} is not registered in this workspace",
-            )
-        if self.sender.site is not None and robot.site != self.sender.site:
-            return _reject(
-                number,
-                LineErrorCode.SITE_MISMATCH,
-                f"robot {finding.robot_id} is not registered at the relay key's site",
-            )
-        return robot
+        return findings, created
 
-    async def _finding_key(self, robot: _RobotRef, key_id: str) -> bytes | None:
-        cache_key = (robot.id, key_id)
-        if cache_key not in self._finding_keys:
-            now = datetime.now(UTC)
-            self._finding_keys[cache_key] = await self.session.scalar(
-                select(RobotKey.public_key).where(
-                    RobotKey.workspace_id == self.sender.workspace_id,
-                    RobotKey.robot_fk == robot.id,
-                    RobotKey.role == RobotKeyRole.FINDING.value,
-                    RobotKey.key_id == key_id,
-                    RobotKey.revoked_at.is_(None),
-                    (RobotKey.expires_at.is_(None)) | (RobotKey.expires_at > now),
-                )
+    async def _select_locked(
+        self, external_ids: Sequence[str]
+    ) -> dict[str, _FindingState]:
+        rows = await self.session.execute(
+            select(*_FINDING_STATE_COLUMNS)
+            .where(
+                RobotFinding.workspace_id == self.sender.workspace_id,
+                RobotFinding.external_id == sa.any_(_text_array(external_ids)),
             )
-        return self._finding_keys[cache_key]
-
-    async def _check_signature(
-        self, number: int, parsed: ParsedLine, value: bytes, robot: _RobotRef
-    ) -> str | None | LineRejection:
-        """Step 5.4: verify a present `sig`; require one if the robot does."""
-        if parsed.sig is None:
-            if robot.require_finding_signature and not self.sender.vouches_origin:
-                return _reject(
-                    number,
-                    LineErrorCode.MISSING_FINDING_SIGNATURE,
-                    f"robot {robot.robot_id} requires signed findings",
-                )
-            return None
-        sig = parsed.sig
-        public_key = await self._finding_key(robot, sig.key_id)
-        if public_key is None:
-            return _reject(
-                number,
-                LineErrorCode.BAD_FINDING_SIGNATURE,
-                f"no active finding key {sig.key_id[:64]!r} for robot {robot.robot_id}",
+            .order_by(RobotFinding.external_id)
+            .with_for_update()
+        )
+        return {
+            external_id: _FindingState(
+                id=row_id,
+                first_seen=first_seen,
+                last_seen=last_seen,
+                occurrence_count=count,
+                severity_id=severity_id,
+                stored_case_id=case_id,
             )
-        message = finding_signing_message(alg=sig.alg, key_id=sig.key_id, value=value)
-        if not verify_strict(public_key, message, sig.sig):
-            return _reject(
-                number,
-                LineErrorCode.BAD_FINDING_SIGNATURE,
-                "finding signature does not verify",
+            for (
+                row_id,
+                external_id,
+                first_seen,
+                last_seen,
+                count,
+                severity_id,
+                case_id,
+            ) in rows.tuples().all()
+        }
+
+    def _insert_row(self, item: _Accepted) -> dict[str, Any]:
+        return {
+            "id": uuid.uuid4(),
+            "workspace_id": self.sender.workspace_id,
+            "external_id": item.finding.external_id,
+            "first_seen": _ms_to_datetime(item.finding.first_seen_ms),
+            "case_id": None,
+            **self._columns(item),
+        }
+
+    async def _known_events(
+        self, findings: Mapping[str, _FindingState], accepted: Sequence[_Accepted]
+    ) -> set[tuple[uuid.UUID, str]]:
+        """Event uids already recorded for the batch's (locked) findings."""
+        if not findings:
+            return set()
+        rows = await self.session.execute(
+            select(RobotFindingEvent.finding_fk, RobotFindingEvent.event_uid).where(
+                RobotFindingEvent.finding_fk
+                == sa.any_(_uuid_array({f.id for f in findings.values()})),
+                RobotFindingEvent.event_uid
+                == sa.any_(_text_array({a.finding.event_uid for a in accepted})),
             )
-        return sig.key_id
+        )
+        return set(rows.tuples().all())
 
-    # --- step 5.5: dedup and cases --------------------------------------------------
+    async def _existing_cases(
+        self, findings: Mapping[str, _FindingState]
+    ) -> dict[uuid.UUID, _CaseState]:
+        """The still-existing cases of the batch's known findings."""
+        case_ids = {
+            f.stored_case_id for f in findings.values() if f.stored_case_id is not None
+        }
+        if not case_ids:
+            return {}
+        rows = await self.session.execute(
+            select(Case.id, Case.severity, Case.priority).where(
+                Case.workspace_id == self.sender.workspace_id,
+                Case.id == sa.any_(_uuid_array(case_ids)),
+            )
+        )
+        return {
+            case_id: _CaseState(id=case_id, severity=severity, priority=priority)
+            for case_id, severity, priority in rows.tuples().all()
+        }
 
-    async def _upsert(
+    # --- the in-memory replay -----------------------------------------------------
+
+    def _replay(
         self,
-        finding: ValidatedFinding,
-        inputs: rendering.CaseInputs,
-        value: bytes,
-        robot: _RobotRef,
-        signature_key_id: str | None,
+        item: _Accepted,
+        findings: Mapping[str, _FindingState],
+        created: set[str],
+        known: set[tuple[uuid.UUID, str]],
     ) -> UpsertOutcome:
-        columns: dict[str, Any] = {
+        """One line's dedup outcome and effects, as if processed alone."""
+        finding = item.finding
+        state = findings[finding.external_id]
+        event_key = (state.id, finding.event_uid)
+        if finding.external_id in created:
+            created.discard(finding.external_id)
+            self._record_event(state, item, event_key, known)
+            self._new_case(state, item)
+            return UpsertOutcome.CREATED
+        if event_key in known:
+            return UpsertOutcome.DUPLICATE
+        self._record_event(state, item, event_key, known)
+        self._apply_new_event(state, item)
+        return UpsertOutcome.UPDATED
+
+    def _record_event(
+        self,
+        state: _FindingState,
+        item: _Accepted,
+        event_key: tuple[uuid.UUID, str],
+        known: set[tuple[uuid.UUID, str]],
+    ) -> None:
+        known.add(event_key)
+        self.finding_events.append(
+            {
+                "id": uuid.uuid4(),
+                "workspace_id": self.sender.workspace_id,
+                "finding_fk": state.id,
+                "event_uid": item.finding.event_uid,
+                "occurrence_count": item.finding.occurrence_count,
+                "last_seen": _ms_to_datetime(item.finding.last_seen_ms),
+                "severity_id": item.finding.severity_id,
+                "sender_key_fk": self.sender.id,
+            }
+        )
+
+    def _new_case(self, state: _FindingState, item: _Accepted) -> None:
+        severity = rendering.case_severity(item.finding.severity_id)
+        case = _CaseState(
+            severity=severity, priority=rendering.SEVERITY_TO_PRIORITY[severity]
+        )
+        state.case = case
+        state.pending["case_id"] = case
+        self.new_cases.append(_NewCase(state=case, finding=state, accepted=item))
+
+    def _apply_new_event(self, state: _FindingState, item: _Accepted) -> None:
+        """Contract §5 for a new event uid of a known finding.
+
+        ``last_seen`` and ``occurrence_count`` only move forward, severity only
+        rises, and the stored payload is the emission with the latest
+        ``last_seen_time``. An emission older than the stored one still gets
+        a case event.
+        """
+        finding = item.finding
+        stored_last_seen = round(state.last_seen.timestamp() * 1000)
+        newer = finding.last_seen_ms > stored_last_seen or (
+            finding.last_seen_ms == stored_last_seen
+            and finding.occurrence_count > state.occurrence_count
+        )
+        count = max(state.occurrence_count, finding.occurrence_count)
+        old_severity = rendering.case_severity(state.severity_id)
+        new_severity = rendering.case_severity(finding.severity_id)
+        rises = (
+            rendering.SEVERITY_RANK[new_severity]
+            > rendering.SEVERITY_RANK[old_severity]
+        )
+        values: dict[str, Any] = (
+            self._columns(item) if newer else {"sender_key_fk": self.sender.id}
+        )
+        values["occurrence_count"] = count
+        values["last_seen"] = _ms_to_datetime(
+            max(stored_last_seen, finding.last_seen_ms)
+        )
+        values["severity_id"] = finding.severity_id if rises else state.severity_id
+        values["first_seen"] = min(
+            state.first_seen, _ms_to_datetime(finding.first_seen_ms)
+        )
+        state.pending.update(values)
+        state.occurrence_count = count
+        state.last_seen = values["last_seen"]
+        state.severity_id = values["severity_id"]
+        state.first_seen = values["first_seen"]
+
+        if state.case is None:  # The case was deleted: open a new one.
+            self._new_case(state, item)
+            return
+        fields = self._fields(item.inputs) if newer else {}
+        if "occurrence_count" in self.setup.writable_fields:
+            fields["occurrence_count"] = count
+        self.case_updates.append(
+            _CaseUpdate(
+                case=state.case,
+                fields=fields,
+                payload=item.inputs.payload if newer else None,
+                severity=new_severity if rises else None,
+            )
+        )
+
+    def _apply_case_update(self, update: _CaseUpdate) -> None:
+        """A line's case events and values, as ``CasesService.update_case``.
+
+        Records ``fields_changed`` for the fields whose value changes, then
+        ``payload_changed`` / ``severity_changed`` / ``priority_changed``;
+        with nothing else to record, a ``payload_changed`` event still
+        records the emission (contract §5).
+        """
+        case = update.case
+        diffs = [
+            FieldDiff(field=name, old=case.fields.get(name), new=value)
+            for name, value in update.fields.items()
+            if case.fields.get(name) != value
+        ]
+        case.fields.update(update.fields)
+        case.pending_fields.update(update.fields)
+        if diffs:
+            self._event(case, FieldsChangedEvent(changes=diffs))
+
+        events: list[CaseEventVariant] = []
+        changed = False
+        if update.payload is not None:
+            case.pending["payload"] = update.payload
+            changed = True
+            events.append(PayloadChangedEvent())
+        severity = update.severity
+        if severity is not None and severity != case.severity:
+            priority = rendering.SEVERITY_TO_PRIORITY[severity]
+            case.pending["severity"] = severity
+            events.append(SeverityChangedEvent(old=case.severity, new=severity))
+            case.severity = severity
+            changed = True
+            if priority != case.priority:
+                case.pending["priority"] = priority
+                events.append(PriorityChangedEvent(old=case.priority, new=priority))
+                case.priority = priority
+        if not changed and not diffs:
+            events.append(PayloadChangedEvent())
+        for event in events:
+            self._event(case, event)
+
+    def _event(self, case: _CaseState, event: CaseEventVariant) -> None:
+        self.events.append(CaseEventItem(case_id=case.case_id, event=event))
+
+    # --- writes ---------------------------------------------------------------------
+
+    async def _create_cases(self) -> None:
+        """Create the batch's new cases (with fields), tag them `robodr`."""
+        if not self.new_cases:
+            return
+        created = await self.cases.create_cases(
+            [
+                CaseCreate(
+                    summary=new.accepted.inputs.summary,
+                    description=new.accepted.inputs.description,
+                    status=CaseStatus.NEW,
+                    priority=new.state.priority,
+                    severity=new.state.severity,
+                    payload=new.accepted.inputs.payload,
+                    fields=self._fields(new.accepted.inputs),
+                )
+                for new in self.new_cases
+            ]
+        )
+        case_ids = [case.id for case in created]
+        for new, case_id in zip(self.new_cases, case_ids, strict=True):
+            new.state.id = case_id
+        await self.session.execute(
+            sa.insert(_table_of(CaseTagLink)),
+            [{"case_id": case_id, "tag_id": self.setup.tag_id} for case_id in case_ids],
+        )
+        tag_added = TagAddedEvent(
+            tag_id=self.setup.tag_id,
+            tag_ref=self.setup.tag_ref,
+            tag_name=self.setup.tag_name,
+        )
+        self.events.extend(
+            CaseEventItem(case_id=case_id, event=tag_added) for case_id in case_ids
+        )
+
+    async def _load_case_fields(self) -> None:
+        """Read the current RoboDR field values of every case to update.
+
+        A case without a custom-fields row gets one first, as
+        ``CaseFieldsService.ensure_workspace_row`` does.
+        """
+        names = sorted(self.setup.writable_fields)
+        cases = {u.case.case_id: u.case for u in self.case_updates}
+        with_fields = {u.case.case_id for u in self.case_updates if u.fields}
+        if not cases or not names:
+            return
+        fields = self.cases.fields
+        table = sa.table(
+            fields.sanitized_table_name,
+            sa.column("id", UUID(as_uuid=True)),
+            sa.column("case_id", UUID(as_uuid=True)),
+            *(_field_column(name) for name in names),
+            schema=fields.schema_name,
+        )
+        if with_fields:
+            await fields._ensure_schema_ready()
+            await self.session.execute(
+                pg_insert(table).on_conflict_do_nothing(index_elements=["case_id"]),
+                [{"id": uuid.uuid4(), "case_id": case_id} for case_id in with_fields],
+            )
+        rows = await self.session.execute(
+            sa.select(table.c.case_id, *(table.c[name] for name in names)).where(
+                table.c.case_id == sa.any_(_uuid_array(set(cases)))
+            )
+        )
+        for row in rows.mappings().all():
+            cases[row["case_id"]].fields = {name: row[name] for name in names}
+
+    async def _write(self, findings: Mapping[str, _FindingState]) -> None:
+        """Write the batch's case, event and finding changes."""
+        updated_cases = {u.case.case_id: u.case for u in self.case_updates}
+        await self._write_case_fields(updated_cases.values())
+        await _update_many(
+            self.session,
+            _table_of(Case),
+            "id",
+            [(case.case_id, case.pending) for case in updated_cases.values()],
+            extra_where=_table_of(Case).c.workspace_id == self.sender.workspace_id,
+        )
+        await self.cases.events.create_events(self.events)
+        new_findings = [
+            {**state.insert_row, **_resolve_case_ids(state.pending)}
+            for state in findings.values()
+            if state.insert_row is not None
+        ]
+        if new_findings:
+            await self.session.execute(sa.insert(_table_of(RobotFinding)), new_findings)
+        if self.finding_events:
+            await self.session.execute(
+                sa.insert(_table_of(RobotFindingEvent)), self.finding_events
+            )
+        await _update_many(
+            self.session,
+            _table_of(RobotFinding),
+            "id",
+            [
+                (state.id, _resolve_case_ids(state.pending))
+                for state in findings.values()
+                if state.insert_row is None
+            ],
+        )
+
+    async def _write_case_fields(self, cases: Iterable[_CaseState]) -> None:
+        fields = self.cases.fields
+        await _update_many(
+            self.session,
+            None,
+            "case_id",
+            [(case.case_id, case.pending_fields) for case in cases],
+            table_factory=lambda names: sa.table(
+                fields.sanitized_table_name,
+                sa.column("case_id", UUID(as_uuid=True)),
+                *(_field_column(name) for name in names),
+                schema=fields.schema_name,
+            ),
+        )
+
+    # --- helpers --------------------------------------------------------------------
+
+    def _columns(self, item: _Accepted) -> dict[str, Any]:
+        """The `robot_finding` columns a newer emission sets."""
+        finding = item.finding
+        return {
             "finding_id": finding.finding_id,
-            "robot_fk": robot.id,
+            "robot_fk": item.robot.id,
             "robot_id": finding.robot_id,
             "rule_id": finding.rule_id,
             "severity_id": finding.severity_id,
@@ -886,233 +1436,11 @@ class _BatchProcessor:
             "last_event_uid": finding.event_uid,
             "contract_version": finding.contract_version,
             "data_source": finding.data_source,
-            "raw_value": value.decode("utf-8"),
+            "raw_value": item.value.decode("utf-8"),
             "adversary_controlled_fields": list(finding.adversary_controlled_fields),
-            "signature_key_id": signature_key_id,
+            "signature_key_id": item.signature_key_id,
             "sender_key_fk": self.sender.id,
         }
-        existing = await self._locked_finding(finding.external_id)
-        if existing is None:
-            inserted = await self.session.scalar(
-                pg_insert(RobotFinding)
-                .values(
-                    id=uuid.uuid4(),
-                    workspace_id=self.sender.workspace_id,
-                    external_id=finding.external_id,
-                    first_seen=_ms_to_datetime(finding.first_seen_ms),
-                    **columns,
-                )
-                .on_conflict_do_nothing(index_elements=["workspace_id", "external_id"])
-                .returning(RobotFinding.id)
-            )
-            if inserted is not None:
-                await self._record_event(inserted, finding)
-                case = await self._create_case(finding, inputs)
-                await self._link_case(inserted, case.id)
-                return UpsertOutcome.CREATED
-            existing = await self._locked_finding(finding.external_id)
-            if existing is None:  # Unreachable: the conflicting row is committed.
-                raise RuntimeError("robot finding vanished during upsert")
-
-        if not await self._record_event(existing.id, finding):
-            return UpsertOutcome.DUPLICATE
-        await self._apply_new_event(existing, finding, inputs, columns)
-        return UpsertOutcome.UPDATED
-
-    async def _record_event(
-        self, finding_row: uuid.UUID, finding: ValidatedFinding
-    ) -> bool:
-        """Record an emission; ``False`` if its event uid is already known."""
-        recorded = await self.session.scalar(
-            pg_insert(RobotFindingEvent)
-            .values(
-                id=uuid.uuid4(),
-                workspace_id=self.sender.workspace_id,
-                finding_fk=finding_row,
-                event_uid=finding.event_uid,
-                occurrence_count=finding.occurrence_count,
-                last_seen=_ms_to_datetime(finding.last_seen_ms),
-                severity_id=finding.severity_id,
-                sender_key_fk=self.sender.id,
-            )
-            .on_conflict_do_nothing(index_elements=["finding_fk", "event_uid"])
-            .returning(RobotFindingEvent.id)
-        )
-        return recorded is not None
-
-    async def _apply_new_event(
-        self,
-        existing: RobotFinding,
-        finding: ValidatedFinding,
-        inputs: rendering.CaseInputs,
-        columns: dict[str, Any],
-    ) -> None:
-        """Contract §5 for a new event uid of a known finding.
-
-        ``last_seen`` and ``occurrence_count`` only move forward, severity only
-        rises, and the stored payload is the emission with the latest
-        ``last_seen_time``. An emission older than the stored one still gets
-        a case event.
-        """
-        stored_last_seen = round(existing.last_seen.timestamp() * 1000)
-        newer = finding.last_seen_ms > stored_last_seen or (
-            finding.last_seen_ms == stored_last_seen
-            and finding.occurrence_count > existing.occurrence_count
-        )
-        count = max(existing.occurrence_count, finding.occurrence_count)
-        old_severity = rendering.case_severity(existing.severity_id)
-        new_severity = rendering.case_severity(finding.severity_id)
-        rises = (
-            rendering.SEVERITY_RANK[new_severity]
-            > rendering.SEVERITY_RANK[old_severity]
-        )
-        values: dict[str, Any] = (
-            dict(columns) if newer else {"sender_key_fk": self.sender.id}
-        )
-        values["occurrence_count"] = count
-        values["last_seen"] = _ms_to_datetime(
-            max(stored_last_seen, finding.last_seen_ms)
-        )
-        values["severity_id"] = finding.severity_id if rises else existing.severity_id
-        values["first_seen"] = min(
-            existing.first_seen, _ms_to_datetime(finding.first_seen_ms)
-        )
-        await self.session.execute(
-            update(RobotFinding).where(RobotFinding.id == existing.id).values(**values)
-        )
-
-        case = await self._existing_case(existing.case_id)
-        if case is None:  # The case was deleted: open a new one.
-            case = await self._create_case(finding, inputs)
-            await self._link_case(existing.id, case.id)
-            return
-        fields = self._fields(inputs) if newer else {}
-        if "occurrence_count" in self.setup.writable_fields:
-            fields["occurrence_count"] = count
-        fields_changed = await self._write_fields(case, fields, record_event=True)
-        await self._update_case(
-            case,
-            payload=inputs.payload if newer else None,
-            severity=new_severity if rises else None,
-            record_anyway=not fields_changed,
-        )
-
-    async def _update_case(
-        self,
-        case: Case,
-        *,
-        payload: dict[str, Any] | None,
-        severity: CaseSeverity | None,
-        record_anyway: bool,
-    ) -> None:
-        """Apply a RoboDR update to a case and record its activity events.
-
-        Writes the same columns and events as ``CasesService.update_case``
-        for a payload/severity/priority change (``payload_changed``,
-        ``severity_changed``, ``priority_changed``) without reloading the
-        case and its relationships. With nothing to change and
-        ``record_anyway`` set, a ``payload_changed`` event still records the
-        emission (contract §5: an older event is recorded as a case event).
-        """
-        values: dict[str, Any] = {}
-        events: list[Any] = []
-        if payload is not None:
-            values["payload"] = payload
-            events.append(PayloadChangedEvent())
-        if severity is not None and severity != case.severity:
-            priority = rendering.SEVERITY_TO_PRIORITY[severity]
-            values["severity"] = severity
-            events.append(SeverityChangedEvent(old=case.severity, new=severity))
-            if priority != case.priority:
-                values["priority"] = priority
-                events.append(PriorityChangedEvent(old=case.priority, new=priority))
-        if values:
-            await self.session.execute(
-                update(Case).where(Case.id == case.id).values(**values)
-            )
-        elif record_anyway:
-            events.append(PayloadChangedEvent())
-        for event in events:
-            await self.events.create_event(case=case, event=event)
-
-    async def _write_fields(
-        self, case: Case, fields: dict[str, Any], *, record_event: bool
-    ) -> bool:
-        """Write RoboDR case field values directly to the workspace table.
-
-        Only fields :func:`prepare_workspace` verified to exist with the
-        expected type reach this point, and the values already have their
-        storage types (TEXT strings, an INTEGER count), so this skips the
-        generic normalisation and its per-call column reflection, which
-        dominated ingest latency. A ``fields_changed`` case event records
-        what changed, as the case service does.
-
-        Returns:
-            Whether a ``fields_changed`` event was recorded.
-        """
-        if not fields:
-            return False
-        service = self.cases.fields
-        await service.ensure_workspace_row(case.id)
-        table = sa.table(
-            service.sanitized_table_name,
-            sa.column("case_id", UUID(as_uuid=True)),
-            *(_field_column(name) for name in fields),
-            schema=service.schema_name,
-        )
-        old: dict[str, Any] = {}
-        if record_event:
-            row = (
-                await self.session.execute(
-                    sa.select(*(table.c[name] for name in fields)).where(
-                        table.c.case_id == case.id
-                    )
-                )
-            ).first()
-            old = dict(row._mapping) if row is not None else {}
-        await self.session.execute(
-            sa.update(table).where(table.c.case_id == case.id).values(**fields)
-        )
-        if not record_event:
-            return False
-        diffs = [
-            FieldDiff(field=name, old=old.get(name), new=value)
-            for name, value in fields.items()
-            if old.get(name) != value
-        ]
-        if not diffs:
-            return False
-        await self.events.create_event(
-            case=case, event=FieldsChangedEvent(changes=diffs)
-        )
-        return True
-
-    async def _link_case(self, finding_row: uuid.UUID, case_id: uuid.UUID) -> None:
-        await self.session.execute(
-            update(RobotFinding)
-            .where(RobotFinding.id == finding_row)
-            .values(case_id=case_id)
-        )
-
-    async def _locked_finding(self, external_id: str) -> RobotFinding | None:
-        return await self.session.scalar(
-            select(RobotFinding)
-            .where(
-                RobotFinding.workspace_id == self.sender.workspace_id,
-                RobotFinding.external_id == external_id,
-            )
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-
-    async def _existing_case(self, case_id: uuid.UUID | None) -> Case | None:
-        if case_id is None:
-            return None
-        return await self.session.scalar(
-            select(Case)
-            .options(noload("*"))
-            .where(Case.workspace_id == self.sender.workspace_id, Case.id == case_id)
-        )
 
     def _fields(self, inputs: rendering.CaseInputs) -> dict[str, Any]:
         return {
@@ -1121,32 +1449,59 @@ class _BatchProcessor:
             if name in self.setup.writable_fields and value is not None
         }
 
-    async def _create_case(
-        self, finding: ValidatedFinding, inputs: rendering.CaseInputs
-    ) -> Case:
-        severity = rendering.case_severity(finding.severity_id)
-        case = await self.cases.create_case(
-            CaseCreate(
-                summary=inputs.summary,
-                description=inputs.description,
-                status=CaseStatus.NEW,
-                priority=rendering.SEVERITY_TO_PRIORITY[severity],
-                severity=severity,
-                payload=inputs.payload,
-            ),
-            commit=False,
+
+def _resolve_case_ids(pending: dict[str, Any]) -> dict[str, Any]:
+    """Replace a pending case link with the inserted case's id."""
+    case = pending.get("case_id")
+    if isinstance(case, _CaseState):
+        return {**pending, "case_id": case.case_id}
+    return pending
+
+
+async def _update_many(
+    session: AsyncSession,
+    table: sa.TableClause | sa.Table | None,
+    key: str,
+    rows: Sequence[tuple[uuid.UUID, dict[str, Any]]],
+    *,
+    extra_where: sa.ColumnElement[bool] | None = None,
+    table_factory: Callable[[tuple[str, ...]], sa.TableClause] | None = None,
+) -> None:
+    """``UPDATE table SET ... WHERE key = ...`` for many rows (executemany).
+
+    Rows are grouped by the columns they set; rows that set nothing are
+    skipped. ``onupdate`` column defaults (``updated_at``) apply as for a
+    single-row update.
+    """
+    groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    for row_key, values in rows:
+        if values:
+            names = tuple(sorted(values))
+            groups.setdefault(names, []).append(
+                {"b_key": row_key, **{f"b_{name}": values[name] for name in names}}
+            )
+    for names, params in groups.items():
+        target = table_factory(names) if table_factory is not None else table
+        if target is None:
+            raise ValueError("a table or a table factory is required")
+        statement = (
+            sa.update(target)
+            .where(target.c[key] == sa.bindparam("b_key"))
+            .values({name: sa.bindparam(f"b_{name}") for name in names})
         )
-        await self._write_fields(case, self._fields(inputs), record_event=False)
-        self.session.add(CaseTagLink(case_id=case.id, tag_id=self.setup.tag_id))
-        await self.events.create_event(
-            case=case,
-            event=TagAddedEvent(
-                tag_id=self.setup.tag_id,
-                tag_ref=self.setup.tag_ref,
-                tag_name=self.setup.tag_name,
-            ),
-        )
-        return case
+        if extra_where is not None:
+            statement = statement.where(extra_where)
+        await session.execute(statement, params)
+
+
+def _text_array(values: Iterable[str]) -> sa.BindParameter[Sequence[str]]:
+    """An array bind for ``column = ANY(:values)``."""
+    return sa.bindparam(None, list(values), type_=ARRAY(sa.Text()))
+
+
+def _uuid_array(values: Iterable[uuid.UUID]) -> sa.BindParameter[Sequence[uuid.UUID]]:
+    """An array bind for ``column = ANY(:values)``."""
+    return sa.bindparam(None, list(values), type_=ARRAY(UUID(as_uuid=True)))
 
 
 def _field_column(name: str) -> sa.ColumnClause[Any]:
@@ -1156,5 +1511,9 @@ def _field_column(name: str) -> sa.ColumnClause[Any]:
     return sa.column(name, sa.Text())
 
 
-def _reject(number: int, code: LineErrorCode, detail: str) -> LineRejection:
-    return LineRejection(line=number, code=code, detail=detail[:_DETAIL_MAX])
+def _table_of(model: type[Base]) -> sa.Table:
+    """The mapped table of a model (typed for Core statements)."""
+    table = model.__table__
+    if not isinstance(table, sa.Table):
+        raise TypeError(f"{model.__name__} is not mapped to a single table")
+    return table

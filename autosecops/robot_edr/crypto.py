@@ -19,6 +19,7 @@ signature bytes, so a non-canonical ``R`` cannot verify either.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import struct
 
@@ -153,8 +154,12 @@ def _has_small_order(point: _Point) -> bool:
     return x % _P == 0 and (y - z) % _P == 0
 
 
+@functools.lru_cache(maxsize=4096)
 def is_strict_public_key(public_key: bytes) -> bool:
-    """Return whether bytes are a canonical, large-order Ed25519 public key."""
+    """Return whether bytes are a canonical, large-order Ed25519 public key.
+
+    Cached: a batch verifies many findings against a few keys.
+    """
     point = _decode_point(public_key)
     return point is not None and not _has_small_order(point)
 

@@ -8,7 +8,7 @@ from autosecops.logger import logger
 from autosecops.redis.client import get_redis_client
 
 
-async def publish_case_event_payload(
+def case_event_fields(
     *,
     event_id: str,
     case_id: str,
@@ -16,11 +16,8 @@ async def publish_case_event_payload(
     event_type: str,
     created_at: datetime,
     extra_fields: dict[str, str | None] | None = None,
-) -> None:
-    """Publish a case event to the Redis streams pipeline."""
-    if not config.TRACECAT__CASE_TRIGGERS_ENABLED:
-        return
-
+) -> dict[str, str]:
+    """The case-trigger stream entry of a case event."""
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
 
@@ -35,6 +32,30 @@ async def publish_case_event_payload(
         payload.update(
             {key: value for key, value in extra_fields.items() if value is not None}
         )
+    return payload
+
+
+async def publish_case_event_payload(
+    *,
+    event_id: str,
+    case_id: str,
+    workspace_id: str,
+    event_type: str,
+    created_at: datetime,
+    extra_fields: dict[str, str | None] | None = None,
+) -> None:
+    """Publish a case event to the Redis streams pipeline."""
+    if not config.TRACECAT__CASE_TRIGGERS_ENABLED:
+        return
+
+    payload = case_event_fields(
+        event_id=event_id,
+        case_id=case_id,
+        workspace_id=workspace_id,
+        event_type=event_type,
+        created_at=created_at,
+        extra_fields=extra_fields,
+    )
 
     client = await get_redis_client()
     await client.xadd(

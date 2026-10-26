@@ -136,6 +136,7 @@ def synth_finding(
     severity: str | None = None,
     template: str = "r1_critical_c1",
     label: str = "",
+    compact: bool = False,
 ) -> str:
     """A valid 2.x value derived from a producer vector.
 
@@ -146,6 +147,7 @@ def synth_finding(
         severity: Override the producer severity.
         template: Producer vector to start from.
         label: Seed for a deterministic finding id.
+        compact: Drop the optional ROS names (about 3.7 KiB instead of 6).
     """
     doc = json.loads(producer_values()[template])
     finding_hex = (
@@ -177,4 +179,27 @@ def synth_finding(
     if severity is not None:
         doc["severity"] = severity
         ocsf["severity_id"], ocsf["severity"] = _SEVERITIES[severity]
+    if compact:
+        _drop_ros_names(doc)
     return json.dumps(copy.deepcopy(doc), separators=(",", ":"))
+
+
+_ROS_NAME_FIELDS = ("participant_guid", "topic", "type_name")
+
+
+def _drop_ros_names(doc: dict[str, Any]) -> None:
+    """Drop the optional ROS names and the resources that repeat them.
+
+    The finding stays valid (the contract makes each ROS name optional) and
+    shrinks to about 3.7 KiB, so 1000 of them fit one 4 MiB batch.
+    """
+    for ctx in (doc["entity_context"], doc["ocsf"]["unmapped"]["robodr"]):
+        for name in _ROS_NAME_FIELDS:
+            ctx["ros"].pop(name, None)
+    doc["ocsf"]["resources"] = []
+    doc["adversary_controlled_fields"] = [
+        path
+        for path in doc["adversary_controlled_fields"]
+        if not path.startswith("/ocsf/resources/")
+        and path.rsplit("/", 1)[-1] not in _ROS_NAME_FIELDS
+    ]
