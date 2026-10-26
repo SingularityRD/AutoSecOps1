@@ -1,7 +1,7 @@
 "use client"
 
 import { type FormEvent, useId, useState } from "react"
-import type { FleetTokenIssued } from "@/client"
+import type { FleetApprovalRead, FleetTokenIssued } from "@/client"
 import { CopyButton } from "@/components/copy-button"
 import { AlertNotification } from "@/components/notifications"
 import { Button } from "@/components/ui/button"
@@ -26,10 +26,13 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import {
+  useAddFleetTrustRoot,
+  useCreateFleetSocKey,
   useIssueEnrollmentToken,
   usePublishRevocationList,
   useSetProfileOffer,
   useSetRobotRing,
+  useSubmitApprovalSignature,
 } from "@/hooks/use-robot-fleet"
 import { getApiErrorDetail } from "@/lib/errors"
 
@@ -37,6 +40,10 @@ const ENROLL_FORM_ID = "robot-enroll-form"
 const OFFER_FORM_ID = "robot-profile-offer-form"
 const RING_FORM_ID = "robot-ring-form"
 const REVOCATION_FORM_ID = "robot-revocation-form"
+const APPROVAL_KEY_FORM_ID = "robot-approval-key-form"
+const SIGNATURE_FORM_ID = "robot-approval-signature-form"
+const TRUST_ROOT_FORM_ID = "robot-trust-root-form"
+const SIGNATURE_HEX_PATTERN = /^[0-9a-f]{128}$/
 
 /** Token validity choices, in hours (the contract caps tokens at 7 days). */
 export const TOKEN_VALIDITY_HOURS = [1, 24, 72, 168] as const
@@ -101,7 +108,9 @@ export function EnrollRobotDialog({
       open={open}
       onOpenChange={(next) => {
         if (!next) {
+          // Drop the token from the dialog and from the mutation cache.
           setIssued(null)
+          issue.reset()
           setValidity("24")
         }
         onOpenChange(next)
@@ -422,21 +431,16 @@ export function PublishRevocationListDialog({
   const fieldId = useId()
   const publish = usePublishRevocationList(workspaceId)
   const [list, setList] = useState("")
-  const [root, setRoot] = useState("")
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
-      const published = await publish.mutateAsync({
-        revocation_list: list,
-        trust_root_public_key: root.trim() || null,
-      })
+      const published = await publish.mutateAsync({ revocation_list: list })
       toast({
         title: "Revocation list published",
         description: `${published.platform} serial ${published.serial}`,
       })
       setList("")
-      setRoot("")
       onOpenChange(false)
     } catch (err) {
       failed("Failed to publish revocation list", err)
@@ -449,8 +453,8 @@ export function PublishRevocationListDialog({
         <DialogHeader>
           <DialogTitle>Publish revocation list</DialogTitle>
           <DialogDescription>
-            A list signed offline by a trust root. The serial of a platform only
-            rises; robots verify it again.
+            A list signed offline by one of the workspace's trust roots; others
+            are refused. The serial of a platform only rises.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
@@ -469,18 +473,6 @@ export function PublishRevocationListDialog({
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor={`${fieldId}-root`}>
-                Trust root public key (optional)
-              </Label>
-              <Textarea
-                id={`${fieldId}-root`}
-                value={root}
-                onChange={(event) => setRoot(event.target.value)}
-                className="min-h-[80px] font-mono text-xs"
-                placeholder="robodr-blackbox-key/v2 .pub file or 64 hex digits"
-              />
-            </div>
           </form>
         </DialogBody>
         <DialogFooter>
@@ -491,6 +483,279 @@ export function PublishRevocationListDialog({
             disabled={publish.isPending || !list}
           >
             Publish
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Props for the workspace-scoped fleet key dialogs. */
+export interface FleetWorkspaceDialogProps {
+  workspaceId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+/**
+ * Registers an offline approval key by its public key file. The secret stays
+ * with the operator who signs prepared approvals; a second user activates it.
+ */
+export function RegisterApprovalKeyDialog({
+  workspaceId,
+  open,
+  onOpenChange,
+}: FleetWorkspaceDialogProps) {
+  const fieldId = useId()
+  const createKey = useCreateFleetSocKey(workspaceId)
+  const [publicKeyFile, setPublicKeyFile] = useState("")
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    try {
+      const created = await createKey.mutateAsync({
+        kind: "approval",
+        custody: "offline",
+        public_key_file: publicKeyFile.trim(),
+      })
+      toast({
+        title: "Approval key registered",
+        description: `${created.key_id} waits for a second user to activate it.`,
+      })
+      setPublicKeyFile("")
+      onOpenChange(false)
+    } catch (err) {
+      failed("Failed to register approval key", err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle>Register offline approval key</DialogTitle>
+          <DialogDescription>
+            Paste the public key file of the approval key you hold offline or in
+            an HSM. AutoSecOps never sees its secret.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          <form
+            id={APPROVAL_KEY_FORM_ID}
+            className="space-y-2"
+            onSubmit={handleSubmit}
+          >
+            <Label htmlFor={`${fieldId}-public`}>Public key file</Label>
+            <Textarea
+              id={`${fieldId}-public`}
+              value={publicKeyFile}
+              onChange={(event) => setPublicKeyFile(event.target.value)}
+              className="min-h-[120px] font-mono text-xs"
+              placeholder="robodr-blackbox-key/v2 .pub file or 64 hex digits"
+              required
+            />
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            size="sm"
+            type="submit"
+            form={APPROVAL_KEY_FORM_ID}
+            disabled={createKey.isPending || !publicKeyFile.trim()}
+          >
+            Register
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Props for {@link SignApprovalDialog}. */
+export interface SignApprovalDialogProps extends RobotFleetDialogProps {
+  /** The prepared approval to sign; the dialog is closed when null. */
+  approval: FleetApprovalRead | null
+}
+
+/**
+ * Shows the exact bytes the offline approval key signs and accepts the
+ * detached Ed25519 signature.
+ */
+export function SignApprovalDialog({
+  workspaceId,
+  robotId,
+  approval,
+  open,
+  onOpenChange,
+}: SignApprovalDialogProps) {
+  const fieldId = useId()
+  const submit = useSubmitApprovalSignature(workspaceId, robotId)
+  const [signature, setSignature] = useState("")
+  const valid = SIGNATURE_HEX_PATTERN.test(signature.trim())
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!approval || !valid) {
+      return
+    }
+    try {
+      await submit.mutateAsync({
+        approvalId: approval.id,
+        requestBody: { signature: signature.trim() },
+      })
+      toast({
+        title: "Approval signed",
+        description: "The robot can fetch the approval now.",
+      })
+      setSignature("")
+      onOpenChange(false)
+    } catch (err) {
+      failed("Failed to attach the signature", err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>Sign approval</DialogTitle>
+          <DialogDescription>
+            Sign the message with the offline approval key{" "}
+            {approval?.signer_key_id ?? ""} (Ed25519) and paste the signature.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          <form
+            id={SIGNATURE_FORM_ID}
+            className="space-y-4"
+            onSubmit={handleSubmit}
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={`${fieldId}-message`}>Message to sign</Label>
+                <CopyButton
+                  value={approval?.signing_message_hex ?? ""}
+                  toastMessage="Message copied"
+                  tooltipMessage="Copy the message (hex)"
+                />
+              </div>
+              <Textarea
+                id={`${fieldId}-message`}
+                readOnly
+                value={approval?.signing_message_hex ?? ""}
+                className="h-24 resize-none break-all font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-payload`}>Approval payload</Label>
+              <Textarea
+                id={`${fieldId}-payload`}
+                readOnly
+                value={approval?.signing_payload ?? ""}
+                className="h-24 resize-none break-all font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-signature`}>Signature</Label>
+              <Input
+                id={`${fieldId}-signature`}
+                value={signature}
+                onChange={(event) => setSignature(event.target.value)}
+                className="font-mono text-xs"
+                placeholder="128 lower-case hex digits"
+                required
+              />
+            </div>
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            size="sm"
+            type="submit"
+            form={SIGNATURE_FORM_ID}
+            disabled={submit.isPending || !valid}
+          >
+            Attach signature
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Trusts a robodr-commission trust root for the workspace's revocation lists. */
+export function AddTrustRootDialog({
+  workspaceId,
+  open,
+  onOpenChange,
+}: FleetWorkspaceDialogProps) {
+  const fieldId = useId()
+  const add = useAddFleetTrustRoot(workspaceId)
+  const [publicKey, setPublicKey] = useState("")
+  const [label, setLabel] = useState("")
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    try {
+      const root = await add.mutateAsync({
+        public_key: publicKey.trim(),
+        label: label.trim() || null,
+      })
+      toast({ title: "Trust root added", description: root.key_id })
+      setPublicKey("")
+      setLabel("")
+      onOpenChange(false)
+    } catch (err) {
+      failed("Failed to add trust root", err)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle>Add trust root</DialogTitle>
+          <DialogDescription>
+            Revocation lists are published only when one of these trust roots
+            signed them.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          <form
+            id={TRUST_ROOT_FORM_ID}
+            className="space-y-4"
+            onSubmit={handleSubmit}
+          >
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-key`}>Public key</Label>
+              <Textarea
+                id={`${fieldId}-key`}
+                value={publicKey}
+                onChange={(event) => setPublicKey(event.target.value)}
+                className="min-h-[100px] font-mono text-xs"
+                placeholder="robodr-blackbox-key/v2 .pub file or 64 hex digits"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldId}-label`}>Label (optional)</Label>
+              <Input
+                id={`${fieldId}-label`}
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                maxLength={128}
+              />
+            </div>
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            size="sm"
+            type="submit"
+            form={TRUST_ROOT_FORM_ID}
+            disabled={add.isPending || !publicKey.trim()}
+          >
+            Add
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,6 +3,7 @@
 import {
   type FleetApprovalCreate,
   type FleetApprovalRead,
+  type FleetApprovalSignature,
   type FleetOfferRead,
   type FleetOfferUpdate,
   type FleetRevocationCreate,
@@ -14,8 +15,11 @@ import {
   type FleetTokenCreate,
   type FleetTokenIssued,
   type FleetTokenRead,
+  type FleetTrustRootCreate,
+  type FleetTrustRootRead,
   type RobotFleetStatus,
   robotEdrActivateFleetSocKey,
+  robotEdrAddFleetTrustRoot,
   robotEdrApproveRobotProfile,
   robotEdrCancelRobotProfileApproval,
   robotEdrCreateFleetSocKey,
@@ -23,11 +27,13 @@ import {
   robotEdrIssueRobotEnrollmentToken,
   robotEdrListFleetRevocationLists,
   robotEdrListFleetSocKeys,
+  robotEdrListFleetTrustRoots,
   robotEdrPublishFleetRevocationList,
   robotEdrRequestRobotProfileApproval,
   robotEdrRevokeRobotEnrollmentToken,
   robotEdrSetRobotProfileOffer,
   robotEdrSetRobotRing,
+  robotEdrSubmitRobotProfileApprovalSignature,
 } from "@/client"
 import { robotEdrQueryKey } from "@/hooks/use-robot-edr"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
@@ -124,7 +130,9 @@ export function useActivateFleetSocKey(workspaceId: string) {
 
 /**
  * Issues a single-use enrollment token. The response is the only place the
- * token appears: it is never cached in the query client.
+ * token appears: the mutation result is dropped from the mutation cache as
+ * soon as no component observes it (`gcTime: 0`), and the dialog resets the
+ * mutation when it closes.
  */
 export function useIssueEnrollmentToken(workspaceId: string, robotId: string) {
   const invalidate = useInvalidateFleet(workspaceId)
@@ -136,6 +144,7 @@ export function useIssueEnrollmentToken(workspaceId: string, robotId: string) {
         requestBody,
       }),
     onSuccess: invalidate,
+    gcTime: 0,
     meta: { suppressErrorToast: true },
   })
 }
@@ -221,7 +230,54 @@ export function useSetRobotRing(workspaceId: string, robotId: string) {
   })
 }
 
-/** Publishes a root-signed revocation list. */
+/** Lists the trust roots revocation lists must verify under. */
+export function useFleetTrustRoots(
+  workspaceId: string,
+  { enabled = true }: { enabled?: boolean } = {}
+) {
+  return useQuery<FleetTrustRootRead[], Error>({
+    queryKey: [...fleetWorkspaceQueryKey(workspaceId), "trust-roots"],
+    queryFn: async () => await robotEdrListFleetTrustRoots({ workspaceId }),
+    enabled: enabled && Boolean(workspaceId),
+    meta: { suppressErrorToast: true },
+  })
+}
+
+/** Trusts a revocation-list trust root (`robot:trust`). */
+export function useAddFleetTrustRoot(workspaceId: string) {
+  const invalidate = useInvalidateFleet(workspaceId)
+  return useMutation<FleetTrustRootRead, Error, FleetTrustRootCreate>({
+    mutationFn: async (requestBody) =>
+      await robotEdrAddFleetTrustRoot({ workspaceId, requestBody }),
+    onSuccess: invalidate,
+    meta: { suppressErrorToast: true },
+  })
+}
+
+/** Attaches the offline approval key's signature to a prepared approval. */
+export function useSubmitApprovalSignature(
+  workspaceId: string,
+  robotId: string
+) {
+  const invalidate = useInvalidateFleet(workspaceId)
+  return useMutation<
+    FleetApprovalRead,
+    Error,
+    { approvalId: string; requestBody: FleetApprovalSignature }
+  >({
+    mutationFn: async ({ approvalId, requestBody }) =>
+      await robotEdrSubmitRobotProfileApprovalSignature({
+        workspaceId,
+        robotId,
+        approvalId,
+        requestBody,
+      }),
+    onSuccess: invalidate,
+    meta: { suppressErrorToast: true },
+  })
+}
+
+/** Publishes a revocation list signed by a workspace trust root. */
 export function usePublishRevocationList(workspaceId: string) {
   const invalidate = useInvalidateFleet(workspaceId)
   return useMutation<FleetRevocationRead, Error, FleetRevocationCreate>({

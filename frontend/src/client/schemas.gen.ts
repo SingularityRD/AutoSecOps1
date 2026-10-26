@@ -17954,6 +17954,32 @@ export const $FleetApprovalRead = {
       ],
       title: "Signer Key Id",
     },
+    signing_payload: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signing Payload",
+      description:
+        "Prepared approvals: the profile-approval payload (base64url, no padding) the offline approval key signs",
+    },
+    signing_message_hex: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signing Message Hex",
+      description:
+        "Prepared approvals: the exact bytes to sign with Ed25519 (contract §2.3 message for type profile-approval and signer_key_id), as hex",
+    },
     created_at: {
       type: "string",
       format: "date-time",
@@ -17981,9 +18007,27 @@ export const $FleetApprovalRead = {
     "An approval request and, once two people signed it off, its signature.",
 } as const
 
+export const $FleetApprovalSignature = {
+  properties: {
+    signature: {
+      type: "string",
+      pattern: "^[0-9a-f]{128}$",
+      title: "Signature",
+      description:
+        "Ed25519 signature of signing_message_hex, 128 lower-case hex",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["signature"],
+  title: "FleetApprovalSignature",
+  description:
+    "The offline approval key's detached signature of a prepared approval.",
+} as const
+
 export const $FleetApprovalStatus = {
   type: "string",
-  enum: ["pending", "signed", "cancelled"],
+  enum: ["pending", "prepared", "signed", "cancelled"],
   title: "FleetApprovalStatus",
   description: "State of a profile approval (contract §6.3).",
 } as const
@@ -18140,20 +18184,8 @@ export const $FleetRevocationCreate = {
       maxLength: 1048576,
       minLength: 1,
       title: "Revocation List",
-    },
-    trust_root_public_key: {
-      anyOf: [
-        {
-          type: "string",
-          maxLength: 4096,
-        },
-        {
-          type: "null",
-        },
-      ],
-      title: "Trust Root Public Key",
       description:
-        "Optional trust-root public key (robodr-blackbox-key/v2 file or 64 hex) to check the list's signature before publishing",
+        "The list, signed by one of the workspace's trust roots (it is refused otherwise)",
     },
   },
   additionalProperties: false,
@@ -18191,6 +18223,76 @@ export const $FleetRevocationRead = {
       type: "boolean",
       title: "Signature Checked",
     },
+    trust_root_key_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Trust Root Key Id",
+    },
+    withdrawal_reason: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Reason",
+    },
+    withdrawal_requested_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Requested By",
+    },
+    withdrawal_requested_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Requested At",
+    },
+    withdrawn_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawn By",
+    },
+    withdrawn_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawn At",
+    },
     created_at: {
       type: "string",
       format: "date-time",
@@ -18205,10 +18307,33 @@ export const $FleetRevocationRead = {
     "list_digest",
     "signer_key_id",
     "signature_checked",
+    "trust_root_key_id",
+    "withdrawal_reason",
+    "withdrawal_requested_by",
+    "withdrawal_requested_at",
+    "withdrawn_by",
+    "withdrawn_at",
     "created_at",
   ],
   title: "FleetRevocationRead",
   description: "A published revocation list.",
+} as const
+
+export const $FleetRevocationWithdraw = {
+  properties: {
+    reason: {
+      type: "string",
+      maxLength: 512,
+      minLength: 1,
+      pattern: "^[ -;=?-_a-~]*$",
+      title: "Reason",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["reason"],
+  title: "FleetRevocationWithdraw",
+  description: "Request the withdrawal of a published revocation list.",
 } as const
 
 export const $FleetRingRead = {
@@ -18410,6 +18535,12 @@ export const $FleetSocKeyCreate = {
     kind: {
       $ref: "#/components/schemas/FleetSocKeyKind",
     },
+    custody: {
+      $ref: "#/components/schemas/FleetSocKeyCustody",
+      description:
+        "online: the server holds the secret and signs; offline (approval keys only): register public_key_file and upload detached signatures",
+      default: "online",
+    },
     secret_key_file: {
       anyOf: [
         {
@@ -18422,14 +18553,41 @@ export const $FleetSocKeyCreate = {
       ],
       title: "Secret Key File",
       description:
-        "Optional robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server",
+        "Fleet keys only: a robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server",
+    },
+    public_key_file: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 4096,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Public Key File",
+      description:
+        "Offline approval keys: the robodr-blackbox-key/v2 public key file (or 64 hex digits) of the operator-held approval key",
     },
   },
   additionalProperties: false,
   type: "object",
   required: ["kind"],
   title: "FleetSocKeyCreate",
-  description: "Generate a SOC key, or import one generated offline.",
+  description: `Create a SOC key.
+
+Fleet keys are online: generated on the server, or imported from a secret
+key file. Approval keys are \`\`offline\`\` (recommended: only the public key
+file is registered and approvals are signed by the operator who holds the
+secret) or \`\`online\`\` (generated on the server; lower assurance). An
+approval key's secret is never imported.`,
+} as const
+
+export const $FleetSocKeyCustody = {
+  type: "string",
+  enum: ["online", "offline"],
+  title: "FleetSocKeyCustody",
+  description: "Where a SOC key's secret lives (contract §2.7).",
 } as const
 
 export const $FleetSocKeyKind = {
@@ -18457,6 +18615,9 @@ export const $FleetSocKeyRead = {
       type: "string",
       title: "Fingerprint",
     },
+    custody: {
+      $ref: "#/components/schemas/FleetSocKeyCustody",
+    },
     status: {
       $ref: "#/components/schemas/FleetSocKeyStatus",
     },
@@ -18464,6 +18625,30 @@ export const $FleetSocKeyRead = {
       type: "string",
       title: "Public Key File",
       description: "The robodr-blackbox-key/v2 public file robots install",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    activated_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Activated By",
     },
     created_at: {
       type: "string",
@@ -18501,8 +18686,11 @@ export const $FleetSocKeyRead = {
     "kind",
     "key_id",
     "fingerprint",
+    "custody",
     "status",
     "public_key_file",
+    "created_by",
+    "activated_by",
     "created_at",
     "activated_at",
     "retired_at",
@@ -18724,6 +18912,107 @@ export const $FleetTokenRead = {
   ],
   title: "FleetTokenRead",
   description: "An enrollment token (never the token itself).",
+} as const
+
+export const $FleetTrustRootCreate = {
+  properties: {
+    public_key: {
+      type: "string",
+      maxLength: 4096,
+      minLength: 64,
+      title: "Public Key",
+      description: "robodr-blackbox-key/v2 public key file, or 64 hex digits",
+    },
+    label: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Label",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["public_key"],
+  title: "FleetTrustRootCreate",
+  description:
+    "Trust a robodr-commission trust root for revocation lists (§4.1).",
+} as const
+
+export const $FleetTrustRootRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    fingerprint: {
+      type: "string",
+      title: "Fingerprint",
+    },
+    label: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Label",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "key_id",
+    "fingerprint",
+    "label",
+    "created_by",
+    "created_at",
+    "revoked_at",
+  ],
+  title: "FleetTrustRootRead",
+  description: "A trust root of the workspace.",
 } as const
 
 export const $Float = {
@@ -30588,6 +30877,13 @@ sender key's id is always derived from its public key
 id (printable ASCII, 1-128 characters) and defaults to the derived id.`,
 } as const
 
+export const $RobotKeyProvenance = {
+  type: "string",
+  enum: ["manual", "enrollment", "rotation"],
+  title: "RobotKeyProvenance",
+  description: "How a robot key was registered.",
+} as const
+
 export const $RobotKeyRead = {
   properties: {
     id: {
@@ -30655,6 +30951,18 @@ export const $RobotKeyRead = {
         },
       ],
       title: "Expires At",
+    },
+    provenance: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/RobotKeyProvenance",
+        },
+        {
+          type: "null",
+        },
+      ],
+      description:
+        "How the key was registered (null: before this was recorded)",
     },
     created_by: {
       anyOf: [

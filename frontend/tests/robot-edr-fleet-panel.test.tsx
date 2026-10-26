@@ -15,6 +15,8 @@ import {
   robotEdrIssueRobotEnrollmentToken,
   robotEdrListFleetRevocationLists,
   robotEdrListFleetSocKeys,
+  robotEdrListFleetTrustRoots,
+  robotEdrSubmitRobotProfileApprovalSignature,
 } from "@/client"
 import { RobotFleetPanel } from "@/components/robot-edr/robot-fleet-panel"
 import { QueryClient, QueryClientProvider } from "@/lib/query"
@@ -26,6 +28,8 @@ jest.mock("@/client", () => ({
   robotEdrListFleetRevocationLists: jest.fn(),
   robotEdrIssueRobotEnrollmentToken: jest.fn(),
   robotEdrApproveRobotProfile: jest.fn(),
+  robotEdrListFleetTrustRoots: jest.fn(),
+  robotEdrSubmitRobotProfileApprovalSignature: jest.fn(),
 }))
 
 jest.mock("@/components/ui/use-toast", () => ({
@@ -55,8 +59,11 @@ const FLEET_KEY: FleetSocKeyRead = {
   kind: "fleet",
   key_id: "ed25519:370ede82195fa32b",
   fingerprint: `sha256:${"1".repeat(64)}`,
+  custody: "online",
   status: "active",
   public_key_file: "{}",
+  created_by: "user-a",
+  activated_by: "user-a",
   created_at: "2026-01-01T00:00:00Z",
   activated_at: "2026-01-01T00:00:00Z",
   retired_at: null,
@@ -129,7 +136,7 @@ function renderPanel() {
   const wrap = (children: ReactNode) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
-  return render(
+  const rendered = render(
     wrap(
       <RobotFleetPanel
         workspaceId="ws-uuid"
@@ -138,6 +145,7 @@ function renderPanel() {
       />
     )
   )
+  return { ...rendered, client }
 }
 
 beforeEach(() => {
@@ -165,8 +173,10 @@ beforeEach(() => {
     next_cursor: null,
     prev_cursor: null,
   } as never)
+  jest.mocked(robotEdrListFleetTrustRoots).mockResolvedValue([])
   jest.mocked(robotEdrIssueRobotEnrollmentToken).mockReset()
   jest.mocked(robotEdrApproveRobotProfile).mockReset()
+  jest.mocked(robotEdrSubmitRobotProfileApprovalSignature).mockReset()
 })
 
 describe("RobotFleetPanel", () => {
@@ -248,5 +258,99 @@ describe("RobotFleetPanel", () => {
         approvalId: "ap-uuid",
       })
     )
+  })
+
+  it("drops the issued token from the mutation cache when the dialog closes", async () => {
+    const user = userEvent.setup()
+    jest.mocked(robotEdrIssueRobotEnrollmentToken).mockResolvedValue({
+      id: "t-uuid",
+      token_id: "rdt-0002",
+      robot_id: "ugv-001",
+      site: null,
+      workspace: "ws-1",
+      soc_key_id: FLEET_KEY.key_id,
+      issued_at: "2026-01-01T00:00:00Z",
+      expires_at: "2026-01-02T00:00:00Z",
+      consumed_at: null,
+      revoked_at: null,
+      status: "active",
+      token: "rdet1.secret.token",
+    })
+    const { client } = renderPanel()
+    await user.click(await screen.findByRole("button", { name: /Enroll/ }))
+    await user.click(screen.getByRole("button", { name: "Issue token" }))
+    await screen.findByLabelText("Enrollment token")
+    const cached = () =>
+      JSON.stringify(
+        client
+          .getMutationCache()
+          .getAll()
+          .map((mutation) => mutation.state.data ?? null)
+      )
+    expect(cached()).toContain("rdet1.secret.token")
+    await user.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Enrollment token")).toBeNull()
+    )
+    await waitFor(() => expect(cached()).not.toContain("rdet1.secret.token"))
+  })
+
+  it("signs a prepared approval with the offline key's signature", async () => {
+    const user = userEvent.setup()
+    const prepared = approval({
+      status: "prepared",
+      approved_by: "user-b",
+      signer_key_id: "ed25519:00000000000000aa",
+      signing_payload: "eyJmb3JtYXQiOiJ4In0",
+      signing_message_hex: "ab".repeat(40),
+    })
+    jest
+      .mocked(robotEdrGetRobotFleetStatus)
+      .mockResolvedValue(status({ approvals: [prepared] }))
+    jest
+      .mocked(robotEdrSubmitRobotProfileApprovalSignature)
+      .mockResolvedValue({ ...prepared, status: "signed" })
+    renderPanel()
+    const table = await screen.findByRole("table", {
+      name: "Profile approvals",
+    })
+    expect(
+      within(table).getByText("Waiting for the approval key's signature")
+    ).toBeTruthy()
+    await user.click(within(table).getByRole("button", { name: "Sign" }))
+    const message = (await screen.findByLabelText(
+      "Message to sign"
+    )) as HTMLTextAreaElement
+    expect(message.value).toBe("ab".repeat(40))
+    await user.type(screen.getByLabelText("Signature"), "cd".repeat(64))
+    await user.click(screen.getByRole("button", { name: "Attach signature" }))
+    await waitFor(() =>
+      expect(robotEdrSubmitRobotProfileApprovalSignature).toHaveBeenCalledWith({
+        workspaceId: "ws-uuid",
+        robotId: "robot-uuid",
+        approvalId: "ap-uuid",
+        requestBody: { signature: "cd".repeat(64) },
+      })
+    )
+  })
+
+  it("does not let the user who registered an approval key activate it", async () => {
+    const pendingKey: FleetSocKeyRead = {
+      ...FLEET_KEY,
+      id: "k-2",
+      kind: "approval",
+      key_id: "ed25519:00000000000000bb",
+      custody: "offline",
+      status: "pending",
+      created_by: "user-a",
+      activated_by: null,
+      activated_at: null,
+    }
+    jest
+      .mocked(robotEdrListFleetSocKeys)
+      .mockResolvedValue([FLEET_KEY, pendingKey])
+    renderPanel()
+    const activate = await screen.findByRole("button", { name: "Activate" })
+    expect((activate as HTMLButtonElement).disabled).toBe(true)
   })
 })

@@ -754,10 +754,14 @@ import type {
   RegistryRepositoriesUpdateRegistryRepositoryResponse,
   RobotEdrActivateFleetSocKeyData,
   RobotEdrActivateFleetSocKeyResponse,
+  RobotEdrAddFleetTrustRootData,
+  RobotEdrAddFleetTrustRootResponse,
   RobotEdrApproveRobotProfileData,
   RobotEdrApproveRobotProfileResponse,
   RobotEdrCancelRobotProfileApprovalData,
   RobotEdrCancelRobotProfileApprovalResponse,
+  RobotEdrConfirmFleetRevocationWithdrawalData,
+  RobotEdrConfirmFleetRevocationWithdrawalResponse,
   RobotEdrCreateFleetSocKeyData,
   RobotEdrCreateFleetSocKeyResponse,
   RobotEdrCreateRobotData,
@@ -782,14 +786,20 @@ import type {
   RobotEdrListFleetRevocationListsResponse,
   RobotEdrListFleetSocKeysData,
   RobotEdrListFleetSocKeysResponse,
+  RobotEdrListFleetTrustRootsData,
+  RobotEdrListFleetTrustRootsResponse,
   RobotEdrListRobotKeysData,
   RobotEdrListRobotKeysResponse,
   RobotEdrListRobotsData,
   RobotEdrListRobotsResponse,
   RobotEdrPublishFleetRevocationListData,
   RobotEdrPublishFleetRevocationListResponse,
+  RobotEdrRequestFleetRevocationWithdrawalData,
+  RobotEdrRequestFleetRevocationWithdrawalResponse,
   RobotEdrRequestRobotProfileApprovalData,
   RobotEdrRequestRobotProfileApprovalResponse,
+  RobotEdrRevokeFleetTrustRootData,
+  RobotEdrRevokeFleetTrustRootResponse,
   RobotEdrRevokeRobotEnrollmentTokenData,
   RobotEdrRevokeRobotEnrollmentTokenResponse,
   RobotEdrRevokeRobotKeyData,
@@ -798,6 +808,8 @@ import type {
   RobotEdrSetRobotProfileOfferResponse,
   RobotEdrSetRobotRingData,
   RobotEdrSetRobotRingResponse,
+  RobotEdrSubmitRobotProfileApprovalSignatureData,
+  RobotEdrSubmitRobotProfileApprovalSignatureResponse,
   RobotEdrUpdateRobotData,
   RobotEdrUpdateRobotResponse,
   SchedulesCreateScheduleData,
@@ -5340,9 +5352,12 @@ export const robotEdrListFleetSocKeys = (
 
 /**
  * Create Fleet Soc Key
- * Generate (or import) a SOC key.
+ * Create a SOC key.
  *
- * A fleet key needs `robot:enroll`, an approval key `robot:approve`.
+ * A fleet key (`robot:enroll`) is generated or imported. An approval key
+ * (`robot:approve`, platform users) is registered offline by its public key
+ * file (recommended) or generated online; it is never imported and waits
+ * for a second user's activation.
  * @param data The data for the request.
  * @param data.workspaceId
  * @param data.requestBody
@@ -5369,6 +5384,9 @@ export const robotEdrCreateFleetSocKey = (
 /**
  * Activate Fleet Soc Key
  * Sign with a pending key from now on; the previous one is retired.
+ *
+ * An approval key is activated by a platform user other than the one who
+ * registered it.
  * @param data The data for the request.
  * @param data.keyId
  * @param data.workspaceId
@@ -5440,6 +5458,133 @@ export const robotEdrPublishFleetRevocationList = (
     },
     body: data.requestBody,
     mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Request Fleet Revocation Withdrawal
+ * First sign-off of withdrawing a revocation list.
+ * @param data The data for the request.
+ * @param data.listId
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns FleetRevocationRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrRequestFleetRevocationWithdrawal = (
+  data: RobotEdrRequestFleetRevocationWithdrawalData
+): CancelablePromise<RobotEdrRequestFleetRevocationWithdrawalResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal",
+    path: {
+      list_id: data.listId,
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Confirm Fleet Revocation Withdrawal
+ * Second sign-off by another user: the list is no longer served.
+ * @param data The data for the request.
+ * @param data.listId
+ * @param data.workspaceId
+ * @returns FleetRevocationRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrConfirmFleetRevocationWithdrawal = (
+  data: RobotEdrConfirmFleetRevocationWithdrawalData
+): CancelablePromise<RobotEdrConfirmFleetRevocationWithdrawalResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal/confirm",
+    path: {
+      list_id: data.listId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * List Fleet Trust Roots
+ * The trust roots revocation lists must verify under.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @returns FleetTrustRootRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrListFleetTrustRoots = (
+  data: RobotEdrListFleetTrustRootsData
+): CancelablePromise<RobotEdrListFleetTrustRootsResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Add Fleet Trust Root
+ * Trust a robodr-commission trust root for revocation lists.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns FleetTrustRootRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrAddFleetTrustRoot = (
+  data: RobotEdrAddFleetTrustRootData
+): CancelablePromise<RobotEdrAddFleetTrustRootResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Revoke Fleet Trust Root
+ * Stop trusting a root for new revocation lists.
+ * @param data The data for the request.
+ * @param data.rootId
+ * @param data.workspaceId
+ * @returns FleetTrustRootRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrRevokeFleetTrustRoot = (
+  data: RobotEdrRevokeFleetTrustRootData
+): CancelablePromise<RobotEdrRevokeFleetTrustRootResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots/{root_id}/revoke",
+    path: {
+      root_id: data.rootId,
+      workspace_id: data.workspaceId,
+    },
     errors: {
       422: "Validation Error",
     },
@@ -5611,7 +5756,11 @@ export const robotEdrRequestRobotProfileApproval = (
 
 /**
  * Approve Robot Profile
- * Second sign-off by another user: sign the approval with the approval key.
+ * Second sign-off by another user.
+ *
+ * With an online approval key the approval is signed now; with an offline
+ * key it is `prepared`: sign `signing_message_hex` with the key and submit
+ * the signature.
  * @param data The data for the request.
  * @param data.robotId
  * @param data.approvalId
@@ -5630,6 +5779,36 @@ export const robotEdrApproveRobotProfile = (
       approval_id: data.approvalId,
       workspace_id: data.workspaceId,
     },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Submit Robot Profile Approval Signature
+ * Attach the offline approval key's signature to a prepared approval.
+ * @param data The data for the request.
+ * @param data.robotId
+ * @param data.approvalId
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns FleetApprovalRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrSubmitRobotProfileApprovalSignature = (
+  data: RobotEdrSubmitRobotProfileApprovalSignatureData
+): CancelablePromise<RobotEdrSubmitRobotProfileApprovalSignatureResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/signature",
+    path: {
+      robot_id: data.robotId,
+      approval_id: data.approvalId,
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
     errors: {
       422: "Validation Error",
     },

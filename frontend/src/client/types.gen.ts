@@ -5424,13 +5424,35 @@ export type FleetApprovalRead = {
   issued_at: string | null
   expires_at: string | null
   signer_key_id: string | null
+  /**
+   * Prepared approvals: the profile-approval payload (base64url, no padding) the offline approval key signs
+   */
+  signing_payload?: string | null
+  /**
+   * Prepared approvals: the exact bytes to sign with Ed25519 (contract §2.3 message for type profile-approval and signer_key_id), as hex
+   */
+  signing_message_hex?: string | null
   created_at: string
+}
+
+/**
+ * The offline approval key's detached signature of a prepared approval.
+ */
+export type FleetApprovalSignature = {
+  /**
+   * Ed25519 signature of signing_message_hex, 128 lower-case hex
+   */
+  signature: string
 }
 
 /**
  * State of a profile approval (contract §6.3).
  */
-export type FleetApprovalStatus = "pending" | "signed" | "cancelled"
+export type FleetApprovalStatus =
+  | "pending"
+  | "prepared"
+  | "signed"
+  | "cancelled"
 
 /**
  * A draft profile with its file text.
@@ -5497,11 +5519,10 @@ export type FleetOfferUpdate = {
  * Publish a root-signed revocation list for a platform (contract §4.1).
  */
 export type FleetRevocationCreate = {
-  revocation_list: string
   /**
-   * Optional trust-root public key (robodr-blackbox-key/v2 file or 64 hex) to check the list's signature before publishing
+   * The list, signed by one of the workspace's trust roots (it is refused otherwise)
    */
-  trust_root_public_key?: string | null
+  revocation_list: string
 }
 
 /**
@@ -5514,7 +5535,20 @@ export type FleetRevocationRead = {
   list_digest: string
   signer_key_id: string
   signature_checked: boolean
+  trust_root_key_id: string | null
+  withdrawal_reason: string | null
+  withdrawal_requested_by: string | null
+  withdrawal_requested_at: string | null
+  withdrawn_by: string | null
+  withdrawn_at: string | null
   created_at: string
+}
+
+/**
+ * Request the withdrawal of a published revocation list.
+ */
+export type FleetRevocationWithdraw = {
+  reason: string
 }
 
 /**
@@ -5570,15 +5604,34 @@ export type FleetRotationRead = {
 export type FleetRotationStatus = "open" | "retired" | "cancelled"
 
 /**
- * Generate a SOC key, or import one generated offline.
+ * Create a SOC key.
+ *
+ * Fleet keys are online: generated on the server, or imported from a secret
+ * key file. Approval keys are ``offline`` (recommended: only the public key
+ * file is registered and approvals are signed by the operator who holds the
+ * secret) or ``online`` (generated on the server; lower assurance). An
+ * approval key's secret is never imported.
  */
 export type FleetSocKeyCreate = {
   kind: FleetSocKeyKind
   /**
-   * Optional robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server
+   * online: the server holds the secret and signs; offline (approval keys only): register public_key_file and upload detached signatures
+   */
+  custody?: FleetSocKeyCustody
+  /**
+   * Fleet keys only: a robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server
    */
   secret_key_file?: string | null
+  /**
+   * Offline approval keys: the robodr-blackbox-key/v2 public key file (or 64 hex digits) of the operator-held approval key
+   */
+  public_key_file?: string | null
 }
+
+/**
+ * Where a SOC key's secret lives (contract §2.7).
+ */
+export type FleetSocKeyCustody = "online" | "offline"
 
 /**
  * The two kinds of SOC Ed25519 keys (contract §2.7).
@@ -5593,11 +5646,14 @@ export type FleetSocKeyRead = {
   kind: FleetSocKeyKind
   key_id: string
   fingerprint: string
+  custody: FleetSocKeyCustody
   status: FleetSocKeyStatus
   /**
    * The robodr-blackbox-key/v2 public file robots install
    */
   public_key_file: string
+  created_by: string | null
+  activated_by: string | null
   created_at: string
   activated_at: string | null
   retired_at: string | null
@@ -5653,6 +5709,30 @@ export type FleetTokenRead = {
   consumed_at: string | null
   revoked_at: string | null
   status: "active" | "consumed" | "expired" | "revoked"
+}
+
+/**
+ * Trust a robodr-commission trust root for revocation lists (§4.1).
+ */
+export type FleetTrustRootCreate = {
+  /**
+   * robodr-blackbox-key/v2 public key file, or 64 hex digits
+   */
+  public_key: string
+  label?: string | null
+}
+
+/**
+ * A trust root of the workspace.
+ */
+export type FleetTrustRootRead = {
+  id: string
+  key_id: string
+  fingerprint: string
+  label: string | null
+  created_by: string | null
+  created_at: string
+  revoked_at: string | null
 }
 
 export type Float = {
@@ -9312,6 +9392,11 @@ export type RobotKeyCreate = {
 }
 
 /**
+ * How a robot key was registered.
+ */
+export type RobotKeyProvenance = "manual" | "enrollment" | "rotation"
+
+/**
  * A registered key (public material only).
  */
 export type RobotKeyRead = {
@@ -9324,6 +9409,10 @@ export type RobotKeyRead = {
   vouches_origin: boolean
   revoked_at: string | null
   expires_at: string | null
+  /**
+   * How the key was registered (null: before this was recorded)
+   */
+  provenance?: RobotKeyProvenance | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -15294,6 +15383,43 @@ export type RobotEdrPublishFleetRevocationListData = {
 
 export type RobotEdrPublishFleetRevocationListResponse = FleetRevocationRead
 
+export type RobotEdrRequestFleetRevocationWithdrawalData = {
+  listId: string
+  requestBody: FleetRevocationWithdraw
+  workspaceId: string
+}
+
+export type RobotEdrRequestFleetRevocationWithdrawalResponse =
+  FleetRevocationRead
+
+export type RobotEdrConfirmFleetRevocationWithdrawalData = {
+  listId: string
+  workspaceId: string
+}
+
+export type RobotEdrConfirmFleetRevocationWithdrawalResponse =
+  FleetRevocationRead
+
+export type RobotEdrListFleetTrustRootsData = {
+  workspaceId: string
+}
+
+export type RobotEdrListFleetTrustRootsResponse = Array<FleetTrustRootRead>
+
+export type RobotEdrAddFleetTrustRootData = {
+  requestBody: FleetTrustRootCreate
+  workspaceId: string
+}
+
+export type RobotEdrAddFleetTrustRootResponse = FleetTrustRootRead
+
+export type RobotEdrRevokeFleetTrustRootData = {
+  rootId: string
+  workspaceId: string
+}
+
+export type RobotEdrRevokeFleetTrustRootResponse = FleetTrustRootRead
+
 export type RobotEdrGetRobotFleetStatusData = {
   robotId: string
   workspaceId: string
@@ -15348,6 +15474,16 @@ export type RobotEdrApproveRobotProfileData = {
 }
 
 export type RobotEdrApproveRobotProfileResponse = FleetApprovalRead
+
+export type RobotEdrSubmitRobotProfileApprovalSignatureData = {
+  approvalId: string
+  requestBody: FleetApprovalSignature
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrSubmitRobotProfileApprovalSignatureResponse =
+  FleetApprovalRead
 
 export type RobotEdrCancelRobotProfileApprovalData = {
   approvalId: string
@@ -21761,6 +21897,79 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal": {
+    post: {
+      req: RobotEdrRequestFleetRevocationWithdrawalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetRevocationRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal/confirm": {
+    post: {
+      req: RobotEdrConfirmFleetRevocationWithdrawalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetRevocationRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots": {
+    get: {
+      req: RobotEdrListFleetTrustRootsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Array<FleetTrustRootRead>
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrAddFleetTrustRootData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetTrustRootRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots/{root_id}/revoke": {
+    post: {
+      req: RobotEdrRevokeFleetTrustRootData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetTrustRootRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
   "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet": {
     get: {
       req: RobotEdrGetRobotFleetStatusData
@@ -21854,6 +22063,21 @@ export type $OpenApiTs = {
   "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/approve": {
     post: {
       req: RobotEdrApproveRobotProfileData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetApprovalRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/signature": {
+    post: {
+      req: RobotEdrSubmitRobotProfileApprovalSignatureData
       res: {
         /**
          * Successful Response

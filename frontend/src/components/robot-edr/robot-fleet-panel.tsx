@@ -10,6 +10,7 @@ import type {
   FleetSocKeyKind,
   FleetSocKeyRead,
   FleetTokenRead,
+  FleetTrustRootRead,
   RobotFleetStatus,
 } from "@/client"
 import { useScopeCheck } from "@/components/auth/scope-guard"
@@ -18,13 +19,17 @@ import { AlertNotification } from "@/components/notifications"
 import {
   ROBOT_APPROVE_SCOPE,
   ROBOT_ENROLL_SCOPE,
+  ROBOT_TRUST_SCOPE,
   ROBOT_UPDATE_SCOPE,
 } from "@/components/robot-edr/robot-edr-access"
 import {
+  AddTrustRootDialog,
   EnrollRobotDialog,
   OfferProfileDialog,
   PublishRevocationListDialog,
+  RegisterApprovalKeyDialog,
   SetRingDialog,
+  SignApprovalDialog,
 } from "@/components/robot-edr/robot-fleet-dialogs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,11 +45,13 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import {
+  useActivateFleetSocKey,
   useApproveProfile,
   useCancelProfileApproval,
   useCreateFleetSocKey,
   useFleetRevocationLists,
   useFleetSocKeys,
+  useFleetTrustRoots,
   useRequestProfileApproval,
   useRevokeEnrollmentToken,
   useRobotFleetStatus,
@@ -145,13 +152,16 @@ export function RobotFleetPanel({
   const canUpdate = useScopeCheck(ROBOT_UPDATE_SCOPE) === true
   const canEnroll = useScopeCheck(ROBOT_ENROLL_SCOPE) === true
   const canApprove = useScopeCheck(ROBOT_APPROVE_SCOPE) === true
+  const canTrust = useScopeCheck(ROBOT_TRUST_SCOPE) === true
   const status = useRobotFleetStatus(workspaceId, robotId)
   const socKeys = useFleetSocKeys(workspaceId)
   const revocations = useFleetRevocationLists(workspaceId)
+  const trustRoots = useFleetTrustRoots(workspaceId)
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [offerOpen, setOfferOpen] = useState(false)
   const [ringOpen, setRingOpen] = useState(false)
   const [revocationOpen, setRevocationOpen] = useState(false)
+  const [trustRootOpen, setTrustRootOpen] = useState(false)
 
   if (status.isLoading) {
     return <Skeleton className="h-32 w-full" />
@@ -267,22 +277,38 @@ export function RobotFleetPanel({
         id="robot-revocations"
         title="Revocation list"
         action={
-          canUpdate ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7"
-              onClick={() => setRevocationOpen(true)}
-            >
-              Publish list
-            </Button>
-          ) : null
+          <div className="flex items-center gap-2">
+            {canTrust ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setTrustRootOpen(true)}
+              >
+                Add trust root
+              </Button>
+            ) : null}
+            {canUpdate ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => setRevocationOpen(true)}
+              >
+                Publish list
+              </Button>
+            ) : null}
+          </div>
         }
       >
         <RevocationSummary
           platform={platform}
           lists={revocations.data ?? []}
           loading={revocations.isLoading}
+        />
+        <TrustRootsSummary
+          roots={trustRoots.data ?? []}
+          loading={trustRoots.isLoading}
         />
       </Section>
 
@@ -309,6 +335,11 @@ export function RobotFleetPanel({
         workspaceId={workspaceId}
         open={revocationOpen}
         onOpenChange={setRevocationOpen}
+      />
+      <AddTrustRootDialog
+        workspaceId={workspaceId}
+        open={trustRootOpen}
+        onOpenChange={setTrustRootOpen}
       />
     </div>
   )
@@ -343,7 +374,20 @@ const SOC_KEY_LABELS: Record<FleetSocKeyKind, string> = {
   approval: "Approval key",
 }
 
-/** The active SOC keys robots must install, with generate actions. */
+function custodyLabel(key: FleetSocKeyRead): string | null {
+  if (key.kind !== "approval") {
+    return null
+  }
+  return key.custody === "offline"
+    ? "Offline"
+    : "Online (lower assurance: the server can sign approvals)"
+}
+
+/**
+ * The SOC keys robots must install, with generate, register and activate
+ * actions. An approval key is held offline by default and is activated by a
+ * user other than the one who registered it.
+ */
 function SocKeysSummary({
   workspaceId,
   keys,
@@ -357,19 +401,30 @@ function SocKeysSummary({
   canEnroll: boolean
   canApprove: boolean
 }) {
+  const { user } = useAuth()
   const createKey = useCreateFleetSocKey(workspaceId)
+  const activate = useActivateFleetSocKey(workspaceId)
+  const [registerOpen, setRegisterOpen] = useState(false)
   if (loading) {
     return <Skeleton className="h-12 w-full" />
   }
   async function generate(kind: FleetSocKeyKind) {
     try {
-      const created = await createKey.mutateAsync({ kind })
+      const created = await createKey.mutateAsync({ kind, custody: "online" })
       toast({
         title: `${SOC_KEY_LABELS[kind]} generated`,
         description: created.key_id,
       })
     } catch (err) {
       failed("Failed to generate key", err)
+    }
+  }
+  async function activateKey(key: FleetSocKeyRead) {
+    try {
+      await activate.mutateAsync(key.id)
+      toast({ title: `${SOC_KEY_LABELS[key.kind]} activated` })
+    } catch (err) {
+      failed("Failed to activate key", err)
     }
   }
   const kinds: FleetSocKeyKind[] = ["fleet", "approval"]
@@ -379,43 +434,106 @@ function SocKeysSummary({
         const active = keys.find(
           (k) => k.kind === kind && k.status === "active"
         )
+        const pending = keys.filter(
+          (k) => k.kind === kind && k.status === "pending"
+        )
         const allowed = kind === "fleet" ? canEnroll : canApprove
         return (
-          <div
-            key={kind}
-            className="flex items-center justify-between gap-2 py-1"
-          >
-            <span className="text-muted-foreground">
-              {SOC_KEY_LABELS[kind]}
-            </span>
-            {active ? (
-              <span className="flex items-center gap-2 font-mono text-xs">
-                {active.key_id}
-                <CopyButton
-                  value={active.public_key_file}
-                  toastMessage="Public key file copied"
-                  tooltipMessage="Copy the public key file robots install"
-                />
+          <div key={kind} className="space-y-1 py-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">
+                {SOC_KEY_LABELS[kind]}
               </span>
-            ) : (
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                Not configured
-                {allowed ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6"
-                    disabled={createKey.isPending}
-                    onClick={() => generate(kind)}
-                  >
-                    Generate
-                  </Button>
-                ) : null}
-              </span>
-            )}
+              {active ? (
+                <span className="flex items-center gap-2 font-mono text-xs">
+                  {active.key_id}
+                  <CopyButton
+                    value={active.public_key_file}
+                    toastMessage="Public key file copied"
+                    tooltipMessage="Copy the public key file robots install"
+                  />
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Not configured
+                  {allowed && kind === "fleet" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6"
+                      disabled={createKey.isPending}
+                      onClick={() => generate(kind)}
+                    >
+                      Generate
+                    </Button>
+                  ) : null}
+                  {allowed && kind === "approval" && pending.length === 0 ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6"
+                        onClick={() => setRegisterOpen(true)}
+                      >
+                        Register offline key
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6"
+                        disabled={createKey.isPending}
+                        title="Lower assurance: the server holds the secret"
+                        onClick={() => generate(kind)}
+                      >
+                        Generate online key
+                      </Button>
+                    </>
+                  ) : null}
+                </span>
+              )}
+            </div>
+            {active && custodyLabel(active) ? (
+              <p className="text-xs text-muted-foreground">
+                {custodyLabel(active)}
+              </p>
+            ) : null}
+            {pending.map((key) => {
+              const ownKey = kind === "approval" && key.created_by === user?.id
+              return (
+                <div
+                  key={key.id}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="font-mono text-muted-foreground">
+                    {key.key_id} · pending
+                  </span>
+                  {allowed ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      disabled={ownKey || activate.isPending}
+                      title={
+                        ownKey
+                          ? "A second person must activate the approval key you registered"
+                          : "Install its public key file on every robot first"
+                      }
+                      onClick={() => activateKey(key)}
+                    >
+                      Activate
+                    </Button>
+                  ) : null}
+                </div>
+              )
+            })}
           </div>
         )
       })}
+      <RegisterApprovalKeyDialog
+        workspaceId={workspaceId}
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+      />
     </div>
   )
 }
@@ -546,6 +664,7 @@ export function RotationsTable({
 
 const APPROVAL_STATUS_LABELS: Record<FleetApprovalRead["status"], string> = {
   pending: "Waiting for a second sign-off",
+  prepared: "Waiting for the approval key's signature",
   signed: "Approved",
   cancelled: "Cancelled",
 }
@@ -565,10 +684,13 @@ function ProfileSummary({
   const request = useRequestProfileApproval(workspaceId, robotId)
   const approve = useApproveProfile(workspaceId, robotId)
   const cancel = useCancelProfileApproval(workspaceId, robotId)
+  const [signing, setSigning] = useState<FleetApprovalRead | null>(null)
   const offer = fleet.offer
   const offerPending = offer
     ? fleet.approvals.some(
-        (a) => a.status === "pending" && a.profile_digest === offer.digest
+        (a) =>
+          (a.status === "pending" || a.status === "prepared") &&
+          a.profile_digest === offer.digest
       )
     : false
 
@@ -663,6 +785,16 @@ function ProfileSummary({
                         Approve
                       </Button>
                     ) : null}
+                    {canApprove && approval.status === "prepared" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => setSigning(approval)}
+                      >
+                        Sign
+                      </Button>
+                    ) : null}
                     {canApprove && approval.status !== "cancelled" ? (
                       <Button
                         variant="ghost"
@@ -685,6 +817,17 @@ function ProfileSummary({
           </TableBody>
         </Table>
       ) : null}
+      <SignApprovalDialog
+        workspaceId={workspaceId}
+        robotId={robotId}
+        approval={signing}
+        open={signing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSigning(null)
+          }
+        }}
+      />
       {fleet.drafts.length > 0 ? (
         <div className="space-y-1">
           <p className="text-xs font-medium">Drafts published by the robot</p>
@@ -725,7 +868,7 @@ export function RevocationSummary({
     )
   }
   const current = lists
-    .filter((list) => list.platform === platform)
+    .filter((list) => list.platform === platform && !list.withdrawn_at)
     .sort((a, b) => b.serial - a.serial)[0]
   if (!current) {
     return (
@@ -748,5 +891,38 @@ export function RevocationSummary({
       </Row>
       <Row label="Published">{when(current.created_at)}</Row>
     </dl>
+  )
+}
+
+/** The trust roots revocation lists must verify under. */
+export function TrustRootsSummary({
+  roots,
+  loading,
+}: {
+  roots: readonly FleetTrustRootRead[]
+  loading: boolean
+}) {
+  if (loading) {
+    return <Skeleton className="h-8 w-full" />
+  }
+  const active = roots.filter((root) => !root.revoked_at)
+  if (active.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No trust root configured: revocation lists cannot be published.
+      </p>
+    )
+  }
+  return (
+    <ul className="space-y-1 text-xs" aria-label="Trust roots">
+      {active.map((root) => (
+        <li key={root.id} className="flex items-center gap-2">
+          <span className="font-mono">{root.key_id}</span>
+          {root.label ? (
+            <span className="text-muted-foreground">{root.label}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   )
 }

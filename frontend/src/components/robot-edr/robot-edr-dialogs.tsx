@@ -248,8 +248,9 @@ export function AddRobotKeyDialog({
 }: AddRobotKeyDialogProps) {
   const fieldId = useId()
   const createKey = useCreateRobotKey(workspaceId)
+  // Black-box keys are registered by fleet enrollment only.
   const roles: RobotKeyRole[] = robodrRobotId
-    ? ["uplink", "relay", "finding", "blackbox"]
+    ? ["uplink", "relay", "finding"]
     : ["relay"]
   const [role, setRole] = useState<RobotKeyRole>(roles[0])
   const [publicKey, setPublicKey] = useState("")

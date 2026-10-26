@@ -23,6 +23,9 @@ export const ROBOT_ENROLL_SCOPE = "robot:enroll"
 /** Scope needed to sign off profile approvals (observe to enforce). */
 export const ROBOT_APPROVE_SCOPE = "robot:approve"
 
+/** Scope needed to manage revocation-list trust roots and withdraw lists. */
+export const ROBOT_TRUST_SCOPE = "robot:trust"
+
 /**
  * Renders its children only when the user holds `robot:read` and the
  * organization has the `robot_edr` entitlement; otherwise renders the
