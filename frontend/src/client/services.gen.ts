@@ -651,6 +651,8 @@ import type {
   PublicIncomingWebhookPostResponse,
   PublicIncomingWebhookWaitData,
   PublicIncomingWebhookWaitResponse,
+  PublicIngestRobodrFindingsData,
+  PublicIngestRobodrFindingsResponse,
   RbacAddGroupMemberData,
   RbacAddGroupMemberResponse,
   RbacCreateAssignmentData,
@@ -732,6 +734,26 @@ import type {
   RegistryRepositoriesSyncRegistryRepositoryResponse,
   RegistryRepositoriesUpdateRegistryRepositoryData,
   RegistryRepositoriesUpdateRegistryRepositoryResponse,
+  RobotEdrCreateRobotData,
+  RobotEdrCreateRobotKeyData,
+  RobotEdrCreateRobotKeyResponse,
+  RobotEdrCreateRobotResponse,
+  RobotEdrDeleteRobotData,
+  RobotEdrDeleteRobotKeyData,
+  RobotEdrDeleteRobotKeyResponse,
+  RobotEdrDeleteRobotResponse,
+  RobotEdrGetRobotData,
+  RobotEdrGetRobotKeyData,
+  RobotEdrGetRobotKeyResponse,
+  RobotEdrGetRobotResponse,
+  RobotEdrListRobotKeysData,
+  RobotEdrListRobotKeysResponse,
+  RobotEdrListRobotsData,
+  RobotEdrListRobotsResponse,
+  RobotEdrRevokeRobotKeyData,
+  RobotEdrRevokeRobotKeyResponse,
+  RobotEdrUpdateRobotData,
+  RobotEdrUpdateRobotResponse,
   SchedulesCreateScheduleData,
   SchedulesCreateScheduleResponse,
   SchedulesDeleteScheduleData,
@@ -1323,6 +1345,37 @@ export const publicIncomingWebhookDraft = (
     },
     errors: {
       422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Ingest Robodr Findings
+ * Ingest a signed NDJSON batch of `robodr.findings` 2.x values.
+ *
+ * Authentication is the Ed25519 batch signature in the `X-RoboDR-*` headers
+ * (ingest contract §2.2); the sender key determines the workspace.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns IngestResponse Successful Response
+ * @throws ApiError
+ */
+export const publicIngestRobodrFindings = (
+  data: PublicIngestRobodrFindingsData
+): CancelablePromise<PublicIngestRobodrFindingsResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/robot-edr/v2/ingest",
+    body: data.requestBody,
+    mediaType: "application/x-ndjson",
+    errors: {
+      400: "Bad Request",
+      401: "Unauthorized",
+      403: "Forbidden",
+      409: "Conflict",
+      413: "Request Entity Too Large",
+      415: "Unsupported Media Type",
+      429: "Too Many Requests",
     },
   })
 }
@@ -4679,6 +4732,271 @@ export const tagsDeleteTag = (
     url: "/workspaces/{workspace_id}/tags/{tag_id}",
     path: {
       tag_id: data.tagId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * List Robots
+ * List the robots registered in the workspace.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.limit
+ * @param data.cursor
+ * @returns Page_RobotRead_ Successful Response
+ * @throws ApiError
+ */
+export const robotEdrListRobots = (
+  data: RobotEdrListRobotsData
+): CancelablePromise<RobotEdrListRobotsResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/robot-edr/robots",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    query: {
+      limit: data.limit,
+      cursor: data.cursor,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Create Robot
+ * Register a robot.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns RobotRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrCreateRobot = (
+  data: RobotEdrCreateRobotData
+): CancelablePromise<RobotEdrCreateRobotResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/robots",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Robot
+ * Get a robot.
+ * @param data The data for the request.
+ * @param data.robotId
+ * @param data.workspaceId
+ * @returns RobotRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrGetRobot = (
+  data: RobotEdrGetRobotData
+): CancelablePromise<RobotEdrGetRobotResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}",
+    path: {
+      robot_id: data.robotId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Update Robot
+ * Update a robot.
+ * @param data The data for the request.
+ * @param data.robotId
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns RobotRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrUpdateRobot = (
+  data: RobotEdrUpdateRobotData
+): CancelablePromise<RobotEdrUpdateRobotResponse> => {
+  return __request(OpenAPI, {
+    method: "PATCH",
+    url: "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}",
+    path: {
+      robot_id: data.robotId,
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Delete Robot
+ * Delete a robot and its keys. Findings and cases are kept.
+ * @param data The data for the request.
+ * @param data.robotId
+ * @param data.workspaceId
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const robotEdrDeleteRobot = (
+  data: RobotEdrDeleteRobotData
+): CancelablePromise<RobotEdrDeleteRobotResponse> => {
+  return __request(OpenAPI, {
+    method: "DELETE",
+    url: "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}",
+    path: {
+      robot_id: data.robotId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * List Robot Keys
+ * List registered keys.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.robotId Only this robot's keys
+ * @param data.limit
+ * @param data.cursor
+ * @returns Page_RobotKeyRead_ Successful Response
+ * @throws ApiError
+ */
+export const robotEdrListRobotKeys = (
+  data: RobotEdrListRobotKeysData
+): CancelablePromise<RobotEdrListRobotKeysResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/robot-edr/keys",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    query: {
+      robot_id: data.robotId,
+      limit: data.limit,
+      cursor: data.cursor,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Create Robot Key
+ * Register an Ed25519 public key for a robot (uplink, finding) or the workspace (relay).
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns RobotKeyRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrCreateRobotKey = (
+  data: RobotEdrCreateRobotKeyData
+): CancelablePromise<RobotEdrCreateRobotKeyResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/keys",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Robot Key
+ * Get a key.
+ * @param data The data for the request.
+ * @param data.keyId
+ * @param data.workspaceId
+ * @returns RobotKeyRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrGetRobotKey = (
+  data: RobotEdrGetRobotKeyData
+): CancelablePromise<RobotEdrGetRobotKeyResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/robot-edr/keys/{key_id}",
+    path: {
+      key_id: data.keyId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Delete Robot Key
+ * Delete a key.
+ * @param data The data for the request.
+ * @param data.keyId
+ * @param data.workspaceId
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const robotEdrDeleteRobotKey = (
+  data: RobotEdrDeleteRobotKeyData
+): CancelablePromise<RobotEdrDeleteRobotKeyResponse> => {
+  return __request(OpenAPI, {
+    method: "DELETE",
+    url: "/workspaces/{workspace_id}/robot-edr/keys/{key_id}",
+    path: {
+      key_id: data.keyId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Revoke Robot Key
+ * Revoke a key; it authenticates nothing from now on.
+ * @param data The data for the request.
+ * @param data.keyId
+ * @param data.workspaceId
+ * @returns RobotKeyRead Successful Response
+ * @throws ApiError
+ */
+export const robotEdrRevokeRobotKey = (
+  data: RobotEdrRevokeRobotKeyData
+): CancelablePromise<RobotEdrRevokeRobotKeyResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/robot-edr/keys/{key_id}/revoke",
+    path: {
+      key_id: data.keyId,
       workspace_id: data.workspaceId,
     },
     errors: {

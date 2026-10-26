@@ -16714,6 +16714,13 @@ export const $EffectiveEntitlements = {
         "Whether workspaces may route actions through private network tunnels such as Pangolin",
       default: false,
     },
+    robot_edr: {
+      type: "boolean",
+      title: "Robot EDR",
+      description:
+        "Whether workspaces may register robots and ingest RoboDR findings",
+      default: false,
+    },
   },
   type: "object",
   title: "EffectiveEntitlements",
@@ -16892,6 +16899,7 @@ export const $Entitlement = {
     "semantic_search",
     "forms",
     "tunnels",
+    "robot_edr",
   ],
   title: "Entitlement",
   description: "Available feature entitlements.",
@@ -16976,6 +16984,12 @@ export const $EntitlementsDict = {
       title: "Tunnels",
       description:
         "Whether workspaces may route actions through private network tunnels such as Pangolin",
+    },
+    robot_edr: {
+      type: "boolean",
+      title: "Robot EDR",
+      description:
+        "Whether workspaces may register robots and ingest RoboDR findings",
     },
   },
   type: "object",
@@ -21120,6 +21134,93 @@ export const $InferredColumn = {
   description: "Inferred column mapping between CSV headers and table columns.",
 } as const
 
+export const $IngestErrorResponse = {
+  properties: {
+    code: {
+      type: "string",
+      title: "Code",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["code", "detail"],
+  title: "IngestErrorResponse",
+  description: "Error body of `POST /robot-edr/v2/ingest`.",
+} as const
+
+export const $IngestLineRejection = {
+  properties: {
+    line: {
+      type: "integer",
+      minimum: 1,
+      title: "Line",
+      description: "1-based line number",
+    },
+    code: {
+      $ref: "#/components/schemas/LineErrorCode",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["line", "code", "detail"],
+  title: "IngestLineRejection",
+  description: "One rejected NDJSON line.",
+} as const
+
+export const $IngestResponse = {
+  properties: {
+    batch_id: {
+      type: "string",
+      title: "Batch Id",
+    },
+    replayed: {
+      type: "boolean",
+      title: "Replayed",
+    },
+    accepted: {
+      type: "integer",
+      title: "Accepted",
+    },
+    created: {
+      type: "integer",
+      title: "Created",
+    },
+    updated: {
+      type: "integer",
+      title: "Updated",
+    },
+    duplicates: {
+      type: "integer",
+      title: "Duplicates",
+    },
+    rejected: {
+      items: {
+        $ref: "#/components/schemas/IngestLineRejection",
+      },
+      type: "array",
+      title: "Rejected",
+    },
+  },
+  type: "object",
+  required: [
+    "batch_id",
+    "replayed",
+    "accepted",
+    "created",
+    "updated",
+    "duplicates",
+    "rejected",
+  ],
+  title: "IngestResponse",
+  description: `\`200\` body of \`POST /robot-edr/v2/ingest\` (ingest contract §6).`,
+} as const
+
 export const $InlineObject = {
   properties: {
     typename: {
@@ -22387,6 +22488,23 @@ export const $LicenseStatus = {
   enum: ["missing", "valid", "grace", "expired", "invalid"],
   title: "LicenseStatus",
   description: "Lifecycle state of the configured license key.",
+} as const
+
+export const $LineErrorCode = {
+  type: "string",
+  enum: [
+    "invalid_line",
+    "invalid_finding",
+    "unsupported_contract",
+    "too_large",
+    "robot_mismatch",
+    "unknown_robot",
+    "site_mismatch",
+    "bad_finding_signature",
+    "missing_finding_signature",
+  ],
+  title: "LineErrorCode",
+  description: "Per-line rejection codes (ingest contract §4 step 5).",
 } as const
 
 export const $MCPAuthType = {
@@ -26139,6 +26257,84 @@ export const $Page_ExternalGroupRead_ = {
   title: "Page[ExternalGroupRead]",
 } as const
 
+export const $Page_RobotKeyRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotKeyRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotKeyRead]",
+} as const
+
+export const $Page_RobotRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotRead]",
+} as const
+
 export const $Page_SecretStoreRead_ = {
   properties: {
     items: {
@@ -29198,6 +29394,401 @@ export const $ResultMessage = {
     "session_id",
   ],
   title: "ResultMessage",
+} as const
+
+export const $RobotCreate = {
+  properties: {
+    robot_id: {
+      type: "string",
+      pattern: "^[A-Za-z0-9._-]{1,64}$",
+      title: "Robot Id",
+      description: "RoboDR robot id (`entity_context.robot.id`)",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 64,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      type: "boolean",
+      title: "Require Finding Signature",
+      description:
+        "Refuse findings for this robot that carry no per-finding signature",
+      default: false,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["robot_id"],
+  title: "RobotCreate",
+  description: "Register a robot in the workspace.",
+} as const
+
+export const $RobotKeyCreate = {
+  properties: {
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    robot_id: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[A-Za-z0-9._-]{1,64}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Robot Id",
+    },
+    public_key: {
+      type: "string",
+      pattern: "^[0-9a-f]{64}$",
+      title: "Public Key",
+      description: "Ed25519 public key, 64 lower-case hex digits",
+    },
+    key_id: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[!-~]{1,128}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Key Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+      description:
+        "Relay keys only: report only robots registered with this site",
+    },
+    vouches_origin: {
+      type: "boolean",
+      title: "Vouches Origin",
+      description:
+        "Relay keys only, for the SOC-side diode importer: findings it relays satisfy require_finding_signature without a per-finding signature",
+      default: false,
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["role", "public_key"],
+  title: "RobotKeyCreate",
+  description: `Register an Ed25519 public key.
+
+\`\`uplink\`\` and \`\`finding\`\` keys name a robot; \`\`relay\`\` keys do not. A
+sender key's id is always derived from its public key
+(\`\`ed25519:<16 hex>\`\`); a \`\`finding\`\` key may carry the producer's own key
+id (printable ASCII, 1-128 characters) and defaults to the derived id.`,
+} as const
+
+export const $RobotKeyRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    robot_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Robot Id",
+    },
+    public_key: {
+      type: "string",
+      title: "Public Key",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    vouches_origin: {
+      type: "boolean",
+      title: "Vouches Origin",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "key_id",
+    "role",
+    "robot_id",
+    "public_key",
+    "site",
+    "vouches_origin",
+    "revoked_at",
+    "expires_at",
+    "created_by",
+    "created_at",
+    "updated_at",
+  ],
+  title: "RobotKeyRead",
+  description: "A registered key (public material only).",
+} as const
+
+export const $RobotKeyRole = {
+  type: "string",
+  enum: ["uplink", "relay", "finding"],
+  title: "RobotKeyRole",
+  description:
+    "What a registered Ed25519 key may authenticate (ingest contract §3).",
+} as const
+
+export const $RobotRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      type: "boolean",
+      title: "Require Finding Signature",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "robot_id",
+    "site",
+    "model",
+    "morphology",
+    "require_finding_signature",
+    "created_at",
+    "updated_at",
+  ],
+  title: "RobotRead",
+  description: "A registered robot.",
+} as const
+
+export const $RobotUpdate = {
+  properties: {
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 64,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      anyOf: [
+        {
+          type: "boolean",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Require Finding Signature",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  title: "RobotUpdate",
+  description: "Update a robot's descriptive fields or signature policy.",
 } as const
 
 export const $Role = {

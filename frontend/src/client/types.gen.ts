@@ -4963,6 +4963,10 @@ export type EffectiveEntitlements = {
    * Whether workspaces may route actions through private network tunnels such as Pangolin
    */
   tunnels?: boolean
+  /**
+   * Whether workspaces may register robots and ingest RoboDR findings
+   */
+  robot_edr?: boolean
 }
 
 /**
@@ -5052,6 +5056,7 @@ export type Entitlement =
   | "semantic_search"
   | "forms"
   | "tunnels"
+  | "robot_edr"
 
 /**
  * TypedDict for tier entitlements stored in JSONB.
@@ -5115,6 +5120,10 @@ export type EntitlementsDict = {
    * Whether workspaces may route actions through private network tunnels such as Pangolin
    */
   tunnels?: boolean
+  /**
+   * Whether workspaces may register robots and ingest RoboDR findings
+   */
+  robot_edr?: boolean
 }
 
 export type ErrorModel = {
@@ -6525,6 +6534,39 @@ export type InferredColumn = {
 }
 
 /**
+ * Error body of `POST /robot-edr/v2/ingest`.
+ */
+export type IngestErrorResponse = {
+  code: string
+  detail: string
+}
+
+/**
+ * One rejected NDJSON line.
+ */
+export type IngestLineRejection = {
+  /**
+   * 1-based line number
+   */
+  line: number
+  code: LineErrorCode
+  detail: string
+}
+
+/**
+ * `200` body of `POST /robot-edr/v2/ingest` (ingest contract §6).
+ */
+export type IngestResponse = {
+  batch_id: string
+  replayed: boolean
+  accepted: number
+  created: number
+  updated: number
+  duplicates: number
+  rejected: Array<IngestLineRejection>
+}
+
+/**
  * Data stored inline (not externalized).
  */
 export type InlineObject = {
@@ -6902,6 +6944,20 @@ export type LicenseStatus =
   | "grace"
   | "expired"
   | "invalid"
+
+/**
+ * Per-line rejection codes (ingest contract §4 step 5).
+ */
+export type LineErrorCode =
+  | "invalid_line"
+  | "invalid_finding"
+  | "unsupported_contract"
+  | "too_large"
+  | "robot_mismatch"
+  | "unknown_robot"
+  | "site_mismatch"
+  | "bad_finding_signature"
+  | "missing_finding_signature"
 
 /**
  * Authentication type for MCP integrations.
@@ -7939,6 +7995,30 @@ export type Page_ExternalGroupRead_ = {
   prev_cursor?: string | null
 }
 
+export type Page_RobotKeyRead_ = {
+  items: Array<RobotKeyRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
+export type Page_RobotRead_ = {
+  items: Array<RobotRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
 export type Page_SecretStoreRead_ = {
   items: Array<SecretStoreRead>
   /**
@@ -8897,6 +8977,97 @@ export type ResultMessage = {
   uuid?: string | null
   terminal_reason?: string | null
   origin?: MessageOrigin | null
+}
+
+/**
+ * Register a robot in the workspace.
+ */
+export type RobotCreate = {
+  /**
+   * RoboDR robot id (`entity_context.robot.id`)
+   */
+  robot_id: string
+  site?: string | null
+  model?: string | null
+  morphology?: string | null
+  /**
+   * Refuse findings for this robot that carry no per-finding signature
+   */
+  require_finding_signature?: boolean
+}
+
+/**
+ * Register an Ed25519 public key.
+ *
+ * ``uplink`` and ``finding`` keys name a robot; ``relay`` keys do not. A
+ * sender key's id is always derived from its public key
+ * (``ed25519:<16 hex>``); a ``finding`` key may carry the producer's own key
+ * id (printable ASCII, 1-128 characters) and defaults to the derived id.
+ */
+export type RobotKeyCreate = {
+  role: RobotKeyRole
+  robot_id?: string | null
+  /**
+   * Ed25519 public key, 64 lower-case hex digits
+   */
+  public_key: string
+  key_id?: string | null
+  /**
+   * Relay keys only: report only robots registered with this site
+   */
+  site?: string | null
+  /**
+   * Relay keys only, for the SOC-side diode importer: findings it relays satisfy require_finding_signature without a per-finding signature
+   */
+  vouches_origin?: boolean
+  expires_at?: string | null
+}
+
+/**
+ * A registered key (public material only).
+ */
+export type RobotKeyRead = {
+  id: string
+  key_id: string
+  role: RobotKeyRole
+  robot_id: string | null
+  public_key: string
+  site: string | null
+  vouches_origin: boolean
+  revoked_at: string | null
+  expires_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * What a registered Ed25519 key may authenticate (ingest contract §3).
+ */
+export type RobotKeyRole = "uplink" | "relay" | "finding"
+
+/**
+ * A registered robot.
+ */
+export type RobotRead = {
+  id: string
+  robot_id: string
+  site: string | null
+  model: string | null
+  morphology: string | null
+  require_finding_signature: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Update a robot's descriptive fields or signature policy.
+ */
+export type RobotUpdate = {
+  site?: string | null
+  model?: string | null
+  morphology?: string | null
+  require_finding_signature?: boolean | null
 }
 
 /**
@@ -13628,6 +13799,12 @@ export type PublicIncomingWebhookDraftData = {
 
 export type PublicIncomingWebhookDraftResponse = unknown
 
+export type PublicIngestRobodrFindingsData = {
+  requestBody: string
+}
+
+export type PublicIngestRobodrFindingsResponse = IngestResponse
+
 export type PublicHandleChannelEventData = {
   channelType: ChannelType
   token: string
@@ -14642,6 +14819,83 @@ export type TagsDeleteTagData = {
 }
 
 export type TagsDeleteTagResponse = unknown
+
+export type RobotEdrListRobotsData = {
+  cursor?: string | null
+  limit?: number
+  workspaceId: string
+}
+
+export type RobotEdrListRobotsResponse = Page_RobotRead_
+
+export type RobotEdrCreateRobotData = {
+  requestBody: RobotCreate
+  workspaceId: string
+}
+
+export type RobotEdrCreateRobotResponse = RobotRead
+
+export type RobotEdrGetRobotData = {
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotResponse = RobotRead
+
+export type RobotEdrUpdateRobotData = {
+  requestBody: RobotUpdate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrUpdateRobotResponse = RobotRead
+
+export type RobotEdrDeleteRobotData = {
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrDeleteRobotResponse = void
+
+export type RobotEdrListRobotKeysData = {
+  cursor?: string | null
+  limit?: number
+  /**
+   * Only this robot's keys
+   */
+  robotId?: string | null
+  workspaceId: string
+}
+
+export type RobotEdrListRobotKeysResponse = Page_RobotKeyRead_
+
+export type RobotEdrCreateRobotKeyData = {
+  requestBody: RobotKeyCreate
+  workspaceId: string
+}
+
+export type RobotEdrCreateRobotKeyResponse = RobotKeyRead
+
+export type RobotEdrGetRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotKeyResponse = RobotKeyRead
+
+export type RobotEdrDeleteRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrDeleteRobotKeyResponse = void
+
+export type RobotEdrRevokeRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrRevokeRobotKeyResponse = RobotKeyRead
 
 export type UsersSearchUserData = {
   email?: string | null
@@ -18539,6 +18793,45 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/robot-edr/v2/ingest": {
+    post: {
+      req: PublicIngestRobodrFindingsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: IngestResponse
+        /**
+         * Bad Request
+         */
+        400: IngestErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: IngestErrorResponse
+        /**
+         * Forbidden
+         */
+        403: IngestErrorResponse
+        /**
+         * Conflict
+         */
+        409: IngestErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: IngestErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: IngestErrorResponse
+        /**
+         * Too Many Requests
+         */
+        429: IngestErrorResponse
+      }
+    }
+  }
   "/agent/channels/{channel_type}/{token}": {
     post: {
       req: PublicHandleChannelEventData
@@ -20345,6 +20638,146 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: unknown
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots": {
+    get: {
+      req: RobotEdrListRobotsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_RobotRead_
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrCreateRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}": {
+    get: {
+      req: RobotEdrGetRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    patch: {
+      req: RobotEdrUpdateRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    delete: {
+      req: RobotEdrDeleteRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        204: void
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys": {
+    get: {
+      req: RobotEdrListRobotKeysData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_RobotKeyRead_
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrCreateRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: RobotKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys/{key_id}": {
+    get: {
+      req: RobotEdrGetRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    delete: {
+      req: RobotEdrDeleteRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        204: void
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys/{key_id}/revoke": {
+    post: {
+      req: RobotEdrRevokeRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotKeyRead
         /**
          * Validation Error
          */
