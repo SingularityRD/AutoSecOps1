@@ -1433,14 +1433,50 @@ def RoleACL(
 # --- Platform-level (Superuser) Authentication ---
 
 
+ADMIN_CLI_SERVICE_ID: InternalServiceID = "autosecops-admin-cli"
+"""Service ID the admin CLI sends when it authenticates with the service key."""
+
+
+async def _admin_cli_service_role(request: Request) -> PlatformRole | None:
+    """Authenticate the admin CLI's service-key fallback for /admin routes.
+
+    The admin CLI sends ``x-autosecops-service-key`` together with
+    ``x-autosecops-role-service-id: autosecops-admin-cli`` when the operator has
+    no login session. Only that service ID is accepted here; other internal
+    services keep using the org-scoped role dependencies. The headers are read
+    from the request so the OpenAPI schema of the admin routes is unchanged.
+    """
+    api_key = request.headers.get("x-autosecops-service-key")
+    if not api_key:
+        return None
+    service_id = request.headers.get("x-autosecops-role-service-id")
+    if service_id != ADMIN_CLI_SERVICE_ID:
+        return None
+    service_key = config.AUTOSECOPS__SERVICE_KEY
+    if not service_key or not secrets.compare_digest(
+        api_key.encode(), service_key.encode()
+    ):
+        logger.warning("Invalid service key for admin CLI request")
+        raise UNAUTHORIZED_EXCEPTION
+    return PlatformRole(
+        type="service",
+        user_id=config.AUTOSECOPS__DEFAULT_USER_ID,
+        service_id=ADMIN_CLI_SERVICE_ID,
+    )
+
+
 async def _require_superuser(
-    user: Annotated[User, Depends(current_active_user)],
+    user: OptionalUserDep = None,
+    service_role: Annotated[
+        PlatformRole | None, Depends(_admin_cli_service_role)
+    ] = None,
 ) -> PlatformRole:
     """Require superuser access for platform admin operations.
 
     This dependency is used for /admin routes that require platform-level access.
     Superusers can manage organizations, platform settings, and platform-level
-    registry sync operations.
+    registry sync operations. The admin CLI may also authenticate with the
+    platform service key (see ``_admin_cli_service_role``).
 
     Returns a PlatformRole (not Role) to enforce type separation between
     platform and org-scoped operations.
@@ -1448,17 +1484,23 @@ async def _require_superuser(
     The platform admin IP allowlist is checked after the superuser check so
     non-superusers never learn whether one is configured.
     """
-    if not user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
+    if user is not None:
+        if not user.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+        role = PlatformRole(
+            type="user",
+            user_id=user.id,
+            service_id="autosecops-api",
         )
+    elif service_role is not None:
+        role = service_role
+    else:
+        raise UNAUTHORIZED_EXCEPTION
     await enforce_platform_admin_ip_allowlist()
-    return PlatformRole(
-        type="user",
-        user_id=user.id,
-        service_id="autosecops-api",
-    )
+    return role
 
 
 require_superuser = _require_superuser

@@ -114,3 +114,106 @@ def test_fastapi_users_superuser_routes_require_platform_admin_access() -> None:
         assert all(
             dep.dependency is not require_superuser for dep in routes[name].dependencies
         )
+
+
+def _admin_cli_request(headers: dict[str, str]):
+    from starlette.requests import Request
+
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/admin/users",
+            "headers": [(k.encode(), v.encode()) for k, v in headers.items()],
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_require_superuser_accepts_admin_cli_service_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The admin CLI's service-key fallback authenticates /admin routes."""
+    from autosecops import config
+    from autosecops.auth.credentials import _admin_cli_service_role
+
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    # Headers sent by packages/autosecops-admin/autosecops_admin/client.py
+    request = _admin_cli_request(
+        {
+            "x-autosecops-service-key": "test-service-key",
+            "x-autosecops-role-service-id": "autosecops-admin-cli",
+        }
+    )
+    service_role = await _admin_cli_service_role(request)
+    role = await _require_superuser(user=None, service_role=service_role)
+
+    assert isinstance(role, PlatformRole)
+    assert role.type == "service"
+    assert role.service_id == "autosecops-admin-cli"
+    assert role.user_id == config.AUTOSECOPS__DEFAULT_USER_ID
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {
+            "x-autosecops-service-key": "wrong-key",
+            "x-autosecops-role-service-id": "autosecops-admin-cli",
+        },
+    ],
+)
+async def test_admin_cli_service_role_rejects_wrong_key(
+    monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]
+) -> None:
+    from autosecops import config
+    from autosecops.auth.credentials import _admin_cli_service_role
+
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    with pytest.raises(HTTPException) as exc:
+        await _admin_cli_service_role(_admin_cli_request(headers))
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        # Other internal services must not get platform admin access.
+        {
+            "x-autosecops-service-key": "test-service-key",
+            "x-autosecops-role-service-id": "autosecops-api",
+        },
+        {"x-autosecops-service-key": "test-service-key"},
+    ],
+)
+async def test_require_superuser_rejects_unauthenticated(
+    monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]
+) -> None:
+    from autosecops import config
+    from autosecops.auth.credentials import _admin_cli_service_role
+
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    service_role = await _admin_cli_service_role(_admin_cli_request(headers))
+    assert service_role is None
+    with pytest.raises(HTTPException) as exc:
+        await _require_superuser(user=None, service_role=service_role)
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.anyio
+async def test_require_superuser_enforces_allowlist_for_admin_cli(
+    platform_allowlist,
+) -> None:
+    platform_allowlist["allowlist"] = compile_allowlist(
+        enabled=True, cidrs=["203.0.113.0/24"]
+    )
+    _set_client_ip("198.51.100.9")
+    service_role = PlatformRole(
+        type="service", user_id=uuid.UUID(int=0), service_id="autosecops-admin-cli"
+    )
+    with pytest.raises(HTTPException) as exc:
+        await _require_superuser(user=None, service_role=service_role)
+    assert exc.value.detail == PLATFORM_ADMIN_IP_ALLOWLIST_DENIED_DETAIL
