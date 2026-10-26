@@ -80,6 +80,12 @@ def test_chart_app_version_matches_release() -> None:
     assert chart["appVersion"] == __version__
 
 
+def test_chart_version_matches_release() -> None:
+    # publish-helm-chart.yml publishes the chart under the release tag.
+    chart = _load_yaml(CHART_DIR / "Chart.yaml")
+    assert chart["version"] == __version__
+
+
 def test_chart_env_vars_exist_in_application_config() -> None:
     source = _application_source()
     missing = sorted(name for name in _chart_env_names() if name not in source)

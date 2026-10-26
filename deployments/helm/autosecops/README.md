@@ -22,15 +22,24 @@ Full documentation: `docs/self-hosting/kubernetes.mdx`
 
 ## Install
 
+Each AutoSecOps release publishes the chart to GHCR with the release version as
+the chart version:
+
 ```bash
-helm install autosecops deployments/helm/autosecops \
+helm install autosecops oci://ghcr.io/singularityrd/charts/autosecops \
+  --version <version> \
   --namespace autosecops --create-namespace \
   -f my-values.yaml \
   --wait --timeout 15m
 ```
 
-Publishing the chart to `oci://ghcr.io/singularityrd/charts/autosecops` is a
-follow-up; until then, install from a checkout of this repository.
+Pulling anonymously requires the `charts/autosecops` GHCR package to be public.
+For a private package, run `helm registry login ghcr.io` first with a token
+that has `read:packages`.
+
+To install from a checkout of this repository instead, check out the release
+tag and replace the OCI reference with `deployments/helm/autosecops` (drop
+`--version`).
 
 Minimal values (see `ci/minimal-values.yaml`):
 
@@ -118,5 +127,8 @@ uv run pytest --noconftest tests/unit/test_helm_chart.py
 ```
 
 CI runs the same checks in `.github/workflows/lint-helm.yml` on pull requests
-that touch `deployments/helm/**`. Bump `version` in `Chart.yaml` on every chart
-change; `scripts/update-version.sh` bumps `appVersion` with each release.
+that touch `deployments/helm/**`. `version` and `appVersion` in `Chart.yaml`
+both equal the release version; `scripts/update-version.sh` bumps them with each
+release, and `.github/workflows/publish-helm-chart.yml` lints, packages, and
+pushes the chart when the GitHub release is published. It fails when the tag
+differs from either field and never overwrites a published chart version.

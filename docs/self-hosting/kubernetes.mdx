@@ -6,7 +6,7 @@ description: "Deploy self-hosted AutoSecOps to Kubernetes with the AutoSecOps He
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
-The AutoSecOps Helm chart lives in the AutoSecOps repository at [`deployments/helm/autosecops`](https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops).
+Each AutoSecOps release publishes the AutoSecOps Helm chart to `oci://ghcr.io/singularityrd/charts/autosecops`, with the release version as the chart version. The chart source lives in the AutoSecOps repository at [`deployments/helm/autosecops`](https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops).
 It deploys the AutoSecOps services and connects them to PostgreSQL, Redis, object storage, and Temporal that you run outside the chart.
 
 | Component | Kubernetes resources |
@@ -315,14 +315,24 @@ autosecops:
 
 <Steps>
   <Step title="Get the chart">
-    Clone the repository at the release you want to deploy:
+    Pick the AutoSecOps release you want to deploy, e.g. `1.2.0`, and check that its chart is available:
 
     ```bash
-    git clone --branch <release-tag> https://github.com/SingularityRD/AutoSecOps1.git
-    cd AutoSecOps1
+    helm show chart oci://ghcr.io/singularityrd/charts/autosecops --version <version>
     ```
 
-    The chart will also be published as `oci://ghcr.io/singularityrd/charts/autosecops`. Until it is, install from the repository path.
+    Anonymous pulls work when the `charts/autosecops` package on GHCR is public. If your organization keeps it private, log in first with a GitHub token that has `read:packages`:
+
+    ```bash
+    echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username <github-user> --password-stdin
+    ```
+
+    To install from source instead, clone the repository at the release tag and use the chart path `deployments/helm/autosecops` in place of the OCI reference, without `--version`:
+
+    ```bash
+    git clone --branch <version> https://github.com/SingularityRD/AutoSecOps1.git
+    cd AutoSecOps1
+    ```
   </Step>
 
   <Step title="Create your values file">
@@ -369,7 +379,8 @@ autosecops:
 
   <Step title="Install the chart">
     ```bash
-    helm install autosecops deployments/helm/autosecops \
+    helm install autosecops oci://ghcr.io/singularityrd/charts/autosecops \
+      --version <version> \
       --namespace autosecops --create-namespace \
       -f values.yaml \
       --wait --timeout 15m
@@ -405,12 +416,14 @@ curl http://localhost:8000/health
 ## Upgrade the Helm chart
 
 ```bash
-git -C AutoSecOps1 fetch --tags && git -C AutoSecOps1 checkout <release-tag>
-helm upgrade autosecops AutoSecOps1/deployments/helm/autosecops \
+helm upgrade autosecops oci://ghcr.io/singularityrd/charts/autosecops \
+  --version <version> \
   --namespace autosecops \
   -f values.yaml \
   --wait --timeout 15m
 ```
+
+For a source install, run `git -C AutoSecOps1 fetch --tags && git -C AutoSecOps1 checkout <version>` and upgrade from `AutoSecOps1/deployments/helm/autosecops` without `--version`.
 
 The migrations Job runs again as a `pre-upgrade` hook before any pod rolls. Pods restart automatically when the chart's ConfigMap or chart-created Secrets change.
 

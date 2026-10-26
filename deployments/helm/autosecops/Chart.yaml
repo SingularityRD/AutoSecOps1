@@ -2,10 +2,11 @@ apiVersion: v2
 name: autosecops
 description: AutoSecOps security automation platform (API, workers, executors, agents, MCP, and UI) for Kubernetes.
 type: application
-# Chart version. Bump on every chart change, independently of appVersion.
-version: 0.1.0
-# AutoSecOps release the chart deploys by default. scripts/update-version.sh
-# bumps this together with autosecops/__init__.py.
+# Chart version and the AutoSecOps release the chart deploys by default. Both
+# equal the release version: scripts/update-version.sh bumps them together with
+# autosecops/__init__.py, and .github/workflows/publish-helm-chart.yml refuses
+# to publish a release whose tag differs from either.
+version: 1.0.0
 appVersion: "1.0.0"
 kubeVersion: ">=1.27.0-0"
 home: https://github.com/SingularityRD/AutoSecOps1
