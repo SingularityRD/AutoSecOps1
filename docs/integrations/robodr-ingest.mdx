@@ -31,6 +31,7 @@ You need the `robot:update` scope, which the Workspace Admin role has; `robot:re
 | `uplink` | One robot | Signs batches with findings of that robot only. |
 | `relay` | The workspace | Signs batches for any registered robot, such as a sensor box or the SOC-side diode importer. |
 | `finding` | One robot | Verifies the optional per-finding signature. Never signs a batch. |
+| `blackbox` | One robot | Verifies black-box evidence. Registered at [fleet enrollment](/integrations/robodr-fleet); never signs a batch. |
 
 A `relay` key takes two options:
 

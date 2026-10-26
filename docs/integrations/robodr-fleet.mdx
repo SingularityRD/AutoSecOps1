@@ -1,0 +1,122 @@
+---
+title: "RoboDR fleet"
+sidebarTitle: "RoboDR fleet"
+description: "Enroll robots with single-use tokens, rotate their keys, and distribute revocation lists, profiles, two-person approvals and update-ring information."
+keywords: ["robodr", "robot", "fleet", "enroll", "robodr-enroll", "key rotation", "revocation", "profile approval", "update ring"]
+---
+
+The fleet API is the SOC side of the robot lifecycle.
+`robodr-enroll` on the robot enrolls it once with a single-use token, rotates its keys, and fetches the documents you publish here.
+The robot verifies every document and never installs or enforces anything without a local step.
+
+Robot EDR needs the `robot_edr` entitlement.
+See [License key](/self-hosting/license) to install a license that grants it.
+
+## Endpoints
+
+The robot calls these routes below `https://<your-host>/api`, the same root as [RoboDR ingest](/integrations/robodr-ingest).
+They take no user session and no API key.
+
+| Method | Path | Authentication |
+| --- | --- | --- |
+| `POST` | `/robot-edr/v2/fleet/enroll` | Token MAC and the signatures of the robot's three new keys |
+| `POST` | `/robot-edr/v2/fleet/keys/rotate` | Old `uplink` key for an `uplink` rotation, else any active `uplink` key |
+| `POST` | `/robot-edr/v2/fleet/keys/retire` | New `uplink` key for an `uplink` rotation, else any active `uplink` key |
+| `POST` | `/robot-edr/v2/fleet/keys/cancel` | Old `uplink` key for an `uplink` rotation, else any active `uplink` key |
+| `GET` | `/robot-edr/v2/fleet/revocations/{platform}` | Active `uplink` key |
+| `POST` | `/robot-edr/v2/fleet/profiles/drafts` | Active `uplink` key |
+| `GET` | `/robot-edr/v2/fleet/profiles/current` | Active `uplink` key |
+| `GET` | `/robot-edr/v2/fleet/profiles/approvals/{digest}` | Active `uplink` key |
+| `GET` | `/robot-edr/v2/fleet/ring` | Active `uplink` key |
+
+Every request but `enroll` carries `X-RoboDR-Key-Id`, `X-RoboDR-Timestamp` and `X-RoboDR-Signature`.
+AutoSecOps refuses a timestamp more than 300 seconds from its clock, and refuses the same key id and signature a second time with `401 replayed_request`.
+Every action and every `401` is written to the audit log with the key id and source address.
+AutoSecOps refuses plain HTTP unless the client is on the same host.
+
+The robot's request signature covers the path with the `/api` prefix, as the robot sent it.
+If you serve the API under another prefix, set `TRACECAT__API_ROOT_PATH` to that prefix.
+
+## SOC keys
+
+The workspace holds two Ed25519 keys, generated on the server or imported from a `robodr-blackbox-key/v2` secret key file:
+
+| Key | Signs | Who manages it |
+| --- | --- | --- |
+| Fleet key | Enrollment tokens, enroll, rotate, retire and cancel answers, ring information | `robot:enroll` |
+| Approval key | Profile approvals only | `robot:approve` |
+
+AutoSecOps stores both secrets encrypted with the database encryption key, like workspace secrets, and shows only their public key files.
+Install both public key files on every robot out of band: the fleet key in `fleet.json` `soc.keys`, the approval key in `soc.approval_keys`.
+
+To rotate a SOC key, generate a new one: it stays `pending` until you activate it.
+Install its public file on every robot next to the old one, then activate it; the old key is retired and stops signing.
+
+## Enroll a robot
+
+1. Register the robot under **Robots**. Its site, if set, must match `[A-Za-z0-9._-]{1,64}`.
+2. On the robot page, select **Enroll** and choose how long the token stays valid, at most 7 days.
+3. Copy the token. AutoSecOps shows it once and keeps only what enrollment needs to check the request.
+4. Hand the token to `robodr-enroll` on the robot in a root-only file or on standard input.
+
+The robot generates its `uplink`, `finding` and `blackbox` keys and sends a request signed by all three.
+AutoSecOps checks the token MAC and the three signatures, then registers the keys and answers with the fleet key.
+A token enrolls one request: the same request again gets the stored answer, any other request gets `409 token_used`.
+A key id or public key that is already registered anywhere on the instance is refused with `409 key_conflict`.
+Enrolling a robot again retires every key it had.
+
+The `blackbox` key authenticates nothing at the ingest or fleet API.
+[RoboDR tools](/tools/robodr) use it to verify evidence exports when you omit `blackbox_public_keys`.
+
+For an air-gapped robot, carry the request file to a host that reaches the API and post it unchanged, within the token's validity.
+
+## Key rotation
+
+The robot rotates its `uplink` or `finding` key with an overlap: after `rotate`, both keys are active; after `retire`, the old key authenticates nothing, ingest included.
+A rotation the robot cannot finish ends with `cancel`, which retires the new key and keeps the old one.
+One rotation per robot and role can be open at a time.
+The robot page lists every rotation and its state.
+
+## Profiles and approvals
+
+A robot publishes draft profiles for review; the robot page lists them.
+Lock and sign the profile offline with `robodr-commission`, then select **Offer profile** and paste the locked profile and its `.sig` file.
+The robot stages the offered profile; it stays in observe mode.
+
+Moving the robot to enforce needs two people with `robot:approve`:
+
+1. One user selects **Request enforce approval** for the offered profile.
+2. A different user selects **Approve**. AutoSecOps then signs the approval with the approval key.
+
+The approval is bound to the robot, the profile digest, its version and its platform, and is valid for up to 7 days.
+Service accounts cannot request or approve, and the requester cannot approve their own request.
+Cancel an approval to stop serving it.
+The robot operator still installs the approved profile locally with `robodr-enroll profile approve`.
+
+## Revocation lists
+
+Revocation lists are signed offline by a trust root with `robodr-commission revoke`.
+Select **Publish list** and paste the list; optionally paste the trust root's public key so AutoSecOps checks the signature first.
+AutoSecOps serves the newest list of each platform verbatim, refuses a lower serial, and refuses a different list with the same serial.
+
+## Update ring
+
+Select **Set ring** to publish the robot's ring (0 canary, 1 early, 2 broad), target release, bundle SHA-256 and minimum release.
+AutoSecOps signs it with the fleet key under the next serial.
+The robot only reports it: it never downloads or installs anything from it, and the minimum release raises its security floor.
+
+## Permissions
+
+| Scope | Allows |
+| --- | --- |
+| `robot:read` | View the fleet status, SOC public keys and revocation lists |
+| `robot:update` | Offer profiles, publish ring information and revocation lists |
+| `robot:enroll` | Generate or activate the fleet key, issue and revoke enrollment tokens |
+| `robot:approve` | Generate or activate the approval key, request, approve or cancel approvals |
+
+The Workspace Admin role has all four.
+
+## Related pages
+
+- See [RoboDR ingest](/integrations/robodr-ingest) for how the enrolled `uplink` key sends findings.
+- See [RoboDR tools](/tools/robodr) for evidence exports verified with the enrolled black-box key.

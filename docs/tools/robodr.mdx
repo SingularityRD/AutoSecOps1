@@ -198,12 +198,6 @@ Robot control-plane URL, https://host[:port] with no path: robodr-agentd's mutua
 
 </ParamField>
 
-<ParamField path="blackbox_public_keys" type="array[string]" required>
-
-The robot's black-box public key files (robodr-blackbox keygen .pub JSON), every key the chain names across rotations. Public key files only.
-
-</ParamField>
-
 <ParamField path="case_id" type="string" required>
 
 Case the verified evidence is stored for.
@@ -231,6 +225,14 @@ Robot id robodr-agentd is configured with.
 <ParamField path="answer_key_id" type="string | null">
 
 Optional expected key id of the answer signature.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="blackbox_public_keys" type="array[string] | null">
+
+The robot's black-box public key files (robodr-blackbox keygen .pub JSON), every key the chain names across rotations. Public key files only. Omit to use the black-box keys the robot registered at fleet enrollment.
 
 Default: `null`.
 
