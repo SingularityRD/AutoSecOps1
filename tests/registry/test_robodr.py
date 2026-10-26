@@ -653,6 +653,30 @@ def test_catalog_of_the_message_minor_is_applied() -> None:
     )
 
 
+def test_the_discovery_flood_aggregate_has_its_2_1_entry() -> None:
+    # robodr.findings 2.1 (§10): agentd folds a flooding source's
+    # per-participant discovery findings into one; no new field.
+    rule_id = "robot.ros2.discovery_flood"
+    entry = catalog.CATALOG_2_1[rule_id]
+    assert entry == catalog.RuleInfo(
+        "Discovery flood: unknown participants aggregated",
+        "One source address (or many) announced more new DDS participants than "
+        "are reported one by one; their per-participant findings are folded into "
+        "this one, with the count per rule, first and last seen and sample GUID "
+        "prefixes, and each is still recorded in the black box. A GUID spray or a "
+        "discovery scan, possibly aimed at flooding the findings path.",
+        "ros2_dds_discovery",
+        (("T0848", "Rogue Master"),),
+    )
+    parsed = robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.1.0", entry)))
+    assert parsed["title"] == entry.title
+    assert parsed["catalog_description"] == entry.desc
+    # A 2.0 producer never had the entry: it reports the generic one.
+    robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.0.0", catalog.GENERIC)))
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.0.0", entry)))
+
+
 def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
     """Parse the catalog arms of builder.rs, per catalog function."""
     strings = r'"((?:[^"\\]|\\.)*)"'
@@ -666,7 +690,7 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
     arm = re.compile(
         rf"(?:{strings}|r if r\.starts_with\({strings}\))\s*=>\s*"
         rf"(?:RuleInfo\s*\{{\s*title:\s*|e\(\s*){strings},\s*(?:desc:\s*)?{strings},"
-        r"\s*(?:data_source:\s*)?(\w+),\s*(?:techniques:\s*)?&\[([^\]]*)\]"
+        rf"\s*(?:data_source:\s*)?(\w+|{strings}),\s*(?:techniques:\s*)?&\[([^\]]*)\]"
     )
     out: dict[str, dict[str, catalog.RuleInfo]] = {}
     for fn in ("catalog_1_0", "catalog_1_3", "catalog_1_3_wave7", "catalog_2_1"):
@@ -674,11 +698,13 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
         end = source.find("\nfn ", start + 1)
         body = source[start : end if end != -1 else len(source)]
         entries: dict[str, catalog.RuleInfo] = {}
-        for rule, prefix, title, desc, ds, techs in arm.findall(body):
+        for rule, prefix, title, desc, ds, ds_literal, techs in arm.findall(body):
             key = rule or f"{prefix}*"
             names = [t.strip() for t in techs.split(",") if t.strip()]
+            # The data source is a named constant or a string literal.
+            data_source = ds_literal if ds.startswith('"') else consts[ds]
             entries[key] = catalog.RuleInfo(
-                title, desc, consts[ds], tuple(techniques[n] for n in names)
+                title, desc, data_source, tuple(techniques[n] for n in names)
             )
         out[fn] = entries
     generic = re.search(

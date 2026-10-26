@@ -9,12 +9,13 @@ from typing import Any
 
 import pytest
 from autosecops_registry.integrations import robodr as registry_robodr
+from autosecops_registry.integrations import robodr_catalog as registry_catalog
 from autosecops_registry.integrations.robodr import (
     RENDER_ALLOWED,
     finding_to_case_fields,
 )
 
-from autosecops.robot_edr import crypto, rendering
+from autosecops.robot_edr import crypto, rendering, validator
 from autosecops.robot_edr.line_checks import check_line
 from autosecops.robot_edr.taint import Charset, is_encoded, render, unescape
 from autosecops.robot_edr.types import LineErrorCode, LineRejection
@@ -378,3 +379,43 @@ def test_contract_version_vector_agrees_with_the_registry() -> None:
         assert checked.inputs.description == mapped["description"]
         assert mapped["fields"]["contract_version"] == "02.1.0"
     assert accepted == 1
+
+
+# --------------------------------------------------------------------------- #
+# The ingest validator's catalog copy matches the registry's
+# --------------------------------------------------------------------------- #
+
+
+def _registry_info(info: registry_catalog.RuleInfo) -> validator.RuleInfo:
+    return validator.RuleInfo(
+        title=info.title,
+        desc=info.desc,
+        data_source=info.data_source,
+        techniques=info.techniques,
+    )
+
+
+def test_the_validator_catalog_matches_the_registry_catalog() -> None:
+    # Both mirror robodr-ocsf's builder.rs; a rule one of them lacks is
+    # rejected for a title mismatch on one path only.
+    rules = (
+        set(registry_catalog.CATALOG_BASE)
+        | set(registry_catalog.CATALOG_2_1)
+        | {"robot.correlate.site_specific", "robot.unknown.rule"}
+    )
+    for rule_id in sorted(rules):
+        for version, minor in (("2.0.0", 0), ("2.1.0", 1)):
+            expected = registry_catalog.rule_info_for_contract(rule_id, 2, minor)
+            assert validator.rule_info_for_contract(rule_id, version) == _registry_info(
+                expected
+            ), (rule_id, version)
+
+
+def test_the_validator_knows_the_discovery_flood_aggregate() -> None:
+    info = validator.rule_info_for_contract("robot.ros2.discovery_flood", "2.1.0")
+    assert info.title == "Discovery flood: unknown participants aggregated"
+    assert info.data_source == "ros2_dds_discovery"
+    assert info.techniques == (("T0848", "Rogue Master"),)
+    # 2.0 producers report the generic entry for it.
+    generic = validator.rule_info_for_contract("robot.ros2.discovery_flood", "2.0.0")
+    assert generic == _registry_info(registry_catalog.GENERIC)

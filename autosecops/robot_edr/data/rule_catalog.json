@@ -940,6 +940,17 @@
    ],
    "title": "Motor control handed to another channel"
   },
+  "robot.ros2.discovery_flood": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "One source address (or many) announced more new DDS participants than are reported one by one; their per-participant findings are folded into this one, with the count per rule, first and last seen and sample GUID prefixes, and each is still recorded in the black box. A GUID spray or a discovery scan, possibly aimed at flooding the findings path.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "Discovery flood: unknown participants aggregated"
+  },
   "robot.unitree.legacy_port_rtps": {
    "data_source": "ros2_motion_commands",
    "desc": "A datagram on a configured Unitree legacy UDP port also parses as RTPS; it was inspected on both paths. DDS traffic on the legacy command ports is not normal and can be an attempt to evade the legacy sender check.",

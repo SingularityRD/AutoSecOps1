@@ -719,6 +719,12 @@ CATALOG_2_1: dict[str, RuleInfo] = {
         "ros2_motion_commands",
         (("T0855", "Unauthorized Command Message"),),
     ),
+    "robot.ros2.discovery_flood": RuleInfo(
+        "Discovery flood: unknown participants aggregated",
+        "One source address (or many) announced more new DDS participants than are reported one by one; their per-participant findings are folded into this one, with the count per rule, first and last seen and sample GUID prefixes, and each is still recorded in the black box. A GUID spray or a discovery scan, possibly aimed at flooding the findings path.",
+        "ros2_dds_discovery",
+        (("T0848", "Rogue Master"),),
+    ),
     "robot.unitree.legacy_port_rtps": RuleInfo(
         "RTPS traffic on a Unitree legacy UDP port",
         "A datagram on a configured Unitree legacy UDP port also parses as RTPS; it was inspected on both paths. DDS traffic on the legacy command ports is not normal and can be an attempt to evade the legacy sender check.",
