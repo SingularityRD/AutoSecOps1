@@ -1,0 +1,1000 @@
+{
+ "_origin": "Extracted from SingularityRD robodr crates/robodr-ocsf/src/builder.rs (rule_info_for_contract), findings contract 2.1.0. Regenerate when the producer catalog changes.",
+ "catalog_1_0": {
+  "robot.motion.angular_over_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A commanded roll/pitch rate exceeded the maximum allowed by the locked model profile for this channel.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Roll/pitch rate command exceeds the motion envelope"
+  },
+  "robot.motion.joint_over_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A commanded joint speed exceeded the maximum allowed by the locked model profile for this channel.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint speed command exceeds the motion envelope"
+  },
+  "robot.motion.linear_over_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A commanded linear speed (forward, lateral, vertical or their resultant) exceeded the maximum allowed by the locked model profile for this channel.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Linear speed command exceeds the motion envelope"
+  },
+  "robot.motion.unprofiled_channel": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A motion command was observed on a channel that has no envelope in the locked model profile.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion command on an unprofiled channel"
+  },
+  "robot.ros2.unauthorized_motion_writer": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A participant that is not in the locked model profile announced a writer on a motion/control topic.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Unauthorized publisher on a motion topic"
+  },
+  "robot.ros2.unknown_participant": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A DDS participant that is not in the locked model profile announced itself on the robot's RTPS discovery bus.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "Unknown DDS participant joined the robot graph"
+  },
+  "robot.ros2.unknown_reader": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A participant that is not in the locked model profile announced a reader; it cannot command but may collect data.",
+   "techniques": [
+    [
+     "T0801",
+     "Monitor Process State"
+    ]
+   ],
+   "title": "Unknown subscriber in the robot graph"
+  },
+  "robot.ros2.unknown_writer_topic": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A writer was announced on a topic the locked model profile does not allow anyone to publish to.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Writer on a topic outside the model profile"
+  }
+ },
+ "catalog_1_3": {
+  "robot.agent.control_plane_invalid": {
+   "data_source": "robodr_agent",
+   "desc": "The robot's control-plane API refused authenticated requests for an action, parameter, time limit or authority it never allows; each was recorded in the black box and nothing was executed.",
+   "techniques": [],
+   "title": "Invalid control-plane action request refused"
+  },
+  "robot.agent.control_plane_unauthenticated": {
+   "data_source": "robodr_agent",
+   "desc": "The robot's control-plane API refused requests that did not carry a valid SOC signature (missing or bad signature, unknown key, stale timestamp or replayed nonce); nothing was judged or executed.",
+   "techniques": [],
+   "title": "Control-plane request failed authentication"
+  },
+  "robot.agent.correlation_pressure": {
+   "data_source": "robodr_agent",
+   "desc": "The correlation engine evicted or refused pending correlation state, which happens when many fresh entities arrive within a window (possibly a flood aimed at hiding a correlation).",
+   "techniques": [],
+   "title": "Correlation engine state under pressure"
+  },
+  "robot.agent.evidence_degraded": {
+   "data_source": "robodr_agent",
+   "desc": "The black-box recorder failed to store evidence; records from this outage are missing.",
+   "techniques": [],
+   "title": "Black-box recording failing"
+  },
+  "robot.agent.evidence_quarantined": {
+   "data_source": "robodr_agent",
+   "desc": "Opening the black box found closed segments that failed verification; they were copied to quarantine and recording continued without reusing sequence numbers.",
+   "techniques": [],
+   "title": "Damaged black-box segment quarantined"
+  },
+  "robot.agent.evidence_truncated": {
+   "data_source": "robodr_agent",
+   "desc": "Opening the black box found authentic proof that records after its newest integrity mark were removed; treat the evidence store as tampered with.",
+   "techniques": [],
+   "title": "Black-box records cut after the newest mark"
+  },
+  "robot.agent.input_ended": {
+   "data_source": "robodr_agent",
+   "desc": "An agent input reached end of stream or failed while the daemon was running; detections from that input stopped.",
+   "techniques": [],
+   "title": "Agent input ended"
+  },
+  "robot.agent.input_malformed": {
+   "data_source": "robodr_agent",
+   "desc": "An agent input delivered items that could not be parsed; they were skipped.",
+   "techniques": [],
+   "title": "Malformed agent input"
+  },
+  "robot.agent.input_silent": {
+   "data_source": "robodr_agent",
+   "desc": "An agent input delivered no valid data within the silence window; the robot state reads unknown while the agent is blind.",
+   "techniques": [],
+   "title": "Agent input silent"
+  },
+  "robot.agent.pipeline_lag": {
+   "data_source": "robodr_agent",
+   "desc": "Queue latency or tick delay in the agent exceeded the configured lag bound; detections are late.",
+   "techniques": [],
+   "title": "Agent pipeline lagging"
+  },
+  "robot.agent.queue_overflow": {
+   "data_source": "robodr_agent",
+   "desc": "The agent's input queue was full and items were dropped without inspection.",
+   "techniques": [],
+   "title": "Agent input queue overflowed"
+  },
+  "robot.agent.spool_full": {
+   "data_source": "robodr_agent",
+   "desc": "The agent could not write findings to its outbound spool (full or write errors); findings may be lost before export.",
+   "techniques": [],
+   "title": "Finding spool full or failing"
+  },
+  "robot.capture.bad_checksum": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Captured packets failed the IPv4 header or UDP checksum; the robot's kernel drops these too (injection attempt aimed at the sensor, or a faulty interface).",
+   "techniques": [],
+   "title": "IP or UDP checksum failures"
+  },
+  "robot.capture.ip_fragment_conflict": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "IP fragments overlapped with conflicting bytes, an evasion pattern; the host may reassemble different content than the sensor inspected.",
+   "techniques": [],
+   "title": "Conflicting overlapping IP fragments"
+  },
+  "robot.capture.ip_fragment_duplicate_conflict": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A duplicate IP fragment differed from the queued copy (first copy kept); what was inspected may differ from what the host accepts.",
+   "techniques": [],
+   "title": "Duplicate IP fragment with different content"
+  },
+  "robot.capture.ip_fragment_refused": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "IP fragments were refused because the reassembly budget was full; those datagrams were not inspected (possibly a flood aimed at blinding the sensor).",
+   "techniques": [],
+   "title": "IP fragments refused, reassembly budget full"
+  },
+  "robot.capture.ip_reassembly_dropped": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "IP datagrams were dropped for bad fragment geometry or reassembly timeout; they were not inspected.",
+   "techniques": [],
+   "title": "IP datagrams dropped in reassembly"
+  },
+  "robot.capture.ip_reassembly_evicted": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Partially reassembled IP datagrams were evicted to bound memory; they were not inspected.",
+   "techniques": [],
+   "title": "IP datagrams evicted from reassembly"
+  },
+  "robot.capture.malformed_frames": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "The capture saw malformed or truncated frames; they were not inspected.",
+   "techniques": [],
+   "title": "Malformed or truncated captured frames"
+  },
+  "robot.capture.not_udp": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "IP packets that were not UDP passed the kernel capture filter; they were not inspected.",
+   "techniques": [],
+   "title": "Non-UDP packets reached the sensor"
+  },
+  "robot.capture.unsupported_middleware": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "The capture sees Zenoh (rmw_zenoh) traffic, which RoboDR does not decode: participants, publishers and motion commands on it are not inspected; with no RTPS at all the sensor is blind to the robot's bus.",
+   "techniques": [],
+   "title": "Robot middleware not inspected (Zenoh)"
+  },
+  "robot.correlate.coordinated_intrusion": {
+   "data_source": "robodr_correlation",
+   "desc": "Within one minute an unknown DDS participant, an unauthorized motion writer and a host process anomaly were each detected; the correlation cites every contributing detection.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ],
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Correlated intrusion: unknown participant, foreign motion writer and host anomaly"
+  },
+  "robot.correlate.correlation_state_evicted": {
+   "data_source": "robodr_correlation",
+   "desc": "The correlation engine evicted a pending group that already held evidence to stay within its bounds; the named correlation rule may have missed a detection. Observe-only.",
+   "techniques": [],
+   "title": "Correlation evidence evicted under pressure"
+  },
+  "robot.correlate.credential_theft": {
+   "data_source": "robodr_correlation",
+   "desc": "An SROS 2 private key was read outside the ROS stack and an unknown or source-mismatched participant appeared afterwards within the correlation window.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "Correlated credential theft: SROS 2 key read, then a foreign participant"
+  },
+  "robot.correlate.defense_tampering": {
+   "data_source": "robodr_correlation",
+   "desc": "A host rule saw a RoboDR or Pulsar protected file change or a service stop while the agent reported an input silent or ended; observe-only by construction.",
+   "techniques": [],
+   "title": "Correlated defense tampering: protected file or service change with a silent input"
+  },
+  "robot.correlate.discovery_flood": {
+   "data_source": "robodr_correlation",
+   "desc": "Unknown DDS participants were announced from many distinct source addresses within the correlation window: a discovery flood or scan.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "Correlated discovery flood: unknown participants from many addresses"
+  },
+  "robot.correlate.host_process_persistence": {
+   "data_source": "robodr_correlation",
+   "desc": "The same host process raised several host-side detections within the correlation window.",
+   "techniques": [],
+   "title": "Correlated host activity: one process tripped several host rules"
+  },
+  "robot.correlate.motion_hijack": {
+   "data_source": "robodr_correlation",
+   "desc": "A foreign motion writer or a firewall source rejection was followed by uncommanded motion, feedback divergence or a second feedback publisher within the correlation window.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ],
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Correlated motion hijack: foreign motion source, then unexpected motion"
+  },
+  "robot.correlate.sensor_evasion": {
+   "data_source": "robodr_correlation",
+   "desc": "Repeated capture or fragment refusals coincided with discovery traffic the sensor could not inspect, a pattern consistent with an attempt to blind the sensor.",
+   "techniques": [],
+   "title": "Correlated sensor evasion: capture refusals with uninspected discovery"
+  },
+  "robot.correlate.spoofed_motion_source": {
+   "data_source": "robodr_correlation",
+   "desc": "A participant or endpoint source mismatch was followed by an unauthorized motion writer from the same source address within the correlation window.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Correlated spoofed motion source from one address"
+  },
+  "robot.correlate.trojaned_package_key_access": {
+   "data_source": "robodr_correlation",
+   "desc": "A package install or maintainer script was followed by an SROS 2 private key read within the correlation window.",
+   "techniques": [],
+   "title": "Correlated supply-chain compromise: package install, then key access"
+  },
+  "robot.dds.unknown_raw_writer": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A writer was announced on a non-ROS DDS topic the locked model profile does not allow.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Writer on a raw DDS topic outside the model profile"
+  },
+  "robot.firewall.events_dropped": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall's event buffer was full and events were dropped or evicted; this finding is as severe as the worst event lost.",
+   "techniques": [],
+   "title": "Motion firewall events dropped"
+  },
+  "robot.firewall.internal_fault": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall failed its own post-condition check and applied its configured fault policy to the command.",
+   "techniques": [],
+   "title": "Motion firewall internal fault"
+  },
+  "robot.firewall.limited_acceleration": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall limited a command's acceleration to the channel's bound (in observe mode: would have limited).",
+   "techniques": [],
+   "title": "Motion command acceleration limited"
+  },
+  "robot.firewall.limited_jerk": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall limited a command's jerk to the channel's bound (in observe mode: would have limited).",
+   "techniques": [],
+   "title": "Motion command jerk limited"
+  },
+  "robot.firewall.limited_speed": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall limited a command's speed to the channel's bound (in observe mode: would have limited).",
+   "techniques": [],
+   "title": "Motion command speed limited"
+  },
+  "robot.firewall.rejected_clock_regression": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command because the gateway clock went backwards (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: clock regression"
+  },
+  "robot.firewall.rejected_future_timestamp": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command stamped in the future (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: future timestamp"
+  },
+  "robot.firewall.rejected_kind_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command whose kind (twist or joints, joint count) does not match the channel (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: kind mismatch"
+  },
+  "robot.firewall.rejected_non_finite": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command carrying NaN or infinity (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Motion command rejected: non-finite value"
+  },
+  "robot.firewall.rejected_out_of_order": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command stamped no later than the previous one from the same source on the channel, a replay or reordering (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: out of order"
+  },
+  "robot.firewall.rejected_over_hard_limit": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command whose speed exceeded the channel's hard-reject bound (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Motion command rejected: over hard limit"
+  },
+  "robot.firewall.rejected_rate_limited": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command over the channel's rate limit (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: rate limit"
+  },
+  "robot.firewall.rejected_stale": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command older than its freshness bound (in observe mode: would have rejected).",
+   "techniques": [],
+   "title": "Motion command rejected: stale"
+  },
+  "robot.firewall.rejected_unauthorized_source": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command from a source not authorised on the channel (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion command rejected: unauthorised source"
+  },
+  "robot.firewall.rejected_unknown_channel": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command on a channel its policy does not know (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion command rejected: unknown channel"
+  },
+  "robot.firewall.rejected_unknown_source": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a command from a source its policy does not know (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion command rejected: unknown source"
+  },
+  "robot.host.pulsar_threat": {
+   "data_source": "host_runtime",
+   "desc": "A Pulsar runtime-security rule fired on the robot controller (process, file or network activity of the host operating system); the detail names the Pulsar rule and the process.",
+   "techniques": [],
+   "title": "Host runtime-security detection (Pulsar rule)"
+  },
+  "robot.motion.cross_sensor_disagreement": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Two independent feedback sources persistently disagreed about the platform's motion.",
+   "techniques": [
+    [
+     "T0856",
+     "Spoof Reporting Message"
+    ]
+   ],
+   "title": "Independent motion sensors disagree"
+  },
+  "robot.motion.decode_anomaly": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A decoded motion or feedback sample carried an oddity that did not stop decoding, such as trailing bytes.",
+   "techniques": [],
+   "title": "Motion sample decode anomaly"
+  },
+  "robot.motion.feedback_divergence": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Measured feedback stayed apart from what the observed commands predict for longer than the configured tolerance.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Motion feedback diverges from commands"
+  },
+  "robot.motion.frozen_feedback": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Motion feedback was frozen, silent or carried anomalous timestamps; the platform's motion cannot be verified.",
+   "techniques": [],
+   "title": "Motion feedback frozen or silent"
+  },
+  "robot.motion.inconsistent_feedback_stream": {
+   "data_source": "ros2_motion_commands",
+   "desc": "One feedback stream repeatedly jumped between values faster than the platform can accelerate: interleaved publishers under one identity, or a faulty driver.",
+   "techniques": [
+    [
+     "T0856",
+     "Spoof Reporting Message"
+    ]
+   ],
+   "title": "Inconsistent motion feedback stream"
+  },
+  "robot.motion.invalid_feedback": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Motion feedback carried NaN or infinity.",
+   "techniques": [],
+   "title": "Motion feedback with a non-finite value"
+  },
+  "robot.motion.multiple_feedback_publishers": {
+   "data_source": "ros2_motion_commands",
+   "desc": "More than one publisher interleaved samples for the same feedback source type.",
+   "techniques": [
+    [
+     "T0856",
+     "Spoof Reporting Message"
+    ]
+   ],
+   "title": "Several publishers for one feedback source"
+  },
+  "robot.motion.non_finite_command": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A motion command carried NaN or infinity on at least one axis; no envelope can bound it.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Motion command with a non-finite value"
+  },
+  "robot.motion.sample_source_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A decoded motion or feedback sample came from a source address not bound to its writer's participant.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion sample from an address not bound to its writer"
+  },
+  "robot.motion.unattributed_sample": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A motion or feedback sample came from a writer that was never announced, or whose binding is unbound or contested; it was not treated as authorised.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion sample from an unattributed writer"
+  },
+  "robot.motion.uncommanded_motion": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Feedback measured motion while the observed command was rest or absent.",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Uncommanded motion"
+  },
+  "robot.motion.undecodable_sample": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A sample on a motion or feedback topic could not be decoded; it was not inspected.",
+   "techniques": [],
+   "title": "Undecodable motion or feedback sample"
+  },
+  "robot.motion.unverifiable_command": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A decoded command's speed cannot be bounded from the message, so no envelope can check it.",
+   "techniques": [],
+   "title": "Motion command that cannot be bounded"
+  },
+  "robot.profile.invalid_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The profile's envelope for this channel has an invalid or missing mandatory limit; every command on the channel is reported (fail closed).",
+   "techniques": [],
+   "title": "Motion envelope in the profile cannot be enforced"
+  },
+  "robot.ros2.ambiguous_discovery": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A discovery announcement repeats an identity parameter with conflicting values; DDS stacks differ on which one wins, so what was inspected may not be what a stack acts on.",
+   "techniques": [],
+   "title": "Ambiguous discovery announcement"
+  },
+  "robot.ros2.endpoint_source_mismatch": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "An endpoint announcement for a participant came from an address not bound to it, or was relayed or GUID-conflicting from an untrusted address.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "DDS endpoint announced from an unbound address"
+  },
+  "robot.ros2.endpoint_unannounced_participant": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "An endpoint announcement referred to a participant with no participant announcement within the hold window, or the hold queue overflowed.",
+   "techniques": [],
+   "title": "DDS endpoint for a participant that never announced itself"
+  },
+  "robot.ros2.identity_instances_exceeded": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A participant matched a stable identity of the profile (source IP, DDS vendor, enclave) whose allowed instances are all held by live participants; it is not trusted.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "Extra DDS participant claims a robot identity"
+  },
+  "robot.ros2.participant_removed": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A participant in the locked model profile was announced as disposed or unregistered.",
+   "techniques": [],
+   "title": "Profiled DDS participant removed"
+  },
+  "robot.ros2.participant_source_mismatch": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A participant announcement for a bound participant came from an address outside its binding, or was relayed by an untrusted address; it was not learned.",
+   "techniques": [
+    [
+     "T0848",
+     "Rogue Master"
+    ]
+   ],
+   "title": "DDS participant announced from an unbound address"
+  },
+  "robot.ros2.profile_refused": {
+   "data_source": "robodr_agent",
+   "desc": "The model profile failed validation and is not enforced; the sensor reports in observe-only mode.",
+   "techniques": [],
+   "title": "Model profile refused"
+  },
+  "robot.ros2.profile_state_tampered": {
+   "data_source": "robodr_agent",
+   "desc": "The profile anti-rollback state file is missing or older than the newest accepted-profile record in the black box; the black-box record was used as the baseline.",
+   "techniques": [],
+   "title": "Profile anti-rollback state missing or behind the black box"
+  },
+  "robot.ros2.unknown_action": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A writer was announced on a ROS 2 action topic or service the locked model profile does not allow.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Writer on an action outside the model profile"
+  },
+  "robot.ros2.unknown_reader_topic": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A reader was announced on a topic, service or action outside the profile's reader allowlist; it cannot command but may collect data.",
+   "techniques": [
+    [
+     "T0801",
+     "Monitor Process State"
+    ]
+   ],
+   "title": "Subscriber on a topic outside the reader allowlist"
+  },
+  "robot.ros2.unknown_service": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A writer was announced on a ROS 2 service request or reply the locked model profile does not allow.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Writer on a service outside the model profile"
+  },
+  "robot.rtps.discovery_fragment_conflict": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Discovery fragments overlapped already received bytes with different content; a DDS stack may act on a different announcement than the one inspected.",
+   "techniques": [],
+   "title": "Conflicting discovery fragments"
+  },
+  "robot.rtps.discovery_fragment_evicted": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Partially reassembled discovery samples were evicted to stay within the reassembler's bounds; those announcements were not inspected.",
+   "techniques": [],
+   "title": "Partial discovery samples evicted"
+  },
+  "robot.rtps.discovery_fragment_rejected": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Discovery fragments were refused (over a cap, bad geometry or no capacity); that announcement was not inspected.",
+   "techniques": [],
+   "title": "Discovery fragments refused"
+  },
+  "robot.rtps.discovery_not_inspected": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "The parser had to drop all or part of a discovery datagram (unsupported version, malformed parameter list, undecodable name); that content was not inspected.",
+   "techniques": [],
+   "title": "Discovery traffic not inspected"
+  },
+  "robot.rtps.discovery_removal": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "A discovery dispose or unregister arrived for an entity other than a profiled participant.",
+   "techniques": [],
+   "title": "Discovery dispose or unregister"
+  },
+  "robot.rtps.fragmented_discovery": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "Discovery data arrived fragmented (DATA_FRAG) and was reassembled before inspection.",
+   "techniques": [],
+   "title": "Fragmented RTPS discovery data"
+  },
+  "robot.rtps.malformed_discovery": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "The RTPS parser saw discovery content a well-behaved DDS stack would not send.",
+   "techniques": [],
+   "title": "Malformed RTPS discovery traffic"
+  },
+  "robot.safety_state.undecodable_sample": {
+   "data_source": "robot_safety_state",
+   "desc": "A safety-state sample from a trusted writer could not be decoded; that source reads unknown until a valid sample arrives.",
+   "techniques": [],
+   "title": "Undecodable safety-state sample"
+  },
+  "robot.safety_state.unmapped_value": {
+   "data_source": "robot_safety_state",
+   "desc": "A trusted safety-state source carried a value the configured mapping does not cover; that source reads unknown.",
+   "techniques": [],
+   "title": "Safety-state value outside the configured mapping"
+  },
+  "robot.safety_state.untrusted_source": {
+   "data_source": "robot_safety_state",
+   "desc": "A safety-state sample came from a writer the locked model profile does not vouch for; it was ignored and the safety state was not taken from it.",
+   "techniques": [
+    [
+     "T0856",
+     "Spoof Reporting Message"
+    ]
+   ],
+   "title": "Safety-state sample from an untrusted writer"
+  },
+  "robot.safety_state.writer_overflow": {
+   "data_source": "robot_safety_state",
+   "desc": "A safety-state source saw more fresh writers or socket connections than it keeps; that source reads at least unknown until the extra writers go stale.",
+   "techniques": [],
+   "title": "Safety-state writer table overflowed"
+  },
+  "robot.sensor.findings_capped": {
+   "data_source": "ros2_dds_discovery",
+   "desc": "One input produced more findings than the per-datagram cap; the least severe were suppressed.",
+   "techniques": [],
+   "title": "Sensor findings capped for one input"
+  }
+ },
+ "catalog_2_1": {
+  "robot.firewall.crc_invalid": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A low-level joint command arrived with an invalid frame checksum, or unchecked where the channel requires one; the motion firewall rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Joint command integrity check failed"
+  },
+  "robot.firewall.disabled_motor_energised": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A low-level joint command energises a motor slot the profile marks as unused (non-zero torque or gain); the motion firewall rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ],
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Disabled motor energised"
+  },
+  "robot.firewall.joint_gain_below_minimum": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall rejected a low-level joint command whose stiffness or damping gain is below the joint's minimum (a disabled motor counts as zero gains); gains are never raised (in observe mode: would have rejected).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command gain below minimum"
+  },
+  "robot.firewall.joint_gain_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose stiffness or damping gain lies outside the joint's range; gains are only ever lowered, a gain below its minimum is rejected (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command gain out of envelope"
+  },
+  "robot.firewall.joint_hold_exceeded": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall has been holding a humanoid's last valid joint frame for longer than the configured hold time because newer frames keep being rejected; it keeps holding with the feed-forward torque removed and needs escalation.",
+   "techniques": [],
+   "title": "Humanoid joint hold exceeded its time limit"
+  },
+  "robot.firewall.joint_limp_frame": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A low-level joint command for a humanoid leaves every enabled joint without stiffness or damping, which makes the robot fall; the motion firewall rejected it and held the last valid frame (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ],
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Humanoid joint command would go limp"
+  },
+  "robot.firewall.joint_mode_inconsistent": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A low-level joint command switches a motor off while carrying non-zero gains or torque for it; the motion firewall rejected it rather than forward unchecked values (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ],
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Joint command mode inconsistent"
+  },
+  "robot.firewall.joint_mode_pin_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A low-level joint command carries a frame-level mode (ankle control mode or robot variant) other than the one the channel is pinned to, which changes what the joint envelope means; the motion firewall rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ],
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Joint command operating mode changed"
+  },
+  "robot.firewall.joint_pd_torque_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose stiffness times position step exceeds the joint's proportional torque bound and stepped or rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command proportional torque out of envelope"
+  },
+  "robot.firewall.joint_position_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose position target lies outside the joint's envelope and clamped or rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command position out of envelope"
+  },
+  "robot.firewall.joint_rate_violation": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The gap between two low-level joint commands on a channel exceeded its configured maximum interval; recorded only, the late frame is still decided normally.",
+   "techniques": [],
+   "title": "Joint command stream gap"
+  },
+  "robot.firewall.joint_step_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose position target moved further from the previous accepted target than the joint's per-frame step bound and stepped or rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command position step out of envelope"
+  },
+  "robot.firewall.joint_torque_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose feed-forward torque exceeds the joint's bound and clamped or rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command torque out of envelope"
+  },
+  "robot.firewall.joint_velocity_out_of_envelope": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The motion firewall found a low-level joint command whose velocity target exceeds the joint's bound and clamped or rejected it (in observe mode: would have).",
+   "techniques": [
+    [
+     "T0831",
+     "Manipulation of Control"
+    ]
+   ],
+   "title": "Joint command velocity out of envelope"
+  },
+  "robot.motion.api_id_out_of_range": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A robot API request carried a call id outside the 32-bit range the robot dispatches on, so the robot executes a different call than the one written.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Robot API request with an aliased call id"
+  },
+  "robot.motion.command_type_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A writer on a profiled motion command channel announced a type name other than the one the locked profile records for the channel, a type no decoder knows, or a feedback type: its commands cannot be checked as the profile intends.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motion command writer with an unexpected type"
+  },
+  "robot.motion.control_handover": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A command hands motor control to, or takes it from, another channel or controller (motion switcher release, user or arm SDK control).",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Motor control handed to another channel"
+  },
+  "robot.unitree.legacy_port_rtps": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A datagram on a configured Unitree legacy UDP port also parses as RTPS; it was inspected on both paths. DDS traffic on the legacy command ports is not normal and can be an attempt to evade the legacy sender check.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "RTPS traffic on a Unitree legacy UDP port"
+  },
+  "robot.unitree.legacy_sender_flood": {
+   "data_source": "ros2_motion_commands",
+   "desc": "Unitree legacy (unitree_legged_sdk) UDP frames arrived from more unlisted source addresses than are reported one by one, or listed command senders appeared with many different wrong link-layer addresses; the frames are counted in aggregate. A spoofed-source flood or a scan of the robot's command ports.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Unitree legacy UDP frames from many unknown hosts"
+  },
+  "robot.unitree.legacy_sender_mac_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A Unitree legacy UDP command came from a configured command sender IP, but its link-layer source address is not the MAC bound to that IP (or could not be verified because the datagram was reassembled from fragments): another host on the LAN may be using the sender's address.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Unitree legacy command from a listed IP with the wrong MAC"
+  },
+  "robot.unitree.legacy_unknown_sender": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A Unitree legacy (unitree_legged_sdk, Go1 generation) UDP command or state frame came from a source address the sensor configuration does not list; the protocol is unauthenticated, so an unlisted command sender can drive the robot.",
+   "techniques": [
+    [
+     "T0855",
+     "Unauthorized Command Message"
+    ]
+   ],
+   "title": "Unitree legacy UDP frame from an unknown host"
+  }
+ },
+ "correlate_generic": {
+  "data_source": "robodr_correlation",
+  "desc": "A deployment-specific correlation rule combined several detections that were each reported on their own; the correlation cites every contributing detection.",
+  "techniques": [],
+  "title": "Correlated RoboDR detection"
+ },
+ "generic": {
+  "data_source": "robodr",
+  "desc": "The detection core reported a deviation from the locked model profile for a rule without a catalog entry.",
+  "techniques": [],
+  "title": "RoboDR model-profile deviation"
+ }
+}

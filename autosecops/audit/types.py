@@ -44,6 +44,7 @@ AuditAction = Literal[
     "sync",
     "promote",
     "demote",
+    "ingest",
 ]
 AuditResourceType = Literal[
     "user",
@@ -60,6 +61,9 @@ AuditResourceType = Literal[
     "webhook_api_key",
     "workspace_variable",
     "workspace_tunnel",
+    "robot",
+    "robot_key",
+    "robot_ingest",
     "tag",
     "table",
     "table_column",

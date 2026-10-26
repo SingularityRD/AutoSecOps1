@@ -620,7 +620,18 @@ class CasesService(BaseWorkspaceService):
 
     @require_scope("case:create")
     @audit_log(resource_type="case", action="create")
-    async def create_case(self, params: CaseCreate) -> Case:
+    async def create_case(self, params: CaseCreate, *, commit: bool = True) -> Case:
+        """Create a case with its fields, initial versions, and created event.
+
+        Args:
+            params: The case to create.
+            commit: Commit the transaction. Pass ``False`` to keep the case in
+                the caller's open transaction (the caller then commits or rolls
+                back, atomically with its own writes).
+
+        Returns:
+            The created case.
+        """
         try:
             # Ensure the workspace-scoped `case_fields` schema/table exists before we
             # take locks on the `case` table (e.g. via INSERT/UPDATE). This avoids
@@ -697,7 +708,10 @@ class CasesService(BaseWorkspaceService):
             )
 
             # Commit once to persist case, fields, and event atomically
-            await self.session.commit()
+            if commit:
+                await self.session.commit()
+            else:
+                await self.session.flush()
             # Make sure to refresh the case to get the fields relationship loaded
             await self.session.refresh(case)
             return case

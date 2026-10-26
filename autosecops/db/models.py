@@ -912,6 +912,232 @@ class WorkspaceTunnel(WorkspaceModel):
     )
 
 
+class Robot(WorkspaceModel):
+    """A robot registered for RoboDR findings ingest in a workspace."""
+
+    __tablename__ = "robot"
+    __table_args__ = (UniqueConstraint("workspace_id", "robot_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    robot_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        doc="RoboDR robot id (`entity_context.robot.id`), [A-Za-z0-9._-]{1,64}",
+    )
+    site: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    morphology: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    require_finding_signature: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+
+
+class RobotKey(WorkspaceModel):
+    """An Ed25519 public key that authenticates RoboDR batches or findings.
+
+    ``uplink`` and ``finding`` keys belong to one robot; ``relay`` keys belong
+    to the workspace. Active sender keys (``uplink``/``relay``) are unique
+    across workspaces because the ingest request names no workspace.
+    """
+
+    __tablename__ = "robot_key"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "key_id"),
+        CheckConstraint("role IN ('uplink', 'relay', 'finding')", name="role"),
+        CheckConstraint("(role = 'relay') = (robot_fk IS NULL)", name="robot_binding"),
+        CheckConstraint("octet_length(public_key) = 32", name="public_key_length"),
+        CheckConstraint(
+            "role = 'relay' OR (site IS NULL AND NOT vouches_origin)",
+            name="relay_only_options",
+        ),
+        Index(
+            "ix_robot_key_active_sender_key_id",
+            "key_id",
+            unique=True,
+            postgresql_where=text("role IN ('uplink', 'relay') AND revoked_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    key_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    robot_fk: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("robot.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    site: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        doc="Relay keys only: the key may report only robots of this site",
+    )
+    vouches_origin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+        doc=(
+            "Relay keys only (the diode importer): its findings satisfy "
+            "require_finding_signature without a per-finding signature"
+        ),
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class RobotFinding(WorkspaceModel):
+    """The latest state of one RoboDR finding (dedup identity `external_id`)."""
+
+    __tablename__ = "robot_finding"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "external_id"),
+        Index("ix_robot_finding_robot_fk_last_seen", "robot_fk", "last_seen"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    external_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    finding_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    robot_fk: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("robot.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    robot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    rule_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    severity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    occurrence_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_event_uid: Mapped[str] = mapped_column(String(36), nullable=False)
+    contract_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    data_source: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_value: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc="Latest record value exactly as received (signed bytes, UTF-8)",
+    )
+    adversary_controlled_fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    signature_key_id: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        doc="Finding key that verified the latest value, if it was signed",
+    )
+    sender_key_fk: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("robot_key.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("case.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+
+class RobotFindingEvent(WorkspaceModel):
+    """One emission (``ocsf.metadata.uid``) of a finding, as first received."""
+
+    __tablename__ = "robot_finding_event"
+    __table_args__ = (UniqueConstraint("finding_fk", "event_uid"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    finding_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        ForeignKey("robot_finding.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_uid: Mapped[str] = mapped_column(String(36), nullable=False)
+    occurrence_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    severity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    sender_key_fk: Mapped[uuid.UUID | None] = mapped_column(
+        UUID,
+        ForeignKey("robot_key.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class RobotIngestBatch(WorkspaceModel):
+    """A processed ingest batch, kept 7 days to answer retries idempotently."""
+
+    __tablename__ = "robot_ingest_batch"
+    __table_args__ = (
+        UniqueConstraint("sender_key_fk", "batch_id"),
+        Index("ix_robot_ingest_batch_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    sender_key_fk: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        ForeignKey("robot_key.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    batch_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    body_sha256: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        doc="SHA-256 (hex) of the request body; a retry must send the same body",
+    )
+    response: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc=(
+            "Response of the first processing. Written in the batch's own "
+            "transaction, so a committed row always carries it."
+        ),
+    )
+
+
 class WorkflowDefinition(WorkspaceModel):
     """A workflow definition.
 

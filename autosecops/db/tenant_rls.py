@@ -99,6 +99,11 @@ POST_RLS_WORKSPACE_SCOPED_TABLES = (
     "form_view",
     "form_file",
     "workspace_tunnel",
+    "robot",
+    "robot_key",
+    "robot_finding",
+    "robot_finding_event",
+    "robot_ingest_batch",
 )
 
 POST_RLS_ORG_SCOPED_TABLES = (

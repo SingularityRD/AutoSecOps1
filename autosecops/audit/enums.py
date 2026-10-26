@@ -7,6 +7,8 @@ class AuditEventActor(StrEnum):
     USER = "USER"
     SERVICE_ACCOUNT = "SERVICE_ACCOUNT"
     SCIM = "SCIM"
+    ROBOT = "ROBOT"
+    """An unauthenticated or key-authenticated RoboDR sender (robot or relay)."""
 
 
 class AuditEventStatus(StrEnum):

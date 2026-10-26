@@ -1777,3 +1777,15 @@ TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH = os.environ.get(
 In Docker, packages are copied to /app/packages/autosecops-registry.
 In development with editable install, falls back to checking relative to the installed package.
 """
+
+# === Robot EDR (RoboDR ingest) === #
+TRACECAT__ROBOT_EDR_REQUIRE_TLS = env_bool(
+    "TRACECAT__ROBOT_EDR_REQUIRE_TLS", default=True
+)
+"""Refuse RoboDR ingest requests that did not arrive over TLS.
+
+A request counts as TLS when the API itself serves HTTPS, or when a proxy in
+TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS forwards `X-Forwarded-Proto: https` (the
+stock Caddy front end does). Plain HTTP from a loopback client is always
+accepted. Turn this off only for a closed lab network.
+"""
