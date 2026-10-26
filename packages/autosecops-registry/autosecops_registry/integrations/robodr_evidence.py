@@ -24,10 +24,17 @@ Verification (§11.6)
 `verify_bundle` is a strict subset of `robodr_blackbox::verify`: it accepts
 only a bundle that the reference verifier reports intact *and* that has no
 malformed frame, no gap, no foreign or reordered record, no recorded
-truncation or unexplained recovery, and no key it cannot prove (a key
-switch is followed only through a signed `KeyRotation` from the current
-key). Anything else is reported as not verified, never as verified: a
-"verified" result means steps 2-5 passed (step 1 is the transport's).
+truncation, segment loss or quarantine, no unexplained recovery, and no key
+it cannot prove (a key switch is followed only through a signed
+`KeyRotation` from the current key). Every control record (genesis, segment
+start, recovery, segment drop, key rotation) must carry a payload it parses
+as strictly as the reference does (UTF-8, no duplicate keys, the fields the
+reference reads present and well-typed); where the reference would merely
+skip a payload it cannot parse, AutoSecOps refuses the bundle as "not
+verifiable by AutoSecOps" rather than guess. Anything else is reported as
+not verified, never as verified: a "verified" result means steps 2-5 passed
+(step 1 is the transport's). `tests/data/robot_edr/blackbox_verdicts` holds
+the differential fixtures that pin this against the reference CLI.
 """
 
 import hashlib
@@ -85,6 +92,23 @@ _KIND_NAMES = {
     18: "note",
 }
 _TIME_SOURCES = frozenset({0, 1, 2, 3})
+_KIND_GENESIS = 0
+_KIND_SEGMENT_START = 1
+_KIND_RECOVERY = 4
+_KIND_SEGMENT_DROPPED = 5
+_KIND_TRUNCATION = 8
+_KIND_KEY_ROTATION = 9
+_CONTROL_KINDS = frozenset(
+    {
+        _KIND_GENESIS,
+        _KIND_SEGMENT_START,
+        _KIND_RECOVERY,
+        _KIND_SEGMENT_DROPPED,
+        _KIND_KEY_ROTATION,
+    }
+)
+UNVERIFIABLE = "not verifiable by AutoSecOps"
+"""Suffix of a refusal the reference verifier would not call tampering."""
 
 _HEX64_RE = re.compile(r"[0-9a-f]{64}")
 _KEY_ID_RE = re.compile(r"[!-:<-~]{1,128}")  # printable ASCII except ';'
@@ -176,6 +200,62 @@ def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def _reject_constant(name: str) -> Any:
     raise EvidenceError(f"non-JSON number {name} in the manifest")
+
+
+class _NotStrictJSON(ValueError):
+    pass
+
+
+def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise _NotStrictJSON("duplicate key")
+        out[key] = value
+    return out
+
+
+def _strict_constant(name: str) -> Any:
+    raise _NotStrictJSON(name)
+
+
+def _utf8_clean(value: object) -> bool:
+    """No lone surrogate anywhere (`serde_json` refuses them in a `String`)."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            try:
+                item.encode("utf-8")
+            except UnicodeEncodeError:
+                return False
+        elif isinstance(item, dict):
+            stack.extend(item.keys())
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return True
+
+
+_INVALID: Any = object()
+
+
+def _strict_json(raw: bytes) -> Any:
+    """JSON as `serde_json::from_slice` would take it, or `_INVALID`.
+
+    UTF-8 only (`json.loads` would also sniff UTF-16/32), no duplicate keys,
+    no NaN/Infinity, no lone surrogates, and no nesting deep enough to
+    exhaust the interpreter's stack.
+    """
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_strict_pairs,
+            parse_constant=_strict_constant,
+        )
+    except (UnicodeDecodeError, ValueError, RecursionError):
+        return _INVALID
+    return value if _utf8_clean(value) else _INVALID
 
 
 @dataclass(frozen=True, slots=True)
@@ -629,19 +709,88 @@ def _frames(frames: bytes) -> list[_Record]:
     return records
 
 
-def _payload_json(record: _Record) -> object:
-    try:
-        return json.loads(record.payload)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
-
-
 def _key_ref(obj: object) -> tuple[str, str] | None:
     match obj:
         case {"key_id": str(key_id), "algorithm": str(algorithm)}:
             return (key_id, algorithm)
         case _:
             return None
+
+
+def _unverifiable(what: str, seq: int) -> EvidenceError:
+    return EvidenceError(f"{what} at seq {seq} ({UNVERIFIABLE})")
+
+
+def _control_payload(record: _Record) -> dict[str, Any]:
+    """A control record's payload object, parsed as strictly as the reference."""
+    payload = _strict_json(record.payload)
+    if not isinstance(payload, dict):
+        name = _KIND_NAMES[record.kind]
+        raise _unverifiable(f"unparseable {name} payload", record.seq)
+    return payload
+
+
+def _flag(payload: dict[str, Any], key: str, default: bool | None) -> bool | None:
+    """A boolean payload field (``default`` when absent, None when ill-typed)."""
+    value = payload.get(key, default)
+    return value if isinstance(value, bool) else None
+
+
+def _check_signature(
+    record: _Record,
+    keyring: dict[str, KeyringEntry],
+    current: tuple[str, str],
+    device_id: str,
+) -> None:
+    key_id, algorithm = current
+    entry = keyring.get(key_id)
+    if entry is None or algorithm != "ed25519":
+        raise EvidenceError(f"no ed25519 key {key_id[:64]!r} for seq {record.seq}")
+    if entry.device_id is not None and entry.device_id != device_id:
+        raise EvidenceError(f"key {key_id[:64]!r} is bound to another device")
+    if not ed25519_verify_strict(
+        entry.public_key, _SIG_DOMAIN + record.hash, record.sig
+    ):
+        raise EvidenceError(f"bad signature at seq {record.seq}")
+
+
+def _check_control_record(
+    record: _Record, payload: dict[str, Any], current: tuple[str, str]
+) -> tuple[str, str]:
+    """Refuse what the reference reports as tampering for a control record.
+
+    Returns the key in effect after the record (changed only by a
+    `KeyRotation` from the current key, whose signature is already checked).
+    """
+    seq = record.seq
+    match record.kind:
+        case 4:  # Recovery: SegmentQuarantined / DamageQuarantined are Tamper.
+            quarantined = _flag(payload, "quarantined_segment", False)
+            plausible = _flag(payload, "crash_plausible", True)
+            if quarantined is None or plausible is None:
+                raise _unverifiable("malformed recovery record", seq)
+            if quarantined:
+                raise EvidenceError(f"recorded segment quarantine at seq {seq}")
+            if not plausible:
+                raise EvidenceError(f"recorded damage at seq {seq}")
+        case 5:  # SegmentDropped: SegmentMissingReported is Tamper.
+            missing = _flag(payload, "missing", None)
+            if missing is None or not _is_uint(payload.get("segment_index")):
+                raise _unverifiable("malformed segment_dropped record", seq)
+            if missing:
+                raise EvidenceError(f"recorded missing segment at seq {seq}")
+        case 9:  # KeyRotation: followed only when fully parseable, as Rust does.
+            from_key = _key_ref(payload.get("from"))
+            to_key = _key_ref(payload.get("to"))
+            if from_key is None or to_key is None:
+                raise _unverifiable("malformed key_rotation record", seq)
+            if not isinstance(payload.get("reason"), str):
+                raise _unverifiable("key_rotation record without a reason", seq)
+            if from_key == current:
+                return to_key
+        case _:
+            pass
+    return current
 
 
 @dataclass(slots=True)
@@ -683,7 +832,7 @@ class BundleReport:
 
 def verify_bundle(
     bundle: bytes,
-    keyring: dict[str, KeyringEntry],
+    keyring: dict[str, KeyringEntry] | None,
     *,
     robot_id: str,
     signing_key_id: str,
@@ -696,6 +845,9 @@ def verify_bundle(
     identity's chain, follow the previous record (seq + 1, `prev_hash`) from
     the bundle's anchor (or start at genesis), and the identity must name
     ``robot_id``. The anchor itself is unverified (first contact).
+
+    ``keyring=None`` checks everything except the record signatures (the
+    platform's re-check of a bundle a workflow verified with the keyring).
     """
     report = BundleReport(intact=False)
     try:
@@ -708,7 +860,7 @@ def verify_bundle(
 
 def _verify_bundle(
     bundle: bytes,
-    keyring: dict[str, KeyringEntry],
+    keyring: dict[str, KeyringEntry] | None,
     robot_id: str,
     signing_key_id: str,
     report: BundleReport,
@@ -719,10 +871,7 @@ def _verify_bundle(
     id_len = r.uint(4)
     if id_len > _MAX_IDENTITY_JSON:
         raise EvidenceError("the bundle identity is too large")
-    try:
-        identity = _identity_from(json.loads(r.take(id_len)))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        identity = None
+    identity = _identity_from(_strict_json(r.take(id_len)))
     if identity is None:
         raise EvidenceError("the bundle identity is not a chain identity")
     chain_id = identity.chain_id()
@@ -743,7 +892,7 @@ def _verify_bundle(
         raise EvidenceError("the bundle is from another device")
     records = _frames(frames)
     if not records:
-        raise EvidenceError("the bundle holds no records")
+        raise EvidenceError(f"the bundle holds no records ({UNVERIFIABLE})")
 
     if anchor is not None:
         anchor_chain, anchor_seq, anchor_hash = anchor
@@ -752,7 +901,7 @@ def _verify_bundle(
             raise EvidenceError("the bundle anchor names another chain")
         expected_seq, expected_prev = anchor_seq + 1, anchor_hash
     else:
-        if records[0].kind != 0:
+        if records[0].kind != _KIND_GENESIS:
             raise EvidenceError("an unanchored bundle must start at genesis")
         expected_seq, expected_prev = 0, _ZERO_HASH
 
@@ -767,40 +916,33 @@ def _verify_bundle(
             raise EvidenceError(f"seq {seq} where {expected_seq} was expected")
         if record.prev_hash != expected_prev:
             raise EvidenceError(f"chain break at seq {seq}")
-        payload = _payload_json(record) if record.kind in (0, 1, 4, 9) else None
-        if record.kind in (0, 1) and isinstance(payload, dict):
+        if record.kind == _KIND_GENESIS and seq != 0:
+            raise EvidenceError(f"genesis record at non-zero seq {seq}")
+        payload = _control_payload(record) if record.kind in _CONTROL_KINDS else None
+        if record.kind in (_KIND_GENESIS, _KIND_SEGMENT_START):
+            assert payload is not None
             named_identity = _identity_from(payload.get("identity"))
-            if named_identity is not None:
-                if named_identity.chain_id() != chain_id:
-                    raise EvidenceError(f"identity mismatch at seq {seq}")
-                named = (named_identity.key_id, named_identity.algorithm)
-                if record.kind == 1 and payload.get("signing_key") is not None:
-                    named = _key_ref(payload.get("signing_key")) or ("", "")
-                if named != current:
-                    raise EvidenceError(f"key switch refused at seq {seq}")
-        key_id, algorithm = current
-        entry = keyring.get(key_id)
-        if entry is None or algorithm != "ed25519":
-            raise EvidenceError(f"no ed25519 key {key_id[:64]!r} for seq {seq}")
-        if entry.device_id is not None and entry.device_id != identity.device_id:
-            raise EvidenceError(f"key {key_id[:64]!r} is bound to another device")
-        if not ed25519_verify_strict(
-            entry.public_key, _SIG_DOMAIN + record.hash, record.sig
-        ):
-            raise EvidenceError(f"bad signature at seq {seq}")
-        if record.kind == 8:
+            if named_identity is None:
+                raise _unverifiable(f"unparseable {_KIND_NAMES[record.kind]}", seq)
+            if named_identity.chain_id() != chain_id:
+                raise EvidenceError(f"identity mismatch at seq {seq}")
+            named = (named_identity.key_id, named_identity.algorithm)
+            if (
+                record.kind == _KIND_SEGMENT_START
+                and payload.get("signing_key") is not None
+            ):
+                signing_key = _key_ref(payload.get("signing_key"))
+                if signing_key is None:
+                    raise _unverifiable("malformed segment_start signing_key", seq)
+                named = signing_key
+            if named != current:
+                raise EvidenceError(f"key switch refused at seq {seq}")
+        if keyring is not None:
+            _check_signature(record, keyring, current, identity.device_id)
+        if record.kind == _KIND_TRUNCATION:
             raise EvidenceError(f"recorded truncation at seq {seq}")
-        if record.kind == 4 and not (
-            isinstance(payload, dict) and payload.get("crash_plausible", True) is True
-        ):
-            raise EvidenceError(f"recorded damage at seq {seq}")
-        if record.kind == 9 and isinstance(payload, dict):
-            from_key, to_key = (
-                _key_ref(payload.get("from")),
-                _key_ref(payload.get("to")),
-            )
-            if from_key == current and to_key is not None:
-                current = to_key
+        if payload is not None:
+            current = _check_control_record(record, payload, current)
         report.record_hashes[seq] = record.hash.hex()
         report.verified_records += 1
         if report.first_seq is None:
