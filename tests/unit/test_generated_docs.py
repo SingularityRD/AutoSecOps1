@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,20 @@ import orjson
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _generator_env() -> dict[str, str]:
+    """Run generators without the test session's settings, as a developer would.
+
+    Feature flags and other settings change the generated output.
+    """
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key in {"PATH", "HOME", "LANG", "TMPDIR", "VIRTUAL_ENV"}
+    }
+
+
 DOCS_SPEC = REPO_ROOT / "docs" / "api-reference" / "openapi.json"
 
 
@@ -24,6 +39,7 @@ def test_docs_openapi_spec_is_current(tmp_path: Path) -> None:
         check=True,
         capture_output=True,
         cwd=REPO_ROOT,
+        env=_generator_env(),
     )
     generated = orjson.loads(generated_path.read_bytes())
     published = orjson.loads(DOCS_SPEC.read_bytes())
@@ -54,6 +70,7 @@ def test_generated_docs_are_current(script: str) -> None:
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        env=_generator_env(),
     )
     assert result.returncode == 0, (
         f"{script} --check failed; rerun it without --check:\n"
