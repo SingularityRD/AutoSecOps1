@@ -143,7 +143,9 @@ def test_severity_mismatch_is_refused() -> None:
         robodr.parse_finding(_dump(doc))
 
 
-@pytest.mark.parametrize("version", ["1.3.0", "1.0.0", "3.0.0", "0.9.0"])
+@pytest.mark.parametrize(
+    "version", ["1.3.0", "1.0.0", "3.0.0", "0.9.0", "1.03.0", "20.1.0"]
+)
 def test_non_2x_contract_is_refused(version: str) -> None:
     doc = _doc()
     doc["contract_version"] = version
@@ -151,7 +153,19 @@ def test_non_2x_contract_is_refused(version: str) -> None:
         robodr.parse_finding(_dump(doc))
 
 
-@pytest.mark.parametrize("version", ["2.1", "v2.1.0", "2.01.0", "2.1.0-rc1", 2])
+@pytest.mark.parametrize("version", ["02.1.0", "2.01.0", "000000002.1.000000000"])
+def test_leading_zero_contract_version_is_well_formed(version: str) -> None:
+    """The Rust rule: 1-9 digits per part, leading zeros allowed, major numeric."""
+    doc = _doc()
+    doc["contract_version"] = version
+    parsed = robodr.parse_finding(_dump(doc))
+    assert parsed["contract_version"] == version
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["2.1", "v2.1.0", "2.1.0-rc1", "+2.1.0", "2.1.0000000000", "2.1.0.0", "２.1.0", 2],
+)
 def test_malformed_contract_version_is_refused(version: object) -> None:
     doc = _doc()
     doc["contract_version"] = version

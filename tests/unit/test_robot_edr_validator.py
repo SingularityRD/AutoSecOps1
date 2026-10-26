@@ -12,9 +12,14 @@ from autosecops_registry.integrations.robodr import (
     RENDER_ALLOWED,
     finding_to_case_fields,
 )
+from autosecops_registry.integrations.robodr import (
+    FindingError as RegistryFindingError,
+)
 
 from autosecops.robot_edr import crypto, rendering
+from autosecops.robot_edr.line_checks import check_line
 from autosecops.robot_edr.taint import Charset, is_encoded, render, unescape
+from autosecops.robot_edr.types import LineErrorCode, LineRejection
 from autosecops.robot_edr.validator import (
     FindingValidationError,
     UnsupportedContractError,
@@ -323,8 +328,8 @@ def test_a_leading_zero_version_renders_as_received() -> None:
     canonical = rendering.case_inputs(json.dumps(doc))
     doc["contract_version"] = "02.1.0"
     value = json.dumps(doc)
-    finding = parse_and_validate(value.encode())
-    zeros = rendering.case_inputs(value, contract_version=finding.contract_version)
+    parse_and_validate(value.encode())
+    zeros = rendering.case_inputs(value)
     assert zeros.fields["contract_version"] == "02.1.0"
     assert zeros.payload["robodr"]["contract_version"] == "02.1.0"
     assert (zeros.summary, zeros.description) == (
@@ -332,3 +337,43 @@ def test_a_leading_zero_version_renders_as_received() -> None:
         canonical.description,
     )
     assert {**zeros.fields, "contract_version": "2.1.0"} == canonical.fields
+    assert zeros.payload == finding_to_case_fields(value)["payload"]
+
+
+# Ingest rejection code -> the registry's FindingError code for the same value.
+_REGISTRY_CODE = {
+    LineErrorCode.UNSUPPORTED_CONTRACT: "unsupported_contract",
+    LineErrorCode.INVALID_FINDING: "invalid_field",
+}
+
+
+def test_contract_version_vector_agrees_with_the_registry() -> None:
+    """Shared ingest vector 22: ingest and the registry decide and render alike.
+
+    Every line is checked by the ingest line checks and by the registry's
+    ``finding_to_case_fields``: a refused line is refused by both with the
+    matching code, and the accepted ``02.1.0`` line yields identical case
+    fields, payload, summary and description.
+    """
+    body = (
+        DATA_DIR / "ingest_vectors" / "cases" / "22-contract-version-syntax" / "1.body"
+    ).read_bytes()
+    lines = [line for line in body.split(b"\n") if line]
+    accepted = 0
+    for number, raw in enumerate(lines, start=1):
+        checked = check_line(number, raw)
+        value = json.loads(raw)["value"]
+        if isinstance(checked, LineRejection):
+            with pytest.raises(RegistryFindingError) as exc_info:
+                finding_to_case_fields(value)
+            assert exc_info.value.code == _REGISTRY_CODE[checked.code], value
+            continue
+        accepted += 1
+        mapped = finding_to_case_fields(value)
+        assert checked.finding.contract_version == "02.1.0"
+        assert checked.inputs.fields == mapped["fields"]
+        assert checked.inputs.payload == mapped["payload"]
+        assert checked.inputs.summary == mapped["summary"]
+        assert checked.inputs.description == mapped["description"]
+        assert mapped["fields"]["contract_version"] == "02.1.0"
+    assert accepted == 1

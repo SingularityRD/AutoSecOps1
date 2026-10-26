@@ -71,11 +71,12 @@ CASE_PRIORITY: dict[str, str] = {
     "critical": "critical",
 }
 
-# Always applied with `fullmatch` (`_full`): `re.match` with `$` also accepts
-# a trailing newline.
-_CONTRACT_VERSION_RE = re.compile(
-    r"(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})"
-)
+# `robodr_ocsf::validate::contract_major`: exactly three parts of 1-9 ASCII
+# digits, leading zeros allowed (`02.1.0` is contract 2.1.0); the parts are
+# compared as numbers. Always applied with `fullmatch` (`_full`): `re.match`
+# with `$` also accepts a trailing newline.
+_CONTRACT_VERSION_RE = re.compile(r"([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})")
+CONTRACT_MAJOR = 2
 _FINDING_ID_RE = re.compile(r"rf1-[0-9a-f]{32}")
 _EVENT_UID_RE = re.compile(r"re1-[0-9a-f]{32}")
 _ROBOT_ID_RE = re.compile(r"[A-Za-z0-9._-]{1,64}")
@@ -399,8 +400,10 @@ def _parse(value: str) -> dict[str, Any]:
 
     version = doc.get("contract_version")
     if not (m := _full(_CONTRACT_VERSION_RE, version)):
-        raise FindingError("invalid_field", "contract_version must be semver x.y.z")
-    if m.group(1) != "2":
+        raise FindingError(
+            "invalid_field", "contract_version must be x.y.z, 1-9 digits per part"
+        )
+    if int(m.group(1)) != CONTRACT_MAJOR:
         raise FindingError(
             "unsupported_contract",
             f"contract {version} is not robodr.findings 2.x; 1.x values are "
