@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import uuid
+from collections.abc import Mapping
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from typing import Literal, cast
@@ -80,6 +81,54 @@ def env_bool(var: str, *, default: bool) -> bool:
         return False
 
     raise ValueError(f"{var} must be a boolean value (got {raw_value!r})")
+
+
+# Pre-rename environment variable prefix. Values under it are never read.
+_LEGACY_ENV_PREFIX = "TRACECAT_"
+_ENV_PREFIX = "AUTOSECOPS_"
+
+
+def legacy_env_var_replacements(environ: Mapping[str, str]) -> dict[str, str]:
+    """Map each pre-rename environment variable present to its replacement name.
+
+    Args:
+        environ: The environment to inspect.
+
+    Returns:
+        Legacy variable names, such as `TRACECAT__DB_URI`, mapped to the
+        `AUTOSECOPS__DB_URI`-style names that AutoSecOps reads instead.
+    """
+    return {
+        name: _ENV_PREFIX + name.removeprefix(_LEGACY_ENV_PREFIX)
+        for name in sorted(environ)
+        if name.startswith(_LEGACY_ENV_PREFIX)
+    }
+
+
+def report_legacy_env_vars(environ: Mapping[str, str]) -> dict[str, str]:
+    """Log an error for every pre-rename environment variable that is set.
+
+    AutoSecOps ignores these variables. The error names the replacement so an
+    operator can rename the setting.
+
+    Args:
+        environ: The environment to inspect.
+
+    Returns:
+        The legacy-to-replacement name mapping that was reported.
+    """
+    replacements = legacy_env_var_replacements(environ)
+    for legacy_name, replacement in replacements.items():
+        logger.error(
+            "Ignoring environment variable %s: AutoSecOps no longer reads it. "
+            "Rename it to %s.",
+            legacy_name,
+            replacement,
+        )
+    return replacements
+
+
+report_legacy_env_vars(os.environ)
 
 
 class RLSMode(StrEnum):

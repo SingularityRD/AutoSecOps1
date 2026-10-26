@@ -857,3 +857,61 @@ def test_sandbox_memory_limits_must_be_positive(
                 importlib.reload(autosecops_config)
     finally:
         importlib.reload(autosecops_config)
+
+
+def test_legacy_env_var_replacements_maps_pre_rename_names() -> None:
+    environ = {
+        "TRACECAT__DB_URI": "postgresql://synthetic",
+        "TRACECAT_MCP__PORT": "8099",
+        "AUTOSECOPS__APP_ENV": "development",
+        "PATH": "/usr/bin",
+    }
+
+    assert autosecops_config.legacy_env_var_replacements(environ) == {
+        "TRACECAT_MCP__PORT": "AUTOSECOPS_MCP__PORT",
+        "TRACECAT__DB_URI": "AUTOSECOPS__DB_URI",
+    }
+
+
+def test_report_legacy_env_vars_logs_error_naming_replacement(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    environ = {"TRACECAT__SERVICE_KEY": "synthetic-service-key"}
+
+    with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+        reported = autosecops_config.report_legacy_env_vars(environ)
+
+    assert reported == {"TRACECAT__SERVICE_KEY": "AUTOSECOPS__SERVICE_KEY"}
+    messages = [r.getMessage() for r in caplog.records if r.levelname == "ERROR"]
+    assert len(messages) == 1
+    assert "TRACECAT__SERVICE_KEY" in messages[0]
+    assert "AUTOSECOPS__SERVICE_KEY" in messages[0]
+    assert "synthetic-service-key" not in messages[0]
+
+
+def test_report_legacy_env_vars_is_silent_without_legacy_names(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+        reported = autosecops_config.report_legacy_env_vars(
+            {"AUTOSECOPS__SERVICE_KEY": "synthetic-service-key"}
+        )
+
+    assert reported == {}
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+
+
+def test_legacy_env_vars_are_ignored_on_import(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("AUTOSECOPS__SERVICE_NAME", raising=False)
+    monkeypatch.setenv("TRACECAT__SERVICE_NAME", "legacy-service-name")
+
+    try:
+        with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+            reloaded = importlib.reload(autosecops_config)
+        assert reloaded.AUTOSECOPS__SERVICE_NAME == "autosecops"
+        assert any("AUTOSECOPS__SERVICE_NAME" in r.getMessage() for r in caplog.records)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(autosecops_config)
