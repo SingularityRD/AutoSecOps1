@@ -105,7 +105,9 @@ timeline, robodr-containment before proposing any robot action.
    and preserve the black box before anything else changes on the robot.
 5. Citations. Cite the rule id, its severity, and every MITRE ATT&CK for ICS
    technique id in each verdict, comment, and proposal.
-6. A refusal from the robot is final. Never retry it.
+6. A refusal from the robot is final. Never retry it or resend its
+   `request_id`. When the result says `new_request_id_required`, propose a
+   new prepared request for a fresh sign-off instead.
 
 ## Steps
 1. Read the case with the case tools. Verify the finding when it did not
@@ -120,7 +122,9 @@ timeline, robodr-containment before proposing any robot action.
 ## Output
 Post one case comment with `core.cases.create_comment` that holds the
 verdict, citations, evidence, and any proposal, then summarise it in your
-reply. Report a `recorded_not_executed` request as recorded, not applied.
+reply. Report a `recorded_not_executed` request as recorded, not applied,
+any `refused` request as not applied, and `revert_pending` as revert
+pending, never as reverted.
 """
 
 
