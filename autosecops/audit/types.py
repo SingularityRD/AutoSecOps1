@@ -45,6 +45,7 @@ AuditAction = Literal[
     "promote",
     "demote",
     "ingest",
+    "read",
 ]
 AuditResourceType = Literal[
     "user",
@@ -64,6 +65,7 @@ AuditResourceType = Literal[
     "robot",
     "robot_key",
     "robot_ingest",
+    "robot_evidence",
     "tag",
     "table",
     "table_column",

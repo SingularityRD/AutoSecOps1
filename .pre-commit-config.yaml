@@ -15,12 +15,14 @@ repos:
         args:
           - --unsafe
         exclude: ^deployments/helm/.*/templates/
-      # Synced skill files and vendored API docs assets stay byte-identical to
-      # upstream (just skill-library check; test_api_docs.py pins the hashes).
+      # Synced skill files, vendored API docs assets and the RoboDR control-plane
+      # contract vectors stay byte-identical to upstream (just skill-library
+      # check; test_api_docs.py and test_robodr_control_plane_vectors.py pin
+      # the hashes).
       - id: end-of-file-fixer
-        exclude: ^autosecops/(agent/skill/library/skills|api/static/docs)/
+        exclude: ^(autosecops/(agent/skill/library/skills|api/static/docs)|tests/data/robodr_control_plane_v2)/
       - id: trailing-whitespace
-        exclude: (\.patch$|^autosecops/(agent/skill/library/skills|api/static/docs)/)
+        exclude: (\.patch$|^(autosecops/(agent/skill/library/skills|api/static/docs)|tests/data/robodr_control_plane_v2)/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
     hooks:

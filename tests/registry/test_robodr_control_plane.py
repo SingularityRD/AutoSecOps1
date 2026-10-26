@@ -1,26 +1,31 @@
-"""RoboDR control plane v1: request signing and the SOC-side approval gate.
+"""RoboDR control plane v2: mutual TLS, signing, answers, the sign-off gate, evidence.
 
 The approval gate reads platform records only: form submissions fetched
 through the registry SDK (a fake `ctx.forms` here) carry the platform user
 ids of the requester and the approvers. Nothing an action input says about
 people is trusted.
 
-No real robot: a stub HTTP server on loopback plays robodr-agentd. It records
-each raw request (method, target exactly as received, headers, body) and
-verifies the SOC signature the way agentd does (`control/auth.rs`), with an
-inline copy of the framing.
+No real robot: a stub HTTPS server on loopback plays robodr-agentd. It
+requires a client certificate from the test SOC CA (mutual TLS, §1), records
+each raw request (method, target exactly as received, headers, body),
+verifies the SOC signature the way agentd does (`control/auth.rs`, v2
+domain) with an inline copy of the framing, and signs every answer with the
+robot's finding key. The test PKI is made here with `cryptography`.
 
-`GOLDEN_*` vectors come from the reference implementation
-(`robodr_agentd::control::auth::signing_message` / `answer_message`) with the
-SOC key `Ed25519SigningKey::from_seed("soc:test:1", &[9; 32])` and the robot
-finding key from `[7; 32]`.
+Byte-for-byte agreement with RoboDR's own vectors is checked in
+`test_robodr_control_plane_vectors.py`; the evidence tests below serve that
+vector export (its finding key is the stub's answer key) through the stub.
 """
 
 import contextlib
 import copy
+import datetime as dt
 import hashlib
 import inspect
+import ipaddress
 import json
+import ssl
+import tempfile
 import threading
 import time
 import uuid
@@ -28,42 +33,40 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, cast
 
+import httpx
 import pytest
 from autosecops_registry._internal import secrets as registry_secrets
-from autosecops_registry.context import RegistryContext, clear_context, set_context
+from autosecops_registry._internal.exceptions import SecretNotFoundError
+from autosecops_registry.context import (
+    RegistryContext,
+    clear_context,
+    get_context,
+    set_context,
+)
 from autosecops_registry.integrations import robodr_control_plane as cp
+from autosecops_registry.integrations import robodr_evidence as ev
+from autosecops_registry.sdk.client import TracecatClient
+from cryptography import x509
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 SOC_SEED = bytes([9]) * 32
 SOC_KEY_ID = "soc:test:1"
-FINDING_SEED = bytes([7]) * 32
+# The finding key of the shared contract vectors (seed 32 x 0x52), so the
+# vector manifest's detached signature verifies with the stub's answer key.
+FINDING_SEED = bytes([0x52]) * 32
 FINDING_KEY_ID = "finding:ugv-007:1"
 ROBOT_ID = "ugv-007"
-
-GOLDEN_BODY = (
-    b'{"request_id":"robot_restrict_motion:ugv-007:00112233aabbccdd",'
-    b'"action":"restrict_motion","parameters":{"max_linear_speed":0.5},'
-    b'"ttl_seconds":600,"reason":"rogue writer","requested_by":"analyst-a",'
-    b'"source":"autosecops","authority":"request"}'
-)
-GOLDEN_POST_SIG = (
-    "3e250b41ddb0b7e1ae2b812e1a07163620ba6177926c162e24912b5646b5b1db"
-    "26df458f7dfbabc06c1b3b590a61cfda42288896a96570809719b269ecb49700"
-)
-GOLDEN_GET_SIG = (
-    "a485866e5f90c209dcd3224df51a113e992f2efd9baa5d8106bc86c6c5034921"
-    "c73a3ce5f9fbb4d99a497d85637f90fe15045eb2295f3402211c5210debc3609"
-)
-GOLDEN_ANSWER_SIG = (
-    "f2620e348e96187be25f48546bcc8ce46cc6f792c5159d028982135d45176f7c"
-    "1ed1db5c314dca7c6401cc01a868db5a53ed6fe63bfa7e7ce0afbfc1421f0501"
-)
+VECTORS = Path(__file__).parents[1] / "data" / "robodr_control_plane_v2"
 
 
 def _soc_public() -> Ed25519PublicKey:
@@ -75,53 +78,8 @@ def _agentd_message(
 ) -> bytes:
     digest = hashlib.sha256(body).hexdigest()
     return "\n".join(
-        ["robodr-control-plane/v1", method, target, ROBOT_ID, key_id, ts, nonce, digest]
+        ["robodr-control-plane/v2", method, target, ROBOT_ID, key_id, ts, nonce, digest]
     ).encode()
-
-
-# --------------------------------------------------------------------------- #
-# Golden vectors
-# --------------------------------------------------------------------------- #
-
-
-def test_signing_message_matches_reference() -> None:
-    message = cp.signing_message(
-        "POST",
-        "/api/v1/robots/ugv-007/action-requests",
-        ROBOT_ID,
-        SOC_KEY_ID,
-        1790000000,
-        "n0nce-0123456789abcdef",
-        GOLDEN_BODY,
-    )
-    assert message == _agentd_message(
-        "POST",
-        "/api/v1/robots/ugv-007/action-requests",
-        SOC_KEY_ID,
-        "1790000000",
-        "n0nce-0123456789abcdef",
-        GOLDEN_BODY,
-    )
-    signer = Ed25519PrivateKey.from_private_bytes(SOC_SEED)
-    assert signer.sign(message).hex() == GOLDEN_POST_SIG
-    get_message = cp.signing_message(
-        "GET",
-        "/api/v1/robots/ugv-007/action-requests/robot_restrict_motion%3Augv-007%3A00112233aabbccdd",
-        ROBOT_ID,
-        SOC_KEY_ID,
-        1790000000,
-        "n0nce-0123456789abcdef",
-        b"",
-    )
-    assert signer.sign(get_message).hex() == GOLDEN_GET_SIG
-
-
-def test_answer_message_matches_reference() -> None:
-    message = cp.answer_message(
-        GOLDEN_POST_SIG, 200, b'{"status":"recorded_not_executed"}'
-    )
-    signer = Ed25519PrivateKey.from_private_bytes(FINDING_SEED)
-    assert signer.sign(message).hex() == GOLDEN_ANSWER_SIG
 
 
 def test_target_percent_encodes_request_id() -> None:
@@ -130,11 +88,116 @@ def test_target_percent_encodes_request_id() -> None:
     )
     assert (
         target
-        == "/api/v1/robots/ugv-007/action-requests/robot_safe_pause%3Augv-007%3Aab"
+        == "/api/v2/robots/ugv-007/action-requests/robot_safe_pause%3Augv-007%3Aab"
     )
     with pytest.raises(ValueError):
         cp._robot_target("ugv/../x")
 
+
+# --------------------------------------------------------------------------- #
+# Test PKI: a robot CA and server certificate, a SOC CA and client certificate
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class Issued:
+    cert_pem: str
+    key_pem: str
+    cert: x509.Certificate
+
+
+def _name(common_name: str) -> x509.Name:
+    return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+
+
+def _issue(
+    common_name: str,
+    *,
+    issuer: Issued | None = None,
+    ca: bool = False,
+    server: bool = False,
+    client: bool = False,
+) -> Issued:
+    key = ec.generate_private_key(ec.SECP256R1())
+    now = dt.datetime.now(dt.UTC)
+    issuer_key = (
+        cast(
+            ec.EllipticCurvePrivateKey,
+            serialization.load_pem_private_key(issuer.key_pem.encode(), None),
+        )
+        if issuer
+        else key
+    )
+    builder = (
+        x509.CertificateBuilder()
+        .subject_name(_name(common_name))
+        .issuer_name(issuer.cert.subject if issuer else _name(common_name))
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(minutes=5))
+        .not_valid_after(now + dt.timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
+        .add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False
+        )
+    )
+    if issuer:
+        builder = builder.add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                cast(ec.EllipticCurvePublicKey, issuer.cert.public_key())
+            ),
+            critical=False,
+        )
+    if ca:
+        builder = builder.add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                key_cert_sign=True,
+                crl_sign=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+    if server:
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+                ]
+            ),
+            critical=False,
+        ).add_extension(
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False
+        )
+    if client:
+        builder = builder.add_extension(
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False
+        )
+    cert = builder.sign(issuer_key, hashes.SHA256())
+    return Issued(
+        cert.public_bytes(serialization.Encoding.PEM).decode(),
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode(),
+        cert,
+    )
+
+
+ROBOT_CA = _issue("robot test CA", ca=True)
+ROBOT_SERVER = _issue("ugv-007", issuer=ROBOT_CA, server=True)
+SOC_CA = _issue("soc test CA", ca=True)
+SOC_CLIENT = _issue("soc-a", issuer=SOC_CA, client=True)
+OTHER_CA = _issue("unrelated CA", ca=True)
+STRANGER_CLIENT = _issue("stranger", issuer=OTHER_CA, client=True)
+ROBOT_SPKI = cp.spki_sha256(ROBOT_SERVER.cert.public_bytes(serialization.Encoding.DER))
 
 # --------------------------------------------------------------------------- #
 # Stub robodr-agentd
@@ -143,6 +206,8 @@ def test_target_percent_encodes_request_id() -> None:
 FINDING_PUBLIC_HEX = (
     Ed25519PrivateKey.from_private_bytes(FINDING_SEED).public_key().public_bytes_raw()
 ).hex()
+
+type Reply = tuple[int, dict[str, str], bytes]
 
 
 @dataclass
@@ -167,10 +232,11 @@ class StubRobot:
     release: threading.Event = field(default_factory=threading.Event)
     requests: list[dict[str, Any]] = field(default_factory=list)
     answer_for: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    evidence_for: Callable[[dict[str, Any]], Reply | None] | None = None
 
     def handle(
         self, method: str, target: str, headers: dict[str, str], body: bytes
-    ) -> tuple[int, dict[str, str], bytes]:
+    ) -> Reply:
         record = {"method": method, "target": target, "headers": headers, "body": body}
         self.requests.append(record)
         # Verify like agentd: strict headers, signature over the exact target.
@@ -198,11 +264,27 @@ class StubRobot:
                 {"error": {"code": "bad_signature", "message": "no"}}
             ).encode()
             return 401, {}, out
-        if target == f"/api/v1/robots/{ROBOT_ID}":
+        status = self.answer_status
+        extra: dict[str, str] = {}
+        reply = self.evidence_for(record) if self.evidence_for is not None else None
+        if reply is not None:
+            status, extra, out = reply
+        else:
+            out = json.dumps(self._data(record)).encode()
+        if self.sign_answers:
+            msg = cp.answer_message(headers["x-robodr-signature"], status, out)
+            sig = Ed25519PrivateKey.from_private_bytes(FINDING_SEED).sign(msg).hex()
+            extra["X-RoboDR-Answer-Signature"] = (
+                f"ed25519;key_id={self.answer_key_id};sig={sig}"
+            )
+        return status, extra, out
+
+    def _data(self, record: dict[str, Any]) -> dict[str, Any]:
+        if record["target"] == f"/api/v2/robots/{ROBOT_ID}":
             data: dict[str, Any] = {
                 "robot_id": self.snapshot_robot_id,
                 "online": True,
-                "api": "robodr-control-plane/v1",
+                "api": "robodr-control-plane/v2",
                 "safety_state": {"state": "moving_slow", "source": "safety_feed"},
                 "mode": "enforce",
                 "executor": "recording",
@@ -211,33 +293,42 @@ class StubRobot:
             }
             if self.morphology is not None:
                 data["morphology"] = self.morphology
-        elif self.answer_for is not None:
-            data = self.answer_for(record)
-        else:
-            data = {
-                "request_id": "x",
-                "status": "recorded_not_executed",
-                "executed": False,
-                "state": {"decision": "accepted", "executed": False},
-            }
-        out = json.dumps(data).encode()
-        extra: dict[str, str] = {}
-        if self.sign_answers:
-            msg = cp.answer_message(
-                headers["x-robodr-signature"], self.answer_status, out
-            )
-            sig = Ed25519PrivateKey.from_private_bytes(FINDING_SEED).sign(msg).hex()
-            extra["X-RoboDR-Answer-Signature"] = (
-                f"ed25519;key_id={self.answer_key_id};sig={sig}"
-            )
-        return self.answer_status, extra, out
+            return data
+        if self.answer_for is not None:
+            return self.answer_for(record)
+        return {
+            "request_id": "x",
+            "status": "recorded_not_executed",
+            "executed": False,
+            "state": {"decision": "accepted", "executed": False},
+        }
+
+
+def _server_context(client_ca: Issued = SOC_CA) -> ssl.SSLContext:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_verify_locations(cadata=client_ca.cert_pem)
+    with contextlib.ExitStack() as stack:
+        directory = stack.enter_context(tempfile.TemporaryDirectory())
+        cert_path = Path(directory, "server.crt")
+        key_path = Path(directory, "server.key")
+        cert_path.write_text(ROBOT_SERVER.cert_pem + ROBOT_CA.cert_pem)
+        key_path.write_text(ROBOT_SERVER.key_pem)
+        context.load_cert_chain(cert_path, key_path)
+    return context
 
 
 @contextlib.contextmanager
-def soc_secrets() -> Iterator[None]:
-    """Scope the registry secrets context to the test SOC signing key."""
+def soc_secrets(client: Issued = SOC_CLIENT) -> Iterator[None]:
+    """Scope the registry secrets context to the test SOC credentials."""
     token = registry_secrets.set_context(
-        {"ROBODR_SOC_KEY_ID": SOC_KEY_ID, "ROBODR_SOC_SECRET_HEX": SOC_SEED.hex()}
+        {
+            "ROBODR_SOC_KEY_ID": SOC_KEY_ID,
+            "ROBODR_SOC_SECRET_HEX": SOC_SEED.hex(),
+            "ROBODR_SOC_CLIENT_CERT_PEM": client.cert_pem,
+            "ROBODR_SOC_CLIENT_KEY_PEM": client.key_pem,
+        }
     )
     try:
         yield
@@ -245,11 +336,36 @@ def soc_secrets() -> Iterator[None]:
         registry_secrets.reset_context(token)
 
 
+class _TLSServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, handler: type[BaseHTTPRequestHandler]) -> None:
+        super().__init__(("127.0.0.1", 0), handler)
+        self.context = _server_context()
+        self.handshake_failures: list[str] = []
+
+    def get_request(self) -> tuple[Any, Any]:
+        sock, address = self.socket.accept()
+        return self.context.wrap_socket(
+            sock, server_side=True, do_handshake_on_connect=False
+        ), address
+
+
 @pytest.fixture
 def stub() -> Iterator[tuple[StubRobot, str]]:
     robot = StubRobot()
 
     class Handler(BaseHTTPRequestHandler):
+        def setup(self) -> None:
+            try:
+                self.request.do_handshake()
+            except (ssl.SSLError, OSError) as exc:
+                cast(_TLSServer, self.server).handshake_failures.append(
+                    type(exc).__name__
+                )
+                raise
+            super().setup()
+
         def _serve(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
@@ -262,12 +378,13 @@ def stub() -> Iterator[tuple[StubRobot, str]]:
                 self.send_response(200)
                 self.send_header("Content-Length", str(100 * 1024 * 1024))
                 self.end_headers()
-                self.wfile.write(b"x" * (cp.MAX_ANSWER_BYTES + 4096))
+                self.wfile.write(b"x" * (cp.MAX_ANSWER_BYTES + 32 * 1024))
                 self.wfile.flush()
                 robot.release.wait(30)
                 return
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            if "Content-Type" not in extra:
+                self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(out)))
             for k, v in extra.items():
                 self.send_header(k, v)
@@ -276,20 +393,31 @@ def stub() -> Iterator[tuple[StubRobot, str]]:
 
         do_GET = _serve
         do_POST = _serve
+        do_DELETE = _serve
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             return
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
+    server = _TLSServer(Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield robot, f"http://127.0.0.1:{server.server_address[1]}"
+        yield robot, f"https://127.0.0.1:{server.server_address[1]}"
     finally:
         robot.release.set()
         server.shutdown()
         server.server_close()
+
+
+def _conn(base_url: str, **overrides: Any) -> dict[str, Any]:
+    """Connection inputs every network action takes."""
+    return {
+        "base_url": base_url,
+        "robot_id": ROBOT_ID,
+        "robot_ca_pem": ROBOT_CA.cert_pem,
+        "answer_public_key_hex": FINDING_PUBLIC_HEX,
+        "answer_key_id": FINDING_KEY_ID,
+    } | overrides
 
 
 # --------------------------------------------------------------------------- #
@@ -356,8 +484,24 @@ class FakeForms:
 
 
 @dataclass
+class FakeRobotEdr:
+    """Stands in for `ctx.robot_edr`: the evidence store and the audit log."""
+
+    stored: list[dict[str, Any]] = field(default_factory=list)
+    accesses: list[dict[str, Any]] = field(default_factory=list)
+
+    async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
+        self.stored.append({"case_id": case_id, **kwargs})
+        return {"attachment_id": str(uuid.uuid4()), "attachment_name": "x.txt"}
+
+    async def record_evidence_access(self, **kwargs: Any) -> None:
+        self.accesses.append(kwargs)
+
+
+@dataclass
 class FakeClient:
     forms: FakeForms
+    robot_edr: FakeRobotEdr = field(default_factory=FakeRobotEdr)
 
 
 @pytest.fixture
@@ -419,14 +563,10 @@ async def _send(
     prepared = cp.prepare_action_request(
         robot_id=ROBOT_ID, action=action, reason=reason, request_id=request_id, **params
     )
-    kwargs: dict[str, Any] = {
-        "base_url": base_url,
-        "robot_id": ROBOT_ID,
+    kwargs: dict[str, Any] = _conn(base_url) | {
         "action": action,
         "request_id": prepared["request_id"],
         "reason": reason,
-        "answer_public_key_hex": FINDING_PUBLIC_HEX,
-        "answer_key_id": FINDING_KEY_ID,
     }
     kwargs |= signoff or _signoffs(forms, prepared, approvers)
     return await cp.request_action(**(kwargs | params | overrides))
@@ -447,7 +587,7 @@ async def test_request_action_is_signed_and_reported_not_applied(
         snapshot, post = robot.requests
         assert snapshot["method"] == "GET" and snapshot["verified"]
         assert post["method"] == "POST" and post["verified"]
-        assert post["target"] == f"/api/v1/robots/{ROBOT_ID}/action-requests"
+        assert post["target"] == f"/api/v2/robots/{ROBOT_ID}/action-requests"
         body = json.loads(post["body"])
         assert body["action"] == "restrict_motion"
         assert body["parameters"] == {"max_linear_speed": 0.5}
@@ -487,13 +627,11 @@ async def test_get_action_status_sends_percent_encoded_target(stub) -> None:
     robot, base_url = stub
     with soc_secrets():
         request_id = "robot_restrict_motion:ugv-007:00112233aabbccdd"
-        result = await cp.get_action_status(
-            base_url=base_url, robot_id=ROBOT_ID, request_id=request_id
-        )
+        result = await cp.get_action_status(**_conn(base_url), request_id=request_id)
         (get,) = robot.requests
         assert get["verified"]
         assert get["target"] == (
-            "/api/v1/robots/ugv-007/action-requests/"
+            "/api/v2/robots/ugv-007/action-requests/"
             "robot_restrict_motion%3Augv-007%3A00112233aabbccdd"
         )
         assert get["body"] == b""
@@ -525,12 +663,9 @@ async def _revert(
     prepared = cp.prepare_revert_request(
         robot_id=ROBOT_ID, request_id=request_id, reason="false positive"
     )
-    kwargs: dict[str, Any] = {
-        "base_url": base_url,
-        "robot_id": ROBOT_ID,
+    kwargs: dict[str, Any] = _conn(base_url) | {
         "request_id": request_id,
         "reason": "false positive",
-        "answer_public_key_hex": FINDING_PUBLIC_HEX,
         **_signoffs(forms, prepared, approvers, requester),
     }
     return await cp.revert_action(**(kwargs | overrides))
@@ -584,28 +719,19 @@ async def test_refusal_is_reported_final(stub, platform) -> None:
 async def test_answer_signature_is_verified_when_configured(stub) -> None:
     robot, base_url = stub
     with soc_secrets():
-        result = await cp.get_robot(
-            base_url=base_url,
-            robot_id=ROBOT_ID,
-            answer_public_key_hex=FINDING_PUBLIC_HEX,
-            answer_key_id=FINDING_KEY_ID,
-        )
+        result = await cp.get_robot(**_conn(base_url))
         assert result["answer_signature_verified"] is True
         robot.sign_answers = False
         with pytest.raises(cp.ControlPlaneError, match="answer signature"):
-            await cp.get_robot(
-                base_url=base_url,
-                robot_id=ROBOT_ID,
-                answer_public_key_hex=FINDING_PUBLIC_HEX,
-            )
+            await cp.get_robot(**_conn(base_url))
         robot.sign_answers = True
         other = Ed25519PrivateKey.from_private_bytes(bytes([1]) * 32).public_key()
-        with pytest.raises(cp.ControlPlaneError, match="does not verify"):
+        with pytest.raises(cp.ControlPlaneError, match="answer signature"):
             await cp.get_robot(
-                base_url=base_url,
-                robot_id=ROBOT_ID,
-                answer_public_key_hex=other.public_bytes_raw().hex(),
+                **_conn(base_url, answer_public_key_hex=other.public_bytes_raw().hex())
             )
+        with pytest.raises(cp.ControlPlaneError, match="answer signature"):
+            await cp.get_robot(**_conn(base_url, answer_key_id="finding:ugv-007:2"))
 
 
 @pytest.mark.anyio
@@ -617,9 +743,7 @@ async def test_http_error_raises_with_code(stub) -> None:
             "error": {"code": "request_id_conflict", "message": "used"}
         }
         with pytest.raises(cp.ControlPlaneError, match="409.*request_id_conflict"):
-            await cp.get_action_status(
-                base_url=base_url, robot_id=ROBOT_ID, request_id="r1"
-            )
+            await cp.get_action_status(**_conn(base_url), request_id="r1")
 
 
 # --------------------------------------------------------------------------- #
@@ -785,14 +909,12 @@ async def test_signoff_is_bound_to_this_exact_request(stub, platform) -> None:
         # Same request id and sign-offs, different speed cap: refused.
         with pytest.raises(cp.SignoffError, match="digest"):
             await cp.request_action(
-                base_url=base_url,
-                robot_id=ROBOT_ID,
+                **_conn(base_url),
                 action="robot_restrict_motion",
                 request_id=prepared["request_id"],
                 reason="rogue writer",
                 ttl_seconds=600,
                 max_linear_speed=5.0,
-                answer_public_key_hex=FINDING_PUBLIC_HEX,
                 **signoff,
             )
         # A sign-off for another request id: refused.
@@ -903,11 +1025,7 @@ async def test_revert_signoff_is_bound_to_the_revert(stub, platform) -> None:
         signoff = _signoffs(platform, prepared, (LEAD_B,))
         with pytest.raises(cp.SignoffError, match="digest"):
             await cp.revert_action(
-                base_url=base_url,
-                robot_id=ROBOT_ID,
-                request_id=prepared["request_id"],
-                answer_public_key_hex=FINDING_PUBLIC_HEX,
-                **signoff,
+                **_conn(base_url), request_id=prepared["request_id"], **signoff
             )
         assert all(r["method"] == "GET" for r in robot.requests)
 
@@ -919,18 +1037,40 @@ def test_state_changing_actions_require_approval() -> None:
     for fn in (cp.request_action, cp.revert_action):
         assert kwargs(fn)["requires_approval"] is True
         assert kwargs(fn)["required_entitlements"] == ["forms"]
+    # Evidence is read-only for the robot: no sign-off, but audit-logged.
     for fn in (
         cp.get_robot,
         cp.get_action_status,
         cp.check_action_policy,
         cp.prepare_action_request,
         cp.prepare_revert_request,
+        cp.list_evidence,
+        cp.create_evidence_export,
+        cp.download_evidence_export,
     ):
         assert kwargs(fn)["requires_approval"] is False
-    for fn in (cp.get_robot, cp.request_action, cp.get_action_status, cp.revert_action):
+    network = (
+        cp.get_robot,
+        cp.request_action,
+        cp.get_action_status,
+        cp.revert_action,
+        cp.list_evidence,
+        cp.create_evidence_export,
+        cp.download_evidence_export,
+    )
+    for fn in network:
         (secret,) = kwargs(fn)["secrets"]
         assert secret["name"] == "robodr_control_plane"
-        assert secret["keys"] == ["ROBODR_SOC_KEY_ID", "ROBODR_SOC_SECRET_HEX"]
+        assert secret["keys"] == [
+            "ROBODR_SOC_KEY_ID",
+            "ROBODR_SOC_SECRET_HEX",
+            "ROBODR_SOC_CLIENT_CERT_PEM",
+            "ROBODR_SOC_CLIENT_KEY_PEM",
+        ]
+        params = inspect.signature(fn).parameters
+        # Routing and trust anchors are inputs, never secrets.
+        assert {"base_url", "robot_ca_pem", "robot_spki_sha256"} <= set(params)
+        assert params["answer_public_key_hex"].default is inspect.Parameter.empty
 
 
 # --------------------------------------------------------------------------- #
@@ -1140,11 +1280,8 @@ async def test_parameters_are_validated_before_anything_is_sent(
     kwargs, match, stub, platform
 ) -> None:
     robot, base_url = stub
-    arguments: dict[str, Any] = {
-        "base_url": base_url,
-        "robot_id": ROBOT_ID,
+    arguments: dict[str, Any] = _conn(base_url) | {
         "request_id": "r-1",
-        "answer_public_key_hex": FINDING_PUBLIC_HEX,
         "request_submission_id": str(uuid.uuid4()),
         "approval_submission_ids": [str(uuid.uuid4()), str(uuid.uuid4())],
     }
@@ -1159,8 +1296,8 @@ async def test_parameters_are_validated_before_anything_is_sent(
     "base_url",
     [
         "http://robot.example:8443",
-        "http://localhost:8443",
-        "http://10.0.0.5:8443",
+        "http://127.0.0.1:8443",
+        "http://[::1]:8443",
         "ftp://127.0.0.1",
         "https://robot.example/prefix",
         "https://robot.example/api/",
@@ -1176,23 +1313,30 @@ async def test_parameters_are_validated_before_anything_is_sent(
 async def test_base_url_is_https_without_a_path(base_url: str) -> None:
     with soc_secrets():
         with pytest.raises(ValueError, match="base_url"):
-            await cp.get_robot(base_url=base_url, robot_id=ROBOT_ID)
+            await cp.get_robot(**_conn(base_url))
 
 
 @pytest.mark.parametrize(
-    "base_url",
+    ("base_url", "host", "port", "host_header"),
     [
-        "https://robot.example",
-        "https://robot.example/",
-        "https://robot.example:8443",
-        "http://127.0.0.1:8443",
-        "http://127.10.0.1",
-        "http://[::1]:8443",
+        ("https://robot.example", "robot.example", 443, "robot.example"),
+        ("https://robot.example/", "robot.example", 443, "robot.example"),
+        ("https://robot.example:8443", "robot.example", 8443, "robot.example:8443"),
+        ("https://[::1]:8443", "::1", 8443, "[::1]:8443"),
     ],
 )
-def test_base_url_accepted_forms(base_url: str) -> None:
-    url = cp._robot_url(base_url, "/api/v1/robots/ugv-007")
-    assert url.raw_path == b"/api/v1/robots/ugv-007"
+def test_base_url_accepted_forms(
+    base_url: str, host: str, port: int, host_header: str
+) -> None:
+    robot = cp._robot(
+        base_url=base_url,
+        robot_id=ROBOT_ID,
+        robot_ca_pem=ROBOT_CA.cert_pem,
+        robot_spki_sha256=None,
+        answer_public_key_hex=FINDING_PUBLIC_HEX,
+        answer_key_id=None,
+    )
+    assert (robot.host, robot.port, robot.host_header) == (host, port, host_header)
 
 
 @pytest.mark.anyio
@@ -1201,8 +1345,8 @@ async def test_answer_cap_is_enforced_while_reading(stub) -> None:
     robot.stall_body = True
     with soc_secrets():
         started = time.monotonic()
-        with pytest.raises(cp.ControlPlaneError, match="256 KiB"):
-            await cp.get_robot(base_url=base_url, robot_id=ROBOT_ID)
+        with pytest.raises(cp.ControlPlaneError, match="exceeds"):
+            await cp.get_robot(**_conn(base_url))
         assert time.monotonic() - started < cp.REQUEST_TIMEOUT_S / 2
 
 
@@ -1212,8 +1356,451 @@ async def test_answer_key_id_with_separator_is_not_a_valid_signature(stub) -> No
     robot.answer_key_id = "finding;sig=00"
     with soc_secrets():
         with pytest.raises(cp.ControlPlaneError, match="answer signature"):
-            await cp.get_robot(
-                base_url=base_url,
-                robot_id=ROBOT_ID,
-                answer_public_key_hex=FINDING_PUBLIC_HEX,
+            await cp.get_robot(**_conn(base_url, answer_key_id=None))
+
+
+@pytest.mark.anyio
+async def test_unsigned_error_answers_are_not_taken_as_the_robots(stub) -> None:
+    robot, base_url = stub
+    robot.sign_answers = False
+    robot.answer_status = 409
+    robot.answer_for = lambda r: {"error": {"code": "request_id_conflict"}}
+    with soc_secrets():
+        with pytest.raises(cp.RobotHTTPError, match="UNSIGNED") as exc_info:
+            await cp.get_action_status(**_conn(base_url), request_id="r1")
+    assert exc_info.value.signed is False
+    assert exc_info.value.status == 409
+
+
+# --------------------------------------------------------------------------- #
+# Mutual TLS (§1)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.anyio
+async def test_mutual_tls_with_the_robot_ca_and_a_pinned_spki(stub) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        result = await cp.get_robot(**_conn(base_url, robot_spki_sha256=ROBOT_SPKI))
+    assert result["data"]["robot_id"] == ROBOT_ID
+    (request,) = robot.requests
+    assert request["verified"]
+    assert request["headers"]["host"] == base_url.removeprefix("https://")
+
+
+@pytest.mark.anyio
+async def test_spki_pin_mismatch_sends_nothing(stub) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        with pytest.raises(cp.ControlPlaneError, match="robot_spki_sha256"):
+            await cp.get_robot(**_conn(base_url, robot_spki_sha256="0" * 64))
+    assert robot.requests == []
+
+
+@pytest.mark.anyio
+async def test_a_server_certificate_from_another_ca_is_refused(stub) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await cp.get_robot(**_conn(base_url, robot_ca_pem=OTHER_CA.cert_pem))
+    assert robot.requests == []
+
+
+@pytest.mark.anyio
+async def test_the_server_certificate_must_match_the_host(stub) -> None:
+    robot, base_url = stub
+    port = base_url.rsplit(":", 1)[1]
+    # 127.0.0.2 is loopback too, but not in the certificate.
+    with soc_secrets():
+        with pytest.raises((ssl.SSLCertVerificationError, OSError)):
+            await cp.get_robot(**_conn(f"https://127.0.0.2:{port}"))
+    assert robot.requests == []
+
+
+@pytest.mark.anyio
+async def test_a_client_certificate_from_another_ca_is_refused(stub) -> None:
+    robot, base_url = stub
+    with soc_secrets(client=STRANGER_CLIENT):
+        with pytest.raises((ssl.SSLError, ConnectionError, cp.ControlPlaneError)):
+            await cp.get_robot(**_conn(base_url))
+    assert robot.requests == []
+
+
+@pytest.mark.anyio
+async def test_client_identity_secrets_are_required(stub) -> None:
+    robot, base_url = stub
+    token = registry_secrets.set_context(
+        {"ROBODR_SOC_KEY_ID": SOC_KEY_ID, "ROBODR_SOC_SECRET_HEX": SOC_SEED.hex()}
+    )
+    try:
+        with pytest.raises(SecretNotFoundError, match="ROBODR_SOC_CLIENT_CERT_PEM"):
+            await cp.get_robot(**_conn(base_url))
+    finally:
+        registry_secrets.reset_context(token)
+    assert robot.requests == []
+
+
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        ({"robot_ca_pem": "not a pem"}, "robot_ca_pem"),
+        ({"robot_spki_sha256": "abc"}, "robot_spki_sha256"),
+        ({"answer_public_key_hex": None}, "answer_public_key_hex"),
+        ({"answer_public_key_hex": "00" * 31}, "answer_public_key_hex"),
+    ],
+)
+@pytest.mark.anyio
+async def test_connection_inputs_are_checked_before_connecting(
+    override: dict[str, Any], match: str, stub
+) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        with pytest.raises(ValueError, match=match):
+            await cp.get_robot(**_conn(base_url, **override))
+    assert robot.requests == []
+
+
+# --------------------------------------------------------------------------- #
+# Request states (§5, §6, §6a)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("data", "in_force", "terminal", "word"),
+    [
+        (
+            {"status": "recorded_not_executed", "executed": False},
+            False,
+            True,
+            "Not applied",
+        ),
+        (
+            {
+                "status": "refused",
+                "executed": False,
+                "refusal": {"code": "safety_state_changed", "reason": "r"},
+            },
+            False,
+            True,
+            "safety_state_changed",
+        ),
+        (
+            {
+                "status": "failed",
+                "executed": False,
+                "state": {"error": {"code": "executor_unreachable"}},
+            },
+            False,
+            True,
+            "executor_unreachable",
+        ),
+        ({"status": "pending", "executed": False}, False, False, "Pending"),
+        ({"status": "verified", "executed": True}, True, False, "In force"),
+        ({"status": "verified", "executed": False}, False, False, "Not applied"),
+        ({"status": "reverted", "executed": True}, False, True, "Reverted"),
+        ({"status": "not_applied", "executed": False}, False, True, "Not applied"),
+        ({"status": "applied", "executed": False}, False, False, "Not applied"),
+        ({"status": "something_new", "executed": True}, False, False, "Not applied"),
+    ],
+)
+def test_every_status_is_reported_as_the_contract_requires(
+    data: dict[str, Any], in_force: bool, terminal: bool, word: str
+) -> None:
+    outcome = cp._outcome(data)
+    assert outcome["in_force"] is in_force
+    assert outcome["applied"] is in_force
+    assert outcome["terminal"] is terminal
+    assert word in outcome["report"]
+
+
+@pytest.mark.anyio
+async def test_executor_pending_then_verified(stub, platform) -> None:
+    robot, base_url = stub
+    robot.answer_for = lambda r: {
+        "request_id": "x",
+        "status": "pending" if r["method"] == "POST" else "verified",
+        "executed": r["method"] != "POST",
+        "state": {"executor": "robodr-executor"},
+    }
+    with soc_secrets():
+        sent = await _send(base_url, platform, "robot_isolate_network")
+        assert (sent["status"], sent["in_force"], sent["terminal"]) == (
+            "pending",
+            False,
+            False,
+        )
+        status = await cp.get_action_status(
+            **_conn(base_url), request_id=sent["request_id"]
+        )
+    assert (status["status"], status["in_force"]) == ("verified", True)
+
+
+# --------------------------------------------------------------------------- #
+# Evidence (§11), served from the shared contract vectors
+# --------------------------------------------------------------------------- #
+
+EXPORT_ID = "case-42:ev-1"
+EXPORT_TARGET = f"/api/v2/robots/{ROBOT_ID}/evidence/exports/case-42%3Aev-1"
+VECTOR_MANIFEST = (VECTORS / "evidence" / "manifest.json").read_bytes()
+VECTOR_MANIFEST_SIG = (VECTORS / "evidence" / "manifest.sig").read_text()
+VECTOR_SELECTOR: dict[str, Any] = json.loads(
+    (VECTORS / "requests" / "06-evidence-export.http")
+    .read_bytes()
+    .split(b"\r\n\r\n", 1)[1]
+)["selector"]
+BLACKBOX_PUB = (VECTORS / "keys" / "blackbox.key.pub").read_text()
+
+
+def _chunk(index: int) -> bytes:
+    return (VECTORS / "evidence" / "chunks" / f"{index:04d}.bin").read_bytes()
+
+
+@dataclass
+class EvidenceRobot:
+    """The evidence routes of the stub, serving the vector export."""
+
+    chunks: dict[int, bytes] = field(
+        default_factory=lambda: {i: _chunk(i) for i in range(3)}
+    )
+    busy_once: set[int] = field(default_factory=set)
+    manifest: bytes = VECTOR_MANIFEST
+    manifest_sig: str = VECTOR_MANIFEST_SIG
+
+    def __call__(self, record: dict[str, Any]) -> Reply | None:
+        target, method = record["target"], record["method"]
+        manifest_headers = {"X-RoboDR-Manifest-Signature": self.manifest_sig}
+        if target == f"/api/v2/robots/{ROBOT_ID}/evidence":
+            inventory = {"robot_id": ROBOT_ID, "api": cp.API_VERSION, "exports": []}
+            return 200, {}, json.dumps(inventory).encode()
+        if target == f"/api/v2/robots/{ROBOT_ID}/evidence/exports" and method == "POST":
+            return 201, manifest_headers, self.manifest
+        if target == EXPORT_TARGET and method == "GET":
+            return 200, manifest_headers, self.manifest
+        if target == EXPORT_TARGET and method == "DELETE":
+            return 200, {}, b'{"deleted":true,"export_id":"case-42:ev-1"}'
+        if target.startswith(EXPORT_TARGET + "/chunks/"):
+            index = int(target.rsplit("/", 1)[1])
+            if index in self.busy_once:
+                self.busy_once.discard(index)
+                error = {"error": {"code": "rate_limited", "message": "slow down"}}
+                return 429, {"Retry-After": "0"}, json.dumps(error).encode()
+            headers = {"Content-Type": "application/octet-stream"}
+            return 200, headers, self.chunks[index]
+        return None
+
+
+def _evidence_kwargs(base_url: str, **overrides: Any) -> dict[str, Any]:
+    finding = VECTOR_SELECTOR["finding"]
+    return (
+        _conn(base_url)
+        | {
+            "export_id": EXPORT_ID,
+            "finding_id": finding["finding_id"],
+            "evidence_links": finding["evidence"],
+            "context_records": finding["context_records"],
+        }
+        | overrides
+    )
+
+
+def _robot_edr(platform: FakeForms) -> FakeRobotEdr:
+    """The fake evidence client of the run context the platform fixture set."""
+    return cast(FakeRobotEdr, get_context().robot_edr)
+
+
+@pytest.mark.anyio
+async def test_list_evidence_is_signed_and_audit_logged(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    with soc_secrets():
+        result = await cp.list_evidence(**_conn(base_url))
+    assert result["data"]["robot_id"] == ROBOT_ID
+    assert result["audit_logged"] is True
+    assert _robot_edr(platform).accesses == [
+        {"robot_id": ROBOT_ID, "operation": "list", "export_id": None}
+    ]
+
+
+@pytest.mark.anyio
+async def test_create_export_sends_one_selector_and_checks_the_manifest(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    with soc_secrets():
+        result = await cp.create_evidence_export(
+            **_evidence_kwargs(base_url),
+            requested_by="analyst@soc",
+            reason="case 42",
+        )
+    assert result["created"] is True
+    assert result["manifest_signature_verified"] is True
+    assert result["manifest"]["export_id"] == EXPORT_ID
+    (post,) = robot.requests
+    assert (
+        post["body"]
+        == (VECTORS / "requests" / "06-evidence-export.http")
+        .read_bytes()
+        .split(b"\r\n\r\n", 1)[1]
+    )
+    assert _robot_edr(platform).accesses[0]["operation"] == "create_export"
+
+
+@pytest.mark.anyio
+async def test_create_export_refuses_a_manifest_for_another_selection(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="selector"):
+            await cp.create_evidence_export(
+                **_evidence_kwargs(base_url, context_records=2),
+                requested_by="analyst@soc",
             )
+
+
+@pytest.mark.anyio
+async def test_create_export_refuses_an_unsigned_manifest(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot(manifest_sig="")
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="manifest signature"):
+            await cp.create_evidence_export(
+                **_evidence_kwargs(base_url), requested_by="analyst@soc"
+            )
+
+
+@pytest.mark.anyio
+async def test_download_verifies_resumes_and_stores(stub, platform) -> None:
+    robot, base_url = stub
+    evidence = EvidenceRobot(busy_once={1})
+    robot.evidence_for = evidence
+    with soc_secrets():
+        result = await cp.download_evidence_export(
+            **_evidence_kwargs(base_url),
+            blackbox_public_keys=[BLACKBOX_PUB],
+            case_id="CASE-0042",
+            delete_after_download=True,
+        )
+    assert result["verified"] is True
+    verification = result["verification"]
+    assert verification["intact"] is True
+    assert (verification["first_seq"], verification["last_seq"]) == (7, 15)
+    assert (
+        verification["bundle_sha256"]
+        == hashlib.sha256(
+            (VECTORS / "evidence" / "bundle.rbbx").read_bytes()
+        ).hexdigest()
+    )
+    targets = [r["target"] for r in robot.requests]
+    # Chunk 1 was rate limited once and fetched again; no other chunk twice.
+    assert targets.count(EXPORT_TARGET + "/chunks/0") == 1
+    assert targets.count(EXPORT_TARGET + "/chunks/1") == 2
+    assert targets.count(EXPORT_TARGET + "/chunks/2") == 1
+    assert robot.requests[-1]["method"] == "DELETE"
+    (stored,) = _robot_edr(platform).stored
+    assert stored["case_id"] == "CASE-0042"
+    assert stored["manifest_signature"] == VECTOR_MANIFEST_SIG
+    assert stored["verification"]["verified"] is True
+    assert result["deleted"] is True
+
+
+@pytest.mark.anyio
+async def test_a_tampered_chunk_is_never_stored(stub, platform) -> None:
+    robot, base_url = stub
+    evidence = EvidenceRobot()
+    evidence.chunks[1] = evidence.chunks[1][:-1] + bytes([evidence.chunks[1][-1] ^ 1])
+    robot.evidence_for = evidence
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="chunk 1"):
+            await cp.download_evidence_export(
+                **_evidence_kwargs(base_url),
+                blackbox_public_keys=[BLACKBOX_PUB],
+                case_id="CASE-0042",
+            )
+    assert _robot_edr(platform).stored == []
+
+
+@pytest.mark.anyio
+async def test_a_bundle_that_does_not_verify_is_never_stored(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    other = Ed25519PrivateKey.from_private_bytes(bytes([0x60]) * 32).public_key()
+    wrong_key = json.dumps(
+        {
+            **json.loads(BLACKBOX_PUB),
+            "public_hex": other.public_bytes_raw().hex(),
+        }
+    )
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="bad signature"):
+            await cp.download_evidence_export(
+                **_evidence_kwargs(base_url),
+                blackbox_public_keys=[wrong_key],
+                case_id="CASE-0042",
+            )
+    assert _robot_edr(platform).stored == []
+
+
+@pytest.mark.anyio
+async def test_download_refuses_secret_key_files_before_connecting(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    secret_file = json.dumps({**json.loads(BLACKBOX_PUB), "kind": "secret"})
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="public key files"):
+            await cp.download_evidence_export(
+                **_evidence_kwargs(base_url),
+                blackbox_public_keys=[secret_file],
+                case_id="CASE-0042",
+            )
+    assert robot.requests == []
+
+
+# --------------------------------------------------------------------------- #
+# The evidence SDK calls the exact action-gateway routes
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.anyio
+async def test_robot_edr_sdk_calls_its_exact_internal_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        if request.url.path.endswith("/access"):
+            return httpx.Response(204)
+        return httpx.Response(201, json={"attachment_id": "a"})
+
+    def transport(*, uds: str) -> httpx.MockTransport:
+        return httpx.MockTransport(handle)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
+    client = TracecatClient(action_gateway_socket="/tmp/robot-edr-test.sock")
+    await client.robot_edr.store_evidence(
+        "CASE-0042",
+        robot_id=ROBOT_ID,
+        export_id=EXPORT_ID,
+        manifest_base64="bQ==",
+        manifest_signature="s",
+        bundle_base64="Yg==",
+        verification={"verified": True},
+    )
+    await client.robot_edr.record_evidence_access(robot_id=ROBOT_ID, operation="list")
+    assert [(r.method, str(r.url)) for r in sent] == [
+        (
+            "POST",
+            "http://tracecat-action-gateway/internal/robot-edr/cases/CASE-0042/evidence",
+        ),
+        ("POST", "http://tracecat-action-gateway/internal/robot-edr/evidence/access"),
+    ]
+    assert json.loads(sent[0].content)["export_id"] == EXPORT_ID
+    assert json.loads(sent[1].content) == {
+        "robot_id": ROBOT_ID,
+        "operation": "list",
+        "export_id": None,
+    }

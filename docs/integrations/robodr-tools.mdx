@@ -1,7 +1,7 @@
 ---
 title: "RoboDR robot findings"
 sidebarTitle: "RoboDR"
-description: "Triage RoboDR robot EDR findings in AutoSecOps: parse and verify findings, render adversary-controlled fields safely, and request signed-off robot actions."
+description: "Triage RoboDR robot EDR findings in AutoSecOps: parse and verify findings, render adversary-controlled fields safely, request signed-off robot actions, and export verified black-box evidence."
 keywords: ["robodr", "robot", "edr", "ros 2", "dds", "ocsf", "humanoid"]
 ---
 
@@ -95,7 +95,7 @@ alone.
 
 ## Control-plane actions
 
-The control-plane actions call the robot's on-board agent, `robodr-agentd`, through API `robodr-control-plane/v1`.
+The control-plane actions call the robot's on-board agent, `robodr-agentd`, through API `robodr-control-plane/v2` over mutual TLS.
 The robot judges every request against its current safety state and may refuse it.
 
 | Action | Changes robot state | Sign-off |
@@ -107,6 +107,9 @@ The robot judges every request against its current safety state and may refuse i
 | `tools.robodr.get_action_status` | No | None |
 | `tools.robodr.prepare_revert_request` | No | None. Runs locally |
 | `tools.robodr.revert_action` | Yes | Platform sign-off, enforced by the action |
+| `tools.robodr.list_evidence` | No | None. Audit-logged |
+| `tools.robodr.create_evidence_export` | No (the robot records the export in its black box) | None. Audit-logged |
+| `tools.robodr.download_evidence_export` | No | None. Audit-logged |
 
 ### How "no robot action is autonomous" is enforced
 
@@ -146,31 +149,73 @@ Both actions need the forms feature.
 
 After the sign-off check, `request_action` reads the robot's signed snapshot and refuses an action the robot does not advertise or the morphology rules forbid.
 
-### Credentials
+### Connection and credentials
 
-Create a secret named `robodr_control_plane` with these keys, from the SOC key pair that `robodr-blackbox keygen` writes:
+Every call is one HTTP/1.1 request on its own mutual TLS connection (TLS 1.2 or later).
+AutoSecOps checks the robot's server certificate against `robot_ca_pem` and the host of `base_url`, and presents the SOC client certificate from the secret.
+With `robot_spki_sha256` set, AutoSecOps also compares the SHA-256 of the server certificate's `SubjectPublicKeyInfo` before it sends anything.
+
+Create a secret named `robodr_control_plane` with these keys:
 
 | Key | Value |
 | --- | --- |
-| `ROBODR_SOC_KEY_ID` | The key file's `key_id`, such as `soc:example:1` |
-| `ROBODR_SOC_SECRET_HEX` | The secret key file's `secret_hex`: the 32-byte Ed25519 seed as 64 hex digits |
+| `ROBODR_SOC_KEY_ID` | The SOC signing key file's `key_id` from `robodr-blackbox keygen`, such as `soc:example:1` |
+| `ROBODR_SOC_SECRET_HEX` | That secret key file's `secret_hex`: the 32-byte Ed25519 seed as 64 hex digits |
+| `ROBODR_SOC_CLIENT_CERT_PEM` | The SOC client certificate in PEM, end entity first, issued by a CA in the robot's `tls.client_ca` |
+| `ROBODR_SOC_CLIENT_KEY_PEM` | The client certificate's private key as unencrypted PEM (`-----BEGIN PRIVATE KEY-----`) |
 
-Install the matching `.pub` file on the robot under `control_plane.soc_keys`.
-Pass the robot's control-plane URL as `base_url`: `https://host[:port]` with no path, such as `https://robot-gw.example.internal`. Plain `http` is accepted only for a loopback IP literal, such as a TLS terminator on `127.0.0.1`.
-The TLS terminator in front of `robodr-agentd` must forward the request target unchanged, because the signature covers it.
-Answers larger than 256 KiB are refused while they are read.
+Install the signing key's `.pub` file on the robot under `control_plane.soc_keys`, and the SOC CA under `tls.client_ca` (plus the client SPKI pin in `tls.client_spki_sha256` if you pin it).
 
-Set `answer_public_key_hex` to the robot's finding public key to require signed answers.
-`request_action` and `revert_action` require it: they refuse to run without it, because the morphology check reads the snapshot and an unsigned snapshot could come from anyone on the path.
+Pass these action inputs. They are not secrets, so keep them in [workspace variables](/automations/core-concepts/variables):
+
+| Input | Value |
+| --- | --- |
+| `base_url` | `https://host[:port]` with no path, such as `https://ugv-007.robots.example.internal:8443`. AutoSecOps accepts `https` only |
+| `robot_ca_pem` | PEM certificate(s) of the CA that issued the robot's `tls.cert_chain` |
+| `robot_spki_sha256` | Optional: 64 hex digits from the robot's `status.json`, `control_plane.tls.server_spki_sha256` |
+| `answer_public_key_hex` | The robot's finding public key (64 hex digits). Required by every network action |
+| `answer_key_id` | Optional: the finding key id the answer signatures must name |
+
+Every request carries an Ed25519 signature over the `robodr-control-plane/v2` signing message, and every answer must carry an `X-RoboDR-Answer-Signature` from the robot's finding key bound to that request.
+AutoSecOps takes nothing from an answer without a valid signature; an unsigned error answer is reported as `UNSIGNED: not from the robot`.
+JSON answers larger than 256 KiB are refused while they are read.
 
 ### Results
 
-Every result carries `status`, `executed`, `applied`, `terminal`, `refusal`, and a `report` sentence.
+Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `terminal`, `refusal`, `error`, and a `report` sentence.
 
-The current RoboDR release records accepted requests and executes nothing.
-An accepted request answers `recorded_not_executed` with `executed: false`, and the action reports it as not applied.
-`recorded_not_executed`, `refused`, and `failed` are terminal: do not poll them.
-A refusal is final: show `refusal.code`, `refusal.reason`, and `refusal.safety_state`, and do not retry.
+| `status` | Meaning | Terminal |
+| --- | --- | --- |
+| `recorded_not_executed` | Accepted and recorded as a plan; the robot executed nothing. Reported as not applied | Yes |
+| `refused` | Judged unsafe or not allowed now, by the robot or its executor. Show `refusal.code`, `refusal.reason`, and `refusal.safety_state`; do not retry | Yes |
+| `failed` | Not taken (`error.code`); nothing is in force. A new request is judged anew | Yes |
+| `pending` | Handed to RoboDR's executor; not in force yet. Poll `get_action_status` | No |
+| `verified` | The executor applied the action and verified it: `in_force` is `true` until a revert or the TTL | No |
+| `reverted` | No longer in force | Yes |
+| `not_applied` | Revert of a request that never took effect | Yes |
+
+Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
+A revert of a `pending` or `verified` request answers `pending`; `get_action_status` then shows `reverted`.
+
+### Evidence
+
+The evidence actions export signed black-box records from the robot and verify them as the control-plane contract (section 11.6) requires.
+
+- `list_evidence` returns the robot's evidence inventory: chain identity, retained sequence numbers and gaps, kept exports, and export limits.
+- `create_evidence_export` asks for one export with exactly one selector: `finding_id` with `evidence_links` (and optional `context_records`, 0 to 1024), `from_seq` with `to_seq`, or `from_ms` with `to_ms` (at most 7 days apart). It checks the manifest's `X-RoboDR-Manifest-Signature` and that the manifest's selector is the one you asked for. The same `export_id` with the same selector returns the same manifest.
+- `download_evidence_export` takes the same `export_id` and selector, the robot's black-box public key files in `blackbox_public_keys` (the `.pub` JSON files; secret key files are refused), and the `case_id` to store the evidence for.
+
+`download_evidence_export` stores evidence only after every check passed: answer signatures, the manifest signature and selector, each chunk's length and SHA-256, the bundle's SHA-256, every black-box record's hash, signature, and chain link under the black-box keys, and the bundle against the manifest (sequence numbers, record count, last hash, chain id, anchor, and every referenced record).
+It downloads the chunks in order and retries only the chunk that failed after a rate limit (`429`, honouring `Retry-After` up to 60 seconds), `busy`, or a dropped connection.
+It refuses exports larger than 64 MiB. Set `delete_after_download` to free the robot's export quota once the evidence is stored.
+
+AutoSecOps then checks the manifest signature again against a finding key registered for the robot in the workspace (see [RoboDR ingest](/integrations/robodr-ingest)), and the bundle against the manifest.
+It stores the bundle, the manifest, and its signature in the attachments bucket under `robot-edr/evidence/<workspace id>/<bundle sha256>/`, and attaches a plain-text report named `robodr-evidence-<first 16 hex of the bundle sha256>.txt` to the case.
+Only this action can create attachments with the `robodr-evidence-` prefix, so the case panel shows those attachments as verified evidence.
+The bundle sits outside the case attachment limits; `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` caps it (64 MiB by default).
+
+Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
+AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.
 
 ## Humanoid and quadruped safety
 
@@ -183,7 +228,7 @@ A humanoid stays upright only while its joint controllers balance it, and a quad
 
 ## Example workflows
 
-The `examples/004-robodr-robot-findings/workflows/` folder in the repository holds five workflow definitions in the import format.
+The `examples/004-robodr-robot-findings/workflows/` folder in the repository holds six workflow definitions in the import format.
 Import each one. The case triggers ship offline and filter on the tag `robodr`: tag RoboDR cases, then turn the triggers on.
 
 | Workflow | What it does |
@@ -193,6 +238,7 @@ Import each one. The case triggers ship offline and filter on the tag `robodr`: 
 | Robot action sign-off | The form the requester and approvers submit. Turn its form on for the people who may request or approve robot actions |
 | Rogue DDS participant | Proposes `robot_record_evidence`, `robot_quarantine_node`, and `robot_isolate_network` for DDS discovery findings |
 | Motion envelope violation | Proposes `robot_record_evidence` and `robot_restrict_motion` for motion envelope findings |
+| Robot evidence export | Exports the finding's black-box records (its `evidence_links` with context records), verifies them, and stores them for the case |
 
 The proposal workflows only comment on the case. Every robot action goes through the containment workflow.
 

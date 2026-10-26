@@ -1,14 +1,24 @@
-"""RoboDR robot control plane v1 (`robodr-control-plane/v1`).
+"""RoboDR robot control plane v2 (`robodr-control-plane/v2`).
 
 A SOC asks a robot's on-board agent (`robodr-agentd`) for one of seven catalog
-actions. The robot judges each request against its current safety state and
-may refuse it. In the current RoboDR release nothing is executed: an accepted
-request answers `recorded_not_executed` with `executed: false`, which these
-actions report as not applied.
+actions, and exports signed black-box evidence. The robot judges each action
+request against its current safety state and may refuse it. Without executor
+v1 nothing is executed: an accepted request answers `recorded_not_executed`
+with `executed: false`, which these actions report as not applied. With
+executor v1 a request may answer `pending`, then `verified` (in force) or
+`reverted`; `refused` and `failed` are never applied.
 
-Every request is signed with the SOC's Ed25519 key over
+Channel and authentication (contract §1-2)
+------------------------------------------
 
-    robodr-control-plane/v1
+Every call is one HTTP/1.1 request over **mutual TLS** (https only): the
+robot's server certificate must chain to the configured robot CA and match
+the host of `base_url` (optionally also its SPKI SHA-256 pin, checked before
+anything is sent), and the SOC presents its client certificate and key from
+the `robodr_control_plane` secret. Every request is also signed with the
+SOC's Ed25519 key over
+
+    robodr-control-plane/v2
     <METHOD>
     <request target exactly as sent>
     <robot id>
@@ -18,7 +28,10 @@ Every request is signed with the SOC's Ed25519 key over
     <lower-case hex SHA-256 of the body bytes>
 
 (lines joined by LF, no trailing newline), sent as `X-RoboDR-Key-Id`,
-`X-RoboDR-Timestamp`, `X-RoboDR-Nonce` and `X-RoboDR-Signature`.
+`X-RoboDR-Timestamp`, `X-RoboDR-Nonce` and `X-RoboDR-Signature`. Every answer
+must carry a valid `X-RoboDR-Answer-Signature` from the robot's finding key,
+bound to the request's signature; an answer without one is treated as not
+coming from the robot and nothing is taken from it.
 
 How "no robot action is autonomous" is enforced
 -----------------------------------------------
@@ -53,17 +66,30 @@ run's executor token:
 `requires_approval=True` additionally pauses an agent's tool call in the
 inbox, but that gate is not relied on: a workflow step calling the action
 directly, or an agent whose tool approval was turned off, still needs the
-sign-off submissions above. The robot's answers, including the snapshot the
-morphology check reads, must carry a valid answer signature for these two
-actions (`answer_public_key_hex` is required).
+sign-off submissions above. The morphology rules are checked against the
+robot's own signed snapshot.
+
+Evidence (contract §11)
+-----------------------
+
+`list_evidence`, `create_evidence_export` and `download_evidence_export`
+read black-box evidence. Exporting changes nothing on the robot (it is
+recorded in its black box), so these need no sign-off; each call is written
+to the platform audit log. A download verifies the export as §11.6 requires
+(`robodr_evidence`) before the bundle is stored for the case; nothing that
+fails verification is stored.
 """
 
+import asyncio
+import base64
 import hashlib
-import ipaddress
 import json
 import math
+import os
 import re
 import secrets as pysecrets
+import ssl
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass
@@ -71,8 +97,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import quote, urlsplit
 
-import httpx
+from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from typing_extensions import Doc
 
 from autosecops_registry import RegistrySecret, registry, secrets
@@ -83,18 +110,53 @@ from autosecops_registry.integrations.robodr import (
     ed25519_verify_strict,
     parse_public_key_hex,
 )
+from autosecops_registry.integrations.robodr_evidence import (
+    EvidenceError,
+    Manifest,
+    assemble_bundle,
+    build_selector,
+    check_chunk,
+    check_report_against_manifest,
+    parse_blackbox_keyring,
+    parse_manifest,
+    parse_signature_header,
+    selector_matches,
+    verify_bundle,
+    verify_manifest_signature,
+)
+from autosecops_registry.sdk.robot_edr import EvidenceOperation
 
-API_VERSION = "robodr-control-plane/v1"
-REQUEST_TIMEOUT_S = 10.0
+API_VERSION = "robodr-control-plane/v2"
+ANSWER_DOMAIN = f"{API_VERSION} answer"
+API_PREFIX = "/api/v2/robots"
+REQUEST_TIMEOUT_S = 35.0
+"""The robot answers within 30 s (§1); a little more for the TLS handshake."""
+HANDSHAKE_TIMEOUT_S = 5.0
 MAX_ANSWER_BYTES = 256 * 1024
+MAX_ANSWER_HEAD_BYTES = 16 * 1024
+MAX_STORED_BUNDLE_BYTES = 64 * 1024 * 1024
+"""Largest export downloaded and stored: the robot's default `max_export_bytes`."""
+CHUNK_ATTEMPTS = 5
+MAX_RETRY_AFTER_S = 60
 
 robodr_control_plane_secret = RegistrySecret(
     name="robodr_control_plane",
-    keys=["ROBODR_SOC_KEY_ID", "ROBODR_SOC_SECRET_HEX"],
+    keys=[
+        "ROBODR_SOC_KEY_ID",
+        "ROBODR_SOC_SECRET_HEX",
+        "ROBODR_SOC_CLIENT_CERT_PEM",
+        "ROBODR_SOC_CLIENT_KEY_PEM",
+    ],
 )
-"""SOC signing key: `key_id` and `secret_hex` (32-byte Ed25519 seed, 64 hex)
-from the `robodr-blackbox keygen` secret key file whose `.pub` is installed on
-the robot (`control_plane.soc_keys`)."""
+"""SOC credentials for the robot control plane.
+
+`ROBODR_SOC_KEY_ID` / `ROBODR_SOC_SECRET_HEX`: the SOC signing key, from the
+`robodr-blackbox keygen` secret key file whose `.pub` is installed on the
+robot (`control_plane.soc_keys`); `secret_hex` is the 32-byte Ed25519 seed.
+`ROBODR_SOC_CLIENT_CERT_PEM` / `ROBODR_SOC_CLIENT_KEY_PEM`: the SOC's mutual
+TLS client certificate chain (end entity first) and its unencrypted private
+key; the certificate must chain to a CA in the robot's `tls.client_ca`.
+The robot CA and SPKI pin are not secret: they are action inputs."""
 
 
 # --------------------------------------------------------------------------- #
@@ -664,7 +726,7 @@ def _require_approvals(label: str, required: int, approvers: list[Person]) -> No
 
 
 # --------------------------------------------------------------------------- #
-# Signed transport
+# Request signing and answer signatures (§2)
 # --------------------------------------------------------------------------- #
 
 
@@ -688,254 +750,470 @@ def signing_message(
 def answer_message(request_signature_hex: str, status: int, body: bytes) -> bytes:
     """The bytes a robot signs for an answer (robodr.control-plane §2)."""
     digest = hashlib.sha256(body).hexdigest()
-    return f"{API_VERSION} answer\n{request_signature_hex}\n{status}\n{digest}".encode()
+    return f"{ANSWER_DOMAIN}\n{request_signature_hex}\n{status}\n{digest}".encode()
+
+
+def request_bytes(
+    *,
+    method: str,
+    target: str,
+    host: str,
+    key_id: str,
+    timestamp: int,
+    nonce: str,
+    signature_hex: str,
+    body: bytes,
+) -> bytes:
+    """The exact HTTP/1.1 request bytes (§1), as the contract vectors send them."""
+    head = (
+        f"{method} {target} HTTP/1.1\r\n"
+        f"Host: {host}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        f"X-RoboDR-Key-Id: {key_id}\r\n"
+        f"X-RoboDR-Timestamp: {timestamp}\r\n"
+        f"X-RoboDR-Nonce: {nonce}\r\n"
+        f"X-RoboDR-Signature: {signature_hex}\r\n"
+        "\r\n"
+    )
+    return head.encode("ascii") + body
+
+
+def body_bytes(document: dict[str, Any]) -> bytes:
+    """Compact JSON with sorted keys, the form the contract vectors use."""
+    return json.dumps(
+        document,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode()
 
 
 def _signing_key() -> tuple[str, Ed25519PrivateKey]:
     key_id = secrets.get("ROBODR_SOC_KEY_ID")
     secret_hex = secrets.get("ROBODR_SOC_SECRET_HEX")
-    if not key_id or not all("!" <= c <= "~" for c in key_id) or len(key_id) > 128:
-        raise ValueError("ROBODR_SOC_KEY_ID must be 1..128 printable ASCII")
+    if not _full(_KEY_ID_RE, key_id):
+        raise ValueError("ROBODR_SOC_KEY_ID must be 1..128 printable ASCII without ';'")
     seed = parse_public_key_hex(secret_hex or "")
     if seed is None:
         raise ValueError("ROBODR_SOC_SECRET_HEX must be a 64-hex-digit Ed25519 seed")
     return key_id, Ed25519PrivateKey.from_private_bytes(seed)
 
 
+def _client_identity() -> tuple[str, str]:
+    cert_pem = secrets.get("ROBODR_SOC_CLIENT_CERT_PEM")
+    key_pem = secrets.get("ROBODR_SOC_CLIENT_KEY_PEM")
+    if not cert_pem or "-----BEGIN CERTIFICATE-----" not in cert_pem:
+        raise ValueError("ROBODR_SOC_CLIENT_CERT_PEM must be a PEM certificate chain")
+    if not key_pem or "PRIVATE KEY-----" not in key_pem:
+        raise ValueError("ROBODR_SOC_CLIENT_KEY_PEM must be a PEM private key")
+    return cert_pem, key_pem
+
+
 def _robot_target(robot_id: str, *rest: str) -> str:
     _check_robot_id(robot_id)
-    parts = ["", "api", "v1", "robots", quote(robot_id, safe="")]
+    parts = [API_PREFIX, quote(robot_id, safe="")]
     parts += [quote(p, safe="") for p in rest]
     return "/".join(parts)
 
 
-def _robot_url(base_url: object, target: str) -> httpx.URL:
-    """The request URL: `base_url` (scheme and authority only) plus `target`.
+# --------------------------------------------------------------------------- #
+# Mutual TLS transport (§1)
+# --------------------------------------------------------------------------- #
 
-    https only; plain http only to a loopback IP literal (a local TLS
-    terminator). A path prefix is refused: the signature covers the target
-    exactly as sent, and robodr-agentd serves `/api/v1/...` at the root.
-    """
-    if (
-        not isinstance(base_url, str)
-        or not base_url.isascii()
-        or any(not ("!" <= c <= "~") for c in base_url)
-        or "?" in base_url
-        or "#" in base_url
-    ):
-        raise ValueError("base_url must be scheme://host[:port] in printable ASCII")
+_SPKI_RE = re.compile(r"[0-9a-f]{64}")
+
+
+@dataclass(frozen=True, slots=True)
+class _Robot:
+    """Where and how to reach one robot, checked before anything is sent."""
+
+    robot_id: str
+    host: str
+    port: int
+    host_header: str
+    ca_pem: str
+    spki_sha256: str | None
+    answer_key: bytes
+    answer_key_id: str | None
+
+
+def _robot(
+    *,
+    base_url: object,
+    robot_id: object,
+    robot_ca_pem: object,
+    robot_spki_sha256: object,
+    answer_public_key_hex: object,
+    answer_key_id: object,
+) -> _Robot:
+    """Validate the connection inputs (https only, no path; §1)."""
+    rid = _check_robot_id(robot_id)
+    if not isinstance(base_url, str) or any(not "!" <= c <= "~" for c in base_url):
+        raise ValueError("base_url must be https://host[:port] in printable ASCII")
     try:
         parts = urlsplit(base_url)
-        port = parts.port
+        port = parts.port or 443
     except ValueError as exc:
         raise ValueError(f"base_url is not a valid URL: {exc}") from exc
+    if parts.scheme != "https":
+        raise ValueError("base_url must be https: the robot only speaks mutual TLS")
     host = parts.hostname
     if not host or parts.username is not None or parts.password is not None:
-        raise ValueError("base_url must be scheme://host[:port] without credentials")
-    if parts.path not in ("", "/"):
+        raise ValueError("base_url must be https://host[:port] without credentials")
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
         raise ValueError(
-            "base_url must not carry a path: the robot serves /api/v1 at the root "
-            "and the signature covers the target exactly as sent"
+            "base_url must not carry a path or query: robodr-agentd serves "
+            "/api/v2 at the root and the signature covers the target as sent"
         )
-    if parts.scheme == "http":
-        try:
-            loopback = ipaddress.ip_address(host).is_loopback
-        except ValueError:
-            loopback = False
-        if not loopback:
-            raise ValueError(
-                "base_url must be https; plain http is allowed only to a "
-                "loopback IP literal"
-            )
-    elif parts.scheme != "https":
-        raise ValueError("base_url must be https")
+    if not isinstance(robot_ca_pem, str) or "-----BEGIN CERTIFICATE-----" not in (
+        robot_ca_pem
+    ):
+        raise ValueError("robot_ca_pem must be the robot CA certificate(s) in PEM")
+    pin = robot_spki_sha256.lower() if isinstance(robot_spki_sha256, str) else None
+    if robot_spki_sha256 is not None and not _full(_SPKI_RE, pin):
+        raise ValueError("robot_spki_sha256 must be 64 hex digits")
+    key = (
+        parse_public_key_hex(answer_public_key_hex)
+        if isinstance(answer_public_key_hex, str)
+        else None
+    )
+    if key is None:
+        raise ValueError(
+            "answer_public_key_hex is required (64 hex): every answer must carry "
+            "the robot's answer signature"
+        )
+    if answer_key_id is not None and not _full(_KEY_ID_RE, answer_key_id):
+        raise ValueError("answer_key_id must be 1..128 printable ASCII without ';'")
     netloc = f"[{host}]" if ":" in host else host
-    if port is not None:
-        netloc = f"{netloc}:{port}"
-    # The signature covers the target exactly as sent: build the URL from the
-    # raw (already percent-encoded) target and keep httpx from re-encoding it.
-    return httpx.URL(f"{parts.scheme}://{netloc}").copy_with(
-        raw_path=target.encode("ascii")
+    host_header = netloc if parts.port is None else f"{netloc}:{port}"
+    return _Robot(
+        robot_id=rid,
+        host=host,
+        port=port,
+        host_header=host_header,
+        ca_pem=robot_ca_pem,
+        spki_sha256=pin,
+        answer_key=key,
+        answer_key_id=answer_key_id if isinstance(answer_key_id, str) else None,
     )
 
 
-def _parse_answer_signature(header: str) -> tuple[str, bytes] | None:
-    fields = header.split(";")
-    if len(fields) != 3 or fields[0] != "ed25519":
-        return None
-    if not fields[1].startswith("key_id=") or not fields[2].startswith("sig="):
-        return None
-    key_id = fields[1].removeprefix("key_id=")
-    if not _full(_KEY_ID_RE, key_id):
-        return None
-    sig_hex = fields[2].removeprefix("sig=")
-    if len(sig_hex) != 128 or any(c not in "0123456789abcdef" for c in sig_hex):
-        return None
-    return key_id, bytes.fromhex(sig_hex)
-
-
-def _check_answer_key(
-    answer_public_key_hex: object, answer_key_id: object, *, required: bool
-) -> None:
-    if answer_public_key_hex in (None, ""):
-        if required:
+def _tls_context(robot: _Robot, cert_pem: str, key_pem: str) -> ssl.SSLContext:
+    """TLS 1.2+ client context: robot CA only, hostname checked, SOC client cert."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    try:
+        context.load_verify_locations(cadata=robot.ca_pem)
+    except ssl.SSLError as exc:
+        raise ValueError("robot_ca_pem is not a valid PEM certificate") from exc
+    # `ssl` loads a client identity only from files: write it to a private
+    # temporary directory and remove it as soon as it is loaded.
+    with tempfile.TemporaryDirectory(prefix="robodr-tls-") as directory:
+        cert_path = os.path.join(directory, "client.crt")
+        key_path = os.path.join(directory, "client.key")
+        for path, text in ((cert_path, cert_pem), (key_path, key_pem)):
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="ascii") as handle:
+                handle.write(text)
+        try:
+            context.load_cert_chain(cert_path, key_path)
+        except ssl.SSLError as exc:
             raise ValueError(
-                "answer_public_key_hex is required: state-changing requests are "
-                "sent only when the robot's answers (and the snapshot they are "
-                "judged against) are signed by the robot's key"
-            )
-    elif not isinstance(answer_public_key_hex, str) or (
-        parse_public_key_hex(answer_public_key_hex) is None
+                "the SOC client certificate and key do not load (unencrypted "
+                "PEM key matching the certificate required)"
+            ) from exc
+    return context
+
+
+def spki_sha256(certificate_der: bytes) -> str:
+    """Lower-case hex SHA-256 of a certificate's DER SubjectPublicKeyInfo."""
+    certificate = x509.load_der_x509_certificate(certificate_der)
+    spki = certificate.public_key().public_bytes(
+        Encoding.DER, PublicFormat.SubjectPublicKeyInfo
+    )
+    return hashlib.sha256(spki).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class RawAnswer:
+    status: int
+    headers: tuple[tuple[str, str], ...]
+    body: bytes
+
+    def header(self, name: str) -> str | None:
+        """The header's value; None when absent or present more than once."""
+        values = [v for k, v in self.headers if k.lower() == name.lower()]
+        return values[0] if len(values) == 1 else None
+
+
+class RobotHTTPError(ControlPlaneError):
+    """The robot answered with an HTTP error (signed or not)."""
+
+    def __init__(
+        self, status: int, code: str | None, message: str, *, signed: bool
+    ) -> None:
+        self.status = status
+        self.code = code
+        self.signed = signed
+        self.retry_after: int | None = None
+        origin = "signed by the robot" if signed else "UNSIGNED: not from the robot"
+        super().__init__(
+            f"robot answered HTTP {status} ({_shown(code) if code else 'no error code'}, "
+            f"{origin}): {message}"
+        )
+
+
+def parse_answer(raw: bytes, *, max_body: int) -> RawAnswer:
+    """Parse one HTTP/1.1 answer read until the robot closed the connection."""
+    head, sep, rest = raw.partition(b"\r\n\r\n")
+    if not sep or len(head) > MAX_ANSWER_HEAD_BYTES:
+        raise ControlPlaneError("the robot's answer has no valid HTTP head")
+    lines = head.decode("latin-1").split("\r\n")
+    status_line = lines[0].split(" ", 2)
+    if len(status_line) < 2 or status_line[0] not in ("HTTP/1.1", "HTTP/1.0"):
+        raise ControlPlaneError("the robot's answer has no HTTP status line")
+    if not status_line[1].isdigit() or len(status_line[1]) != 3:
+        raise ControlPlaneError("the robot's answer has an invalid status")
+    headers: list[tuple[str, str]] = []
+    for line in lines[1:]:
+        name, colon, value = line.partition(":")
+        if not colon or not name or name != name.strip():
+            raise ControlPlaneError("the robot's answer has a malformed header")
+        headers.append((name, value.strip()))
+    answer = RawAnswer(int(status_line[1]), tuple(headers), b"")
+    if answer.header("Transfer-Encoding") is not None or any(
+        k.lower() == "transfer-encoding" for k, _ in headers
     ):
-        raise ValueError("answer_public_key_hex must be 64 hex digits")
-    if answer_key_id is not None and not _full(_KEY_ID_RE, answer_key_id):
-        raise ValueError("answer_key_id must be 1..128 printable ASCII without ';'")
+        raise ControlPlaneError("the robot's answer uses a transfer encoding")
+    lengths = [v for k, v in headers if k.lower() == "content-length"]
+    if len(lengths) > 1 or (lengths and not lengths[0].isdigit()):
+        raise ControlPlaneError("the robot's answer has an invalid Content-Length")
+    if lengths:
+        length = int(lengths[0])
+        if length > max_body:
+            raise ControlPlaneError(f"the robot's answer exceeds {max_body} bytes")
+        if len(rest) != length:
+            raise ControlPlaneError("the robot's answer is truncated")
+    elif len(rest) > max_body:
+        raise ControlPlaneError(f"the robot's answer exceeds {max_body} bytes")
+    return RawAnswer(answer.status, answer.headers, rest)
 
 
-async def _read_capped(response: httpx.Response) -> bytes:
-    """The body, refusing it as soon as it exceeds MAX_ANSWER_BYTES."""
+async def _read_capped(reader: asyncio.StreamReader, limit: int) -> bytes:
+    """Read until EOF, refusing as soon as more than ``limit`` bytes arrive."""
     chunks: list[bytes] = []
     size = 0
-    async for chunk in response.aiter_bytes():
+    while chunk := await reader.read(64 * 1024):
         size += len(chunk)
-        if size > MAX_ANSWER_BYTES:
-            raise ControlPlaneError("the robot's answer exceeds 256 KiB")
+        if size > limit:
+            raise ControlPlaneError(f"the robot's answer exceeds {limit} bytes")
         chunks.append(chunk)
     return b"".join(chunks)
 
 
-async def _signed_request(
-    *,
-    base_url: str,
-    robot_id: str,
+async def _exchange(robot: _Robot, request: bytes, *, max_body: int) -> RawAnswer:
+    """One request on one mutual-TLS connection (`Connection: close`, §1)."""
+    cert_pem, key_pem = _client_identity()
+    context = _tls_context(robot, cert_pem, key_pem)
+    async with asyncio.timeout(REQUEST_TIMEOUT_S):
+        reader, writer = await asyncio.open_connection(
+            robot.host,
+            robot.port,
+            ssl=context,
+            server_hostname=robot.host,
+            ssl_handshake_timeout=HANDSHAKE_TIMEOUT_S,
+        )
+        try:
+            if robot.spki_sha256 is not None:
+                ssl_object = writer.get_extra_info("ssl_object")
+                der = (
+                    ssl_object.getpeercert(binary_form=True)
+                    if isinstance(ssl_object, ssl.SSLObject)
+                    else None
+                )
+                if der is None or spki_sha256(der) != robot.spki_sha256:
+                    raise ControlPlaneError(
+                        "the robot's server certificate does not match "
+                        "robot_spki_sha256; nothing was sent"
+                    )
+            writer.write(request)
+            await writer.drain()
+            raw = await _read_capped(reader, max_body + MAX_ANSWER_HEAD_BYTES)
+        except BaseException:
+            # Drop the connection at once: a graceful TLS close would wait
+            # for a robot that is still sending (or stalling).
+            writer.transport.abort()
+            raise
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except (OSError, ssl.SSLError):
+            pass
+    return parse_answer(raw, max_body=max_body)
+
+
+@dataclass(frozen=True, slots=True)
+class SignedAnswer:
+    """An answer whose `X-RoboDR-Answer-Signature` verified."""
+
+    status: int
+    body: bytes
+    raw: RawAnswer
+
+    def json(self) -> dict[str, Any]:
+        try:
+            data = json.loads(self.body)
+        except ValueError as exc:
+            raise ControlPlaneError("the robot's answer is not JSON") from exc
+        if not isinstance(data, dict):
+            raise ControlPlaneError("the robot's answer is not a JSON object")
+        return data
+
+
+def verify_answer(robot: _Robot, request_signature_hex: str, raw: RawAnswer) -> bool:
+    """Whether the answer carries a valid answer signature for this request."""
+    header = raw.header("X-RoboDR-Answer-Signature")
+    parsed = parse_signature_header(header) if header else None
+    if parsed is None:
+        return False
+    key_id, signature = parsed
+    if robot.answer_key_id is not None and key_id != robot.answer_key_id:
+        return False
+    message = answer_message(request_signature_hex, raw.status, raw.body)
+    return ed25519_verify_strict(robot.answer_key, message, signature)
+
+
+def _error_of(body: bytes) -> tuple[str | None, str]:
+    try:
+        data = json.loads(body) if body else None
+    except ValueError:
+        data = None
+    match data:
+        case {"error": {"code": str(code), "message": str(message)}}:
+            return code, message[:300]
+        case {"error": {"code": str(code)}}:
+            return code, "no message"
+        case _:
+            return None, "no message"
+
+
+async def _call(
+    robot: _Robot,
     method: str,
     target: str,
-    body: bytes,
-    answer_public_key_hex: str | None,
-    answer_key_id: str | None,
-) -> dict[str, Any]:
-    _check_answer_key(answer_public_key_hex, answer_key_id, required=False)
-    url = _robot_url(base_url, target)
+    body: bytes = b"",
+    *,
+    ok: tuple[int, ...] = (200,),
+    max_body: int = MAX_ANSWER_BYTES,
+) -> SignedAnswer:
+    """Sign, send and verify one request; raise unless a signed `ok` answer."""
     key_id, private_key = _signing_key()
     timestamp = int(time.time())
     nonce = pysecrets.token_urlsafe(24)
-    signature = private_key.sign(
-        signing_message(method, target, robot_id, key_id, timestamp, nonce, body)
+    signature_hex = private_key.sign(
+        signing_message(method, target, robot.robot_id, key_id, timestamp, nonce, body)
+    ).hex()
+    request = request_bytes(
+        method=method,
+        target=target,
+        host=robot.host_header,
+        key_id=key_id,
+        timestamp=timestamp,
+        nonce=nonce,
+        signature_hex=signature_hex,
+        body=body,
     )
-    signature_hex = signature.hex()
-    headers = {
-        "X-RoboDR-Key-Id": key_id,
-        "X-RoboDR-Timestamp": str(timestamp),
-        "X-RoboDR-Nonce": nonce,
-        "X-RoboDR-Signature": signature_hex,
-        "Connection": "close",
-        "Accept": "application/json",
-        "Accept-Encoding": "identity",
-    }
-    if method == "POST":
-        headers["Content-Type"] = "application/json"
-    async with httpx.AsyncClient(
-        timeout=REQUEST_TIMEOUT_S, follow_redirects=False
-    ) as client:
-        async with client.stream(
-            method, url, headers=headers, content=body if method == "POST" else None
-        ) as response:
-            answer = await _read_capped(response)
-            status_code = response.status_code
-            answer_header = response.headers.get("X-RoboDR-Answer-Signature")
-
-    answer_verified: bool | None = None
-    if answer_public_key_hex:
-        public_key = parse_public_key_hex(answer_public_key_hex)
-        if public_key is None:  # checked above; keeps the type checker honest
-            raise ValueError("answer_public_key_hex must be 64 hex digits")
-        parsed = _parse_answer_signature(answer_header) if answer_header else None
-        if parsed is None:
-            raise ControlPlaneError("the answer carries no valid answer signature")
-        signed_key_id, answer_sig = parsed
-        if answer_key_id is not None and signed_key_id != answer_key_id:
-            raise ControlPlaneError("the answer is signed by an unexpected key id")
-        message = answer_message(signature_hex, status_code, answer)
-        if not ed25519_verify_strict(public_key, message, answer_sig):
-            raise ControlPlaneError("the answer signature does not verify")
-        answer_verified = True
-
-    try:
-        data = json.loads(answer) if answer else None
-    except ValueError:
-        data = None
-    if status_code != 200:
-        error = data.get("error") if isinstance(data, dict) else None
-        code = error.get("code") if isinstance(error, dict) else None
-        message = error.get("message") if isinstance(error, dict) else None
+    raw = await _exchange(robot, request, max_body=max_body)
+    signed = verify_answer(robot, signature_hex, raw)
+    if raw.status not in ok:
+        code, message = _error_of(raw.body)
+        error = RobotHTTPError(raw.status, code, message, signed=signed)
+        retry_after = raw.header("Retry-After")
+        if signed and retry_after is not None and retry_after.isdigit():
+            error.retry_after = int(retry_after)
+        raise error
+    if not signed:
         raise ControlPlaneError(
-            f"robot answered HTTP {status_code}"
-            f" ({_shown(code) if code else 'no error code'}): "
-            f"{message if isinstance(message, str) else 'no message'}"
+            "the answer carries no valid answer signature from the robot's "
+            "finding key: it is not taken as the robot's answer"
         )
-    if not isinstance(data, dict):
-        raise ControlPlaneError("the robot's answer is not a JSON object")
-    return {
-        "status_code": status_code,
-        "answer_signature_verified": answer_verified,
-        "data": data,
-    }
+    return SignedAnswer(raw.status, raw.body, raw)
+
+
+# --------------------------------------------------------------------------- #
+# Request states (§5, §6, §6a)
+# --------------------------------------------------------------------------- #
+
+TERMINAL_STATUSES = frozenset(
+    {"recorded_not_executed", "refused", "failed", "not_applied", "reverted"}
+)
 
 
 def _outcome(data: dict[str, Any]) -> dict[str, Any]:
-    """Report a request state as the contract requires (§5, §9)."""
+    """Report a request state as the contract requires (§5, §6a, §10)."""
     status = data.get("status")
     executed = data.get("executed") is True
-    applied = status == "applied" and executed
-    if status == "recorded_not_executed":
-        report = (
-            "Not applied: the robot accepted the request and recorded it as a "
-            "plan in its black box; it executed nothing."
-        )
-    elif status == "refused":
-        raw_refusal = data.get("refusal")
-        refusal: dict[str, Any] = raw_refusal if isinstance(raw_refusal, dict) else {}
-        report = (
-            f"Refused by the robot ({refusal.get('code')}, safety state "
-            f"{refusal.get('safety_state')}): {refusal.get('reason')}. Refusals "
-            "are final; do not retry."
-        )
-    elif status == "failed":
-        report = "Failed: the robot's black box did not take the request; nothing was decided."
-    elif status == "not_applied":
-        report = "Not applied: the request never took effect, so there was nothing to revert."
-    elif applied:
-        report = "Applied and executed by the robot."
-    else:
-        report = f"Not applied (status {status!r})."
+    in_force = status in ("verified", "applied") and executed
+    raw_refusal = data.get("refusal")
+    refusal: dict[str, Any] = raw_refusal if isinstance(raw_refusal, dict) else {}
+    raw_state = data.get("state")
+    state: dict[str, Any] = raw_state if isinstance(raw_state, dict) else {}
+    raw_error = state.get("error")
+    error: dict[str, Any] = raw_error if isinstance(raw_error, dict) else {}
+    match status:
+        case "recorded_not_executed":
+            report = (
+                "Not applied: the robot accepted the request and recorded it as a "
+                "plan in its black box; it executed nothing."
+            )
+        case "refused":
+            report = (
+                f"Not applied: refused by the robot ({_shown(refusal.get('code'))}, "
+                f"safety state {_shown(refusal.get('safety_state'))}): "
+                f"{refusal.get('reason')}. Refusals are final; do not retry."
+            )
+        case "failed":
+            report = (
+                f"Not applied: failed ({_shown(error.get('code'))}); nothing is in "
+                "force. A new request is judged anew."
+            )
+        case "not_applied":
+            report = "Not applied: the request never took effect, so there was nothing to revert."
+        case "pending":
+            report = (
+                "Pending: accepted, recorded and handed to the robot's executor; "
+                "not in force yet. Poll get_action_status."
+            )
+        case "verified" if in_force:
+            report = (
+                "In force: the robot's executor applied the action and verified it; "
+                "it stays until revert or its TTL expires."
+            )
+        case "reverted":
+            report = "Reverted: the action is no longer in force."
+        case "applied" if in_force:
+            report = "Applied and executed by the robot."
+        case _:
+            report = f"Not applied (status {_shown(status)})."
     return {
         "status": status,
         "executed": executed,
-        "applied": applied,
-        "terminal": status
-        in ("recorded_not_executed", "refused", "failed", "not_applied"),
+        "in_force": in_force,
+        "applied": in_force,
+        "terminal": status in TERMINAL_STATUSES,
         "refusal": data.get("refusal"),
+        "error": state.get("error"),
         "report": report,
     }
 
 
-async def _verified_snapshot(
-    base_url: str,
-    robot_id: str,
-    answer_public_key_hex: str,
-    answer_key_id: str | None,
-) -> dict[str, Any]:
-    snapshot = await _signed_request(
-        base_url=base_url,
-        robot_id=robot_id,
-        method="GET",
-        target=_robot_target(robot_id),
-        body=b"",
-        answer_public_key_hex=answer_public_key_hex,
-        answer_key_id=answer_key_id,
-    )
-    snap = snapshot["data"]
-    if snap.get("robot_id") != robot_id:
+async def _verified_snapshot(robot: _Robot) -> dict[str, Any]:
+    snap = (await _call(robot, "GET", _robot_target(robot.robot_id))).json()
+    if snap.get("robot_id") != robot.robot_id:
         raise ControlPlaneError("the snapshot is for another robot_id")
     return snap
 
@@ -945,18 +1223,24 @@ async def _verified_snapshot(
 # --------------------------------------------------------------------------- #
 
 _BASE_URL_DOC = Doc(
-    "Robot control-plane URL, https://host[:port] with no path, of the TLS "
-    "terminator in front of robodr-agentd (plain http only to a loopback IP "
-    "literal). It must forward the request target unchanged."
+    "Robot control-plane URL, https://host[:port] with no path: robodr-agentd's "
+    "mutual-TLS listener (or a TLS terminator in front of it that forwards the "
+    "client certificate check and the request target unchanged)."
 )
 _ROBOT_ID_DOC = Doc("Robot id robodr-agentd is configured with.")
-_ANSWER_KEY_DOC = Doc(
-    "Robot finding public key (64 hex). When set, the answer must carry a "
-    "valid X-RoboDR-Answer-Signature bound to this request."
+_ROBOT_CA_DOC = Doc(
+    "PEM certificate(s) of the CA that issued the robot's server certificate "
+    "(tls.cert_chain). Only this CA is trusted; the certificate must also match "
+    "the host of base_url."
 )
-_REQUIRED_ANSWER_KEY_DOC = Doc(
-    "Robot finding public key (64 hex). Required: the snapshot and the answer "
-    "must carry a valid X-RoboDR-Answer-Signature bound to each request."
+_SPKI_DOC = Doc(
+    "Optional pin: SHA-256 (64 hex) of the robot server certificate's "
+    "SubjectPublicKeyInfo (status.json control_plane.tls.server_spki_sha256). "
+    "Checked before anything is sent."
+)
+_ANSWER_KEY_DOC = Doc(
+    "Robot finding public key (64 hex). Required: every answer must carry a "
+    "valid X-RoboDR-Answer-Signature bound to its request."
 )
 _ANSWER_KEY_ID_DOC = Doc("Optional expected key id of the answer signature.")
 _REQUEST_SUBMISSION_DOC = Doc(
@@ -974,8 +1258,9 @@ _APPROVAL_SUBMISSIONS_DOC = Doc(
 @registry.register(
     default_title="Get RoboDR robot snapshot",
     description=(
-        "Read a robot's control-plane snapshot: safety state, mode, morphology "
-        "and the actions it may be asked for. Read-only."
+        "Read a robot's control-plane snapshot over mutual TLS: safety state, "
+        "mode, morphology, executor and the actions it may be asked for. "
+        "Read-only; the answer signature is verified."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -985,18 +1270,25 @@ _APPROVAL_SUBMISSIONS_DOC = Doc(
 async def get_robot(
     base_url: Annotated[str, _BASE_URL_DOC],
     robot_id: Annotated[str, _ROBOT_ID_DOC],
-    answer_public_key_hex: Annotated[str | None, _ANSWER_KEY_DOC] = None,
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
 ) -> dict[str, Any]:
-    return await _signed_request(
+    robot = _robot(
         base_url=base_url,
         robot_id=robot_id,
-        method="GET",
-        target=_robot_target(robot_id),
-        body=b"",
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
+    answer = await _call(robot, "GET", _robot_target(robot.robot_id))
+    return {
+        "status_code": answer.status,
+        "answer_signature_verified": True,
+        "data": answer.json(),
+    }
 
 
 _ACTION_INPUT_DOCS = {
@@ -1093,12 +1385,12 @@ def prepare_action_request(
         "Send one signed-off catalog action request (robot_restrict_motion, "
         "robot_quarantine_node, robot_isolate_network, robot_record_evidence, "
         "robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a "
-        "robot's control plane. Refuses unless platform form submissions prove "
-        "the requester and one approver (two for the two-person actions), all "
-        "different platform users, signed off this exact request. The robot "
-        "judges it against its safety state and may refuse it. The current "
-        "RoboDR release records but never executes: recorded_not_executed is "
-        "reported as not applied."
+        "robot's control plane over mutual TLS. Refuses unless platform form "
+        "submissions prove the requester and one approver (two for the "
+        "two-person actions), all different platform users, signed off this "
+        "exact request. The robot judges it against its safety state and may "
+        "refuse it. recorded_not_executed, refused and failed are reported as "
+        "not applied; pending is not yet in force; only verified is in force."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -1110,6 +1402,7 @@ def prepare_action_request(
 async def request_action(
     base_url: Annotated[str, _BASE_URL_DOC],
     robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
     action: Annotated[
         str,
         Doc("Catalog action by wire name (robot_<name>) or plain name."),
@@ -1120,7 +1413,7 @@ async def request_action(
     ],
     request_submission_id: Annotated[str, _REQUEST_SUBMISSION_DOC],
     approval_submission_ids: Annotated[list[str], _APPROVAL_SUBMISSIONS_DOC],
-    answer_public_key_hex: Annotated[str, _REQUIRED_ANSWER_KEY_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
     reason: Annotated[str, _ACTION_INPUT_DOCS["reason"]] = "",
     source: Annotated[str, _ACTION_INPUT_DOCS["source"]] = "autosecops",
     ttl_seconds: Annotated[int | None, _ACTION_INPUT_DOCS["ttl_seconds"]] = None,
@@ -1144,6 +1437,7 @@ async def request_action(
     to_version: Annotated[
         str | None, Doc("rollback_config: target version, [A-Za-z0-9._-]{1,64}.")
     ] = None,
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
 ) -> dict[str, Any]:
     # 1. Inputs, before anything is read or sent.
@@ -1163,8 +1457,14 @@ async def request_action(
         to_version=to_version,
     )
     spec = prepared.spec
-    _check_answer_key(answer_public_key_hex, answer_key_id, required=True)
-    _robot_url(base_url, "/")
+    robot = _robot(
+        base_url=base_url,
+        robot_id=robot_id,
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
+        answer_public_key_hex=answer_public_key_hex,
+        answer_key_id=answer_key_id,
+    )
 
     # 2. The platform sign-off for exactly this request.
     required = 2 if spec.two_person else 1
@@ -1177,9 +1477,7 @@ async def request_action(
     _require_approvals(wire_name(spec.name), required, approvers)
 
     # 3. The policy against the robot's own signed snapshot.
-    snap = await _verified_snapshot(
-        base_url, robot_id, answer_public_key_hex, answer_key_id
-    )
+    snap = await _verified_snapshot(robot)
     reasons = _policy_reasons(spec, snap.get("morphology"), snap.get("actions"))
     if reasons:
         raise ValueError("request refused by the SOC policy: " + "; ".join(reasons))
@@ -1188,25 +1486,20 @@ async def request_action(
         "request_id": prepared.request_id,
         "action": spec.name,
         "parameters": prepared.parameters,
-    }
-    if prepared.ttl_seconds is not None:
-        body_obj["ttl_seconds"] = prepared.ttl_seconds
-    body_obj |= {
         "reason": prepared.reason,
         "requested_by": requester.identifier,
         "source": prepared.source,
         "authority": "request",
     }
-    body = json.dumps(body_obj, separators=(",", ":"), ensure_ascii=True).encode()
-    answer = await _signed_request(
-        base_url=base_url,
-        robot_id=robot_id,
-        method="POST",
-        target=_robot_target(robot_id, "action-requests"),
-        body=body,
-        answer_public_key_hex=answer_public_key_hex,
-        answer_key_id=answer_key_id,
+    if prepared.ttl_seconds is not None:
+        body_obj["ttl_seconds"] = prepared.ttl_seconds
+    answer = await _call(
+        robot,
+        "POST",
+        _robot_target(robot.robot_id, "action-requests"),
+        body_bytes(body_obj),
     )
+    data = answer.json()
     return {
         "request_id": prepared.request_id,
         "action": spec.name,
@@ -1215,17 +1508,20 @@ async def request_action(
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
         "robot_safety_state": snap.get("safety_state"),
-        **_outcome(answer["data"]),
-        "answer_signature_verified": answer["answer_signature_verified"],
-        "answer": answer["data"],
+        "robot_executor": snap.get("executor"),
+        **_outcome(data),
+        "answer_signature_verified": True,
+        "answer": data,
     }
 
 
 @registry.register(
     default_title="Get RoboDR action status",
     description=(
-        "Read the stored state of a robot action request. recorded_not_executed, "
-        "refused and failed are terminal: never poll them."
+        "Read the stored state of a robot action request (signed answer). "
+        "recorded_not_executed, refused, failed and reverted are terminal: never "
+        "poll them. Poll pending until it becomes verified (in force), refused "
+        "or failed."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -1235,25 +1531,30 @@ async def request_action(
 async def get_action_status(
     base_url: Annotated[str, _BASE_URL_DOC],
     robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
     request_id: Annotated[str, Doc("The request_id of the action request.")],
-    answer_public_key_hex: Annotated[str | None, _ANSWER_KEY_DOC] = None,
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
 ) -> dict[str, Any]:
     _check_request_id(request_id)
-    answer = await _signed_request(
+    robot = _robot(
         base_url=base_url,
         robot_id=robot_id,
-        method="GET",
-        target=_robot_target(robot_id, "action-requests", request_id),
-        body=b"",
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
+    answer = await _call(
+        robot, "GET", _robot_target(robot.robot_id, "action-requests", request_id)
+    )
+    data = answer.json()
     return {
         "request_id": request_id,
-        **_outcome(answer["data"]),
-        "answer_signature_verified": answer["answer_signature_verified"],
-        "answer": answer["data"],
+        **_outcome(data),
+        "answer_signature_verified": True,
+        "answer": data,
     }
 
 
@@ -1294,9 +1595,10 @@ def prepare_revert_request(
     description=(
         "Ask a robot to revert a signed-off action request. Needs the same "
         "platform sign-off as a request (two approvers to revert a two-person "
-        "action such as robot_safe_pause). request_safe_state and "
-        "rollback_config are not reversible (refused, not_reversible); a request "
-        "that never took effect answers not_applied."
+        "action such as robot_safe_pause). request_safe_state, rollback_config "
+        "and record_evidence are not reversible (refused, not_reversible); a "
+        "request that never took effect answers not_applied; an executed one "
+        "answers pending, then reverted."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -1308,11 +1610,13 @@ def prepare_revert_request(
 async def revert_action(
     base_url: Annotated[str, _BASE_URL_DOC],
     robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
     request_id: Annotated[str, Doc("The request_id of the action request.")],
     request_submission_id: Annotated[str, _REQUEST_SUBMISSION_DOC],
     approval_submission_ids: Annotated[list[str], _APPROVAL_SUBMISSIONS_DOC],
-    answer_public_key_hex: Annotated[str, _REQUIRED_ANSWER_KEY_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
     reason: Annotated[str, Doc("Why, at most 500 characters.")] = "",
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
 ) -> dict[str, Any]:
     fields = {
@@ -1320,8 +1624,14 @@ async def revert_action(
         "request_id": _check_request_id(request_id),
         "reason": _check_reason(reason),
     }
-    _check_answer_key(answer_public_key_hex, answer_key_id, required=True)
-    _robot_url(base_url, "/")
+    robot = _robot(
+        base_url=base_url,
+        robot_id=robot_id,
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
+        answer_public_key_hex=answer_public_key_hex,
+        answer_key_id=answer_key_id,
+    )
     requester, approvers = await _collect_signoff(
         request_id=request_id,
         digest=request_digest("revert", fields),
@@ -1331,16 +1641,10 @@ async def revert_action(
 
     # Which action the revert undoes decides how many approvals it needs: ask
     # the robot (signed answer) instead of trusting an input.
-    stored = await _signed_request(
-        base_url=base_url,
-        robot_id=robot_id,
-        method="GET",
-        target=_robot_target(robot_id, "action-requests", request_id),
-        body=b"",
-        answer_public_key_hex=answer_public_key_hex,
-        answer_key_id=answer_key_id,
+    stored = await _call(
+        robot, "GET", _robot_target(robot.robot_id, "action-requests", request_id)
     )
-    state = stored["data"].get("state")
+    state = stored.json().get("state")
     stored_action = state.get("action") if isinstance(state, dict) else None
     if not isinstance(stored_action, str) or stored_action not in CATALOG:
         raise ControlPlaneError(
@@ -1353,34 +1657,430 @@ async def revert_action(
         f"a revert of {wire_name(spec.name)}", 2 if spec.two_person else 1, approvers
     )
 
-    snap = await _verified_snapshot(
-        base_url, robot_id, answer_public_key_hex, answer_key_id
-    )
+    snap = await _verified_snapshot(robot)
     reasons = _policy_reasons(spec, snap.get("morphology"))
     if reasons:
         raise ValueError("revert refused by the SOC policy: " + "; ".join(reasons))
 
-    body = json.dumps(
-        {"reason": fields["reason"], "requested_by": requester.identifier},
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode()
-    answer = await _signed_request(
-        base_url=base_url,
-        robot_id=robot_id,
-        method="POST",
-        target=_robot_target(robot_id, "action-requests", request_id, "revert"),
-        body=body,
-        answer_public_key_hex=answer_public_key_hex,
-        answer_key_id=answer_key_id,
+    body = body_bytes(
+        {"reason": fields["reason"], "requested_by": requester.identifier}
     )
+    answer = await _call(
+        robot,
+        "POST",
+        _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
+        body,
+    )
+    data = answer.json()
     return {
         "request_id": request_id,
         "action": spec.name,
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
-        **_outcome(answer["data"]),
-        "answer_signature_verified": answer["answer_signature_verified"],
-        "answer": answer["data"],
+        **_outcome(data),
+        "answer_signature_verified": True,
+        "answer": data,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Evidence (§11)
+# --------------------------------------------------------------------------- #
+
+_EXPORT_ID_DOC = Doc(
+    "Export id and idempotency key, [A-Za-z0-9._:-]{1,128} (e.g. case-42:ev-1)."
+)
+_FINDING_ID_DOC = Doc(
+    "finding selector: the finding's finding_id (1..256 bytes). Give it with "
+    "evidence_links; exactly one selector per export."
+)
+_EVIDENCE_LINKS_DOC = Doc(
+    "finding selector: 1..64 robodr-blackbox:// links of this robot (the "
+    "finding's evidence_links)."
+)
+_CONTEXT_RECORDS_DOC = Doc(
+    "finding selector: records exported on each side of the linked ones, "
+    "0..1024 (robot default 16)."
+)
+_FROM_SEQ_DOC = Doc("seq_range selector: first black-box seq (with to_seq).")
+_TO_SEQ_DOC = Doc("seq_range selector: last black-box seq, >= from_seq.")
+_FROM_MS_DOC = Doc("time_range selector: start, Unix ms (with to_ms).")
+_TO_MS_DOC = Doc("time_range selector: end, Unix ms; at most 7 days after from_ms.")
+_EXPORT_ID_RE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
+
+
+def _check_export_id(export_id: object) -> str:
+    if not isinstance(export_id, str) or not _full(_EXPORT_ID_RE, export_id):
+        raise ValueError("export_id must match [A-Za-z0-9._:-]{1,128}")
+    return export_id
+
+
+async def _record_access(
+    robot_id: str, operation: EvidenceOperation, export_id: str | None = None
+) -> bool:
+    """Write the platform audit event for an evidence read; True if written."""
+    try:
+        await get_context().robot_edr.record_evidence_access(
+            robot_id=robot_id, operation=operation, export_id=export_id
+        )
+    except Exception:  # the robot's black box records every export regardless
+        return False
+    return True
+
+
+@registry.register(
+    default_title="List RoboDR evidence",
+    description=(
+        "Read a robot's black-box evidence inventory: chain identity, retained "
+        "seqs and gaps, head, kept exports and export limits. Read-only, signed "
+        "answer, audit-logged."
+    ),
+    display_group=DISPLAY_GROUP,
+    doc_url=DOC_URL,
+    namespace="tools.robodr",
+    secrets=[robodr_control_plane_secret],
+)
+async def list_evidence(
+    base_url: Annotated[str, _BASE_URL_DOC],
+    robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
+    answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
+) -> dict[str, Any]:
+    robot = _robot(
+        base_url=base_url,
+        robot_id=robot_id,
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
+        answer_public_key_hex=answer_public_key_hex,
+        answer_key_id=answer_key_id,
+    )
+    audit_logged = await _record_access(robot.robot_id, "list")
+    answer = await _call(robot, "GET", _robot_target(robot.robot_id, "evidence"))
+    return {
+        "answer_signature_verified": True,
+        "audit_logged": audit_logged,
+        "data": answer.json(),
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class _VerifiedManifest:
+    manifest: Manifest
+    manifest_bytes: bytes
+    manifest_signature: str
+    status: int
+
+
+def _verified_manifest(
+    robot: _Robot,
+    answer: SignedAnswer,
+    export_id: str,
+    selector: dict[str, Any],
+) -> _VerifiedManifest:
+    """§11.6 step 2: manifest signature, identity fields and the selector."""
+    header = answer.raw.header("X-RoboDR-Manifest-Signature")
+    verify_manifest_signature(
+        answer.body, header, robot.answer_key, robot.answer_key_id
+    )
+    manifest = parse_manifest(answer.body, robot_id=robot.robot_id, export_id=export_id)
+    if not selector_matches(manifest, selector, robot.robot_id):
+        raise EvidenceError("the manifest's selector is not the one asked for")
+    return _VerifiedManifest(manifest, answer.body, header or "", answer.status)
+
+
+def _selector(
+    robot_id: str,
+    finding_id: str | None,
+    evidence_links: list[str] | None,
+    context_records: int | None,
+    from_seq: int | None,
+    to_seq: int | None,
+    from_ms: int | None,
+    to_ms: int | None,
+) -> dict[str, Any]:
+    return build_selector(
+        robot_id=robot_id,
+        finding_id=finding_id,
+        evidence_links=evidence_links,
+        context_records=context_records,
+        from_seq=from_seq,
+        to_seq=to_seq,
+        from_ms=from_ms,
+        to_ms=to_ms,
+    )
+
+
+@registry.register(
+    default_title="Create RoboDR evidence export",
+    description=(
+        "Ask a robot to export black-box evidence for exactly one selector: a "
+        "finding's evidence links (with context records), a seq range or a time "
+        "range. Returns the export manifest after checking its manifest "
+        "signature and selector. Read-only for the robot (the export is "
+        "recorded in its black box), so no sign-off is needed; audit-logged. "
+        "The same export_id with the same selector returns the same manifest."
+    ),
+    display_group=DISPLAY_GROUP,
+    doc_url=DOC_URL,
+    namespace="tools.robodr",
+    secrets=[robodr_control_plane_secret],
+)
+async def create_evidence_export(
+    base_url: Annotated[str, _BASE_URL_DOC],
+    robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
+    export_id: Annotated[str, _EXPORT_ID_DOC],
+    requested_by: Annotated[
+        str, Doc("Who asks, 1..100 characters without control characters.")
+    ],
+    reason: Annotated[str, Doc("Why, at most 500 characters.")] = "",
+    finding_id: Annotated[str | None, _FINDING_ID_DOC] = None,
+    evidence_links: Annotated[list[str] | None, _EVIDENCE_LINKS_DOC] = None,
+    context_records: Annotated[int | None, _CONTEXT_RECORDS_DOC] = None,
+    from_seq: Annotated[int | None, _FROM_SEQ_DOC] = None,
+    to_seq: Annotated[int | None, _TO_SEQ_DOC] = None,
+    from_ms: Annotated[int | None, _FROM_MS_DOC] = None,
+    to_ms: Annotated[int | None, _TO_MS_DOC] = None,
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
+    answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
+) -> dict[str, Any]:
+    robot = _robot(
+        base_url=base_url,
+        robot_id=robot_id,
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
+        answer_public_key_hex=answer_public_key_hex,
+        answer_key_id=answer_key_id,
+    )
+    _check_export_id(export_id)
+    if not _text_ok(requested_by, _MAX_IDENTITY_CHARS) or not requested_by:
+        raise ValueError(
+            "requested_by must be 1..100 characters without control characters"
+        )
+    _check_reason(reason)
+    selector = _selector(
+        robot.robot_id,
+        finding_id,
+        evidence_links,
+        context_records,
+        from_seq,
+        to_seq,
+        from_ms,
+        to_ms,
+    )
+    audit_logged = await _record_access(robot.robot_id, "create_export", export_id)
+    body = body_bytes(
+        {
+            "export_id": export_id,
+            "selector": selector,
+            "requested_by": requested_by,
+            "reason": reason,
+        }
+    )
+    answer = await _call(
+        robot,
+        "POST",
+        _robot_target(robot.robot_id, "evidence", "exports"),
+        body,
+        ok=(200, 201),
+    )
+    verified = _verified_manifest(robot, answer, export_id, selector)
+    return {
+        "export_id": export_id,
+        "created": answer.status == 201,
+        "answer_signature_verified": True,
+        "manifest_signature_verified": True,
+        "manifest_signature": verified.manifest_signature,
+        "manifest_sha256": hashlib.sha256(verified.manifest_bytes).hexdigest(),
+        "audit_logged": audit_logged,
+        "manifest": verified.manifest.raw,
+    }
+
+
+async def _fetch_chunk(robot: _Robot, export_id: str, index: int, size: int) -> bytes:
+    """One chunk, retried on transport faults, `busy` and rate limits (§11.5).
+
+    Chunks are immutable and independent, so a retry fetches only this one:
+    the download resumes where it stopped. A chunk the robot refuses for good
+    (unknown export or chunk, corrupt export) is not retried.
+    """
+    target = _robot_target(
+        robot.robot_id, "evidence", "exports", export_id, "chunks", str(index)
+    )
+    delay = 1.0
+    for attempt in range(1, CHUNK_ATTEMPTS + 1):
+        try:
+            answer = await _call(robot, "GET", target, max_body=size)
+            return answer.body
+        except RobotHTTPError as exc:
+            retryable = exc.signed and (
+                exc.status == 429
+                or (exc.status == 503 and exc.code in ("busy", "evidence_busy"))
+            )
+            if not retryable or attempt == CHUNK_ATTEMPTS:
+                raise
+            wait = min(exc.retry_after or delay, MAX_RETRY_AFTER_S)
+        except (OSError, TimeoutError, ssl.SSLError):
+            if attempt == CHUNK_ATTEMPTS:
+                raise
+            wait = delay
+        await asyncio.sleep(wait)
+        delay = min(delay * 2, MAX_RETRY_AFTER_S)
+    raise ControlPlaneError("unreachable: chunk retries exhausted")
+
+
+def _verification_report(
+    verified: _VerifiedManifest, report: dict[str, Any]
+) -> dict[str, Any]:
+    manifest = verified.manifest
+    manifest_key = parse_signature_header(verified.manifest_signature)
+    return {
+        "verified": True,
+        "steps": [
+            "answer_signatures",
+            "manifest_signature",
+            "chunk_hashes",
+            "bundle",
+            "manifest_consistency",
+        ],
+        "manifest_sha256": hashlib.sha256(verified.manifest_bytes).hexdigest(),
+        "manifest_key_id": manifest_key[0] if manifest_key else None,
+        "bundle_sha256": manifest.bundle_sha256,
+        "bundle_bytes": manifest.bundle_bytes,
+        "chunks": len(manifest.chunks),
+        **report,
+    }
+
+
+@registry.register(
+    default_title="Download RoboDR evidence export",
+    description=(
+        "Download an evidence export chunk by chunk (resuming after transient "
+        "faults), verify it as robodr.control-plane §11.6 requires (answer "
+        "signatures, manifest signature, chunk and bundle SHA-256, every "
+        "black-box record's hash, signature and chain under the robot's "
+        "black-box keyring, and the result against the manifest) and store the "
+        "verified bundle for the case. Nothing that fails verification is "
+        "stored. Read-only for the robot; audit-logged."
+    ),
+    display_group=DISPLAY_GROUP,
+    doc_url=DOC_URL,
+    namespace="tools.robodr",
+    secrets=[robodr_control_plane_secret],
+    required_entitlements=["robot_edr"],
+)
+async def download_evidence_export(
+    base_url: Annotated[str, _BASE_URL_DOC],
+    robot_id: Annotated[str, _ROBOT_ID_DOC],
+    robot_ca_pem: Annotated[str, _ROBOT_CA_DOC],
+    answer_public_key_hex: Annotated[str, _ANSWER_KEY_DOC],
+    export_id: Annotated[str, _EXPORT_ID_DOC],
+    blackbox_public_keys: Annotated[
+        list[str],
+        Doc(
+            "The robot's black-box public key files (robodr-blackbox keygen "
+            ".pub JSON), every key the chain names across rotations. Public "
+            "key files only."
+        ),
+    ],
+    case_id: Annotated[str, Doc("Case the verified evidence is stored for.")],
+    finding_id: Annotated[str | None, _FINDING_ID_DOC] = None,
+    evidence_links: Annotated[list[str] | None, _EVIDENCE_LINKS_DOC] = None,
+    context_records: Annotated[int | None, _CONTEXT_RECORDS_DOC] = None,
+    from_seq: Annotated[int | None, _FROM_SEQ_DOC] = None,
+    to_seq: Annotated[int | None, _TO_SEQ_DOC] = None,
+    from_ms: Annotated[int | None, _FROM_MS_DOC] = None,
+    to_ms: Annotated[int | None, _TO_MS_DOC] = None,
+    delete_after_download: Annotated[
+        bool,
+        Doc("Delete the export on the robot once it is verified and stored."),
+    ] = False,
+    robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
+    answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
+) -> dict[str, Any]:
+    robot = _robot(
+        base_url=base_url,
+        robot_id=robot_id,
+        robot_ca_pem=robot_ca_pem,
+        robot_spki_sha256=robot_spki_sha256,
+        answer_public_key_hex=answer_public_key_hex,
+        answer_key_id=answer_key_id,
+    )
+    _check_export_id(export_id)
+    keyring = parse_blackbox_keyring(blackbox_public_keys)
+    selector = _selector(
+        robot.robot_id,
+        finding_id,
+        evidence_links,
+        context_records,
+        from_seq,
+        to_seq,
+        from_ms,
+        to_ms,
+    )
+    if not isinstance(case_id, str) or not case_id:
+        raise ValueError("case_id is required")
+    audit_logged = await _record_access(robot.robot_id, "download_export", export_id)
+
+    # Step 1-2: the manifest (signed answer, signed manifest, the selector).
+    export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
+    verified = _verified_manifest(
+        robot, await _call(robot, "GET", export_target), export_id, selector
+    )
+    manifest = verified.manifest
+    if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
+        raise EvidenceError(
+            f"the export is {manifest.bundle_bytes} bytes; at most "
+            f"{MAX_STORED_BUNDLE_BYTES} are downloaded and stored (export a "
+            "smaller selection)"
+        )
+
+    # Step 3: every chunk (signed answer, length, SHA-256), then the bundle.
+    chunks: dict[int, bytes] = {}
+    for spec in manifest.chunks:
+        data = await _fetch_chunk(robot, export_id, spec.index, spec.size)
+        check_chunk(spec, data)
+        chunks[spec.index] = data
+    bundle = assemble_bundle(manifest, chunks)
+
+    # Step 4-5: the records under the black-box keyring, against the manifest.
+    report = verify_bundle(
+        bundle,
+        keyring,
+        robot_id=robot.robot_id,
+        signing_key_id=manifest.signing_key_id,
+    )
+    problems = report.problems or check_report_against_manifest(report, manifest)
+    if problems:
+        raise EvidenceError(
+            "the evidence does not verify (a tamper result is an incident): "
+            + "; ".join(problems[:5])
+        )
+    verification = _verification_report(verified, report.as_dict())
+
+    stored = await get_context().robot_edr.store_evidence(
+        case_id,
+        robot_id=robot.robot_id,
+        export_id=export_id,
+        manifest_base64=base64.b64encode(verified.manifest_bytes).decode("ascii"),
+        manifest_signature=verified.manifest_signature,
+        bundle_base64=base64.b64encode(bundle).decode("ascii"),
+        verification=verification,
+    )
+    deleted = False
+    if delete_after_download:
+        await _call(robot, "DELETE", export_target)
+        deleted = True
+    return {
+        "export_id": export_id,
+        "verified": True,
+        "verification": verification,
+        "stored": stored,
+        "deleted": deleted,
+        "audit_logged": audit_logged,
+        "manifest": manifest.raw,
     }

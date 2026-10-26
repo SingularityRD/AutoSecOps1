@@ -1,13 +1,28 @@
 "use client"
 
-import { AlertTriangleIcon, ArchiveIcon, RadarIcon } from "lucide-react"
+import {
+  AlertTriangleIcon,
+  ArchiveIcon,
+  DownloadIcon,
+  RadarIcon,
+  ShieldCheckIcon,
+} from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
-import type { CaseRead } from "@/client"
+import {
+  type ApiError,
+  type CaseAttachmentRead,
+  type CaseRead,
+  caseAttachmentsDownloadAttachment,
+  caseAttachmentsListAttachments,
+} from "@/client"
 import { CaseBadge } from "@/components/cases/case-badge"
 import { SEVERITIES } from "@/components/cases/case-categories"
 import { UntrustedValue } from "@/components/robot-edr/untrusted-value"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/use-toast"
+import { useQuery } from "@/lib/query"
 import {
   caseFieldText,
   formatEpochMs,
@@ -17,9 +32,28 @@ import {
   type RobodrCasePayload,
 } from "@/lib/robodr"
 
-/** Text shown in place of evidence until the evidence export ships. */
-export const EVIDENCE_PLACEHOLDER =
-  "Evidence export arrives with control plane v2."
+/**
+ * Name prefix of verified RoboDR evidence reports. The API reserves it: only
+ * `tools.robodr.download_evidence_export` creates such attachments, after the
+ * export passed every check of robodr.control-plane §11.6.
+ */
+export const EVIDENCE_REPORT_PREFIX = "robodr-evidence-"
+
+/** Text shown when no verified evidence is stored for the case. */
+export const EVIDENCE_NONE =
+  "No verified evidence is stored for this case. Run the Robot evidence export workflow to export and verify the finding's black-box records."
+
+/** Verified evidence reports among a case's attachments, newest first. */
+export function verifiedEvidenceReports(
+  attachments: CaseAttachmentRead[] | undefined
+): CaseAttachmentRead[] {
+  return (attachments ?? []).filter(
+    (attachment) =>
+      !attachment.is_deleted &&
+      attachment.content_type === "text/plain" &&
+      attachment.file_name.startsWith(EVIDENCE_REPORT_PREFIX)
+  )
+}
 
 /**
  * Whether a case is a RoboDR case: tagged `robodr` with a `payload.robodr`
@@ -101,6 +135,121 @@ export function RobodrCasePanel({
       caseData={caseData}
       workspaceId={workspaceId}
     />
+  )
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  return `${(size / 1024).toFixed(1)} KiB`
+}
+
+/**
+ * The case's verified evidence reports. Reads the case attachments (shared
+ * cache with the Attachments panel) and shows only `robodr-evidence-`
+ * reports; it never derives evidence from the finding's own links.
+ */
+export function RobodrEvidence({
+  caseId,
+  workspaceId,
+  evidenceLinkCount,
+}: {
+  caseId: string
+  workspaceId: string
+  evidenceLinkCount: number
+}) {
+  const { data, isLoading, error } = useQuery<CaseAttachmentRead[], ApiError>({
+    queryKey: ["case-attachments", caseId, workspaceId],
+    queryFn: async () =>
+      await caseAttachmentsListAttachments({ caseId, workspaceId }),
+    meta: { suppressErrorToast: true },
+  })
+  const reports = verifiedEvidenceReports(data)
+
+  const download = async (attachment: CaseAttachmentRead) => {
+    try {
+      const response = await caseAttachmentsDownloadAttachment({
+        caseId,
+        workspaceId,
+        attachmentId: attachment.id,
+      })
+      if (!response.download_url) {
+        throw new Error("No download URL received from server")
+      }
+      const link = document.createElement("a")
+      link.href = response.download_url
+      link.download = attachment.file_name
+      link.rel = "noopener"
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch {
+      toast({
+        title: "Download failed",
+        description: `Failed to download ${attachment.file_name}`,
+      })
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Loading evidence...</p>
+      ) : error ? (
+        <p className="text-xs text-muted-foreground">
+          The case attachments could not be read, so verified evidence is not
+          shown.
+        </p>
+      ) : reports.length > 0 ? (
+        <ul className="space-y-1.5" aria-label="Verified evidence">
+          {reports.map((report) => (
+            <li
+              key={report.id}
+              className="flex flex-wrap items-center gap-2 text-xs"
+            >
+              <Badge
+                variant="outline"
+                className="gap-1 border-emerald-500/60 text-emerald-700 dark:text-emerald-300"
+              >
+                <ShieldCheckIcon className="size-3" aria-hidden />
+                Verified
+              </Badge>
+              <span className="font-mono">{report.file_name}</span>
+              <span className="text-muted-foreground">
+                {formatBytes(report.size)} report,{" "}
+                {new Date(report.created_at).toLocaleString()}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => void download(report)}
+                aria-label={`Download ${report.file_name}`}
+              >
+                <DownloadIcon className="size-3" aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">{EVIDENCE_NONE}</p>
+      )}
+      {reports.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Each report names the signed black-box bundle the platform stored
+          after checking the robot&apos;s signatures and hashes.
+        </p>
+      ) : null}
+      {evidenceLinkCount > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          The finding lists {evidenceLinkCount} evidence{" "}
+          {evidenceLinkCount === 1 ? "reference" : "references"}, kept in the
+          case payload.
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -249,14 +398,11 @@ function RobodrFindingDetails({
           <ArchiveIcon className="size-3.5 text-muted-foreground" aria-hidden />
           <h4 className="text-xs font-medium">Evidence</h4>
         </div>
-        <p className="text-xs text-muted-foreground">{EVIDENCE_PLACEHOLDER}</p>
-        {robodr.evidenceLinkCount > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            The finding lists {robodr.evidenceLinkCount} evidence{" "}
-            {robodr.evidenceLinkCount === 1 ? "reference" : "references"}, kept
-            in the case payload.
-          </p>
-        ) : null}
+        <RobodrEvidence
+          caseId={caseData.id}
+          workspaceId={workspaceId}
+          evidenceLinkCount={robodr.evidenceLinkCount}
+        />
       </div>
     </section>
   )

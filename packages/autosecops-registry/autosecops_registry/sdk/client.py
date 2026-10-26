@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from autosecops_registry.sdk.cases import CasesClient
     from autosecops_registry.sdk.deduplicate import DeduplicateClient
     from autosecops_registry.sdk.forms import FormsClient
+    from autosecops_registry.sdk.robot_edr import RobotEdrClient
     from autosecops_registry.sdk.tables import TablesClient
     from autosecops_registry.sdk.variables import VariablesClient
     from autosecops_registry.sdk.workflows import WorkflowsClient
@@ -73,6 +74,7 @@ class TracecatClient:
         self._cases: CasesClient | None = None
         self._deduplicate: DeduplicateClient | None = None
         self._forms: FormsClient | None = None
+        self._robot_edr: RobotEdrClient | None = None
         self._tables: TablesClient | None = None
         self._variables: VariablesClient | None = None
         self._workflows: WorkflowsClient | None = None
@@ -127,6 +129,15 @@ class TracecatClient:
 
             self._forms = FormsClient(self)
         return self._forms
+
+    @property
+    def robot_edr(self) -> RobotEdrClient:
+        """RoboDR (Robot EDR) API client."""
+        if self._robot_edr is None:
+            from autosecops_registry.sdk.robot_edr import RobotEdrClient
+
+            self._robot_edr = RobotEdrClient(self)
+        return self._robot_edr
 
     @property
     def tables(self) -> TablesClient:

@@ -30,11 +30,20 @@ from autosecops.logger import logger
 from autosecops.service import BaseWorkspaceService
 from autosecops.storage import blob
 from autosecops.storage.exceptions import (
+    FileNameError,
     FileSizeError,
     MaxAttachmentsExceededError,
     StorageLimitExceededError,
 )
 from autosecops.storage.validation import FileSecurityValidator, mime_equivalence_key
+
+ROBODR_EVIDENCE_PREFIX = "robodr-evidence-"
+"""Attachment names reserved for verified RoboDR evidence reports.
+
+Only the RoboDR evidence service creates attachments with this prefix, after it
+has checked the export's manifest signature against the robot's registered
+finding key; the UI marks them as verified evidence. Every other upload path
+refuses the prefix, so a person or workflow cannot plant a look-alike."""
 
 # Image MIME types that are safe to preview inline in the browser.
 IMAGE_PREVIEW_MIME_TYPES = frozenset(
@@ -202,13 +211,19 @@ class CaseAttachmentService(BaseWorkspaceService):
         return attachment
 
     async def create_attachment(
-        self, case: Case, params: CaseAttachmentCreate
+        self,
+        case: Case,
+        params: CaseAttachmentCreate,
+        *,
+        allow_reserved_name: bool = False,
     ) -> CaseAttachment:
         """Create a new attachment for a case with security validations.
 
         Args:
             case: The case to attach the file to
             params: The attachment parameters
+            allow_reserved_name: Only the RoboDR evidence service passes True to
+                create a `robodr-evidence-` report (see ROBODR_EVIDENCE_PREFIX).
 
         Returns:
             The created attachment
@@ -217,6 +232,14 @@ class CaseAttachmentService(BaseWorkspaceService):
             ValueError: If validation fails
             TracecatException: If storage operation fails
         """
+
+        if not allow_reserved_name and (
+            params.file_name.strip().lower().startswith(ROBODR_EVIDENCE_PREFIX)
+        ):
+            raise FileNameError(
+                f"Attachment names starting with {ROBODR_EVIDENCE_PREFIX!r} are "
+                "reserved for verified RoboDR evidence"
+            )
 
         # Calculate actual size from content to prevent client-controlled size bypass
         actual_size = len(params.content)

@@ -1,0 +1,115 @@
+# Robot evidence export.
+#
+# Exports the black-box records behind a RoboDR finding (its evidence links,
+# with context records on each side) from the robot's control plane
+# (robodr-control-plane/v2, mutual TLS), verifies the export as the contract
+# requires, and stores it for the case:
+#
+# 1. `tools.robodr.create_evidence_export` asks the robot for the export and
+#    checks the manifest's signature and selection.
+# 2. `tools.robodr.download_evidence_export` downloads the export chunk by
+#    chunk, verifies every answer signature, the manifest signature, every
+#    chunk's and the bundle's SHA-256, and every black-box record's hash,
+#    signature and chain under the robot's black-box public keys, then
+#    stores the bundle and attaches a `robodr-evidence-...` verification
+#    report to the case. Nothing that fails verification is stored.
+#
+# Exporting changes nothing on the robot (the export is recorded in its black
+# box), so no sign-off is needed; both calls are written to the audit log.
+definition:
+  title: Robot evidence export
+  description: Export, verify and store a RoboDR finding's black-box evidence.
+  config:
+    environment: default
+    timeout: 900
+  entrypoint:
+    expects:
+      case_id:
+        type: str
+        description: Case created by the RoboDR ingest.
+      base_url:
+        type: str
+        description: >-
+          Robot control-plane URL, https://host[:port] with no path
+          (robodr-agentd's mutual-TLS listener).
+      robot_ca_pem:
+        type: str
+        description: >-
+          PEM certificate(s) of the CA that issued the robot's server
+          certificate. Not a secret; keep it in a workspace variable.
+      robot_spki_sha256:
+        type: str | None
+        description: Optional pin of the robot server certificate's SPKI SHA-256.
+        default: null
+      answer_public_key_hex:
+        type: str
+        description: The robot's finding public key (64 hex).
+      blackbox_public_keys:
+        type: list[str]
+        description: >-
+          The robot's black-box public key files (.pub JSON from
+          robodr-blackbox keygen), every key the chain names. Public key files
+          only.
+      context_records:
+        type: int | None
+        description: Records exported on each side of the linked ones (0..1024).
+        default: null
+  actions:
+    - ref: get_case
+      action: core.cases.get_case
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+
+    - ref: export
+      action: tools.robodr.create_evidence_export
+      depends_on:
+        - get_case
+      args:
+        base_url: ${{ TRIGGER.base_url }}
+        robot_id: ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
+        robot_ca_pem: ${{ TRIGGER.robot_ca_pem }}
+        robot_spki_sha256: ${{ TRIGGER.robot_spki_sha256 }}
+        answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
+        export_id: ${{ FN.concat("case-", ACTIONS.get_case.result.short_id) }}
+        requested_by: autosecops-workflow
+        reason: ${{ FN.concat("case ", ACTIONS.get_case.result.short_id) }}
+        finding_id: ${{ ACTIONS.get_case.result.payload.robodr.finding_id }}
+        evidence_links: ${{ ACTIONS.get_case.result.payload.robodr.evidence_links }}
+        context_records: ${{ TRIGGER.context_records }}
+
+    - ref: download
+      action: tools.robodr.download_evidence_export
+      depends_on:
+        - export
+      args:
+        base_url: ${{ TRIGGER.base_url }}
+        robot_id: ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
+        robot_ca_pem: ${{ TRIGGER.robot_ca_pem }}
+        robot_spki_sha256: ${{ TRIGGER.robot_spki_sha256 }}
+        answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
+        export_id: ${{ ACTIONS.export.result.export_id }}
+        blackbox_public_keys: ${{ TRIGGER.blackbox_public_keys }}
+        case_id: ${{ TRIGGER.case_id }}
+        finding_id: ${{ ACTIONS.get_case.result.payload.robodr.finding_id }}
+        evidence_links: ${{ ACTIONS.get_case.result.payload.robodr.evidence_links }}
+        context_records: ${{ TRIGGER.context_records }}
+        delete_after_download: true
+
+    - ref: record
+      action: core.cases.create_comment
+      depends_on:
+        - download
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+        content: |
+          ## Robot evidence verified and stored
+
+          - Export: `${{ ACTIONS.download.result.export_id }}`
+          - Records: `${{ ACTIONS.download.result.verification.first_seq }}`..`${{ ACTIONS.download.result.verification.last_seq }}` (`${{ ACTIONS.download.result.verification.verified_records }}` records, chain `${{ ACTIONS.download.result.verification.chain_id }}`)
+          - Bundle SHA-256: `${{ ACTIONS.download.result.verification.bundle_sha256 }}`
+          - Report attachment: `${{ ACTIONS.download.result.stored.attachment_name }}`
+
+  returns:
+    export_id: ${{ ACTIONS.download.result.export_id }}
+    verified: ${{ ACTIONS.download.result.verified }}
+    attachment_id: ${{ ACTIONS.download.result.stored.attachment_id }}

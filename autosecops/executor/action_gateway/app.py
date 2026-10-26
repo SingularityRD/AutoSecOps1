@@ -165,6 +165,9 @@ def _include_internal_routers(app: FastAPI) -> None:
         router as internal_deduplicate_router,
     )
     from autosecops.forms.internal_router import router as internal_forms_router
+    from autosecops.robot_edr.evidence_router import (
+        router as internal_robot_edr_router,
+    )
     from autosecops.tables.internal_router import router as internal_tables_router
     from autosecops.variables.internal_router import router as internal_variables_router
     from autosecops.workflow.executions.internal_router import (
@@ -183,6 +186,7 @@ def _include_internal_routers(app: FastAPI) -> None:
     app.include_router(internal_case_tags_router)
     app.include_router(internal_case_tag_definitions_router)
     app.include_router(internal_forms_router)
+    app.include_router(internal_robot_edr_router)
     app.include_router(internal_tables_router)
     app.include_router(internal_variables_router)
     app.include_router(internal_workflows_router)

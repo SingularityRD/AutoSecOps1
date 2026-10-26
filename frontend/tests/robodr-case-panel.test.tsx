@@ -3,14 +3,63 @@
  */
 
 import { render, screen, within } from "@testing-library/react"
-import type { CaseFieldRead, CaseRead } from "@/client"
+import type { ReactElement } from "react"
 import {
-  EVIDENCE_PLACEHOLDER,
+  type CaseAttachmentRead,
+  type CaseFieldRead,
+  type CaseRead,
+  caseAttachmentsListAttachments,
+} from "@/client"
+import {
+  EVIDENCE_NONE,
   isRobodrCase,
   RobodrCasePanel,
+  verifiedEvidenceReports,
 } from "@/components/robot-edr/robodr-case-panel"
 import { UntrustedValue } from "@/components/robot-edr/untrusted-value"
+import { QueryClient, QueryClientProvider } from "@/lib/query"
 import { neutralizeUntrustedText, parseRobodrPayload } from "@/lib/robodr"
+
+jest.mock("@/client", () => ({
+  ...jest.requireActual("@/client"),
+  caseAttachmentsListAttachments: jest.fn(),
+  caseAttachmentsDownloadAttachment: jest.fn(),
+}))
+
+const listAttachments = caseAttachmentsListAttachments as jest.MockedFunction<
+  typeof caseAttachmentsListAttachments
+>
+
+function attachment(
+  fileName: string,
+  overrides: Partial<CaseAttachmentRead> = {}
+): CaseAttachmentRead {
+  return {
+    id: `att-${fileName}`,
+    case_id: "00000000-0000-4000-8000-000000000001",
+    file_id: `file-${fileName}`,
+    file_name: fileName,
+    content_type: "text/plain",
+    size: 1536,
+    sha256: "0".repeat(64),
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    creator_id: null,
+    is_deleted: false,
+    ...overrides,
+  }
+}
+
+function withQuery(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
+beforeEach(() => {
+  listAttachments.mockResolvedValue([])
+})
 
 /**
  * Hostile strings: the RoboDR INJECTIONS corpus
@@ -142,7 +191,7 @@ describe("RobodrCasePanel", () => {
 
   it("renders the structured finding with untrusted values as plain text", () => {
     const caseData = robodrCase(INJECTIONS)
-    const { container } = render(
+    const { container } = withQuery(
       <RobodrCasePanel caseData={caseData} workspaceId="ws-1" />
     )
 
@@ -183,14 +232,51 @@ describe("RobodrCasePanel", () => {
     expect(container.textContent).not.toMatch(INVISIBLE)
   })
 
-  it("shows the evidence placeholder without inventing evidence", () => {
-    render(<RobodrCasePanel caseData={robodrCase([])} workspaceId="ws-1" />)
-    expect(screen.getByText(EVIDENCE_PLACEHOLDER)).toBeInTheDocument()
+  it("shows no evidence without a verified report, never the raw links", async () => {
+    withQuery(<RobodrCasePanel caseData={robodrCase([])} workspaceId="ws-1" />)
+    expect(await screen.findByText(EVIDENCE_NONE)).toBeInTheDocument()
     expect(screen.getByText(/lists 1 evidence reference/)).toBeInTheDocument()
     expect(screen.queryByText("robodr-evidence://bundle/1")).toBeNull()
+    expect(screen.queryByText("Verified")).toBeNull()
     expect(
       screen.getByText("This finding carries no untrusted values.")
     ).toBeInTheDocument()
+  })
+
+  it("lists verified evidence reports from the case attachments", async () => {
+    listAttachments.mockResolvedValue([
+      attachment("notes.txt"),
+      attachment("robodr-evidence-2b882fd3f1f17896.txt"),
+      attachment("robodr-evidence-deleted.txt", { is_deleted: true }),
+      attachment("robodr-evidence-image.png", { content_type: "image/png" }),
+    ])
+    withQuery(<RobodrCasePanel caseData={robodrCase([])} workspaceId="ws-1" />)
+    const list = await screen.findByRole("list", { name: "Verified evidence" })
+    const items = within(list).getAllByRole("listitem")
+    expect(items).toHaveLength(1)
+    expect(
+      within(items[0]).getByText("robodr-evidence-2b882fd3f1f17896.txt")
+    ).toBeInTheDocument()
+    expect(within(items[0]).getByText("Verified")).toBeInTheDocument()
+    expect(screen.queryByText(EVIDENCE_NONE)).toBeNull()
+    expect(listAttachments).toHaveBeenCalledWith({
+      caseId: "00000000-0000-4000-8000-000000000001",
+      workspaceId: "ws-1",
+    })
+  })
+
+  it("only reserved, live, plain-text reports count as verified", () => {
+    expect(
+      verifiedEvidenceReports([
+        attachment("robodr-evidence-a.txt"),
+        attachment("evidence-robodr-a.txt"),
+        attachment("robodr-evidence-b.txt", { is_deleted: true }),
+        attachment("robodr-evidence-c.pdf", {
+          content_type: "application/pdf",
+        }),
+      ]).map((a) => a.file_name)
+    ).toEqual(["robodr-evidence-a.txt"])
+    expect(verifiedEvidenceReports(undefined)).toEqual([])
   })
 
   it("renders a hostile robot id as untrusted text, not a link", () => {
@@ -198,7 +284,7 @@ describe("RobodrCasePanel", () => {
     const robodr = (caseData.payload as { robodr: Record<string, unknown> })
       .robodr
     robodr.robot_id = "javascript:alert(1)"
-    const { container } = render(
+    const { container } = withQuery(
       <RobodrCasePanel caseData={caseData} workspaceId="ws-1" />
     )
     expect(container.querySelectorAll("a")).toHaveLength(0)
@@ -208,7 +294,7 @@ describe("RobodrCasePanel", () => {
   it("renders nothing for cases without the robodr tag", () => {
     const caseData = { ...robodrCase([]), tags: [] }
     expect(isRobodrCase(caseData)).toBe(false)
-    const { container } = render(
+    const { container } = withQuery(
       <RobodrCasePanel caseData={caseData} workspaceId="ws-1" />
     )
     expect(container).toBeEmptyDOMElement()
@@ -217,7 +303,7 @@ describe("RobodrCasePanel", () => {
   it("renders nothing without a robodr payload", () => {
     const caseData = { ...robodrCase([]), payload: { other: 1 } }
     expect(isRobodrCase(caseData)).toBe(false)
-    const { container } = render(
+    const { container } = withQuery(
       <RobodrCasePanel caseData={caseData} workspaceId="ws-1" />
     )
     expect(container).toBeEmptyDOMElement()

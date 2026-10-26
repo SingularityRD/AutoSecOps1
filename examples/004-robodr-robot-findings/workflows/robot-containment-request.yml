@@ -21,9 +21,17 @@
 #    person), checks that they sign off this exact request, re-checks the
 #    policy against a fresh signed snapshot, and only then signs and sends.
 #
-# The robot judges the request again and may refuse it. The current RoboDR
-# release records accepted requests without executing them
-# (`recorded_not_executed`), which this workflow reports as not applied.
+# Every call goes over mutual TLS (robodr-control-plane/v2): the robot's
+# server certificate must chain to `robot_ca_pem` (and match
+# `robot_spki_sha256` when set), and the SOC client certificate and key come
+# from the `robodr_control_plane` secret. Every robot answer must carry the
+# robot's answer signature.
+#
+# The robot judges the request again and may refuse it. Without RoboDR's
+# executor it records accepted requests without executing them
+# (`recorded_not_executed`), which this workflow reports as not applied. With
+# the executor a request answers `pending`, then `verified` (in force); poll
+# `tools.robodr.get_action_status` for a pending one.
 definition:
   title: Robot containment request (approval)
   description: Request a signed-off RoboDR robot action through the control plane.
@@ -38,11 +46,23 @@ definition:
       base_url:
         type: str
         description: >-
-          Robot control-plane URL, https://host[:port] with no path (TLS
-          terminator in front of robodr-agentd).
+          Robot control-plane URL, https://host[:port] with no path
+          (robodr-agentd's mutual-TLS listener).
       robot_id:
         type: str
         description: Robot id robodr-agentd is configured with.
+      robot_ca_pem:
+        type: str
+        description: >-
+          PEM certificate(s) of the CA that issued the robot's server
+          certificate. Not a secret; keep it in a workspace variable.
+      robot_spki_sha256:
+        type: str | None
+        description: >-
+          Optional pin: SHA-256 of the robot server certificate's
+          SubjectPublicKeyInfo (status.json
+          control_plane.tls.server_spki_sha256).
+        default: null
       answer_public_key_hex:
         type: str
         description: >-
@@ -128,6 +148,8 @@ definition:
       args:
         base_url: ${{ TRIGGER.base_url }}
         robot_id: ${{ TRIGGER.robot_id }}
+        robot_ca_pem: ${{ TRIGGER.robot_ca_pem }}
+        robot_spki_sha256: ${{ TRIGGER.robot_spki_sha256 }}
         answer_public_key_hex: ${{ TRIGGER.answer_public_key_hex }}
         answer_key_id: ${{ TRIGGER.answer_key_id }}
 
@@ -205,6 +227,8 @@ definition:
       args:
         base_url: ${{ TRIGGER.base_url }}
         robot_id: ${{ TRIGGER.robot_id }}
+        robot_ca_pem: ${{ TRIGGER.robot_ca_pem }}
+        robot_spki_sha256: ${{ TRIGGER.robot_spki_sha256 }}
         action: ${{ ACTIONS.prepare.result.wire_name }}
         request_id: ${{ ACTIONS.prepare.result.request_id }}
         request_submission_id: ${{ TRIGGER.request_submission_id }}
@@ -245,7 +269,7 @@ definition:
           - Request id: `${{ ACTIONS.send.result.request_id }}`
           - Requested by (platform user): `${{ ACTIONS.send.result.requested_by.id }}`
           - Approved by (platform users): `${{ FN.serialize_json(ACTIONS.send.result.approved_by) }}`
-          - Status: `${{ ACTIONS.send.result.status }}`
+          - Status: `${{ ACTIONS.send.result.status }}` (in force: `${{ ACTIONS.send.result.in_force }}`, final: `${{ ACTIONS.send.result.terminal }}`)
           - Report: ${{ ACTIONS.shown_report.result }}
 
   returns:
@@ -254,3 +278,4 @@ definition:
     request_id: ${{ ACTIONS.prepare.result.request_id }}
     request_digest: ${{ ACTIONS.prepare.result.request_digest }}
     status: ${{ ACTIONS.send.result.status }}
+    in_force: ${{ ACTIONS.send.result.in_force }}

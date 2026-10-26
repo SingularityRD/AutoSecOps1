@@ -1779,6 +1779,16 @@ In development with editable install, falls back to checking relative to the ins
 """
 
 # === Robot EDR (RoboDR ingest) === #
+TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES = int(
+    os.environ.get("TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES") or 64 * 1024 * 1024
+)
+"""Largest verified RoboDR evidence bundle stored for a case (bytes).
+
+Defaults to 64 MiB, robodr-agentd's default `max_export_bytes`. Bundles are
+stored in the attachments bucket, outside the per-case attachment limits; the
+case gets a small verification report attachment that names them.
+"""
+
 TRACECAT__ROBOT_EDR_REQUIRE_TLS = env_bool(
     "TRACECAT__ROBOT_EDR_REQUIRE_TLS", default=True
 )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -136,3 +137,49 @@ class IngestErrorResponse(BaseModel):
 
     code: str
     detail: str
+
+
+# --- evidence (robodr.control-plane §11) ------------------------------------------
+
+EXPORT_ID_PATTERN = r"^[A-Za-z0-9._:-]{1,128}$"
+
+
+class EvidenceStoreRequest(BaseModel):
+    """A verified evidence export to store for a case (internal API)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
+    export_id: str = Field(..., pattern=EXPORT_ID_PATTERN)
+    manifest_base64: str = Field(..., min_length=1, max_length=2 * 1024 * 1024)
+    manifest_signature: str = Field(..., min_length=1, max_length=512)
+    bundle_base64: str = Field(..., min_length=1)
+    verification: dict[str, object] = Field(
+        ...,
+        description=(
+            "The workflow's §11.6 verification report; stored as the record of "
+            "the black-box check, never trusted for the manifest checks"
+        ),
+    )
+
+
+class EvidenceStoreResponse(BaseModel):
+    """Where a verified evidence export was stored."""
+
+    attachment_id: uuid.UUID
+    attachment_name: str
+    storage_key: str
+    bundle_sha256: str
+    bundle_bytes: int
+    manifest_sha256: str
+    manifest_key_id: str
+
+
+class EvidenceAccessRequest(BaseModel):
+    """An evidence read to write to the audit log (internal API)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
+    operation: Literal["list", "create_export", "download_export"]
+    export_id: str | None = Field(default=None, pattern=EXPORT_ID_PATTERN)

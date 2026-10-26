@@ -67,6 +67,7 @@ def test_all_workflows_ship() -> None:
         "Robot action sign-off",
         "Rogue DDS participant",
         "Motion envelope violation",
+        "Robot evidence export",
     }
 
 
@@ -137,6 +138,9 @@ def test_containment_request_needs_platform_signoff() -> None:
             actions[ref].args["answer_public_key_hex"]
             == "${{ TRIGGER.answer_public_key_hex }}"
         )
+        # Mutual TLS: the robot CA is a (required) input, never a secret.
+        assert actions[ref].args["robot_ca_pem"] == "${{ TRIGGER.robot_ca_pem }}"
+    assert not expects["robot_ca_pem"].has_default()
     # The request is sent only when the policy allows it and sign-offs exist.
     assert "policy.result.allowed" in str(send.run_if)
     assert "request_submission_id" in str(send.run_if)
@@ -190,3 +194,24 @@ def test_triage_renders_the_case_summary_as_untrusted() -> None:
         assert stmt.action == "tools.robodr.render_untrusted"
         assert stmt.args["value"] == "${{ ACTIONS.get_case.result.summary }}"
         assert stmt.args["mode"] == mode
+
+
+def test_evidence_export_verifies_before_storing() -> None:
+    path = WORKFLOWS_DIR / "robot-evidence-export.yml"
+    dsl = _load(path).definition
+    actions = _actions(path.name)
+    expects = dsl.entrypoint.expects or {}
+    assert expects["blackbox_public_keys"].type == "list[str]"
+    export, download = actions["export"], actions["download"]
+    assert export.action == "tools.robodr.create_evidence_export"
+    assert download.action == "tools.robodr.download_evidence_export"
+    # One selector: the finding's own evidence links.
+    for stmt in (export, download):
+        assert stmt.args["finding_id"] == (
+            "${{ ACTIONS.get_case.result.payload.robodr.finding_id }}"
+        )
+        assert "from_seq" not in stmt.args and "from_ms" not in stmt.args
+    assert download.args["case_id"] == "${{ TRIGGER.case_id }}"
+    assert download.args["blackbox_public_keys"] == (
+        "${{ TRIGGER.blackbox_public_keys }}"
+    )
