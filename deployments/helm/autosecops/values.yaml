@@ -1,0 +1,398 @@
+# Default values for the AutoSecOps Helm chart.
+#
+# Production installs point the chart at external PostgreSQL, Redis, S3, and
+# Temporal, and supply every credential through existing Kubernetes Secrets.
+# The chart never renders secret values into manifests.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/singularityrd/autosecops
+  # Defaults to .Chart.AppVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+uiImage:
+  repository: ghcr.io/singularityrd/autosecops-ui
+  # Defaults to .Chart.AppVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Public URLs that browsers, webhooks, and MCP clients use.
+urls:
+  # Required. Scheme and host, without a trailing slash.
+  publicApp: ""
+  # Defaults to `<publicApp>/api`.
+  publicApi: ""
+
+autosecops:
+  # One of `development`, `staging`, or `production`.
+  appEnv: production
+  logLevel: INFO
+  # `json` or `console`.
+  logFormat: json
+  auth:
+    # Comma-separated values from `basic`, `oidc`, `saml`.
+    types: basic
+    # Comma-separated email domains allowed to sign up and sign in. Blank
+    # allows every domain; set this in production.
+    allowedDomains: ""
+    superadminEmail: ""
+    minPasswordLength: 12
+  # Comma-separated CORS origins. Defaults to urls.publicApp.
+  allowOrigins: ""
+  featureFlags: ""
+  eeMultiTenant: false
+  # CIDRs of private LLM or MCP endpoints AutoSecOps may call, comma-separated.
+  outboundAllowedPrivateCidrs: ""
+  # Extra non-secret environment variables for every backend component.
+  env: {}
+  # Extra environment entries (Kubernetes EnvVar objects) for every backend
+  # component, for example secretKeyRef values such as OIDC_CLIENT_SECRET.
+  extraEnv: []
+
+# Core platform secrets. Create the Secret before installing, for example:
+#   kubectl create secret generic autosecops-core \
+#     --from-literal=dbEncryptionKey="$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')" \
+#     --from-literal=serviceKey="$(openssl rand -hex 32)" \
+#     --from-literal=signingSecret="$(openssl rand -hex 32)" \
+#     --from-literal=userAuthSecret="$(openssl rand -hex 32)"
+secrets:
+  # Required. Name of an existing Secret in the release namespace.
+  existingSecret: ""
+  keys:
+    dbEncryptionKey: dbEncryptionKey
+    serviceKey: serviceKey
+    signingSecret: signingSecret
+    userAuthSecret: userAuthSecret
+    # Optional key holding a signed license key. Leave blank to skip.
+    licenseKey: ""
+
+externalPostgres:
+  host: ""
+  port: 5432
+  database: postgres
+  # Use `require` or `verify-full` for managed databases.
+  sslMode: require
+  auth:
+    # Required. Existing Secret with the database username and password.
+    existingSecret: ""
+    usernameKey: username
+    passwordKey: password
+    # Plain username used when usernameKey is blank.
+    username: ""
+
+externalRedis:
+  # Redis URL without credentials, used when auth.existingSecret is blank.
+  url: ""
+  auth:
+    # Existing Secret with a full Redis URL, e.g. `rediss://:password@host:6379`.
+    existingSecret: ""
+    urlKey: url
+
+externalS3:
+  # Leave blank for AWS S3. Set for S3-compatible storage such as MinIO.
+  endpoint: ""
+  region: ""
+  sslVerify: true
+  # Endpoint embedded in presigned URLs that browsers download from. Defaults
+  # to `<publicApp>/s3` when Caddy proxies blob storage, otherwise to endpoint.
+  presignedUrlEndpoint: ""
+  # Space-separated origins the UI may fetch presigned objects from (CSP
+  # connect-src). Defaults to presignedUrlEndpoint. For AWS S3 list the bucket
+  # origins, e.g. `https://<bucket>.s3.<region>.amazonaws.com`.
+  cspConnectSrcOrigins: ""
+  # Upstream that Caddy proxies under /s3. Blank disables the proxy route.
+  caddyProxyUpstream: ""
+  buckets:
+    workflow: tracecat-workflow
+    attachments: tracecat-attachments
+    registry: tracecat-registry
+    agent: tracecat-agent
+  auth:
+    # Existing Secret with static access keys. Leave blank to use the pod's
+    # cloud identity (for example IRSA or GKE Workload Identity).
+    existingSecret: ""
+    accessKeyIdKey: accessKeyId
+    secretAccessKeyKey: secretAccessKey
+
+externalTemporal:
+  clusterUrl: ""
+  namespace: default
+  queue: tracecat-task-queue
+  auth:
+    # Existing Secret with a Temporal Cloud API key. Leave blank otherwise.
+    existingSecret: ""
+    apiKeyKey: apiKey
+
+serviceAccount:
+  create: true
+  # Defaults to the release fullname.
+  name: ""
+  annotations: {}
+  # Workloads do not call the Kubernetes API.
+  automountServiceAccountToken: false
+
+# Defaults applied to every pod. Components override these.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+priorityClassName: ""
+
+api:
+  replicaCount: 2
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 4Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext: {}
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe:
+    httpGet: {path: /health, port: http}
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    httpGet: {path: /health, port: http}
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startupProbe:
+    httpGet: {path: /health, port: http}
+    periodSeconds: 5
+    failureThreshold: 60
+
+worker:
+  replicaCount: 2
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext: {}
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 8, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  # Temporal workers expose no HTTP endpoint; add an exec probe if needed.
+  livenessProbe: {}
+  readinessProbe: {}
+  startupProbe: {}
+
+executor:
+  replicaCount: 2
+  # `direct` runs actions in the executor process. `nsjail` sandboxes them and
+  # needs a privileged, root pod (see docs/self-hosting/kubernetes).
+  backend: direct
+  resources:
+    requests: {cpu: "1", memory: 2Gi}
+    limits: {cpu: "4", memory: 8Gi}
+  env: {}
+  extraEnv: []
+  # Custom registry installs and sandbox caches write outside the mounted
+  # scratch directories, so the root filesystem stays writable.
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 8, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe: {}
+  readinessProbe: {}
+  startupProbe: {}
+
+agentWorker:
+  replicaCount: 1
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext: {}
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 4, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe: {}
+  readinessProbe: {}
+  startupProbe: {}
+
+agentExecutor:
+  replicaCount: 1
+  # `direct` or `nsjail`, as for executor.
+  backend: direct
+  resources:
+    requests: {cpu: "1", memory: 2Gi}
+    limits: {cpu: "4", memory: 16Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 4, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe: {}
+  readinessProbe: {}
+  startupProbe: {}
+
+mcp:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext: {}
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 4, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 15
+    failureThreshold: 6
+  readinessProbe:
+    httpGet: {path: /.well-known/oauth-authorization-server, port: http}
+    periodSeconds: 10
+    timeoutSeconds: 5
+  startupProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 5
+    failureThreshold: 60
+
+litellm:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 4Gi}
+  env: {}
+  extraEnv: []
+  # LiteLLM links its runtime config into /app at startup.
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 4, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 15
+    failureThreshold: 6
+  readinessProbe:
+    httpGet: {path: /health/readiness, port: http}
+    periodSeconds: 10
+    timeoutSeconds: 5
+  startupProbe:
+    httpGet: {path: /health/readiness, port: http}
+    periodSeconds: 5
+    failureThreshold: 60
+
+ui:
+  replicaCount: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  env: {}
+  extraEnv: []
+  containerSecurityContext: {}
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+  livenessProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 15
+    failureThreshold: 6
+  readinessProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 10
+  startupProbe:
+    tcpSocket: {port: http}
+    periodSeconds: 5
+    failureThreshold: 60
+
+# In-cluster reverse proxy with the same routes as the Docker Compose
+# Caddyfile (/api prefix stripping, MCP OAuth routes, /s3 presigned proxy).
+# The Ingress targets Caddy, so keep it enabled unless you route yourself.
+caddy:
+  enabled: true
+  image:
+    repository: caddy
+    tag: 2.10.2-alpine
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  # Source CIDRs whose X-Forwarded-* headers Caddy trusts (ingress controller
+  # or load balancer ranges).
+  trustedProxyCidrs: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  service:
+    type: ClusterIP
+    port: 80
+  # The caddy binary carries the cap_net_bind_service file capability; exec
+  # fails under no_new_privs unless the bounding set keeps it.
+  containerSecurityContext:
+    capabilities:
+      drop: ["ALL"]
+      add: ["NET_BIND_SERVICE"]
+  autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 4, targetCPUUtilizationPercentage: 75}
+  pdb: {enabled: true, maxUnavailable: 1}
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls: []
+
+migrations:
+  enabled: true
+  # Run `alembic upgrade head` as a pre-install/pre-upgrade hook. Forced off
+  # when devDependencies are enabled, because the bundled database does not
+  # exist until the release is installed.
+  hook: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+networkPolicy:
+  enabled: true
+  # Peers allowed to reach Caddy. Empty allows every source, which ingress
+  # controllers in other namespaces need unless you list them here.
+  caddyIngressFrom: []
+
+# DEVELOPMENT ONLY. Single-replica PostgreSQL (pgvector), Redis, MinIO, and
+# Temporal for evaluation clusters. Not highly available, not backed up.
+# Credentials still come from the existing Secrets referenced above:
+# externalPostgres.auth for PostgreSQL and Temporal, externalS3.auth for MinIO.
+devDependencies:
+  enabled: false
+  storageClassName: ""
+  postgres:
+    image: ghcr.io/singularityrd/autosecops-postgres:1
+    storage: 10Gi
+  redis:
+    image: redis:7.4.2-alpine
+    storage: 2Gi
+  minio:
+    image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    storage: 10Gi
+  temporal:
+    image: temporalio/auto-setup:1.29.1
+    defaultNamespaceRetention: 24h

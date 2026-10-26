@@ -1,0 +1,18 @@
+apiVersion: v2
+name: autosecops
+description: AutoSecOps security automation platform (API, workers, executors, agents, MCP, UI, and LiteLLM).
+type: application
+# Chart version. Bump on every chart change, independently of appVersion.
+version: 0.1.0
+# Default AutoSecOps image tag for the backend and UI images.
+appVersion: "1.0.0"
+kubeVersion: ">=1.30.0-0"
+home: https://github.com/SingularityRD/AutoSecOps1
+sources:
+  - https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops
+keywords:
+  - security
+  - soar
+  - automation
+maintainers:
+  - name: SingularityRD

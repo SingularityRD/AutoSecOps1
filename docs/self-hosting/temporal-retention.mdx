@@ -7,7 +7,7 @@ Temporal keeps the event history of a closed workflow execution for the retentio
 AutoSecOps workflow logs read from that history, so the retention period sets how far back you can inspect past runs in the UI.
 
 The bundled Temporal in Docker Compose and Fargate creates its namespace with 24 hours of retention.
-The Helm chart creates it with 720 hours (30 days).
+On Kubernetes, the AutoSecOps Helm chart connects to a Temporal cluster you run, so that cluster's configuration sets retention.
 
 Temporal applies retention when it creates the namespace, so raising the setting only affects new deployments.
 Existing deployments need a namespace update through the Temporal CLI, shown in each section below.
@@ -65,7 +65,7 @@ temporal operator namespace update --namespace default --retention 720h
 
 ## Kubernetes
 
-Set the retention period on the namespace the chart creates.
+The AutoSecOps chart uses the Temporal cluster in `externalTemporal.clusterUrl`. If you run that cluster with the [Temporal Helm charts](https://github.com/temporalio/helm-charts), set the retention in the Temporal release values. The `temporal:` key below is the subchart key; drop it when you install the Temporal chart directly.
 
 ```yaml
 temporal:
@@ -78,16 +78,16 @@ temporal:
             retention: 2160h
 ```
 
-The chart's `temporal-setup` post-install hook creates the namespace with this retention. It does not change retention on a namespace that already exists.
+Namespace creation applies this retention only to a namespace that does not exist yet.
 
-For an existing deployment, update the namespace from the admin tools pod:
+For an existing deployment, update the namespace from the Temporal admin tools pod:
 
 ```bash
-kubectl exec -n tracecat deploy/tracecat-temporal-admintools -- \
+kubectl exec -n temporal deploy/temporal-admintools -- \
   temporal operator namespace update --namespace default --retention 2160h
 ```
 
-Replace `tracecat` with your release name and namespace if they differ.
+Replace `temporal` with the namespace and release name of your Temporal installation.
 
 ## S3 archival
 
@@ -147,20 +147,19 @@ Temporal treats archival as an experimental feature.
 
   <Step title="Apply the values">
     ```bash
-    helm upgrade tracecat oci://<ecr-registry-url>/tracecat \
-      --version <chart-version> \
-      --namespace tracecat \
-      -f values.yaml \
+    helm upgrade temporal temporalio/temporal \
+      --namespace temporal \
+      -f temporal-values.yaml \
       --wait --timeout 10m
     ```
 
-    The `temporal-setup` hook enables archival on the AutoSecOps namespace and sets the URIs.
+    The Temporal chart applies the archival settings to the namespace AutoSecOps uses.
     A namespace archival URI is immutable once archival is enabled, so pick the bucket and prefix before the first upgrade.
   </Step>
 
   <Step title="Verify archival">
     ```bash
-    kubectl exec -n tracecat deploy/tracecat-temporal-admintools -- \
+    kubectl exec -n temporal deploy/temporal-admintools -- \
       temporal operator namespace describe -n default
     ```
 
@@ -172,7 +171,7 @@ Temporal treats archival as an experimental feature.
 Read an archived history by workflow and run ID:
 
 ```bash
-kubectl exec -n tracecat deploy/tracecat-temporal-admintools -- \
+kubectl exec -n temporal deploy/temporal-admintools -- \
   temporal workflow show --workflow-id <workflow-id> --run-id <run-id> -n default
 ```
 
@@ -180,4 +179,4 @@ kubectl exec -n tracecat deploy/tracecat-temporal-admintools -- \
 
 - See [Docker Compose](/self-hosting/docker-compose) for the full single-host deployment, including the `.env` file this page edits.
 - See [AWS ECS Fargate](/self-hosting/aws-fargate) for the Terraform variables and apply workflow.
-- See [Kubernetes](/self-hosting/kubernetes) for the Helm values structure and upgrade commands.
+- See [Kubernetes](/self-hosting/kubernetes) for how the AutoSecOps chart connects to Temporal.

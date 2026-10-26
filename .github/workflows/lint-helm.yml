@@ -1,0 +1,62 @@
+name: Helm chart
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - deployments/helm/**
+      - .github/workflows/lint-helm.yml
+  pull_request:
+    branches: ["main", "staging"]
+    paths:
+      - deployments/helm/**
+      - .github/workflows/lint-helm.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-helm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_VERSION: v3.16.4
+  HELM_SHA256: fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179
+  KUBECONFORM_VERSION: v0.6.7
+  KUBECONFORM_SHA256: 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install helm and kubeconform
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          mv linux-amd64/helm bin/helm
+          curl -fsSLo kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
+          tar -xzf kubeconform.tgz kubeconform
+          mv kubeconform bin/kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Lint, render, and validate
+        working-directory: deployments/helm/autosecops
+        run: |
+          set -euo pipefail
+          for values in ci/*-values.yaml; do
+            echo "::group::$values"
+            helm lint . --strict -f "$values"
+            helm template autosecops . --namespace autosecops -f "$values" \
+              | kubeconform -strict -summary -kubernetes-version 1.30.0
+            echo "::endgroup::"
+          done

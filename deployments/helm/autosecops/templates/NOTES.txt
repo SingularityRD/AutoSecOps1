@@ -1,0 +1,21 @@
+AutoSecOps {{ .Chart.AppVersion }} is deployed as release {{ .Release.Name }}.
+
+Public URL: {{ include "autosecops.publicAppUrl" . }}
+{{- if .Values.caddy.enabled }}
+In-cluster entrypoint: {{ include "autosecops.componentFullname" (dict "root" . "component" "caddy") }}:{{ .Values.caddy.service.port }}
+{{- end }}
+{{- if not .Values.ingress.enabled }}
+
+No Ingress was created. Expose the Caddy service through your own load
+balancer or Ingress, or port-forward for a quick check:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "autosecops.componentFullname" (dict "root" . "component" "caddy") }} 8080:{{ .Values.caddy.service.port }}
+{{- end }}
+{{- if .Values.devDependencies.enabled }}
+
+WARNING: devDependencies.enabled=true runs single-replica PostgreSQL, Redis,
+MinIO, and Temporal without backups. Use it only for evaluation.
+{{- end }}
+{{- if not .Values.autosecops.auth.allowedDomains }}
+
+NOTE: autosecops.auth.allowedDomains is blank, so any email domain can sign up.
+{{- end }}

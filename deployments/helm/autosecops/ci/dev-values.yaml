@@ -1,0 +1,15 @@
+# Lint and render fixture: bundled development dependencies.
+urls:
+  publicApp: http://localhost:8080
+autosecops:
+  appEnv: development
+secrets:
+  existingSecret: autosecops-core
+externalPostgres:
+  auth:
+    existingSecret: autosecops-postgres
+externalS3:
+  auth:
+    existingSecret: autosecops-minio
+devDependencies:
+  enabled: true
