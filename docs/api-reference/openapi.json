@@ -21098,6 +21098,33 @@
         }
       }
     },
+    "/admin/license": {
+      "get": {
+        "tags": [
+          "admin:license"
+        ],
+        "summary": "Get License",
+        "description": "Get the status of the configured license key.",
+        "operationId": "admin:license-get_license",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
     "/admin/maintenance/case-agent-session-interactions/backfill": {
       "post": {
         "tags": [
@@ -56902,6 +56929,27 @@
         "title": "EmbeddingModelRead",
         "description": "Public metadata needed for status and bounded chunk preparation."
       },
+      "Entitlement": {
+        "type": "string",
+        "enum": [
+          "custom_registry",
+          "git_sync",
+          "agent_addons",
+          "case_addons",
+          "rbac_addons",
+          "service_accounts",
+          "workspace_chat",
+          "multi_workspace",
+          "watchtower",
+          "external_secret_stores",
+          "agent_channels",
+          "semantic_search",
+          "forms",
+          "tunnels"
+        ],
+        "title": "Entitlement",
+        "description": "Available feature entitlements."
+      },
       "EntitlementsDict": {
         "properties": {
           "custom_registry": {
@@ -62431,6 +62479,139 @@
         ],
         "title": "LibrarySkillSourceRead",
         "description": "Library group, maintainer, and optional upstream location of a skill."
+      },
+      "LicenseErrorCode": {
+        "type": "string",
+        "enum": [
+          "malformed",
+          "bad_signature",
+          "invalid_claims"
+        ],
+        "title": "LicenseErrorCode",
+        "description": "Why a license key failed verification."
+      },
+      "LicenseRead": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/LicenseStatus"
+          },
+          "enforced": {
+            "type": "boolean",
+            "title": "Enforced",
+            "description": "Whether the license controls entitlements. False in multi-tenant mode, where database tiers apply."
+          },
+          "license_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Id"
+          },
+          "customer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grace_ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grace Ends At"
+          },
+          "entitlements": {
+            "items": {
+              "$ref": "#/components/schemas/Entitlement"
+            },
+            "type": "array",
+            "title": "Entitlements",
+            "description": "Paid entitlements the license grants right now"
+          },
+          "included_entitlements": {
+            "items": {
+              "$ref": "#/components/schemas/Entitlement"
+            },
+            "type": "array",
+            "title": "Included Entitlements",
+            "description": "Free entitlements every single-tenant install gets without a license"
+          },
+          "licensed_entitlements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Licensed Entitlements",
+            "description": "Every entitlement key listed in the license"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "enforced"
+        ],
+        "title": "LicenseRead",
+        "description": "License status for the platform admin."
+      },
+      "LicenseStatus": {
+        "type": "string",
+        "enum": [
+          "missing",
+          "valid",
+          "grace",
+          "expired",
+          "invalid"
+        ],
+        "title": "LicenseStatus",
+        "description": "Lifecycle state of the configured license key."
       },
       "MCPAuthType": {
         "type": "string",
@@ -85407,65 +85588,6 @@
         "type": "object",
         "title": "Yaml"
       },
-      "login": {
-        "properties": {
-          "grant_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^password$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grant Type"
-          },
-          "username": {
-            "type": "string",
-            "title": "Username"
-          },
-          "password": {
-            "type": "string",
-            "format": "password",
-            "title": "Password"
-          },
-          "scope": {
-            "type": "string",
-            "title": "Scope",
-            "default": ""
-          },
-          "client_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Id"
-          },
-          "client_secret": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "format": "password",
-            "title": "Client Secret"
-          }
-        },
-        "type": "object",
-        "required": [
-          "username",
-          "password"
-        ],
-        "title": "Body_auth-auth:database.login"
-      },
       "autosecops__admin__registry__schemas__RegistrySyncResponse": {
         "properties": {
           "success": {
@@ -85983,13 +86105,72 @@
         ],
         "title": "OrgRead",
         "description": "Organization response."
+      },
+      "login": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_auth-auth:database.login"
       }
     },
     "securitySchemes": {
       "APIKeyCookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "fastapiusersauth"
+        "name": "autosecops_auth_8605b8ba"
       },
       "ServiceAccountApiKeyBearer": {
         "type": "http",

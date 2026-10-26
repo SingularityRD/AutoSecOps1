@@ -32,9 +32,25 @@ AWS service name e.g. 's3', 'ec2', 'guardduty'.
 
 </ParamField>
 
+<ParamField path="duration_seconds" type="integer | null">
+
+Duration of the chained role session in seconds (900-3600). AWS limits role chaining to a maximum of one hour. Only used together with role_arn.
+
+Default: `null`.
+
+</ParamField>
+
 <ParamField path="endpoint_url" type="string | null">
 
 Endpoint URL for the AWS service.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="external_id" type="string | null">
+
+External ID required by the chained role's trust policy, if any. Only used together with role_arn.
 
 Default: `null`.
 
@@ -51,6 +67,22 @@ Default: `null`.
 <ParamField path="region_name" type="string | null">
 
 AWS service region to use for this request. Overrides the AWS_REGION secret for the service client.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="role_arn" type="string | null">
+
+ARN of an IAM role to assume (role chaining) with the credentials from the AWS secret before calling the service, e.g. a role in another AWS account that trusts the configured role or user. Requires sts:AssumeRole on that role.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="role_session_name" type="string | null">
+
+Session name recorded in CloudTrail for the chained AssumeRole. Defaults to an AutoSecOps workspace/run derived name.
 
 Default: `null`.
 
@@ -84,9 +116,25 @@ AWS service name e.g. 's3', 'ec2', 'guardduty'.
 
 </ParamField>
 
+<ParamField path="duration_seconds" type="integer | null">
+
+Duration of the chained role session in seconds (900-3600). AWS limits role chaining to a maximum of one hour. Only used together with role_arn.
+
+Default: `null`.
+
+</ParamField>
+
 <ParamField path="endpoint_url" type="string | null">
 
 Endpoint URL for the AWS service.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="external_id" type="string | null">
+
+External ID required by the chained role's trust policy, if any. Only used together with role_arn.
 
 Default: `null`.
 
@@ -103,6 +151,22 @@ Default: `null`.
 <ParamField path="region_name" type="string | null">
 
 AWS service region to use for this request. Overrides the AWS_REGION secret for the service client.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="role_arn" type="string | null">
+
+ARN of an IAM role to assume (role chaining) with the credentials from the AWS secret before calling the service, e.g. a role in another AWS account that trusts the configured role or user. Requires sts:AssumeRole on that role.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="role_session_name" type="string | null">
+
+Session name recorded in CloudTrail for the chained AssumeRole. Defaults to an AutoSecOps workspace/run derived name.
 
 Default: `null`.
 

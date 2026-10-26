@@ -754,6 +754,12 @@ pages:
       - id: core.table.search_rows
         examples:
           - tables-search
+      - id: core.table.search
+        info: |
+          Set up [vector search](/automations/tables#vector-search) on the
+          table first. Use `core.table.search_rows` for literal matches.
+        examples:
+          - tables-semantic-search
       - id: core.table.aggregate_rows
         info: |
           The example groups alerts by source and hour, then calculates the
