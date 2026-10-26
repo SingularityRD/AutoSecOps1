@@ -97,12 +97,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import quote, urlsplit
 
-from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from typing_extensions import Doc
 
 from autosecops_registry import RegistrySecret, registry, secrets
+from autosecops_registry.config import TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
 from autosecops_registry.context import get_context
 from autosecops_registry.integrations.robodr import (
     DISPLAY_GROUP,
@@ -111,6 +110,7 @@ from autosecops_registry.integrations.robodr import (
     parse_public_key_hex,
 )
 from autosecops_registry.integrations.robodr_evidence import (
+    UNVERIFIABLE,
     EvidenceError,
     Manifest,
     assemble_bundle,
@@ -134,8 +134,10 @@ REQUEST_TIMEOUT_S = 35.0
 HANDSHAKE_TIMEOUT_S = 5.0
 MAX_ANSWER_BYTES = 256 * 1024
 MAX_ANSWER_HEAD_BYTES = 16 * 1024
-MAX_STORED_BUNDLE_BYTES = 64 * 1024 * 1024
-"""Largest export downloaded and stored: the robot's default `max_export_bytes`."""
+MAX_STORED_BUNDLE_BYTES = TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
+"""Largest export downloaded and stored: the platform's
+`TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (default 64 MiB, the robot's default
+`max_export_bytes`), so a bundle the platform would refuse is never fetched."""
 CHUNK_ATTEMPTS = 5
 MAX_RETRY_AFTER_S = 60
 
@@ -823,6 +825,14 @@ def _robot_target(robot_id: str, *rest: str) -> str:
 # --------------------------------------------------------------------------- #
 
 _SPKI_RE = re.compile(r"[0-9a-f]{64}")
+_ASCII_UINT_RE = re.compile(r"[0-9]{1,18}")
+
+
+def _ascii_uint(text: str | None) -> int | None:
+    """A decimal of ASCII digits only (``str.isdigit`` also takes ``²``, ``٣``)."""
+    if text is None or _ASCII_UINT_RE.fullmatch(text) is None:
+        return None
+    return int(text)
 
 
 @dataclass(frozen=True, slots=True)
@@ -910,32 +920,118 @@ def _tls_context(robot: _Robot, cert_pem: str, key_pem: str) -> ssl.SSLContext:
         context.load_verify_locations(cadata=robot.ca_pem)
     except ssl.SSLError as exc:
         raise ValueError("robot_ca_pem is not a valid PEM certificate") from exc
-    # `ssl` loads a client identity only from files: write it to a private
-    # temporary directory and remove it as soon as it is loaded.
-    with tempfile.TemporaryDirectory(prefix="robodr-tls-") as directory:
+    _load_client_identity(context, cert_pem, key_pem)
+    return context
+
+
+def _load_client_identity(context: ssl.SSLContext, cert_pem: str, key_pem: str) -> None:
+    """Load the SOC client certificate and key without a file on disk.
+
+    `ssl` loads a client identity only from paths. Linux: the PEMs go to
+    anonymous memory files (`memfd_create`), loaded through
+    ``/proc/self/fd/N``; they have no name in any file system, so nothing is
+    left behind even if the process is killed. Elsewhere: a private (0700)
+    temporary directory, on tmpfs (``/dev/shm``) where there is one, removed
+    as soon as the identity is loaded.
+    """
+    try:
+        _load_identity_from_memfd(context, cert_pem, key_pem)
+        return
+    except (AttributeError, OSError):  # no memfd_create or no /proc
+        pass
+    tmpfs = "/dev/shm" if os.path.isdir("/dev/shm") else None
+    with tempfile.TemporaryDirectory(prefix="robodr-tls-", dir=tmpfs) as directory:
         cert_path = os.path.join(directory, "client.crt")
         key_path = os.path.join(directory, "client.key")
         for path, text in ((cert_path, cert_pem), (key_path, key_pem)):
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w", encoding="ascii") as handle:
                 handle.write(text)
-        try:
-            context.load_cert_chain(cert_path, key_path)
-        except ssl.SSLError as exc:
-            raise ValueError(
-                "the SOC client certificate and key do not load (unencrypted "
-                "PEM key matching the certificate required)"
-            ) from exc
-    return context
+        _load_cert_chain(context, cert_path, key_path)
+
+
+def _load_identity_from_memfd(
+    context: ssl.SSLContext, cert_pem: str, key_pem: str
+) -> None:
+    fds: list[int] = []
+    try:
+        for name, text in (("robodr-tls-crt", cert_pem), ("robodr-tls-key", key_pem)):
+            fd = os.memfd_create(name, os.MFD_CLOEXEC)
+            fds.append(fd)
+            data = text.encode("ascii")
+            written = 0
+            while written < len(data):
+                written += os.write(fd, data[written:])
+        paths = [f"/proc/self/fd/{fd}" for fd in fds]
+        if not all(os.path.exists(path) for path in paths):
+            raise OSError("no /proc/self/fd")
+        _load_cert_chain(context, paths[0], paths[1])
+    finally:
+        for fd in fds:
+            os.close(fd)
+
+
+def _load_cert_chain(context: ssl.SSLContext, cert_path: str, key_path: str) -> None:
+    try:
+        context.load_cert_chain(cert_path, key_path)
+    except ssl.SSLError as exc:
+        raise ValueError(
+            "the SOC client certificate and key do not load (unencrypted "
+            "PEM key matching the certificate required)"
+        ) from exc
+
+
+def _der_element(data: bytes, pos: int) -> tuple[int, int, int]:
+    """(tag, start of contents, end) of the DER element at ``pos``."""
+    if pos + 2 > len(data):
+        raise ValueError("truncated DER")
+    tag, first = data[pos], data[pos + 1]
+    pos += 2
+    if first < 0x80:
+        length = first
+    else:
+        count = first & 0x7F
+        if not 0 < count <= 4 or pos + count > len(data):
+            raise ValueError("bad DER length")
+        length = int.from_bytes(data[pos : pos + count], "big")
+        pos += count
+    if pos + length > len(data):
+        raise ValueError("truncated DER")
+    return tag, pos, pos + length
+
+
+def certificate_spki(certificate_der: bytes) -> bytes:
+    """The certificate's SubjectPublicKeyInfo exactly as encoded in it.
+
+    The bytes are cut out of the certificate, never re-encoded: re-encoding
+    the public key (as `cryptography` would) can change it, e.g. an EC key
+    stored as a compressed point comes back uncompressed. robodr-agentd pins
+    these raw bytes too (`webpki` `subject_public_key_info`, control/tls.rs).
+
+    Raises:
+        ValueError: The DER is not an X.509 certificate.
+    """
+    seq = 0x30
+    tag, start, end = _der_element(certificate_der, 0)
+    if tag != seq or end != len(certificate_der):
+        raise ValueError("not a DER certificate")
+    tag, pos, tbs_end = _der_element(certificate_der, start)  # tbsCertificate
+    if tag != seq:
+        raise ValueError("not a DER certificate")
+    if certificate_der[pos] == 0xA0:  # [0] EXPLICIT version
+        pos = _der_element(certificate_der, pos)[2]
+    # serialNumber, signature, issuer, validity, subject: skip five elements.
+    for _ in range(5):
+        pos = _der_element(certificate_der, pos)[2]
+    tag, _, spki_end = _der_element(certificate_der, pos)
+    if tag != seq or spki_end > tbs_end:
+        raise ValueError("not a DER certificate")
+    return certificate_der[pos:spki_end]
 
 
 def spki_sha256(certificate_der: bytes) -> str:
     """Lower-case hex SHA-256 of a certificate's DER SubjectPublicKeyInfo."""
-    certificate = x509.load_der_x509_certificate(certificate_der)
-    spki = certificate.public_key().public_bytes(
-        Encoding.DER, PublicFormat.SubjectPublicKeyInfo
-    )
-    return hashlib.sha256(spki).hexdigest()
+    return hashlib.sha256(certificate_spki(certificate_der)).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -976,7 +1072,8 @@ def parse_answer(raw: bytes, *, max_body: int) -> RawAnswer:
     status_line = lines[0].split(" ", 2)
     if len(status_line) < 2 or status_line[0] not in ("HTTP/1.1", "HTTP/1.0"):
         raise ControlPlaneError("the robot's answer has no HTTP status line")
-    if not status_line[1].isdigit() or len(status_line[1]) != 3:
+    status = _ascii_uint(status_line[1]) if len(status_line[1]) == 3 else None
+    if status is None:
         raise ControlPlaneError("the robot's answer has an invalid status")
     headers: list[tuple[str, str]] = []
     for line in lines[1:]:
@@ -984,16 +1081,16 @@ def parse_answer(raw: bytes, *, max_body: int) -> RawAnswer:
         if not colon or not name or name != name.strip():
             raise ControlPlaneError("the robot's answer has a malformed header")
         headers.append((name, value.strip()))
-    answer = RawAnswer(int(status_line[1]), tuple(headers), b"")
+    answer = RawAnswer(status, tuple(headers), b"")
     if answer.header("Transfer-Encoding") is not None or any(
         k.lower() == "transfer-encoding" for k, _ in headers
     ):
         raise ControlPlaneError("the robot's answer uses a transfer encoding")
     lengths = [v for k, v in headers if k.lower() == "content-length"]
-    if len(lengths) > 1 or (lengths and not lengths[0].isdigit()):
+    length = _ascii_uint(lengths[0]) if len(lengths) == 1 else None
+    if len(lengths) > 1 or (lengths and length is None):
         raise ControlPlaneError("the robot's answer has an invalid Content-Length")
-    if lengths:
-        length = int(lengths[0])
+    if length is not None:
         if length > max_body:
             raise ControlPlaneError(f"the robot's answer exceeds {max_body} bytes")
         if len(rest) != length:
@@ -1132,9 +1229,9 @@ async def _call(
     if raw.status not in ok:
         code, message = _error_of(raw.body)
         error = RobotHTTPError(raw.status, code, message, signed=signed)
-        retry_after = raw.header("Retry-After")
-        if signed and retry_after is not None and retry_after.isdigit():
-            error.retry_after = int(retry_after)
+        retry_after = _ascii_uint(raw.header("Retry-After"))
+        if signed and retry_after is not None:
+            error.retry_after = retry_after
         raise error
     if not signed:
         raise ControlPlaneError(
@@ -2074,8 +2171,14 @@ async def download_evidence_export(
     problems = report.problems or check_report_against_manifest(report, manifest)
     if problems:
         raise EvidenceError(
-            "the evidence does not verify (a tamper result is an incident): "
+            "the evidence does not verify: "
             + "; ".join(problems[:5])
+            + (
+                ""
+                if all(UNVERIFIABLE in p for p in problems)
+                else " (the robot's black box or the transfer reports a problem: "
+                "investigate before relying on this robot's evidence)"
+            )
         )
     verification = _verification_report(verified, report.as_dict())
 

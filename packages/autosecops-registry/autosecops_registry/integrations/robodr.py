@@ -216,7 +216,9 @@ def _resolve_pointer(doc: Any, pointer: str) -> Any:
                 return _MISSING
             node = node[token]
         elif isinstance(node, list):
-            if not token.isdigit() or (len(token) > 1 and token.startswith("0")):
+            if not (token.isascii() and token.isdigit()) or (
+                len(token) > 1 and token.startswith("0")
+            ):
                 return _MISSING
             index = int(token)
             if index >= len(node):
