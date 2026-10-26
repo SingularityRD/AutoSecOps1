@@ -7,7 +7,9 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 ## Infrastructure credentials
 
-The default configuration ships with weak, well-known passwords for PostgreSQL, MinIO, and Redis. Replace them with strong, unique values before exposing AutoSecOps to production traffic.
+`.env.example` ships `change-me-` placeholders for the PostgreSQL, Temporal PostgreSQL, and MinIO passwords. When you answer `y` to the production prompt, `env.sh` replaces them with random values. Development mode keeps the well-known values `postgres`, `temporal`, and `password`, which only suit a local machine. Run `./env.sh --check` before `docker compose up`: it exits non-zero while any placeholder remains and warns about well-known passwords in production mode.
+
+Installs created before this change keep the weak defaults in their `.env`. Rotate them as below; change the password inside PostgreSQL (`ALTER ROLE ... PASSWORD`) before you edit `.env`, because the database volume keeps the password it was initialized with. Redis has no password by default.
 
 ```bash
 # PostgreSQL
@@ -76,7 +78,7 @@ Keep these out of your application configuration and out of version control. Use
 | [Kubernetes](/self-hosting/kubernetes#secrets-management) | External Secrets Operator syncing from your secret manager, or an existing Kubernetes Secret you create out of band. |
 | [Docker Compose](/self-hosting/docker-compose) | A `.env` file on the host. Restrict it to the service account that runs AutoSecOps and exclude it from version control. |
 
-On Kubernetes, prefer External Secrets Operator over a hand-created Secret. Your secret manager stays the source of truth, the operator re-syncs values rather than copying them, and no plaintext passes through a shell history or a manifest. Reserve chart-managed secret templates for pipelines that encrypt values at rest with Sealed Secrets or SOPS.
+On Kubernetes, prefer External Secrets Operator over a hand-created Secret. Your secret manager stays the source of truth, the operator re-syncs values rather than copying them, and no plaintext passes through a shell history or a manifest. The chart only references existing Secrets and never renders secret values.
 
 ### Rotation
 
@@ -107,7 +109,7 @@ Defaults differ by deployment target.
 
 | Deployment | Default |
 | --- | --- |
-| [Kubernetes](/self-hosting/kubernetes#security) | nsjail sandbox. The chart applies the required security context to the executor pods. |
+| [Kubernetes](/self-hosting/kubernetes#execution-sandboxing) | No isolation, so pods run non-root. Set `executor.backend` and `agentExecutor.backend` to `nsjail`; the chart then applies the privileged security context nsjail needs. |
 | [Docker Compose](/self-hosting/docker-compose) | No isolation. `TRACECAT__EXECUTOR_BACKEND=direct`. |
 | [AWS Fargate](/self-hosting/aws-fargate) | No isolation. Fargate cannot grant the capabilities nsjail requires. |
 
@@ -152,7 +154,7 @@ When you enable nsjail, each agent, Python script, custom action, and dependency
 | Dependency installation for `core.script.run_python` | 2048 MB | `TRACECAT__SANDBOX_DEFAULT_MEMORY_MB` | 300 s | 256 MB | 64 |
 | Agents | 4096 MB | `TRACECAT__AGENT_SANDBOX_MEMORY_MB` | Agent timeout ceiling | 256 MB | 128 |
 
-Pass `TRACECAT__SANDBOX_DEFAULT_MEMORY_MB` to your action executor and `TRACECAT__AGENT_SANDBOX_MEMORY_MB` to `agent-executor`. Docker Compose forwards both settings. Helm chart 0.7.0 or newer exposes them as `executor.sandboxMemoryMib` and `agentExecutor.sandboxMemoryMib` and provides the required executor cgroup bootstrap.
+Pass `TRACECAT__SANDBOX_DEFAULT_MEMORY_MB` to your action executor and `TRACECAT__AGENT_SANDBOX_MEMORY_MB` to `agent-executor`. Docker Compose forwards both settings. With the Helm chart, set them under `executor.env` and `agentExecutor.env`; the chart starts nsjail executors through the cgroup bootstrap.
 
 Sandboxes have no per-process address-space cap (`rlimit_as`) by default, because the cgroup memory budget already bounds RAM. Set `TRACECAT__SANDBOX_ADDRESS_SPACE_MB=8192` or `TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB=16384` to add one. Size this cap well above your workload's peak virtual size, since runtimes such as DuckDB reserve far more address space than the RAM they use. Stdio MCP connection probes use the same policy with a memory budget capped at 1024 MiB.
 

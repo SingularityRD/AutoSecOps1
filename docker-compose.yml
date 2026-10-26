@@ -730,7 +730,7 @@ services:
       - temporal_postgres_db
 
   temporal_ui:
-    image: temporalio/ui:${TEMPORAL__UI_VERSION}
+    image: temporalio/ui:${TEMPORAL__UI_VERSION:-2.43.3}
     container_name: temporal_ui
     restart: unless-stopped
     networks:

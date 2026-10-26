@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -853,3 +854,85 @@ def test_sandbox_memory_limits_must_be_positive(
                 importlib.reload(tracecat_config)
     finally:
         importlib.reload(tracecat_config)
+
+
+ENV_EXAMPLE_GENERATED_SECRETS = (
+    "TRACECAT__DB_ENCRYPTION_KEY",
+    "TRACECAT__SERVICE_KEY",
+    "TRACECAT__SIGNING_SECRET",
+    "USER_AUTH_SECRET",
+    "TRACECAT__POSTGRES_PASSWORD",
+    "TEMPORAL__POSTGRES_PASSWORD",
+    "MINIO_ROOT_PASSWORD",
+)
+WEAK_DEFAULT_CREDENTIALS = {
+    "TRACECAT__POSTGRES_PASSWORD": {"postgres"},
+    "TEMPORAL__POSTGRES_PASSWORD": {"temporal"},
+    "MINIO_ROOT_PASSWORD": {"password", "minioadmin"},
+}
+
+
+def _env_example_values() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in (REPO_ROOT / ".env.example").read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        name, value = stripped.split("=", 1)
+        values[name] = value
+    return values
+
+
+def test_env_example_ships_placeholders_instead_of_weak_secrets() -> None:
+    values = _env_example_values()
+    for name in ENV_EXAMPLE_GENERATED_SECRETS:
+        assert values[name].startswith("change-me-"), (
+            f"{name} must ship a `change-me-` placeholder that env.sh replaces"
+        )
+    for name, weak_values in WEAK_DEFAULT_CREDENTIALS.items():
+        assert values[name] not in weak_values
+
+
+def test_env_example_defaults_to_production_mode() -> None:
+    values = _env_example_values()
+    assert values["TRACECAT__APP_ENV"] == "production"
+    assert values["NODE_ENV"] == "production"
+    assert values["NEXT_PUBLIC_APP_ENV"] == "production"
+
+
+def test_temporal_ui_image_is_pinned() -> None:
+    assert _env_example_values()["TEMPORAL__UI_VERSION"] not in {"", "latest"}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        images = re.findall(r"image:\s*temporalio/ui:(\S+)", path.read_text())
+        assert images, f"{path.name} has no Temporal UI service"
+        for image in images:
+            assert "latest" not in image, f"{path.name} pins temporalio/ui to latest"
+            assert re.fullmatch(r"\$\{TEMPORAL__UI_VERSION:-\d+\.\d+\.\d+\}", image)
+
+
+def test_env_sh_check_refuses_placeholder_secrets(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text((REPO_ROOT / ".env.example").read_text())
+    refused = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert refused.returncode == 1
+    for name in ENV_EXAMPLE_GENERATED_SECRETS:
+        assert name in refused.stdout
+
+    generated = env_file.read_text()
+    for name in ENV_EXAMPLE_GENERATED_SECRETS:
+        generated = re.sub(
+            rf"^{name}=.*$", f"{name}=generated-value", generated, flags=re.MULTILINE
+        )
+    env_file.write_text(generated)
+    accepted = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert accepted.returncode == 0, accepted.stdout
