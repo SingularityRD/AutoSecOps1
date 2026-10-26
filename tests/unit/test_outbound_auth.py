@@ -13,6 +13,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from google.auth import exceptions as google_auth_exceptions
+from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
 
 from autosecops import config, outbound_auth
@@ -206,7 +207,12 @@ async def test_azure_proxy_kwargs_respect_no_proxy_and_unset_proxy(
 def test_litellm_vertex_refresh_uses_proxy_aware_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Restore every class attribute the installer patches after the test.
     monkeypatch.setattr(VertexBase, "refresh_auth", VertexBase.refresh_auth)
+    for attr in ("_create_async_transport", "_create_httpx_proxy_mounts"):
+        monkeypatch.setattr(
+            AsyncHTTPHandler, attr, AsyncHTTPHandler.__dict__[attr], raising=True
+        )
     install_outbound_http_policy()
     requests_seen: list[object] = []
 
