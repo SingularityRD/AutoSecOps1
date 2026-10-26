@@ -17,6 +17,7 @@ registry's own mapping agrees for the ids RoboDR emits.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -106,22 +107,64 @@ def _fit_description(description: str) -> str:
     return description[: cut if cut > 0 else 0] + _TRUNCATION_NOTE
 
 
-def case_inputs(value: str) -> CaseInputs:
+def _canonical_version(version: str) -> str:
+    """``02.1.0`` -> ``2.1.0``: each part of a well-formed version as a number."""
+    return ".".join(str(int(part)) for part in version.split("."))
+
+
+def _with_canonical_version(value: str, version: str) -> str:
+    """The value with its ``contract_version`` spelled canonically.
+
+    The ingest validator follows the Rust rule (leading zeros allowed in a
+    version part, ``02.1.0`` is contract 2.1.0); the registry mapping still
+    requires the canonical spelling, so it renders from this copy. Only the
+    version changes; the mapping reads parsed fields, never the raw bytes.
+    """
+    document = json.loads(value)
+    document["contract_version"] = _canonical_version(version)
+    return json.dumps(document, ensure_ascii=False, separators=(",", ":"))
+
+
+def case_inputs(value: str, *, contract_version: str | None = None) -> CaseInputs:
     """Build case inputs from a validated record value.
 
     Args:
         value: The record value exactly as received (already validated).
+        contract_version: The value's validated ``contract_version``; a
+            version spelled with leading zeros is shown as received.
 
     Raises:
         CaseRenderError: The registry mapping refused the value.
     """
+    rendered = value
+    if (
+        contract_version is not None
+        and _canonical_version(contract_version) != contract_version
+    ):
+        rendered = _with_canonical_version(value, contract_version)
     try:
-        mapped = finding_to_case_fields(value)
+        mapped = finding_to_case_fields(rendered)
     except (FindingError, ValueError, KeyError, TypeError) as exc:
         raise CaseRenderError(str(exc)[:200]) from exc
+    if rendered is not value and contract_version is not None:
+        _restore_version(mapped, contract_version)
     return CaseInputs(
         summary=str(mapped["summary"])[:SUMMARY_MAX],
         description=_fit_description(str(mapped["description"])),
         fields=dict(mapped["fields"]),
         payload=dict(mapped["payload"]),
     )
+
+
+def _restore_version(mapped: dict[str, Any], version: str) -> None:
+    """Show the version as received where the mapping copies it."""
+    match mapped:
+        case {"fields": {"contract_version": _} as fields}:
+            fields["contract_version"] = version
+        case _:
+            pass
+    match mapped:
+        case {"payload": {"robodr": {"contract_version": _} as robodr}}:
+            robodr["contract_version"] = version
+        case _:
+            pass

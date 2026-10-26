@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from functools import cache
 from importlib import resources
@@ -103,7 +103,9 @@ _ROS_FIELDS: Final = (
     ("src_ip", TaintCap.IP),
 )
 _HEX = frozenset("0123456789abcdef")
-_VERSION_PART: Final = r"(0|[1-9][0-9]{0,8})"
+# `robodr_ocsf::validate::contract_major`: 1-9 ASCII digits per part,
+# leading zeros allowed.
+_VERSION_PART: Final = r"([0-9]{1,9})"
 _VERSION_RE: Final = re.compile(rf"{_VERSION_PART}\.{_VERSION_PART}\.{_VERSION_PART}")
 
 
@@ -623,10 +625,11 @@ def _is_technique_id(value: str) -> bool:
 
 
 def contract_major(version: str) -> int | None:
-    """The major of a well-formed ``X.Y.Z`` version.
+    """The major of a well-formed ``X.Y.Z`` version, read as a number.
 
-    Each part is 1-9 decimal digits without a leading zero (``0`` itself is
-    well formed); anything else is malformed.
+    ``robodr_ocsf::validate::contract_major``: exactly three parts, each 1-9
+    ASCII decimal digits, leading zeros allowed (``02.1.0`` is major 2);
+    anything else is malformed.
     """
     if (match := _VERSION_RE.fullmatch(version)) is None:
         return None
@@ -1122,26 +1125,89 @@ def check_contract_major(raw: bytes) -> None:
     """Refuse a value that names another contract major (ingest §4 step 5.2).
 
     Runs before validation: a JSON object whose ``contract_version`` is a
-    well-formed ``MAJOR.MINOR.PATCH`` (each part 1-9 digits, no leading
-    zero) with ``MAJOR != 2``. A malformed version is left to the validator
+    well-formed version (:func:`contract_major`) with ``MAJOR != 2``. The
+    object is read as the reference consumer reads it (``serde_json``):
+    integers beyond 64 bits are numbers, NaN, infinite numbers, lone
+    surrogate escapes and nesting deeper than 127 make it unreadable. An
+    unreadable value or a malformed version is left to the validator
     (``invalid_finding``).
 
     Raises:
         UnsupportedContractError: The value names another major.
     """
-    try:
-        document = orjson.loads(raw)
-    except orjson.JSONDecodeError:
-        return
+    document = _loads_like_serde(raw)
     if not isinstance(document, dict):
         return
     version = document.get("contract_version")
     if not isinstance(version, str):
         return
-    if (match := _VERSION_RE.fullmatch(version)) is None:
+    major = contract_major(version)
+    if major is None or major == CONTRACT_MAJOR:
         return
-    if int(match.group(1)) != CONTRACT_MAJOR:
-        raise UnsupportedContractError(version)
+    if _nests_deeper_than(document, _SERDE_MAX_NESTING):
+        return
+    raise UnsupportedContractError(version)
+
+
+# serde_json's recursion limit: at most 127 nested arrays and objects.
+_SERDE_MAX_NESTING: Final = 127
+
+
+def _loads_like_serde(raw: bytes) -> Any:
+    """Parse JSON like ``serde_json::from_slice``; ``None`` if it would fail."""
+    try:
+        return orjson.loads(raw)
+    except orjson.JSONDecodeError:
+        pass
+    # orjson refuses some JSON that serde_json reads (integers beyond 64
+    # bits); the standard library reads those, and refuses what serde does.
+    try:
+        document = json.loads(
+            raw, parse_constant=_reject_constant, parse_float=_parse_float
+        )
+    except (ValueError, RecursionError):
+        return None
+    if _nests_deeper_than(document, _SERDE_MAX_NESTING) or _has_lone_surrogate(
+        document
+    ):
+        return None
+    return document
+
+
+def _has_lone_surrogate(value: Any) -> bool:
+    """Whether any string (key or value) holds a lone surrogate code point."""
+    stack: list[Any] = [value]
+    while stack:
+        match stack.pop():
+            case str() as text if not text.isascii():
+                if any("\ud800" <= ch <= "\udfff" for ch in text):
+                    return True
+            case list() as items:
+                stack.extend(items)
+            case dict() as mapping:
+                stack.extend(mapping.keys())
+                stack.extend(mapping.values())
+            case _:
+                pass
+    return False
+
+
+def _nests_deeper_than(value: Any, limit: int) -> bool:
+    """Whether ``value`` nests more than ``limit`` arrays and objects deep."""
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        match item:
+            case dict():
+                children: Iterable[Any] = item.values()
+            case list():
+                children = item
+            case _:
+                continue
+        if depth + 1 > limit:
+            return True
+        stack.extend((child, depth + 1) for child in children)
+    return False
 
 
 def parse_and_validate(raw: bytes) -> ValidatedFinding:

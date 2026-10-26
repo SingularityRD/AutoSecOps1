@@ -93,7 +93,9 @@ def check_line(number: int, raw: bytes) -> LineCheck:
         )
     try:
         finding = parse_and_validate(value)
-        inputs = rendering.case_inputs(parsed.value)
+        inputs = rendering.case_inputs(
+            parsed.value, contract_version=finding.contract_version
+        )
     except UnsupportedContractError as exc:
         return reject(
             number,

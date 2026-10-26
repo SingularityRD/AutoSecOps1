@@ -18,6 +18,7 @@ from autosecops.robot_edr.taint import Charset, is_encoded, render, unescape
 from autosecops.robot_edr.validator import (
     FindingValidationError,
     UnsupportedContractError,
+    contract_major,
     parse_and_validate,
     rfc3339_ms,
 )
@@ -159,7 +160,9 @@ def test_unknown_fields_are_ignored_but_string_rules_apply() -> None:
         parse_and_validate(_bytes(doc))
 
 
-@pytest.mark.parametrize("version", ["1.3.0", "3.0.0", "0.9.0"])
+@pytest.mark.parametrize(
+    "version", ["1.3.0", "3.0.0", "0.9.0", "1.03.0", "003.0.0", "000000001.0.0"]
+)
 def test_other_majors_are_unsupported(version: str) -> None:
     doc = _doc()
     doc["contract_version"] = version
@@ -168,13 +171,35 @@ def test_other_majors_are_unsupported(version: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "version", ["2.1", "2.1.0-rc1", "x.1.0", "", "02.1.0", "2.01.0", "3.0.0000000000"]
+    "version",
+    ["2.1", "2.1.0-rc1", "x.1.0", "", "+2.1.0", "3.0.0000000000", "2.1.0.0", " 2.1.0"],
 )
 def test_malformed_versions_are_invalid(version: str) -> None:
     doc = _doc()
     doc["contract_version"] = version
     with pytest.raises(FindingValidationError):
         parse_and_validate(_bytes(doc))
+
+
+@pytest.mark.parametrize("version", ["02.1.0", "2.01.0", "000000002.1.000000000"])
+def test_leading_zeros_are_well_formed(version: str) -> None:
+    """The Rust rule: 1-9 digits per part, the major read as a number."""
+    assert contract_major(version) == 2
+    doc = _doc()
+    doc["contract_version"] = version
+    assert parse_and_validate(_bytes(doc)).contract_version == version
+
+
+def test_the_major_is_read_as_the_rust_consumer_reads_json() -> None:
+    """serde_json reads big integers, refuses NaN and nesting beyond 127."""
+    version = b'{"contract_version":"3.0.0","n":'
+    with pytest.raises(UnsupportedContractError):
+        parse_and_validate(version + b"123456789012345678901234567890}")
+    with pytest.raises(UnsupportedContractError):
+        parse_and_validate(version + b"[" * 126 + b"]" * 126 + b"}")
+    for unreadable in (b"NaN}", b"1e999}", b"[" * 127 + b"]" * 127 + b"}"):
+        with pytest.raises(FindingValidationError):
+            parse_and_validate(version + unreadable)
 
 
 def _mutate(path: list[str], value: object) -> bytes:
@@ -290,3 +315,20 @@ def test_long_descriptions_are_cut_at_a_line_boundary() -> None:
     cut = rendering._fit_description("\n".join(lines))
     assert len(cut) <= rendering.DESCRIPTION_MAX
     assert all(line.count("`") % 2 == 0 for line in cut.splitlines())
+
+
+def test_a_leading_zero_version_renders_as_received() -> None:
+    """Cases show ``02.1.0`` verbatim; everything else renders as for 2.1.0."""
+    doc = _doc()
+    canonical = rendering.case_inputs(json.dumps(doc))
+    doc["contract_version"] = "02.1.0"
+    value = json.dumps(doc)
+    finding = parse_and_validate(value.encode())
+    zeros = rendering.case_inputs(value, contract_version=finding.contract_version)
+    assert zeros.fields["contract_version"] == "02.1.0"
+    assert zeros.payload["robodr"]["contract_version"] == "02.1.0"
+    assert (zeros.summary, zeros.description) == (
+        canonical.summary,
+        canonical.description,
+    )
+    assert {**zeros.fields, "contract_version": "2.1.0"} == canonical.fields

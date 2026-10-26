@@ -3,12 +3,16 @@
 `tests/data/robot_edr/ingest_vectors/` is a copy of the RoboDR repository's
 `docs/contracts/fixtures/ingest/` (`manifest.json` and `cases/`), generated
 by `cargo run -p robodr-export --example ingest_vectors`. The test keys'
-secret files are not copied: registering a key needs only its public half,
-which the manifest carries.
+secret files are not copied (`keys/` holds the public halves only):
+registering a key needs only its public half, which the manifest carries.
+A body larger than the repository's file-size limit (case 26, 4 MiB + 1) is
+stored gzip-compressed as `<n>.body.gz`; its SHA-256 is checked after
+decompression like every other body.
 """
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import uuid
@@ -108,18 +112,23 @@ async def _register_manifest_workspace(ws: Workspace) -> None:
             assert created.key_id == entry["key_id"]
 
 
-def _compare(expected: dict[str, Any], response: httpx.Response, where: str) -> None:
-    assert response.status_code == expected["status"], (where, response.text)
+def _mismatch(expected: dict[str, Any], response: httpx.Response) -> str | None:
+    """How ``response`` differs from the vector's (manifest comparison rule)."""
+    if response.status_code != expected["status"]:
+        return f"status {response.status_code} != {expected['status']}: {response.text[:300]}"
     body = response.json()
     want = expected["body"]
     if expected["status"] != 200:
-        assert body["code"] == want["code"], where
-        return
+        if body.get("code") != want["code"]:
+            return f"code {body.get('code')!r} != {want['code']!r}"
+        return None
     got_rejected = [{"line": r["line"], "code": r["code"]} for r in body["rejected"]]
-    assert got_rejected == want["rejected"], where
+    if got_rejected != want["rejected"]:
+        return f"rejected {got_rejected} != {want['rejected']}"
     for key, value in want.items():
-        if key != "rejected":
-            assert body[key] == value, (where, key)
+        if key != "rejected" and body.get(key) != value:
+            return f"{key} {body.get(key)!r} != {value!r}"
+    return None
 
 
 async def test_every_contract_vector(
@@ -134,6 +143,7 @@ async def test_every_contract_vector(
     app = FastAPI()
     app.include_router(ingest_router)
     transport = httpx.ASGITransport(app=app)
+    mismatches: list[str] = []
     for case in MANIFEST["cases"]:
         rate_limit._local_buckets.clear()
         workspace = await _new_workspace(svc_organization.id)
@@ -143,18 +153,27 @@ async def test_every_contract_vector(
                 transport=transport, base_url="http://test"
             ) as client:
                 for request_path in case["requests"]:
-                    await _run_request(client, request_path, monkeypatch)
+                    if problem := await _run_request(client, request_path, monkeypatch):
+                        mismatches.append(f"{request_path}: {problem}")
         finally:
             await _drop_workspace(workspace)
+    assert not mismatches, "\n".join(mismatches)
+    assert len(MANIFEST["cases"]) >= 26
+
+
+def _read_body(path: Path) -> bytes:
+    if path.exists():
+        return path.read_bytes()
+    return gzip.decompress(path.with_name(path.name + ".gz").read_bytes())
 
 
 async def _run_request(
     client: httpx.AsyncClient, request_path: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+) -> str | None:
     base = VECTORS / request_path
     request = json.loads(base.with_name(base.name + ".request.json").read_text())
     expected = json.loads(base.with_name(base.name + ".response.json").read_text())
-    body = (base.parent / request["body_file"]).read_bytes()
+    body = _read_body(base.parent / request["body_file"])
     assert hashlib.sha256(body).hexdigest() == request["body_sha256"]
     server_time = request["server_time_ms"]
     monkeypatch.setattr(ingest_module, "now_ms", lambda: server_time)
@@ -164,4 +183,4 @@ async def _run_request(
         content=body,
         headers=[(name, value) for name, value in request["headers"]],
     )
-    _compare(expected, response, request_path)
+    return _mismatch(expected, response)
