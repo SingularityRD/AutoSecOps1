@@ -99,6 +99,7 @@ POST_RLS_WORKSPACE_SCOPED_TABLES = (
     "form_view",
     "form_file",
     "workspace_tunnel",
+    "robot_evidence_export",
     "robot",
     "robot_key",
     "robot_finding",

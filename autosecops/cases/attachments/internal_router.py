@@ -74,6 +74,7 @@ async def list_attachments(
             updated_at=attachment.updated_at,
             creator_id=attachment.file.creator_id,
             is_deleted=attachment.file.is_deleted,
+            robodr_evidence=attachment.file.robodr_evidence,
         )
         for attachment in attachments
     ]
@@ -185,6 +186,7 @@ async def create_attachment(
         updated_at=attachment.updated_at,
         creator_id=attachment.file.creator_id,
         is_deleted=attachment.file.is_deleted,
+        robodr_evidence=attachment.file.robodr_evidence,
     )
 
 
@@ -391,6 +393,7 @@ async def get_attachment_metadata(
         sha256=attachment.file.sha256,
         created_at=attachment.created_at,
         updated_at=attachment.updated_at,
+        robodr_evidence=attachment.file.robodr_evidence,
     )
 
 

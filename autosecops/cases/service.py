@@ -164,6 +164,10 @@ from autosecops.query.execution import query_execution_context
 from autosecops.query.filters import Filter
 from autosecops.query.lexical_types import SearchMode
 from autosecops.query.resolver import ResolvedAggregationField
+from autosecops.robot_edr.evidence_storage import (
+    case_evidence_prefixes,
+    delete_evidence_objects_after_commit,
+)
 from autosecops.service import BaseWorkspaceService, requires_entitlement
 from autosecops.tables.common import (
     coerce_integer_value,
@@ -1300,6 +1304,9 @@ class CasesService(BaseWorkspaceService):
         """Delete multiple cases atomically with isolated per-case failures."""
 
         async def apply(case: Case) -> None:
+            evidence = await case_evidence_prefixes(
+                self.session, self.workspace_id, [case.id]
+            )
             # Rely on database ON DELETE CASCADE instead of ORM cascades, which
             # lazy-load every child collection per case. Reply comments must be
             # unlinked first: the (case_id, parent_id) self-FK is ON DELETE
@@ -1317,6 +1324,7 @@ class CasesService(BaseWorkspaceService):
                     Case.id == case.id, Case.workspace_id == self.workspace_id
                 )
             )
+            delete_evidence_objects_after_commit(self.session, evidence)
 
         async def process(
             ids: list[uuid.UUID], locked: dict[uuid.UUID, Case]
@@ -1341,7 +1349,11 @@ class CasesService(BaseWorkspaceService):
         # However, this activity could be useful in an audit log elsewhere
         # if system-wide activities are implemented separately.
 
+        evidence = await case_evidence_prefixes(
+            self.session, self.workspace_id, [case.id]
+        )
         await self.session.delete(case)
+        delete_evidence_objects_after_commit(self.session, evidence)
         await self.session.commit()
 
 

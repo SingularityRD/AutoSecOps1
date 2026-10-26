@@ -206,13 +206,15 @@ The evidence actions export signed black-box records from the robot and verify t
 - `download_evidence_export` takes the same `export_id` and selector, the robot's black-box public key files in `blackbox_public_keys` (the `.pub` JSON files; secret key files are refused; omit it to use the `blackbox` keys the robot registered at [fleet enrollment](/integrations/robodr-fleet)), and the `case_id` to store the evidence for.
 
 `download_evidence_export` stores evidence only after every check passed: answer signatures, the manifest signature and selector, each chunk's length and SHA-256, the bundle's SHA-256, every black-box record's hash, signature, and chain link under the black-box keys, and the bundle against the manifest (sequence numbers, record count, last hash, chain id, anchor, and every referenced record).
+The bundle check accepts only what RoboDR's own verifier (`robodr-blackbox verify`) reports intact, and is stricter: it also refuses gaps, recorded truncation, a missing or quarantined segment, damage a crash cannot explain, and any control record it cannot parse.
+A refusal ending in "not verifiable by AutoSecOps" means RoboDR's verifier may still accept the bundle; check it with `robodr-blackbox verify` before treating it as tampering.
 It downloads the chunks in order and retries only the chunk that failed after a rate limit (`429`, honouring `Retry-After` up to 60 seconds), `busy`, or a dropped connection.
-It refuses exports larger than 64 MiB. Set `delete_after_download` to free the robot's export quota once the evidence is stored.
+It refuses exports larger than `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (64 MiB by default). Set `delete_after_download` to free the robot's export quota once the evidence is stored.
 
-AutoSecOps then checks the manifest signature again against a finding key registered for the robot in the workspace (see [RoboDR ingest](/integrations/robodr-ingest)), and the bundle against the manifest.
-It stores the bundle, the manifest, and its signature in the attachments bucket under `robot-edr/evidence/<workspace id>/<bundle sha256>/`, and attaches a plain-text report named `robodr-evidence-<first 16 hex of the bundle sha256>.txt` to the case.
-Only this action can create attachments with the `robodr-evidence-` prefix, so the case panel shows those attachments as verified evidence.
-The bundle sits outside the case attachment limits; `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` caps it (64 MiB by default).
+AutoSecOps then checks the manifest signature again against a finding key registered for the robot in the workspace (see [RoboDR ingest](/integrations/robodr-ingest)), requires the workflow's report to say verified and intact, and re-checks the bundle itself: every record's hash, the chain, sequence numbers and anchor, the control records, and the bundle against the manifest. Only the record signatures rest on the workflow's check.
+It stores the bundle, the manifest, and its signature in the attachments bucket under `robot-edr/evidence/<workspace id>/<manifest sha256>/<evidence id>/`, a new prefix for every stored export, so a later export never overwrites an earlier one. It attaches a plain-text report named `robodr-evidence-<first 16 hex of the bundle sha256>.txt` to the case.
+The case panel shows a report as verified evidence only when AutoSecOps marked it so when storing it. A copy of the report, under any name or in another case, is not marked, and uploading a report's bytes as an ordinary attachment is refused.
+The bundle sits outside the case attachment limits; `TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` caps one bundle (64 MiB by default) and `TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES` caps a workspace's stored bundles (10 GiB by default). Deleting a case deletes its stored evidence.
 
 Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
 AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.

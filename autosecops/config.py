@@ -1789,6 +1789,15 @@ stored in the attachments bucket, outside the per-case attachment limits; the
 case gets a small verification report attachment that names them.
 """
 
+TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES = int(
+    os.environ.get("TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES") or 10 * 1024**3
+)
+"""Total verified RoboDR evidence bundle bytes one workspace may store.
+
+Defaults to 10 GiB. Counted over the bundles of every stored export
+(`robot_evidence_export`); deleting a case releases its share.
+"""
+
 TRACECAT__ROBOT_EDR_REQUIRE_TLS = env_bool(
     "TRACECAT__ROBOT_EDR_REQUIRE_TLS", default=True
 )

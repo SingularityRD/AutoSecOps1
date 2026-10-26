@@ -2177,6 +2177,10 @@ export type CaseAttachmentRead = {
   updated_at: string
   creator_id?: string | null
   is_deleted?: boolean
+  /**
+   * A verified RoboDR evidence report stored by the evidence service (server-side mark; the file name alone proves nothing)
+   */
+  robodr_evidence?: boolean
 }
 
 /**

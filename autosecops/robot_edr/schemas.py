@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from autosecops import config
 from autosecops.core.schemas import Schema
 from autosecops.robot_edr.types import (
     FleetApprovalStatus,
@@ -161,12 +162,20 @@ class EvidenceStoreRequest(BaseModel):
     export_id: str = Field(..., pattern=EXPORT_ID_PATTERN)
     manifest_base64: str = Field(..., min_length=1, max_length=2 * 1024 * 1024)
     manifest_signature: str = Field(..., min_length=1, max_length=512)
-    bundle_base64: str = Field(..., min_length=1)
+    bundle_base64: str = Field(
+        ...,
+        min_length=1,
+        # Base64 of at most TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, refused
+        # before it is decoded (or parsed as a bundle).
+        max_length=4 * -(-config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3),
+    )
     verification: dict[str, object] = Field(
         ...,
+        max_length=64,
         description=(
-            "The workflow's §11.6 verification report; stored as the record of "
-            "the black-box check, never trusted for the manifest checks"
+            "The workflow's §11.6 verification report; it must say verified "
+            "and intact, and the platform re-checks the bundle against the "
+            "manifest itself"
         ),
     )
 

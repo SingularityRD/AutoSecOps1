@@ -5748,6 +5748,16 @@ class File(WorkspaceModel):
         nullable=True,
         doc="Timestamp for soft deletion",
     )
+    robodr_evidence: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+        doc=(
+            "A verified RoboDR evidence report written by the evidence service. "
+            "Never reused by (or deduplicated with) ordinary uploads."
+        ),
+    )
     attachments: Mapped[list[CaseAttachment]] = relationship(
         "CaseAttachment",
         back_populates="file",
@@ -5800,6 +5810,39 @@ class CaseAttachment(TimestampMixin, Base):
     def storage_path(self) -> str:
         """Generate the storage path for case attachments."""
         return f"attachments/{self.file.sha256}"
+
+
+class RobotEvidenceExport(WorkspaceModel):
+    """A verified RoboDR evidence export stored for a case.
+
+    The bundle, manifest and manifest signature live in the attachments
+    bucket under ``storage_prefix`` (unique per stored export, never
+    overwritten); the row counts them against the workspace's evidence quota
+    and lets case deletion remove them.
+    """
+
+    __tablename__ = "robot_evidence_export"
+    __table_args__ = (UniqueConstraint("storage_prefix"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        default=uuid.uuid4,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        ForeignKey("case.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    robot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    export_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    bundle_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    bundle_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    storage_prefix: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
 class OAuthIntegration(TimestampMixin, Base):

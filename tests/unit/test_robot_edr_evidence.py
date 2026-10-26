@@ -7,6 +7,7 @@ robot's finding key.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -184,9 +185,11 @@ async def test_verified_export_is_stored_and_reported(
     assert stored.bundle_sha256 == bundle_sha256
     assert stored.manifest_key_id == FINDING_KEY["key_id"]
     assert stored.attachment_name == f"robodr-evidence-{bundle_sha256[:16]}.txt"
-    assert stored.storage_key == (
-        f"robot-edr/evidence/{workspace.id}/{bundle_sha256}/bundle.rbbx"
+    manifest_sha256 = hashlib.sha256(MANIFEST).hexdigest()
+    assert stored.storage_key.startswith(
+        f"robot-edr/evidence/{workspace.id}/{manifest_sha256}/"
     )
+    assert stored.storage_key.endswith("/bundle.rbbx")
     assert await blob.download_file(stored.storage_key, storage) == BUNDLE
     prefix = stored.storage_key.removesuffix("/bundle.rbbx")
     assert await blob.download_file(f"{prefix}/manifest.json", storage) == MANIFEST
@@ -202,6 +205,8 @@ async def test_verified_export_is_stored_and_reported(
         assert attachment.file.content_type == "text/plain"
         # Created by the run, not a person.
         assert attachment.file.creator_id is None
+        # The server-side mark the UI trusts.
+        assert attachment.file.robodr_evidence is True
         content, _, _ = await service.download_attachment(case, stored.attachment_id)
     text = content.decode()
     assert "RoboDR evidence export: verified" in text
@@ -238,6 +243,17 @@ async def test_verified_export_is_stored_and_reported(
             "malformed",
         ),
         ({"verification": {"verified": False}}, TracecatValidationError, "verified"),
+        ({"verification": {"verified": True}}, TracecatValidationError, "intact"),
+        (
+            {"verification": {"verified": True, "intact": False}},
+            TracecatValidationError,
+            "intact",
+        ),
+        (
+            {"verification": {"verified": True, "intact": True, "x": "y" * 70_000}},
+            TracecatValidationError,
+            "too large",
+        ),
         ({"bundle_base64": "not base64!"}, TracecatValidationError, "base64"),
     ],
 )
@@ -318,3 +334,278 @@ def test_the_action_gateway_serves_the_evidence_routes() -> None:
     }
     assert ("POST", "/internal/robot-edr/cases/{case_id}/evidence") in routes
     assert ("POST", "/internal/robot-edr/evidence/access") in routes
+
+
+# --------------------------------------------------------------------------- #
+# Hardening: server-side mark, storage keys, quota, cleanup, re-verification
+# --------------------------------------------------------------------------- #
+
+from autosecops_registry.integrations import robodr_evidence as ev  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
+    Ed25519PrivateKey,
+)
+from pydantic import ValidationError  # noqa: E402
+
+from autosecops.robot_edr.evidence import report_text  # noqa: E402
+from autosecops.robot_edr.evidence_storage import EVIDENCE_OBJECTS  # noqa: E402
+from autosecops.storage.exceptions import FileContentMismatchError  # noqa: E402
+
+TEST_FINDING_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+TEST_FINDING_KEY_ID = "finding:ugv-007:test"
+
+
+async def _objects(storage: str, prefix: str) -> dict[str, bool]:
+    return {
+        name: await blob.file_exists(f"{prefix}/{name}", storage)
+        for name in EVIDENCE_OBJECTS
+    }
+
+
+async def _list_attachments(ws: Workspace, case: Case) -> list[Any]:
+    async with get_async_session_context_manager() as session:
+        return list(
+            await CaseAttachmentService(session, role=_role(ws)).list_attachments(case)
+        )
+
+
+@pytest.fixture
+async def other_case(workspace: Workspace) -> Case:
+    async with get_async_session_context_manager() as session:
+        return await CasesService(session, role=_role(workspace)).create_case(
+            CaseCreate(
+                summary="Another case",
+                description="copy target",
+                status=CaseStatus.NEW,
+                priority=CasePriority.LOW,
+                severity=CaseSeverity.LOW,
+            )
+        )
+
+
+async def test_a_copied_report_is_not_evidence_in_another_case(
+    workspace: Workspace, case: Case, other_case: Case, storage: str
+) -> None:
+    stored = await _store(workspace, case, _request())
+    async with get_async_session_context_manager() as session:
+        service = CaseAttachmentService(session, role=_role(workspace))
+        content, name, _ = await service.download_attachment(case, stored.attachment_id)
+    # Same bytes, any name, another case: the dedup path must not hand the
+    # evidence File (and its mark) to an ordinary upload.
+    for file_name in ("copy.txt", name.upper().replace("ROBODR-", "robodr_")):
+        async with get_async_session_context_manager() as session:
+            with pytest.raises(FileContentMismatchError, match="evidence report"):
+                await CaseAttachmentService(
+                    session, role=_role(workspace, uuid.uuid4())
+                ).create_attachment(
+                    other_case,
+                    CaseAttachmentCreate(
+                        file_name=file_name,
+                        content_type="text/plain",
+                        size=len(content),
+                        content=content,
+                    ),
+                )
+    assert await _list_attachments(workspace, other_case) == []
+    [original] = await _list_attachments(workspace, case)
+    assert original.file.robodr_evidence is True
+
+
+async def test_an_ordinary_upload_is_never_marked_as_evidence(
+    workspace: Workspace, case: Case, storage: str
+) -> None:
+    content = b"RoboDR evidence export: verified\nrobot_id: ugv-007\n"
+    async with get_async_session_context_manager() as session:
+        attachment = await CaseAttachmentService(
+            session, role=_role(workspace, uuid.uuid4())
+        ).create_attachment(
+            case,
+            CaseAttachmentCreate(
+                file_name="evidence.txt",
+                content_type="text/plain",
+                size=len(content),
+                content=content,
+            ),
+        )
+    assert attachment.file.robodr_evidence is False
+
+
+async def test_a_second_store_never_overwrites_the_first(
+    workspace: Workspace, case: Case, other_case: Case, storage: str
+) -> None:
+    first = await _store(workspace, case, _request())
+    second = await _store(workspace, other_case, _request())
+    assert first.storage_key != second.storage_key
+    for stored in (first, second):
+        prefix = stored.storage_key.removesuffix("/bundle.rbbx")
+        assert await blob.download_file(f"{prefix}/manifest.json", storage) == MANIFEST
+        assert await blob.download_file(stored.storage_key, storage) == BUNDLE
+
+
+async def test_the_workspace_quota_is_enforced(
+    workspace: Workspace,
+    case: Case,
+    other_case: Case,
+    storage: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        config, "TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES", len(BUNDLE) * 3 // 2
+    )
+    await _store(workspace, case, _request())
+    with pytest.raises(TracecatValidationError, match="quota"):
+        await _store(workspace, other_case, _request())
+    assert await _list_attachments(workspace, other_case) == []
+
+
+async def test_objects_are_removed_when_the_report_cannot_be_attached(
+    workspace: Workspace,
+    case: Case,
+    storage: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    uploaded: list[str] = []
+    real_upload = blob.upload_file
+
+    async def upload(data: bytes, key: str, *args: Any, **kwargs: Any) -> None:
+        uploaded.append(key)
+        await real_upload(data, key, *args, **kwargs)
+
+    async def fail(*args: Any, **kwargs: Any) -> Any:
+        raise TracecatValidationError("attachment refused")
+
+    monkeypatch.setattr(blob, "upload_file", upload)
+    monkeypatch.setattr(CaseAttachmentService, "create_attachment", fail)
+    with pytest.raises(TracecatValidationError, match="attachment refused"):
+        await _store(workspace, case, _request())
+    assert len(uploaded) == 3
+    for key in uploaded:
+        assert not await blob.file_exists(key, storage)
+
+
+@pytest.mark.parametrize("batch", [False, True])
+async def test_case_deletion_deletes_the_stored_objects(
+    workspace: Workspace, case: Case, storage: str, batch: bool
+) -> None:
+    stored = await _store(workspace, case, _request())
+    prefix = stored.storage_key.removesuffix("/bundle.rbbx")
+    assert all((await _objects(storage, prefix)).values())
+    async with get_async_session_context_manager() as session:
+        cases = CasesService(session, role=_role(workspace))
+        if batch:
+            await cases.batch_delete_cases([case.id])
+        else:
+            loaded = await cases.get_case(case.id)
+            assert loaded is not None
+            await cases.delete_case(loaded)
+    for _ in range(50):  # deletion runs after the commit
+        if not any((await _objects(storage, prefix)).values()):
+            break
+        await asyncio.sleep(0.05)
+    assert not any((await _objects(storage, prefix)).values())
+
+
+def _signed(manifest: dict[str, Any]) -> tuple[str, str]:
+    raw = json.dumps(manifest).encode()
+    sig = TEST_FINDING_KEY.sign(ev.manifest_message(raw)).hex()
+    return (
+        base64.b64encode(raw).decode(),
+        f"ed25519;key_id={TEST_FINDING_KEY_ID};sig={sig}",
+    )
+
+
+@pytest.fixture
+async def test_finding_key(workspace: Workspace) -> None:
+    public = TEST_FINDING_KEY.public_key().public_bytes_raw().hex()
+    async with get_async_session_context_manager() as session:
+        await RobotsService(session, role=_role(workspace)).create_key(
+            RobotKeyCreate(
+                role=RobotKeyRole.FINDING,
+                robot_id=ROBOT_ID,
+                public_key=public,
+                key_id=TEST_FINDING_KEY_ID,
+            )
+        )
+
+
+def _manifest_for(bundle: bytes, **records: Any) -> dict[str, Any]:
+    manifest = json.loads(MANIFEST)
+    digest = hashlib.sha256(bundle).hexdigest()
+    manifest["bundle"].update(
+        bytes=len(bundle),
+        sha256=digest,
+        chunk_bytes=len(bundle),
+        chunks=[{"index": 0, "offset": 0, "bytes": len(bundle), "sha256": digest}],
+    )
+    manifest["records"].update(records)
+    return manifest
+
+
+@pytest.mark.usefixtures("test_finding_key")
+async def test_the_platform_rechecks_the_records_against_the_manifest(
+    workspace: Workspace, case: Case, storage: str
+) -> None:
+    # A correctly signed manifest that misstates the bundle's records.
+    manifest_b64, signature = _signed(_manifest_for(BUNDLE, count=8))
+    with pytest.raises(TracecatValidationError, match="count differs"):
+        await _store(
+            workspace,
+            case,
+            _request(manifest_base64=manifest_b64, manifest_signature=signature),
+        )
+    assert await _list_attachments(workspace, case) == []
+
+
+@pytest.mark.usefixtures("test_finding_key")
+async def test_the_platform_rechecks_the_bundle_structure(
+    workspace: Workspace, case: Case, storage: str
+) -> None:
+    # Flip a payload byte of the last record: the bundle matches its (signed)
+    # manifest, but the record no longer hashes to its stored hash.
+    tampered = BUNDLE[:-200] + bytes([BUNDLE[-200] ^ 1]) + BUNDLE[-199:]
+    manifest_b64, signature = _signed(_manifest_for(tampered))
+    with pytest.raises(TracecatValidationError, match="does not verify"):
+        await _store(
+            workspace,
+            case,
+            _request(
+                manifest_base64=manifest_b64,
+                manifest_signature=signature,
+                bundle_base64=base64.b64encode(tampered).decode(),
+            ),
+        )
+    assert await _list_attachments(workspace, case) == []
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda m: m["referenced"][0].update(segment="0\nchecked_by_platform: all"),
+        lambda m: m["records"].update(last_sha256="00\r\n" + "0" * 60),
+        lambda m: m["anchor"].update(seq=True),
+        lambda m: m.update(referenced=[{"segment": 0, "seq": -1, "sha256": "0"}]),
+    ],
+)
+def test_report_values_are_checked_before_they_are_written(mutate: Any) -> None:
+    raw = json.loads(MANIFEST)
+    mutate(raw)
+    manifest = ev.parse_manifest(
+        json.dumps(raw).encode(), robot_id=ROBOT_ID, export_id=EXPORT_ID
+    )
+    with pytest.raises(ValueError):
+        report_text(
+            manifest,
+            manifest_sha256="0" * 64,
+            manifest_key_id="finding:ugv-007:1",
+            storage_key="k",
+            evidence_id=uuid.uuid4(),
+        )
+
+
+def test_bundle_base64_is_capped_before_decoding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    field = EvidenceStoreRequest.model_fields["bundle_base64"]
+    cap = next(m.max_length for m in field.metadata if hasattr(m, "max_length"))
+    assert cap == 4 * -(-config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3)
+    with pytest.raises(ValidationError):
+        _request(bundle_base64="A" * (cap + 4))

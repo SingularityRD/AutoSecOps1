@@ -8063,6 +8063,13 @@ export const $CaseAttachmentRead = {
       title: "Is Deleted",
       default: false,
     },
+    robodr_evidence: {
+      type: "boolean",
+      title: "Robodr Evidence",
+      description:
+        "A verified RoboDR evidence report stored by the evidence service (server-side mark; the file name alone proves nothing)",
+      default: false,
+    },
   },
   type: "object",
   required: [

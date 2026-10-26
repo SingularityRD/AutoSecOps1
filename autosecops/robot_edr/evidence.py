@@ -9,13 +9,18 @@ take the workflow's word for the parts it can check itself:
 * the manifest's robot, export and bundle layout, and the bundle's length and
   SHA-256 against it.
 
-The black-box record check (§11.6 steps 4-5) needs the robot's black-box
-keyring, which the platform does not hold; the workflow's report of it is
-stored as-is. The bundle, manifest and signature go to the attachments bucket
-under `robot-edr/evidence/<workspace>/<bundle sha256>/`, outside the per-case
-attachment limits and allowlist (an `RBBXBND1` bundle is no allowed type), and
-the case gets a plain-text report attachment named `robodr-evidence-...`, a
-prefix no other upload path may use.
+* the workflow's report says verified and intact;
+* the bundle itself (§11.6 steps 4-5 without the record signatures): every
+  record's hash, the chain, sequence and anchor, the control records, and
+  the result against the manifest (`check_report_against_manifest`). The
+  record signatures need the black-box keyring the workflow verified with.
+
+The bundle, manifest and signature go to the attachments bucket under a
+prefix of their own (`evidence_storage`), outside the per-case attachment
+limits and allowlist (an `RBBXBND1` bundle is no allowed type) but within a
+per-workspace quota (`TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES`); they are
+deleted with the case. The case gets a plain-text report attachment on a
+File marked `robodr_evidence`, which is what the UI trusts.
 """
 
 from __future__ import annotations
@@ -23,17 +28,21 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Final, Literal
 
 from autosecops_registry.integrations.robodr_evidence import (
     Manifest,
+    check_report_against_manifest,
     parse_manifest,
     parse_signature_header,
+    verify_bundle,
     verify_manifest_signature,
 )
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from autosecops import config
 from autosecops.audit.enums import AuditEventStatus
@@ -41,8 +50,15 @@ from autosecops.audit.service import AuditService
 from autosecops.cases.attachments.schemas import CaseAttachmentCreate
 from autosecops.cases.attachments.service import ROBODR_EVIDENCE_PREFIX
 from autosecops.cases.service import CasesService
-from autosecops.db.models import Robot, RobotKey
+from autosecops.db.models import Robot, RobotEvidenceExport, RobotKey
 from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.robot_edr.evidence_storage import (
+    BUNDLE_OBJECT,
+    MANIFEST_OBJECT,
+    SIGNATURE_OBJECT,
+    delete_evidence_objects,
+    evidence_storage_prefix,
+)
 from autosecops.robot_edr.fleet_wire import public_key_file
 from autosecops.robot_edr.schemas import (
     EvidenceAccessRequest,
@@ -54,7 +70,10 @@ from autosecops.service import BaseWorkspaceService
 from autosecops.storage import blob
 from autosecops.tiers.enums import Entitlement
 
-EVIDENCE_KEY_PREFIX: Final = "robot-edr/evidence"
+MAX_VERIFICATION_JSON_BYTES: Final = 64 * 1024
+_EVIDENCE_LOCK_NAMESPACE: Final = 0x524F424F44520001  # "ROBODR" + 1
+_REPORT_TEXT_RE: Final = re.compile(r"[!-~]{1,128}")
+_HEX64_RE: Final = re.compile(r"[0-9a-f]{64}")
 
 
 def _decode(value: str, what: str) -> bytes:
@@ -64,9 +83,23 @@ def _decode(value: str, what: str) -> bytes:
         raise TracecatValidationError(f"{what} is not valid base64") from exc
 
 
-def evidence_storage_prefix(workspace_id: object, bundle_sha256: str) -> str:
-    """Object-storage prefix of one stored bundle (with manifest and signature)."""
-    return f"{EVIDENCE_KEY_PREFIX}/{workspace_id}/{bundle_sha256}"
+def _uint(value: object, what: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"manifest {what} is not a non-negative integer")
+    return value
+
+
+def _hex64(value: object, what: str) -> str:
+    if not isinstance(value, str) or _HEX64_RE.fullmatch(value) is None:
+        raise ValueError(f"manifest {what} is not a lower-case SHA-256")
+    return value
+
+
+def _token(value: object, what: str) -> str:
+    """Printable ASCII without spaces: no newline or control character."""
+    if not isinstance(value, str) or _REPORT_TEXT_RE.fullmatch(value) is None:
+        raise ValueError(f"manifest {what} is not printable ASCII")
+    return value
 
 
 def report_text(
@@ -75,52 +108,80 @@ def report_text(
     manifest_sha256: str,
     manifest_key_id: str,
     storage_key: str,
-    verification: dict[str, object],
+    evidence_id: uuid.UUID,
 ) -> str:
     """The plain-text verification report attached to the case.
 
     Every value comes from the signature-checked manifest or is a fixed
-    word; nothing is copied from free text.
+    word, and is checked to be a number, a SHA-256 or a printable ASCII
+    token before it is written: nothing can add a line or a control
+    character to the report.
+
+    Raises:
+        ValueError: A manifest value is not of its documented form.
     """
     records = manifest.raw.get("records")
     records = records if isinstance(records, dict) else {}
     anchor = manifest.raw.get("anchor")
-    referenced = manifest.raw.get("referenced")
+    referenced = manifest.raw.get("referenced", [])
+    if not isinstance(referenced, list):
+        raise ValueError("manifest referenced is not a list")
     lines = [
         "RoboDR evidence export: verified (robodr.control-plane section 11.6)",
-        f"robot_id: {manifest.robot_id}",
-        f"export_id: {manifest.export_id}",
-        f"manifest_sha256: {manifest_sha256}",
-        f"manifest_signed_by: {manifest_key_id}",
-        f"chain_id: {manifest.chain_id}",
-        f"blackbox_signing_key: {manifest.signing_key_id}",
-        f"records: {records.get('first_seq')}..{records.get('last_seq')} "
-        f"({records.get('count')} records)",
-        f"last_record_sha256: {records.get('last_sha256')}",
+        f"evidence_id: {evidence_id}",
+        f"robot_id: {_token(manifest.robot_id, 'robot_id')}",
+        f"export_id: {_token(manifest.export_id, 'export_id')}",
+        f"manifest_sha256: {_hex64(manifest_sha256, 'sha256')}",
+        f"manifest_signed_by: {_token(manifest_key_id, 'signature key id')}",
+        f"chain_id: {_hex64(manifest.chain_id, 'chain_id')}",
+        f"blackbox_signing_key: {_token(manifest.signing_key_id, 'signing_key')}",
+        f"records: {_uint(records.get('first_seq'), 'first_seq')}.."
+        f"{_uint(records.get('last_seq'), 'last_seq')} "
+        f"({_uint(records.get('count'), 'count')} records)",
+        f"last_record_sha256: {_hex64(records.get('last_sha256'), 'last_sha256')}",
     ]
-    if isinstance(anchor, dict):
+    if anchor is not None:
+        if not isinstance(anchor, dict):
+            raise ValueError("manifest anchor is not an object")
         lines.append(
-            f"anchor: seq {anchor.get('seq')} sha256 {anchor.get('sha256')} "
+            f"anchor: seq {_uint(anchor.get('seq'), 'anchor.seq')} sha256 "
+            f"{_hex64(anchor.get('sha256'), 'anchor.sha256')} "
             "(unverified: first contact)"
         )
-    if isinstance(referenced, list):
-        for item in referenced:
-            if isinstance(item, dict):
-                lines.append(
-                    f"referenced: segment {item.get('segment')} seq {item.get('seq')} "
-                    f"sha256 {item.get('sha256')}"
-                )
+    for item in referenced:
+        if not isinstance(item, dict):
+            raise ValueError("manifest referenced[] is not an object")
+        lines.append(
+            f"referenced: segment {_uint(item.get('segment'), 'referenced.segment')} "
+            f"seq {_uint(item.get('seq'), 'referenced.seq')} "
+            f"sha256 {_hex64(item.get('sha256'), 'referenced.sha256')}"
+        )
     lines += [
-        f"bundle_sha256: {manifest.bundle_sha256}",
-        f"bundle_bytes: {manifest.bundle_bytes}",
+        f"bundle_sha256: {_hex64(manifest.bundle_sha256, 'bundle.sha256')}",
+        f"bundle_bytes: {_uint(manifest.bundle_bytes, 'bundle.bytes')}",
         f"bundle_storage_key: {storage_key}",
         "checked_by_platform: manifest signature (registered finding key), "
-        "bundle length and SHA-256",
+        "bundle length and SHA-256, black-box record hashes, chain, sequence "
+        "and control records, records against the manifest",
         "checked_by_workflow: answer signatures, chunk hashes, black-box "
-        f"records ({'intact' if verification.get('intact') is True else 'NOT intact'})",
+        "record signatures (intact)",
         f"stored_at: {datetime.now(UTC).isoformat()}",
     ]
-    return "\n".join(str(line) for line in lines) + "\n"
+    return "\n".join(lines) + "\n"
+
+
+def _check_verification(verification: dict[str, object]) -> None:
+    """The workflow's report must say verified and intact (and be small)."""
+    try:
+        size = len(json.dumps(verification, default=str))
+    except (TypeError, ValueError) as exc:
+        raise TracecatValidationError("verification is not JSON") from exc
+    if size > MAX_VERIFICATION_JSON_BYTES:
+        raise TracecatValidationError("verification is too large")
+    if verification.get("verified") is not True:
+        raise TracecatValidationError("only verified evidence is stored")
+    if verification.get("intact") is not True:
+        raise TracecatValidationError("only intact evidence is stored")
 
 
 class RobotEvidenceService(BaseWorkspaceService):
@@ -224,42 +285,81 @@ class RobotEvidenceService(BaseWorkspaceService):
             manifest.bundle_sha256
         ):
             raise TracecatValidationError("the bundle does not match its manifest")
-        if params.verification.get("verified") is not True:
-            raise TracecatValidationError("only verified evidence is stored")
-
-        prefix = evidence_storage_prefix(self.workspace_id, bundle_sha256)
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
-        storage_key = f"{prefix}/bundle.rbbx"
-        await blob.upload_file(bundle, storage_key, bucket, "application/octet-stream")
-        await blob.upload_file(
-            manifest_bytes, f"{prefix}/manifest.json", bucket, "application/json"
+        _check_verification(params.verification)
+        # §11.6 steps 4-5 again, here: everything but the record signatures.
+        report = verify_bundle(
+            bundle,
+            None,
+            robot_id=params.robot_id,
+            signing_key_id=manifest.signing_key_id,
         )
-        await blob.upload_file(
-            params.manifest_signature.encode("ascii"),
-            f"{prefix}/manifest.sig",
-            bucket,
-            "text/plain",
-        )
+        problems = report.problems or check_report_against_manifest(report, manifest)
+        if problems:
+            raise TracecatValidationError(
+                "the bundle does not verify: " + "; ".join(problems[:5])
+            )
 
         manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
-        name = f"{ROBODR_EVIDENCE_PREFIX}{bundle_sha256[:16]}.txt"
-        content = report_text(
-            manifest,
-            manifest_sha256=manifest_sha256,
-            manifest_key_id=key_id,
-            storage_key=storage_key,
-            verification=params.verification,
-        ).encode("ascii", errors="replace")
-        attachment = await cases.attachments.create_attachment(
-            case,
-            CaseAttachmentCreate(
-                file_name=name,
-                content_type="text/plain",
-                size=len(content),
-                content=content,
-            ),
-            allow_reserved_name=True,
+        evidence_id = uuid.uuid4()
+        prefix = evidence_storage_prefix(
+            self.workspace_id, manifest_sha256, evidence_id
         )
+        storage_key = f"{prefix}/{BUNDLE_OBJECT}"
+        try:
+            content = report_text(
+                manifest,
+                manifest_sha256=manifest_sha256,
+                manifest_key_id=key_id,
+                storage_key=storage_key,
+                evidence_id=evidence_id,
+            ).encode("ascii")
+        except (ValueError, UnicodeEncodeError) as exc:
+            raise TracecatValidationError(str(exc)) from exc
+        await self._reserve_quota(len(bundle))
+
+        # Objects first (each under a fresh, never-reused key), then the rows
+        # and the report in one commit; on any failure the objects go.
+        await self._upload_new(
+            prefix,
+            (
+                (BUNDLE_OBJECT, bundle, "application/octet-stream"),
+                (MANIFEST_OBJECT, manifest_bytes, "application/json"),
+                (
+                    SIGNATURE_OBJECT,
+                    params.manifest_signature.encode("ascii"),
+                    "text/plain",
+                ),
+            ),
+        )
+        name = f"{ROBODR_EVIDENCE_PREFIX}{bundle_sha256[:16]}.txt"
+        try:
+            self.session.add(
+                RobotEvidenceExport(
+                    id=evidence_id,
+                    workspace_id=self.workspace_id,
+                    case_id=case.id,
+                    robot_id=params.robot_id,
+                    export_id=params.export_id,
+                    manifest_sha256=manifest_sha256,
+                    bundle_sha256=bundle_sha256,
+                    bundle_bytes=len(bundle),
+                    storage_prefix=prefix,
+                )
+            )
+            attachment = await cases.attachments.create_attachment(
+                case,
+                CaseAttachmentCreate(
+                    file_name=name,
+                    content_type="text/plain",
+                    size=len(content),
+                    content=content,
+                ),
+                robodr_evidence=True,
+            )
+        except BaseException:
+            await self.session.rollback()
+            await delete_evidence_objects([prefix])
+            raise
         await self._audit(
             "create",
             {
@@ -278,6 +378,48 @@ class RobotEvidenceService(BaseWorkspaceService):
             manifest_sha256=manifest_sha256,
             manifest_key_id=key_id,
         )
+
+    async def _reserve_quota(self, size: int) -> None:
+        """Refuse a bundle over the workspace's evidence quota.
+
+        A transaction-scoped advisory lock per workspace serializes stores
+        until the storing transaction commits, so two concurrent stores
+        cannot both fit under the quota.
+        """
+        lock = (self.workspace_id.int ^ _EVIDENCE_LOCK_NAMESPACE) & (2**63 - 1)
+        await self.session.execute(select(func.pg_advisory_xact_lock(lock)))
+        used = await self.session.scalar(
+            select(func.coalesce(func.sum(RobotEvidenceExport.bundle_bytes), 0)).where(
+                RobotEvidenceExport.workspace_id == self.workspace_id
+            )
+        )
+        quota = config.TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES
+        if int(used or 0) + size > quota:
+            raise TracecatValidationError(
+                f"the workspace's RoboDR evidence quota ({quota} bytes) is "
+                "exhausted; delete cases with stored evidence or raise "
+                "TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES"
+            )
+
+    async def _upload_new(
+        self, prefix: str, objects: tuple[tuple[str, bytes, str], ...]
+    ) -> None:
+        """Upload objects under keys that must not exist yet (never overwrite)."""
+        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
+        uploaded: list[str] = []
+        try:
+            for name, data, content_type in objects:
+                key = f"{prefix}/{name}"
+                if await blob.file_exists(key, bucket):
+                    raise TracecatValidationError(
+                        "the evidence storage key is already in use"
+                    )
+                await blob.upload_file(data, key, bucket, content_type)
+                uploaded.append(name)
+        except BaseException:
+            if uploaded:
+                await delete_evidence_objects([prefix])
+            raise
 
     async def record_access(self, params: EvidenceAccessRequest) -> None:
         """Write the audit event for an evidence read by a workflow."""
