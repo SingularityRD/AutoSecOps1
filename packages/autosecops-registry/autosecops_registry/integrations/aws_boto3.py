@@ -32,7 +32,7 @@ from autosecops_registry import (
     registry,
 )
 
-_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
+_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
 _AWS_SERVICE_REGION_DOC = (
     "AWS service region to use for this request. Overrides the AWS_REGION secret "
     "for the service client."
@@ -127,9 +127,9 @@ def _get_role_session_name() -> str:
         workspace_id = ctx.workspace_id
         run_id = ctx.run_id
     except RuntimeError:
-        return "tracecat-session"
+        return "autosecops-session"
 
-    parts = ["tracecat"]
+    parts = ["autosecops"]
     if workspace_id:
         parts.extend(["ws", workspace_id.replace("-", "")[:8]])
     if run_id:

@@ -23,7 +23,7 @@ from autosecops.ssh import SshEnv
 def role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -35,7 +35,7 @@ def role() -> Role:
 def role_with_read_only_scope() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -47,7 +47,7 @@ def role_with_read_only_scope() -> Role:
 def role_without_registry_scopes() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -59,7 +59,7 @@ def role_without_registry_scopes() -> Role:
 def role_with_update_scope() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -139,7 +139,7 @@ async def test_sync_repository_rejects_cross_org_repository() -> None:
     """Cross-org repository must surface RegistryNotFound (probing-resistant)."""
     role_with_update = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -163,7 +163,7 @@ async def test_temporal_git_sync_skips_api_ssh_context(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", True)
     session = mocker.MagicMock(spec=AsyncSession)
     repository = RegistryRepository(
         id=uuid.uuid4(),
@@ -215,7 +215,7 @@ async def test_direct_git_sync_preserves_api_ssh_context(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
     session = mocker.MagicMock(spec=AsyncSession)
     repository = RegistryRepository(
         id=uuid.uuid4(),

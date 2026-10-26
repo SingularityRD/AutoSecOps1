@@ -10,7 +10,7 @@ import orjson
 from cryptography.fernet import Fernet
 from redis.asyncio import Redis as AsyncRedis
 
-from autosecops.config import REDIS_URL, TRACECAT__DB_ENCRYPTION_KEY
+from autosecops.config import AUTOSECOPS__DB_ENCRYPTION_KEY, REDIS_URL
 from autosecops.logger import logger
 from autosecops.mcp.oidc import config as oidc_config
 from autosecops.mcp.oidc.schemas import (
@@ -81,11 +81,11 @@ def _build_store() -> _EncryptedRedis:
     """Create an encrypted Redis store for OIDC issuer state."""
     redis = AsyncRedis.from_url(REDIS_URL, decode_responses=False)
     fernet: Fernet | None = None
-    if TRACECAT__DB_ENCRYPTION_KEY:
-        fernet = Fernet(TRACECAT__DB_ENCRYPTION_KEY)
+    if AUTOSECOPS__DB_ENCRYPTION_KEY:
+        fernet = Fernet(AUTOSECOPS__DB_ENCRYPTION_KEY)
     else:
         logger.warning(
-            "TRACECAT__DB_ENCRYPTION_KEY is not set; "
+            "AUTOSECOPS__DB_ENCRYPTION_KEY is not set; "
             "MCP OIDC issuer state will be stored unencrypted in Redis"
         )
     return _EncryptedRedis(redis, fernet)

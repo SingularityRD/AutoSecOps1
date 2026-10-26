@@ -24,9 +24,9 @@ def test_log_format_from_env(
     expected: LogFormat,
 ) -> None:
     if raw_value is None:
-        monkeypatch.delenv("TRACECAT__LOG_FORMAT", raising=False)
+        monkeypatch.delenv("AUTOSECOPS__LOG_FORMAT", raising=False)
     else:
-        monkeypatch.setenv("TRACECAT__LOG_FORMAT", raw_value)
+        monkeypatch.setenv("AUTOSECOPS__LOG_FORMAT", raw_value)
 
     assert log_format_from_env() is expected
 
@@ -34,7 +34,7 @@ def test_log_format_from_env(
 def test_log_format_from_env_rejects_unknown_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("TRACECAT__LOG_FORMAT", "xml")
+    monkeypatch.setenv("AUTOSECOPS__LOG_FORMAT", "xml")
 
     with pytest.raises(ValueError, match="console, json"):
         log_format_from_env()
@@ -51,9 +51,9 @@ def _emit_log(
     environment.update(
         {
             "LOG_LEVEL": "INFO",
-            "TRACECAT__APP_ENV": "staging",
-            "TRACECAT__LOG_FORMAT": log_format.value,
-            "TRACECAT__SERVICE_NAME": "worker",
+            "AUTOSECOPS__APP_ENV": "staging",
+            "AUTOSECOPS__LOG_FORMAT": log_format.value,
+            "AUTOSECOPS__SERVICE_NAME": "worker",
         }
     )
     if spoof_process_context:
@@ -81,7 +81,7 @@ def test_json_log_format_preserves_structured_fields() -> None:
     payload = json.loads(_emit_log(LogFormat.JSON))
 
     assert payload == {
-        "schema": "tracecat.log.v1",
+        "schema": "autosecops.log.v1",
         "timestamp": payload["timestamp"],
         "level": "INFO",
         "message": "Workflow failed",

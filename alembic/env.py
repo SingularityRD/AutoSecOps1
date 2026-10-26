@@ -21,16 +21,16 @@ alembic_postgresql_enum.set_configuration(
     )
 )
 
-TRACECAT__DB_URI = os.getenv("TRACECAT__DB_URI")
-if not TRACECAT__DB_URI:
-    username = os.getenv("TRACECAT__DB_USER", "postgres")
-    host = os.getenv("TRACECAT__DB_ENDPOINT")
-    port = os.getenv("TRACECAT__DB_PORT", 5432)
-    database = os.getenv("TRACECAT__DB_NAME", "postgres")
-    sslmode = os.getenv("TRACECAT__DB_SSLMODE", "require")
+AUTOSECOPS__DB_URI = os.getenv("AUTOSECOPS__DB_URI")
+if not AUTOSECOPS__DB_URI:
+    username = os.getenv("AUTOSECOPS__DB_USER", "postgres")
+    host = os.getenv("AUTOSECOPS__DB_ENDPOINT")
+    port = os.getenv("AUTOSECOPS__DB_PORT", 5432)
+    database = os.getenv("AUTOSECOPS__DB_NAME", "postgres")
+    sslmode = os.getenv("AUTOSECOPS__DB_SSLMODE", "require")
 
     # Check if in AWS environment
-    if arn := os.getenv("TRACECAT__DB_PASS__ARN"):
+    if arn := os.getenv("AUTOSECOPS__DB_PASS__ARN"):
         logging.info("Fetching database password from AWS Secrets Manager")
         session = boto3.Session()
         client = session.client("secretsmanager")
@@ -48,11 +48,11 @@ if not TRACECAT__DB_URI:
             password = secret_string
     else:
         logging.info("Fetching database password from environment variable")
-        password = os.getenv("TRACECAT__DB_PASS")
+        password = os.getenv("AUTOSECOPS__DB_PASS")
 
     user = quote_plus("" if username is None else str(username))
     pwd = quote_plus("" if password is None else str(password))
-    TRACECAT__DB_URI = (
+    AUTOSECOPS__DB_URI = (
         f"postgresql+psycopg://{user}:{pwd}@{host}:{port!s}/{database}"
         f"?sslmode={sslmode}"
     )
@@ -82,7 +82,7 @@ target_metadata = models.Base.metadata
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     context.configure(
-        url=TRACECAT__DB_URI,
+        url=AUTOSECOPS__DB_URI,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -98,7 +98,7 @@ def run_migrations_online() -> None:
         configuration=config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=TRACECAT__DB_URI,
+        url=AUTOSECOPS__DB_URI,
     )
 
     with connectable.connect() as connection:

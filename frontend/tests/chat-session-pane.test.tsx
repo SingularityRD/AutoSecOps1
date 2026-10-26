@@ -1144,7 +1144,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -1664,7 +1664,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -1729,7 +1729,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -1812,7 +1812,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -2173,7 +2173,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -2235,7 +2235,7 @@ describe("ChatSessionPane", () => {
       description: "List all cases",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     const getCase = {
@@ -2246,7 +2246,7 @@ describe("ChatSessionPane", () => {
       description: "Get a case",
       namespace: "core.cases",
       type: "template" as const,
-      origin: "tracecat://test",
+      origin: "autosecops://test",
       availability: { locked: false, missing_entitlements: [] },
     }
     mockUseBuilderRegistryActions.mockReturnValue({
@@ -3059,7 +3059,7 @@ describe("ChatSessionPane", () => {
         description: "List all cases",
         namespace: "core.cases",
         type: "template" as const,
-        origin: "tracecat://test",
+        origin: "autosecops://test",
         availability: { locked: false, missing_entitlements: [] },
       }
       mockUseBuilderRegistryActions.mockReturnValue({

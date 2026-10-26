@@ -40,7 +40,7 @@ async def test_fork_captures_committed_history_and_sdk_identity_together() -> No
     organization_id, workspace_id, source_id = (uuid.uuid4() for _ in range(3))
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
     )
@@ -115,7 +115,7 @@ async def test_entitlement_loss_keeps_ancestry_readable_but_blocks_execution(
     relationship: str,
 ) -> None:
     svc_role = svc_role.model_copy(update={"type": "service", "user_id": None})
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         defaults,
         "DEFAULT_ENTITLEMENTS",

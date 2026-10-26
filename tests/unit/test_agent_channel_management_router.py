@@ -36,7 +36,7 @@ class _AsyncContext:
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:update"}),
@@ -107,7 +107,7 @@ async def test_start_slack_oauth_returns_404_for_soft_deleted_existing_token() -
     mock_service = MagicMock()
     mock_service.get_token = AsyncMock(return_value=existing_token)
     mock_service.parse_stored_channel_config.return_value = SlackChannelTokenConfig(
-        slack_bot_token="__tracecat_pending_bot_token__",
+        slack_bot_token="__autosecops_pending_bot_token__",
         slack_client_id="old-client-id",
         slack_client_secret="old-client-secret",
         slack_signing_secret="old-signing-secret",
@@ -135,7 +135,7 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
     return_url = "https://app.tracecat.com/settings"
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:update"}),
@@ -196,7 +196,7 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
             AsyncMock(return_value=role),
         ),
         patch(
-            "autosecops.agent.channels.router.config.TRACECAT__PUBLIC_APP_URL",
+            "autosecops.agent.channels.router.config.AUTOSECOPS__PUBLIC_APP_URL",
             "https://app.tracecat.com",
         ),
     ):

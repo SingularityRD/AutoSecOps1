@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 JAILED_AGENT_HOME_DIR = Path("/home/agent")
-JAILED_AGENT_JOB_DIR = Path("/run/tracecat/job")
+JAILED_AGENT_JOB_DIR = Path("/run/autosecops/job")
 JAILED_AGENT_UV_STATE_DIR = JAILED_AGENT_JOB_DIR.parent / "uv-state"
 JAILED_AGENT_WORK_DIR = Path("/work")
 AGENT_UV_STATE_DIR_NAME = "uv-state"
@@ -34,7 +34,7 @@ def build_agent_sandbox_path_mapping(
     disable_nsjail: bool,
 ) -> AgentSandboxPathMapping:
     """Build stable host/runtime path mapping for one agent session."""
-    session_root = Path(tempfile.gettempdir()) / f"tracecat-agent-{session_id}"
+    session_root = Path(tempfile.gettempdir()) / f"autosecops-agent-{session_id}"
     host_home_dir = session_root / "agent-home"
     host_work_dir = session_root / "agent-work-dir"
     host_home_dir.mkdir(parents=True, exist_ok=True)

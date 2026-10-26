@@ -49,7 +49,7 @@ async def aggregate_service(
     await session.flush()
     role = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         organization_id=workspace.organization_id,
         workspace_id=workspace.id,
         scopes=frozenset({"case:read", "table:read", "table:create"}),
@@ -495,7 +495,7 @@ async def test_reporting_limits_validation_and_transaction_reuse(
     for extra, expected, truncated in [
         ({"limit": 1}, all_groups[:1], True),
         ({"limit": 2}, all_groups, False),
-        ({"limit": config.TRACECAT__LIMIT_AGG_GROUPS_MAX}, all_groups, False),
+        ({"limit": config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX}, all_groups, False),
         ({"min_count": 2}, all_groups[:1], False),
         ({"min_count": 2**31}, [], False),
         ({"min_count": 2**63 - 1}, [], False),
@@ -507,7 +507,7 @@ async def test_reporting_limits_validation_and_transaction_reuse(
         assert response.json() == {"groups": expected, "truncated": truncated}
     for extra in [
         {"limit": 0},
-        {"limit": config.TRACECAT__LIMIT_AGG_GROUPS_MAX + 1},
+        {"limit": config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX + 1},
         {"min_count": 2**63},
         {"aggs": []},
         {"order_by": "missing"},
@@ -606,13 +606,13 @@ async def test_real_timeout_through_endpoint(
         )
     )
     await aggregate_service.session.flush()
-    monkeypatch.setattr(config, "TRACECAT__AGG_STATEMENT_TIMEOUT_MS", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 1)
     response = await aggregate_client.post(
         "/internal/cases/aggregate", json={"group_by": ["fields.slow"]}
     )
     assert response.status_code == 422, response.text
     assert response.json()["detail"]["code"] == "query_timeout"
-    monkeypatch.setattr(config, "TRACECAT__AGG_STATEMENT_TIMEOUT_MS", 30_000)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 30_000)
     assert (
         await aggregate_service.session.scalar(sa.text("SHOW statement_timeout"))
         == "5min"
@@ -1006,7 +1006,7 @@ async def test_dropdown_entitlement_required_for_every_use(
     service = aggregate_service
     await add_dropdown(service, "verdict")
     await add_case(service)
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     tier = Tier(
         display_name="Synthetic restricted tier", entitlements={"case_addons": False}
     )
@@ -1039,7 +1039,7 @@ async def test_ungated_aggregation_does_not_require_a_configured_tier(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await add_case(aggregate_service)
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     for field in ["priority", "tags"]:
         response = await aggregate_client.post(
             "/internal/cases/aggregate", json={"group_by": [field]}

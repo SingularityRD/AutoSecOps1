@@ -23,8 +23,8 @@ from autosecops.contexts import ctx_role
 from autosecops.dsl._converter import get_data_converter
 from autosecops.dsl.worker import new_sandbox_runner
 from autosecops.temporal.codec import (
-    TRACECAT_TEMPORAL_ENCODING,
-    TRACECAT_TEMPORAL_GLOBAL_SCOPE,
+    AUTOSECOPS_TEMPORAL_ENCODING,
+    AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE,
     reset_temporal_payload_codec_cache,
     reset_temporal_payload_secret_cache,
 )
@@ -33,7 +33,7 @@ pytestmark = [pytest.mark.temporal]
 
 WORKSPACE_ID = uuid.UUID("11111111-2222-4333-8444-555555555555")
 WORKSPACE_SCOPE = str(WORKSPACE_ID).encode()
-GLOBAL_SCOPE = TRACECAT_TEMPORAL_GLOBAL_SCOPE.encode()
+GLOBAL_SCOPE = AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE.encode()
 
 
 @pytest.fixture
@@ -178,9 +178,9 @@ def _failure_encoded_attributes(failure: Any) -> list[Payload]:
 def _assert_encrypted(payloads: list[Payload]) -> None:
     assert payloads
     for payload in payloads:
-        assert payload.metadata.get("encoding") == TRACECAT_TEMPORAL_ENCODING
-        assert payload.metadata.get("tracecat_key_id") == b"v1"
-        assert payload.metadata.get("tracecat_workspace_id") in {
+        assert payload.metadata.get("encoding") == AUTOSECOPS_TEMPORAL_ENCODING
+        assert payload.metadata.get("autosecops_key_id") == b"v1"
+        assert payload.metadata.get("autosecops_workspace_id") in {
             WORKSPACE_SCOPE,
             GLOBAL_SCOPE,
         }
@@ -195,7 +195,7 @@ async def test_encrypted_temporal_payloads_round_trip_and_store_encrypted_histor
     token = ctx_role.set(
         Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             workspace_id=WORKSPACE_ID,
         )
     )
@@ -242,7 +242,7 @@ async def test_encrypted_temporal_payloads_round_trip_and_store_encrypted_histor
         _assert_encrypted(payloads_by_source[source])
 
     assert (
-        payloads_by_source["workflow_input"][0].metadata.get("tracecat_workspace_id")
+        payloads_by_source["workflow_input"][0].metadata.get("autosecops_workspace_id")
         == WORKSPACE_SCOPE
     )
 
@@ -256,7 +256,7 @@ async def test_encrypted_temporal_failure_attributes_are_encoded(
     token = ctx_role.set(
         Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             workspace_id=WORKSPACE_ID,
         )
     )

@@ -167,7 +167,7 @@ class _WorkspaceRow(Protocol):
     workspace_id: Mapped[uuid.UUID]
 
 
-_TEMP_NAME_PREFIX = "__tracecat_sync_tmp_"
+_TEMP_NAME_PREFIX = "__autosecops_sync_tmp_"
 """Prefix for placeholder names rows are parked under during a rename swap."""
 
 

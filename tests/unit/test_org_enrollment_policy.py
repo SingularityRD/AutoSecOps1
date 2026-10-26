@@ -112,7 +112,7 @@ async def test_registration_does_not_enroll(
         "autosecops.auth.users.ensure_single_tenant_user_defaults", defaults
     )
     monkeypatch.setattr(
-        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL", None
+        "autosecops.auth.users.config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL", None
     )
 
     manager = UserManager.__new__(UserManager)

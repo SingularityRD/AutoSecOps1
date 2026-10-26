@@ -144,8 +144,8 @@ SELECT current_user, signature,
        coalesce(has_function_privilege(to_regprocedure(signature), 'EXECUTE'), false)
            AS can_execute
 FROM (VALUES
-    ('public.tracecat_case_safe_vector_v1(text)'),
-    ('public.tracecat_case_text_matches_v1(text,text,boolean)')
+    ('public.autosecops_case_safe_vector_v1(text)'),
+    ('public.autosecops_case_text_matches_v1(text,text,boolean)')
 ) AS required(signature);
 COMMIT;
 ```
@@ -162,9 +162,9 @@ grants only these helpers to the API role. Replace `synthetic_runtime_role` with
 that role and rerun the read-only check:
 
 ```sql
-GRANT EXECUTE ON FUNCTION public.tracecat_case_safe_vector_v1(text)
+GRANT EXECUTE ON FUNCTION public.autosecops_case_safe_vector_v1(text)
     TO synthetic_runtime_role;
-GRANT EXECUTE ON FUNCTION public.tracecat_case_text_matches_v1(text,text,boolean)
+GRANT EXECUTE ON FUNCTION public.autosecops_case_text_matches_v1(text,text,boolean)
     TO synthetic_runtime_role;
 ```
 

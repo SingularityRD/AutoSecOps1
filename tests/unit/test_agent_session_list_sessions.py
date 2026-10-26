@@ -28,7 +28,7 @@ def _build_service() -> tuple[AgentSessionService, SimpleNamespace, Role]:
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),

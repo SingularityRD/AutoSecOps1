@@ -7,7 +7,7 @@ import shutil
 import pytest
 
 from autosecops import config
-from autosecops.config import TRACECAT__SANDBOX_PYPI_INDEX_URL
+from autosecops.config import AUTOSECOPS__SANDBOX_PYPI_INDEX_URL
 from autosecops.sandbox import (
     SandboxExecutionError,
     SandboxService,
@@ -22,7 +22,7 @@ NSJAIL_AVAILABLE = shutil.which("nsjail") is not None
 
 # Check if the sandbox rootfs exists
 ROOTFS_PATH = os.environ.get(
-    "TRACECAT__SANDBOX_ROOTFS_PATH", "/var/lib/tracecat/sandbox-rootfs"
+    "AUTOSECOPS__SANDBOX_ROOTFS_PATH", "/var/lib/autosecops/sandbox-rootfs"
 )
 ROOTFS_AVAILABLE = os.path.isdir(ROOTFS_PATH)
 
@@ -817,7 +817,7 @@ class TestPyPIConfiguration:
     async def test_default_pypi_index_used(self) -> None:
         """Test that default PyPI index is used when no configuration is set."""
         # Default should be public PyPI
-        assert TRACECAT__SANDBOX_PYPI_INDEX_URL == "https://pypi.org/simple"
+        assert AUTOSECOPS__SANDBOX_PYPI_INDEX_URL == "https://pypi.org/simple"
 
     @pytest.mark.anyio
     async def test_custom_pypi_index_configuration(
@@ -826,12 +826,12 @@ class TestPyPIConfiguration:
         """Test that custom PyPI index URL can be configured."""
         # Set custom index URL
         custom_url = "https://custom.pypi.example.com/simple"
-        monkeypatch.setenv("TRACECAT__SANDBOX_PYPI_INDEX_URL", custom_url)
+        monkeypatch.setenv("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", custom_url)
 
         # Reload config to pick up new env var
         importlib.reload(config)
 
-        assert config.TRACECAT__SANDBOX_PYPI_INDEX_URL == custom_url
+        assert config.AUTOSECOPS__SANDBOX_PYPI_INDEX_URL == custom_url
 
     @pytest.mark.anyio
     async def test_extra_index_urls_configuration(
@@ -842,19 +842,19 @@ class TestPyPIConfiguration:
         extra_urls = (
             "https://extra1.example.com/simple,https://extra2.example.com/simple"
         )
-        monkeypatch.setenv("TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS", extra_urls)
+        monkeypatch.setenv("AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS", extra_urls)
 
         # Reload config to pick up new env var
         importlib.reload(config)
 
-        assert len(config.TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS) == 2
+        assert len(config.AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS) == 2
         assert (
             "https://extra1.example.com/simple"
-            in config.TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS
+            in config.AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS
         )
         assert (
             "https://extra2.example.com/simple"
-            in config.TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS
+            in config.AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS
         )
 
     @pytest.mark.anyio
@@ -889,12 +889,12 @@ To run tests locally:
    just dev
 
 2. Run tests inside the executor container:
-   docker exec -it tracecat-executor-1 pytest tests/registry/test_core_python.py -v
+   docker exec -it autosecops-executor-1 pytest tests/registry/test_core_python.py -v
 
 The sandbox requires:
 - Linux with kernel >= 4.6 (for user namespaces)
 - nsjail binary at /usr/local/bin/nsjail
-- Sandbox rootfs at /var/lib/tracecat/sandbox-rootfs
+- Sandbox rootfs at /var/lib/autosecops/sandbox-rootfs
 - SYS_ADMIN capability (configured in docker-compose)
 
 Note: Unsafe PID executor fallback tests are in tests/unit/test_unsafe_pid_executor.py. These tests run without nsjail and

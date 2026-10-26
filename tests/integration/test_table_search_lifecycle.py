@@ -100,7 +100,7 @@ async def tables():
             organization_id=org_id,
             workspace_id=workspace_id,
             user_id=uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_ADMIN_SCOPES,
         )
         yield TablesService(session, role)

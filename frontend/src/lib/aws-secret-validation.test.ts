@@ -8,7 +8,7 @@ import {
 
 describe("validateAwsRoleArn", () => {
   it.each([
-    "arn:aws:iam::123456789012:role/tracecat-secrets-reader",
+    "arn:aws:iam::123456789012:role/autosecops-secrets-reader",
     "arn:aws-us-gov:iam::123456789012:role/path/to/reader",
     "  arn:aws-cn:iam::123456789012:role/reader  ",
   ])("accepts %s", (value) => {

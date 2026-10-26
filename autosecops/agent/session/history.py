@@ -8,7 +8,7 @@ from typing import Any, cast
 
 import orjson
 
-_ENCODED_JSONB_KEY_PREFIX = "__tracecat_encoded_key_v1__:"
+_ENCODED_JSONB_KEY_PREFIX = "__autosecops_encoded_key_v1__:"
 
 
 @dataclass(frozen=True, slots=True)

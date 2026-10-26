@@ -726,7 +726,7 @@ async def test_service_role_cache_reuses_workspace_role(
     assert first_role is not None
     assert first_role.workspace_id == workspace_id
     assert first_role.organization_id == organization_id
-    assert first_role.service_id == "tracecat-case-duration-sync"
+    assert first_role.service_id == "autosecops-case-duration-sync"
     assert second_role is first_role
     session.execute.assert_awaited_once()
 

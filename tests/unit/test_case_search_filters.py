@@ -22,7 +22,7 @@ def search_role() -> Role:
         type="service",
         organization_id=uuid.UUID("00000000-0000-4000-8000-000000000002"),
         workspace_id=uuid.UUID("00000000-0000-4000-8000-000000000001"),
-        service_id="tracecat-service",
+        service_id="autosecops-service",
     )
 
 

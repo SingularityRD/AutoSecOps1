@@ -75,7 +75,7 @@ def _run_args(count: int) -> DSLRunArgs:
     return DSLRunArgs(
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid4(),
             organization_id=uuid4(),
         ),
@@ -152,7 +152,7 @@ async def test_dependency_plan_activity_payloads_and_replay(
             ),
             Worker(
                 env.client,
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
                 activities=[_produce_result],
             ),
         ):

@@ -89,7 +89,7 @@ def single_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     The session conftest widens DEFAULT_ENTITLEMENTS for unrelated suites;
     these tests need the real baseline.
     """
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -98,7 +98,7 @@ def single_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _install(monkeypatch: pytest.MonkeyPatch, token: str | None) -> None:
-    monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", token)
+    monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", token)
 
 
 # --- Token sign/verify -------------------------------------------------------
@@ -412,7 +412,7 @@ def test_legacy_feature_flags_no_longer_grant_entitlements(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
     legacy = "git-sync,agent-approvals,case-durations,rbac,agent-channels,forms"
-    monkeypatch.setenv("TRACECAT__FEATURE_FLAGS", legacy)
+    monkeypatch.setenv("AUTOSECOPS__FEATURE_FLAGS", legacy)
     _install(monkeypatch, None)
 
     entitlements = tier_defaults.get_single_tenant_entitlements()
@@ -467,7 +467,7 @@ async def test_is_org_entitled_single_tenant_uses_license(
 async def test_multi_tenant_ignores_license(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     _install(
         monkeypatch,
         encode_license(
@@ -502,7 +502,7 @@ async def test_admin_license_endpoint_reports_status(
     embedded_key: Ed25519PrivateKey,
     multi_tenant: bool,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
     claims = LicenseClaims(
         license_id="lic_test",
         customer="Synthetic Customer",
@@ -511,7 +511,7 @@ async def test_admin_license_endpoint_reports_status(
         entitlements=["git_sync", "future_feature"],
     )
     _install(monkeypatch, encode_license(claims, embedded_key))
-    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="tracecat-api")
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
     result = await get_license(role)
 
@@ -528,7 +528,7 @@ async def test_admin_license_endpoint_reports_missing(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
     _install(monkeypatch, None)
-    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="tracecat-api")
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
     result = await get_license(role)
 

@@ -43,12 +43,12 @@ def monkeypatch_session():
 @pytest.fixture(scope="session", autouse=True)
 def disable_nsjail_for_tests(monkeypatch_session):
     """Disable nsjail sandbox for integration tests."""
-    monkeypatch_session.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
+    monkeypatch_session.setenv("AUTOSECOPS__EXECUTOR_BACKEND", "direct")
 
     # Reload config to pick up the new value
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
 
 # =============================================================================
@@ -61,10 +61,10 @@ def role_workspace_a() -> Role:
     """Role for workspace A (test tenant 1)."""
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.UUID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -73,10 +73,10 @@ def role_workspace_b() -> Role:
     """Role for workspace B (test tenant 2)."""
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.UUID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -85,11 +85,11 @@ def role_workspace_agent_a() -> Role:
     """Role for workspace A (test tenant 1) for agent workflows."""
     return Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.UUID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
         organization_id=uuid.UUID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-agent-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-agent-executor"],
     )
 
 
@@ -98,11 +98,11 @@ def role_workspace_agent_b() -> Role:
     """Role for workspace B (test tenant 2) for agent workflows."""
     return Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.UUID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
         organization_id=uuid.UUID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-agent-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-agent-executor"],
     )
 
 
@@ -121,16 +121,16 @@ def mock_modules_dir(tmp_path: Path) -> Path:
     Structure:
         {tmp_path}/
             workspace_a/
-                tracecat_custom/
+                autosecops_custom/
                     __init__.py
                     actions.py  # Returns "WORKSPACE_A_V1", adds 1000
             workspace_b/
-                tracecat_custom/
+                autosecops_custom/
                     __init__.py
                     actions.py  # Returns "WORKSPACE_B_V2", adds 2000
     """
     # Workspace A module
-    ws_a = tmp_path / "workspace_a" / "tracecat_custom"
+    ws_a = tmp_path / "workspace_a" / "autosecops_custom"
     ws_a.mkdir(parents=True)
     (ws_a / "__init__.py").write_text("")
     (ws_a / "actions.py").write_text('''
@@ -144,7 +144,7 @@ def transform_value(x: int) -> int:
 ''')
 
     # Workspace B module
-    ws_b = tmp_path / "workspace_b" / "tracecat_custom"
+    ws_b = tmp_path / "workspace_b" / "autosecops_custom"
     ws_b.mkdir(parents=True)
     (ws_b / "__init__.py").write_text("")
     (ws_b / "actions.py").write_text('''

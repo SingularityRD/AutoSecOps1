@@ -149,8 +149,8 @@ class ActivityHistoryMetrics(TypedDict):
     workflow_history_sizes: WorkflowHistorySizeMetrics
     completed_activities: int
     completed_activities_per_second: float
-    completed_tracecat_actions: int
-    completed_tracecat_actions_per_second: float
+    completed_autosecops_actions: int
+    completed_autosecops_actions_per_second: float
     groups: list[ActivityGroupMetrics]
     notes: list[str]
 
@@ -692,8 +692,10 @@ async def collect_activity_history_metrics(
         workflow_history_sizes=_history_size_metrics(history_sizes),
         completed_activities=completed_activities,
         completed_activities_per_second=completed_activities / measurement_window,
-        completed_tracecat_actions=completed_actions,
-        completed_tracecat_actions_per_second=(completed_actions / measurement_window),
+        completed_autosecops_actions=completed_actions,
+        completed_autosecops_actions_per_second=(
+            completed_actions / measurement_window
+        ),
         groups=groups,
         notes=[
             "Counts and timestamps come from activities scheduled during the measured interval in measured root workflows and their child histories.",

@@ -455,7 +455,7 @@ def test_prepare_rejects_runtime_file_limits_without_writing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(script, "LIBRARY_ROOT", tmp_path / "library")
-    monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_FILES_COUNT", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_FILES_COUNT", 1)
     archive = _archive({"LICENSE": b"MIT", "skills/triage/SKILL.md": SKILL_MD})
 
     with pytest.raises(ValueError, match="too many files"):

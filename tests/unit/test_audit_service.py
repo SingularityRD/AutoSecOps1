@@ -52,7 +52,7 @@ def role() -> Role:
         workspace_id=None,
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
 
@@ -322,7 +322,7 @@ async def test_create_event_streams_exact_payload_contract(
     resource_id = uuid.uuid4()
     webhook_id = uuid.uuid4()
     client_ip = "192.0.2.10"
-    user_agent = "TracecatAuditTest/1.0"
+    user_agent = "AutoSecOpsAuditTest/1.0"
     monkeypatch.setattr(
         audit_service, "_get_webhook_url", AsyncMock(return_value=webhook_url)
     )
@@ -450,12 +450,12 @@ async def test_create_event_can_emit_sanitized_platform_org_auth_event(
 ) -> None:
     webhook_url = "https://example.com/platform-audit"
     client_ip = "203.0.113.10"
-    user_agent = "TracecatClient/1.0 [redacted email] Authorization: [redacted]"
+    user_agent = "AutoSecOpsClient/1.0 [redacted email] Authorization: [redacted]"
     role = Role(
         type="user",
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     audit_service = AuditService(AsyncMock(), role=role, audit_sink="platform")
     post_mock = AsyncMock()
@@ -761,7 +761,7 @@ async def test_on_after_register_emits_user_create_audit(
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
+        "autosecops.auth.users.config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL",
         "superadmin@example.com",
     )
 
@@ -791,7 +791,7 @@ async def test_platform_role_defaults_to_platform_audit_sink(
     role = PlatformRole(
         type="user",
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     audit_service = AuditService(AsyncMock(), role=role)
     fetch_platform_setting = AsyncMock(return_value="https://example.com/audit")
@@ -812,7 +812,7 @@ async def test_audit_setting_cache_separates_sinks_and_orgs(
     org_a = uuid.uuid4()
     org_b = uuid.uuid4()
     platform_role = PlatformRole(
-        type="user", user_id=uuid.uuid4(), service_id="tracecat-api"
+        type="user", user_id=uuid.uuid4(), service_id="autosecops-api"
     )
 
     def make_org_service(org_id: uuid.UUID) -> AuditService:
@@ -822,7 +822,7 @@ async def test_audit_setting_cache_separates_sinks_and_orgs(
                 type="user",
                 organization_id=org_id,
                 user_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=ADMIN_SCOPES,
             ),
         )

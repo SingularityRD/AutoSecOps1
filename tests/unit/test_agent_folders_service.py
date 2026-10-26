@@ -65,7 +65,7 @@ async def test_folder_read_methods_require_agent_read_scope(
             user_id=uuid4(),
             organization_id=uuid4(),
             workspace_id=uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset(),
         ),
     )
@@ -90,7 +90,7 @@ async def test_delete_folder_allows_delete_scope_without_read(
             user_id=uuid4(),
             organization_id=uuid4(),
             workspace_id=uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({"agent:delete"}),
         ),
     )
@@ -176,7 +176,7 @@ async def test_list_folders_paginated_uses_cursor_pages(
 
 
 @pytest.mark.anyio
-async def test_list_folders_paginated_invalid_cursor_raises_tracecat_validation(
+async def test_list_folders_paginated_invalid_cursor_raises_autosecops_validation(
     folder_service: AgentFolderService,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

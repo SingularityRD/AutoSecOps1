@@ -11,7 +11,7 @@ from autosecops_registry.types import TableSearchResponse
 
 
 @pytest.fixture
-def mock_tracecat_client() -> MagicMock:
+def mock_autosecops_client() -> MagicMock:
     """Create a mock TracecatClient."""
     client = MagicMock()
     client.delete = AsyncMock()
@@ -21,17 +21,17 @@ def mock_tracecat_client() -> MagicMock:
 
 
 @pytest.fixture
-def tables_client(mock_tracecat_client: MagicMock) -> TablesClient:
+def tables_client(mock_autosecops_client: MagicMock) -> TablesClient:
     """Create a TablesClient with mocked HTTP client."""
-    return TablesClient(mock_tracecat_client)
+    return TablesClient(mock_autosecops_client)
 
 
 @pytest.mark.anyio
 async def test_search_rows_normalizes_legacy_rows_payload(
-    tables_client: TablesClient, mock_tracecat_client: MagicMock
+    tables_client: TablesClient, mock_autosecops_client: MagicMock
 ) -> None:
     """Legacy paginated payloads that use rows should be normalized."""
-    mock_tracecat_client.post.return_value = {
+    mock_autosecops_client.post.return_value = {
         "rows": [{"id": "row-1"}],
         "next_cursor": "abc",
         "prev_cursor": None,
@@ -44,7 +44,7 @@ async def test_search_rows_normalizes_legacy_rows_payload(
     assert isinstance(result, dict)
     paginated_result = cast(TableSearchResponse, result)
 
-    mock_tracecat_client.post.assert_called_once_with(
+    mock_autosecops_client.post.assert_called_once_with(
         "/tables/test_table/search",
         json={},
     )
@@ -58,7 +58,7 @@ async def test_search_rows_normalizes_legacy_rows_payload(
 
 @pytest.mark.anyio
 async def test_table_schema_helpers_use_internal_table_paths(
-    tables_client: TablesClient, mock_tracecat_client: MagicMock
+    tables_client: TablesClient, mock_autosecops_client: MagicMock
 ) -> None:
     """Schema editing helpers call the expected internal table endpoints."""
     column = {"name": "score", "type": "NUMERIC"}
@@ -73,29 +73,29 @@ async def test_table_schema_helpers_use_internal_table_paths(
     )
     await tables_client.delete_column(table="indicators_v2", column="score")
 
-    mock_tracecat_client.patch.assert_any_await(
+    mock_autosecops_client.patch.assert_any_await(
         "/tables/indicators",
         json={"name": "indicators_v2"},
     )
-    mock_tracecat_client.post.assert_any_await(
+    mock_autosecops_client.post.assert_any_await(
         "/tables/indicators_v2/columns",
         json=column,
     )
-    mock_tracecat_client.patch.assert_any_await(
+    mock_autosecops_client.patch.assert_any_await(
         "/tables/indicators_v2/columns/score",
         json=update,
     )
-    mock_tracecat_client.delete.assert_awaited_once_with(
+    mock_autosecops_client.delete.assert_awaited_once_with(
         "/tables/indicators_v2/columns/score"
     )
 
 
 @pytest.mark.anyio
 async def test_search_rows_rejects_unexpected_dict_shape(
-    tables_client: TablesClient, mock_tracecat_client: MagicMock
+    tables_client: TablesClient, mock_autosecops_client: MagicMock
 ) -> None:
     """Unexpected dictionary payloads still raise a ValueError."""
-    mock_tracecat_client.post.return_value = {"foo": "bar"}
+    mock_autosecops_client.post.return_value = {"foo": "bar"}
 
     with pytest.raises(ValueError, match="Unexpected search response"):
         await tables_client.search_rows(table="test_table")
@@ -103,7 +103,7 @@ async def test_search_rows_rejects_unexpected_dict_shape(
 
 @pytest.mark.anyio
 async def test_semantic_search_uses_relative_internal_path(
-    tables_client, mock_tracecat_client
+    tables_client, mock_autosecops_client
 ):
     await tables_client.search(
         "synthetic table",
@@ -112,9 +112,9 @@ async def test_semantic_search_uses_relative_internal_path(
         cursor="opaque",
         allow_partial=True,
     )
-    path = mock_tracecat_client.post.call_args.args[0]
+    path = mock_autosecops_client.post.call_args.args[0]
     assert path == "/tables/synthetic%20table/rows/semantic-search"
-    assert mock_tracecat_client.post.call_args.kwargs["json"] == {
+    assert mock_autosecops_client.post.call_args.kwargs["json"] == {
         "query": "synthetic query",
         "limit": 4,
         "cursor": "opaque",
@@ -125,8 +125,8 @@ async def test_semantic_search_uses_relative_internal_path(
 @pytest.mark.anyio
 @pytest.mark.parametrize("table", ["../other", "x?y", "x%2fy", "x#y", "x\\y"])
 async def test_semantic_search_rejects_path_syntax(
-    tables_client, mock_tracecat_client, table
+    tables_client, mock_autosecops_client, table
 ):
     with pytest.raises(ValueError):
         await tables_client.search(table, "synthetic")
-    mock_tracecat_client.post.assert_not_called()
+    mock_autosecops_client.post.assert_not_called()

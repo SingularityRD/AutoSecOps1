@@ -132,10 +132,10 @@ async def list_workflow_commits(
         max_length=255,
     ),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_COMMITS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_COMMITS_DEFAULT,
         description="Maximum number of commits to return",
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[GitCommitInfo]:
     """Get commit list for the configured workspace repository.
@@ -191,10 +191,10 @@ async def list_workflow_branches(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_COMMITS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_COMMITS_DEFAULT,
         description="Maximum number of branches to return",
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[GitBranchInfo]:
     """Get branch list for the configured workspace repository."""

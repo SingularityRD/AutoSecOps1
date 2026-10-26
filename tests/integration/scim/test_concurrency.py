@@ -61,7 +61,7 @@ class Cohort:
     def role(self) -> Role:
         return Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=self.org_id,
             scopes=frozenset(
                 {

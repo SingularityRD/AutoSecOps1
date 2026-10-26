@@ -512,7 +512,7 @@ async def accept_invitation_for_user(
         type="user",
         user_id=user_id,
         organization_id=invitation.organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     async with AuditService.with_session(audit_role, session=session) as svc:
         await svc.create_event(

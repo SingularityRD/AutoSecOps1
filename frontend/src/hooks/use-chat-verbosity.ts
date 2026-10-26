@@ -80,7 +80,7 @@ export function useChatVerbosityPreference(): [
   const [stored, setStored] = useLocalStorage<string>(
     "agent-verbosity",
     DEFAULT_CHAT_VERBOSITY,
-    "tracecat"
+    "autosecops"
   )
   // A stale or hand-edited value falls back to the default.
   const verbosity = CHAT_VERBOSITY_LEVELS.find((level) => level === stored)

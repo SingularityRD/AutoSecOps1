@@ -16,7 +16,7 @@ from autosecops.agent.common.exceptions import (
     AgentToolResolutionError,
 )
 from autosecops.agent.types import Tool
-from autosecops.config import TRACECAT__AGENT_MAX_TOOLS
+from autosecops.config import AUTOSECOPS__AGENT_MAX_TOOLS
 from autosecops.dsl.enums import PlatformAction
 from autosecops.logger import logger
 from autosecops.registry.actions.service import (
@@ -163,7 +163,7 @@ async def build_agent_tools(
     namespaces: list[str] | None = None,
     actions: list[str] | None = None,
     tool_approvals: dict[str, bool] | None = None,
-    max_tools: int = TRACECAT__AGENT_MAX_TOOLS,
+    max_tools: int = AUTOSECOPS__AGENT_MAX_TOOLS,
 ) -> BuildToolsResult:
     """Build tools from a list of actions using index-based lookups.
 

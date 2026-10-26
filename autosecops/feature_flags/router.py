@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from autosecops.config import TRACECAT__FEATURE_FLAGS
+from autosecops.config import AUTOSECOPS__FEATURE_FLAGS
 from autosecops.feature_flags.enums import FeatureFlag
 
 router = APIRouter(prefix="/feature-flags", tags=["feature-flags"])
@@ -22,4 +22,4 @@ async def get_feature_flags() -> FeatureFlagsRead:
     This endpoint is public and doesn't require authentication,
     as feature flags are not sensitive information.
     """
-    return FeatureFlagsRead(enabled_features=sorted(TRACECAT__FEATURE_FLAGS))
+    return FeatureFlagsRead(enabled_features=sorted(AUTOSECOPS__FEATURE_FLAGS))

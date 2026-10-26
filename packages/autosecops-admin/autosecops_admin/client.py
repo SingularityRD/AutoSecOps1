@@ -35,7 +35,7 @@ class AdminClientError(Exception):
 class AdminClient:
     """Async HTTP client for AutoSecOps Admin API.
 
-    Uses service key authentication via x-tracecat-service-key header.
+    Uses service key authentication via x-autosecops-service-key header.
     """
 
     def __init__(self, config: Config | None = None) -> None:
@@ -61,15 +61,15 @@ class AdminClient:
             self._client = httpx.AsyncClient(
                 base_url=self._config.api_url,
                 headers={
-                    "x-tracecat-service-key": self._config.service_key,
-                    "x-tracecat-role-service-id": "tracecat-admin-cli",
+                    "x-autosecops-service-key": self._config.service_key,
+                    "x-autosecops-role-service-id": "autosecops-admin-cli",
                     "Content-Type": "application/json",
                 },
                 timeout=30.0,
             )
         else:
             raise AdminClientError(
-                "Not authenticated. Run 'autosecops auth login' or set TRACECAT__SERVICE_KEY"
+                "Not authenticated. Run 'autosecops auth login' or set AUTOSECOPS__SERVICE_KEY"
             )
         return self
 

@@ -660,14 +660,14 @@ export function WorkflowManualTrigger({
       onAfterTrigger?.()
     } catch (error) {
       if (error instanceof ApiError) {
-        const tracecatError = error as TracecatApiError<{
+        const autosecopsError = error as TracecatApiError<{
           type?: string
           message?: string
           detail?: unknown
         }>
-        console.error("Error details", tracecatError.body)
+        console.error("Error details", autosecopsError.body)
         const validationErrors = normalizeRunValidationErrors(
-          tracecatError.body.detail
+          autosecopsError.body.detail
         )
         if (validationErrors && validationErrors.length > 0) {
           setManualTriggerErrors(validationErrors)

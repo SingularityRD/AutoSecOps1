@@ -1644,7 +1644,7 @@ class BitbucketWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
         credentials = await BitbucketTokenService(
             session=self.session, role=self.role
         ).get_bitbucket_token_credentials()
-        with TemporaryDirectory(prefix="tracecat-bitbucket-") as directory:
+        with TemporaryDirectory(prefix="autosecops-bitbucket-") as directory:
             git = BitbucketGit(directory, credentials.token)
             await git.initialize()
             async with httpx.AsyncClient(
@@ -1913,7 +1913,7 @@ class BitbucketDataCenterWorkspaceSyncTransport(BitbucketWorkspaceSyncTransport)
             raise BitbucketError(
                 "Repository must match the configured Data Center instance and project/repository path"
             )
-        with TemporaryDirectory(prefix="tracecat-bitbucket-dc-") as directory:
+        with TemporaryDirectory(prefix="autosecops-bitbucket-dc-") as directory:
             git = BitbucketGit(
                 directory, credentials.token, credential_url=str(base), bearer=True
             )

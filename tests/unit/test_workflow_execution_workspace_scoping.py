@@ -50,8 +50,8 @@ def mock_role(svc_workspace) -> Role:
         type="service",
         workspace_id=svc_workspace.id,
         user_id=None,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
 
@@ -61,8 +61,8 @@ def mock_role_without_workspace() -> Role:
         type="service",
         workspace_id=None,
         user_id=None,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
 
@@ -81,7 +81,7 @@ class TestWorkflowExecutionWorkspaceFiltering:
                 close_time=None,
                 status=WorkflowExecutionStatus.COMPLETED,
                 workflow_type="DSLWorkflow",
-                task_queue="tracecat-task-queue",
+                task_queue="autosecops-task-queue",
                 history_length=42,
                 parent_id=None,
                 typed_search_attributes=TypedSearchAttributes(search_attributes=[]),
@@ -488,9 +488,9 @@ class TestWorkflowExecutionWorkspaceFiltering:
         workspace_clause = f"{TemporalSearchAttr.WORKSPACE_ID.value} = '{workspace_id}'"
         assert query.startswith(workspace_clause)
         assert f"{workspace_clause} AND " in query
-        assert f"TracecatTriggeredByUserId = '{str(user_id)}'" in query
-        assert "TracecatExecutionType = 'published'" in query
-        assert "TracecatExecutionType IS NULL" in query
+        assert f"AutoSecOpsTriggeredByUserId = '{str(user_id)}'" in query
+        assert "AutoSecOpsExecutionType = 'published'" in query
+        assert "AutoSecOpsExecutionType IS NULL" in query
         assert "WorkflowType != 'DurableAgentWorkflow'" in query
         assert "WorkflowType != 'ExecuteRegistryToolWorkflow'" in query
         assert "StartTime >=" in query

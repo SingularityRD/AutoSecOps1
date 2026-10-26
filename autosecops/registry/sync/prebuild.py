@@ -23,7 +23,7 @@ PREBUILD_REPOSITORY_ID = UUID("00000000-0000-4000-8000-000000000000")
 
 async def prebuild_builtin_registry_manifest(output_root: Path | None = None) -> Path:
     """Build the builtin registry manifest into the deterministic local layout."""
-    root = output_root or Path(config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR)
+    root = output_root or Path(config.AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR)
     output_dir = get_artifact_local_dir(
         root=root,
         organization_id=PLATFORM_REGISTRY_NAMESPACE,

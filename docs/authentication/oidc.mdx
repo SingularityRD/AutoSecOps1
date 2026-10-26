@@ -8,14 +8,14 @@ description: "Authenticate into AutoSecOps using OpenID Connect: register an OID
 In your `.env` file, enable the OIDC auth type.
 
 ```bash
-TRACECAT__AUTH_TYPES=oidc
+AUTOSECOPS__AUTH_TYPES=oidc
 ```
 
 ## Required environment variables
 
 Set the following variables for your provider:
 
-- `TRACECAT__PUBLIC_APP_URL`
+- `AUTOSECOPS__PUBLIC_APP_URL`
 - `OIDC_ISSUER`
 - `OIDC_CLIENT_ID`
 - `OIDC_CLIENT_SECRET`
@@ -36,14 +36,14 @@ Set the following variables for your provider:
   <Step title="Configure environment variables in AutoSecOps">
     Add the public AutoSecOps URL, issuer URL, and client credentials to your `.env`
     file. AutoSecOps generates OAuth callback URLs from
-    `TRACECAT__PUBLIC_APP_URL`, so this must match the external URL users visit.
+    `AUTOSECOPS__PUBLIC_APP_URL`, so this must match the external URL users visit.
 
     Example:
 
     ```bash
-    TRACECAT__PUBLIC_APP_URL=https://tracecat.example.com
+    AUTOSECOPS__PUBLIC_APP_URL=https://autosecops.example.com
     OIDC_ISSUER=https://issuer.example.com
-    OIDC_CLIENT_ID=tracecat
+    OIDC_CLIENT_ID=autosecops
     OIDC_CLIENT_SECRET=replace-me
     OIDC_SCOPES="openid profile email"
     ```

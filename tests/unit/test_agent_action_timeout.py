@@ -13,7 +13,7 @@ from autosecops.agent.constants import (
     AGENT_TIMEOUT_SECONDS_DEFAULT,
     AGENT_TIMEOUT_SECONDS_FLOOR,
 )
-from autosecops.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
+from autosecops.config import AUTOSECOPS__AGENT_SANDBOX_TIMEOUT
 from autosecops.dsl.constants import DEFAULT_ACTION_TIMEOUT
 from autosecops.dsl.schemas import ActionRetryPolicy, ActionStatement
 from autosecops.workflow.actions.schemas import ActionControlFlow, ActionRead
@@ -80,7 +80,7 @@ def test_agent_action_parsed_without_timeout_gets_default() -> None:
     [
         (1, AGENT_TIMEOUT_SECONDS_FLOOR),
         (900, AGENT_TIMEOUT_SECONDS_FLOOR),
-        (100_000, TRACECAT__AGENT_SANDBOX_TIMEOUT),
+        (100_000, AUTOSECOPS__AGENT_SANDBOX_TIMEOUT),
     ],
 )
 def test_agent_timeout_clamps_to_bounds(timeout: int, expected: int) -> None:
@@ -93,7 +93,7 @@ def test_agent_timeout_clamps_to_bounds(timeout: int, expected: int) -> None:
 def test_agent_timeout_lowered_ceiling_clamps_everything(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 900)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 900)
 
     low = ActionStatement.model_validate(_agent_action(60))
     above = ActionStatement.model_validate(_agent_action(2000))
@@ -115,7 +115,7 @@ def test_non_agent_actions_are_never_clamped() -> None:
 
 @pytest.mark.parametrize(
     ("timeout", "expected"),
-    [(1, AGENT_TIMEOUT_SECONDS_FLOOR), (100_000, TRACECAT__AGENT_SANDBOX_TIMEOUT)],
+    [(1, AGENT_TIMEOUT_SECONDS_FLOOR), (100_000, AUTOSECOPS__AGENT_SANDBOX_TIMEOUT)],
 )
 def test_external_workflow_definition_upload_normalizes(
     timeout: int, expected: int
@@ -168,7 +168,7 @@ def test_action_write_api_clamps_out_of_bounds_agent_timeout() -> None:
     assert low is not None and low.retry_policy.timeout == AGENT_TIMEOUT_SECONDS_FLOOR
     high = clamp("ai.agent", {"retry_policy": {"timeout": 100_000}})
     assert high is not None
-    assert high.retry_policy.timeout == TRACECAT__AGENT_SANDBOX_TIMEOUT
+    assert high.retry_policy.timeout == AUTOSECOPS__AGENT_SANDBOX_TIMEOUT
 
     # In-range, non-agent, unset, and absent control flow are untouched.
     in_range = clamp("ai.agent", {"retry_policy": {"timeout": 2000}})
@@ -200,7 +200,7 @@ def test_action_read_uses_lowered_deployment_ceiling(
     control_flow: dict[str, object],
 ) -> None:
     """Legacy rows display the timeout that actually executes."""
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 900)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 900)
 
     action = ActionRead(
         id=uuid.uuid4(),
@@ -254,7 +254,7 @@ def test_action_read_matches_executed_timeout(
 def test_action_read_does_not_clamp_non_agent_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 900)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 900)
 
     action = ActionRead(
         id=uuid.uuid4(),
@@ -289,7 +289,7 @@ async def test_action_create_persists_agent_default_timeout() -> None:
         session,
         role=Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
             scopes=frozenset({"workflow:create"}),
@@ -343,7 +343,7 @@ async def test_graph_add_node_persists_agent_default_timeout() -> None:
         session,
         role=Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
             scopes=frozenset({"workflow:update"}),
@@ -377,7 +377,7 @@ async def test_graph_add_node_persists_agent_default_timeout() -> None:
     cf = await add("ai.agent", {"retry_policy": {"timeout": 60}})
     assert cf["retry_policy"]["timeout"] == AGENT_TIMEOUT_SECONDS_FLOOR
     cf = await add("ai.agent", {"retry_policy": {"timeout": 100_000}})
-    assert cf["retry_policy"]["timeout"] == TRACECAT__AGENT_SANDBOX_TIMEOUT
+    assert cf["retry_policy"]["timeout"] == AUTOSECOPS__AGENT_SANDBOX_TIMEOUT
     # Malformed values normalize to the default.
     cf = await add("ai.agent", {"retry_policy": {"timeout": "abc"}})
     assert cf["retry_policy"]["timeout"] == AGENT_TIMEOUT_SECONDS_DEFAULT

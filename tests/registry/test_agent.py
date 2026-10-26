@@ -53,14 +53,14 @@ def test_agent_schema_marks_legacy_model_fields_deprecated() -> None:
     assert properties["model_name"]["deprecated"] is True
     assert properties["model_provider"]["deprecated"] is True
     assert (
-        properties["model_provider"]["x-tracecat-deprecation-message"]
+        properties["model_provider"]["x-autosecops-deprecation-message"]
         == "Use `model` instead."
     )
 
 
 def test_preset_agent_accepts_deprecated_preset_version() -> None:
     kwargs = RegisterKwargs.model_validate(
-        getattr(preset_agent, "__tracecat_udf_kwargs")
+        getattr(preset_agent, "__autosecops_udf_kwargs")
     )
     args_cls, _, _ = generate_model_from_function(preset_agent, kwargs)
 
@@ -77,7 +77,7 @@ def test_preset_agent_accepts_deprecated_preset_version() -> None:
     assert "preset_version" not in schema.get("required", [])
     assert schema["properties"]["preset_version"]["deprecated"] is True
     assert (
-        schema["properties"]["preset_version"]["x-tracecat-deprecation-message"]
+        schema["properties"]["preset_version"]["x-autosecops-deprecation-message"]
         == "Preset agents always resolve the current head."
     )
 

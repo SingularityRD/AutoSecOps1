@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from autosecops.auth.secrets import get_user_auth_secret
 
-_HKDF_SALT = b"tracecat-mcp-oidc-issuer-v1"
+_HKDF_SALT = b"autosecops-mcp-oidc-issuer-v1"
 _HKDF_INFO = b"ec-p256-signing-key"
 _ALGORITHM = "ES256"
 

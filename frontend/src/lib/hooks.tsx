@@ -1129,18 +1129,18 @@ export function useWorkspaceManager() {
 
   // Cookies
   const getLastWorkspaceId = useCallback(
-    () => Cookies.get("__tracecat:workspaces:last-viewed"),
+    () => Cookies.get("__autosecops:workspaces:last-viewed"),
     []
   )
   const setLastWorkspaceId = useCallback((id?: string) => {
     if (!id) {
-      Cookies.set("__tracecat:workspaces:last-viewed", "")
+      Cookies.set("__autosecops:workspaces:last-viewed", "")
       return
     }
-    Cookies.set("__tracecat:workspaces:last-viewed", id)
+    Cookies.set("__autosecops:workspaces:last-viewed", id)
   }, [])
   const clearLastWorkspaceId = useCallback(() => {
-    Cookies.remove("__tracecat:workspaces:last-viewed")
+    Cookies.remove("__autosecops:workspaces:last-viewed")
   }, [])
 
   return {

@@ -113,7 +113,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
         shutdown_event = asyncio.Event()
 
     max_concurrent = int(
-        os.environ.get("TRACECAT__AGENT_MAX_CONCURRENT_ACTIVITIES", 100)
+        os.environ.get("AUTOSECOPS__AGENT_MAX_CONCURRENT_ACTIVITIES", 100)
     )
     threadpool_max_workers = int(
         os.environ.get("TEMPORAL__THREADPOOL_MAX_WORKERS", 100)
@@ -121,7 +121,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
     logger.info("Starting AgentWorker")
 
-    initialize_platform_tracing("tracecat-agent-worker")
+    initialize_platform_tracing("autosecops-agent-worker")
 
     # LIFO teardown: storage cache, then tracing. The stack still runs later
     # callbacks when an earlier one raises.
@@ -152,7 +152,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
             async with Worker(
                 client,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 activities=activities,
                 workflows=workflows,
                 workflow_runner=new_sandbox_runner(),

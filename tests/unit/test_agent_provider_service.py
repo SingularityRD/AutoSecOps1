@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autosecops import config as tracecat_config
+from autosecops import config as autosecops_config
 from autosecops.agent.provider import service as provider_service_module
 from autosecops.agent.provider.schemas import (
     AgentCustomProviderCreate,
@@ -36,8 +36,8 @@ pytestmark = pytest.mark.usefixtures("db")
 @pytest.fixture(autouse=True)
 def set_db_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        autosecops_config,
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
 
@@ -47,7 +47,7 @@ def _role(org: Organization) -> Role:
         type="user",
         user_id=uuid.uuid4(),
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )
 
@@ -148,7 +148,7 @@ async def test_refresh_provider_catalog_uses_migrated_encrypted_base_url_fallbac
                 value=SecretStr("sk-migrated"),
             ),
         ],
-        key=tracecat_config.TRACECAT__DB_ENCRYPTION_KEY or "",
+        key=autosecops_config.AUTOSECOPS__DB_ENCRYPTION_KEY or "",
     )
     provider = AgentCustomProvider(
         organization_id=svc_organization.id,
@@ -256,7 +256,7 @@ def _decrypted_secrets(raw: AgentCustomProvider) -> dict[str, object]:
     assert raw.encrypted_config is not None
     decrypted = decrypt_value(
         raw.encrypted_config,
-        key=tracecat_config.TRACECAT__DB_ENCRYPTION_KEY or "",
+        key=autosecops_config.AUTOSECOPS__DB_ENCRYPTION_KEY or "",
     )
     return orjson.loads(decrypted)
 

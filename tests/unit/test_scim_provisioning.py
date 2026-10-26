@@ -120,7 +120,7 @@ def role(org: Organization) -> Role:
         type="scim",
         organization_id=org.id,
         scim_connection_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:member:remove"}),
     )
 
@@ -440,7 +440,7 @@ async def test_new_account_follows_the_org_domain_policy(
         )
     )
     await session.flush()
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"elsewhere.com"})
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", {"elsewhere.com"})
 
     provisioned = await service.provision_user(
         external_id="idp-owned", email=f"new@{domain}"

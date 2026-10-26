@@ -561,7 +561,7 @@ def test_library_skills_stage_without_platform_skills(tmp_path: Path) -> None:
         library_skills=get_library_skills([SLUG]),
     )
     manifest = orjson.loads((plugin / ".claude-plugin" / "plugin.json").read_bytes())
-    assert manifest == {"name": "tracecat"}
+    assert manifest == {"name": "autosecops"}
     staged = plugin / "skills" / SLUG
     assert (staged / "SKILL.md").read_bytes() == render_library_skill_markdown(
         load_library()[SLUG].markdown

@@ -1801,8 +1801,8 @@ export type AuthDiscoveryMethod = "basic" | "oidc" | "saml"
  * Workspace-scoped AWS AssumeRole details shown in the credentials UI.
  */
 export type AwsAssumeRoleAccessRead = {
-  tracecat_aws_account_id: string
-  tracecat_aws_principal_arn: string
+  autosecops_aws_account_id: string
+  autosecops_aws_principal_arn: string
   external_id: string
 }
 
@@ -8923,19 +8923,19 @@ export type Role = {
   service_account_id?: string | null
   scim_connection_id?: string | null
   service_id:
-    | "tracecat-api"
-    | "tracecat-bootstrap"
-    | "tracecat-cli"
-    | "tracecat-executor"
-    | "tracecat-agent-executor"
-    | "tracecat-case-duration-sync"
-    | "tracecat-case-triggers"
-    | "tracecat-llm-gateway"
-    | "tracecat-mcp"
-    | "tracecat-runner"
-    | "tracecat-schedule-runner"
-    | "tracecat-service"
-    | "tracecat-ui"
+    | "autosecops-api"
+    | "autosecops-bootstrap"
+    | "autosecops-cli"
+    | "autosecops-executor"
+    | "autosecops-agent-executor"
+    | "autosecops-case-duration-sync"
+    | "autosecops-case-triggers"
+    | "autosecops-llm-gateway"
+    | "autosecops-mcp"
+    | "autosecops-runner"
+    | "autosecops-schedule-runner"
+    | "autosecops-service"
+    | "autosecops-ui"
   is_platform_superuser?: boolean
   scopes?: Array<string> | null
   [key: string]: unknown | string | boolean
@@ -8944,19 +8944,19 @@ export type Role = {
 export type type5 = "user" | "service" | "service_account" | "scim"
 
 export type service_id =
-  | "tracecat-api"
-  | "tracecat-bootstrap"
-  | "tracecat-cli"
-  | "tracecat-executor"
-  | "tracecat-agent-executor"
-  | "tracecat-case-duration-sync"
-  | "tracecat-case-triggers"
-  | "tracecat-llm-gateway"
-  | "tracecat-mcp"
-  | "tracecat-runner"
-  | "tracecat-schedule-runner"
-  | "tracecat-service"
-  | "tracecat-ui"
+  | "autosecops-api"
+  | "autosecops-bootstrap"
+  | "autosecops-cli"
+  | "autosecops-executor"
+  | "autosecops-agent-executor"
+  | "autosecops-case-duration-sync"
+  | "autosecops-case-triggers"
+  | "autosecops-llm-gateway"
+  | "autosecops-mcp"
+  | "autosecops-runner"
+  | "autosecops-schedule-runner"
+  | "autosecops-service"
+  | "autosecops-ui"
 
 /**
  * Assignment identity and value observed when editing began.
@@ -9772,8 +9772,8 @@ export type SecretStoreRead = {
   config: AwsSecretsManagerStoreConfig
   enabled: boolean
   all_workspaces: boolean
-  tracecat_aws_account_id?: string | null
-  tracecat_aws_principal_arn?: string | null
+  autosecops_aws_account_id?: string | null
+  autosecops_aws_principal_arn?: string | null
   /**
    * AWS partition of the store region, when botocore knows it.
    */

@@ -69,7 +69,7 @@ from autosecops.workflow.executions.enums import (
 from autosecops.workflow.executions.service import WorkflowExecutionsService
 from autosecops.workflow.executions.types import StartOutcome
 
-_RUN_SERVICE_ID: InternalServiceID = "tracecat-runner"
+_RUN_SERVICE_ID: InternalServiceID = "autosecops-runner"
 
 _UNKNOWN_OUTCOME_RPC_STATUSES = frozenset(
     {

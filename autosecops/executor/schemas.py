@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import UUID4, BaseModel, Field
 
-from autosecops.config import TRACECAT__APP_ENV
+from autosecops.config import AUTOSECOPS__APP_ENV
 from autosecops.executor.secret_preprocessors import SecretEnvProjection
 from autosecops.secrets.common import CapturedFailure, MaskedSecretError
 
@@ -171,7 +171,7 @@ class ExecutorActionErrorInfo(BaseModel):
             )
         else:
             parts.append(msg)
-        if TRACECAT__APP_ENV == "development":
+        if AUTOSECOPS__APP_ENV == "development":
             parts.append(
                 f"\n\n{'-' * 30}"
                 f"\nFile: {self.filename}"

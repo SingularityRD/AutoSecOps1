@@ -70,7 +70,9 @@ def workflow_bucket() -> Iterator[None]:
 def auth_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point auth at the test session and allow synthetic provisioning addresses."""
     monkeypatch.setattr(
-        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"autosecops.example", "example.com"}
+        config,
+        "AUTOSECOPS__AUTH_ALLOWED_DOMAINS",
+        {"autosecops.example", "example.com"},
     )
 
     @asynccontextmanager
@@ -119,7 +121,7 @@ async def scim_role(org: Organization) -> Role:
         type="scim",
         organization_id=org.id,
         scim_connection_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:member:remove"}),
     )
 
@@ -547,7 +549,7 @@ async def test_group_lifecycle(
 @pytest.mark.parametrize(
     "prefix", ["", f"{ScimSchema.GROUP}:", f"{ScimSchema.GROUP}:".upper()]
 )
-async def test_group_membership_projects_into_tracecat_group(
+async def test_group_membership_projects_into_autosecops_group(
     client: httpx.AsyncClient,
     session: AsyncSession,
     org: Organization,
@@ -1032,7 +1034,7 @@ async def test_pending_deactivation_survives_activation(
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=org.id,
         scopes=frozenset({"org:scim:manage"}),
     )
@@ -1077,7 +1079,7 @@ async def test_creation_location_matches_readable_resource(
     monkeypatch: pytest.MonkeyPatch,
     resource: str,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_API_URL", "http://test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", "http://test")
     body = (
         {"userName": "location@example.com"}
         if resource == "Users"

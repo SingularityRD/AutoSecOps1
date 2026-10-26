@@ -159,7 +159,7 @@ async def _run_udf(
     mod = importlib.import_module(module_path)
     fn = getattr(mod, function_name)
     sanitized_args = dict(args)
-    sanitized_args.pop("__tracecat", None)
+    sanitized_args.pop("__autosecops", None)
 
     # Check if async and run appropriately
     if asyncio.iscoroutinefunction(fn):
@@ -174,11 +174,11 @@ def _setup_registry_sdk_context() -> None:
         return
 
     registry_ctx = RegistryContext(
-        workspace_id=os.environ.get("TRACECAT__WORKSPACE_ID", ""),
-        workflow_id=os.environ.get("TRACECAT__WORKFLOW_ID", ""),
-        run_id=os.environ.get("TRACECAT__RUN_ID", ""),
-        environment=os.environ.get("TRACECAT__ENVIRONMENT", "default"),
-        api_url=os.environ.get("TRACECAT__API_URL", "http://api:8000"),
-        token=os.environ.get("TRACECAT__EXECUTOR_TOKEN", ""),
+        workspace_id=os.environ.get("AUTOSECOPS__WORKSPACE_ID", ""),
+        workflow_id=os.environ.get("AUTOSECOPS__WORKFLOW_ID", ""),
+        run_id=os.environ.get("AUTOSECOPS__RUN_ID", ""),
+        environment=os.environ.get("AUTOSECOPS__ENVIRONMENT", "default"),
+        api_url=os.environ.get("AUTOSECOPS__API_URL", "http://api:8000"),
+        token=os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", ""),
     )
     set_context(registry_ctx)

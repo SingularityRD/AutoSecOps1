@@ -68,7 +68,7 @@ const presetPayload = {
 }
 
 // Mirrors `AgentPresetService.EXECUTION_FIELDS` in
-// `tracecat/agent/preset/service.py`. Update both sides together.
+// `autosecops/agent/preset/service.py`. Update both sides together.
 const BACKEND_EXECUTION_FIELDS = [
   "instructions",
   "model_name",

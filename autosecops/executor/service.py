@@ -121,7 +121,7 @@ def _sanitize_error_info(
 def _execution_origin_for_role(role: Role) -> ExecutionOrigin:
     """Classify the trusted entry point that dispatched an executor action."""
     match role:
-        case Role(type="service", service_id="tracecat-mcp"):
+        case Role(type="service", service_id="autosecops-mcp"):
             return "agent"
         case _:
             return "workflow"
@@ -673,7 +673,7 @@ def _action_timeout(input: RunActionInput) -> float:
     A timeout of 0 or less falls back to the deployment's maximum.
     """
     requested = input.task.retry_policy.timeout
-    return requested if requested > 0 else config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT
+    return requested if requested > 0 else config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
 
 def _udf_call_timeout(resolved_context: ResolvedContext, timeout: float) -> float:
@@ -683,7 +683,7 @@ def _udf_call_timeout(resolved_context: ResolvedContext, timeout: float) -> floa
     """
     if resolved_context.action_impl.action_name == PlatformAction.RUN_PYTHON:
         return timeout
-    return min(timeout, config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT)
+    return min(timeout, config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT)
 
 
 def _timeout_message(action_timeout: float, *, capped_at: float | None = None) -> str:
@@ -692,7 +692,7 @@ def _timeout_message(action_timeout: float, *, capped_at: float | None = None) -
         return f"Action execution timed out after {action_timeout:g}s"
     return (
         f"Action execution timed out after {capped_at:g}s, this deployment's maximum "
-        "action timeout (TRACECAT__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
+        "action timeout (AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
         f"is {action_timeout:g}s."
     )
 
@@ -769,7 +769,7 @@ async def prepare_resolved_context(
     # stays below; its projection masks are unioned in once it has run.
     early_mask_values = (
         set()
-        if config.TRACECAT__UNSAFE_DISABLE_SM_MASKING
+        if config.AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING
         else collect_mask_values([secrets])
     )
 
@@ -817,7 +817,7 @@ async def prepare_resolved_context(
 
     # Build root-level masks from the runtime projection so host-side credential
     # rewriting is also redacted from final outputs.
-    if config.TRACECAT__UNSAFE_DISABLE_SM_MASKING:
+    if config.AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING:
         logger.warning(
             "Secrets masking is disabled. This is unsafe in production workflows."
         )
@@ -880,7 +880,7 @@ async def invoke_once(
 ) -> ExecutionResult:
     """Execute action using the configured backend.
 
-    The backend is selected via TRACECAT__EXECUTOR_BACKEND config:
+    The backend is selected via AUTOSECOPS__EXECUTOR_BACKEND config:
     - 'nsjail' ('ephemeral' alias): Cold nsjail subprocess per action (multitenant, full isolation)
     - 'direct': Direct subprocess execution
     """
@@ -1047,7 +1047,7 @@ async def dispatch_action(backend: ExecutorBackend, input: RunActionInput) -> An
     # and a collection of values as a tuple.
     iterators = get_iterables_from_expression(expr=task.for_each, operand=base_context)
 
-    max_concurrency = max(1, config.TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY)
+    max_concurrency = max(1, config.AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY)
     # Use a fixed worker pool instead of a semaphore around one task per loop item.
     # A semaphore would cap active invokes, but still schedules every iteration and
     # retains per-item task state for large loops. Workers pull lazily from the

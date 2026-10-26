@@ -126,28 +126,30 @@ class TestEnvMap:
 
     def test_env_map_does_not_inherit_host_env(self, monkeypatch: pytest.MonkeyPatch):
         """Only explicit env_vars and base env should be present."""
-        monkeypatch.setenv("TRACECAT__DB_URI", "secret")
+        monkeypatch.setenv("AUTOSECOPS__DB_URI", "secret")
         executor = NsjailExecutor()
         config = SandboxConfig(env_vars={"USER_KEY": "value"})
 
         env_map = executor._build_env_map(config, "execute")
 
         assert env_map["USER_KEY"] == "value"
-        assert "TRACECAT__DB_URI" not in env_map
+        assert "AUTOSECOPS__DB_URI" not in env_map
         assert env_map["PATH"] == "/usr/local/bin:/usr/bin:/bin"
 
-    def test_no_tracecat_vars_leak(self, monkeypatch: pytest.MonkeyPatch):
-        """Verify NO TRACECAT__ prefixed vars are included in env_map.
+    def test_no_autosecops_vars_leak(self, monkeypatch: pytest.MonkeyPatch):
+        """Verify NO AUTOSECOPS__ prefixed vars are included in env_map.
 
         This is a comprehensive check to ensure no secrets configured via
-        TRACECAT__ environment variables leak into the sandbox.
+        AUTOSECOPS__ environment variables leak into the sandbox.
         """
-        # Set multiple TRACECAT__ vars to simulate real environment
-        monkeypatch.setenv("TRACECAT__DB_URI", "postgresql://secret:secret@db/tracecat")
-        monkeypatch.setenv("TRACECAT__API_KEY", "sk-secret-key-12345")
-        monkeypatch.setenv("TRACECAT__SERVICE_KEY", "service-secret")
-        monkeypatch.setenv("TRACECAT__SIGNING_SECRET", "hmac-signing-secret")
-        monkeypatch.setenv("TRACECAT__ENCRYPTION_KEY", "encryption-key-secret")
+        # Set multiple AUTOSECOPS__ vars to simulate real environment
+        monkeypatch.setenv(
+            "AUTOSECOPS__DB_URI", "postgresql://secret:secret@db/autosecops"
+        )
+        monkeypatch.setenv("AUTOSECOPS__API_KEY", "sk-secret-key-12345")
+        monkeypatch.setenv("AUTOSECOPS__SERVICE_KEY", "service-secret")
+        monkeypatch.setenv("AUTOSECOPS__SIGNING_SECRET", "hmac-signing-secret")
+        monkeypatch.setenv("AUTOSECOPS__ENCRYPTION_KEY", "encryption-key-secret")
 
         executor = NsjailExecutor()
         config = SandboxConfig(env_vars={"USER_VAR": "safe-value"})
@@ -155,18 +157,18 @@ class TestEnvMap:
         env_map = executor._build_env_map(config, "execute")
 
         # Ensure only the host-injected process-cap var is present: no
-        # secrets leak. TRACECAT__SANDBOX_RLIMIT_NPROC is injected by the
+        # secrets leak. AUTOSECOPS__SANDBOX_RLIMIT_NPROC is injected by the
         # executor itself (not read from the host environment) so the jailed
         # wrapper can enforce the process cap that nsjail cannot.
-        tracecat_vars = [k for k in env_map.keys() if k.startswith("TRACECAT__")]
-        assert tracecat_vars == ["TRACECAT__SANDBOX_RLIMIT_NPROC"], (
-            f"Unexpected TRACECAT__ vars in env_map: {tracecat_vars}"
+        autosecops_vars = [k for k in env_map.keys() if k.startswith("AUTOSECOPS__")]
+        assert autosecops_vars == ["AUTOSECOPS__SANDBOX_RLIMIT_NPROC"], (
+            f"Unexpected AUTOSECOPS__ vars in env_map: {autosecops_vars}"
         )
 
     def test_env_map_only_contains_expected_keys(self, monkeypatch: pytest.MonkeyPatch):
         """Verify env_map contains ONLY the expected keys, nothing more."""
         # Set various host env vars that should NOT leak
-        monkeypatch.setenv("TRACECAT__DB_URI", "secret")
+        monkeypatch.setenv("AUTOSECOPS__DB_URI", "secret")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "aws-secret")
         monkeypatch.setenv("DATABASE_PASSWORD", "db-pass")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
@@ -186,7 +188,7 @@ class TestEnvMap:
             "PYTHONUNBUFFERED",
             "LANG",
             "LC_ALL",
-            "TRACECAT__SANDBOX_RLIMIT_NPROC",
+            "AUTOSECOPS__SANDBOX_RLIMIT_NPROC",
             "USER_VAR",
         }
         assert set(env_map.keys()) == expected_keys
@@ -225,7 +227,7 @@ class TestEnvMap:
 
         env_map = executor._build_env_map(config, "install")
 
-        assert env_map["TRACECAT__SANDBOX_RLIMIT_NPROC"] == "32"
+        assert env_map["AUTOSECOPS__SANDBOX_RLIMIT_NPROC"] == "32"
 
 
 class TestInstallScript:

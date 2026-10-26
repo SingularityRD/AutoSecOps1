@@ -1,6 +1,6 @@
 import { themeQuartz } from "ag-grid-community"
 
-export const tracecatTheme = themeQuartz.withParams({
+export const autosecopsTheme = themeQuartz.withParams({
   backgroundColor: "hsl(var(--background))",
   foregroundColor: "hsl(var(--foreground))",
   borderColor: "hsl(var(--border))",

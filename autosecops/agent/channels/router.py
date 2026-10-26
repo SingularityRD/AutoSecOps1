@@ -72,7 +72,7 @@ def _build_callback_redirect_url(
 
 
 def _sanitize_return_url(return_url: str) -> str:
-    default_url = config.TRACECAT__PUBLIC_APP_URL
+    default_url = config.AUTOSECOPS__PUBLIC_APP_URL
     parsed_return = urlparse(return_url)
     parsed_default = urlparse(default_url)
     if (
@@ -96,10 +96,10 @@ async def _resolve_service_role_for_workspace(
         raise ValueError(f"Workspace '{workspace_id}' not found")
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-api"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-api"],
     )
 
 
@@ -234,7 +234,7 @@ async def handle_slack_oauth_callback(
     except TracecatValidationError:
         return RedirectResponse(
             _build_callback_redirect_url(
-                base_url=config.TRACECAT__PUBLIC_APP_URL,
+                base_url=config.AUTOSECOPS__PUBLIC_APP_URL,
                 status="error",
                 message="Invalid or expired OAuth state",
             )

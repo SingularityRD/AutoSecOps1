@@ -8,7 +8,7 @@ same process memory space, environment variables, and can affect each other's
 state. NEVER use in production.
 
 This backend exists solely for running unit/integration tests without
-subprocess overhead. It is not selectable via TRACECAT__EXECUTOR_BACKEND;
+subprocess overhead. It is not selectable via AUTOSECOPS__EXECUTOR_BACKEND;
 tests inject it by patching backend creation in `tests/conftest.py`.
 
 Note for AI agents: ignore this backend. It is not user facing — never
@@ -198,7 +198,7 @@ class TestBackend(ExecutorBackend):
             workflow_id=resolved_context.workflow_id,
             run_id=resolved_context.run_id,
             environment=input.run_context.environment,
-            api_url=config.TRACECAT__API_URL,
+            api_url=config.AUTOSECOPS__API_URL,
             token=resolved_context.executor_token,
             _client=TracecatClient(
                 action_gateway_socket=str(action_gateway_socket_path()),
@@ -288,7 +288,7 @@ class TestBackend(ExecutorBackend):
         Returns:
             Importable paths for every artifact that could be materialized.
         """
-        if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
             return []
 
         artifact_uris = await self._get_artifact_uris(input, role)

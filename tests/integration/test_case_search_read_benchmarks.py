@@ -1,11 +1,11 @@
 """Opt-in synthetic large-payload measurements for case-page read options.
 
-    TRACECAT_RUN_CASE_READ_BENCHMARKS=1 uv run pytest \
+    AUTOSECOPS_RUN_CASE_READ_BENCHMARKS=1 uv run pytest \
       tests/integration/test_case_search_read_benchmarks.py -s
 
 Uses the isolated pytest database, 1000 synthetic cases by default, and a
 deterministic 32 KiB incompressible payload per case. Tune with
-TRACECAT_CASE_READ_BENCHMARK_CASES and TRACECAT_CASE_READ_BENCHMARK_PAYLOAD_BYTES.
+AUTOSECOPS_CASE_READ_BENCHMARK_CASES and AUTOSECOPS_CASE_READ_BENCHMARK_PAYLOAD_BYTES.
 The ignored output defaults to .worktrees/measurements/case-search-reads.json.
 This compares requested counted/payload pages with minimal/countless pages of
 the same service, isolating option costs rather than claiming a historical
@@ -46,8 +46,8 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.usefixtures("db"),
     pytest.mark.skipif(
-        os.environ.get("TRACECAT_RUN_CASE_READ_BENCHMARKS") != "1",
-        reason="Set TRACECAT_RUN_CASE_READ_BENCHMARKS=1 for synthetic read measurements",
+        os.environ.get("AUTOSECOPS_RUN_CASE_READ_BENCHMARKS") != "1",
+        reason="Set AUTOSECOPS_RUN_CASE_READ_BENCHMARKS=1 for synthetic read measurements",
     ),
 ]
 
@@ -81,9 +81,9 @@ async def test_large_payload_page_measurements(
     session: AsyncSession, svc_role: Role
 ) -> None:
     assert svc_role.workspace_id is not None
-    count = int(os.environ.get("TRACECAT_CASE_READ_BENCHMARK_CASES") or 1000)
+    count = int(os.environ.get("AUTOSECOPS_CASE_READ_BENCHMARK_CASES") or 1000)
     payload_bytes = int(
-        os.environ.get("TRACECAT_CASE_READ_BENCHMARK_PAYLOAD_BYTES") or 32768
+        os.environ.get("AUTOSECOPS_CASE_READ_BENCHMARK_PAYLOAD_BYTES") or 32768
     )
     assert 100 <= count <= 5000
     assert 1024 <= payload_bytes <= 262144
@@ -153,7 +153,7 @@ async def test_large_payload_page_measurements(
                 page_projection = next(
                     query.statement
                     for query in queries
-                    if "_tracecat_page_key_0" in query.statement
+                    if "_autosecops_page_key_0" in query.statement
                 )
                 assert population_count == int(include_details)
                 assert payload_selected is include_details
@@ -188,7 +188,7 @@ async def test_large_payload_page_measurements(
         "Warm local measurements of requested read options, without concurrent load or a production latency claim. Counted/payload and minimal/countless requests intentionally have different optional metadata. The first page projection always omits payload; requested payload is batched only for returned IDs.",
     )
     output = Path(
-        os.environ.get("TRACECAT_CASE_READ_BENCHMARK_OUTPUT")
+        os.environ.get("AUTOSECOPS_CASE_READ_BENCHMARK_OUTPUT")
         or ".worktrees/measurements/case-search-reads.json"
     )
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -315,7 +315,7 @@ def create_admin_role(organization_id: uuid.UUID, user_id: uuid.UUID) -> Role:
         type="user",
         user_id=user_id,
         organization_id=organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=False,
         scopes=ORG_ADMIN_SCOPES,
     )
@@ -327,7 +327,7 @@ def create_superuser_role(organization_id: uuid.UUID, user_id: uuid.UUID) -> Rol
         type="user",
         user_id=user_id,
         organization_id=organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=True,
         scopes=ORG_ADMIN_SCOPES,
     )
@@ -954,7 +954,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1029,7 +1029,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1091,7 +1091,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1119,7 +1119,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1224,7 +1224,7 @@ class TestOrganizationServiceSessions:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         by_user = {
@@ -1564,7 +1564,7 @@ class TestOrganizationServiceInvitations:
         monkeypatch: pytest.MonkeyPatch,
     ):
         """Test superuser accounts can be invited as regular org members."""
-        monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+        monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
         superuser = User(
             id=uuid.uuid4(),
             email=f"superuser-{uuid.uuid4().hex[:8]}@example.com",
@@ -1880,7 +1880,7 @@ class TestOrganizationServiceInvitations:
         multi_tenant: bool,
     ):
         """Superuser accounts accept org invitations as users in either tenancy mode."""
-        monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
+        monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
         standalone_superuser = User(
             id=uuid.uuid4(),
             email=f"standalone-superuser-{uuid.uuid4().hex[:8]}@example.com",
@@ -2299,7 +2299,7 @@ class TestOrganizationServiceListMemberAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
 
@@ -2539,7 +2539,7 @@ class TestOrganizationServiceListInvitationAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         service = OrgService(session, role=member_role)
@@ -2720,7 +2720,7 @@ class TestOrganizationServiceListInvitationAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         with patch.object(
@@ -2920,7 +2920,7 @@ class TestOrganizationServiceTraceMemberAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
 

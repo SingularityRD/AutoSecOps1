@@ -212,18 +212,18 @@ async def test_backfill_reconstructs_mutations_safely_and_idempotently(
     uses = [
         _use(
             "create",
-            "mcp__tracecat-registry__core__cases__create_case",
+            "mcp__autosecops-registry__core__cases__create_case",
             summary="Created",
         ),
         _use(
             "legacy-update",
-            "mcp__tracecat_registry__execute_tool",
+            "mcp__autosecops_registry__execute_tool",
             tool_name="core.cases.update_case",
             case_id=str(updated.id),
         ),
         _use(
             "comment",
-            "mcp.tracecat-registry.core.cases.create_comment",
+            "mcp.autosecops-registry.core.cases.create_comment",
             case_id=str(commented.id),
             content="Contains\x00NUL",
         ),
@@ -239,12 +239,12 @@ async def test_backfill_reconstructs_mutations_safely_and_idempotently(
         ),
         _use(
             "external-update",
-            "mcp__tracecat-registry-fake__core__cases__update_case",
+            "mcp__autosecops-registry-fake__core__cases__update_case",
             case_id=str(updated.id),
         ),
         _use(
             "subagent-update",
-            "mcp__tracecat-registry-analyst__core__cases__update_case",
+            "mcp__autosecops-registry-analyst__core__cases__update_case",
             case_id=str(updated.id),
         ),
         _use(

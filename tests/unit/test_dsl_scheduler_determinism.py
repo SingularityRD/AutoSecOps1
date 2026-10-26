@@ -63,10 +63,10 @@ async def test_queue_tasks_is_deterministic() -> None:
     wf_id = WorkflowUUID.new_uuid4()
     test_role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
     test_run_context = RunContext(
         wf_id=wf_id,

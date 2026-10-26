@@ -31,7 +31,7 @@ You must have the "Organization Admin" role to add and manage the custom registr
     Generate an Ed25519 SSH key pair without a passphrase and add the public key to the repository as a read-only deploy key (GitHub: repository Settings -> Deploy keys).
 
     ```bash
-    ssh-keygen -t ed25519 -N "" -f tracecat-registry
+    ssh-keygen -t ed25519 -N "" -f autosecops-registry
     ```
 
     <Note>
@@ -95,7 +95,7 @@ When you sync a registry, AutoSecOps:
 - Pulls the latest code from the remote repository
 - Converts the package and its dependencies into a tarball using `uv`
 - Uploads the tarball to S3-compatible object storage
-- Tarballs are stored in the bucket specified in the `TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY` environment variable
+- Tarballs are stored in the bucket specified in the `AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY` environment variable
 
 <Info>
   Published workflows run actions synced at the time of publication.

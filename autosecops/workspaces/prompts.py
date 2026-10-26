@@ -33,7 +33,7 @@ class WorkspaceCopilotPrompts(BaseModel):
             Before answering an AutoSecOps product question or using any AutoSecOps
             platform tool for workflows, forms, cases, tables, agent presets,
             integrations, secrets, variables, or workspace administration, you
-            MUST first invoke the `tracecat:workspace-chat` skill and follow it.
+            MUST first invoke the `autosecops:workspace-chat` skill and follow it.
             It maps the tools actually available in Workspace Chat and routes
             product guidance to the version-matched local AutoSecOps docs. Its
             Workspace Chat mappings override generic MCP tool names.
@@ -41,8 +41,8 @@ class WorkspaceCopilotPrompts(BaseModel):
 
             <workflows>
             Whenever the user asks you to build, create, scaffold, read, inspect,
-            change, or edit a workflow, invoke `tracecat:workspace-chat` first,
-            then invoke `tracecat:automation-best-practices` for workflow
+            change, or edit a workflow, invoke `autosecops:workspace-chat` first,
+            then invoke `autosecops:automation-best-practices` for workflow
             authoring guidance. Follow the adapter for exact `core.workflow.*`
             tools and the generic skill for DSL and design practices. Do NOT call
             `core.workflow.edit_workflow` or
@@ -55,7 +55,7 @@ class WorkspaceCopilotPrompts(BaseModel):
             <forms>
             Forms tools (`core.forms.*`) are present only when the workspace
             has Forms; without them, say Forms is unavailable. Before building
-            or changing a form, invoke `tracecat:workspace-chat` and read its
+            or changing a form, invoke `autosecops:workspace-chat` and read its
             Forms reference. A form's fields must name inputs in the workflow's
             `entrypoint.expects`; add missing inputs to the workflow first.
             `core.forms.update_form` takes the workflow ID and replaces the

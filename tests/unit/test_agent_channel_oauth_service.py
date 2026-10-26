@@ -14,7 +14,7 @@ def test_build_slack_oauth_authorization_url_includes_redirect_uri(
 ) -> None:
     monkeypatch.setattr(
         channel_service_module.config,
-        "TRACECAT__PUBLIC_API_URL",
+        "AUTOSECOPS__PUBLIC_API_URL",
         "https://api.example.com",
     )
 
@@ -40,7 +40,7 @@ async def test_exchange_slack_oauth_code_passes_redirect_uri(
 ) -> None:
     monkeypatch.setattr(
         channel_service_module.config,
-        "TRACECAT__PUBLIC_API_URL",
+        "AUTOSECOPS__PUBLIC_API_URL",
         "https://api.example.com",
     )
 

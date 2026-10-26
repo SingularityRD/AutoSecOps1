@@ -41,7 +41,7 @@ def search_role() -> Role:
         organization_id=uuid4(),
         workspace_id=uuid4(),
         user_id=uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"table:read", "table:update", "workspace:read"}),
     )
 

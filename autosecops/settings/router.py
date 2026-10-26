@@ -61,7 +61,7 @@ async def check_other_auth_enabled(
     if auth_type is not AuthType.SAML:
         return
     if any(
-        candidate_auth_type in config.TRACECAT__AUTH_TYPES
+        candidate_auth_type in config.AUTOSECOPS__AUTH_TYPES
         for candidate_auth_type in (
             AuthType.BASIC,
             AuthType.OIDC,
@@ -97,7 +97,7 @@ async def check_saml_domain_prerequisites(
     organization domain. This prevents org enrollment on arbitrary email domains
     when SAML assertions are accepted.
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return
 
     fields_set = params.model_fields_set

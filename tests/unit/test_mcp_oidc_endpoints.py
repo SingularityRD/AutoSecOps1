@@ -110,15 +110,15 @@ def _setup_config(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnu
         "autosecops.mcp.oidc.signing.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
-    monkeypatch.setattr(oidc_config, "TRACECAT__PUBLIC_API_URL", _TEST_API_URL)
+    monkeypatch.setattr(oidc_config, "AUTOSECOPS__PUBLIC_API_URL", _TEST_API_URL)
     monkeypatch.setattr(
         "autosecops.mcp.oidc.config.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(
-        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
+        "autosecops.mcp.oidc.endpoints.AUTOSECOPS__PUBLIC_APP_URL", _TEST_APP_URL
     )
-    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY", "enabled")
     signing.get_signing_key.cache_clear()
     signing.get_public_jwk.cache_clear()
     yield
@@ -242,7 +242,7 @@ def test_openid_configuration_includes_root_path_when_proxied(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When X-Forwarded-Host is present, endpoint URLs include root_path."""
-    monkeypatch.setattr("autosecops.config.TRACECAT__PUBLIC_APP_URL", _TEST_MCP_URL)
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__PUBLIC_APP_URL", _TEST_MCP_URL)
 
     test_app = FastAPI(root_path="/api")
     test_app.include_router(router)
@@ -269,7 +269,7 @@ def test_openid_configuration_omits_refresh_support_when_disabled(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY", "")
 
     response = client.get("/.well-known/openid-configuration")
 
@@ -352,7 +352,7 @@ def test_authorize_accepts_redirect_uri_without_explicit_default_http_port(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL",
+        "autosecops.mcp.oidc.endpoints.AUTOSECOPS__PUBLIC_APP_URL",
         "http://localhost:80",
     )
     monkeypatch.setattr(
@@ -981,7 +981,7 @@ async def test_token_auth_code_grant_strips_offline_access_when_disabled(
     )
 
     issued = AsyncMock(return_value="should-not-be-called")
-    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY", "")
     monkeypatch.setattr(
         "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
@@ -1243,7 +1243,7 @@ async def test_token_refresh_grant_rejects_when_refresh_tokens_disabled(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY", "")
     monkeypatch.setattr(
         "autosecops.mcp.oidc.endpoints.check_token_rate_limit",
         AsyncMock(return_value=True),
@@ -1485,12 +1485,12 @@ def test_get_internal_discovery_url(
     api_url: str | None,
     expected_base: str,
 ) -> None:
-    """TRACECAT__API_URL is the base when set; unset or empty falls back to PUBLIC_API_URL."""
+    """AUTOSECOPS__API_URL is the base when set; unset or empty falls back to PUBLIC_API_URL."""
     if api_url is None:
-        monkeypatch.delenv("TRACECAT__API_URL", raising=False)
+        monkeypatch.delenv("AUTOSECOPS__API_URL", raising=False)
     else:
-        monkeypatch.setenv("TRACECAT__API_URL", api_url)
-    monkeypatch.setattr(oidc_config, "TRACECAT__PUBLIC_API_URL", _TEST_API_URL)
+        monkeypatch.setenv("AUTOSECOPS__API_URL", api_url)
+    monkeypatch.setattr(oidc_config, "AUTOSECOPS__PUBLIC_API_URL", _TEST_API_URL)
     url = oidc_config.get_internal_discovery_url()
     assert url == f"{expected_base}/oauth/mcp/.well-known/openid-configuration"
 

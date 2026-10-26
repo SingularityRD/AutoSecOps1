@@ -23,7 +23,7 @@ from autosecops.exceptions import TracecatValidationError
 def _executor_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),

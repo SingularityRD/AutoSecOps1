@@ -26,7 +26,7 @@ def test_admit_pushed_users_uses_bounded_org_scoped_queries(user_count: int) -> 
     service = SCIMService(
         session,
         Role(
-            type="service", organization_id=organization_id, service_id="tracecat-api"
+            type="service", organization_id=organization_id, service_id="autosecops-api"
         ),
     )
 

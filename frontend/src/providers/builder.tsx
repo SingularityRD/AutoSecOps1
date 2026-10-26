@@ -36,7 +36,7 @@ import {
 } from "@/lib/workflow-trigger-payload"
 import { useWorkflow } from "@/providers/workflow"
 
-const SELECTED_NODE_STORAGE_PREFIX = "tracecat:builder:selected-node"
+const SELECTED_NODE_STORAGE_PREFIX = "autosecops:builder:selected-node"
 
 function selectedNodeStorageKey({
   workspaceId,

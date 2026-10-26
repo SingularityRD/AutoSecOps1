@@ -54,10 +54,10 @@ class PangolinSettings:
     @classmethod
     def from_config(cls, api_key: str | None = None) -> PangolinSettings | None:
         values = (
-            config.TRACECAT__PANGOLIN_API_URL,
-            config.TRACECAT__PANGOLIN_ENDPOINT,
-            config.TRACECAT__PANGOLIN_ORG_ID,
-            api_key or config.TRACECAT__PANGOLIN_API_KEY,
+            config.AUTOSECOPS__PANGOLIN_API_URL,
+            config.AUTOSECOPS__PANGOLIN_ENDPOINT,
+            config.AUTOSECOPS__PANGOLIN_ORG_ID,
+            api_key or config.AUTOSECOPS__PANGOLIN_API_KEY,
         )
         if not all(values):
             return None
@@ -84,12 +84,12 @@ async def _retrieve_api_key(arn: str) -> str:
 async def resolve_pangolin_settings() -> PangolinSettings | None:
     """Return managed tunnel settings, reading the API key from its ARN if set.
 
-    The ARN takes precedence over ``TRACECAT__PANGOLIN_API_KEY``, matching how
+    The ARN takes precedence over ``AUTOSECOPS__PANGOLIN_API_KEY``, matching how
     ``TEMPORAL__API_KEY__ARN`` is read. The secret is fetched once per process.
     """
     global _api_key_from_arn
     api_key: str | None = None
-    if arn := config.TRACECAT__PANGOLIN_API_KEY__ARN:
+    if arn := config.AUTOSECOPS__PANGOLIN_API_KEY__ARN:
         if _api_key_from_arn is None:
             _api_key_from_arn = await _retrieve_api_key(arn)
         api_key = _api_key_from_arn

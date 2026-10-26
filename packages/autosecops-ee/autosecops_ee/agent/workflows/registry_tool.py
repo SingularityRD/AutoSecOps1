@@ -61,7 +61,7 @@ class ExecuteRegistryToolWorkflow:
         classify_timeout = workflow.patched(
             ExecuteRegistryToolWorkflowPatch.ACTIVITY_TIMEOUT
         )
-        timeout_seconds = config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT
+        timeout_seconds = config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
         schedule_to_close_timeout = None
         if classify_timeout:
             timeout_seconds += REGISTRY_TOOL_ACTIVITY_BUFFER_SECONDS
@@ -72,13 +72,13 @@ class ExecuteRegistryToolWorkflow:
             stored = await workflow.execute_activity(
                 ExecutorActivities.execute_action_activity,
                 args=[input.run_input, input.role],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
                 start_to_close_timeout=timedelta(seconds=timeout_seconds),
                 schedule_to_close_timeout=schedule_to_close_timeout,
                 heartbeat_timeout=timedelta(
-                    seconds=config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT
+                    seconds=config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT
                 )
-                if config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT > 0
+                if config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT > 0
                 else None,
                 retry_policy=RETRY_POLICIES["activity:fail_fast"],
                 priority=AGENT_TOOL_PRIORITY,

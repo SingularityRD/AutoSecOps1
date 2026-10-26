@@ -55,8 +55,8 @@ def _check_nsjail_available() -> bool:
 
     from autosecops import config
 
-    nsjail_path = Path(config.TRACECAT__SANDBOX_NSJAIL_PATH)
-    rootfs_path = Path(config.TRACECAT__SANDBOX_ROOTFS_PATH)
+    nsjail_path = Path(config.AUTOSECOPS__SANDBOX_NSJAIL_PATH)
+    rootfs_path = Path(config.AUTOSECOPS__SANDBOX_ROOTFS_PATH)
     return nsjail_path.is_file() and rootfs_path.is_dir()
 
 
@@ -106,7 +106,7 @@ def backend_type(
     # Set environment variables. The in-process test backend is not a
     # configurable backend, so it runs with the direct backend's config.
     monkeypatch.setenv(
-        "TRACECAT__EXECUTOR_BACKEND", "direct" if backend == "test" else backend
+        "AUTOSECOPS__EXECUTOR_BACKEND", "direct" if backend == "test" else backend
     )
 
     # Skip sandboxed backends if nsjail not available
@@ -115,9 +115,9 @@ def backend_type(
             pytest.skip(f"nsjail not available for {backend} backend")
 
     # Reload config to pick up new environment
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
     return backend
 
@@ -139,11 +139,11 @@ def sandboxed_backend_type(
     if not _check_nsjail_available():
         pytest.skip(f"nsjail not available for {backend} backend")
 
-    monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", backend)
+    monkeypatch.setenv("AUTOSECOPS__EXECUTOR_BACKEND", backend)
 
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
     return backend
 
@@ -155,11 +155,11 @@ def test_backend_type(monkeypatch: pytest.MonkeyPatch) -> str:
     Use this for tests that specifically test the in-process test backend
     without sandbox overhead.
     """
-    monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
+    monkeypatch.setenv("AUTOSECOPS__EXECUTOR_BACKEND", "direct")
 
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
     return "test"
 
@@ -171,11 +171,11 @@ def direct_backend_type(monkeypatch: pytest.MonkeyPatch) -> str:
     Use this for tests that specifically test the subprocess direct backend
     without sandbox overhead.
     """
-    monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
+    monkeypatch.setenv("AUTOSECOPS__EXECUTOR_BACKEND", "direct")
 
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
     return "direct"
 
@@ -348,11 +348,11 @@ def benchmark_role() -> Role:
     """
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.UUID("38be3315-c172-4332-aea6-53fc4b93f053"),
         organization_id=uuid.UUID("00000000-0000-4444-aaaa-000000000000"),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -420,12 +420,12 @@ def setup_benchmark_environment(monkeypatch_session):
     Tests will skip on platforms where nsjail is not available (macOS).
     """
     # Default to direct backend if not specified
-    if not os.environ.get("TRACECAT__EXECUTOR_BACKEND"):
-        monkeypatch_session.setenv("TRACECAT__EXECUTOR_BACKEND", "direct")
+    if not os.environ.get("AUTOSECOPS__EXECUTOR_BACKEND"):
+        monkeypatch_session.setenv("AUTOSECOPS__EXECUTOR_BACKEND", "direct")
 
-    from autosecops import config as tracecat_config
+    from autosecops import config as autosecops_config
 
-    importlib.reload(tracecat_config)
+    importlib.reload(autosecops_config)
 
 
 # =============================================================================

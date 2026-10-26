@@ -42,7 +42,7 @@ async def test_query_execution_reads_configured_default_at_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.query.execution.config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS",
+        "autosecops.query.execution.config.AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS",
         4321,
     )
     session = AsyncMock(spec=AsyncSession)

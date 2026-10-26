@@ -22,10 +22,10 @@ def workflow_import_service() -> WorkflowImportService:
     session = AsyncMock()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-api"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-api"],
     )
     return WorkflowImportService(session=session, role=role)
 

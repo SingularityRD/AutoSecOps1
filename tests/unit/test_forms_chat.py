@@ -35,7 +35,7 @@ WORKSPACE_CHAT = AgentSessionEntity.WORKSPACE_CHAT
 def _role(scopes: frozenset[str] = frozenset({"action:*:execute"})) -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -59,7 +59,7 @@ def _gate(
     monkeypatch: pytest.MonkeyPatch, *, flag: bool = True, entitled: bool = True
 ) -> AsyncMock:
     monkeypatch.setattr(
-        config, "TRACECAT__FEATURE_FLAGS", {FeatureFlag.FORMS} if flag else set()
+        config, "AUTOSECOPS__FEATURE_FLAGS", {FeatureFlag.FORMS} if flag else set()
     )
     is_org_entitled = AsyncMock(return_value=entitled)
     monkeypatch.setattr(

@@ -128,12 +128,12 @@ jobs:
 
           if [ "${{ matrix.test_group }}" = "temporal" ]; then
             services=(temporal postgres_db minio redis)
-            cat > /tmp/tracecat-ci-postgres.yml <<'YAML'
+            cat > /tmp/autosecops-ci-postgres.yml <<'YAML'
           services:
             postgres_db:
               command: ["postgres", "-c", "max_connections=500"]
           YAML
-            compose_files+=(-f /tmp/tracecat-ci-postgres.yml)
+            compose_files+=(-f /tmp/autosecops-ci-postgres.yml)
           fi
 
           docker compose "${compose_files[@]}" up -d "${services[@]}"
@@ -172,7 +172,7 @@ jobs:
       - name: Verify automatic vector provisioning completed
         run: |
           docker compose -f docker-compose.dev.yml exec -T postgres_db \
-            psql -X -U postgres -d postgres -f /usr/local/share/tracecat/pgvector.sql
+            psql -X -U postgres -d postgres -f /usr/local/share/autosecops/pgvector.sql
 
       - name: Register Temporal search attributes
         if: matrix.test_group == 'temporal'
@@ -193,13 +193,13 @@ jobs:
           done
 
           attrs=(
-            TracecatTriggerType
-            TracecatTriggeredByUserId
-            TracecatWorkspaceId
-            TracecatAlias
-            TracecatCorrelationId
-            TracecatExecutionType
-            TracecatErrorOwner
+            AutoSecOpsTriggerType
+            AutoSecOpsTriggeredByUserId
+            AutoSecOpsWorkspaceId
+            AutoSecOpsAlias
+            AutoSecOpsCorrelationId
+            AutoSecOpsExecutionType
+            AutoSecOpsErrorOwner
           )
 
           add_args=()
@@ -238,19 +238,19 @@ jobs:
         run: |
           # Keep image builds out of individual smoke-test deadlines and avoid
           # concurrent xdist workers rebuilding the same Compose service image.
-          docker build --target test --tag tracecat-sandbox-test:ci .
-          echo "TRACECAT_TEST_SANDBOX_IMAGE=tracecat-sandbox-test:ci" >> "$GITHUB_ENV"
+          docker build --target test --tag autosecops-sandbox-test:ci .
+          echo "AUTOSECOPS_TEST_SANDBOX_IMAGE=autosecops-sandbox-test:ci" >> "$GITHUB_ENV"
 
       - name: Run tests
         env:
-          TRACECAT__SYSTEM_PATH: "/usr/local/bin:/usr/bin:/bin"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
-          TRACECAT__WORKFLOW_RETURN_STRATEGY: "context"
-          TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
+          AUTOSECOPS__SYSTEM_PATH: "/usr/local/bin:/usr/bin:/bin"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__WORKFLOW_RETURN_STRATEGY: "context"
+          AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING: "true"
           # xdist workers share the same CI Postgres container; keep each
           # worker's service-session pool small enough to avoid exhausting it.
-          TRACECAT__DB_POOL_SIZE: "1"
-          TRACECAT__DB_MAX_OVERFLOW: "2"
+          AUTOSECOPS__DB_POOL_SIZE: "1"
+          AUTOSECOPS__DB_MAX_OVERFLOW: "2"
         run: |
           # Container/nsjail sandbox tests dominate the unit job's tail, so they
           # run as their own matrix group in parallel with the rest of tests/unit.
@@ -272,18 +272,18 @@ jobs:
           elif [ "${{ matrix.test_group }}" = "temporal" ]; then
             # Temporal tests run with compression enabled and parallelization
             # Worker-specific task queues in conftest.py enable safe parallel execution
-            TRACECAT_TEST_API_MODE=inprocess \
-            TRACECAT__CONTEXT_COMPRESSION_ENABLED=true \
-            TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
+            AUTOSECOPS_TEST_API_MODE=inprocess \
+            AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED=true \
+            AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
             uv run pytest tests/temporal -m "not live_secret and not requires_api" -n auto -ra -o faulthandler_timeout=300
 
             # API-backed temporal tests start a local API process against the
             # test DB. Run them serially to avoid startup races under xdist,
             # with enough pool headroom for concurrent gateway-backed actions.
-            TRACECAT_TEST_API_MODE=inprocess \
-            TRACECAT__CONTEXT_COMPRESSION_ENABLED=true \
-            TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
-            TRACECAT__DB_MAX_OVERFLOW=9 \
+            AUTOSECOPS_TEST_API_MODE=inprocess \
+            AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED=true \
+            AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
+            AUTOSECOPS__DB_MAX_OVERFLOW=9 \
             uv run pytest tests/temporal -m "requires_api and not live_secret" -ra -o faulthandler_timeout=300
           else
             uv run pytest tests/${{ matrix.test_group }} -m "not live_secret" -n auto -ra -o faulthandler_timeout=300

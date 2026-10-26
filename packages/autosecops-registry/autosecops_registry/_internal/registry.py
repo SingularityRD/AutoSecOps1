@@ -95,11 +95,11 @@ def register(
 
         key = f"{namespace}.{fn.__name__}"
 
-        setattr(fn, "__tracecat_udf", True)
-        setattr(fn, "__tracecat_udf_key", key)
+        setattr(fn, "__autosecops_udf", True)
+        setattr(fn, "__autosecops_udf_key", key)
         setattr(
             fn,
-            "__tracecat_udf_kwargs",
+            "__autosecops_udf_kwargs",
             {
                 "default_title": default_title,
                 "display_group": display_group,

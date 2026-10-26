@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-CONFIG_PATH = Path.home() / ".tracecat_admin.json"
+CONFIG_PATH = Path.home() / ".autosecops_admin.json"
 
 
 def _parse_bool(value: str | None) -> bool:
@@ -51,12 +51,12 @@ class Config:
     def from_env(cls) -> Config:
         """Load configuration from environment variables."""
         return cls(
-            api_url=os.environ.get("TRACECAT__API_URL", "http://localhost:8000").rstrip(
-                "/"
-            ),
-            service_key=os.environ.get("TRACECAT__SERVICE_KEY"),
-            db_uri=os.environ.get("TRACECAT__DB_URI"),
-            ee_multi_tenant=_parse_bool(os.environ.get("TRACECAT__EE_MULTI_TENANT")),
+            api_url=os.environ.get(
+                "AUTOSECOPS__API_URL", "http://localhost:8000"
+            ).rstrip("/"),
+            service_key=os.environ.get("AUTOSECOPS__SERVICE_KEY"),
+            db_uri=os.environ.get("AUTOSECOPS__DB_URI"),
+            ee_multi_tenant=_parse_bool(os.environ.get("AUTOSECOPS__EE_MULTI_TENANT")),
         )
 
 

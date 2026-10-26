@@ -465,7 +465,7 @@ class TunnelsService(BaseWorkspaceService):
         require_kubernetes_gateways()
         settings = await self._pangolin_settings()
         tunnel_id = uuid.uuid4()
-        label = f"tracecat-{self.workspace_id}-{params.name}"
+        label = f"autosecops-{self.workspace_id}-{params.name}"
         created_resources: list[int] = []
         site_id: int | None = None
         client_id: int | None = None

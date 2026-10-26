@@ -4,7 +4,7 @@
  * Kept free of `next/*` imports so it can be evaluated in the edge middleware
  * sandbox and unit tested in plain Node.
  *
- * `TRACECAT__CSP_CONNECT_SRC_ORIGINS` exists for the browser calls that read a
+ * `AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS` exists for the browser calls that read a
  * presigned blob storage URL directly, which `connect-src` governs:
  *
  * - `src/lib/skills-studio.tsx` issues a presigned PUT of skill files.
@@ -127,7 +127,7 @@ export function buildContentSecurityPolicy(options?: {
  * Build the `Content-Security-Policy` header value from an environment.
  *
  * Reads `NEXT_PUBLIC_POSTHOG_KEY` to decide whether PostHog origins are needed,
- * and `TRACECAT__CSP_CONNECT_SRC_ORIGINS` for extra `connect-src` origins.
+ * and `AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS` for extra `connect-src` origins.
  * Invalid origin tokens are dropped and reported once through `console.warn`.
  * Only the rejected count is logged because tokens may contain tenant URLs.
  *
@@ -138,14 +138,17 @@ export function buildContentSecurityPolicyFromEnv(
   env: Readonly<Record<string, string | undefined>>
 ): string {
   let rejectedCount = 0
-  const extraConnectSrc = parseOrigins(env.TRACECAT__CSP_CONNECT_SRC_ORIGINS, {
-    onReject: () => {
-      rejectedCount += 1
-    },
-  })
+  const extraConnectSrc = parseOrigins(
+    env.AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS,
+    {
+      onReject: () => {
+        rejectedCount += 1
+      },
+    }
+  )
   if (rejectedCount > 0) {
     console.warn(
-      `TRACECAT__CSP_CONNECT_SRC_ORIGINS: ignoring ${rejectedCount} invalid origin token(s)`
+      `AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS: ignoring ${rejectedCount} invalid origin token(s)`
     )
   }
   return buildContentSecurityPolicy({

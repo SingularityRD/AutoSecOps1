@@ -289,7 +289,7 @@ async def test_update_audit_custom_headers_encrypted_at_rest(
     service = settings_service_with_defaults
     custom_headers = {
         "Authorization": "Bearer super-secret-token",
-        "X-Tracecat-Source": "audit",
+        "X-AutoSecOps-Source": "audit",
     }
     await service.update_audit_settings(
         AuditSettingsUpdate(audit_webhook_custom_headers=custom_headers)
@@ -309,7 +309,7 @@ async def test_update_audit_custom_payload_encrypted_at_rest(
     """Ensure custom payload is stored encrypted and round-trip correctly."""
     service = settings_service_with_defaults
     custom_payload = {
-        "event_type": "tracecat.audit",
+        "event_type": "autosecops.audit",
         "metadata": {"env": "staging"},
     }
     await service.update_audit_settings(
@@ -560,7 +560,9 @@ async def test_check_other_auth_enabled_success(
 ) -> None:
     """Test check_other_auth_enabled when another auth type is enabled."""
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.SAML, AuthType.BASIC})
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AUTH_TYPES", {AuthType.SAML, AuthType.BASIC}
+    )
 
     await check_other_auth_enabled(service, AuthType.SAML)
 
@@ -572,7 +574,7 @@ async def test_check_other_auth_enabled_failure(
 ) -> None:
     """Test check_other_auth_enabled when no other auth type is enabled."""
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.SAML})
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_TYPES", {AuthType.SAML})
 
     # Should raise HTTPException when trying to disable the last enabled auth type
     with pytest.raises(HTTPException) as exc_info:
@@ -588,7 +590,7 @@ async def test_check_saml_domain_prerequisites_raises_without_domains(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     with pytest.raises(HTTPException) as exc_info:
         await check_saml_domain_prerequisites(
@@ -607,7 +609,7 @@ async def test_check_saml_domain_prerequisites_passes_with_active_domain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     normalized = normalize_domain("acme.example")
     service.session.add(
         OrganizationDomain(
@@ -633,7 +635,7 @@ async def test_check_saml_domain_prerequisites_ignores_non_enabling_updates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     await check_saml_domain_prerequisites(
         session=service.session,
@@ -648,7 +650,7 @@ async def test_check_saml_domain_prerequisites_skips_single_tenant_without_domai
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = settings_service_with_defaults
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     await check_saml_domain_prerequisites(
         session=service.session,
@@ -702,7 +704,7 @@ def test_get_setting_override(
 ) -> None:
     """Test environment variable overrides for settings."""
     if expected is not None:
-        monkeypatch.setenv(f"TRACECAT__SETTING_OVERRIDE_{key.upper()}", env_value)
+        monkeypatch.setenv(f"AUTOSECOPS__SETTING_OVERRIDE_{key.upper()}", env_value)
 
     assert get_setting_override(key) == expected, f"Expected {expected} for {key}"
 
@@ -726,7 +728,7 @@ async def test_setting_with_override(
 ) -> None:
     """Test get_setting with environment overrides."""
     if key == "saml_enabled":
-        monkeypatch.setenv(f"TRACECAT__SETTING_OVERRIDE_{key.upper()}", env_value)
+        monkeypatch.setenv(f"AUTOSECOPS__SETTING_OVERRIDE_{key.upper()}", env_value)
 
     # Test with both session and role
     value = await get_setting(

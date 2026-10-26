@@ -10,13 +10,13 @@ When multiple alembic heads are detected, do NOT create a merge revision. Instea
 
 1. **Detect multiple heads**
    ```bash
-   TRACECAT__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic heads
+   AUTOSECOPS__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic heads
    ```
 
 2. **Find the Lowest Common Ancestor (LCA)**
    - View the full migration history to understand the branch structure:
    ```bash
-   TRACECAT__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic history
+   AUTOSECOPS__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic history
    ```
    - For each head, trace back through the `down_revision` chain until you find a revision that appears in both chains
    - You can inspect a migration's `down_revision` by reading the file:
@@ -66,12 +66,12 @@ When multiple alembic heads are detected, do NOT create a merge revision. Instea
 
 6. **Verify linear history**
    ```bash
-   TRACECAT__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic heads
+   AUTOSECOPS__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic heads
    ```
    - Should now show only ONE head
    - Optionally verify the full chain:
    ```bash
-   TRACECAT__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic history
+   AUTOSECOPS__DB_URI=postgresql+psycopg://postgres:postgres@localhost:5432/postgres uv run alembic history
    ```
 
 ## Important Notes

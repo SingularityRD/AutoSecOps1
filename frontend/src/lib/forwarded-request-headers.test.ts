@@ -20,12 +20,12 @@ describe("forwardClientAttributionHeaders", () => {
   })
 
   it("leaves missing attribution headers unset", () => {
-    const destination = new Headers({ "x-tracecat-role-type": "service" })
+    const destination = new Headers({ "x-autosecops-role-type": "service" })
 
     forwardClientAttributionHeaders(new Headers(), destination)
 
     expect(Object.fromEntries(destination.entries())).toEqual({
-      "x-tracecat-role-type": "service",
+      "x-autosecops-role-type": "service",
     })
   })
 })

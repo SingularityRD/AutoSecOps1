@@ -2,7 +2,7 @@ Set the first superadmin's email before anyone signs in. Until it is set, nobody
 
 | Deployment | Setting |
 | :--------- | :------ |
-| Docker Compose | `TRACECAT__AUTH_SUPERADMIN_EMAIL` in `.env` |
+| Docker Compose | `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` in `.env` |
 | AWS ECS Fargate | `TF_VAR_auth_superadmin_email`, or `auth_superadmin_email` in your `.tfvars` |
 | Kubernetes | `tracecat.auth.superadminEmail` in `values.yaml` |
 

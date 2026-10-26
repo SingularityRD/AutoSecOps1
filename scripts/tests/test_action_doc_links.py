@@ -114,7 +114,7 @@ def _is_broken_link_status(status_code: int | None) -> bool:
 
 
 @pytest.mark.skipif(
-    os.environ.get("TRACECAT_TEST_ACTION_DOC_LINKS") != "1",
+    os.environ.get("AUTOSECOPS_TEST_ACTION_DOC_LINKS") != "1",
     reason="live action documentation link check is only enabled in CI",
 )
 def test_action_doc_urls_are_reachable() -> None:

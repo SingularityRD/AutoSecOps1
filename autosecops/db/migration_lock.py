@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 # Namespace used to derive a deterministic advisory lock key for migrations.
-MIGRATION_ADVISORY_LOCK_NAMESPACE = "tracecat:alembic:migrations:v1"
+MIGRATION_ADVISORY_LOCK_NAMESPACE = "autosecops:alembic:migrations:v1"
 
 
 def migration_advisory_lock_id(

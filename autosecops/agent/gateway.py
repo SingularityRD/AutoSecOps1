@@ -142,11 +142,11 @@ async def _request_model(request: Request) -> str | None:
 
 _credential_cache: Any = Cache(
     Cache.MEMORY,
-    ttl=app_config.TRACECAT__LLM_GATEWAY_CREDENTIAL_CACHE_TTL_SECONDS,
+    ttl=app_config.AUTOSECOPS__LLM_GATEWAY_CREDENTIAL_CACHE_TTL_SECONDS,
 )
 
-_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
-_DEFAULT_AWS_ROLE_SESSION_NAME = "tracecat-session"
+_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
+_DEFAULT_AWS_ROLE_SESSION_NAME = "autosecops-session"
 
 
 def _credential_cache_key(
@@ -249,7 +249,7 @@ async def _resolve_bedrock_runtime_credentials(
     if access_key or secret_key or session_token:
         raise ProxyException(
             message="Bedrock static credentials require AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.",
-            type="tracecat_llm_provider_auth_failed",
+            type="autosecops_llm_provider_auth_failed",
             param=None,
             code=401,
         )
@@ -259,7 +259,7 @@ async def _resolve_bedrock_runtime_credentials(
 
     raise ProxyException(
         message="Bedrock requires one of AWS_ROLE_ARN, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_BEARER_TOKEN_BEDROCK.",
-        type="tracecat_llm_provider_auth_failed",
+        type="autosecops_llm_provider_auth_failed",
         param=None,
         code=401,
     )
@@ -294,10 +294,10 @@ async def get_provider_credentials(
     role = Role(
         type="service",
         user_id=None,
-        service_id="tracecat-llm-gateway",
+        service_id="autosecops-llm-gateway",
         workspace_id=workspace_id,
         organization_id=organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-llm-gateway"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-llm-gateway"],
     )
     async with AgentManagementService.with_session(role=role) as service:
         try:
@@ -313,7 +313,7 @@ async def get_provider_credentials(
         except AgentModelNotEnabledError as exc:
             raise ProxyException(
                 message="The selected model is not enabled for this workspace.",
-                type="tracecat_llm_model_not_enabled",
+                type="autosecops_llm_model_not_enabled",
                 param=None,
                 code=403,
             ) from exc
@@ -351,7 +351,7 @@ async def user_api_key_auth(request: Request, api_key: str | None) -> UserAPIKey
         logger.warning("LLM token validation failed")
         raise ProxyException(
             message="Invalid or expired token",
-            type="tracecat_llm_token_invalid",
+            type="autosecops_llm_token_invalid",
             param=None,
             code=401,
         ) from exc
@@ -397,13 +397,13 @@ async def user_api_key_auth(request: Request, api_key: str | None) -> UserAPIKey
 class _ProviderAuthHTTPException(HTTPException):
     """Retain auth origin through LiteLLM's HTTPException serialization."""
 
-    type = "tracecat_llm_provider_auth_failed"
+    type = "autosecops_llm_provider_auth_failed"
 
 
 class _ProviderSubscriptionHTTPException(HTTPException):
     """Retain Bedrock Marketplace subscription denials through serialization."""
 
-    type = "tracecat_llm_provider_subscription_required"
+    type = "autosecops_llm_provider_subscription_required"
 
 
 def _is_bedrock_marketplace_denial(exc: PermissionDeniedError) -> bool:
@@ -429,7 +429,7 @@ class _ProviderRateLimitHTTPException(HTTPException):
 class _GatewayUnavailableHTTPException(HTTPException):
     """Distinguish router availability failures from upstream throttling."""
 
-    type = "tracecat_llm_deployment_unavailable"
+    type = "autosecops_llm_deployment_unavailable"
 
 
 def _response_has_provider_quota_code(response: httpx.Response) -> bool:
@@ -499,10 +499,10 @@ class TracecatCallbackHandler(CustomLogger):
         del request_data, user_api_key_dict, traceback_str
         if isinstance(original_exception, ProxyException):
             if original_exception.type in {
-                "tracecat_llm_token_invalid",
-                "tracecat_llm_provider_auth_failed",
-                "tracecat_llm_model_not_enabled",
-                "tracecat_llm_provider_subscription_required",
+                "autosecops_llm_token_invalid",
+                "autosecops_llm_provider_auth_failed",
+                "autosecops_llm_model_not_enabled",
+                "autosecops_llm_provider_subscription_required",
                 "budget_exceeded",
             }:
                 original_exception.message = _anthropic_error_message(
@@ -622,7 +622,7 @@ class TracecatCallbackHandler(CustomLogger):
         if not creds:
             raise ProxyException(
                 message=f"No {provider} API credentials configured. Add them in workspace settings.",
-                type="tracecat_llm_provider_auth_failed",
+                type="autosecops_llm_provider_auth_failed",
                 param=None,
                 code=401,
             )
@@ -795,14 +795,14 @@ def _inject_gateway_provider_credentials(
     if runtime is None or not runtime.base_url:
         raise ProxyException(
             message="Provider credentials incomplete",
-            type="tracecat_llm_provider_auth_failed",
+            type="autosecops_llm_provider_auth_failed",
             param=None,
             code=401,
         )
     if spec.requires_api_key and not runtime.api_key:
         raise ProxyException(
             message="Provider credentials incomplete",
-            type="tracecat_llm_provider_auth_failed",
+            type="autosecops_llm_provider_auth_failed",
             param=None,
             code=401,
         )
@@ -834,7 +834,7 @@ def _inject_provider_credentials(
             if not api_key:
                 raise ProxyException(
                     message="Provider credentials incomplete",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -849,7 +849,7 @@ def _inject_provider_credentials(
             if not api_key:
                 raise ProxyException(
                     message="Provider credentials incomplete",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -864,7 +864,7 @@ def _inject_provider_credentials(
             if not api_key:
                 raise ProxyException(
                     message="Provider credentials incomplete",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -877,7 +877,7 @@ def _inject_provider_credentials(
             if not api_key:
                 raise ProxyException(
                     message="Provider credentials incomplete",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -918,7 +918,7 @@ def _inject_provider_credentials(
             else:
                 raise ProxyException(
                     message="Bedrock credentials must be resolved before request dispatch.",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -967,7 +967,7 @@ def _inject_provider_credentials(
             else:
                 raise ProxyException(
                     message="Azure OpenAI requires AZURE_API_KEY, AZURE_AD_TOKEN, or Azure Entra client credentials (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET).",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )
@@ -993,7 +993,7 @@ def _inject_provider_credentials(
             else:
                 raise ProxyException(
                     message="Azure AI requires AZURE_API_KEY, AZURE_AD_TOKEN, or Azure Entra client credentials (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET).",
-                    type="tracecat_llm_provider_auth_failed",
+                    type="autosecops_llm_provider_auth_failed",
                     param=None,
                     code=401,
                 )

@@ -122,7 +122,7 @@ def test_agent_executor_unclassified_detail_overrides_and_is_bounded() -> None:
 def test_legacy_executor_unavailable_kind_deserializes_as_unclassified() -> None:
     classification = RuntimeErrorClassification.model_validate(
         {
-            "schema": "tracecat.error.v1",
+            "schema": "autosecops.error.v1",
             "owner": "platform",
             "kind": "agent.executor.unavailable",
             "message": "AutoSecOps agent executor is unavailable",
@@ -353,8 +353,8 @@ def test_agent_runtime_failure_attributes_resource_limit_exit_to_user(
     assert failure.classification.retry_disposition is RetryDisposition.NON_RETRYABLE
     assert failure.classification.cause_type == "AgentSandboxProcessExitError"
     assert failure.message == failure.classification.message
-    assert "TRACECAT__AGENT_SANDBOX_MEMORY_MB" in failure.message
-    assert "TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB" in failure.message
+    assert "AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB" in failure.message
+    assert "AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB" in failure.message
     assert "raw stderr tail" not in failure.message
 
 

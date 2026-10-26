@@ -39,8 +39,8 @@ def _write_matrix_files(
     experiment_env.write_text(
         "\n".join(
             (
-                "TRACECAT__LOADTEST_API_CPUS=0",
-                "TRACECAT__LOADTEST_API_MEMORY=1g",
+                "AUTOSECOPS__LOADTEST_API_CPUS=0",
+                "AUTOSECOPS__LOADTEST_API_MEMORY=1g",
             )
         )
         + "\n",
@@ -107,7 +107,7 @@ def test_matrix_rows_inherit_baseline_and_explicit_selection_includes_disabled(
     matrix_path, experiment_env = _write_matrix_files(
         tmp_path,
         (
-            "case_id,enabled,workflow_count,TRACECAT__LOADTEST_API_CPUS\n"
+            "case_id,enabled,workflow_count,AUTOSECOPS__LOADTEST_API_CPUS\n"
             "enabled-case,true,4,2\n"
             "disabled-case,false,,\n"
         ),
@@ -122,12 +122,12 @@ def test_matrix_rows_inherit_baseline_and_explicit_selection_includes_disabled(
     assert cases[0].workflow_count == 4
     assert cases[1].workflow_count == 1
     assert cases[0].process_environment() == {
-        "TRACECAT__LOADTEST_API_CPUS": "2",
-        "TRACECAT__LOADTEST_API_MEMORY": "1g",
+        "AUTOSECOPS__LOADTEST_API_CPUS": "2",
+        "AUTOSECOPS__LOADTEST_API_MEMORY": "1g",
     }
     assert cases[1].process_environment() == {
-        "TRACECAT__LOADTEST_API_CPUS": "0",
-        "TRACECAT__LOADTEST_API_MEMORY": "1g",
+        "AUTOSECOPS__LOADTEST_API_CPUS": "0",
+        "AUTOSECOPS__LOADTEST_API_MEMORY": "1g",
     }
 
 
@@ -137,13 +137,13 @@ def test_selected_matrix_cases_cannot_vary_temporal_history_shards(
     matrix_path, experiment_env = _write_matrix_files(
         tmp_path,
         (
-            "case_id,enabled,TRACECAT__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS\n"
+            "case_id,enabled,AUTOSECOPS__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS\n"
             "first,true,512\n"
             "second,true,1024\n"
         ),
     )
     with experiment_env.open("a", encoding="utf-8") as handle:
-        handle.write("TRACECAT__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS=512\n")
+        handle.write("AUTOSECOPS__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS=512\n")
 
     cases = load_matrix(matrix_path, experiment_env_path=experiment_env)
 
@@ -156,7 +156,7 @@ def test_selected_matrix_cases_cannot_vary_temporal_history_shards(
     ("matrix_contents", "expected_error"),
     [
         (
-            "case_id,TRACECAT__LOADTEST_API_CPUZ\ncase,1\n",
+            "case_id,AUTOSECOPS__LOADTEST_API_CPUZ\ncase,1\n",
             "unknown columns",
         ),
         (
@@ -198,7 +198,7 @@ def test_cluster_loadtest_subcommand_delegates_to_package_entrypoint(
     fake_uv.write_text(
         (
             "#!/bin/sh\n"
-            "printf '<repo-root=%s>\\n' \"$TRACECAT_LOADTEST_REPO_ROOT\"\n"
+            "printf '<repo-root=%s>\\n' \"$AUTOSECOPS_LOADTEST_REPO_ROOT\"\n"
             'for arg in "$@"; do printf \'<%s>\\n\' "$arg"; done\n'
         ),
         encoding="utf-8",
@@ -245,7 +245,7 @@ def test_dry_run_previews_all_matrix_states_and_selected_overrides(
     matrix_path = tmp_path / "matrix.csv"
     matrix_path.write_text(
         (
-            "case_id,enabled,TRACECAT__LOADTEST_API_CPUS\n"
+            "case_id,enabled,AUTOSECOPS__LOADTEST_API_CPUS\n"
             "selected,true,2\n"
             "filtered,true,3\n"
             "disabled,false,4\n"
@@ -276,7 +276,7 @@ def test_dry_run_previews_all_matrix_states_and_selected_overrides(
     assert "DISABLED" in stdout
     assert "disabled" in stdout
     assert "Selected resource overrides · 1" in stdout
-    assert "Resource names omit the TRACECAT__LOADTEST_ prefix." in stdout
+    assert "Resource names omit the AUTOSECOPS__LOADTEST_ prefix." in stdout
     assert "API_CPUS" in stdout
     assert "Dry run complete. Docker was not touched." in stdout
 
@@ -289,13 +289,13 @@ def test_cluster_loadtest_environment_file_overrides_dotenv_as_data(
     fake_bin.mkdir()
     fake_docker = fake_bin / "docker"
     fake_docker.write_text(
-        "#!/bin/sh\nprintf '%s\\n' \"$TRACECAT__LOADTEST_API_CPUS\"\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$AUTOSECOPS__LOADTEST_API_CPUS\"\n",
         encoding="utf-8",
     )
     fake_docker.chmod(0o755)
     loadtest_env = tmp_path / "case.env"
     loadtest_env.write_text(
-        "TRACECAT__LOADTEST_API_CPUS=3\n",
+        "AUTOSECOPS__LOADTEST_API_CPUS=3\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
@@ -398,7 +398,7 @@ def test_matrix_execution_reconfigures_one_cluster_and_resets_between_runs(
 ) -> None:
     matrix_path, experiment_env = _write_matrix_files(
         tmp_path,
-        ("case_id,repeats,TRACECAT__LOADTEST_API_CPUS\nfirst,2,1\nsecond,1,2\n"),
+        ("case_id,repeats,AUTOSECOPS__LOADTEST_API_CPUS\nfirst,2,1\nsecond,1,2\n"),
     )
     cases = load_matrix(matrix_path, experiment_env_path=experiment_env)
     options = _options(tmp_path, matrix_path)
@@ -426,8 +426,8 @@ def test_matrix_execution_reconfigures_one_cluster_and_resets_between_runs(
     def assert_case_environment(env: dict[str, str], expected_cpu: str) -> None:
         env_path = Path(env[matrix_module.LOADTEST_ENV_FILE_VARIABLE])
         assert env_path.is_file()
-        assert env["TRACECAT__LOADTEST_API_CPUS"] == expected_cpu
-        assert f"TRACECAT__LOADTEST_API_CPUS={expected_cpu}" in (
+        assert env["AUTOSECOPS__LOADTEST_API_CPUS"] == expected_cpu
+        assert f"AUTOSECOPS__LOADTEST_API_CPUS={expected_cpu}" in (
             env_path.read_text(encoding="utf-8")
         )
 
@@ -464,7 +464,7 @@ def test_matrix_execution_reconfigures_one_cluster_and_resets_between_runs(
     ) -> tuple[ClusterPorts, DeploymentContext]:
         assert cluster_num == 7
         assert env["BASE"] == "after-cluster-up"
-        events.append(f"resolve:{env['TRACECAT__LOADTEST_API_CPUS']}")
+        events.append(f"resolve:{env['AUTOSECOPS__LOADTEST_API_CPUS']}")
         return ports, deployment
 
     def fake_wait(_public_api_url: str, *, timeout_seconds: float) -> None:

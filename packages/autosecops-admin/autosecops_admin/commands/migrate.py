@@ -19,9 +19,9 @@ def _get_alembic_dir() -> str | None:
     try:
         import autosecops
 
-        tracecat_dir = os.path.dirname(autosecops.__file__)
+        autosecops_dir = os.path.dirname(autosecops.__file__)
         # Alembic is typically at the repo root, one level up from autosecops package
-        repo_root = os.path.dirname(tracecat_dir)
+        repo_root = os.path.dirname(autosecops_dir)
         alembic_dir = os.path.join(repo_root, "alembic")
         if os.path.exists(alembic_dir):
             return repo_root
@@ -38,7 +38,7 @@ def _run_alembic(args: list[str], db_uri: str | None = None) -> int:
     effective_db_uri = db_uri or config.db_uri
     if not effective_db_uri:
         print_error(
-            "TRACECAT__DB_URI environment variable is required for migration commands"
+            "AUTOSECOPS__DB_URI environment variable is required for migration commands"
         )
         return 1
 
@@ -51,7 +51,7 @@ def _run_alembic(args: list[str], db_uri: str | None = None) -> int:
         return 1
 
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = effective_db_uri
+    env["AUTOSECOPS__DB_URI"] = effective_db_uri
 
     cmd = ["alembic", *args]
     try:
@@ -75,7 +75,7 @@ def upgrade(
     ] = "head",
     db_uri: Annotated[
         str | None,
-        typer.Option("--db-uri", help="Database URI (overrides TRACECAT__DB_URI)"),
+        typer.Option("--db-uri", help="Database URI (overrides AUTOSECOPS__DB_URI)"),
     ] = None,
 ) -> None:
     """Upgrade database to a specific revision.
@@ -102,7 +102,7 @@ def downgrade(
     ],
     db_uri: Annotated[
         str | None,
-        typer.Option("--db-uri", help="Database URI (overrides TRACECAT__DB_URI)"),
+        typer.Option("--db-uri", help="Database URI (overrides AUTOSECOPS__DB_URI)"),
     ] = None,
     yes: Annotated[
         bool,
@@ -138,7 +138,7 @@ def downgrade(
 def status(
     db_uri: Annotated[
         str | None,
-        typer.Option("--db-uri", help="Database URI (overrides TRACECAT__DB_URI)"),
+        typer.Option("--db-uri", help="Database URI (overrides AUTOSECOPS__DB_URI)"),
     ] = None,
 ) -> None:
     """Show current database migration status."""
@@ -155,7 +155,7 @@ def history(
     ] = None,
     db_uri: Annotated[
         str | None,
-        typer.Option("--db-uri", help="Database URI (overrides TRACECAT__DB_URI)"),
+        typer.Option("--db-uri", help="Database URI (overrides AUTOSECOPS__DB_URI)"),
     ] = None,
 ) -> None:
     """Show migration history."""

@@ -78,7 +78,7 @@ async def test_authenticate_user_membership_check_is_not_done_under_deny_default
         workspace_id=workspace_id,
         organization_id=org_id,
         user_id=user_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     validated_role = role.model_copy(update={"scopes": frozenset({"tests:read"})})
 
@@ -290,7 +290,7 @@ async def test_user_manager_validate_email_first_user_lookup_uses_auth_pool(
     auth_session.execute.return_value = result
     email = "admin@example.com"
     monkeypatch.setattr(
-        "autosecops.auth.users.config.TRACECAT__AUTH_SUPERADMIN_EMAIL",
+        "autosecops.auth.users.config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL",
         email,
     )
     manager = UserManager.__new__(UserManager)
@@ -382,7 +382,7 @@ async def test_user_manager_saml_policy_uses_auth_pool_with_held_main_session(
 
     auth_session.execute.side_effect = _execute_on_auth
     monkeypatch.setattr(
-        "autosecops.auth.users.config.TRACECAT__AUTH_TYPES",
+        "autosecops.auth.users.config.AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
     manager = UserManager.__new__(UserManager)
@@ -452,7 +452,7 @@ def test_saml_login_uses_bypass_session_dependency() -> None:
 
 def test_role_dependency_keeps_bypass_context_outside_enforce() -> None:
     source = inspect.getsource(_role_dependency)
-    assert "config.TRACECAT__RLS_MODE == config.RLSMode.ENFORCE" in source
+    assert "config.AUTOSECOPS__RLS_MODE == config.RLSMode.ENFORCE" in source
     assert "bypass=True" in source
 
 
@@ -514,7 +514,7 @@ async def test_base_org_service_with_session_sets_role_before_session_open(
 
     role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=uuid.uuid4(),
         scopes=frozenset({"*"}),
     )

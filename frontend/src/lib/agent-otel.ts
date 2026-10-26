@@ -2,7 +2,7 @@ import type { AgentOtelConfig } from "@/client"
 
 /**
  * Claude Code OTel env vars AutoSecOps manages itself; users may not set them.
- * Mirrors `RESERVED` in tracecat/agent/otel_config.py.
+ * Mirrors `RESERVED` in autosecops/agent/otel_config.py.
  */
 const RESERVED_ENV_VARS = new Set([
   "CLAUDE_CODE_ENABLE_TELEMETRY",

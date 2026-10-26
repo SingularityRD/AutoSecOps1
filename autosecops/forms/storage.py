@@ -156,7 +156,7 @@ async def _delete_file_blob(key: str) -> bool:
     try:
         await blob.delete_file(
             key=key,
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
             redact_log_identifiers=True,
         )
     except Exception as e:

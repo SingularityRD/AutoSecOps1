@@ -6791,11 +6791,11 @@ export const $AuthDiscoveryMethod = {
 
 export const $AwsAssumeRoleAccessRead = {
   properties: {
-    tracecat_aws_account_id: {
+    autosecops_aws_account_id: {
       type: "string",
       title: "AutoSecOps AWS Account ID",
     },
-    tracecat_aws_principal_arn: {
+    autosecops_aws_principal_arn: {
       type: "string",
       title: "AutoSecOps AWS Principal ARN",
     },
@@ -6806,8 +6806,8 @@ export const $AwsAssumeRoleAccessRead = {
   },
   type: "object",
   required: [
-    "tracecat_aws_account_id",
-    "tracecat_aws_principal_arn",
+    "autosecops_aws_account_id",
+    "autosecops_aws_principal_arn",
     "external_id",
   ],
   title: "AwsAssumeRoleAccessRead",
@@ -29282,19 +29282,19 @@ export const $Role = {
     service_id: {
       type: "string",
       enum: [
-        "tracecat-api",
-        "tracecat-bootstrap",
-        "tracecat-cli",
-        "tracecat-executor",
-        "tracecat-agent-executor",
-        "tracecat-case-duration-sync",
-        "tracecat-case-triggers",
-        "tracecat-llm-gateway",
-        "tracecat-mcp",
-        "tracecat-runner",
-        "tracecat-schedule-runner",
-        "tracecat-service",
-        "tracecat-ui",
+        "autosecops-api",
+        "autosecops-bootstrap",
+        "autosecops-cli",
+        "autosecops-executor",
+        "autosecops-agent-executor",
+        "autosecops-case-duration-sync",
+        "autosecops-case-triggers",
+        "autosecops-llm-gateway",
+        "autosecops-mcp",
+        "autosecops-runner",
+        "autosecops-schedule-runner",
+        "autosecops-service",
+        "autosecops-ui",
       ],
       title: "Service Id",
     },
@@ -32071,7 +32071,7 @@ export const $SecretStoreRead = {
       type: "boolean",
       title: "All Workspaces",
     },
-    tracecat_aws_account_id: {
+    autosecops_aws_account_id: {
       anyOf: [
         {
           type: "string",
@@ -32082,7 +32082,7 @@ export const $SecretStoreRead = {
       ],
       title: "AutoSecOps AWS Account ID",
     },
-    tracecat_aws_principal_arn: {
+    autosecops_aws_principal_arn: {
       anyOf: [
         {
           type: "string",

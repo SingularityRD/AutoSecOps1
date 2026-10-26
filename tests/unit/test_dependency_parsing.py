@@ -241,10 +241,10 @@ class TestDependencyModels:
         ╰─▶ Because only custom-actions==0.1.0 is available and
             custom-actions==0.1.0 depends on pydantic==1.10.22, we can conclude that
             all versions of custom-actions depend on pydantic==1.10.22.
-            And because tracecat depends on custom-actions, we can conclude that
-            tracecat depends on pydantic==1.10.22.
-            And because tracecat depends on pydantic==2.10.6 and your workspace
-            requires tracecat, we can conclude that your workspace's requirements
+            And because autosecops depends on custom-actions, we can conclude that
+            autosecops depends on pydantic==1.10.22.
+            And because autosecops depends on pydantic==2.10.6 and your workspace
+            requires autosecops, we can conclude that your workspace's requirements
             are unsatisfiable.
 
             hint: While the active Python version is 3.12, the resolution failed for

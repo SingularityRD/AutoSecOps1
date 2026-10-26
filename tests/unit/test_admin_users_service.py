@@ -39,7 +39,7 @@ def platform_role() -> PlatformRole:
     return PlatformRole(
         type="user",
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -49,7 +49,7 @@ async def test_create_user_creates_platform_user_without_memberships(
     platform_role: PlatformRole,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     service = AdminUserService(session, role=platform_role)
     params = AdminUserCreate(
         email="platform-user@example.com",
@@ -174,7 +174,7 @@ async def test_create_user_provisions_default_org_in_single_tenant(
     platform_role: PlatformRole,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     service = AdminUserService(session, role=platform_role)
     params = AdminUserCreate(
         email="single-tenant-user@example.com",
@@ -218,7 +218,7 @@ async def test_promote_superuser_provisions_owner_in_single_tenant(
     platform_role: PlatformRole,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     service = AdminUserService(session, role=platform_role)
     created = await service.create_user(
         AdminUserCreate(

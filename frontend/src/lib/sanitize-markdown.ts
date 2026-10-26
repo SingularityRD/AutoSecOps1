@@ -341,7 +341,7 @@ export const ALLOWED_MARKDOWN_LINK_PREFIXES = ["*"]
 export const ALLOWED_MARKDOWN_IMAGE_PREFIXES = ["*"]
 
 // Used to resolve path-relative markdown URLs during URL hardening.
-export const DEFAULT_MARKDOWN_ORIGIN = "https://tracecat.local"
+export const DEFAULT_MARKDOWN_ORIGIN = "https://autosecops.local"
 
 export function getStreamdownRehypePlugins() {
   // Streamdown prepends rehype-katex before user plugins.

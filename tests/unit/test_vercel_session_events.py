@@ -278,8 +278,8 @@ async def test_child_open_parts_close_only_on_explicit_stream_end(
         {"type": "reasoning-end", "id": "msg_a-2:1"},
     ]
     assert [(data["event_id"], data["index"]) for data in endings] == [
-        ("tracecat:end:3-0", 0),
-        ("tracecat:end:3-0", 1),
+        ("autosecops:end:3-0", 0),
+        ("autosecops:end:3-0", 1),
     ]
     keys = [(data["event_id"], data["index"]) for data in chunks]
     assert len(keys) == len(set(keys))

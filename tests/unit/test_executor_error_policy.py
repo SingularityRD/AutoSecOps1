@@ -154,7 +154,7 @@ def test_sandbox_resource_limit_gets_dedicated_user_owned_kind() -> None:
     assert classification.kind is RuntimeErrorKind.SANDBOX_RESOURCE_LIMIT_EXCEEDED
     assert classification.retry_disposition is RetryDisposition.NON_RETRYABLE
     assert classification.cause_type == "SandboxWorkloadError"
-    assert "TRACECAT__SANDBOX_DEFAULT_MEMORY_MB" in classification.message
+    assert "AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB" in classification.message
     assert "sandbox-controlled text" not in classification.message
 
 

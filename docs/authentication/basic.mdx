@@ -20,13 +20,13 @@ Basic auth lets you sign in to AutoSecOps with an email and password.
 In your `.env` file, enable the basic auth type:
 
 ```bash
-TRACECAT__AUTH_TYPES=basic
+AUTOSECOPS__AUTH_TYPES=basic
 ```
 
 You can also combine auth types if you need to:
 
 ```bash
-TRACECAT__AUTH_TYPES=basic,oidc
+AUTOSECOPS__AUTH_TYPES=basic,oidc
 ```
 
 ## First login
@@ -36,7 +36,7 @@ TRACECAT__AUTH_TYPES=basic,oidc
 ## Minimum password length
 
 When you use basic auth, your password must be at least
-`TRACECAT__AUTH_MIN_PASSWORD_LENGTH` characters long. The default minimum is `12`.
+`AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` characters long. The default minimum is `12`.
 
 ## Change password
 
@@ -56,7 +56,7 @@ curl https://<host>/api/users/me \
   --data '{"password": "<NEW_PASSWORD>"}'
 ```
 
-Wrong credentials fail at login with `400` and `LOGIN_BAD_CREDENTIALS`. A password shorter than `TRACECAT__AUTH_MIN_PASSWORD_LENGTH` fails with `400` and the code `UPDATE_USER_INVALID_PASSWORD`.
+Wrong credentials fail at login with `400` and `LOGIN_BAD_CREDENTIALS`. A password shorter than `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` fails with `400` and the code `UPDATE_USER_INVALID_PASSWORD`.
 
 A superadmin resets another account's password with the same body at `PATCH /users/{user_id}`, and a non-superadmin session gets `403`. Accounts created by OIDC or SAML sign-in hold a generated password and authenticate at the identity provider, so reset those there.
 

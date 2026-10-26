@@ -88,7 +88,7 @@ def workspace_id() -> uuid.UUID:
 def role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:update"}),
@@ -285,7 +285,7 @@ def test_build_slack_actor_instructions_quotes_untrusted_profile_fields() -> Non
 
 
 def test_parse_approval_action_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     token = AgentChannelService.create_slack_approval_action_token(
         batch_id="batch-1",
         tool_call_id="tool-1",
@@ -314,7 +314,7 @@ def test_parse_approval_action_context(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_parse_approval_action_context_invalid_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     payload = {
         "type": "block_actions",
         "actions": [{"value": "bad.token"}],

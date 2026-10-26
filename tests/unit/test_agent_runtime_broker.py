@@ -20,7 +20,7 @@ from claude_agent_sdk.types import (
 )
 
 from autosecops.agent.common.config import (
-    TRACECAT__AGENT_SANDBOX_TIMEOUT,
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT,
     build_agent_runtime_uv_env,
 )
 from autosecops.agent.common.protocol import RuntimeInitPayload
@@ -251,7 +251,7 @@ def test_build_path_mapping(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, backend: ExecutorBackendType
 ) -> None:
     """Session paths are stable per session; nsjail maps them to runtime mounts."""
-    monkeypatch.setattr(broker_module, "TRACECAT__EXECUTOR_BACKEND", backend)
+    monkeypatch.setattr(broker_module, "AUTOSECOPS__EXECUTOR_BACKEND", backend)
     monkeypatch.setattr(
         session_paths_module.tempfile, "gettempdir", lambda: str(tmp_path)
     )
@@ -260,11 +260,12 @@ def test_build_path_mapping(
 
     assert mapping == ClaudeRuntimeBroker._build_path_mapping(session_id="session-123")
     assert (
-        mapping.host_home_dir == tmp_path / "tracecat-agent-session-123" / "agent-home"
+        mapping.host_home_dir
+        == tmp_path / "autosecops-agent-session-123" / "agent-home"
     )
     assert (
         mapping.host_work_dir
-        == tmp_path / "tracecat-agent-session-123" / "agent-work-dir"
+        == tmp_path / "autosecops-agent-session-123" / "agent-work-dir"
     )
     if backend is ExecutorBackendType.NSJAIL:
         assert mapping.runtime_home_dir == Path("/home/agent")
@@ -277,7 +278,7 @@ def test_build_path_mapping(
 @pytest.mark.parametrize(
     ("use_jailed_paths", "expected_state_dir"),
     [
-        pytest.param(True, "/run/tracecat/uv-state", id="nsjail"),
+        pytest.param(True, "/run/autosecops/uv-state", id="nsjail"),
         pytest.param(False, "job/uv-state", id="direct"),
     ],
 )
@@ -345,7 +346,7 @@ def test_transport_prepares_bundled_claude_path(
 
 def test_mcp_bridge_binding_uses_fixed_port_for_jailed_runtime() -> None:
     with open_mcp_bridge_binding(use_jailed_paths=True) as binding:
-        assert binding.port == transport_module.TRACECAT__AGENT_MCP_BRIDGE_PORT
+        assert binding.port == transport_module.AUTOSECOPS__AGENT_MCP_BRIDGE_PORT
         assert binding.inherited_fds == ()
         assert binding.listener_fd is None
 
@@ -369,7 +370,7 @@ def test_transport_rewrites_trusted_mcp_bridge_urls_for_selected_port(
 ) -> None:
     transport = _make_transport(tmp_path, use_jailed_paths=False)
     mcp_servers: dict[str, McpServerConfig] = {
-        "tracecat-registry": _trusted_mcp_config(4101, token="root"),
+        "autosecops-registry": _trusted_mcp_config(4101, token="root"),
         "stdio-server": _stdio_mcp_config("tool"),
         "other-http-server": _trusted_mcp_config(4999, token="other"),
     }
@@ -381,7 +382,7 @@ def test_transport_rewrites_trusted_mcp_bridge_urls_for_selected_port(
                 prompt="Analyze",
                 mcpServers=[
                     {
-                        "tracecat-registry-analyst": _trusted_mcp_config(
+                        "autosecops-registry-analyst": _trusted_mcp_config(
                             4101, token="child"
                         )
                     },
@@ -394,7 +395,7 @@ def test_transport_rewrites_trusted_mcp_bridge_urls_for_selected_port(
     rewritten = transport._options_with_runtime_bridge_port(54321)
 
     mcp_servers = cast(dict[str, Any], rewritten.mcp_servers)
-    registry_server = cast(dict[str, Any], mcp_servers["tracecat-registry"])
+    registry_server = cast(dict[str, Any], mcp_servers["autosecops-registry"])
     assert registry_server["url"] == "http://127.0.0.1:54321/mcp"
     assert mcp_servers["stdio-server"] == {
         "type": "stdio",
@@ -408,7 +409,7 @@ def test_transport_rewrites_trusted_mcp_bridge_urls_for_selected_port(
     agent_mcp_entry = cast(dict[str, Any], agent.mcpServers[0])
     child_server = cast(
         dict[str, Any],
-        agent_mcp_entry["tracecat-registry-analyst"],
+        agent_mcp_entry["autosecops-registry-analyst"],
     )
     assert child_server["url"] == "http://127.0.0.1:54321/mcp"
     assert agent.mcpServers[1] == "stdio-server"
@@ -419,7 +420,7 @@ def test_transport_mcp_bridge_url_rewrite_keeps_original_options(
 ) -> None:
     transport = _make_transport(tmp_path, use_jailed_paths=False)
     original_options = ClaudeAgentOptions(
-        mcp_servers={"tracecat-registry": _trusted_mcp_config(4101, token="root")}
+        mcp_servers={"autosecops-registry": _trusted_mcp_config(4101, token="root")}
     )
     transport._options = original_options
 
@@ -427,10 +428,10 @@ def test_transport_mcp_bridge_url_rewrite_keeps_original_options(
 
     original_mcp_servers = cast(dict[str, Any], original_options.mcp_servers)
     rewritten_mcp_servers = cast(dict[str, Any], rewritten.mcp_servers)
-    assert original_mcp_servers["tracecat-registry"]["url"] == (
+    assert original_mcp_servers["autosecops-registry"]["url"] == (
         "http://127.0.0.1:4101/mcp"
     )
-    assert rewritten_mcp_servers["tracecat-registry"]["url"] == (
+    assert rewritten_mcp_servers["autosecops-registry"]["url"] == (
         "http://127.0.0.1:54321/mcp"
     )
 
@@ -445,14 +446,14 @@ async def test_transport_connect_applies_selected_direct_port_to_sdk_options(
         use_jailed_paths=False,
     )
     options = ClaudeAgentOptions(
-        mcp_servers={"tracecat-registry": _trusted_mcp_config(4101, token="root")},
+        mcp_servers={"autosecops-registry": _trusted_mcp_config(4101, token="root")},
         agents={
             "analyst": AgentDefinition(
                 description="Analyze scoped data",
                 prompt="Analyze",
                 mcpServers=[
                     {
-                        "tracecat-registry-analyst": _trusted_mcp_config(
+                        "autosecops-registry-analyst": _trusted_mcp_config(
                             4101, token="child"
                         )
                     }
@@ -503,21 +504,21 @@ async def test_transport_connect_applies_selected_direct_port_to_sdk_options(
     # the static kill ceiling rather than the per-run timeout.
     assert "config" not in captured_spawn_kwargs
     expected_sandbox_limit = (
-        TRACECAT__AGENT_SANDBOX_TIMEOUT + AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
+        AUTOSECOPS__AGENT_SANDBOX_TIMEOUT + AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
     )
     default_limits = AgentResourceLimits()
     assert default_limits.cpu_seconds == expected_sandbox_limit
     assert default_limits.timeout_seconds == expected_sandbox_limit
 
     mcp_servers = cast(dict[str, Any], options.mcp_servers)
-    assert mcp_servers["tracecat-registry"]["url"] == (
+    assert mcp_servers["autosecops-registry"]["url"] == (
         f"http://127.0.0.1:{selected_port}/mcp"
     )
     assert options.agents is not None
     agent = options.agents["analyst"]
     assert agent.mcpServers is not None
     agent_entry = cast(dict[str, Any], agent.mcpServers[0])
-    child_server = cast(dict[str, Any], agent_entry["tracecat-registry-analyst"])
+    child_server = cast(dict[str, Any], agent_entry["autosecops-registry-analyst"])
     assert child_server["url"] == f"http://127.0.0.1:{selected_port}/mcp"
 
 
@@ -572,10 +573,12 @@ def test_transport_loads_platform_plugin_on_fresh_and_resumed_turns(
     plugin = tmp_path / "platform-skills"
     manifest = plugin / ".claude-plugin" / "plugin.json"
     manifest.parent.mkdir(parents=True)
-    manifest.write_text('{"name":"tracecat"}')
+    manifest.write_text('{"name":"autosecops"}')
     transport = _make_transport(tmp_path, use_jailed_paths=use_jailed_paths)
     options = transport._options_with_platform_skills(ClaudeAgentOptions(resume=resume))
-    expected = Path("/run/tracecat/job/platform-skills") if use_jailed_paths else plugin
+    expected = (
+        Path("/run/autosecops/job/platform-skills") if use_jailed_paths else plugin
+    )
     assert options.plugins == [{"type": "local", "path": str(expected)}]
     assert options.resume == resume
 

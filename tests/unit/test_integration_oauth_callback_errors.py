@@ -48,7 +48,7 @@ def callback_context(
     monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> Iterator[CallbackContext]:
     provider_impl: type[AuthorizationCodeOAuthProvider] = request.param
-    role = Role(type="user", user_id=uuid.uuid4(), service_id="tracecat-api")
+    role = Role(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
     state = OAuthStateDB(
         state=uuid.uuid4(),
         user_id=role.user_id,
@@ -76,8 +76,8 @@ def callback_context(
     monkeypatch.setattr(provider.client, "fetch_token", fetch_token)
     monkeypatch.setattr(provider_impl, "instantiate", AsyncMock(return_value=provider))
     monkeypatch.setattr(router, "IntegrationService", MagicMock(return_value=service))
-    monkeypatch.setattr(config, "TRACECAT__RLS_MODE", config.RLSMode.OFF)
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://tracecat.test")
+    monkeypatch.setattr(config, "AUTOSECOPS__RLS_MODE", config.RLSMode.OFF)
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_APP_URL", "https://autosecops.test")
     logs: list[str] = []
     sink = logger.add(logs.append, format="{level} {message} {extra}")
     role_token = ctx_role.set(None)
@@ -160,7 +160,7 @@ async def test_successful_callback_stores_tokens_and_redirects(
     assert result.status == "connected"
     assert result.provider_id == context.provider.id
     assert result.redirect_url == (
-        f"https://tracecat.test/workspaces/{context.state.workspace_id}/integrations"
+        f"https://autosecops.test/workspaces/{context.state.workspace_id}/integrations"
     )
     context.fetch_token.assert_awaited_once_with(
         context.provider.token_endpoint,

@@ -9,41 +9,41 @@ import EnvironmentVariables from "/snippets/environment-variables.mdx";
 
 | Secret | Purpose |
 | :----- | :------ |
-| `TRACECAT__DB_ENCRYPTION_KEY` | Fernet key for at-rest encryption in PostgreSQL. Losing it makes encrypted credentials unrecoverable. |
-| `TRACECAT__SERVICE_KEY` | HMAC key for service-to-service JWT signing. |
-| `TRACECAT__SIGNING_SECRET` | Signs webhook URLs and HMAC operations. Changing it invalidates existing webhook URLs and agent channel endpoint URLs. |
+| `AUTOSECOPS__DB_ENCRYPTION_KEY` | Fernet key for at-rest encryption in PostgreSQL. Losing it makes encrypted credentials unrecoverable. |
+| `AUTOSECOPS__SERVICE_KEY` | HMAC key for service-to-service JWT signing. |
+| `AUTOSECOPS__SIGNING_SECRET` | Signs webhook URLs and HMAC operations. Changing it invalidates existing webhook URLs and agent channel endpoint URLs. |
 | `USER_AUTH_SECRET` | Secures password reset tokens, email verification tokens, and OAuth state. Derives the MCP OIDC issuer keypair and the internal OIDC client secret. |
 
 Generate all four with `openssl`:
 
 ```bash
-# TRACECAT__SERVICE_KEY
+# AUTOSECOPS__SERVICE_KEY
 openssl rand -hex 32
 
-# TRACECAT__SIGNING_SECRET
+# AUTOSECOPS__SIGNING_SECRET
 openssl rand -hex 32
 
 # USER_AUTH_SECRET
 openssl rand -hex 32
 
-# TRACECAT__DB_ENCRYPTION_KEY (Fernet-compatible base64)
+# AUTOSECOPS__DB_ENCRYPTION_KEY (Fernet-compatible base64)
 openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'
 ```
 
 ## Example `.env`
 
 ```bash
-PUBLIC_APP_URL=https://tracecat.yourdomain.com
-PUBLIC_API_URL=https://tracecat.yourdomain.com/api
-TRACECAT__APP_ENV=production
-TRACECAT__DB_ENCRYPTION_KEY=<openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'>
-TRACECAT__SERVICE_KEY=<openssl rand -hex 32>
-TRACECAT__SIGNING_SECRET=<openssl rand -hex 32>
+PUBLIC_APP_URL=https://autosecops.yourdomain.com
+PUBLIC_API_URL=https://autosecops.yourdomain.com/api
+AUTOSECOPS__APP_ENV=production
+AUTOSECOPS__DB_ENCRYPTION_KEY=<openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'>
+AUTOSECOPS__SERVICE_KEY=<openssl rand -hex 32>
+AUTOSECOPS__SIGNING_SECRET=<openssl rand -hex 32>
 USER_AUTH_SECRET=<openssl rand -hex 32>
-TRACECAT__AUTH_SUPERADMIN_EMAIL=admin@yourdomain.com
-TRACECAT__DB_SSLMODE=require
-TRACECAT__POSTGRES_USER=postgres
-TRACECAT__POSTGRES_PASSWORD=<secure-password>
+AUTOSECOPS__AUTH_SUPERADMIN_EMAIL=admin@yourdomain.com
+AUTOSECOPS__DB_SSLMODE=require
+AUTOSECOPS__POSTGRES_USER=postgres
+AUTOSECOPS__POSTGRES_PASSWORD=<secure-password>
 ```
 
 See the `.env.example` file that ships with the install files in the AutoSecOps image for all options.

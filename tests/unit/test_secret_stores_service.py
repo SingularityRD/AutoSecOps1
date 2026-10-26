@@ -51,7 +51,7 @@ from autosecops.secrets.service import build_external_secret_reference
 
 pytestmark = pytest.mark.usefixtures("db")
 
-ROLE_ARN = "arn:aws:iam::123456789012:role/tracecat-secrets-reader"
+ROLE_ARN = "arn:aws:iam::123456789012:role/autosecops-secrets-reader"
 REGION = "us-east-1"
 SECRET_ARN = f"arn:aws:secretsmanager:{REGION}:123456789012:secret:app/api-AbCdEf"
 OTHER_REGION_ARN = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:app/api-AbCdEf"
@@ -87,7 +87,7 @@ def reference_params(
 def test_external_id_is_opaque_and_unique() -> None:
     first = generate_store_external_id()
     second = generate_store_external_id()
-    assert first.startswith("tracecat-")
+    assert first.startswith("autosecops-")
     assert first != second
 
 
@@ -98,7 +98,7 @@ async def test_store_collections_paginate_without_skips(
     svc_workspace: Workspace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-pagination-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-pagination-secret")
     created = []
     for index in range(3):
         store = await stores.create_store(
@@ -142,7 +142,7 @@ async def test_create_store_persists_external_id_across_updates(
         )
     )
     external_id = parse_store_config(store).external_id
-    assert external_id.startswith("tracecat-")
+    assert external_id.startswith("autosecops-")
 
     await stores.update_store(
         store,
@@ -184,7 +184,7 @@ async def test_store_without_role_arn_cannot_be_enabled_until_set(
     store_id = store.id
     draft_config = parse_store_config(store)
     assert draft_config.role_arn is None
-    assert draft_config.external_id.startswith("tracecat-")
+    assert draft_config.external_id.startswith("autosecops-")
 
     with pytest.raises(ValueError, match="Finish setting up"):
         await stores.update_store(store, SecretStoreUpdate(enabled=True))
@@ -625,7 +625,7 @@ async def test_store_config_round_trips_and_rejects_unknown_provider(
     config = parse_store_config(store)
     assert config.role_arn == ROLE_ARN
     assert config.region == REGION
-    assert config.external_id.startswith("tracecat-")
+    assert config.external_id.startswith("autosecops-")
 
 
 @pytest.mark.anyio

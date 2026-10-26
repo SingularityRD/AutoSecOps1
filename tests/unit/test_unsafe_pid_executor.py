@@ -560,12 +560,12 @@ def main():
     async def test_execute_does_not_inherit_process_env(
         self, executor: UnsafePidExecutor, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("TRACECAT_TEST_SECRET", "super-secret")
+        monkeypatch.setenv("AUTOSECOPS_TEST_SECRET", "super-secret")
         script = """
 import os
 
 def main():
-    return os.environ.get("TRACECAT_TEST_SECRET")
+    return os.environ.get("AUTOSECOPS_TEST_SECRET")
 """
         result = await executor.execute(script=script)
         assert result.success

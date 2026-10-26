@@ -18,11 +18,11 @@ from dotenv import dotenv_values, load_dotenv
 
 # Set test defaults BEFORE importing autosecops modules so config reads them.
 # test_workflows.py was written when we returned the full context by default.
-os.environ.setdefault("TRACECAT__WORKFLOW_RETURN_STRATEGY", "context")
+os.environ.setdefault("AUTOSECOPS__WORKFLOW_RETURN_STRATEGY", "context")
 os.environ.setdefault(
-    "TRACECAT__SERVICE_KEY",
+    "AUTOSECOPS__SERVICE_KEY",
     dotenv_values(Path(__file__).resolve().parents[1] / ".env").get(
-        "TRACECAT__SERVICE_KEY"
+        "AUTOSECOPS__SERVICE_KEY"
     )
     or "test-service-key",
 )
@@ -87,7 +87,7 @@ TEST_ORG_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 # Get xdist worker ID, defaults to "master" if not using xdist
 WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "master")
 ACTION_GATEWAY_TEST_SOCKET = (
-    Path("/tmp") / f"tracecat-action-gateway-{os.getpid()}-{WORKER_ID}.sock"
+    Path("/tmp") / f"autosecops-action-gateway-{os.getpid()}-{WORKER_ID}.sock"
 )
 
 # Generate worker-specific port offsets
@@ -303,11 +303,11 @@ PG_PORT = int(os.environ.get("PG_PORT", "5432"))
 TEMPORAL_PORT = int(os.environ.get("TEMPORAL_PORT", "7233"))
 MINIO_PORT = int(os.environ.get("MINIO_PORT", "9000"))
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
-MINIO_WORKFLOW_BUCKET = "test-tracecat-workflow"
+MINIO_WORKFLOW_BUCKET = "test-autosecops-workflow"
 
 # Worker-specific task queues for pytest-xdist isolation
 # Each xdist worker uses different queues to avoid workflow conflicts
-TEMPORAL_TASK_QUEUE = f"tracecat-task-queue-{WORKER_ID}"
+TEMPORAL_TASK_QUEUE = f"autosecops-task-queue-{WORKER_ID}"
 EXECUTOR_TASK_QUEUE = f"shared-action-queue-{WORKER_ID}"
 AGENT_TASK_QUEUE = f"shared-agent-queue-{WORKER_ID}"
 
@@ -598,7 +598,7 @@ def default_org(db: None, env_sandbox: None) -> Iterator[None]:
         sync_engine.dispose()
 
     # Seed both the per-test database and the default engine DB (used by services via with_session()).
-    target_uris = {TEST_DB_CONFIG.test_url_sync, config.TRACECAT__DB_URI}
+    target_uris = {TEST_DB_CONFIG.test_url_sync, config.AUTOSECOPS__DB_URI}
     for uri in sorted(target_uris):
         _seed_default_org(uri)
 
@@ -1200,7 +1200,7 @@ def registry_version_with_manifest(default_org: None) -> Iterator[None]:
         sync_engine.dispose()
 
     # Seed both the per-test database and the default engine DB (used by services via with_session()).
-    target_uris = {TEST_DB_CONFIG.test_url_sync, config.TRACECAT__DB_URI}
+    target_uris = {TEST_DB_CONFIG.test_url_sync, config.AUTOSECOPS__DB_URI}
     for uri in sorted(target_uris):
         _seed_registry_version(uri)
 
@@ -1275,9 +1275,9 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     load_dotenv()
     logger.info("Setting up environment variables")
     importlib.reload(config)
-    monkeysession.setattr(config, "TRACECAT__APP_ENV", "development")
+    monkeysession.setattr(config, "AUTOSECOPS__APP_ENV", "development")
     # A developer's .env license key must not change entitlement assertions.
-    monkeysession.setattr(config, "TRACECAT__LICENSE_KEY", None)
+    monkeysession.setattr(config, "AUTOSECOPS__LICENSE_KEY", None)
     # Keep test baseline behavior for suites that are not exercising entitlement
     # migration logic directly. Explicit entitlement tests can still override this.
     monkeysession.setattr(
@@ -1300,79 +1300,81 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     blob_storage_host = "minio" if IN_DOCKER else "localhost"
 
     db_uri = f"postgresql+psycopg://postgres:postgres@{db_host}:{PG_PORT}/postgres"
-    monkeysession.setattr(config, "TRACECAT__DB_URI", db_uri)
+    monkeysession.setattr(config, "AUTOSECOPS__DB_URI", db_uri)
     monkeysession.setattr(
         config, "TEMPORAL__CLUSTER_URL", f"http://{temporal_host}:{TEMPORAL_PORT}"
     )
     blob_storage_endpoint = f"http://{blob_storage_host}:{MINIO_PORT}"
     monkeysession.setattr(
-        config, "TRACECAT__BLOB_STORAGE_ENDPOINT", blob_storage_endpoint
+        config, "AUTOSECOPS__BLOB_STORAGE_ENDPOINT", blob_storage_endpoint
     )
     # Configure MinIO for result externalization (StoredObject -> S3)
     monkeysession.setattr(
-        config, "TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW", MINIO_WORKFLOW_BUCKET
+        config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW", MINIO_WORKFLOW_BUCKET
     )
     monkeysession.setattr(
-        config, "TRACECAT__BLOB_STORAGE_BUCKET_AGENT", MINIO_WORKFLOW_BUCKET
+        config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT", MINIO_WORKFLOW_BUCKET
     )
-    monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
+    monkeysession.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", True)
     # Externalize all results for testing (threshold=0)
-    monkeysession.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", 0)
     monkeysession.setattr(
-        config, "TRACECAT__AUTH_ALLOWED_DOMAINS", ["autosecops.example"]
+        config, "AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", 0
     )
-    if os.getenv("TRACECAT__CONTEXT_COMPRESSION_ENABLED"):
+    monkeysession.setattr(
+        config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", ["autosecops.example"]
+    )
+    if os.getenv("AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED"):
         logger.info("Enabling compression for workflow context")
-        monkeysession.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", True)
+        monkeysession.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", True)
         # Force compression for local unit tests
-        monkeysession.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB", 0)
+        monkeysession.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB", 0)
 
     # Add Homebrew path for macOS development environments
     monkeysession.setattr(
         config,
-        "TRACECAT__SYSTEM_PATH",
+        "AUTOSECOPS__SYSTEM_PATH",
         "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
     )
 
-    monkeysession.setenv("TRACECAT__DB_URI", db_uri)
-    monkeysession.setenv("TRACECAT__BLOB_STORAGE_ENDPOINT", blob_storage_endpoint)
+    monkeysession.setenv("AUTOSECOPS__DB_URI", db_uri)
+    monkeysession.setenv("AUTOSECOPS__BLOB_STORAGE_ENDPOINT", blob_storage_endpoint)
     monkeysession.setenv(
-        "TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW", MINIO_WORKFLOW_BUCKET
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW", MINIO_WORKFLOW_BUCKET
     )
-    monkeysession.setenv("TRACECAT__BLOB_STORAGE_BUCKET_AGENT", MINIO_WORKFLOW_BUCKET)
-    monkeysession.setenv("TRACECAT__RESULT_EXTERNALIZATION_ENABLED", "true")
-    monkeysession.setenv("TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", "0")
-    # monkeysession.setenv("TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeysession.setenv("AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT", MINIO_WORKFLOW_BUCKET)
+    monkeysession.setenv("AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", "true")
+    monkeysession.setenv("AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES", "0")
+    # monkeysession.setenv("AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode())
     # Point API URL to appropriate host
     api_url = f"http://{api_host}:8000"
     executor_url = f"http://{'executor' if IN_DOCKER else 'localhost'}:8001"
-    monkeysession.setattr(config, "TRACECAT__API_URL", api_url)
-    monkeysession.setenv("TRACECAT__API_URL", api_url)
-    monkeysession.setenv("TRACECAT__EXECUTOR_URL", executor_url)
+    monkeysession.setattr(config, "AUTOSECOPS__API_URL", api_url)
+    monkeysession.setenv("AUTOSECOPS__API_URL", api_url)
+    monkeysession.setenv("AUTOSECOPS__EXECUTOR_URL", executor_url)
     monkeysession.setattr(
         config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(ACTION_GATEWAY_TEST_SOCKET),
     )
     monkeysession.setenv(
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(ACTION_GATEWAY_TEST_SOCKET),
     )
     # Use TestBackend for in-process executor (no sandbox overhead) unless overridden.
     # Isolation checks see the direct backend; only worker backend creation changes.
     if not IN_DOCKER:
         monkeysession.setattr(
-            config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+            config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
         )
-        monkeysession.setenv("TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT)
+        monkeysession.setenv("AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT)
         monkeysession.setattr(
             executor_backends, "_create_backend", lambda _backend_type: TestBackend()
         )
-    monkeysession.setenv("TRACECAT__PUBLIC_API_URL", f"http://{api_host}/api")
-    service_key = os.environ["TRACECAT__SERVICE_KEY"]
-    monkeysession.setattr(config, "TRACECAT__SERVICE_KEY", service_key)
-    monkeysession.setenv("TRACECAT__SERVICE_KEY", service_key)
-    monkeysession.setenv("TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeysession.setenv("AUTOSECOPS__PUBLIC_API_URL", f"http://{api_host}/api")
+    service_key = os.environ["AUTOSECOPS__SERVICE_KEY"]
+    monkeysession.setattr(config, "AUTOSECOPS__SERVICE_KEY", service_key)
+    monkeysession.setenv("AUTOSECOPS__SERVICE_KEY", service_key)
+    monkeysession.setenv("AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     monkeysession.setenv("USER_AUTH_SECRET", "test-user-auth-secret")
     monkeysession.setattr(config, "USER_AUTH_SECRET", "test-user-auth-secret")
     monkeysession.setenv("TEMPORAL__CLUSTER_URL", f"http://{temporal_host}:7233")
@@ -1380,10 +1382,10 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     # Use worker-specific task queues for pytest-xdist isolation
     monkeysession.setenv("TEMPORAL__CLUSTER_QUEUE", TEMPORAL_TASK_QUEUE)
     monkeysession.setattr(config, "TEMPORAL__CLUSTER_QUEUE", TEMPORAL_TASK_QUEUE)
-    monkeysession.setenv("TRACECAT__EXECUTOR_QUEUE", EXECUTOR_TASK_QUEUE)
-    monkeysession.setattr(config, "TRACECAT__EXECUTOR_QUEUE", EXECUTOR_TASK_QUEUE)
-    monkeysession.setenv("TRACECAT__AGENT_QUEUE", AGENT_TASK_QUEUE)
-    monkeysession.setattr(config, "TRACECAT__AGENT_QUEUE", AGENT_TASK_QUEUE)
+    monkeysession.setenv("AUTOSECOPS__EXECUTOR_QUEUE", EXECUTOR_TASK_QUEUE)
+    monkeysession.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", EXECUTOR_TASK_QUEUE)
+    monkeysession.setenv("AUTOSECOPS__AGENT_QUEUE", AGENT_TASK_QUEUE)
+    monkeysession.setattr(config, "AUTOSECOPS__AGENT_QUEUE", AGENT_TASK_QUEUE)
 
     yield
     logger.info("Environment variables cleaned up")
@@ -1404,18 +1406,18 @@ def inprocess_api_server(
     """
     port = _get_free_tcp_port()
     api_url = f"http://127.0.0.1:{port}"
-    monkeysession.setattr(config, "TRACECAT__API_URL", api_url)
-    monkeysession.setenv("TRACECAT__API_URL", api_url)
-    monkeysession.setattr(config, "TRACECAT__PUBLIC_API_URL", f"{api_url}/api")
-    monkeysession.setenv("TRACECAT__PUBLIC_API_URL", f"{api_url}/api")
+    monkeysession.setattr(config, "AUTOSECOPS__API_URL", api_url)
+    monkeysession.setenv("AUTOSECOPS__API_URL", api_url)
+    monkeysession.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", f"{api_url}/api")
+    monkeysession.setenv("AUTOSECOPS__PUBLIC_API_URL", f"{api_url}/api")
 
     api_env = os.environ.copy()
-    api_env["TRACECAT__API_URL"] = api_url
-    api_env["TRACECAT__PUBLIC_API_URL"] = f"{api_url}/api"
+    api_env["AUTOSECOPS__API_URL"] = api_url
+    api_env["AUTOSECOPS__PUBLIC_API_URL"] = f"{api_url}/api"
 
     log_file = tempfile.NamedTemporaryFile(
         mode="w+",
-        prefix=f"tracecat-api-{WORKER_ID}-",
+        prefix=f"autosecops-api-{WORKER_ID}-",
         suffix=".log",
         delete=True,
     )
@@ -1475,17 +1477,17 @@ def api_server_for_requires_api_tests(
     if request.node.get_closest_marker("requires_api") is None:
         return
 
-    mode = os.environ.get("TRACECAT_TEST_API_MODE", "external")
+    mode = os.environ.get("AUTOSECOPS_TEST_API_MODE", "external")
     if mode == "inprocess":
         request.getfixturevalue("inprocess_api_server")
     elif mode == "external":
-        if api_url := os.environ.get("TRACECAT_TEST_EXTERNAL_API_URL"):
-            monkeysession.setattr(config, "TRACECAT__API_URL", api_url)
-            monkeysession.setenv("TRACECAT__API_URL", api_url)
+        if api_url := os.environ.get("AUTOSECOPS_TEST_EXTERNAL_API_URL"):
+            monkeysession.setattr(config, "AUTOSECOPS__API_URL", api_url)
+            monkeysession.setenv("AUTOSECOPS__API_URL", api_url)
         return
     else:
         pytest.fail(
-            "TRACECAT_TEST_API_MODE must be either 'inprocess' or 'external', "
+            "AUTOSECOPS_TEST_API_MODE must be either 'inprocess' or 'external', "
             f"got {mode!r}"
         )
 
@@ -1512,8 +1514,8 @@ async def test_role(test_workspace, mock_org_id):
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=test_workspace.id,
-        service_id="tracecat-runner",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        service_id="autosecops-runner",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
     token = ctx_role.set(service_role)
     try:
@@ -1530,7 +1532,7 @@ async def test_admin_role(test_workspace, mock_org_id):
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=test_workspace.id,
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         scopes=ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
     token = ctx_role.set(admin_role)
@@ -1614,9 +1616,9 @@ async def test_workspace(test_organization, mock_org_id):
     # Use a role with organization_id and org_role for the WorkspaceService
     org_role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=mock_org_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
     async with WorkspaceService.with_session(role=org_role) as svc:
@@ -1782,7 +1784,7 @@ async def svc_role(svc_workspace: Workspace) -> Role:
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
 
@@ -1795,7 +1797,7 @@ async def svc_admin_role(svc_workspace: Workspace) -> Role:
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ORG_ADMIN_SCOPES,
     )
 
@@ -1859,11 +1861,11 @@ def workflow_bucket(minio_server, env_sandbox):
         secure=False,
     )
     bucket_names = {
-        config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
-        config.TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY,
-        config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
-        config.TRACECAT__BLOB_STORAGE_BUCKET_AGENT,
-        config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW,
+        config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+        config.AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY,
+        config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
+        config.AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT,
+        config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW,
     }
     for bucket_name in sorted(bucket_names):
         try:
@@ -2038,7 +2040,7 @@ async def test_executor_worker_factory(
         """Create an executor worker for testing."""
         return Worker(
             client=client,
-            task_queue=task_queue or config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=task_queue or config.AUTOSECOPS__EXECUTOR_QUEUE,
             activities=ExecutorActivities.get_activities(),
             activity_executor=threadpool,
         )

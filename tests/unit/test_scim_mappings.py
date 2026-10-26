@@ -81,7 +81,7 @@ def _role(org: Organization, *scopes: str) -> Role:
         organization_id=org.id,
         workspace_id=None,
         user_id=None,
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         scopes=frozenset(scopes),
     )
 

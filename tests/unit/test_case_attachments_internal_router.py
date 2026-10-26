@@ -52,7 +52,7 @@ def gateway(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestClient, Magic
     app.dependency_overrides[get_args(ExecutorWorkspaceRole)[1].dependency] = lambda: (
         Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
             scopes=frozenset({"case:update"}),

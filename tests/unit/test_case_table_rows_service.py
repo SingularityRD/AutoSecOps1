@@ -87,7 +87,7 @@ async def committing_workspace() -> AsyncGenerator[CommittingWorkspace, None]:
         workspace_id=workspace_id,
         organization_id=TEST_ORG_ID,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
 

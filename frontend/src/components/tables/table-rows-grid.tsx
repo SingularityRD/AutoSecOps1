@@ -31,7 +31,7 @@ import {
   isUserSelectionSource,
   reconcileSelection,
 } from "@/components/tables/ag-grid-selection"
-import { tracecatTheme } from "@/components/tables/ag-grid-theme"
+import { autosecopsTheme } from "@/components/tables/ag-grid-theme"
 import { FilteredRowsEmptyOverlay } from "@/components/tables/column-header-filter"
 import {
   type TableRowQuery,
@@ -517,7 +517,7 @@ export function TableRowsGrid({
     >
       <TableRowQueryContext.Provider value={rowQuery ?? null}>
         <AgGridReact<TableRowRead>
-          theme={tracecatTheme}
+          theme={autosecopsTheme}
           noRowsOverlayComponent={
             rowQuery?.onFilterChange ? FilteredRowsEmptyOverlay : undefined
           }

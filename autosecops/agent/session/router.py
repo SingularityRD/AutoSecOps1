@@ -225,7 +225,7 @@ async def create_session(
         and request.entity_type in CHAT_BACKEND_ENTITIES
     ):
         request = request.model_copy(
-            update={"backend_id": config.TRACECAT__AGENT_CHAT_BACKEND}
+            update={"backend_id": config.AUTOSECOPS__AGENT_CHAT_BACKEND}
         )
     await require_workspace_chat_entitlement_for_entity(
         session=session,
@@ -306,9 +306,9 @@ async def list_sessions(
         False, description="Include spawned children without a parent filter"
     ),
     limit: int = Query(
-        config.TRACECAT__LIMIT_AGENT_SESSIONS_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_AGENT_SESSIONS_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum number of sessions to return",
     ),
 ) -> list[AgentSessionRead | ChatReadMinimal]:
@@ -591,9 +591,9 @@ async def send_message(
             )
         set_current_span_attributes(
             {
-                "tracecat.organization.id": role.organization_id,
-                "tracecat.workspace.id": workspace_id,
-                "tracecat.agent.session.id": session_id,
+                "autosecops.organization.id": role.organization_id,
+                "autosecops.workspace.id": workspace_id,
+                "autosecops.agent.session.id": session_id,
             }
         )
 
@@ -636,7 +636,7 @@ async def send_message(
                     if turn_response is not None
                     else agent_session.curr_run_id
                 )
-                set_current_span_attributes({"tracecat.agent.run.id": run_id})
+                set_current_span_attributes({"autosecops.agent.run.id": run_id})
                 message_id = _bubble_id(session_id, run_id)
 
                 if rotated_stream_id is None:
@@ -712,7 +712,7 @@ async def send_message(
                         "New agent turn completed without a stream response"
                     )
                 set_current_span_attributes(
-                    {"tracecat.agent.run.id": turn_response.curr_run_id}
+                    {"autosecops.agent.run.id": turn_response.curr_run_id}
                 )
                 message_id = _bubble_id(session_id, turn_response.curr_run_id)
 

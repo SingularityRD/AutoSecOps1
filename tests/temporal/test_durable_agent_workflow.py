@@ -111,7 +111,7 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.chat.enums import MessageKind
 from autosecops.chat.schemas import ChatMessage
-from autosecops.config import TRACECAT__AGENT_SANDBOX_TIMEOUT
+from autosecops.config import AUTOSECOPS__AGENT_SANDBOX_TIMEOUT
 from autosecops.db.models import AgentSessionHistory, User
 from autosecops.dsl.common import RETRY_POLICIES
 from autosecops.dsl.schemas import RunActionInput
@@ -557,8 +557,8 @@ async def agent_worker_factory(threadpool, monkeypatch: pytest.MonkeyPatch):
             custom_activities = create_activities_with_mock_executor(simple_response)
 
         queue_name = task_queue or os.environ["TEMPORAL__CLUSTER_QUEUE"]
-        monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", queue_name)
-        monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", queue_name)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", queue_name)
+        monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", queue_name)
 
         return Worker(
             client=client,
@@ -659,7 +659,7 @@ async def test_internal_agent_runner_executes_durable_workflow(
         return temporal_client
 
     activities = create_activities_with_mock_executor(mock_executor)
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
     monkeypatch.setattr(
         internal_router,
         "get_temporal_client",
@@ -703,7 +703,10 @@ async def test_internal_agent_runner_executes_durable_workflow(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("configured_timeout_seconds", "expected_timeout_seconds"),
-    [(None, None), (TRACECAT__AGENT_SANDBOX_TIMEOUT, TRACECAT__AGENT_SANDBOX_TIMEOUT)],
+    [
+        (None, None),
+        (AUTOSECOPS__AGENT_SANDBOX_TIMEOUT, AUTOSECOPS__AGENT_SANDBOX_TIMEOUT),
+    ],
 )
 async def test_agent_workflow_approval_continuation_gets_fresh_timeout_window(
     svc_role: Role,
@@ -1733,9 +1736,11 @@ async def test_agent_workflow_routes_approved_tools_to_executor_and_reconciles_h
     agent_executor_queue = f"test-agent-executor-queue-{mock_session_id}"
     executor_queue = f"test-executor-queue-{mock_session_id}"
 
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", agent_queue)
-    monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", agent_executor_queue)
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", executor_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", agent_queue)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", agent_executor_queue
+    )
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", executor_queue)
 
     approval_request_recorded = asyncio.Event()
     approval_done_emitted = asyncio.Event()
@@ -2045,11 +2050,13 @@ async def test_agent_workflow_routes_approved_tools_to_executor_and_reconciles_h
     assert len(captured_executor_roles) == 1
     assert captured_run_inputs[0].task.action == "core__http_request"
     assert captured_executor_roles[0].type == "service"
-    assert captured_executor_roles[0].service_id == "tracecat-mcp"
+    assert captured_executor_roles[0].service_id == "autosecops-mcp"
     assert captured_executor_roles[0].workspace_id == svc_role.workspace_id
     assert captured_executor_roles[0].organization_id == svc_role.organization_id
     assert captured_executor_roles[0].user_id == svc_role.user_id
-    assert captured_executor_roles[0].scopes == SERVICE_PRINCIPAL_SCOPES["tracecat-mcp"]
+    assert (
+        captured_executor_roles[0].scopes == SERVICE_PRINCIPAL_SCOPES["autosecops-mcp"]
+    )
 
     async with AgentSessionService.with_session(role=svc_role) as service:
         history = await service.get_session_history(mock_session_id)
@@ -2092,9 +2099,11 @@ async def test_agent_workflow_plumbs_forked_session_through_approval_continuatio
     agent_executor_queue = f"test-agent-executor-queue-{mock_session_id}"
     executor_queue = f"test-executor-queue-{mock_session_id}"
 
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", agent_queue)
-    monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", agent_executor_queue)
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", executor_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", agent_queue)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", agent_executor_queue
+    )
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", executor_queue)
 
     approval_request_recorded = asyncio.Event()
     approval_done_emitted = asyncio.Event()
@@ -2481,7 +2490,7 @@ async def test_agent_workflow_routes_approved_user_mcp_tool_to_remote_activity(
                 approval_items=[
                     ToolCallContent(
                         id="call-user-mcp",
-                        name="mcp__tracecat-registry__mcp__Jira__getIssue",
+                        name="mcp__autosecops-registry__mcp__Jira__getIssue",
                         input={"issue_key": "ISSUE-1"},
                     )
                 ],

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_core import to_jsonable_python
 
 from autosecops_registry import RegistrySecret, __pep440_version__, registry, secrets
-from autosecops_registry.config import TRACECAT__MAX_FILE_SIZE_BYTES
+from autosecops_registry.config import AUTOSECOPS__MAX_FILE_SIZE_BYTES
 
 onepassword_secret = RegistrySecret(
     name="onepassword",
@@ -153,10 +153,10 @@ def _serialize(value: Any) -> Any:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, bytes | bytearray | memoryview):
-        if len(value) > TRACECAT__MAX_FILE_SIZE_BYTES:
+        if len(value) > AUTOSECOPS__MAX_FILE_SIZE_BYTES:
             raise ValueError(
                 "1Password SDK binary response exceeds maximum size limit of "
-                f"{TRACECAT__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB"
+                f"{AUTOSECOPS__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB"
             )
         return {"content_base64": base64.b64encode(bytes(value)).decode("ascii")}
     if isinstance(value, Enum):

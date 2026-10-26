@@ -13,7 +13,7 @@ from autosecops_registry import RegistrySecret, config, registry, secrets
 
 
 # Maximum number of rows to return from a query by default
-DEFAULT_MAX_ROWS = config.TRACECAT__LIMIT_CURSOR_MAX
+DEFAULT_MAX_ROWS = config.AUTOSECOPS__LIMIT_CURSOR_MAX
 
 # Registry secret for SQL connections
 sql_secret = RegistrySecret(
@@ -55,14 +55,14 @@ def _validate_connection_url(connection_url: URL) -> None:
     """
     # Parse internal database URL
     try:
-        internal_url = make_url(config.TRACECAT__DB_URI)
+        internal_url = make_url(config.AUTOSECOPS__DB_URI)
     except Exception as exc:  # pragma: no cover - defensive fail-closed path
         raise SQLConnectionValidationError(
             "Internal database configuration error. Cannot validate connection safety."
         ) from exc
 
     # Resolve the internal endpoint from explicit config first, else fallback to the URI
-    internal_host = config.TRACECAT__DB_ENDPOINT or internal_url.host
+    internal_host = config.AUTOSECOPS__DB_ENDPOINT or internal_url.host
     if not internal_host:
         raise SQLConnectionValidationError(
             "Internal database endpoint is not configured. Cannot validate connection safety."
@@ -70,8 +70,8 @@ def _validate_connection_url(connection_url: URL) -> None:
 
     try:
         internal_port = (
-            int(config.TRACECAT__DB_PORT)
-            if config.TRACECAT__DB_PORT is not None
+            int(config.AUTOSECOPS__DB_PORT)
+            if config.AUTOSECOPS__DB_PORT is not None
             else None
         )
     except ValueError as exc:

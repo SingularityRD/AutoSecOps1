@@ -379,9 +379,9 @@ async def list_rows(
     session: AsyncDBSession,
     table_id: TableID,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -681,7 +681,7 @@ async def import_table_from_csv(
 
     try:
         contents = await _read_csv_upload_with_limit(
-            file, max_size=config.TRACECAT__MAX_TABLE_IMPORT_SIZE_BYTES
+            file, max_size=config.AUTOSECOPS__MAX_TABLE_IMPORT_SIZE_BYTES
         )
         table, rows_inserted, inferred_columns = await service.import_table_from_csv(
             contents=contents,
@@ -760,7 +760,7 @@ async def import_csv(
     csv_file: StringIO | None = None
     try:
         contents = await _read_csv_upload_with_limit(
-            file, max_size=config.TRACECAT__MAX_TABLE_IMPORT_SIZE_BYTES
+            file, max_size=config.AUTOSECOPS__MAX_TABLE_IMPORT_SIZE_BYTES
         )
         csv_file = StringIO(contents.decode("utf-8-sig"))
         csv_reader = csv.DictReader(csv_file)

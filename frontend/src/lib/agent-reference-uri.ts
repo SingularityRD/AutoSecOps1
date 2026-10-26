@@ -45,7 +45,7 @@ const UUID_PATTERN =
 export function isReferenceURI(value: string): boolean {
   // Keep this whitespace set identical to Python. Do not trim the destination
   // passed to parseReferenceURI: malformed padding must never grant a tool.
-  return /^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*tracecat-ref:/.test(
+  return /^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*autosecops-ref:/.test(
     value.toLowerCase()
   )
 }
@@ -75,14 +75,14 @@ function validateTarget(target: ReferenceTarget): void {
 /** Decode exactly once without URL authority/path normalization. */
 export function parseReferenceURI(value: string): ReferenceTarget {
   if (
-    !value.startsWith("tracecat-ref://") ||
+    !value.startsWith("autosecops-ref://") ||
     /[\x00-\x20\x7f\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000?#\\]/.test(
       value
     )
   ) {
     throw new ReferenceURIError("invalid_uri")
   }
-  const parts = value.slice("tracecat-ref://".length).split("/")
+  const parts = value.slice("autosecops-ref://".length).split("/")
   if (!parts[0]) throw new ReferenceURIError("invalid_uri")
   if (parts[0] !== "v1") throw new ReferenceURIError("unsupported_version")
   if (![3, 4].includes(parts.length) || !KINDS.has(parts[1]))
@@ -112,5 +112,5 @@ export function serializeReferenceURI(target: ReferenceTarget): string {
   validateTarget(target)
   const segments = [target.identity]
   if (target.toolName !== undefined) segments.push(target.toolName)
-  return `tracecat-ref://v1/${target.kind}/${segments.map(encodeURIComponent).join("/")}`
+  return `autosecops-ref://v1/${target.kind}/${segments.map(encodeURIComponent).join("/")}`
 }

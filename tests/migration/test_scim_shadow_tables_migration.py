@@ -31,7 +31,7 @@ def workflow_bucket() -> Iterator[None]:
 
 def _run_alembic(db_url: str, *args: str) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", *args],
         env=env,

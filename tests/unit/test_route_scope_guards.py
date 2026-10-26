@@ -54,7 +54,7 @@ async def _assert_endpoint_requires_scope(
     )
     no_scope_role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(),
     )
     token = ctx_role.set(no_scope_role)
@@ -66,7 +66,7 @@ async def _assert_endpoint_requires_scope(
 
     allowed_role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=allowed_scopes,
     )
     token = ctx_role.set(allowed_role)
@@ -85,7 +85,7 @@ async def _assert_endpoint_requires_all_scopes(
     for missing_scope in required:
         partial_role = Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=required - {missing_scope},
         )
         token = ctx_role.set(partial_role)
@@ -97,7 +97,7 @@ async def _assert_endpoint_requires_all_scopes(
 
     allowed_role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=required,
     )
     token = ctx_role.set(allowed_role)
@@ -116,7 +116,7 @@ async def _assert_endpoint_requires_any_scope(
 ) -> None:
     no_scope_role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(),
     )
     token = ctx_role.set(no_scope_role)
@@ -129,7 +129,7 @@ async def _assert_endpoint_requires_any_scope(
     for denied_scope in denied_scopes:
         denied_role = Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({denied_scope}),
         )
         token = ctx_role.set(denied_role)
@@ -142,7 +142,7 @@ async def _assert_endpoint_requires_any_scope(
     for allowed_scope in allowed_scopes:
         allowed_role = Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({allowed_scope}),
         )
         token = ctx_role.set(allowed_role)
@@ -271,7 +271,7 @@ async def test_agent_catalog_list_accepts_service_account_with_scope() -> None:
     organization_id = uuid.uuid4()
     denied_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"agent:create"}),
@@ -285,7 +285,7 @@ async def test_agent_catalog_list_accepts_service_account_with_scope() -> None:
 
     allowed_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -304,7 +304,7 @@ async def test_registry_repository_sync_accepts_service_account_with_scope() -> 
     organization_id = uuid.uuid4()
     denied_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:registry:read"}),
@@ -318,7 +318,7 @@ async def test_registry_repository_sync_accepts_service_account_with_scope() -> 
 
     allowed_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:registry:update"}),
@@ -337,7 +337,7 @@ async def test_list_org_members_accepts_service_account_with_scope() -> None:
     organization_id = uuid.uuid4()
     denied_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:rbac:read"}),
@@ -351,7 +351,7 @@ async def test_list_org_members_accepts_service_account_with_scope() -> None:
 
     allowed_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:member:read"}),
@@ -370,7 +370,7 @@ async def test_agent_catalog_reads_reject_workspace_bound_service_accounts() -> 
     workspace_id = uuid.uuid4()
     bound_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
@@ -621,7 +621,7 @@ async def test_publish_workflow_accepts_legacy_or_workspace_sync_scope() -> None
         token = ctx_role.set(
             Role(
                 type="user",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=denied_scopes,
             )
         )
@@ -638,7 +638,7 @@ async def test_publish_workflow_accepts_legacy_or_workspace_sync_scope() -> None
         token = ctx_role.set(
             Role(
                 type="user",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=allowed_scopes,
             )
         )

@@ -1,5 +1,5 @@
 version = 1
-name = "tracecat"
+name = "autosecops"
 
 [setup]
 script = "bash .codex/environments/setup.sh"
@@ -14,8 +14,8 @@ name = "Start cluster"
 icon = "run"
 command = '''
 set -euo pipefail
-if ! docker compose ls --filter 'name=^tracecat$' --format json | jq -e 'length == 0' >/dev/null; then
-  echo "Check the existing tracecat Compose stack before starting a worktree cluster." >&2
+if ! docker compose ls --filter 'name=^autosecops$' --format json | jq -e 'length == 0' >/dev/null; then
+  echo "Check the existing autosecops Compose stack before starting a worktree cluster." >&2
   exit 1
 fi
 just cluster up -d

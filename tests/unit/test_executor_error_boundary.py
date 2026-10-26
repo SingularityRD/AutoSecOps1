@@ -73,7 +73,7 @@ def role() -> Role:
         type="service",
         organization_id=UUID(int=1),
         workspace_id=UUID(int=2),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
 
 
@@ -439,8 +439,8 @@ async def test_action_timeout_is_clamped_to_deployment_cap(
     requested: int,
     expected: float,
 ) -> None:
-    """Each function call gets min(action timeout, TRACECAT__EXECUTOR_CLIENT_TIMEOUT)."""
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 300.0)
+    """Each function call gets min(action timeout, AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT)."""
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 300.0)
     backend = Mock(execute=AsyncMock(return_value=ExecutorResultSuccess(result="ok")))
 
     await service.invoke_once(
@@ -455,8 +455,8 @@ async def test_action_timeout_is_clamped_to_deployment_cap(
 async def test_unset_action_timeout_falls_back_to_deployment_cap(
     monkeypatch: pytest.MonkeyPatch, action_input: RunActionInput, role: Role
 ) -> None:
-    """A timeout of 0 runs each function call at TRACECAT__EXECUTOR_CLIENT_TIMEOUT."""
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 300.0)
+    """A timeout of 0 runs each function call at AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT."""
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 300.0)
     backend = Mock(execute=AsyncMock(return_value=ExecutorResultSuccess(result="ok")))
 
     await service.invoke_once(
@@ -472,7 +472,7 @@ async def test_timeout_at_deployment_cap_names_the_cap(
     monkeypatch: pytest.MonkeyPatch, action_input: RunActionInput, role: Role
 ) -> None:
     """A call stopped by the deployment cap says the cap, not the action's timeout, ended it."""
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 300.0)
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 300.0)
     backend = Mock(
         execute=AsyncMock(return_value=_action_timeout_failure(action_input, 300))
     )
@@ -486,13 +486,13 @@ async def test_timeout_at_deployment_cap_names_the_cap(
 
     assert caught.value.info.message == (
         "Action execution timed out after 300s, this deployment's maximum action "
-        "timeout (TRACECAT__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
+        "timeout (AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
         "is 900s."
     )
     classification = classify_execute_action_error(
         caught.value, action_name=action_input.task.action
     )
-    assert "TRACECAT__EXECUTOR_CLIENT_TIMEOUT" in classification.message
+    assert "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT" in classification.message
     assert classification.retry_disposition is RetryDisposition.RETRYABLE
 
 
@@ -500,7 +500,7 @@ async def test_timeout_below_deployment_cap_keeps_runner_message(
     monkeypatch: pytest.MonkeyPatch, action_input: RunActionInput, role: Role
 ) -> None:
     """A call stopped by its own timeout keeps the runner's message."""
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 300.0)
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 300.0)
     backend = Mock(
         execute=AsyncMock(return_value=_action_timeout_failure(action_input, 30))
     )

@@ -31,7 +31,7 @@ class PlatformErrorCapture(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, serialize_by_alias=True)
 
-    schema_: Literal["tracecat.sentry_capture.v1"] = Field(alias="schema")
+    schema_: Literal["autosecops.sentry_capture.v1"] = Field(alias="schema")
     event_id: str = Field(pattern=r"^[0-9a-f]{32}$")
     classification: RuntimeErrorClassification
 
@@ -42,7 +42,7 @@ class PlatformErrorCapture(BaseModel):
         """Associate an accepted event with the failure it covers."""
         return cls.model_validate(
             {
-                "schema": "tracecat.sentry_capture.v1",
+                "schema": "autosecops.sentry_capture.v1",
                 "event_id": event_id,
                 "classification": classification,
             }

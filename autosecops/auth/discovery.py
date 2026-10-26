@@ -140,7 +140,7 @@ class AuthDiscoveryService(BaseService):
         return self._platform_fallback_method()
 
     async def _org_saml_enabled(self, org_id: OrganizationID) -> bool:
-        if AuthType.SAML not in config.TRACECAT__AUTH_TYPES:
+        if AuthType.SAML not in config.AUTOSECOPS__AUTH_TYPES:
             return False
         enabled = await get_setting_from_bypass_session(
             _SAML_SETTING_KEY,
@@ -163,7 +163,7 @@ class AuthDiscoveryService(BaseService):
         return bool(enforced)
 
     async def _org_saml_idp_configured(self, org_id: OrganizationID) -> bool:
-        if not config.TRACECAT__EE_MULTI_TENANT and config.SAML_IDP_METADATA_URL:
+        if not config.AUTOSECOPS__EE_MULTI_TENANT and config.SAML_IDP_METADATA_URL:
             return True
         try:
             value = await get_setting_from_bypass_session(
@@ -183,14 +183,14 @@ class AuthDiscoveryService(BaseService):
         return bool(value)
 
     async def _org_oidc_enabled(self, _org_id: OrganizationID) -> bool:
-        return AuthType.OIDC in config.TRACECAT__AUTH_TYPES
+        return AuthType.OIDC in config.AUTOSECOPS__AUTH_TYPES
 
     async def _org_basic_enabled(self, _org_id: OrganizationID) -> bool:
-        return AuthType.BASIC in config.TRACECAT__AUTH_TYPES
+        return AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES
 
     async def _unmapped_domain_fallback_method(self) -> AuthDiscoveryMethod:
         """Resolve fallback auth method when no org domain mapping is found."""
-        if config.TRACECAT__EE_MULTI_TENANT:
+        if config.AUTOSECOPS__EE_MULTI_TENANT:
             return self._platform_fallback_method()
         try:
             default_org_id = await get_default_organization_id(self.session)
@@ -205,11 +205,11 @@ class AuthDiscoveryService(BaseService):
 
     @staticmethod
     def _platform_fallback_method() -> AuthDiscoveryMethod:
-        if AuthType.OIDC in config.TRACECAT__AUTH_TYPES:
+        if AuthType.OIDC in config.AUTOSECOPS__AUTH_TYPES:
             return AuthDiscoveryMethod.OIDC
-        if AuthType.BASIC in config.TRACECAT__AUTH_TYPES:
+        if AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES:
             return AuthDiscoveryMethod.BASIC
-        if AuthType.SAML in config.TRACECAT__AUTH_TYPES:
+        if AuthType.SAML in config.AUTOSECOPS__AUTH_TYPES:
             return AuthDiscoveryMethod.SAML
         return AuthDiscoveryMethod.BASIC
 
@@ -222,13 +222,13 @@ class AuthDiscoveryService(BaseService):
         # In multi-tenant mode the SAML login endpoint requires an org hint.
         # Return None so the frontend prompts for org selection instead of
         # sending the user to a URL that will 428.
-        if not org_slug and config.TRACECAT__EE_MULTI_TENANT:
+        if not org_slug and config.AUTOSECOPS__EE_MULTI_TENANT:
             return None
         params: dict[str, str] = {"email": email}
         if org_slug:
             params["org"] = org_slug
         query = urlencode(params)
-        base = config.TRACECAT__PUBLIC_API_URL.rstrip("/")
+        base = config.AUTOSECOPS__PUBLIC_API_URL.rstrip("/")
         return f"{base}/auth/saml/login?{query}"
 
 

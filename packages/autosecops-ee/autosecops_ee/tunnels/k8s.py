@@ -27,12 +27,12 @@ from autosecops import config
 from autosecops.logger import logger
 
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
-MANAGED_BY_VALUE = "tracecat"
+MANAGED_BY_VALUE = "autosecops"
 COMPONENT_LABEL = "app.kubernetes.io/component"
 COMPONENT_VALUE = "tunnel-gateway"
-TUNNEL_ID_LABEL = "tracecat.com/tunnel-id"
-CONFIG_HASH_ANNOTATION = "tracecat.com/config-hash"
-FIELD_MANAGER = "tracecat"
+TUNNEL_ID_LABEL = "singularityrd.com/tunnel-id"
+CONFIG_HASH_ANNOTATION = "singularityrd.com/config-hash"
+FIELD_MANAGER = "autosecops"
 GATEWAY_CONTAINER = "gateway"
 
 _SA_DIR = Path("/var/run/secrets/kubernetes.io/serviceaccount")
@@ -45,10 +45,10 @@ class TunnelGatewayBackend(StrEnum):
 
 def gateway_backend() -> TunnelGatewayBackend:
     try:
-        return TunnelGatewayBackend(config.TRACECAT__TUNNEL_GATEWAY_BACKEND)
+        return TunnelGatewayBackend(config.AUTOSECOPS__TUNNEL_GATEWAY_BACKEND)
     except ValueError as exc:
         raise ValueError(
-            "TRACECAT__TUNNEL_GATEWAY_BACKEND must be 'kubernetes' or 'none'"
+            "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND must be 'kubernetes' or 'none'"
         ) from exc
 
 
@@ -77,9 +77,9 @@ class GatewaySpec:
 
     def secret_data(self, api_url: str) -> dict[str, str]:
         return {
-            "TRACECAT_TUNNEL_ID": str(self.tunnel_id),
-            "TRACECAT_TUNNEL_GATEWAY_KEY": self.gateway_key,
-            "TRACECAT_TUNNEL_API_URL": api_url,
+            "AUTOSECOPS_TUNNEL_ID": str(self.tunnel_id),
+            "AUTOSECOPS_TUNNEL_GATEWAY_KEY": self.gateway_key,
+            "AUTOSECOPS_TUNNEL_API_URL": api_url,
             "PANGOLIN_ENDPOINT": self.endpoint,
             "PANGOLIN_CLIENT_ID": self.client_id,
             "PANGOLIN_CLIENT_SECRET": self.client_secret,
@@ -98,14 +98,14 @@ class GatewaySettings:
     @classmethod
     def from_config(cls) -> GatewaySettings:
         return cls(
-            namespace=config.TRACECAT__TUNNEL_GATEWAY_NAMESPACE,
-            image=config.TRACECAT__TUNNEL_GATEWAY_IMAGE,
-            api_url=config.TRACECAT__TUNNEL_GATEWAY_API_URL.rstrip("/"),
-            port=config.TRACECAT__TUNNEL_GATEWAY_PORT,
-            tun_resource=config.TRACECAT__TUNNEL_GATEWAY_TUN_RESOURCE,
+            namespace=config.AUTOSECOPS__TUNNEL_GATEWAY_NAMESPACE,
+            image=config.AUTOSECOPS__TUNNEL_GATEWAY_IMAGE,
+            api_url=config.AUTOSECOPS__TUNNEL_GATEWAY_API_URL.rstrip("/"),
+            port=config.AUTOSECOPS__TUNNEL_GATEWAY_PORT,
+            tun_resource=config.AUTOSECOPS__TUNNEL_GATEWAY_TUN_RESOURCE,
             blocked_cidrs=tuple(
                 str(network)
-                for network in config.TRACECAT__TUNNEL_GATEWAY_BLOCKED_CIDRS
+                for network in config.AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS
             ),
         )
 
@@ -176,11 +176,11 @@ def build_deployment(spec: GatewaySpec, settings: GatewaySettings) -> dict[str, 
                             "envFrom": [{"secretRef": {"name": name}}],
                             "env": [
                                 {
-                                    "name": "TRACECAT_TUNNEL_GATEWAY_PORT",
+                                    "name": "AUTOSECOPS_TUNNEL_GATEWAY_PORT",
                                     "value": str(settings.port),
                                 },
                                 {
-                                    "name": "TRACECAT_TUNNEL_GATEWAY_BLOCKED_CIDRS",
+                                    "name": "AUTOSECOPS_TUNNEL_GATEWAY_BLOCKED_CIDRS",
                                     "value": ",".join(settings.blocked_cidrs),
                                 },
                             ],

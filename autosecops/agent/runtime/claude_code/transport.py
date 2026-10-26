@@ -26,7 +26,7 @@ from claude_agent_sdk._version import __version__
 from claude_agent_sdk.types import AgentDefinition, McpHttpServerConfig, McpServerConfig
 
 from autosecops.agent.common.config import (
-    TRACECAT__AGENT_MCP_BRIDGE_PORT,
+    AUTOSECOPS__AGENT_MCP_BRIDGE_PORT,
     build_agent_runtime_uv_env,
 )
 from autosecops.agent.runtime.session_paths import (
@@ -73,7 +73,7 @@ class MCPBridgeBinding:
 def open_mcp_bridge_binding(*, use_jailed_paths: bool) -> Iterator[MCPBridgeBinding]:
     """Open the MCP bridge binding appropriate for the runtime isolation mode."""
     if use_jailed_paths:
-        yield MCPBridgeBinding(port=TRACECAT__AGENT_MCP_BRIDGE_PORT)
+        yield MCPBridgeBinding(port=AUTOSECOPS__AGENT_MCP_BRIDGE_PORT)
         return
 
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -419,7 +419,7 @@ class SandboxedCLITransport(Transport):
             and authorization.startswith("Bearer ")
             and url
             == SandboxedCLITransport._trusted_mcp_bridge_url(
-                TRACECAT__AGENT_MCP_BRIDGE_PORT
+                AUTOSECOPS__AGENT_MCP_BRIDGE_PORT
             )
         )
 

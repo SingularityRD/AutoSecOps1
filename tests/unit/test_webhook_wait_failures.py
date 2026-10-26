@@ -77,12 +77,12 @@ class _WebhookHarness:
 
 @pytest.fixture
 def webhook(monkeypatch: pytest.MonkeyPatch) -> Iterator[_WebhookHarness]:
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", "api")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", "api")
     transport = _InMemoryTransport()
     initialize_api_sentry(
         dsn="https://public@example.com/1",
         environment="test",
-        release="tracecat@test",
+        release="autosecops@test",
         transport=transport,
     )
     service = AsyncMock(spec=WorkflowExecutionsService)
@@ -169,7 +169,7 @@ async def test_disconnected_body_returns_400_with_triage_warning(
     event = webhook.sentry_events[0]
     assert event.get("level") == "warning"
     assert event.get("tags", {}).get(SentryTag.ALERT_PRIORITY) == "low"
-    assert event.get("fingerprint") == ["tracecat-api-triage-v1", "{{ default }}"]
+    assert event.get("fingerprint") == ["autosecops-api-triage-v1", "{{ default }}"]
     assert "exception" in event
     assert event["exception"]["values"][-1]["type"] == "ClientDisconnect"
     assert event["exception"]["values"][-1]["mechanism"]["handled"] is True

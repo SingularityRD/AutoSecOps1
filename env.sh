@@ -73,10 +73,10 @@ db_fernet_key=$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')
 echo -e "${YELLOW}Creating new .env from .env.example...${NC}"
 cp .env.example .env
 
-# Replace existing values of TRACECAT__SERVICE_KEY and TRACECAT__SIGNING_SECRET
-dotenv_replace "TRACECAT__SERVICE_KEY" "$service_key" "$env_file"
-dotenv_replace "TRACECAT__SIGNING_SECRET" "$signing_secret" "$env_file"
-dotenv_replace "TRACECAT__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
+# Replace existing values of AUTOSECOPS__SERVICE_KEY and AUTOSECOPS__SIGNING_SECRET
+dotenv_replace "AUTOSECOPS__SERVICE_KEY" "$service_key" "$env_file"
+dotenv_replace "AUTOSECOPS__SIGNING_SECRET" "$signing_secret" "$env_file"
+dotenv_replace "AUTOSECOPS__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
 dotenv_replace "USER_AUTH_SECRET" "$user_auth_secret" "$env_file"
 
 # Prompt user for environment mode
@@ -169,7 +169,7 @@ while true; do
 done
 
 # Update environment variables
-dotenv_replace "TRACECAT__APP_ENV" "$env_mode" "$env_file"
+dotenv_replace "AUTOSECOPS__APP_ENV" "$env_mode" "$env_file"
 dotenv_replace "NODE_ENV" "$env_mode" "$env_file"
 dotenv_replace "NEXT_PUBLIC_APP_ENV" "$env_mode" "$env_file"
 dotenv_replace "PUBLIC_API_URL" "$public_api_url" "$env_file"
@@ -178,12 +178,12 @@ dotenv_replace "PUBLIC_APP_URL" "$public_app_url" "$env_file"
 if [ -n "$app_port" ]; then
     dotenv_replace "PUBLIC_APP_PORT" "$app_port" "$env_file"
 fi
-dotenv_replace "TRACECAT__DB_SSLMODE" "$ssl_mode" "$env_file"
-dotenv_replace "TRACECAT__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
+dotenv_replace "AUTOSECOPS__DB_SSLMODE" "$ssl_mode" "$env_file"
+dotenv_replace "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
 
 # Remove duplicate entries and leading/trailing commas
 new_origins=$(echo "$new_origins" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/^,//;s/,$//')
-dotenv_replace "TRACECAT__ALLOW_ORIGINS" "$new_origins" "$env_file"
+dotenv_replace "AUTOSECOPS__ALLOW_ORIGINS" "$new_origins" "$env_file"
 
 echo -e "${GREEN}Environment file created successfully.${NC}"
 echo -e "${GREEN}First user (superadmin) email set to: ${superadmin_email}${NC}"

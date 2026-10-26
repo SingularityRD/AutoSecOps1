@@ -66,7 +66,7 @@ def get_custom_registry_target() -> Path:
     """Get the target directory for installing custom registry packages.
 
     This directory is used to isolate custom registry dependencies from the
-    main tracecat virtual environment, preventing dependency conflicts.
+    main autosecops virtual environment, preventing dependency conflicts.
     The directory is automatically added to sys.path so imports work.
 
     Returns:
@@ -387,13 +387,13 @@ class Repository:
         # Handle local git repositories
         elif self._origin == DEFAULT_LOCAL_REGISTRY_ORIGIN:
             # The local repo doesn't have to be a git repo, but it should be a directory
-            if not config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+            if not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
                 raise RegistryError(
                     "Local repository is not enabled on this instance. "
-                    "Please set TRACECAT__LOCAL_REPOSITORY_ENABLED=true "
-                    "and ensure TRACECAT__LOCAL_REPOSITORY_PATH points to a valid Python package."
+                    "Please set AUTOSECOPS__LOCAL_REPOSITORY_ENABLED=true "
+                    "and ensure AUTOSECOPS__LOCAL_REPOSITORY_PATH points to a valid Python package."
                 )
-            repo_path = Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH)
+            repo_path = Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH)
 
             if not repo_path.exists():
                 raise RegistryError(f"Local git repository not found: {repo_path}")
@@ -401,12 +401,12 @@ class Repository:
             # Check that there's either pyproject.toml or setup.py
             if not repo_path.joinpath("pyproject.toml").exists():
                 # expand the path to the host path
-                if host_path := config.TRACECAT__LOCAL_REPOSITORY_PATH:
+                if host_path := config.AUTOSECOPS__LOCAL_REPOSITORY_PATH:
                     host_path = Path(host_path).expanduser()
                     logger.debug("Host path", host_path=host_path)
                 raise RegistryError(
                     "Local repository does not contain pyproject.toml. "
-                    "Please ensure TRACECAT__LOCAL_REPOSITORY_PATH points to a valid Python package."
+                    "Please ensure AUTOSECOPS__LOCAL_REPOSITORY_PATH points to a valid Python package."
                     f"Host path: {host_path}"
                 )
 
@@ -444,7 +444,7 @@ class Repository:
 
             # Install the package in editable mode to the custom registry target.
             # We use --target to isolate custom registry dependencies from the
-            # main tracecat venv, and --python to ensure compatibility with the
+            # main autosecops venv, and --python to ensure compatibility with the
             # current interpreter.
             target_dir = get_custom_registry_target()
             extra_args = [
@@ -502,7 +502,7 @@ class Repository:
                     "git_allowed_domains",
                     role=self.role,
                     # TODO: Deprecate in future version
-                    default=config.TRACECAT__ALLOWED_GIT_DOMAINS,
+                    default=config.AUTOSECOPS__ALLOWED_GIT_DOMAINS,
                 )
                 or {"github.com"},
             )
@@ -576,7 +576,7 @@ class Repository:
         """
         # Ensure the custom registry target is in sys.path before importing.
         # This is required because packages are installed to --target dir,
-        # which is separate from the main tracecat venv.
+        # which is separate from the main autosecops venv.
         ensure_custom_registry_path()
 
         try:
@@ -626,8 +626,8 @@ class Repository:
         origin: str = DEFAULT_REGISTRY_ORIGIN,
     ) -> None:
         # Get function metadata
-        key = getattr(fn, "__tracecat_udf_key")
-        kwargs = getattr(fn, "__tracecat_udf_kwargs")
+        key = getattr(fn, "__autosecops_udf_key")
+        kwargs = getattr(fn, "__autosecops_udf_kwargs")
         logger.debug("Registering UDF", key=key, name=name)
         # Add validators to the function
         validated_kwargs = RegisterKwargs.model_validate(kwargs)
@@ -671,8 +671,8 @@ class Repository:
             # Get all functions in the module
             if not inspect.isfunction(obj):
                 continue
-            is_udf = hasattr(obj, "__tracecat_udf_key")
-            has_udf_kwargs = hasattr(obj, "__tracecat_udf_kwargs")
+            is_udf = hasattr(obj, "__autosecops_udf_key")
+            has_udf_kwargs = hasattr(obj, "__autosecops_udf_kwargs")
             # Register the UDF if it is a function and has UDF metadata
             if is_udf and has_udf_kwargs:
                 _enforce_restrictions(obj)
@@ -961,7 +961,7 @@ def generate_model_from_function(
                     # `autosecops_registry` provides lightweight dataclass component
                     # definitions that are not instances of
                     # `autosecops.registry.fields.Component`. These still need to
-                    # propagate to JSONSchema via `x-tracecat-component` so the frontend
+                    # propagate to JSONSchema via `x-autosecops-component` so the frontend
                     # can render specialized editors (code, textarea, etc).
                     case _ if isinstance(getattr(meta, "component_id", None), str):
                         manually_set_components.append(meta)
@@ -969,7 +969,7 @@ def generate_model_from_function(
         final_components = manually_set_components or components
         if final_components:
             jsonschema_extra = field_info_kwargs.setdefault("json_schema_extra", {})
-            jsonschema_extra["x-tracecat-component"] = to_jsonable_python(
+            jsonschema_extra["x-autosecops-component"] = to_jsonable_python(
                 final_components
             )
 
@@ -1086,8 +1086,8 @@ async def install_remote_repository(
     """Install a remote repository to the custom registry target directory.
 
     Uses `uv pip install --target` instead of `uv add` to isolate custom
-    registry dependencies from the main tracecat virtual environment.
-    This prevents dependency conflicts between tracecat and user repositories.
+    registry dependencies from the main autosecops virtual environment.
+    This prevents dependency conflicts between autosecops and user repositories.
     """
     logger.info("Loading remote repository", url=repo_url, commit_sha=commit_sha)
 

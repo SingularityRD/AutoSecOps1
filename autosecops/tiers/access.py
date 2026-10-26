@@ -55,7 +55,7 @@ async def is_org_entitled(
     entitlement: Entitlement,
 ) -> bool:
     """Check if an organization has a specific entitlement."""
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         # Single-tenant mode: free baseline plus signed-license entitlements
         # instead of DB tiers. getattr maps the enum value to its schema field.
         return bool(

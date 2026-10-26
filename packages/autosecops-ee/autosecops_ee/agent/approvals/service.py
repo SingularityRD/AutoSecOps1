@@ -758,7 +758,7 @@ class ApprovalManager:
                             approval_args = {"raw_args": payload.args}
                 if payload.metadata:
                     approval_args = approval_args or {}
-                    approval_args["_tracecat"] = payload.metadata
+                    approval_args["_autosecops"] = payload.metadata
 
                 if existing:
                     # TODO: Do we need this path?

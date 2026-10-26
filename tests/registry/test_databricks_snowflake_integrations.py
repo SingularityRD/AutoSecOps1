@@ -72,7 +72,7 @@ def test_databricks_serializes_binary_sdk_response() -> None:
 def test_databricks_bounds_binary_stream_reads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(databricks_sdk, "TRACECAT__MAX_FILE_SIZE_BYTES", 4)
+    monkeypatch.setattr(databricks_sdk, "AUTOSECOPS__MAX_FILE_SIZE_BYTES", 4)
     stream = BytesIO(b"12345remaining-content-is-not-read")
 
     with pytest.raises(ValueError, match="binary response exceeds maximum size"):

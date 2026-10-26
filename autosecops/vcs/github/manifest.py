@@ -46,8 +46,8 @@ def generate_github_app_manifest() -> GitHubAppManifest:
         GitHub App manifest as GitHubAppManifest object
     """
     # Use the configured public URLs from environment
-    public_app_url = config.TRACECAT__PUBLIC_APP_URL.rstrip("/")
-    public_api_url = config.TRACECAT__PUBLIC_API_URL.rstrip("/")
+    public_app_url = config.AUTOSECOPS__PUBLIC_APP_URL.rstrip("/")
+    public_api_url = config.AUTOSECOPS__PUBLIC_API_URL.rstrip("/")
 
     # Check if we're using localhost (for development)
     is_localhost = "localhost" in public_api_url or "127.0.0.1" in public_api_url

@@ -687,7 +687,7 @@ async def test_search_actions_from_index_treats_like_wildcards_as_literal_text(
     role = Role(
         type="service",
         organization_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     service = RegistryActionsService(session, role=role)
     underscore_matches = await service.search_actions_from_index("search_events")
@@ -720,7 +720,7 @@ async def test_search_actions_ranks_exact_namespace_before_large_related_catalog
         role=Role(
             type="service",
             organization_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
         ),
     )
 

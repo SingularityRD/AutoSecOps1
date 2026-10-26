@@ -101,7 +101,7 @@ it("groups MCP, AutoSecOps and custom tools, excluding unselectable actions", ()
   )
   expect(index.groups.map((group) => group.section)).toEqual([
     "mcp",
-    "tracecat",
+    "autosecops",
     "custom",
   ])
   expect(index.groups[1].title).toBe("Test tools")

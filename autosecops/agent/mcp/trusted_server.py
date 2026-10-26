@@ -5,7 +5,7 @@ internal, and user MCP tools. It runs outside the sandbox with full network
 access.
 
 Run with uvicorn on a Unix socket:
-    uvicorn autosecops.agent.mcp.trusted_server:app --uds /run/tracecat/mcp.sock
+    uvicorn autosecops.agent.mcp.trusted_server:app --uds /run/autosecops/mcp.sock
 
 All action execution uses nsjail sandboxing. To test locally, run in a
 Docker container with nsjail installed (e.g., the executor image).
@@ -60,7 +60,7 @@ from autosecops.agent.mcp.utils import (
     fetch_tool_definitions_for_lock,
     mcp_tool_name_to_action_name,
     normalize_mcp_tool_name,
-    strip_tracecat_registry_server_prefix,
+    strip_autosecops_registry_server_prefix,
 )
 from autosecops.agent.preset.service import AgentPresetService
 from autosecops.agent.tokens import MCPTokenClaims, UserMCPServerClaim, verify_mcp_token
@@ -191,7 +191,7 @@ class TokenScopedFastMCP(FastMCP[None]):
         return next((tool for tool in tools if tool.name == name), None)
 
 
-mcp = TokenScopedFastMCP("tracecat-actions")
+mcp = TokenScopedFastMCP("autosecops-actions")
 
 
 def _set_role_context(claims: MCPTokenClaims) -> Role:
@@ -201,11 +201,11 @@ def _set_role_context(claims: MCPTokenClaims) -> Role:
     """
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=claims.workspace_id,
         organization_id=claims.organization_id,
         user_id=claims.user_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-mcp"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-mcp"],
     )
     ctx_role.set(role)
     return role
@@ -903,7 +903,7 @@ async def call_token_scoped_tool(
 ) -> str:
     """Route one token-scoped concrete MCP tool call."""
     forwarded_args = dict(args)
-    routed_tool_name = strip_tracecat_registry_server_prefix(tool_name)
+    routed_tool_name = strip_autosecops_registry_server_prefix(tool_name)
     if parsed := UserMCPClient.parse_user_mcp_tool_name(routed_tool_name):
         server_name, original_tool_name = parsed
         return await _execute_user_mcp(

@@ -10,7 +10,7 @@ resource "time_sleep" "wait_for_namespace" {
   create_duration = "20s"
 }
 
-resource "aws_ecs_cluster" "tracecat_cluster" {
+resource "aws_ecs_cluster" "autosecops_cluster" {
   name = "${var.name_prefix}-cluster"
 
   depends_on = [time_sleep.wait_for_namespace]
@@ -27,5 +27,5 @@ resource "aws_ecs_cluster" "tracecat_cluster" {
 }
 
 locals {
-  local_dns_namespace = aws_ecs_cluster.tracecat_cluster.service_connect_defaults[0].namespace
+  local_dns_namespace = aws_ecs_cluster.autosecops_cluster.service_connect_defaults[0].namespace
 }

@@ -267,8 +267,8 @@ def test_history_metrics_group_actions_and_follow_child_workflows() -> None:
         "average_bytes": 6_144.0,
         "maximum_bytes": 8_192,
     }
-    assert report["completed_tracecat_actions"] == 2
-    assert report["completed_tracecat_actions_per_second"] == 0.2
+    assert report["completed_autosecops_actions"] == 2
+    assert report["completed_autosecops_actions_per_second"] == 0.2
     assert len(report["groups"]) == 1
     group = report["groups"][0]
     assert group["action_name"] == "core.table.insert_row"

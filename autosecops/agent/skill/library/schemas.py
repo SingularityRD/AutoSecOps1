@@ -15,7 +15,7 @@ class LibrarySkillBatchInstall(Schema):
     """Library skills to install together in one transaction."""
 
     slugs: list[SkillName] = Field(
-        min_length=1, max_length=config.TRACECAT__LIMIT_CURSOR_MAX
+        min_length=1, max_length=config.AUTOSECOPS__LIMIT_CURSOR_MAX
     )
 
 
@@ -23,7 +23,7 @@ class LibrarySkillBatchUninstall(Schema):
     """Library skills to uninstall together or reject without removing any."""
 
     slugs: list[SkillName] = Field(
-        min_length=1, max_length=config.TRACECAT__LIMIT_CURSOR_MAX
+        min_length=1, max_length=config.AUTOSECOPS__LIMIT_CURSOR_MAX
     )
 
 

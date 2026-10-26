@@ -36,7 +36,7 @@ from autosecops.agent.mcp.stdio_probe_types import (
     build_stdio_mcp_probe_workflow_id,
     sanitize_stdio_probe_error,
 )
-from autosecops.agent.mcp.utils import is_tracecat_registry_server_name
+from autosecops.agent.mcp.utils import is_autosecops_registry_server_name
 from autosecops.agent.workflows.mcp_probe import StdioMCPProbeWorkflow
 from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.authz.controls import has_scope, require_scope
@@ -955,9 +955,9 @@ class IntegrationService(BaseWorkspaceService):
         """The single OAuth callback URL all MCP discovery flows redirect to.
 
         Read from config at call time (not import time) so test/env overrides of
-        ``TRACECAT__PUBLIC_APP_URL`` take effect.
+        ``AUTOSECOPS__PUBLIC_APP_URL`` take effect.
         """
-        return f"{config.TRACECAT__PUBLIC_APP_URL}/integrations/callback"
+        return f"{config.AUTOSECOPS__PUBLIC_APP_URL}/integrations/callback"
 
     @classmethod
     def _build_mcp_oauth_client(
@@ -2941,7 +2941,7 @@ class IntegrationService(BaseWorkspaceService):
             if slug in catalog_slugs:
                 slug = f"{slug}-custom"
 
-        if is_tracecat_registry_server_name(slug):
+        if is_autosecops_registry_server_name(slug):
             slug = f"user-{slug}"
 
         # Truncate to max length, leaving room for suffix if needed
@@ -4102,7 +4102,7 @@ class IntegrationService(BaseWorkspaceService):
                     role=self.role,
                 ),
                 id=workflow_id,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 run_timeout=timedelta(seconds=MCP_STDIO_PROBE_TIMEOUT_CAP + 90),
                 id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
                 id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
@@ -4376,7 +4376,7 @@ class IntegrationService(BaseWorkspaceService):
                 persist_result=True,
             ),
             id=workflow_id,
-            task_queue=config.TRACECAT__AGENT_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_QUEUE,
             run_timeout=timedelta(seconds=MCP_STDIO_PROBE_TIMEOUT_CAP + 90),
             id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
             id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
@@ -4500,7 +4500,7 @@ class IntegrationService(BaseWorkspaceService):
             raise MCPConfigurationError(
                 "Only HTTP MCP servers can be resolved into an HTTP config"
             )
-        if is_tracecat_registry_server_name(mcp_integration.slug):
+        if is_autosecops_registry_server_name(mcp_integration.slug):
             raise MCPConfigurationError(
                 "MCP integration slug conflicts with the built-in registry. "
                 "Recreate the integration to assign a safe slug."

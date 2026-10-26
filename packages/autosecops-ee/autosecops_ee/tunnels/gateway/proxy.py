@@ -16,7 +16,7 @@ to another route.
 
 Clients pass the token either as ``Proxy-Authorization: Bearer <token>`` or as
 the password of a Basic credential, which is what proxy URLs such as
-``http://tracecat:<token>@gateway:8080`` send.
+``http://autosecops:<token>@gateway:8080`` send.
 
 The gateway polls the AutoSecOps API for its tunnel's policy (workspace, allowed
 targets, enabled state), authenticating with its gateway key. When the tunnel
@@ -116,16 +116,18 @@ class GatewayConfig:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> GatewayConfig:
-        """Load config from ``TRACECAT_TUNNEL_*`` environment variables."""
+        """Load config from ``AUTOSECOPS_TUNNEL_*`` environment variables."""
         try:
             return cls(
-                tunnel_id=uuid.UUID(env["TRACECAT_TUNNEL_ID"]),
-                gateway_key=env["TRACECAT_TUNNEL_GATEWAY_KEY"],
-                api_url=env["TRACECAT_TUNNEL_API_URL"],
-                host=env.get("TRACECAT_TUNNEL_GATEWAY_HOST", "0.0.0.0"),
-                port=int(env.get("TRACECAT_TUNNEL_GATEWAY_PORT", "8080")),
+                tunnel_id=uuid.UUID(env["AUTOSECOPS_TUNNEL_ID"]),
+                gateway_key=env["AUTOSECOPS_TUNNEL_GATEWAY_KEY"],
+                api_url=env["AUTOSECOPS_TUNNEL_API_URL"],
+                host=env.get("AUTOSECOPS_TUNNEL_GATEWAY_HOST", "0.0.0.0"),
+                port=int(env.get("AUTOSECOPS_TUNNEL_GATEWAY_PORT", "8080")),
                 blocked_networks=DEFAULT_BLOCKED_NETWORKS
-                + _parse_networks(env.get("TRACECAT_TUNNEL_GATEWAY_BLOCKED_CIDRS", "")),
+                + _parse_networks(
+                    env.get("AUTOSECOPS_TUNNEL_GATEWAY_BLOCKED_CIDRS", "")
+                ),
             )
         except KeyError as exc:
             raise ValueError(f"Missing gateway setting {exc.args[0]}") from exc
@@ -310,7 +312,7 @@ def _parse_head(head: bytes) -> _ParsedRequest:
 
 async def _respond(writer: asyncio.StreamWriter, status: HTTPStatus) -> None:
     extra = (
-        'Proxy-Authenticate: Bearer realm="tracecat-tunnel"\r\n'
+        'Proxy-Authenticate: Bearer realm="autosecops-tunnel"\r\n'
         if status is HTTPStatus.PROXY_AUTHENTICATION_REQUIRED
         else ""
     )

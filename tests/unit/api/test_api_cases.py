@@ -362,7 +362,7 @@ def _duplicate_column_error() -> ProgrammingError:
             TracecatValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
-            id="update-tracecat-validation-error",
+            id="update-autosecops-validation-error",
         ),
         pytest.param(
             "DELETE",
@@ -372,7 +372,7 @@ def _duplicate_column_error() -> ProgrammingError:
             TracecatValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
-            id="delete-tracecat-validation-error",
+            id="delete-autosecops-validation-error",
         ),
         pytest.param(
             "PATCH",

@@ -99,7 +99,7 @@ export function SecretSourcePicker({
           <CommandList className="max-h-72">
             <CommandEmpty>No stores match.</CommandEmpty>
             <CommandItem
-              value="tracecat"
+              value="autosecops"
               onSelect={() => choose(null)}
               className="gap-2"
             >

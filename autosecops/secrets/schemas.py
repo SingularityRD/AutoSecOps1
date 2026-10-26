@@ -549,10 +549,10 @@ class SecretStoreRead(BaseModel):
     config: SecretStoreConfig
     enabled: bool
     all_workspaces: bool
-    tracecat_aws_account_id: str | None = Field(
+    autosecops_aws_account_id: str | None = Field(
         default=None, title="AutoSecOps AWS Account ID"
     )
-    tracecat_aws_principal_arn: str | None = Field(
+    autosecops_aws_principal_arn: str | None = Field(
         default=None, title="AutoSecOps AWS Principal ARN"
     )
     aws_partition: str | None = Field(
@@ -574,8 +574,8 @@ class SecretStoreRead(BaseModel):
         *,
         authorized_workspace_ids: list[WorkspaceID],
         workspace_usage: list[SecretStoreWorkspaceUsage],
-        tracecat_aws_account_id: str | None,
-        tracecat_aws_principal_arn: str | None,
+        autosecops_aws_account_id: str | None,
+        autosecops_aws_principal_arn: str | None,
     ) -> SecretStoreRead:
         config = SecretStoreConfig.model_validate(obj.config)
         return SecretStoreRead(
@@ -587,8 +587,8 @@ class SecretStoreRead(BaseModel):
             config=config,
             enabled=obj.enabled,
             all_workspaces=obj.all_workspaces,
-            tracecat_aws_account_id=tracecat_aws_account_id,
-            tracecat_aws_principal_arn=tracecat_aws_principal_arn,
+            autosecops_aws_account_id=autosecops_aws_account_id,
+            autosecops_aws_principal_arn=autosecops_aws_principal_arn,
             aws_partition=aws_partition_for_region(config.region),
             authorized_workspace_ids=authorized_workspace_ids,
             reference_count=sum(u.secret_count for u in workspace_usage),
@@ -750,6 +750,6 @@ class SecretDefinition(BaseModel):
 class AwsAssumeRoleAccessRead(BaseModel):
     """Workspace-scoped AWS AssumeRole details shown in the credentials UI."""
 
-    tracecat_aws_account_id: str = Field(title="AutoSecOps AWS Account ID")
-    tracecat_aws_principal_arn: str = Field(title="AutoSecOps AWS Principal ARN")
+    autosecops_aws_account_id: str = Field(title="AutoSecOps AWS Account ID")
+    autosecops_aws_principal_arn: str = Field(title="AutoSecOps AWS Principal ARN")
     external_id: str

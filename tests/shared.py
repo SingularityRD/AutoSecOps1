@@ -35,7 +35,7 @@ def user_client() -> httpx.AsyncClient:
     """Returns an asynchronous httpx client with the user's JWT token."""
     return httpx.AsyncClient(
         headers={"Authorization": "Bearer super-secret-jwt-token"},
-        base_url=os.environ.get("TRACECAT__PUBLIC_API_URL", "http://localhost:8000"),
+        base_url=os.environ.get("AUTOSECOPS__PUBLIC_API_URL", "http://localhost:8000"),
     )
 
 

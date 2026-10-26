@@ -56,7 +56,7 @@ async def test_validate_grants_batch(
     organization_id = uuid.uuid4()
     granter = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         organization_id=organization_id,
         is_platform_superuser=superuser,
@@ -122,7 +122,7 @@ async def test_validate_grants_batch(
 async def test_validate_grants_rejects_foreign_workspace() -> None:
     organization_id = uuid.uuid4()
     granter = Role(
-        type="user", service_id="tracecat-api", organization_id=organization_id
+        type="user", service_id="autosecops-api", organization_id=organization_id
     )
     params = InvitationCreate(
         email="invitee@example.com",
@@ -195,7 +195,7 @@ async def test_validate_grants_rejects_org_role_on_workspace() -> None:
     organization_id = uuid.uuid4()
     granter = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         is_platform_superuser=True,
     )

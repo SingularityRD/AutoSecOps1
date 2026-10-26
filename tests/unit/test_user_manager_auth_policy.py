@@ -53,7 +53,7 @@ def patch_auth_session_context_manager(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
 
@@ -183,7 +183,7 @@ async def test_authenticate_rejects_password_when_platform_basic_disabled(
         password="password-123456",
         saml_enforced=False,
     )
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.OIDC})
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_TYPES", {AuthType.OIDC})
 
     authenticated_user = await user_manager.authenticate(
         OAuth2PasswordRequestForm(
@@ -209,7 +209,7 @@ async def test_authenticate_rejects_password_for_saml_enforced_org(
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -237,10 +237,10 @@ async def test_oauth_callback_rejects_saml_enforced_org_with_error_code(
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.OIDC, AuthType.SAML},
     )
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", set())
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", set())
 
     with pytest.raises(HTTPException) as exc_info:
         await user_manager.oauth_callback(
@@ -271,7 +271,7 @@ async def test_authenticate_allows_password_when_basic_enabled_and_not_saml_enfo
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -306,7 +306,7 @@ async def test_authenticate_rejects_password_when_any_membership_enforces_saml(
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -384,7 +384,7 @@ async def test_authenticate_rejects_password_for_workspace_only_saml_org(
 
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -437,7 +437,7 @@ async def test_authenticate_rejects_password_for_scim_provisioned_user(
     await _link_external_user(session, user=user, organization=organization)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -465,7 +465,7 @@ async def test_authenticate_allows_password_without_external_user_row(
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
 
@@ -495,7 +495,7 @@ async def test_forgot_password_blocked_for_scim_provisioned_user(
     await _link_external_user(session, user=user, organization=organization)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
     on_after = AsyncMock()
@@ -520,7 +520,7 @@ async def test_forgot_password_allowed_without_external_user_row(
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.SAML},
     )
     on_after = AsyncMock()
@@ -568,7 +568,9 @@ async def test_historical_scim_link_does_not_block_password_or_reset(
             )
         )
     await session.commit()
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML})
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML}
+    )
     assert (
         await user_manager.authenticate(
             OAuth2PasswordRequestForm(username=user.email, password="password-123456")
@@ -611,7 +613,7 @@ async def test_scim_password_policy_requires_available_external_login(
     settings = SettingsService(session, role=bootstrap_role(org.id))
     await settings.update_saml_settings(SAMLSettingsUpdate(saml_enabled=saml_enabled))
     await session.commit()
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", auth_types)
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_TYPES", auth_types)
     on_after = AsyncMock()
     monkeypatch.setattr(user_manager, "on_after_forgot_password", on_after)
 
@@ -638,8 +640,8 @@ async def test_saml_would_not_admit_off_env_allowlist_domain(
     )
     session.add(organization)
     await session.commit()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"acme.com"})
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", {"acme.com"})
 
     admitted = await user_manager._saml_would_admit_email(
         session, organization.id, "user@other.com"

@@ -646,7 +646,7 @@ class DSLWorkflow:
                 executor=self.execute_task,
                 dsl=self.dsl,
                 dependency_plan=self.dependency_plan,
-                max_pending_tasks=config.TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS,
+                max_pending_tasks=config.AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS,
                 context=self.context,
                 role=self.role,
                 run_context=self.run_context,
@@ -1121,7 +1121,7 @@ class DSLWorkflow:
                         id=AgentWorkflowID(session_id),
                         retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                         # Route to agent worker queue for session activities
-                        task_queue=config.TRACECAT__AGENT_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                         execution_timeout=wf_info.execution_timeout,
                         task_timeout=wf_info.task_timeout,
                         search_attributes=child_search_attributes,
@@ -1208,7 +1208,7 @@ class DSLWorkflow:
                         id=AgentWorkflowID(session_id),
                         retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                         # Route to agent worker queue for session activities
-                        task_queue=config.TRACECAT__AGENT_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                         execution_timeout=wf_info.execution_timeout,
                         task_timeout=wf_info.task_timeout,
                         search_attributes=child_search_attributes,
@@ -1677,7 +1677,7 @@ class DSLWorkflow:
     async def _handle_return(self) -> StoredObject:
         self.logger.debug("Handling return", context=self.context)
         if self.dsl.returns is None:
-            match config.TRACECAT__WORKFLOW_RETURN_STRATEGY:
+            match config.AUTOSECOPS__WORKFLOW_RETURN_STRATEGY:
                 case "context":
                     # NOTE: This is used only during testing so we always return it inline
                     self.logger.trace("Returning DSL context")
@@ -1898,7 +1898,7 @@ class DSLWorkflow:
             id=AgentWorkflowID(session_id),
             retry_policy=RETRY_POLICIES["workflow:fail_fast"],
             # Route to agent worker queue for session activities
-            task_queue=config.TRACECAT__AGENT_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_QUEUE,
             execution_timeout=wf_info.execution_timeout,
             task_timeout=wf_info.task_timeout,
             search_attributes=child_search_attributes,
@@ -2013,17 +2013,17 @@ class DSLWorkflow:
         return await workflow.execute_activity(
             "execute_action_activity",
             args=(arg, self.role),
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             # The executor enforces the action timeout around the function call.
             # This ceiling also allows for platform work in the activity.
             start_to_close_timeout=timedelta(
                 seconds=task.retry_policy.timeout
-                + config.TRACECAT__EXECUTOR_ACTIVITY_PLATFORM_TIMEOUT
+                + config.AUTOSECOPS__EXECUTOR_ACTIVITY_PLATFORM_TIMEOUT
             ),
             heartbeat_timeout=timedelta(
-                seconds=config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT
+                seconds=config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT
             )
-            if config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT > 0
+            if config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT > 0
             else None,
             retry_policy=RetryPolicy(
                 maximum_attempts=task.retry_policy.max_attempts,
@@ -2235,7 +2235,7 @@ class DSLWorkflow:
                     ).short()
                     exec_id = match.group("execution_id")
                     url = (
-                        f"{config.TRACECAT__PUBLIC_APP_URL}/workspaces/{self.role.workspace_id}"
+                        f"{config.AUTOSECOPS__PUBLIC_APP_URL}/workspaces/{self.role.workspace_id}"
                         f"/workflows/{workflow_id}/executions/{exec_id}"
                     )
                 except Exception as e:
@@ -2307,7 +2307,7 @@ class DSLWorkflow:
     ) -> tuple[int, int]:
         """Resolve logical batch size and dispatch window for child loops."""
         logical_batch_size = max(1, min(requested_batch_size, total_count))
-        dispatch_window = config.TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW
+        dispatch_window = config.AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW
         return logical_batch_size, dispatch_window
 
     def _action_permit_id(self, *, task: ActionStatement, stream_id: StreamID) -> str:
@@ -2315,8 +2315,8 @@ class DSLWorkflow:
 
     def _next_permit_backoff_seconds(self, *, attempt: int) -> float:
         """Compute deterministic exponential backoff with jitter."""
-        base = max(config.TRACECAT__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS, 0.1)
-        max_backoff = max(config.TRACECAT__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS, base)
+        base = max(config.AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS, 0.1)
+        max_backoff = max(config.AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS, base)
         exponential = min(base * (2**attempt), max_backoff)
         jitter = workflow.random().uniform(0.8, 1.2)
         return exponential * jitter
@@ -2378,7 +2378,7 @@ class DSLWorkflow:
             await asyncio.shield(cleanup_task)
 
     async def _workflow_permit_heartbeat_loop(self) -> None:
-        heartbeat_interval = config.TRACECAT__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
+        heartbeat_interval = config.AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
         if heartbeat_interval <= 0:
             self.logger.info("Workflow permit heartbeat disabled")
             return
@@ -2413,7 +2413,7 @@ class DSLWorkflow:
                 self.logger.warning("Workflow permit heartbeat failed", error=e)
 
     async def _action_permit_heartbeat_loop(self, *, action_id: str) -> None:
-        heartbeat_interval = config.TRACECAT__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
+        heartbeat_interval = config.AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
         if heartbeat_interval <= 0:
             return
         org_id = self.organization_id
@@ -2501,7 +2501,7 @@ class DSLWorkflow:
                 return
 
             elapsed_seconds = (workflow.now() - started_at).total_seconds()
-            max_wait_seconds = config.TRACECAT__WORKFLOW_PERMIT_MAX_WAIT_SECONDS
+            max_wait_seconds = config.AUTOSECOPS__WORKFLOW_PERMIT_MAX_WAIT_SECONDS
             if elapsed_seconds >= max_wait_seconds:
                 classification = RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.TENANT_QUOTA_EXHAUSTED,
@@ -2556,7 +2556,7 @@ class DSLWorkflow:
                 return
 
             elapsed_seconds = (workflow.now() - started_at).total_seconds()
-            max_wait_seconds = config.TRACECAT__ACTION_PERMIT_MAX_WAIT_SECONDS
+            max_wait_seconds = config.AUTOSECOPS__ACTION_PERMIT_MAX_WAIT_SECONDS
             if elapsed_seconds >= max_wait_seconds:
                 classification = RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.TENANT_QUOTA_EXHAUSTED,

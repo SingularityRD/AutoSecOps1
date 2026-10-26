@@ -61,7 +61,7 @@ class ActionExecutionError(Exception):
     """Raised when action execution fails."""
 
 
-def build_tracecat_mcp_role(
+def build_autosecops_mcp_role(
     *,
     workspace_id: UUID | None,
     organization_id: UUID | None,
@@ -70,17 +70,17 @@ def build_tracecat_mcp_role(
     """Build the trusted MCP service role for action execution."""
     return Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=workspace_id,
         organization_id=organization_id,
         user_id=user_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-mcp"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-mcp"],
     )
 
 
 def build_role_from_claims(claims: MCPTokenClaims) -> Role:
     """Reconstruct the trusted service role from MCP token claims."""
-    return build_tracecat_mcp_role(
+    return build_autosecops_mcp_role(
         workspace_id=claims.workspace_id,
         organization_id=claims.organization_id,
         user_id=claims.user_id,
@@ -217,7 +217,7 @@ async def _execute_action_workflow(
                 ExecuteRegistryToolWorkflow.run,
                 input,
                 id=workflow_id,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 priority=AGENT_TOOL_PRIORITY,
                 memo=memo.model_dump(mode="json", exclude_none=True),
                 search_attributes=search_attributes,

@@ -92,7 +92,7 @@ async def main() -> None:
                     job,
                     ActionSandboxConfig(
                         registry_paths=[],
-                        tracecat_app_dir=job,
+                        autosecops_app_dir=job,
                         network=None,
                         resources=limits,
                         timeout_seconds=15,

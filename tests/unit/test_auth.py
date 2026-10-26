@@ -20,12 +20,12 @@ from autosecops.identifiers import InternalServiceID
 @pytest.mark.parametrize(
     ("source", "service_id", "with_user", "with_workspace"),
     [
-        ("explicit", "tracecat-runner", True, False),
-        ("explicit", "tracecat-runner", False, False),
-        ("explicit", "tracecat-runner", True, True),
-        ("explicit", "tracecat-runner", False, True),
-        ("context", "tracecat-service", True, False),
-        ("default", "tracecat-service", False, False),
+        ("explicit", "autosecops-runner", True, False),
+        ("explicit", "autosecops-runner", False, False),
+        ("explicit", "autosecops-runner", True, True),
+        ("explicit", "autosecops-runner", False, True),
+        ("context", "autosecops-service", True, False),
+        ("default", "autosecops-service", False, False),
     ],
 )
 async def test_authenticated_client_role_headers(
@@ -49,26 +49,27 @@ async def test_authenticated_client_role_headers(
         async with client_cls(role=role if source == "explicit" else None) as client:
             assert isinstance(client, AsyncClient)
             assert client.role == role
-            assert client.headers["x-tracecat-role-service-id"] == service_id
+            assert client.headers["x-autosecops-role-service-id"] == service_id
             assert (
-                client.headers["x-tracecat-service-key"]
-                == os.environ["TRACECAT__SERVICE_KEY"]
+                client.headers["x-autosecops-service-key"]
+                == os.environ["AUTOSECOPS__SERVICE_KEY"]
             )
             if with_user:
                 assert (
-                    uuid.UUID(client.headers["x-tracecat-role-user-id"]) == mock_user_id
+                    uuid.UUID(client.headers["x-autosecops-role-user-id"])
+                    == mock_user_id
                 )
             else:
-                assert "x-tracecat-role-user-id" not in client.headers
+                assert "x-autosecops-role-user-id" not in client.headers
             if with_workspace:
                 assert (
-                    uuid.UUID(client.headers["x-tracecat-role-workspace-id"])
+                    uuid.UUID(client.headers["x-autosecops-role-workspace-id"])
                     == mock_org_id
                 )
             else:
-                assert "x-tracecat-role-workspace-id" not in client.headers
+                assert "x-autosecops-role-workspace-id" not in client.headers
             if client_cls is AuthenticatedAPIClient:
-                assert client.base_url == config.TRACECAT__API_URL
+                assert client.base_url == config.AUTOSECOPS__API_URL
     finally:
         if token is not None:
             ctx_role.reset(token)
@@ -79,17 +80,17 @@ async def test_authenticated_client_role_headers(
     [
         # Browser-facing URL terminates TLS at the load balancer, so the session
         # cookie must be marked Secure regardless of the internal API URL scheme.
-        ("https://tracecat.example.com/api", True),
+        ("https://autosecops.example.com/api", True),
         ("http://localhost/api", False),
     ],
 )
 def test_cookie_secure_derived_from_public_api_url(
     monkeypatch, public_api_url, expected
 ):
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_API_URL", public_api_url)
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", public_api_url)
     reloaded = importlib.reload(users_mod)
     assert reloaded.cookie_transport.cookie_secure is expected
     # Ensure the internal API URL never gates the Secure flag on its own.
-    monkeypatch.setattr(config, "TRACECAT__API_URL", "http://api-service:8000")
+    monkeypatch.setattr(config, "AUTOSECOPS__API_URL", "http://api-service:8000")
     reloaded = importlib.reload(users_mod)
     assert reloaded.cookie_transport.cookie_secure is expected

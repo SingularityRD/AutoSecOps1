@@ -27,10 +27,10 @@ def workflow_store_service() -> WorkflowStoreService:
     session.add = Mock()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-api"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-api"],
     )
     return WorkflowStoreService(session=session, role=role)
 
@@ -175,7 +175,7 @@ async def test_publish_workflow_legacy_branch_still_creates_pr(
             commit=CommitInfo(
                 status=PushStatus.COMMITTED,
                 sha="abc123",
-                ref="tracecat-sync-test",
+                ref="autosecops-sync-test",
                 base_ref="main",
                 pr_url="https://github.com/test-org/test-repo/pull/1",
                 pr_number=1,
@@ -197,5 +197,5 @@ async def test_publish_workflow_legacy_branch_still_creates_pr(
         role=workflow_store_service.role,
     )
     params = sync_service.export_workflow.call_args.kwargs["params"]
-    assert params.branch.startswith("tracecat-sync-")
+    assert params.branch.startswith("autosecops-sync-")
     assert params.create_pr is True

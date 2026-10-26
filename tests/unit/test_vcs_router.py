@@ -40,7 +40,7 @@ def _org_settings_role(scope: str) -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({scope}),
     )
 

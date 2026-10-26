@@ -40,7 +40,7 @@ from autosecops.agent.mcp.http_limits import (
 )
 from autosecops.agent.mcp.utils import (
     flatten_mcp_content_blocks,
-    is_tracecat_registry_server_name,
+    is_autosecops_registry_server_name,
 )
 from autosecops.integrations.schemas import MCPToolSummary
 from autosecops.logger import logger
@@ -494,7 +494,7 @@ class UserMCPClient:
         parts = tool_name.split("__", 2)
         if len(parts) < 3:
             return None
-        if is_tracecat_registry_server_name(parts[1]):
+        if is_autosecops_registry_server_name(parts[1]):
             return None
 
         # parts[0] = "mcp", parts[1] = server_name, parts[2] = tool_name

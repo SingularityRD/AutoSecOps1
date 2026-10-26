@@ -100,7 +100,7 @@ FROM pg_available_extensions WHERE name = 'vector';
 SHOW rds.allowed_extensions;
 ```
 
-The Kubernetes review covered `helm/tracecat/values.yaml`, `eks/main.tf`,
+The Kubernetes review covered `helm/autosecops/values.yaml`, `eks/main.tf`,
 `eks/variables.tf`, and `eks/modules/eks/{rds,variables}.tf` at
 [`45c2c1825b7efe5ccbb4c56d8798720e3847c5b7`](https://github.com/TracecatHQ/k8s/tree/45c2c1825b7efe5ccbb4c56d8798720e3847c5b7).
 No Kubernetes code or live infrastructure is changed by this PR.
@@ -223,7 +223,7 @@ A prebuilt image cannot infer the OS libraries that created an existing data
 volume. The Trixie image preserves the pinned Trixie base's runtime; it does not
 preserve a Bookworm installation's runtime. Before upgrading an existing POC,
 identify its base image and use the matching OS variant. The optional
-`TRACECAT__PGVECTOR_IMAGE` setting selects the published Bookworm image when
+`AUTOSECOPS__PGVECTOR_IMAGE` setting selects the published Bookworm image when
 needed. The default needs no additional configuration for a fresh installation
 or a compatible Trixie volume.
 
@@ -235,7 +235,7 @@ It does not mutate the running database:
 bash scripts/postgres/build-pgvector-image.sh --container postgres_db local-postgres-pgvector:validated
 ```
 
-Validate that image before selecting it with `TRACECAT__PGVECTOR_IMAGE`. Back up
+Validate that image before selecting it with `AUTOSECOPS__PGVECTOR_IMAGE`. Back up
 existing data and retain the volume. A collation mismatch requires restoring
 compatible libraries or a DBA-led index rebuild before continuing. The startup
 checks refuse the mismatch; they never refresh versions to hide it.

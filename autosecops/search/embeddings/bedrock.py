@@ -81,7 +81,7 @@ async def request_headers(
                 _assume_role,
                 values["AWS_ROLE_ARN"],
                 values["AWS_REGION"],
-                values.get("AWS_ROLE_SESSION_NAME", "").strip() or "tracecat-search",
+                values.get("AWS_ROLE_SESSION_NAME", "").strip() or "autosecops-search",
                 scope,
             )
             values = values | assumed.values

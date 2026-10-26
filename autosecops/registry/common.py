@@ -32,7 +32,7 @@ async def ensure_org_repositories(session: AsyncSession, role: Role) -> None:
             role=role,
         ),
     )
-    needs_custom_registry = config.TRACECAT__LOCAL_REPOSITORY_ENABLED or bool(
+    needs_custom_registry = config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED or bool(
         remote_url
     )
     if needs_custom_registry:
@@ -55,12 +55,12 @@ async def ensure_org_repositories(session: AsyncSession, role: Role) -> None:
     repos_service = RegistryReposService(session, role=role)
 
     # Setup local repository
-    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
-        if not config.TRACECAT__LOCAL_REPOSITORY_PATH:
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
+        if not config.AUTOSECOPS__LOCAL_REPOSITORY_PATH:
             raise ValueError("Local repository path is not set")
         logger.info(
             "Ensuring local registry repository exists",
-            path=config.TRACECAT__LOCAL_REPOSITORY_PATH,
+            path=config.AUTOSECOPS__LOCAL_REPOSITORY_PATH,
         )
         local_origin = DEFAULT_LOCAL_REGISTRY_ORIGIN
         if await repos_service.get_repository(local_origin) is None:

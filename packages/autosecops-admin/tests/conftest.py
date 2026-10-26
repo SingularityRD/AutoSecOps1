@@ -11,12 +11,12 @@ SERVICE_KEY = "test-service-key"
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure clean environment for tests."""
-    for var in ["TRACECAT__SERVICE_KEY", "TRACECAT__DB_URI"]:
+    for var in ["AUTOSECOPS__SERVICE_KEY", "AUTOSECOPS__DB_URI"]:
         monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture
 def mock_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set up mock environment variables for API calls."""
-    monkeypatch.setenv("TRACECAT__API_URL", API_URL)
-    monkeypatch.setenv("TRACECAT__SERVICE_KEY", SERVICE_KEY)
+    monkeypatch.setenv("AUTOSECOPS__API_URL", API_URL)
+    monkeypatch.setenv("AUTOSECOPS__SERVICE_KEY", SERVICE_KEY)

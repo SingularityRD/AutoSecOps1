@@ -597,7 +597,7 @@ async def _resend(
         service = AdminOrgService(
             session,
             PlatformRole(
-                type="user", user_id=invitation.invited_by, service_id="tracecat-api"
+                type="user", user_id=invitation.invited_by, service_id="autosecops-api"
             ),
         )
         await service.resend_organization_invitation(
@@ -610,7 +610,7 @@ async def _resend(
                 type="user",
                 user_id=invitation.invited_by,
                 organization_id=invitation.organization_id,
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:member:invite"}),
             ),
         )

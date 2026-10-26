@@ -32,7 +32,7 @@ async def get_registry_artifact_uris(
     The returned list may include a pseudo-URI for the builtin registry package
     already installed in the executor image.
     """
-    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
         return []
 
     origins = dict(input.registry_lock.origins)
@@ -70,7 +70,7 @@ def _bundled_builtin_matches_lock(registry_lock: object, version: str) -> bool:
         return True
 
     actual = _bundled_builtin_fingerprint(
-        config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR, version
+        config.AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR, version
     )
     if actual is None:
         logger.info(

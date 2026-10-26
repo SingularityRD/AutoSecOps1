@@ -20,7 +20,7 @@ async def test_spawned_claude_shim_uses_explicit_stdio_limit(
 ) -> None:
     """The stdio-limit test uses a fixture-owned job directory and leaks no temp state."""
     monkeypatch.setattr(
-        nsjail_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        nsjail_module, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
     )
     captured: dict[str, Any] = {}
 

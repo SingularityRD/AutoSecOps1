@@ -33,9 +33,9 @@ from autosecops.registry.lock.types import RegistryLock
 # MCP Token (for tool execution)
 # -----------------------------------------------------------------------------
 
-MCP_TOKEN_ISSUER = "tracecat-agent-executor"
-MCP_TOKEN_AUDIENCE = "tracecat-mcp-server"
-MCP_TOKEN_SUBJECT = "tracecat-agent-runtime"
+MCP_TOKEN_ISSUER = "autosecops-agent-executor"
+MCP_TOKEN_AUDIENCE = "autosecops-mcp-server"
+MCP_TOKEN_SUBJECT = "autosecops-agent-runtime"
 MCP_REQUIRED_CLAIMS = (
     "iss",
     "aud",
@@ -209,7 +209,7 @@ def mint_mcp_token(
     if executable & {canonical_mcp_tool_name(name) for name in deferred_actions}:
         raise ValueError("An MCP tool cannot be both allowed and deferred")
     now = datetime.now(UTC)
-    ttl = ttl_seconds or config.TRACECAT__AGENT_SANDBOX_TIMEOUT + 60
+    ttl = ttl_seconds or config.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT + 60
 
     payload: dict[str, Any] = {
         "iss": MCP_TOKEN_ISSUER,
@@ -278,9 +278,9 @@ def verify_mcp_token(token: str) -> MCPTokenClaims:
 # LLM Token (for LLM API calls)
 # -----------------------------------------------------------------------------
 
-LLM_TOKEN_ISSUER = "tracecat-agent-executor"
-LLM_TOKEN_AUDIENCE = "tracecat-llm-gateway"
-LLM_TOKEN_SUBJECT = "tracecat-agent-runtime"
+LLM_TOKEN_ISSUER = "autosecops-agent-executor"
+LLM_TOKEN_AUDIENCE = "autosecops-llm-gateway"
+LLM_TOKEN_SUBJECT = "autosecops-agent-runtime"
 LLM_REQUIRED_CLAIMS = (
     "iss",
     "aud",
@@ -403,7 +403,7 @@ def mint_llm_token(
         Signed JWT string
     """
     now = datetime.now(UTC)
-    ttl = ttl_seconds or config.TRACECAT__AGENT_SANDBOX_TIMEOUT + 60
+    ttl = ttl_seconds or config.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT + 60
 
     payload: dict[str, Any] = {
         # Standard JWT claims
@@ -472,9 +472,9 @@ def verify_llm_token(token: str) -> LLMTokenClaims:
 # Agent OTel Token (for sandbox bridge to host relay)
 # -----------------------------------------------------------------------------
 
-AGENT_OTEL_TOKEN_ISSUER = "tracecat-agent-executor"
-AGENT_OTEL_TOKEN_AUDIENCE = "tracecat-agent-otel-relay"
-AGENT_OTEL_TOKEN_SUBJECT = "tracecat-agent-runtime"
+AGENT_OTEL_TOKEN_ISSUER = "autosecops-agent-executor"
+AGENT_OTEL_TOKEN_AUDIENCE = "autosecops-agent-otel-relay"
+AGENT_OTEL_TOKEN_SUBJECT = "autosecops-agent-runtime"
 AGENT_OTEL_REQUIRED_CLAIMS = (
     "iss",
     "aud",
@@ -518,7 +518,7 @@ def mint_agent_otel_token(
         Signed JWT string.
     """
     now = datetime.now(UTC)
-    ttl = ttl_seconds or config.TRACECAT__AGENT_SANDBOX_TIMEOUT + 60
+    ttl = ttl_seconds or config.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT + 60
 
     payload: dict[str, Any] = {
         "iss": AGENT_OTEL_TOKEN_ISSUER,

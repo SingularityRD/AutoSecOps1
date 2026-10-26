@@ -82,7 +82,7 @@ type InventoryRow =
 type RegistryActionGroup = {
   origin: string
   label: string
-  kind: "tracecat" | "custom" | "other"
+  kind: "autosecops" | "custom" | "other"
   actions: RegistryActionReadMinimal[]
   metadata: RegistryRepositoryReadMinimal | RepositoryStatus | null
   currentVersionState?: TracecatVersionState | null
@@ -202,7 +202,7 @@ function getLastSyncedBadge(lastSyncedAt: string | null | undefined) {
 function RegistryGroupMetadata({ group }: { group: RegistryActionGroup }) {
   const metadataBadges = [
     group.metadata ? getLastSyncedBadge(group.metadata.last_synced_at) : null,
-    group.kind === "tracecat" ? (
+    group.kind === "autosecops" ? (
       <Badge
         key="version"
         variant="secondary"
@@ -410,7 +410,7 @@ export function WorkspaceActionsInventory() {
     const groups: RegistryActionGroup[] = Array.from(grouped.entries()).map(
       ([origin, actions]) => {
         const kind = isTracecatRegistryOrigin(origin, platformOriginSet)
-          ? "tracecat"
+          ? "autosecops"
           : customRepo?.origin === origin
             ? "custom"
             : "other"
@@ -428,7 +428,7 @@ export function WorkspaceActionsInventory() {
           ),
           metadata: repoMetadataByOrigin.get(origin) ?? null,
           currentVersionState:
-            kind === "tracecat"
+            kind === "autosecops"
               ? (platformCurrentVersionStateByOrigin.get(origin) ??
                 (canReadPlatformRegistryMetadata && platformStatusIsLoading
                   ? { status: "loading" }
@@ -441,7 +441,7 @@ export function WorkspaceActionsInventory() {
     return groups.sort((left, right) => {
       const getRank = (group: RegistryActionGroup) => {
         switch (group.kind) {
-          case "tracecat":
+          case "autosecops":
             return 0
           case "custom":
             return 1

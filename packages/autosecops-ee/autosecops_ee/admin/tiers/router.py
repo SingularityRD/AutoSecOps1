@@ -28,7 +28,7 @@ router = APIRouter(prefix="/tiers", tags=["admin:tiers"])
 
 
 def _require_multi_tenant() -> None:
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return
     raise HTTPException(
         status_code=status.HTTP_402_PAYMENT_REQUIRED,

@@ -56,7 +56,7 @@ function TestField({ value = "" }: { value?: string }) {
         fieldName="inputs.preset"
         fieldDefn={{
           type: "string",
-          "x-tracecat-component": [{ component_id: "agent-preset" }],
+          "x-autosecops-component": [{ component_id: "agent-preset" }],
         }}
       />
       <output data-testid="value">{form.watch("inputs.preset")}</output>

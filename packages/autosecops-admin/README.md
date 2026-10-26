@@ -18,9 +18,9 @@ The CLI uses environment variables for configuration:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `TRACECAT__API_URL` | AutoSecOps API URL (default: `http://localhost:8000`) | No |
-| `TRACECAT__SERVICE_KEY` | Service key for API authentication | Yes (for API commands) |
-| `TRACECAT__DB_URI` | Database URI for direct DB operations | Yes (for bootstrap/migrate) |
+| `AUTOSECOPS__API_URL` | AutoSecOps API URL (default: `http://localhost:8000`) | No |
+| `AUTOSECOPS__SERVICE_KEY` | Service key for API authentication | Yes (for API commands) |
+| `AUTOSECOPS__DB_URI` | Database URI for direct DB operations | Yes (for bootstrap/migrate) |
 
 ## Commands
 

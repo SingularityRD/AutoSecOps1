@@ -839,7 +839,7 @@ def _unique_temporary_workflow_alias(
     reserved_aliases: set[str],
 ) -> str:
     """Return a temporary workflow alias that does not collide."""
-    base = f"tracecat-sync-tmp-{workflow.id.hex}"
+    base = f"autosecops-sync-tmp-{workflow.id.hex}"
     candidate = base
     suffix = 1
     while candidate in reserved_aliases:

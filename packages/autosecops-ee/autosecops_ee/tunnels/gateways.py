@@ -35,7 +35,7 @@ _RECONCILE_LOCK_KEY = 0x7472_6163_7475_6E6C
 
 TUNNELS_REQUIRE_KUBERNETES = (
     "Tunnels require AutoSecOps on Kubernetes with tunnel gateways enabled "
-    "(TRACECAT__TUNNEL_GATEWAY_BACKEND=kubernetes)"
+    "(AUTOSECOPS__TUNNEL_GATEWAY_BACKEND=kubernetes)"
 )
 
 
@@ -165,6 +165,6 @@ async def start_tunnel_gateway_reconciler(
     """Run the gateway reconcile loop until stopped."""
     await reconcile_forever(
         reconcile_gateways_once,
-        interval=config.TRACECAT__TUNNEL_GATEWAY_RECONCILE_INTERVAL,
+        interval=config.AUTOSECOPS__TUNNEL_GATEWAY_RECONCILE_INTERVAL,
         stop_event=stop_event,
     )

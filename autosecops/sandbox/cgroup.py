@@ -8,7 +8,7 @@ from pathlib import Path
 
 from autosecops import config
 
-CGROUP_PATH_ENV = "TRACECAT__SANDBOX_CGROUP_PATH"
+CGROUP_PATH_ENV = "AUTOSECOPS__SANDBOX_CGROUP_PATH"
 # UID/GID of apiuser in the AutoSecOps container image.
 APIUSER_ID = 1001
 
@@ -70,7 +70,7 @@ def main(path_env: str = CGROUP_PATH_ENV) -> None:
         raise RuntimeError(
             "Start this sandbox bootstrap as root and provide a worker command."
         )
-    nsjail_enabled = config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail
+    nsjail_enabled = config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail
     if nsjail_enabled and not os.environ.get(path_env):
         root = delegate_cgroup(APIUSER_ID, APIUSER_ID)
         os.environ[path_env] = str(root)

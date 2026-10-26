@@ -75,7 +75,7 @@ export function getWorkspaceSyncBaseBranch(
 }
 
 function lastPushBranchStorageKey(scope: string): string {
-  return `tracecat:git-sync:last-push-branch:${scope}`
+  return `autosecops:git-sync:last-push-branch:${scope}`
 }
 
 function readLastPushBranch(scope: string): string | null {

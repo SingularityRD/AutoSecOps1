@@ -39,10 +39,10 @@ async def test_worker_rejects_missing_delegation(
     )
     monkeypatch.setattr(
         cgroup.config,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.from_config(backend),
     )
-    monkeypatch.setenv("TRACECAT__DISABLE_NSJAIL", "true")
+    monkeypatch.setenv("AUTOSECOPS__DISABLE_NSJAIL", "true")
     monkeypatch.delenv(CGROUP_PATH_ENV, raising=False)
     monkeypatch.delenv(agent_cgroup.CGROUP_PATH_ENV, raising=False)
     initialize_tracing = Mock()
@@ -64,9 +64,9 @@ async def test_direct_worker_does_not_require_delegation(
         "autosecops.executor.startup.WORKER_READY_FILE", tmp_path / "ready"
     )
     monkeypatch.setattr(
-        cgroup.config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        cgroup.config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
     )
-    monkeypatch.setenv("TRACECAT__DISABLE_NSJAIL", "false")
+    monkeypatch.setenv("AUTOSECOPS__DISABLE_NSJAIL", "false")
     monkeypatch.delenv(CGROUP_PATH_ENV, raising=False)
     monkeypatch.delenv(agent_cgroup.CGROUP_PATH_ENV, raising=False)
     # Stop at the first service initialization, after startup validation.
@@ -100,10 +100,10 @@ def bootstrap_process(monkeypatch: pytest.MonkeyPatch) -> Mock:
     monkeypatch.setattr(cgroup, "sandbox_cgroup", validation)
     monkeypatch.setattr(cgroup.sys, "argv", ["cgroup", "python", "-m", "worker"])
     monkeypatch.setattr(
-        cgroup.config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        cgroup.config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     # The removed flag must not disable cgroup delegation.
-    monkeypatch.setenv("TRACECAT__DISABLE_NSJAIL", "true")
+    monkeypatch.setenv("AUTOSECOPS__DISABLE_NSJAIL", "true")
     monkeypatch.setenv(CGROUP_PATH_ENV, "")
     for name in ("HOME", "USER", "LOGNAME"):
         monkeypatch.setenv(name, "original")
@@ -121,7 +121,7 @@ def test_bootstrap_selects_and_validates_subtree_as_apiuser(
 ) -> None:
     monkeypatch.setattr(
         cgroup.config,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.from_config(backend),
     )
     (tmp_path / "cgroup.subtree_control").write_text("memory")
@@ -180,9 +180,9 @@ def test_bootstrap_skips_cgroups_in_direct_mode(
     monkeypatch: pytest.MonkeyPatch, bootstrap_process: Mock
 ) -> None:
     monkeypatch.setattr(
-        cgroup.config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        cgroup.config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
     )
-    monkeypatch.setenv("TRACECAT__DISABLE_NSJAIL", "false")
+    monkeypatch.setenv("AUTOSECOPS__DISABLE_NSJAIL", "false")
     delegate = Mock()
     monkeypatch.setattr(cgroup, "delegate_cgroup", delegate)
 

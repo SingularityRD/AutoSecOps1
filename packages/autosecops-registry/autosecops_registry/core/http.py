@@ -29,9 +29,9 @@ from autosecops_registry._internal.jsonpath import eval_jsonpath
 from autosecops_registry._internal.logger import logger
 from autosecops_registry._internal.safe_lambda import build_safe_lambda
 from autosecops_registry.config import (
-    TRACECAT__MAX_AGGREGATE_UPLOAD_SIZE_BYTES,
-    TRACECAT__MAX_FILE_SIZE_BYTES,
-    TRACECAT__MAX_UPLOAD_FILES_COUNT,
+    AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES,
+    AUTOSECOPS__MAX_FILE_SIZE_BYTES,
+    AUTOSECOPS__MAX_UPLOAD_FILES_COUNT,
 )
 
 RequestMethods = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
@@ -500,10 +500,10 @@ def _validate_and_decode_file(
         ) from e
 
     # Enforce global file size limits
-    if len(decoded_content) > TRACECAT__MAX_FILE_SIZE_BYTES:
+    if len(decoded_content) > AUTOSECOPS__MAX_FILE_SIZE_BYTES:
         raise ValueError(
             f"File for form field '{form_field_name}' in {action_name} exceeds maximum size limit of "
-            f"{TRACECAT__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
+            f"{AUTOSECOPS__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
         )
 
     return ValidatedFile(
@@ -529,10 +529,10 @@ def _process_file_uploads(
     if not files:
         return None
 
-    if len(files) > TRACECAT__MAX_UPLOAD_FILES_COUNT:
+    if len(files) > AUTOSECOPS__MAX_UPLOAD_FILES_COUNT:
         raise ValueError(
             f"Number of files ({len(files)}) exceeds the maximum allowed limit "
-            f"of {TRACECAT__MAX_UPLOAD_FILES_COUNT} in {action_name}."
+            f"of {AUTOSECOPS__MAX_UPLOAD_FILES_COUNT} in {action_name}."
         )
 
     processed_httpx_files = {}
@@ -558,11 +558,11 @@ def _process_file_uploads(
         )
 
         current_aggregate_size += len(validated_file.decoded_content)
-        if current_aggregate_size > TRACECAT__MAX_AGGREGATE_UPLOAD_SIZE_BYTES:
+        if current_aggregate_size > AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES:
             raise ValueError(
                 f"Total size of files ({current_aggregate_size / 1024 / 1024:.2f}MB) "
                 f"exceeds the aggregate limit of "
-                f"{TRACECAT__MAX_AGGREGATE_UPLOAD_SIZE_BYTES / 1024 / 1024:.2f}MB "
+                f"{AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES / 1024 / 1024:.2f}MB "
                 f"in {action_name}."
             )
 

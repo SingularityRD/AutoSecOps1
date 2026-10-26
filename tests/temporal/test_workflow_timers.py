@@ -97,13 +97,13 @@ async def test_workflow_wait_until_future(
     activities = get_activities()
     activities.append(execute_action_activity_mock)
 
-    # Use standard queues: DSL worker on TEMPORAL__CLUSTER_QUEUE, executor mock on TRACECAT__EXECUTOR_QUEUE
+    # Use standard queues: DSL worker on TEMPORAL__CLUSTER_QUEUE, executor mock on AUTOSECOPS__EXECUTOR_QUEUE
     async with (
         test_worker_factory(env.client, activities=activities),
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         start_time = await env.get_current_time()
@@ -177,7 +177,7 @@ async def test_workflow_retry_until_condition(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         result = await env.client.execute_workflow(
@@ -245,7 +245,7 @@ async def test_workflow_can_reschedule_at_tomorrow_9am(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handle = await env.client.start_workflow(
@@ -347,7 +347,7 @@ async def test_workflow_waits_until_tomorrow_9am(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         start_time = await env.get_current_time()
@@ -435,7 +435,7 @@ async def test_workflow_retry_until_condition_with_wait_until(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         start_time = await env.get_current_time()
@@ -538,7 +538,7 @@ async def test_workflow_wait_until_past(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         await env.client.execute_workflow(
@@ -594,7 +594,7 @@ async def test_workflow_start_delay(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         start_time = await env.get_current_time()

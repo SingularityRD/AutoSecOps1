@@ -29,7 +29,7 @@
 #
 # `loop_strategy: parallel` is the honest analogue of the scatter fixture's
 # `for_each`: all branches are released at once. Note the platform still bounds
-# actual concurrent dispatch by TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW
+# actual concurrent dispatch by AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW
 # (default 16, clamped to 8..128), so `parallel` sets the logical batch, not the
 # in-flight dispatch count. Run a throttled sub-scenario as a modified copy with
 # `loop_strategy: batch` and an explicit `batch_size`.

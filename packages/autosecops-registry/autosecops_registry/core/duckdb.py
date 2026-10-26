@@ -9,7 +9,7 @@ from typing_extensions import Doc
 
 import autosecops_registry.integrations.aws_boto3 as aws_boto3
 from autosecops_registry import SecretNotFoundError, registry, secrets
-from autosecops_registry.config import TRACECAT__DUCKDB_EXTENSION_DIRECTORY
+from autosecops_registry.config import AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY
 from autosecops_registry.integrations.amazon_s3 import s3_secret
 
 try:
@@ -18,7 +18,7 @@ except ImportError:  # Windows has no resource module; the direct backend runs t
     resource = None
 
 # Directory the Docker images preinstall DuckDB extensions into. Used as a
-# fallback when TRACECAT__DUCKDB_EXTENSION_DIRECTORY is not set in the process
+# fallback when AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY is not set in the process
 # environment — notably under nsjail executors, where the env var is not
 # forwarded into the jail but this directory is bind-mounted (read-only) from
 # the sandbox rootfs.
@@ -45,15 +45,15 @@ def _rows_to_json(
 def _extension_directory() -> str | None:
     """Directory DuckDB should load extensions from, or None for its default.
 
-    Prefer the configured ``TRACECAT__DUCKDB_EXTENSION_DIRECTORY``; otherwise fall
+    Prefer the configured ``AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY``; otherwise fall
     back to the image's preinstalled directory when it exists. The fallback makes
     the pinned extensions usable across every executor backend — including nsjail
     sandboxes, where the env var is not forwarded into the jail but the directory
     is bind-mounted read-only from the rootfs. Returns None in local/dev where
     neither is present, so DuckDB keeps its default autoinstall behaviour.
     """
-    if TRACECAT__DUCKDB_EXTENSION_DIRECTORY:
-        return TRACECAT__DUCKDB_EXTENSION_DIRECTORY
+    if AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY:
+        return AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY
     if os.path.isdir(_DEFAULT_EXTENSION_DIRECTORY):
         return _DEFAULT_EXTENSION_DIRECTORY
     return None

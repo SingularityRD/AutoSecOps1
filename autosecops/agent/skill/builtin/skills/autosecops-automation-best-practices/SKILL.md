@@ -1,12 +1,12 @@
 ---
-name: tracecat-automation-best-practices
+name: autosecops-automation-best-practices
 description: Use when building, editing, validating, or debugging generic AutoSecOps automations through AutoSecOps MCP, including workflow DSL/YAML authoring, table design, unique indexes, run-python AutoSecOps imports, agent presets, ai.agent or ai.preset_agent workflows, executions, validation, and workflow best practices.
 ---
 
 # AutoSecOps Automation Best Practices
 
-For Slack-facing automations, use `$tracecat-slackbot-best-practices`. In AutoSecOps Workspace Chat,
-load `$tracecat-workspace-chat` first; its host-specific tool mapping overrides the external MCP
+For Slack-facing automations, use `$autosecops-slackbot-best-practices`. In AutoSecOps Workspace Chat,
+load `$autosecops-workspace-chat` first; its host-specific tool mapping overrides the external MCP
 steps below. On-demand references: [graph-shape](references/graph-shape.md),
 [expressions](references/expressions-and-conditions.md), [run-python](references/run-python.md),
 [tables](references/tables.md), [trigger-inputs](references/trigger-inputs.md),
@@ -19,7 +19,7 @@ steps below. On-demand references: [graph-shape](references/graph-shape.md),
 For an external AutoSecOps MCP connection, start from live context rather than guessing:
 
 1. Discover the workspace with `list_workspaces`.
-2. Read `tracecat://platform/dsl-reference` when DSL syntax or examples are needed.
+2. Read `autosecops://platform/dsl-reference` when DSL syntax or examples are needed.
 3. Use `get_workflow_authoring_context` for action schemas, variables, and secrets.
 4. For existing workflows, use `get_workflow`, then targeted `edit_workflow` patches — see
    [workflow-editing](references/workflow-editing.md). Before adding or editing any `run_if`,

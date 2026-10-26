@@ -123,7 +123,7 @@ def encryption_key(monkeypatch: pytest.MonkeyPatch) -> str:
     from cryptography.fernet import Fernet
 
     key = Fernet.generate_key().decode()
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", key)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key)
     return key
 
 
@@ -170,7 +170,7 @@ def mock_provider(monkeypatch: pytest.MonkeyPatch) -> MockOAuthProvider:
     """Create a mock OAuth provider instance."""
     # Patch the config value directly (env var won't work since config is already loaded)
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+        "autosecops.config.AUTOSECOPS__PUBLIC_APP_URL", "http://localhost"
     )
     return MockOAuthProvider(
         client_id="mock_client_id", client_secret="mock_client_secret"
@@ -184,7 +184,7 @@ def mock_pkce_provider(
     """Create a mock OAuth provider instance with PKCE enabled."""
     # Patch the config value directly (env var won't work since config is already loaded)
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+        "autosecops.config.AUTOSECOPS__PUBLIC_APP_URL", "http://localhost"
     )
     return MockOAuthProviderWithPKCE(
         client_id="mock_client_id", client_secret="mock_client_secret"
@@ -196,7 +196,7 @@ def mock_cc_provider(monkeypatch: pytest.MonkeyPatch) -> MockCCOAuthProvider:
     """Create a mock client credentials OAuth provider instance."""
     # Patch the config value directly (env var won't work since config is already loaded)
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+        "autosecops.config.AUTOSECOPS__PUBLIC_APP_URL", "http://localhost"
     )
     return MockCCOAuthProvider(
         client_id="mock_cc_client_id", client_secret="mock_cc_client_secret"
@@ -216,8 +216,8 @@ class TestIntegrationService:
             type="service",
             user_id=uuid.uuid4(),
             workspace_id=None,
-            service_id="tracecat-service",
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            service_id="autosecops-service",
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
 
         # Attempt to create service without workspace should raise error
@@ -1370,7 +1370,7 @@ class TestIntegrationService:
 
         # Create service with first encryption key
         key1 = Fernet.generate_key().decode()
-        with patch.object(config, "TRACECAT__DB_ENCRYPTION_KEY", key1):
+        with patch.object(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key1):
             service1 = IntegrationService(session=session, role=svc_role)
 
             # Store integration
@@ -1385,7 +1385,7 @@ class TestIntegrationService:
 
         # Create service with different encryption key
         key2 = Fernet.generate_key().decode()
-        with patch.object(config, "TRACECAT__DB_ENCRYPTION_KEY", key2):
+        with patch.object(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key2):
             service2 = IntegrationService(session=session, role=svc_role)
 
             # Attempt to decrypt with wrong key should raise error
@@ -1773,7 +1773,7 @@ class TestBaseOAuthProvider:
         expected: list[str],
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.config.TRACECAT__PUBLIC_APP_URL", "http://localhost"
+            "autosecops.config.AUTOSECOPS__PUBLIC_APP_URL", "http://localhost"
         )
         provider = MockOAuthProvider(
             client_id="test_id", client_secret="test_secret", scopes=scopes

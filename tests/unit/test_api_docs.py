@@ -77,7 +77,7 @@ def test_docs_load_openapi_from_root_path(
     monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
     """Behind Caddy's `/api` prefix the page must fetch `<root>/openapi.json`."""
-    monkeypatch.setattr(config, "TRACECAT__API_ROOT_PATH", "/api")
+    monkeypatch.setattr(config, "AUTOSECOPS__API_ROOT_PATH", "/api")
     app = create_app()
     html = TestClient(app).get(path).text
 

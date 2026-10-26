@@ -45,7 +45,7 @@ Configure the existing Ollama or vLLM provider connection with that server's
 OpenAI-compatible base URL, including `/v1`. API keys are optional for servers
 that do not require authentication. The URL must be reachable from AutoSecOps's
 backend. Private server addresses must be allowed by the deployment's existing
-`TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` policy, as with agent model discovery.
+`AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` policy, as with agent model discovery.
 
 Saving the connection discovers its models. If the connection already existed,
 refresh its model catalog after installing the embedding model. The embedding

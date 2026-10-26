@@ -125,7 +125,7 @@ async def _create_typed_page_items(session: AsyncSession) -> sa.Table:
 
 @pytest.fixture
 def pagination_signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "pagination-test-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "pagination-test-secret")
 
 
 class TestCursorPaginator:

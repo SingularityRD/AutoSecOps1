@@ -53,7 +53,7 @@ function createRegistryAction(
     id: overrides.action,
     name: overrides.action,
     type: "template",
-    origin: "tracecat",
+    origin: "autosecops",
     ...overrides,
   }
 }

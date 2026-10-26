@@ -464,10 +464,10 @@ async def test_approval_request_strips_proxy_metadata_from_streamed_args():
             approval_items=[
                 ToolCallContent(
                     id="call_approve",
-                    name="mcp__tracecat_registry__core__cases__create_case",
+                    name="mcp__autosecops_registry__core__cases__create_case",
                     input={
                         "summary": "hello",
-                        "__tracecat": {"tool_call_id": "toolu_123"},
+                        "__autosecops": {"tool_call_id": "toolu_123"},
                     },
                 )
             ],
@@ -482,7 +482,7 @@ async def test_approval_request_strips_proxy_metadata_from_streamed_args():
     assert frames[0].data == [
         {
             "tool_call_id": "call_approve",
-            "tool_name": "mcp__tracecat_registry__core__cases__create_case",
+            "tool_name": "mcp__autosecops_registry__core__cases__create_case",
             "args": {"summary": "hello"},
         }
     ]

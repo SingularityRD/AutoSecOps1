@@ -257,7 +257,7 @@ async def test_action_missing_result_keeps_workload_traceback_tail(
     job_dir.mkdir()
     action_config = ActionSandboxConfig(
         registry_paths=[],
-        tracecat_app_dir=tmp_path,
+        autosecops_app_dir=tmp_path,
         site_packages_dir=None,
     )
 
@@ -273,7 +273,7 @@ async def test_script_crash_does_not_log_injected_secrets(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
     env_vars = {
-        "TRACECAT__EXECUTOR_TOKEN": "synthetic-executor-token",
+        "AUTOSECOPS__EXECUTOR_TOKEN": "synthetic-executor-token",
         "USER_SECRET": "synthetic-user-secret",
     }
     stderr = "\n".join(env_vars.values())

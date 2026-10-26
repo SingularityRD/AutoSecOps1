@@ -118,7 +118,7 @@ class RetrievalCase:
 @pytest.fixture(autouse=True)
 def encryption_key(monkeypatch):
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
 
 

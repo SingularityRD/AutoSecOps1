@@ -278,4 +278,4 @@ def test_update_skill_schema_marks_legacy_fields_deprecated() -> None:
 @pytest.mark.parametrize("name", DEPRECATED_ACTIONS)
 def test_legacy_skill_actions_are_deprecated(name: str) -> None:
     udf = core_udfs()[f"ai.skill.{name}"]
-    assert getattr(udf, "__tracecat_udf_kwargs")["deprecated"]
+    assert getattr(udf, "__autosecops_udf_kwargs")["deprecated"]

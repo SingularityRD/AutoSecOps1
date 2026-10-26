@@ -129,7 +129,7 @@ resource "aws_iam_policy" "s3_blob_access" {
 # Secrets access policy
 resource "aws_iam_policy" "secrets_access" {
   name        = "${var.iam_name_prefix}SecretsAccessPolicy"
-  description = "Policy for accessing Tracecat secrets"
+  description = "Policy for accessing AutoSecOps secrets"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -138,9 +138,9 @@ resource "aws_iam_policy" "secrets_access" {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
         Resource = concat(compact([
-          var.tracecat_db_encryption_key_arn,
-          var.tracecat_service_key_arn,
-          var.tracecat_signing_secret_arn,
+          var.autosecops_db_encryption_key_arn,
+          var.autosecops_service_key_arn,
+          var.autosecops_signing_secret_arn,
           var.oauth_client_id_arn,
           var.oauth_client_secret_arn,
           var.oidc_client_id_arn,
@@ -212,7 +212,7 @@ resource "aws_iam_policy" "temporal_payload_encryption_keyring_access" {
 
 resource "aws_iam_policy" "ui_secrets_access" {
   name        = "${var.iam_name_prefix}UISecretsAccessPolicy"
-  description = "Policy for accessing Tracecat UI secrets"
+  description = "Policy for accessing AutoSecOps UI secrets"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -221,7 +221,7 @@ resource "aws_iam_policy" "ui_secrets_access" {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
         Resource = compact([
-          var.tracecat_service_key_arn,
+          var.autosecops_service_key_arn,
         ])
       }
     ]
@@ -663,7 +663,7 @@ resource "aws_iam_policy" "cloudwatch_logs" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "${aws_cloudwatch_log_group.tracecat_log_group.arn}:*"
+        Resource = "${aws_cloudwatch_log_group.autosecops_log_group.arn}:*"
       }
     ]
   })

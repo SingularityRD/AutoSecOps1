@@ -41,7 +41,7 @@ def _build_service() -> tuple[_TestAgentSessionService, SimpleNamespace, Role]:
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         # action:*:execute lets _resolve_workspace_chat_actions keep the full
@@ -326,7 +326,7 @@ def _restricted_service() -> _TestAgentSessionService:
     """
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset(
@@ -403,7 +403,7 @@ async def test_workspace_chat_preset_config_superuser_keeps_all_actions() -> Non
     """A fully-scoped caller retains every action the preset exposes."""
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute", "action:*:execute"}),

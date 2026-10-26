@@ -40,7 +40,7 @@ def _sts_session() -> tuple[MagicMock, MagicMock]:
 @pytest.mark.parametrize(
     ("configured_session_name", "expected_session_name"),
     [
-        (None, "tracecat-ws-11111111-run-22222222"),
+        (None, "autosecops-ws-11111111-run-22222222"),
         ("custom-audit-session", "custom-audit-session"),
         ("  custom-audit-session  ", "custom-audit-session"),
     ],
@@ -54,7 +54,9 @@ def test_get_sync_temporary_credentials_uses_external_id_and_session_name(
         workspace_id="11111111-1111-1111-1111-111111111111",
         run_id="22222222-2222-2222-2222-222222222222",
     )
-    secret_values: dict[str, Any] = {"TRACECAT_AWS_EXTERNAL_ID": "tracecat-ws-deadbeef"}
+    secret_values: dict[str, Any] = {
+        "AUTOSECOPS_AWS_EXTERNAL_ID": "autosecops-ws-deadbeef"
+    }
     if configured_session_name is not None:
         secret_values["AWS_ROLE_SESSION_NAME"] = configured_session_name
 
@@ -68,7 +70,7 @@ def test_get_sync_temporary_credentials_uses_external_id_and_session_name(
     sts_client.assume_role.assert_called_once_with(
         RoleArn=_ROLE_ARN,
         RoleSessionName=expected_session_name,
-        ExternalId="tracecat-ws-deadbeef",
+        ExternalId="autosecops-ws-deadbeef",
     )
     assert creds["AccessKeyId"] == "chained-access"
 
@@ -77,7 +79,7 @@ def test_get_sync_temporary_credentials_uses_region_for_sts_client() -> None:
     session, _ = _sts_session()
 
     with (
-        _secrets({"TRACECAT_AWS_EXTERNAL_ID": "tracecat-ws-deadbeef"}),
+        _secrets({"AUTOSECOPS_AWS_EXTERNAL_ID": "autosecops-ws-deadbeef"}),
         patch.object(aws_boto3.boto3, "Session", return_value=session) as session_cls,
     ):
         aws_boto3.get_sync_temporary_credentials(_ROLE_ARN, region_name="us-gov-west-1")
@@ -89,7 +91,7 @@ def test_get_sync_temporary_credentials_uses_region_for_sts_client() -> None:
 def test_get_sync_temporary_credentials_rejects_non_string_session_name() -> None:
     with _secrets(
         {
-            "TRACECAT_AWS_EXTERNAL_ID": "tracecat-ws-deadbeef",
+            "AUTOSECOPS_AWS_EXTERNAL_ID": "autosecops-ws-deadbeef",
             "AWS_ROLE_SESSION_NAME": 123,
         }
     ):
@@ -188,7 +190,7 @@ def test_get_sync_session_role_arn_chains_from_base_credentials() -> None:
     assert call_kwargs["RoleArn"] == _TARGET_ROLE_ARN
     assert call_kwargs["ExternalId"] == "partner-id"
     assert call_kwargs["DurationSeconds"] == 1800
-    assert call_kwargs["RoleSessionName"].startswith("tracecat")
+    assert call_kwargs["RoleSessionName"].startswith("autosecops")
     session_cls.assert_any_call(
         aws_access_key_id="chained-access",
         aws_secret_access_key="chained-secret",

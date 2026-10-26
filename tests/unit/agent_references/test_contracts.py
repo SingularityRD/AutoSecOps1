@@ -77,7 +77,7 @@ def test_markdown_conformance(case):
 
 
 def test_all_markdown_files_and_binary_rejection():
-    link = b"[x](tracecat-ref://v1/tool/core.http_request)"
+    link = b"[x](autosecops-ref://v1/tool/core.http_request)"
     result = scan_markdown_files(
         {
             "SKILL.md": b"plain",
@@ -92,7 +92,7 @@ def test_all_markdown_files_and_binary_rejection():
 
 
 def test_multiple_links_and_multiline_locations():
-    t = "tracecat-ref://v1/tool/core.http_request"
+    t = "autosecops-ref://v1/tool/core.http_request"
     result = parse_markdown_references(f"é😀 [one]({t}) [two]({t})\r\n> [three]({t})")
     assert [(r.location.line, r.location.column) for r in result.references] == [
         (1, 4),

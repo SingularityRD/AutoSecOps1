@@ -201,7 +201,7 @@ class TestInternalWorkflowCreateRequest:
         req = InternalWorkflowCreateRequest(definition_yaml="definition:\n  title: T\n")
         assert req.definition_yaml == "definition:\n  title: T\n"
 
-    def test_invalid_dsl_raises_raw_tracecat_error_not_pydantic(self):
+    def test_invalid_dsl_raises_raw_autosecops_error_not_pydantic(self):
         """DSLInput validators raise raw TracecatDSLError, not ValidationError.
 
         Why the create handler must catch TracecatValidationError (else 500).

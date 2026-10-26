@@ -81,7 +81,7 @@ async def attachments_service(
 
 @pytest.fixture
 def attachment_params() -> CaseAttachmentCreate:
-    content = b"hello tracecat"
+    content = b"hello autosecops"
     return CaseAttachmentCreate(
         file_name="hello.txt",
         content_type="text/plain",
@@ -136,12 +136,15 @@ async def configure_minio_for_attachments(
     # Point storage at the test MinIO instance and bucket
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
         "http://localhost:9000",
         raising=False,
     )
     monkeypatch.setattr(
-        config, "TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS", minio_bucket, raising=False
+        config,
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS",
+        minio_bucket,
+        raising=False,
     )
 
     # Set MinIO credentials for the client
@@ -330,7 +333,9 @@ async def test_max_attachments_limit_enforced(
     case, _ = test_case
 
     # Restrict to 1 attachment per case to trigger limit on second create
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENTS_PER_CASE", 1, raising=False)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE", 1, raising=False
+    )
 
     # First attachment succeeds
     await attachments_service.create_attachment(case, attachment_params)
@@ -352,7 +357,7 @@ async def test_storage_limit_enforced(
     # Set max storage below file size to trigger limit
     monkeypatch.setattr(
         config,
-        "TRACECAT__MAX_CASE_STORAGE_BYTES",
+        "AUTOSECOPS__MAX_CASE_STORAGE_BYTES",
         max(1, attachment_params.size - 1),
         raising=False,
     )
@@ -434,7 +439,7 @@ async def test_delete_authorization_basic_vs_admin(
         workspace_id=attachments_service.role.workspace_id,
         organization_id=attachments_service.role.organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
     other_svc = CaseAttachmentService(session=session, role=other_role)
@@ -495,7 +500,7 @@ async def test_concurrent_uploads_cannot_exceed_attachment_limit(
     sessions (not the savepoint-bound test session) so each upload holds its
     own connection and transaction, like concurrent API requests do.
     """
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENTS_PER_CASE", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE", 1)
 
     now = datetime.now(UTC)
     case = Case(

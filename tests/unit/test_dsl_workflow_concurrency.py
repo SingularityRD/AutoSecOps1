@@ -64,7 +64,7 @@ def _build_workflow(*, limits: EffectiveLimits | None = None) -> DSLWorkflow:
     workflow = object.__new__(DSLWorkflow)
     workflow.role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -236,9 +236,9 @@ async def test_permit_wait_expiry_is_user_attributed_quota_exhaustion(
     monkeypatch.setattr(
         config,
         (
-            "TRACECAT__WORKFLOW_PERMIT_MAX_WAIT_SECONDS"
+            "AUTOSECOPS__WORKFLOW_PERMIT_MAX_WAIT_SECONDS"
             if permit_scope == "workflow"
-            else "TRACECAT__ACTION_PERMIT_MAX_WAIT_SECONDS"
+            else "AUTOSECOPS__ACTION_PERMIT_MAX_WAIT_SECONDS"
         ),
         0,
     )
@@ -744,7 +744,7 @@ def test_resolve_child_loop_batch_plan_uses_dispatch_window(
     """The plan is (requested batch size, configured dispatch window), independent
     of the tier action cap and the concurrency flag."""
     workflow = _build_workflow(limits=_effective_limits(max_concurrent_actions=1))
-    monkeypatch.setattr(config, "TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW", 12)
+    monkeypatch.setattr(config, "AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW", 12)
 
     for enabled in (False, True):
         workflow.workflow_concurrency_limits_enabled = enabled

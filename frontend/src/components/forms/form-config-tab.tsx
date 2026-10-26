@@ -21,7 +21,7 @@ import { useEffect, useRef, useState } from "react"
 import type { FormRead } from "@/client"
 import { useScopeCheck } from "@/components/auth/scope-guard"
 import { CodeEditor } from "@/components/editor/codemirror/code-editor"
-import { tracecatSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
+import { autosecopsSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
 import { FormVisualEditor } from "@/components/forms/form-visual-editor"
 import { Button } from "@/components/ui/button"
 import { ToggleTabs } from "@/components/ui/toggle-tabs"
@@ -51,7 +51,7 @@ layout:
 
 type FormConfigMode = "visual" | "yaml"
 
-const MODE_STORAGE_KEY = "tracecat:form-config-mode"
+const MODE_STORAGE_KEY = "autosecops:form-config-mode"
 
 // Storage can be unavailable; the editor then opens in Visual every time.
 function readStoredMode(): FormConfigMode {
@@ -268,7 +268,7 @@ export function FormConfigTab({
   const [extensions] = useState<Extension[]>(() => [
     imageChips,
     chipTheme,
-    tracecatSyntaxHighlighting,
+    autosecopsSyntaxHighlighting,
     formEditorTheme,
     lintGutter(),
     autocompletion({

@@ -143,7 +143,7 @@ def test_default_storage_is_in_memory_when_externalization_disabled(monkeypatch)
     reset_object_storage()
     monkeypatch.setattr(
         object_module.config,
-        "TRACECAT__RESULT_EXTERNALIZATION_ENABLED",
+        "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED",
         False,
     )
 

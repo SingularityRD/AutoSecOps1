@@ -195,8 +195,8 @@ def agent_worker_factory(
                 *ApprovalManager.get_activities(),
             ]
 
-        monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", task_queue)
-        monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", task_queue)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", task_queue)
+        monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", task_queue)
 
         return Worker(
             client=client,

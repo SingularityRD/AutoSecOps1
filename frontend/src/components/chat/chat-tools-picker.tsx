@@ -73,15 +73,15 @@ const TOOL_SEARCH_LIMIT = 24
  * Maximum number of extra tools (and, separately, MCP integrations) that can be
  * attached to a single chat session. Mirrors `max_length=50` on
  * `AgentSessionCreate`/`AgentSessionUpdate` in
- * `tracecat/agent/session/schemas.py` and the matching `ChatCreate`/`ChatUpdate`
- * limits in `tracecat/chat/schemas.py`. Keep in sync with the backend so the
+ * `autosecops/agent/session/schemas.py` and the matching `ChatCreate`/`ChatUpdate`
+ * limits in `autosecops/chat/schemas.py`. Keep in sync with the backend so the
  * picker blocks overflow before the API rejects it with a 422.
  */
 export const MAX_SELECTABLE_TOOLS = 50
 
 /**
  * Always-on workspace chat capabilities, grouped for display. Mirrors
- * `WORKSPACE_CHAT_DEFAULT_TOOLS` in `tracecat/chat/tools.py` — keep in sync when
+ * `WORKSPACE_CHAT_DEFAULT_TOOLS` in `autosecops/chat/tools.py` — keep in sync when
  * the backend default tool set changes. These are surfaced read-only so users
  * can see what the agent can already do before adding anything.
  *
@@ -158,7 +158,7 @@ export const DEFAULT_CAPABILITY_GROUPS: CapabilityGroup[] = [
 
 /**
  * Form authoring capability. Mirrors `WORKSPACE_CHAT_FORMS_TOOLS` in
- * `tracecat/chat/tools.py`, which the backend appends to the workspace chat
+ * `autosecops/chat/tools.py`, which the backend appends to the workspace chat
  * defaults only for an organization with the forms flag and entitlement. Kept
  * out of {@link DEFAULT_CAPABILITY_GROUPS} for the same reason.
  */

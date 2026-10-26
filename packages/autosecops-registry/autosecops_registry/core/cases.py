@@ -576,9 +576,9 @@ async def list_cases_by_row(
         Doc("If true, return cursor pagination metadata along with items."),
     ] = False,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}
@@ -666,9 +666,9 @@ async def list_cases(
         ),
     ] = None,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}
@@ -844,9 +844,9 @@ async def search_cases(
     ] = None,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
     """Search cases based on various criteria."""
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}

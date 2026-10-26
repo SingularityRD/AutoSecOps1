@@ -138,7 +138,7 @@ async def test_transport_detail_carries_classification_and_preserves_payload() -
     assert len(error.details) == 1
     assert error.type == RuntimeErrorKind.ACTION_EXECUTION_FAILED.value
     assert error.details[0]["schema"] == ERROR_TRANSPORT_DETAIL_SCHEMA
-    assert error.details[0]["classification"]["schema"] == "tracecat.error.v1"
+    assert error.details[0]["classification"]["schema"] == "autosecops.error.v1"
     assert error.details[0]["diagnostic"] == error_info.model_dump(mode="json")
     assert extract_error_classification(error) == classification
     assert extract_error_classification(decoded) == classification
@@ -480,19 +480,19 @@ async def test_platform_diagnostics_do_not_enter_temporal_history() -> None:
     "detail",
     [
         {"legacy": "payload"},
-        {"schema": "tracecat.error.v1"},
+        {"schema": "autosecops.error.v1"},
         _user_classification().model_dump(mode="json"),
         # The superseded transport key remains unclassified.
-        {"envelope": {"schema": "not-tracecat.error.v1"}},
+        {"envelope": {"schema": "not-autosecops.error.v1"}},
         {
             "classification": _user_classification().model_dump(mode="json"),
         },
         {
-            "schema": "tracecat.temporal_error.v1",
-            "classification": {"schema": "tracecat.error.v1"},
+            "schema": "autosecops.temporal_error.v1",
+            "classification": {"schema": "autosecops.error.v1"},
         },
         {
-            "schema": "tracecat.temporal_error.v1",
+            "schema": "autosecops.temporal_error.v1",
             "classification": {
                 "owner": "user",
                 "kind": "action.execution.failed",
@@ -502,7 +502,7 @@ async def test_platform_diagnostics_do_not_enter_temporal_history() -> None:
             },
         },
         {
-            "schema": "tracecat.temporal_error.v1",
+            "schema": "autosecops.temporal_error.v1",
             "classification": _user_classification().model_dump(mode="json"),
             "unexpected": True,
         },
@@ -532,7 +532,7 @@ def test_action_error_detail_requires_nested_schema_discriminator() -> None:
     error = ApplicationError(
         "Legacy error",
         {
-            "schema": "tracecat.temporal_error.v1",
+            "schema": "autosecops.temporal_error.v1",
             "classification": {
                 "owner": "user",
                 "kind": "action.execution.failed",
@@ -565,7 +565,7 @@ def test_aggregate_action_error_requires_child_schema_discriminator() -> None:
     }
 
     malformed_transport = {
-        "schema": "tracecat.temporal_error.v1",
+        "schema": "autosecops.temporal_error.v1",
         "classification": {
             "owner": "user",
             "kind": "action.execution.failed",
@@ -776,7 +776,7 @@ async def test_wrapping_drops_outer_details_for_cause_classification() -> None:
     await DataConverter.default.encode_failure(wrapped, failure)
 
     assert len(wrapped.details) == 1
-    assert wrapped.details[0]["schema"] == "tracecat.temporal_error.v1"
+    assert wrapped.details[0]["schema"] == "autosecops.temporal_error.v1"
     assert wrapped.type == original_classification.kind.value
     assert extract_error_classification(wrapped) == original_classification
     assert "secret" not in str(failure)
@@ -796,7 +796,7 @@ def test_wrapping_unclassified_application_error_drops_original_details() -> Non
     )
 
     assert len(wrapped.details) == 1
-    assert wrapped.details[0]["schema"] == "tracecat.temporal_error.v1"
+    assert wrapped.details[0]["schema"] == "autosecops.temporal_error.v1"
     assert "secret" not in str(wrapped.details)
     assert "example.invalid" not in str(wrapped.details)
     assert extract_error_classification(wrapped) == fallback
@@ -965,7 +965,7 @@ def test_ambiguous_nested_classification_does_not_override_fallback() -> None:
     assert error.non_retryable is False
     assert error.type == fallback.kind.value
     assert error.details[0] == detail
-    assert error.details[1]["schema"] == "tracecat.temporal_error.v1"
+    assert error.details[1]["schema"] == "autosecops.temporal_error.v1"
     assert extract_error_classification(error) == fallback
 
 

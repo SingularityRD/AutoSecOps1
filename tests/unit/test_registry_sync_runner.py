@@ -87,7 +87,7 @@ def _make_sandboxed_runner(
     clone_timeout: int | None = None,
 ) -> RegistrySyncRunner:
     mocker.patch.object(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     runner = RegistrySyncRunner(
         install_timeout=install_timeout,
@@ -289,7 +289,7 @@ async def test_runner_rejects_local_registry_when_disabled(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", False)
     runner = RegistrySyncRunner()
     build_execution_artifact = mocker.patch.object(
         runner,
@@ -322,7 +322,7 @@ def test_runner_selects_backend_from_executor_config(
     backend_type: ExecutorBackendType,
     expected_backend: type[_SandboxedBackend] | type[_UnsandboxedBackend],
 ) -> None:
-    mocker.patch.object(config, "TRACECAT__EXECUTOR_BACKEND", backend_type)
+    mocker.patch.object(config, "AUTOSECOPS__EXECUTOR_BACKEND", backend_type)
 
     runner = RegistrySyncRunner()
 
@@ -622,7 +622,7 @@ async def test_runner_does_not_upload_artifacts_under_target_version(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
     runner = RegistrySyncRunner()
@@ -677,7 +677,7 @@ async def test_runner_uses_prebuilt_manifest_or_falls_back_to_discovery(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
     repository_id = uuid4()

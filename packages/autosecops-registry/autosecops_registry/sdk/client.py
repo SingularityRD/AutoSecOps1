@@ -32,9 +32,9 @@ class TracecatClient:
     executor-local Action Gateway when running in a sandboxed environment.
 
     Configuration is read from environment variables:
-    - TRACECAT__ACTION_GATEWAY_SOCKET: Local gateway Unix socket
-    - TRACECAT__EXECUTOR_TOKEN: JWT token for authentication
-    - TRACECAT__WORKSPACE_ID: Current workspace ID (added to requests)
+    - AUTOSECOPS__ACTION_GATEWAY_SOCKET: Local gateway Unix socket
+    - AUTOSECOPS__EXECUTOR_TOKEN: JWT token for authentication
+    - AUTOSECOPS__WORKSPACE_ID: Current workspace ID (added to requests)
     """
 
     def __init__(
@@ -49,22 +49,22 @@ class TracecatClient:
 
         Args:
             action_gateway_socket: Executor-local gateway socket. Defaults to
-                TRACECAT__ACTION_GATEWAY_SOCKET and is required.
-            token: JWT token for authentication. Defaults to TRACECAT__EXECUTOR_TOKEN env var.
-            workspace_id: Workspace ID. Defaults to TRACECAT__WORKSPACE_ID env var.
+                AUTOSECOPS__ACTION_GATEWAY_SOCKET and is required.
+            token: JWT token for authentication. Defaults to AUTOSECOPS__EXECUTOR_TOKEN env var.
+            workspace_id: Workspace ID. Defaults to AUTOSECOPS__WORKSPACE_ID env var.
             timeout: Request timeout in seconds.
         """
         self._action_gateway_socket = action_gateway_socket or os.environ.get(
-            "TRACECAT__ACTION_GATEWAY_SOCKET"
+            "AUTOSECOPS__ACTION_GATEWAY_SOCKET"
         )
         if not self._action_gateway_socket:
             raise RuntimeError(
-                "TRACECAT__ACTION_GATEWAY_SOCKET is required for AutoSecOps SDK calls"
+                "AUTOSECOPS__ACTION_GATEWAY_SOCKET is required for AutoSecOps SDK calls"
             )
 
-        self._token = token or os.environ.get("TRACECAT__EXECUTOR_TOKEN", "")
+        self._token = token or os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", "")
         self._workspace_id = workspace_id or os.environ.get(
-            "TRACECAT__WORKSPACE_ID", ""
+            "AUTOSECOPS__WORKSPACE_ID", ""
         )
         self._timeout = timeout
 
@@ -83,7 +83,7 @@ class TracecatClient:
     ) -> tuple[str, httpx.AsyncHTTPTransport]:
         """Return the Action Gateway URL and Unix socket transport."""
         return (
-            f"http://tracecat-action-gateway/internal{path}",
+            f"http://autosecops-action-gateway/internal{path}",
             httpx.AsyncHTTPTransport(uds=self._action_gateway_socket),
         )
 

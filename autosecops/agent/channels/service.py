@@ -37,10 +37,10 @@ from autosecops.service import BaseWorkspaceService
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-PENDING_SLACK_BOT_TOKEN = "__tracecat_pending_bot_token__"
+PENDING_SLACK_BOT_TOKEN = "__autosecops_pending_bot_token__"
 REDACTED_SLACK_SECRET = "********"
-REDACTED_SLACK_SIGNING_SECRET_PREFIX = "__tracecat_pending_signing_secret__"
-ENCRYPTED_CONFIG_VALUE_PREFIX = "__tracecat_encrypted__:"
+REDACTED_SLACK_SIGNING_SECRET_PREFIX = "__autosecops_pending_signing_secret__"
+ENCRYPTED_CONFIG_VALUE_PREFIX = "__autosecops_encrypted__:"
 SLACK_ENCRYPTED_CONFIG_FIELDS = (
     "slack_bot_token",
     "slack_client_secret",
@@ -152,13 +152,15 @@ class AgentChannelService(BaseWorkspaceService):
     @classmethod
     def build_endpoint_url(cls, channel_type: ChannelType, public_token: str) -> str:
         return (
-            f"{config.TRACECAT__PUBLIC_API_URL}/agent/channels/"
+            f"{config.AUTOSECOPS__PUBLIC_API_URL}/agent/channels/"
             f"{channel_type.value}/{public_token}"
         )
 
     @classmethod
     def build_slack_oauth_redirect_uri(cls) -> str:
-        return f"{config.TRACECAT__PUBLIC_API_URL}/agent/channels/slack/oauth/callback"
+        return (
+            f"{config.AUTOSECOPS__PUBLIC_API_URL}/agent/channels/slack/oauth/callback"
+        )
 
     @classmethod
     def build_slack_oauth_authorization_url(cls, *, client_id: str, state: str) -> str:
@@ -266,7 +268,7 @@ class AgentChannelService(BaseWorkspaceService):
         signing_secret = get_signing_secret()
         return hmac.new(
             signing_secret.encode(),
-            b"tracecat:agent:channels:slack-oauth-state:v2",
+            b"autosecops:agent:channels:slack-oauth-state:v2",
             hashlib.sha256,
         ).digest()
 

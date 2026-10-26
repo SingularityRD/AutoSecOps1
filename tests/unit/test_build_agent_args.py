@@ -43,7 +43,7 @@ from autosecops.temporal.errors import extract_error_classification
 def role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),

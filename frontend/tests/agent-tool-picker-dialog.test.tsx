@@ -767,7 +767,7 @@ it("opens on several groups together until another source is chosen", async () =
       onOpenChange={jest.fn()}
       value={defaults}
       onChange={jest.fn()}
-      initialSource={["tracecat:tools.alpha", "custom:tools.alpha"]}
+      initialSource={["autosecops:tools.alpha", "custom:tools.alpha"]}
     />
   )
   expect(

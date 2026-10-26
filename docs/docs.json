@@ -28,7 +28,7 @@
             "group": "Building automations",
             "icon": "workflow",
             "pages": [
-              "automations/tracecat-mcp",
+              "automations/autosecops-mcp",
               {
                 "group": "Core concepts",
                 "pages": [
@@ -526,7 +526,11 @@
     },
     {
       "source": "/automations/ai-builder",
-      "destination": "/automations/tracecat-mcp"
+      "destination": "/automations/autosecops-mcp"
+    },
+    {
+      "source": "/automations/tracecat-mcp",
+      "destination": "/automations/autosecops-mcp"
     },
     {
       "source": "/automations/core-concepts/workflows",

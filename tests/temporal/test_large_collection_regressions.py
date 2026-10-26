@@ -131,10 +131,10 @@ def _configure_storage_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", access_key)
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", secret_key)
     monkeypatch.setenv("AWS_REGION", "us-east-1")
-    monkeypatch.setenv("TRACECAT__DB_ENCRYPTION_KEY", "test-encryption-key")
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", "test-encryption-key")
-    monkeypatch.setenv("TRACECAT__LOCAL_REPOSITORY_ENABLED", "1")
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True)
+    monkeypatch.setenv("AUTOSECOPS__DB_ENCRYPTION_KEY", "test-encryption-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", "test-encryption-key")
+    monkeypatch.setenv("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "1")
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True)
 
 
 async def _assert_refs_layout(
@@ -156,7 +156,7 @@ async def _assert_refs_layout(
         bucket=bucket,
     )
     manifest = orjson.loads(manifest_bytes)
-    assert manifest["kind"] == "tracecat.collection_manifest"
+    assert manifest["kind"] == "autosecops.collection_manifest"
     assert manifest["element_kind"] == "stored_object"
     assert manifest["count"] == item_count
 
@@ -170,7 +170,7 @@ async def _assert_refs_layout(
         )
         assert sentinel.encode() not in chunk_bytes
         chunk = orjson.loads(chunk_bytes)
-        assert chunk["kind"] == "tracecat.collection_chunk"
+        assert chunk["kind"] == "autosecops.collection_chunk"
         for item in chunk["items"]:
             stored = StoredObjectValidator.validate_python(item)
             assert isinstance(stored, ExternalObject)
@@ -423,12 +423,12 @@ async def test_scatter_gather_massive_payload_50x2mb_e2e(
     """
     _configure_storage_credentials(monkeypatch)
     monkeypatch.setenv(
-        "TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS",
+        "AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS",
         str(MASSIVE_SCATTER_GATHER_MAX_PENDING_TASKS),
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS",
+        "AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS",
         MASSIVE_SCATTER_GATHER_MAX_PENDING_TASKS,
     )
     sentinel = f"__massive-scatter-gather-sentinel-{uuid.uuid4().hex}__"

@@ -16,7 +16,7 @@ from autosecops.sandbox.seccomp import build_untrusted_seccomp_policy
 from autosecops.sandbox.types import ResourceLimits, SandboxConfig
 from autosecops.sandbox.wrapper import INSTALL_SCRIPT, WRAPPER_SCRIPT
 
-NPROC_ENV_VAR = "TRACECAT__SANDBOX_RLIMIT_NPROC"
+NPROC_ENV_VAR = "AUTOSECOPS__SANDBOX_RLIMIT_NPROC"
 
 _EXPECTED_BLOCKED_SYSCALLS = (
     "ptrace",
@@ -45,7 +45,7 @@ def test_build_untrusted_seccomp_policy_blocks_expected_syscalls():
     """The shared seccomp policy should deny tracing and kernel-facing syscalls."""
     policy = build_untrusted_seccomp_policy()
 
-    assert policy.startswith("POLICY tracecat_untrusted")
+    assert policy.startswith("POLICY autosecops_untrusted")
     assert "ERRNO(1)" in policy
     # clone3 is denied with ENOSYS so glibc's clone3->clone fallback triggers
     # cleanly (single-errno-per-policy Kafel limitation: comma-separated rule).
@@ -76,7 +76,7 @@ def test_action_sandbox_config_includes_seccomp_policy(tmp_path: Path):
         job_dir=tmp_path / "job",
         config=ActionSandboxConfig(
             registry_paths=[tmp_path / "registry"],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
         ),
     )
 
@@ -134,7 +134,7 @@ def test_nsjail_configs_use_resource_limit_megabyte_units(tmp_path: Path) -> Non
         job_dir=tmp_path / "action-job",
         config=ActionSandboxConfig(
             registry_paths=[],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
             resources=resources,
         ),
     )
@@ -183,7 +183,7 @@ def test_action_env_injects_nproc_limit(tmp_path: Path) -> None:
     executor = NsjailExecutor(rootfs_path=str(tmp_path / "rootfs"))
     config = ActionSandboxConfig(
         registry_paths=[tmp_path / "registry"],
-        tracecat_app_dir=tmp_path / "app",
+        autosecops_app_dir=tmp_path / "app",
         resources=ResourceLimits(max_processes=77),
     )
 

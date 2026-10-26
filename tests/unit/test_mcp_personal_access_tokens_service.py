@@ -82,7 +82,7 @@ def _role_for(user: User, organization: Organization, workspace: Workspace) -> R
         user_id=user.id,
         workspace_id=workspace.id,
         organization_id=organization.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"workspace:read"}),
     )
 

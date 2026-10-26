@@ -93,10 +93,10 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
         if shutdown_event is None:
             shutdown_event = asyncio.Event()
         runtime_failure_reason = None
-        if config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+        if config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
             sandbox_cgroup()
         max_concurrent = int(
-            os.environ.get("TRACECAT__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES") or 1
+            os.environ.get("AUTOSECOPS__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES") or 1
         )
         threadpool_max_workers = int(
             os.environ.get("TEMPORAL__THREADPOOL_MAX_WORKERS") or 100
@@ -104,10 +104,10 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
         logger.info(
             "Starting AgentExecutorWorker",
-            task_queue=config.TRACECAT__AGENT_EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
             max_concurrent_activities=max_concurrent,
         )
-        initialize_platform_tracing("tracecat-agent-executor")
+        initialize_platform_tracing("autosecops-agent-executor")
         initialize_worker_sentry_from_environment()
 
         # LIFO teardown: storage cache, then runtime services, then tracing. The
@@ -122,7 +122,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
                 async with (
                     Worker(
                         client,
-                        task_queue=config.TRACECAT__AGENT_EXECUTOR_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
                         activities=get_activities(),
                         workflow_runner=new_sandbox_runner(),
                         max_concurrent_activities=max_concurrent,
@@ -137,7 +137,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
                         max_heartbeat_throttle_interval=timedelta(seconds=5),
                         default_heartbeat_throttle_interval=timedelta(seconds=5),
                         graceful_shutdown_timeout=timedelta(
-                            seconds=config.TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
+                            seconds=config.AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
                         ),
                     ),
                     # LIFO exit removes readiness before Temporal drains activities.

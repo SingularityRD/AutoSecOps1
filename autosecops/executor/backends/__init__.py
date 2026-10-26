@@ -70,7 +70,7 @@ async def initialize_executor_backend() -> ExecutorBackend:
     if _backend is not None:
         raise RuntimeError("Executor backend already initialized")
 
-    backend_type = config.TRACECAT__EXECUTOR_BACKEND
+    backend_type = config.AUTOSECOPS__EXECUTOR_BACKEND
     logger.info("Initializing executor backend", backend_type=backend_type)
 
     backend = _create_backend(backend_type)

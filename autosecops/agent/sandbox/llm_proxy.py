@@ -173,11 +173,11 @@ _MANAGED_KEEPALIVE_EXPIRY_SECONDS = 4.0
 _TRACE_REQUEST_ID_HEADER = "x-request-id"
 # Optional gateway pod/worker identity a managed gateway may return; logged so
 # an interrupted stream can be attributed to the gateway process that served it.
-_GATEWAY_IDENTITY_HEADER = "x-tracecat-gateway"
+_GATEWAY_IDENTITY_HEADER = "x-autosecops-gateway"
 _MAX_GATEWAY_IDENTITY_CHARS = 128
-_TRACER_NAME = "tracecat.agent.llm_proxy"
-_UPSTREAM_SPAN_NAME = "tracecat.agent.llm_proxy.upstream"
-_FIRST_BYTE_EVENT = "tracecat.agent.llm_proxy.first_byte"
+_TRACER_NAME = "autosecops.agent.llm_proxy"
+_UPSTREAM_SPAN_NAME = "autosecops.agent.llm_proxy.upstream"
+_FIRST_BYTE_EVENT = "autosecops.agent.llm_proxy.first_byte"
 _ANTHROPIC_ONLY_FIELDS = (
     "anthropic_beta",
     "context_management",
@@ -222,7 +222,7 @@ def _log_read_timeout(
         "LLM upstream read timed out",
         route="direct" if route_is_direct else "managed",
         phase=phase,
-        read_timeout_seconds=app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT,
+        read_timeout_seconds=app_config.AUTOSECOPS__LLM_PROXY_READ_TIMEOUT,
         # aread() buffers error bodies internally; partial progress is unknown.
         response_body_started=(
             None if phase == "error_body" else first_chunk_at is not None
@@ -329,13 +329,13 @@ def _http_error_classification(
     error_type, error_code = _error_object_strings(body)
     is_auth_status = status_code in {401, 403}
     if not route_is_direct and is_auth_status:
-        if error_type == "tracecat_llm_token_invalid":
+        if error_type == "autosecops_llm_token_invalid":
             return agent_llm_gateway_auth_failed()
-        if error_type == "tracecat_llm_provider_auth_failed":
+        if error_type == "autosecops_llm_provider_auth_failed":
             return agent_llm_provider_auth_failed()
-        if error_type == "tracecat_llm_model_not_enabled":
+        if error_type == "autosecops_llm_model_not_enabled":
             return agent_llm_model_not_enabled()
-        if error_type == "tracecat_llm_provider_subscription_required":
+        if error_type == "autosecops_llm_provider_subscription_required":
             return agent_llm_provider_subscription_required()
     if status_code in {400, 429} and error_type in {
         "budget_exceeded",
@@ -902,7 +902,7 @@ def build_llm_routing_plan(
     # receives model-key routes and does not know which agent emitted them.
     return LLMRoutingPlan(
         managed_route=LLMRoute(
-            base_url=app_config.TRACECAT__LITELLM_BASE_URL.rstrip("/"),
+            base_url=app_config.AUTOSECOPS__LITELLM_BASE_URL.rstrip("/"),
             model_provider=config.model_provider,
             mode="managed",
             # Managed subagent requests use synthetic LiteLLM route keys, so
@@ -1120,7 +1120,7 @@ class _UpstreamTrace:
         than a token. Like the log line, it counts from when the proxy received
         the request, so it includes earlier attempts and their backoff.
         """
-        self.span.set_attribute("tracecat.agent.llm_proxy.response.ttft_ms", ttft_ms)
+        self.span.set_attribute("autosecops.agent.llm_proxy.response.ttft_ms", ttft_ms)
 
     def stream_ended(self, progress: _StreamProgress) -> None:
         """Record how long the stream ran and how far it got.
@@ -1131,11 +1131,11 @@ class _UpstreamTrace:
         which pass through the tool-use rewriter.
         """
         attributes = {
-            "tracecat.agent.llm_proxy.response.stream_duration_ms": progress[
+            "autosecops.agent.llm_proxy.response.stream_duration_ms": progress[
                 "stream_duration_ms"
             ],
-            "tracecat.agent.llm_proxy.response.sse_events": progress["sse_events"],
-            "tracecat.agent.llm_proxy.response.saw_message_stop": progress[
+            "autosecops.agent.llm_proxy.response.sse_events": progress["sse_events"],
+            "autosecops.agent.llm_proxy.response.saw_message_stop": progress[
                 "saw_message_stop"
             ],
         }
@@ -1179,11 +1179,11 @@ def _upstream_span(
         attributes={
             "http.request.method": method,
             "http.route": path.split("?", 1)[0],
-            "tracecat.agent.llm_proxy.route": "direct"
+            "autosecops.agent.llm_proxy.route": "direct"
             if route_is_direct
             else "managed",
-            "tracecat.agent.llm_proxy.trace_request_id": trace_request_id,
-            "tracecat.agent.llm_proxy.attempt": attempt,
+            "autosecops.agent.llm_proxy.trace_request_id": trace_request_id,
+            "autosecops.agent.llm_proxy.attempt": attempt,
         },
         record_exception=False,
         set_status_on_exception=False,
@@ -1198,7 +1198,7 @@ def _upstream_span(
             span.set_attributes(
                 {
                     "http.response.body.size": upstream.size,
-                    "tracecat.agent.llm_proxy.response.chunks": upstream.chunks,
+                    "autosecops.agent.llm_proxy.response.chunks": upstream.chunks,
                 }
             )
 
@@ -1276,10 +1276,10 @@ class LLMSocketProxy:
 
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(
-                connect=app_config.TRACECAT__LLM_GATEWAY_CONNECT_TIMEOUT_SECONDS,
-                read=app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT,
-                write=app_config.TRACECAT__LLM_GATEWAY_WRITE_TIMEOUT_SECONDS,
-                pool=app_config.TRACECAT__LLM_GATEWAY_POOL_TIMEOUT_SECONDS,
+                connect=app_config.AUTOSECOPS__LLM_GATEWAY_CONNECT_TIMEOUT_SECONDS,
+                read=app_config.AUTOSECOPS__LLM_PROXY_READ_TIMEOUT,
+                write=app_config.AUTOSECOPS__LLM_GATEWAY_WRITE_TIMEOUT_SECONDS,
+                pool=app_config.AUTOSECOPS__LLM_GATEWAY_POOL_TIMEOUT_SECONDS,
             ),
             limits=httpx.Limits(
                 max_connections=100,
@@ -2081,7 +2081,7 @@ class LLMSocketProxy:
                 if isinstance(exc, httpx.ReadTimeout):
                     status_code = 504
                     timeout_duration = _format_timeout_duration(
-                        app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT
+                        app_config.AUTOSECOPS__LLM_PROXY_READ_TIMEOUT
                     )
                     detail = (
                         f"Model response timed out after {timeout_duration} "

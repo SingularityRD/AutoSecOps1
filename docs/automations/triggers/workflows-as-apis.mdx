@@ -36,7 +36,7 @@ The response is an envelope with a `kind` field:
 - `download_file`: externalized result. The body has a presigned `download_url`, plus `expires_in_seconds`, `content_type`, and `size_bytes`.
 - `download_export`: materialized collection result. Same fields as `download_file`; `content_type` is always `application/json`.
 
-Results over `TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES` (default 128 KiB) are stored in object storage and returned as a short-lived presigned URL (default 10-second expiry). This keeps the webhook response small and predictable, so synchronous callers never stream megabytes of workflow state through a single HTTP response.
+Results over `AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES` (default 128 KiB) are stored in object storage and returned as a short-lived presigned URL (default 10-second expiry). This keeps the webhook response small and predictable, so synchronous callers never stream megabytes of workflow state through a single HTTP response.
 
 ## Query parameters
 

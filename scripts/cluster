@@ -81,20 +81,20 @@ WORKTREE_ID=$(get_worktree_id)
 # If portless (https://github.com/vercel-labs/portless) is installed and its
 # proxy is reachable, register a stable .localhost alias for the cluster's
 # UI/API port. You then reach the cluster at e.g.
-#   $(portless get "${WORKTREE_ID}.tracecat" --no-worktree)
+#   $(portless get "${WORKTREE_ID}.autosecops" --no-worktree)
 # instead of remembering the rotating localhost:80/180/280/... port.
 #
-# Set TRACECAT__USE_PORTLESS=0 or PORTLESS=0 to disable even when installed.
+# Set AUTOSECOPS__USE_PORTLESS=0 or PORTLESS=0 to disable even when installed.
 
 portless_enabled() {
-    [[ "${TRACECAT__USE_PORTLESS:-1}" != "0" ]] \
+    [[ "${AUTOSECOPS__USE_PORTLESS:-1}" != "0" ]] \
         && [[ "${PORTLESS:-1}" != "0" ]] \
         && [[ "${PORTLESS:-}" != "skip" ]] \
         && command -v portless >/dev/null 2>&1
 }
 
 portless_install_tip() {
-    if [[ "${TRACECAT__USE_PORTLESS:-1}" == "0" ]] || [[ "${PORTLESS:-}" == "0" ]] || [[ "${PORTLESS:-}" == "skip" ]]; then
+    if [[ "${AUTOSECOPS__USE_PORTLESS:-1}" == "0" ]] || [[ "${PORTLESS:-}" == "0" ]] || [[ "${PORTLESS:-}" == "skip" ]]; then
         return
     fi
 
@@ -118,9 +118,9 @@ portless_alias_name() {
     local worktree_id=${2:-$WORKTREE_ID}
 
     if [[ "$cluster_num" == "1" ]]; then
-        echo "${worktree_id}.tracecat"
+        echo "${worktree_id}.autosecops"
     else
-        echo "c${cluster_num}.${worktree_id}.tracecat"
+        echo "c${cluster_num}.${worktree_id}.autosecops"
     fi
 }
 
@@ -177,7 +177,7 @@ portless_url_for_name() {
 
 portless_start_proxy() {
     if ! portless proxy start; then
-        echo "[portless] Could not start proxy. Set TRACECAT__USE_PORTLESS=0 to disable portless integration." >&2
+        echo "[portless] Could not start proxy. Set AUTOSECOPS__USE_PORTLESS=0 to disable portless integration." >&2
         return 1
     fi
 }
@@ -196,7 +196,7 @@ portless_register() {
 
     if ! portless alias "$name" "$port" --force >/dev/null 2>&1; then
         echo "[portless] Could not register alias '${name}'." >&2
-        echo "[portless] Retry, or set TRACECAT__USE_PORTLESS=0 to disable portless integration." >&2
+        echo "[portless] Retry, or set AUTOSECOPS__USE_PORTLESS=0 to disable portless integration." >&2
         return 1
     fi
     echo "[portless] $(portless_url "$cluster_num") -> localhost:${port}"
@@ -212,7 +212,7 @@ portless_register_alias() {
 
     if ! portless alias "$name" "$port" --force >/dev/null 2>&1; then
         echo "[portless] Could not register alias '${name}'." >&2
-        echo "[portless] Retry, or set TRACECAT__USE_PORTLESS=0 to disable portless integration." >&2
+        echo "[portless] Retry, or set AUTOSECOPS__USE_PORTLESS=0 to disable portless integration." >&2
         return 1
     fi
     echo "[portless] $(portless_url_for_name "$name") -> localhost:${port}"
@@ -226,7 +226,7 @@ portless_unregister() {
 }
 
 portless_docs_alias_name() {
-    echo "docs.${WORKTREE_ID}.tracecat"
+    echo "docs.${WORKTREE_ID}.autosecops"
 }
 
 source_env_file() {
@@ -243,7 +243,7 @@ source_env_file() {
 # authoritative experiment configuration. Only the narrow load-test prefix is
 # accepted; values are treated as data and never evaluated as shell code.
 source_loadtest_env_file() {
-    local path="${TRACECAT_LOADTEST_ENV_FILE:-}"
+    local path="${AUTOSECOPS_LOADTEST_ENV_FILE:-}"
     [[ -z "$path" ]] && return
 
     if [[ ! -f "$path" ]]; then
@@ -261,7 +261,7 @@ source_loadtest_env_file() {
         fi
         name="${line%%=*}"
         value="${line#*=}"
-        if [[ ! "$name" =~ ^TRACECAT__LOADTEST_[A-Z0-9_]+$ ]]; then
+        if [[ ! "$name" =~ ^AUTOSECOPS__LOADTEST_[A-Z0-9_]+$ ]]; then
             echo "Error: unsupported load-test environment name '$name' at ${path}:${line_number}" >&2
             exit 1
         fi
@@ -271,7 +271,7 @@ source_loadtest_env_file() {
 
 # Get list of running cluster numbers for this worktree (used for auto-selection)
 get_running_clusters() {
-    local prefix="tracecat-${WORKTREE_ID}-"
+    local prefix="autosecops-${WORKTREE_ID}-"
 
     docker compose ls --format json 2>/dev/null | jq -r '.[].Name' 2>/dev/null | while read -r project; do
         if [[ "$project" == ${prefix}* ]]; then
@@ -288,7 +288,7 @@ get_running_clusters() {
 # falls back to this state when nothing is running; only `up --new` allocates
 # around it.
 get_worktree_cluster_nums() {
-    local prefix="tracecat-${WORKTREE_ID}-"
+    local prefix="autosecops-${WORKTREE_ID}-"
     local projects project
     projects=$(
         {
@@ -344,8 +344,8 @@ get_all_cluster_nums() {
     )
 
     for project in $projects; do
-        # Match any tracecat cluster: tracecat-{worktree}-{num}
-        if [[ "$project" =~ ^tracecat-(.+)-([0-9]+)$ ]]; then
+        # Match any autosecops cluster: autosecops-{worktree}-{num}
+        if [[ "$project" =~ ^autosecops-(.+)-([0-9]+)$ ]]; then
             local cluster_num="${BASH_REMATCH[2]}"
             if [[ "$cluster_num" -ge 1 && "$cluster_num" -le 99 ]]; then
                 echo "$cluster_num"
@@ -517,11 +517,11 @@ Profiles:
   prod      docker-compose.yml
 
 Tenant mode:
-  Always defaults to TRACECAT__EE_MULTI_TENANT=true for cluster development.
+  Always defaults to AUTOSECOPS__EE_MULTI_TENANT=true for cluster development.
   .env and shell values are ignored; only the flags below override it.
-  --single-tenant                 Set TRACECAT__EE_MULTI_TENANT=false
-  --multi-tenant                  Set TRACECAT__EE_MULTI_TENANT=true
-  --ee-multi-tenant true|false    Set TRACECAT__EE_MULTI_TENANT explicitly
+  --single-tenant                 Set AUTOSECOPS__EE_MULTI_TENANT=false
+  --multi-tenant                  Set AUTOSECOPS__EE_MULTI_TENANT=true
+  --ee-multi-tenant true|false    Set AUTOSECOPS__EE_MULTI_TENANT explicitly
 
 Sandbox mode:
   Enabled by default for cluster development.
@@ -681,7 +681,7 @@ build_env() {
     fi
 
     # Export all variables (include worktree ID for isolation)
-    export COMPOSE_PROJECT_NAME="tracecat-${WORKTREE_ID}-${cluster_num}"
+    export COMPOSE_PROJECT_NAME="autosecops-${WORKTREE_ID}-${cluster_num}"
     export PUBLIC_APP_PORT
     export PUBLIC_APP_URL
     export PUBLIC_API_URL
@@ -705,8 +705,8 @@ build_env() {
     # Always compute public URLs per cluster so `just`-loaded `.env` values from
     # cluster 1 do not leak into other clusters. Use explicit override vars for
     # tunnels or custom public hosts when needed.
-    export TRACECAT__PUBLIC_APP_URL="${PUBLIC_APP_URL}"
-    export TRACECAT__PUBLIC_API_URL="${PUBLIC_API_URL}"
+    export AUTOSECOPS__PUBLIC_APP_URL="${PUBLIC_APP_URL}"
+    export AUTOSECOPS__PUBLIC_API_URL="${PUBLIC_API_URL}"
     export NEXT_PUBLIC_APP_URL="${PUBLIC_APP_URL}"
     export NEXT_PUBLIC_API_URL="${PUBLIC_API_URL}"
 
@@ -714,20 +714,20 @@ build_env() {
     export BASE_DOMAIN=":${PUBLIC_APP_PORT}"
 
     if [[ "$CLUSTER_USE_SANDBOX_COMPOSE" == "true" ]]; then
-        export TRACECAT__EXECUTOR_BACKEND=nsjail
+        export AUTOSECOPS__EXECUTOR_BACKEND=nsjail
     else
         # Default to direct executor backend for development
-        export TRACECAT__EXECUTOR_BACKEND=direct
+        export AUTOSECOPS__EXECUTOR_BACKEND=direct
     fi
 
     # Cluster development always defaults to multi-tenant mode. Only the
     # explicit cluster flags (--single-tenant / --multi-tenant /
     # --ee-multi-tenant) override it; .env and shell values are ignored so
     # fresh worktrees behave consistently.
-    export TRACECAT__EE_MULTI_TENANT="${CLUSTER_EE_MULTI_TENANT:-true}"
+    export AUTOSECOPS__EE_MULTI_TENANT="${CLUSTER_EE_MULTI_TENANT:-true}"
     FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from autosecops.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
     if [[ -n "$FEATURE_FLAGS" ]]; then
-        export TRACECAT__FEATURE_FLAGS="$FEATURE_FLAGS"
+        export AUTOSECOPS__FEATURE_FLAGS="$FEATURE_FLAGS"
     fi
 }
 
@@ -762,11 +762,11 @@ list_clusters() {
     echo ""
 
     local found=false
-    local current_worktree_prefix="tracecat-${WORKTREE_ID}-"
+    local current_worktree_prefix="autosecops-${WORKTREE_ID}-"
 
     for project in $(docker compose ls --format json 2>/dev/null | jq -r '.[].Name' 2>/dev/null || docker compose ls -q 2>/dev/null); do
-        # Match any tracecat cluster: tracecat-{worktree}-{num}
-        if [[ "$project" =~ ^tracecat-(.+)-([0-9]+)$ ]]; then
+        # Match any autosecops cluster: autosecops-{worktree}-{num}
+        if [[ "$project" =~ ^autosecops-(.+)-([0-9]+)$ ]]; then
             found=true
             local project_worktree="${BASH_REMATCH[1]}"
             local cluster_num="${BASH_REMATCH[2]}"
@@ -892,7 +892,7 @@ shift
 # before it creates any local runtime state.
 if [[ "$COMMAND" == "loadtest" ]]; then
     cd "$REPO_ROOT"
-    export TRACECAT_LOADTEST_REPO_ROOT="$REPO_ROOT"
+    export AUTOSECOPS_LOADTEST_REPO_ROOT="$REPO_ROOT"
     exec uv run --all-packages autosecops-benchmark "$@"
 fi
 
@@ -1073,8 +1073,8 @@ if [[ "$AUTO_SELECT" == "true" ]]; then
             CLUSTER_NUM=$(echo "$nuke_running" | select_cluster_interactive)
         else
             # No running cluster, check for orphaned volumes
-            ORPHAN_VOLUME=$(docker volume ls --format "{{.Name}}" | grep "^tracecat-${WORKTREE_ID}-" | head -1 || true)
-            if [[ -n "$ORPHAN_VOLUME" && "$ORPHAN_VOLUME" =~ ^tracecat-${WORKTREE_ID}-([0-9]+)_ ]]; then
+            ORPHAN_VOLUME=$(docker volume ls --format "{{.Name}}" | grep "^autosecops-${WORKTREE_ID}-" | head -1 || true)
+            if [[ -n "$ORPHAN_VOLUME" && "$ORPHAN_VOLUME" =~ ^autosecops-${WORKTREE_ID}-([0-9]+)_ ]]; then
                 CLUSTER_NUM="${BASH_REMATCH[1]}"
                 echo "Found orphaned volumes for cluster ${CLUSTER_NUM}"
             else
@@ -1100,7 +1100,7 @@ done
 # Handle 'compose-files' command - dry run that prints the resolved compose
 # invocation without touching Docker. Useful for verifying flag parsing.
 if [[ "$COMMAND" == "compose-files" ]]; then
-    echo "Project:  tracecat-${WORKTREE_ID}-${CLUSTER_NUM}"
+    echo "Project:  autosecops-${WORKTREE_ID}-${CLUSTER_NUM}"
     echo "Profile:  ${PROFILE}"
     echo "Compose files:"
     for compose_arg in "${COMPOSE_FILES[@]}"; do
@@ -1148,8 +1148,8 @@ if [[ "$COMMAND" == "db" ]]; then
     fi
 
     calculate_ports "$CLUSTER_NUM"
-    pg_user="${TRACECAT__POSTGRES_USER:-postgres}"
-    pg_pass="${TRACECAT__POSTGRES_PASSWORD:-postgres}"
+    pg_user="${AUTOSECOPS__POSTGRES_USER:-postgres}"
+    pg_pass="${AUTOSECOPS__POSTGRES_PASSWORD:-postgres}"
 
     echo "Opening TablePlus for cluster ${WORKTREE_ID}-${CLUSTER_NUM} (port ${PG_PORT})..."
     open -a TablePlus "postgresql://${pg_user}:${pg_pass}@localhost:${PG_PORT}/postgres?sslmode=disable"
@@ -1167,34 +1167,34 @@ if [[ "$COMMAND" == "attach" ]]; then
     build_env "$CLUSTER_NUM"
 
     # Try bash first, fall back to sh
-    exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" exec "$SERVICE" /bin/bash "$@" 2>/dev/null \
-        || exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" exec "$SERVICE" /bin/sh "$@"
+    exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" exec "$SERVICE" /bin/bash "$@" 2>/dev/null \
+        || exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" exec "$SERVICE" /bin/sh "$@"
 fi
 
 # Handle 'restart' command
 if [[ "$COMMAND" == "restart" ]]; then
     build_env "$CLUSTER_NUM"
-    exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" restart "$@"
+    exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" restart "$@"
 fi
 
 # Handle 'rm' command - down + remove volumes
 if [[ "$COMMAND" == "rm" ]]; then
     build_env "$CLUSTER_NUM"
     portless_enabled && portless_unregister "$CLUSTER_NUM"
-    exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" down --volumes --remove-orphans "$@"
+    exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" down --volumes --remove-orphans "$@"
 fi
 
 # Handle 'down' command - stop containers and remove the stale portless alias.
 if [[ "$COMMAND" == "down" ]]; then
     build_env "$CLUSTER_NUM"
     portless_enabled && portless_unregister "$CLUSTER_NUM"
-    exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" down "$@"
+    exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" down "$@"
 fi
 
 # Handle 'nuke' command - destroy cluster and optionally volumes/images
 if [[ "$COMMAND" == "nuke" ]]; then
     build_env "$CLUSTER_NUM"
-    PROJECT_NAME="tracecat-${WORKTREE_ID}-${CLUSTER_NUM}"
+    PROJECT_NAME="autosecops-${WORKTREE_ID}-${CLUSTER_NUM}"
 
     # Parse nuke options
     NUKE_IMAGES=false
@@ -1324,7 +1324,7 @@ fi
 
 # If portless is available and the user is bringing the cluster up, register a
 # stable .localhost alias and steer the app's PUBLIC_APP_URL through it. Must
-# happen before build_env so the override flows into TRACECAT__PUBLIC_APP_URL,
+# happen before build_env so the override flows into AUTOSECOPS__PUBLIC_APP_URL,
 # NEXT_PUBLIC_APP_URL, etc.
 if [[ "$COMMAND" == "up" ]] && portless_enabled && [[ -z "${CLUSTER_PUBLIC_APP_URL_OVERRIDE:-}" ]]; then
     calculate_ports "$CLUSTER_NUM"
@@ -1354,7 +1354,7 @@ if [[ "$COMMAND" == "up" || "$COMMAND" == "seed" ]] \
     # Auto-populate all feature flags for dev environment
     FEATURE_FLAGS=$(cd "$REPO_ROOT" && uv run python -c "from autosecops.feature_flags.enums import FeatureFlag; print(','.join(f.value for f in FeatureFlag))" 2>/dev/null) || FEATURE_FLAGS=""
     if [[ -n "$FEATURE_FLAGS" ]]; then
-        echo "TRACECAT__FEATURE_FLAGS=${FEATURE_FLAGS}" >> "$ENV_FILE"
+        echo "AUTOSECOPS__FEATURE_FLAGS=${FEATURE_FLAGS}" >> "$ENV_FILE"
         echo "Enabled all feature flags: $FEATURE_FLAGS"
     fi
 fi
@@ -1370,7 +1370,7 @@ source_loadtest_env_file
 build_env "$CLUSTER_NUM"
 
 if [[ "$COMMAND" == "up" ]]; then
-    echo "EE multi-tenant: ${TRACECAT__EE_MULTI_TENANT}"
+    echo "EE multi-tenant: ${AUTOSECOPS__EE_MULTI_TENANT}"
 fi
 
 # Sync dependencies before the first cluster start or standalone dev seed.
@@ -1396,7 +1396,7 @@ if [[ "$COMMAND" == "up" && "$PROFILE" == "dev" ]]; then
     SEED_USER=true
 fi
 DETACHED_UP=false
-DEFAULT_TIER_ENTITLEMENTS="${TRACECAT__DEV_DEFAULT_TIER_ENTITLEMENTS:-all}"
+DEFAULT_TIER_ENTITLEMENTS="${AUTOSECOPS__DEV_DEFAULT_TIER_ENTITLEMENTS:-all}"
 UP_ARGS=()
 if [[ "$COMMAND" == "up" ]]; then
     while [[ $# -gt 0 ]]; do
@@ -1479,19 +1479,19 @@ seed_dev_user() {
         return 1
     fi
 
-    local seed_email="${TRACECAT__DEV_USER_EMAIL:-dev@autosecops.example}"
-    local seed_password="${TRACECAT__DEV_USER_PASSWORD:-password1234}"
-    local seed_superuser_email="${TRACECAT__DEV_SUPERUSER_EMAIL:-test@autosecops.example}"
-    local seed_superuser_password="${TRACECAT__DEV_SUPERUSER_PASSWORD:-password1234}"
-    local seed_org_role="${TRACECAT__DEV_ORG_ROLE:-organization-owner}"
-    local seed_workspace_role="${TRACECAT__DEV_WORKSPACE_ROLE:-workspace-admin}"
+    local seed_email="${AUTOSECOPS__DEV_USER_EMAIL:-dev@autosecops.example}"
+    local seed_password="${AUTOSECOPS__DEV_USER_PASSWORD:-password1234}"
+    local seed_superuser_email="${AUTOSECOPS__DEV_SUPERUSER_EMAIL:-test@autosecops.example}"
+    local seed_superuser_password="${AUTOSECOPS__DEV_SUPERUSER_PASSWORD:-password1234}"
+    local seed_org_role="${AUTOSECOPS__DEV_ORG_ROLE:-organization-owner}"
+    local seed_workspace_role="${AUTOSECOPS__DEV_WORKSPACE_ROLE:-workspace-admin}"
     local seed_default_tier_entitlements="${DEFAULT_TIER_ENTITLEMENTS}"
     local seed_db_uri="postgresql+psycopg://postgres:postgres@localhost:${PG_PORT}/postgres"
 
     echo "[dev-seed] Seeding dev superuser (${seed_superuser_email}), tenant user (${seed_email}), and default tier (${seed_default_tier_entitlements})..."
     (
         cd "$REPO_ROOT"
-        TRACECAT__DB_URI="$seed_db_uri" \
+        AUTOSECOPS__DB_URI="$seed_db_uri" \
             uv run autosecops admin create-dev-user \
             --email "$seed_email" \
             --password "$seed_password" \
@@ -1511,13 +1511,13 @@ fi
 # Run docker compose with the configured environment
 if [[ "$SEED_USER" == "true" && "$COMMAND" == "up" ]]; then
     if [[ "$DETACHED_UP" == "true" ]]; then
-        docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
+        docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
         seed_dev_user
     else
         # Keep compose attached while a background seeder waits for API readiness.
         seed_dev_user &
-        exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
+        exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
     fi
 else
-    exec docker compose "${COMPOSE_FILES[@]}" -p "tracecat-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
+    exec docker compose "${COMPOSE_FILES[@]}" -p "autosecops-${WORKTREE_ID}-${CLUSTER_NUM}" "$COMMAND" "$@"
 fi

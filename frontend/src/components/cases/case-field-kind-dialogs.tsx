@@ -11,7 +11,7 @@ import { useTheme } from "next-themes"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { CaseDescriptionEditor } from "@/components/cases/case-description-editor"
 import { CaseValueDrawer } from "@/components/cases/case-value-drawer"
-import { tracecatSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
+import { autosecopsSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
 import { Button } from "@/components/ui/button"
 
 // The expandable field editors (long text, JSON) open in the case page's
@@ -154,7 +154,7 @@ export function JsonFieldDrawer({
   const extensions = useMemo(
     () => [
       json(),
-      tracecatSyntaxHighlighting,
+      autosecopsSyntaxHighlighting,
       lintGutter(),
       linter(jsonLinter),
       history(),

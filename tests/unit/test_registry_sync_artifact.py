@@ -27,17 +27,17 @@ async def test_upload_squashfs_venv_uploads_only_squashfs(
     uri = await artifact.upload_squashfs_venv(
         squashfs_path=squashfs_path,
         key="platform/tarball-venvs/autosecops_registry/v1/site-packages.squashfs",
-        bucket="tracecat-registry",
+        bucket="autosecops-registry",
     )
 
     assert uri == (
-        "s3://tracecat-registry/platform/tarball-venvs/autosecops_registry/v1/"
+        "s3://autosecops-registry/platform/tarball-venvs/autosecops_registry/v1/"
         "site-packages.squashfs"
     )
     upload_file_from_path.assert_awaited_once_with(
         path=squashfs_path,
         key="platform/tarball-venvs/autosecops_registry/v1/site-packages.squashfs",
-        bucket="tracecat-registry",
+        bucket="autosecops-registry",
         content_type="application/vnd.squashfs",
     )
 
@@ -165,12 +165,14 @@ def test_create_squashfs_image_makes_mount_root_traversable(
     image_path = tmp_path / "site-packages.squashfs"
 
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_PROCESSORS", 2
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_PROCESSORS", 2
     )
-    monkeypatch.setattr(artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_MEM", "256M")
+    monkeypatch.setattr(
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_MEM", "256M"
+    )
     monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
 
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
@@ -201,7 +203,7 @@ def test_create_squashfs_image_makes_restrictive_files_readable(
     image_path = tmp_path / "site-packages.squashfs"
 
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
     monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
 
@@ -232,7 +234,7 @@ def test_create_squashfs_image_preserves_symlinks(
     image_path = tmp_path / "site-packages.squashfs"
 
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
     monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
 
@@ -276,7 +278,7 @@ async def test_build_artifact_from_installed_environment_overlays_symlinked_pack
         lambda: [purelib],
     )
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
     monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
 
@@ -329,7 +331,7 @@ async def test_build_artifact_from_installed_environment_skips_unrelated_symlink
         lambda: [purelib],
     )
     monkeypatch.setattr(
-        artifact.config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True
+        artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
     monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
 
@@ -362,5 +364,5 @@ async def test_upload_squashfs_venv_raises_if_image_missing(tmp_path: Path) -> N
         await upload_squashfs_venv(
             squashfs_path=tmp_path / "missing.squashfs",
             key="org/tarball-venvs/x/v1/site-packages.squashfs",
-            bucket="tracecat-registry",
+            bucket="autosecops-registry",
         )

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { buildContentSecurityPolicyFromEnv } from "@/lib/csp"
 
-// `TRACECAT__CSP_CONNECT_SRC_ORIGINS` is read from the runtime environment once
+// `AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS` is read from the runtime environment once
 // at cold start, so the server must be restarted for a change to take effect.
 // `NEXT_PUBLIC_POSTHOG_KEY` is inlined at build time when it is set during
 // `next build`, which is also the only configuration in which the PostHog
@@ -10,8 +10,8 @@ import { buildContentSecurityPolicyFromEnv } from "@/lib/csp"
 // what Next's build-time inlining matches.
 const CONTENT_SECURITY_POLICY = buildContentSecurityPolicyFromEnv({
   NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
-  TRACECAT__CSP_CONNECT_SRC_ORIGINS:
-    process.env.TRACECAT__CSP_CONNECT_SRC_ORIGINS,
+  AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS:
+    process.env.AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS,
 })
 
 function middleware() {

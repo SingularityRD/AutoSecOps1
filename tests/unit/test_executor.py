@@ -145,12 +145,12 @@ def make_registry_lock(
     ("role", "expected"),
     [
         pytest.param(
-            Role(type="service", service_id="tracecat-mcp"),
+            Role(type="service", service_id="autosecops-mcp"),
             "agent",
             id="agent-service",
         ),
         pytest.param(
-            Role(type="service", service_id="tracecat-executor"),
+            Role(type="service", service_id="autosecops-executor"),
             "workflow",
             id="workflow",
         ),
@@ -199,10 +199,10 @@ async def test_template_step_token_preserves_root_execution_claims(
     mock_run_context: RunContext,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -262,10 +262,10 @@ def test_workflow_token_omits_untrusted_agent_session_id(
     mock_run_context: RunContext,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     role = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -328,7 +328,7 @@ async def test_executor_can_run_udf_with_secrets(
 
     from autosecops import config
 
-    monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     # Arrange
     repo = Repository()
@@ -527,7 +527,7 @@ async def test_executor_can_run_udf_with_oauth(
 
     from autosecops import config
 
-    monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     # Test OAuth token value
     oauth_token_value = "__TEST_UDF_OAUTH_TOKEN_VALUE__"
@@ -723,7 +723,7 @@ async def test_dispatch_action_for_each_uses_configured_worker_limit(
     test_role,
     mock_run_context,
 ):
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY", 2)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY", 2)
 
     active_iterations = 0
     max_active_iterations = 0
@@ -774,7 +774,7 @@ async def test_dispatch_action_for_each_finishes_after_iteration_error(
     test_role,
     mock_run_context,
 ):
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY", 1)
 
     seen: list[int] = []
 

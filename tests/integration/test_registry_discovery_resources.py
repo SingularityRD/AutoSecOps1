@@ -27,8 +27,8 @@ def _real_nsjail_available() -> bool:
     """Return whether this host can run the real registry discovery jail."""
     return (
         sys.platform == "linux"
-        and Path(config.TRACECAT__SANDBOX_NSJAIL_PATH).is_file()
-        and Path(config.TRACECAT__SANDBOX_ROOTFS_PATH).is_dir()
+        and Path(config.AUTOSECOPS__SANDBOX_NSJAIL_PATH).is_file()
+        and Path(config.AUTOSECOPS__SANDBOX_ROOTFS_PATH).is_dir()
     )
 
 

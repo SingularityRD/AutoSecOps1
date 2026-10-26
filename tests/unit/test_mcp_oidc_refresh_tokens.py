@@ -24,14 +24,14 @@ from autosecops.mcp.oidc.schemas import RefreshTokenMetadata
 
 pytestmark = pytest.mark.usefixtures("db")
 
-_TEST_CLIENT_ID = "tracecat-mcp-oidc-internal"
+_TEST_CLIENT_ID = "autosecops-mcp-oidc-internal"
 
 
 @pytest.fixture(autouse=True)
 def encryption_key(monkeypatch: pytest.MonkeyPatch) -> str:
     """Set up Fernet encryption key for the metadata blob."""
     key = Fernet.generate_key().decode()
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", key)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key)
     return key
 
 

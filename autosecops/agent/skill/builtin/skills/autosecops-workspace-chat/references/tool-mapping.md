@@ -9,7 +9,7 @@ complete argument shapes.
 
 - `list_workspaces`: unavailable and unnecessary. Never pass `workspace_id` to a Workspace Chat
   registry action.
-- `tracecat://platform/dsl-reference`: unavailable. Search `references/docs/` locally, using
+- `autosecops://platform/dsl-reference`: unavailable. Search `references/docs/` locally, using
   `references/docs/docs.json` as the navigation index.
 - `list_actions`, `get_action_context`, and `get_workflow_authoring_context`: use
   `core.workflow.get_authoring_context`. Pass either `action_names=[...]` or `query=...`; do not

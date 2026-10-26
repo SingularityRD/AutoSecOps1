@@ -136,7 +136,7 @@ def bootstrap_role(organization_id: OrganizationID | None = None) -> Role:
     """
     return Role(
         type="service",
-        service_id="tracecat-bootstrap",
+        service_id="autosecops-bootstrap",
         organization_id=organization_id,
         is_platform_superuser=True,
         scopes=frozenset({"*"}),
@@ -170,28 +170,28 @@ async def get_default_organization_id(session: AsyncSession) -> OrganizationID:
     return org.id
 
 
-def tracecat_exception_handler(request: Request, exc: Exception) -> Response:
+def autosecops_exception_handler(request: Request, exc: Exception) -> Response:
     """Generic exception handler for AutoSecOps exceptions.
 
     We can customize exceptions to expose only what should be user facing.
     """
-    tracecat_exc = (
+    autosecops_exc = (
         exc if isinstance(exc, TracecatException) else TracecatException(str(exc))
     )
-    msg = str(tracecat_exc)
+    msg = str(autosecops_exc)
     logger.error(
         msg,
         role=ctx_role.get(),
         params=request.query_params,
         path=request.url.path,
-        detail=tracecat_exc.detail,
+        detail=autosecops_exc.detail,
     )
     return ORJSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "type": type(exc).__name__,
             "message": msg,
-            "detail": tracecat_exc.detail,
+            "detail": autosecops_exc.detail,
         },
     )
 

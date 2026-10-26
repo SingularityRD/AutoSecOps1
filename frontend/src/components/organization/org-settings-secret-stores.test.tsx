@@ -41,7 +41,7 @@ jest.mock("@/hooks/use-secret-stores", () => ({
   }),
 }))
 
-const ROLE_ARN = "arn:aws:iam::123456789012:role/tracecat-secrets-reader"
+const ROLE_ARN = "arn:aws:iam::123456789012:role/autosecops-secrets-reader"
 
 function draftStore(overrides: Partial<SecretStoreRead> = {}): SecretStoreRead {
   return {
@@ -49,11 +49,11 @@ function draftStore(overrides: Partial<SecretStoreRead> = {}): SecretStoreRead {
     organization_id: "org-1",
     name: "prod",
     provider: "aws_secrets_manager",
-    config: { region: "us-east-1", external_id: "tracecat-test-external-id" },
+    config: { region: "us-east-1", external_id: "autosecops-test-external-id" },
     enabled: false,
     all_workspaces: false,
-    tracecat_aws_principal_arn:
-      "arn:aws:iam::210987654321:role/tracecat-executor",
+    autosecops_aws_principal_arn:
+      "arn:aws:iam::210987654321:role/autosecops-executor",
     created_at: "2026-10-02T00:00:00Z",
     updated_at: "2026-10-02T00:00:00Z",
     ...overrides,
@@ -66,7 +66,7 @@ function enabledStore(overrides: Partial<SecretStoreRead> = {}) {
     config: {
       role_arn: ROLE_ARN,
       region: "us-east-1",
-      external_id: "tracecat-test-external-id",
+      external_id: "autosecops-test-external-id",
     },
     ...overrides,
   })
@@ -139,7 +139,7 @@ describe("CreateSecretStoreDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
 
     expect(await screen.findByLabelText("Trust policy")).toHaveTextContent(
-      "tracecat-test-external-id"
+      "autosecops-test-external-id"
     )
     expect(screen.getByRole("dialog")).toHaveTextContent("Connect the AWS role")
     expect(mockCreateStore).toHaveBeenCalledWith({
@@ -235,7 +235,7 @@ describe("Store list", () => {
     const dialog = screen.getByRole("dialog")
     expect(within(dialog).getByLabelText("Role ARN")).toBeInTheDocument()
     expect(within(dialog).getByLabelText("Trust policy")).toHaveTextContent(
-      "tracecat-test-external-id"
+      "autosecops-test-external-id"
     )
   })
 
@@ -246,7 +246,7 @@ describe("Store list", () => {
     await user.click(screen.getByRole("button", { name: "prod" }))
 
     expect(screen.getByLabelText("Trust policy")).toHaveTextContent(
-      "tracecat-test-external-id"
+      "autosecops-test-external-id"
     )
     await user.click(screen.getByRole("tab", { name: "Permissions policy" }))
     expect(screen.getByLabelText("Permissions policy")).toHaveTextContent(
@@ -269,7 +269,7 @@ describe("Store list", () => {
       screen.getByRole("button", { name: "Copy trust policy" })
     ).toHaveTextContent("Copied")
     expect(await navigator.clipboard.readText()).toContain(
-      "tracecat-test-external-id"
+      "autosecops-test-external-id"
     )
 
     await user.click(screen.getByRole("tab", { name: "Permissions policy" }))

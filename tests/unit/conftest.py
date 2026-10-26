@@ -35,21 +35,21 @@ def temporal_start_client() -> tuple[Client, AsyncMock]:
 
 @pytest.fixture
 def smtp_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SMTP_HOST", "smtp.example.com")
-    monkeypatch.setattr(config, "TRACECAT__SMTP_PORT", 587)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_USER", "relay")
-    monkeypatch.setattr(config, "TRACECAT__SMTP_PASSWORD", "secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_PORT", 587)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_USER", "relay")
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_PASSWORD", "secret")
     monkeypatch.setattr(
-        config, "TRACECAT__EMAIL_FROM", "AutoSecOps <no-reply@example.com>"
+        config, "AUTOSECOPS__EMAIL_FROM", "AutoSecOps <no-reply@example.com>"
     )
 
 
 @pytest.fixture
 def smtp_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SMTP_HOST", None)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_USER", None)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_PASSWORD", None)
-    monkeypatch.setattr(config, "TRACECAT__EMAIL_FROM", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_HOST", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_USER", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_PASSWORD", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__EMAIL_FROM", None)
 
 
 # ----- Forms -----
@@ -97,7 +97,7 @@ def intake_role(svc_workspace: Workspace, requester: User) -> Role:
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=requester.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=INTAKE_SCOPES,
     )
 
@@ -139,6 +139,6 @@ async def api_key_role(session: AsyncSession, svc_workspace: Workspace) -> Role:
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         service_account_id=account.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=INTAKE_SCOPES,
     )

@@ -26,7 +26,7 @@ from autosecops.agent.common.types import (
     MCPServerToolSummary,
     MCPStdioServerConfig,
 )
-from autosecops.agent.mcp.utils import is_tracecat_registry_server_name
+from autosecops.agent.mcp.utils import is_autosecops_registry_server_name
 from autosecops.agent.preset.resolver import resolve_agents_config
 from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
@@ -298,8 +298,8 @@ class AgentPresetService(BaseWorkspaceService):
         return AgentPresetToolPolicyRead(
             actions=list(policy.actions),
             skill_actions=list(policy.skill_actions),
-            max_tools=config.TRACECAT__AGENT_MAX_TOOLS
-            if config.TRACECAT__AGENT_MAX_TOOLS > 0
+            max_tools=config.AUTOSECOPS__AGENT_MAX_TOOLS
+            if config.AUTOSECOPS__AGENT_MAX_TOOLS > 0
             else None,
             requires_internet_access=policy.requires_internet_access,
             has_approvals=has_manual_tool_approvals(policy.tool_approvals),
@@ -379,7 +379,7 @@ class AgentPresetService(BaseWorkspaceService):
 
     @staticmethod
     def _validate_effective_tool_count(policy: EffectivePresetTools) -> None:
-        max_tools = config.TRACECAT__AGENT_MAX_TOOLS
+        max_tools = config.AUTOSECOPS__AGENT_MAX_TOOLS
         if max_tools > 0 and len(policy.actions) > max_tools:
             raise TracecatValidationError(
                 f"Cannot request more than {max_tools} tools",
@@ -1523,7 +1523,7 @@ class AgentPresetService(BaseWorkspaceService):
                     },
                 )
                 continue
-            if is_tracecat_registry_server_name(mcp_integration.slug):
+            if is_autosecops_registry_server_name(mcp_integration.slug):
                 raise TracecatValidationError(
                     "MCP integration slug conflicts with the built-in registry. "
                     "Recreate the integration to assign a safe slug.",

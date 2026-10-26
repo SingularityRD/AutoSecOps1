@@ -63,7 +63,7 @@ async def test_publish_does_not_cap_unconsumed_jobs(
 
     assert message_id == "1-0"
     redis_mock.xadd.assert_awaited_once_with(
-        stream_key=config.TRACECAT__CASE_DURATION_SYNC_STREAM_KEY,
+        stream_key=config.AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY,
         fields={
             "workspace_id": str(workspace_id),
             "reason": "case_event",

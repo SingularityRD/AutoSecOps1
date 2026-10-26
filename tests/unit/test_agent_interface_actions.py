@@ -21,7 +21,7 @@ from autosecops.registry.lock.types import RegistryLock
 
 @pytest.mark.anyio
 async def test_slackbot_implementation_cannot_run_in_executor() -> None:
-    assert getattr(slack.slackbot, "__tracecat_udf_kwargs")["deprecated"] is None
+    assert getattr(slack.slackbot, "__autosecops_udf_kwargs")["deprecated"] is None
     with pytest.raises(ActionIsInterfaceError):
         await slack.slackbot(
             event=None,
@@ -82,7 +82,7 @@ async def test_slackbot_interface_prepares_direct_agent_config(
             action="ai.slackbot",
             args={},
             operand=create_default_execution_context(),
-            role=Role(type="service", service_id="tracecat-api"),
+            role=Role(type="service", service_id="autosecops-api"),
             task_environment=None,
             default_environment="default",
             registry_lock=RegistryLock(origins={}, actions={}),
@@ -142,7 +142,7 @@ async def test_slackbot_prepare_failure_after_ack_clears_slack(
                 action="ai.slackbot",
                 args={},
                 operand=create_default_execution_context(),
-                role=Role(type="service", service_id="tracecat-api"),
+                role=Role(type="service", service_id="autosecops-api"),
                 task_environment=None,
                 default_environment="default",
                 registry_lock=RegistryLock(origins={}, actions={}),
@@ -178,7 +178,7 @@ async def test_build_agent_args_activity_does_not_prepare_slackbot(
             action="ai.slackbot",
             args={},
             operand=create_default_execution_context(),
-            role=Role(type="service", service_id="tracecat-api"),
+            role=Role(type="service", service_id="autosecops-api"),
             task_environment=None,
             default_environment="default",
             registry_lock=RegistryLock(origins={}, actions={}),

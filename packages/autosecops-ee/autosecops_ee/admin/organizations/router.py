@@ -36,7 +36,7 @@ router = APIRouter(prefix="/organizations", tags=["admin:organizations"])
 
 
 def _require_multi_tenant() -> None:
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return
     raise HTTPException(
         status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -175,9 +175,9 @@ async def list_organization_invitations(
     org_id: uuid.UUID,
     invitation_status: InvitationStatus | None = Query(None, alias="status"),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),

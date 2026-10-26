@@ -53,11 +53,11 @@ def test_role_acl_extracts_internal_service_key_for_service_only_route(
     role_acl_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(credentials.config, "TRACECAT__SERVICE_KEY", "service-secret")
+    monkeypatch.setattr(credentials.config, "AUTOSECOPS__SERVICE_KEY", "service-secret")
     monkeypatch.setattr(
         credentials.config,
-        "TRACECAT__SERVICE_ROLES_WHITELIST",
-        ["tracecat-service"],
+        "AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+        ["autosecops-service"],
     )
 
     @role_acl_app.get("/service")
@@ -73,26 +73,26 @@ def test_role_acl_extracts_internal_service_key_for_service_only_route(
     response = TestClient(role_acl_app).get(
         "/service",
         headers={
-            "x-tracecat-service-key": "service-secret",
-            "x-tracecat-role-service-id": "tracecat-service",
+            "x-autosecops-service-key": "service-secret",
+            "x-autosecops-role-service-id": "autosecops-service",
         },
     )
 
     assert response.status_code == 200
     assert response.json() == {
         "role_type": "service",
-        "service_id": "tracecat-service",
+        "service_id": "autosecops-service",
     }
 
 
-def test_role_acl_threads_tracecat_api_key_and_workspace_query(
+def test_role_acl_threads_autosecops_api_key_and_workspace_query(
     role_acl_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     workspace_id = uuid.uuid4()
     service_account_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
@@ -133,7 +133,7 @@ def test_role_acl_threads_tracecat_api_key_and_workspace_query(
     )
 
 
-def test_role_acl_rejects_legacy_tracecat_api_key_header(
+def test_role_acl_rejects_legacy_autosecops_api_key_header(
     role_acl_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -152,7 +152,7 @@ def test_role_acl_rejects_legacy_tracecat_api_key_header(
 
     response = TestClient(role_acl_app).get(
         "/api-key-legacy",
-        headers={"x-tracecat-api-key": "tc_ws_sk_managed-api-key_secret"},
+        headers={"x-autosecops-api-key": "tc_ws_sk_managed-api-key_secret"},
     )
 
     assert response.status_code == 403
@@ -166,7 +166,7 @@ def test_role_acl_auto_workspace_uses_path_context(
     workspace_id = uuid.uuid4()
     service_account_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
@@ -272,7 +272,7 @@ def test_role_acl_combined_service_and_api_key_route_uses_service_key_fallback(
 ) -> None:
     service_role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         scopes=frozenset({"workflow:read"}),
     )
     authenticate_service = AsyncMock(return_value=service_role)
@@ -294,27 +294,27 @@ def test_role_acl_combined_service_and_api_key_route_uses_service_key_fallback(
     response = TestClient(role_acl_app).get(
         "/either",
         headers={
-            "x-tracecat-service-key": "service-secret",
-            "x-tracecat-role-service-id": "tracecat-service",
+            "x-autosecops-service-key": "service-secret",
+            "x-autosecops-role-service-id": "autosecops-service",
         },
     )
 
     assert response.status_code == 200
     assert response.json() == {
         "role_type": "service",
-        "service_id": "tracecat-service",
+        "service_id": "autosecops-service",
     }
     authenticate_api_key.assert_not_awaited()
     authenticate_service.assert_awaited_once_with(ANY, "service-secret")
 
 
-def test_role_acl_prefers_tracecat_api_key_when_both_headers_are_present(
+def test_role_acl_prefers_autosecops_api_key_when_both_headers_are_present(
     role_acl_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service_account_role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:read"}),
@@ -339,15 +339,15 @@ def test_role_acl_prefers_tracecat_api_key_when_both_headers_are_present(
         "/either-priority",
         headers={
             "Authorization": "Bearer tc_org_sk_managed-api-key_secret",
-            "x-tracecat-service-key": "service-secret",
-            "x-tracecat-role-service-id": "tracecat-service",
+            "x-autosecops-service-key": "service-secret",
+            "x-autosecops-role-service-id": "autosecops-service",
         },
     )
 
     assert response.status_code == 200
     assert response.json() == {
         "role_type": "service_account",
-        "service_id": "tracecat-api",
+        "service_id": "autosecops-api",
     }
     authenticate_api_key.assert_awaited_once_with(
         api_key="tc_org_sk_managed-api-key_secret",

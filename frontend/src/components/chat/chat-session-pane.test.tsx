@@ -351,7 +351,7 @@ describe("ChatSessionPane optimistic first send", () => {
 })
 
 const BUBBLE = "session-1:turn-1"
-const TOOL = "mcp__tracecat__core__workflow__execute"
+const TOOL = "mcp__autosecops__core__workflow__execute"
 const CALLS = ["first", "second", "third"]
 const PROMPT: UIMessage = {
   id: "prompt",
@@ -900,7 +900,7 @@ describe("ChatSessionPane denied calls", () => {
             input: { operation: "first" },
             errorText: DENIED_RESULT_TEXT,
             callProviderMetadata: {
-              tracecat: { approval: "rejected", reason: "Not this one" },
+              autosecops: { approval: "rejected", reason: "Not this one" },
             },
           } as UIMessage["parts"][number],
         ],

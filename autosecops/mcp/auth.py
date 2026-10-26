@@ -46,8 +46,8 @@ from autosecops.auth.types import Role
 from autosecops.authz.controls import has_scope
 from autosecops.authz.enums import OrgRole, WorkspaceRole
 from autosecops.config import (
+    AUTOSECOPS__PUBLIC_APP_URL,
     REDIS_URL,
-    TRACECAT__PUBLIC_APP_URL,
 )
 from autosecops.contexts import ctx_role
 from autosecops.db.engine import (
@@ -480,7 +480,7 @@ _LOGO_ORBIT_PATH = (
 )
 
 
-def _get_tracecat_logo_markup(
+def _get_autosecops_logo_markup(
     fill_color: str = "#1C1C1C", background_color: str = "#FFFFFF"
 ) -> str:
     """Return inline SVG markup for the AutoSecOps logo mark.
@@ -520,7 +520,7 @@ def _build_oidc_consent_html(
         "".join(f"<li>{html.escape(scope, quote=True)}</li>" for scope in scopes)
         or "<li>No scopes requested</li>"
     )
-    logo_markup = _get_tracecat_logo_markup(
+    logo_markup = _get_autosecops_logo_markup(
         fill_color="#FFFFFF", background_color="#111827"
     )
     return f"""<!doctype html>
@@ -697,7 +697,7 @@ def _build_oidc_consent_html(
 
 def _create_oidc_auth() -> OIDCProxy:
     """Build the OIDC auth provider for external MCP."""
-    base_url = TRACECAT__PUBLIC_APP_URL.rstrip("/")
+    base_url = AUTOSECOPS__PUBLIC_APP_URL.rstrip("/")
 
     # The internal OIDC issuer lives on the API server. The MCP server
     # uses it as the upstream identity provider instead of an external BYO
@@ -945,7 +945,7 @@ def _create_oidc_auth() -> OIDCProxy:
             if not isinstance(response, RedirectResponse):
                 return response
 
-            if not config.TRACECAT__EE_MULTI_TENANT:
+            if not config.AUTOSECOPS__EE_MULTI_TENANT:
                 return response
 
             location = response.headers.get("location")
@@ -1101,13 +1101,13 @@ def _create_oidc_auth() -> OIDCProxy:
     redis_client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)
     redis_store = RedisStore(client=redis_client)
     prefixed_store = PrefixCollectionsWrapper(redis_store, prefix="mcp")
-    if config.TRACECAT__DB_ENCRYPTION_KEY:
+    if config.AUTOSECOPS__DB_ENCRYPTION_KEY:
         client_storage = FernetEncryptionWrapper(
-            prefixed_store, fernet=Fernet(config.TRACECAT__DB_ENCRYPTION_KEY)
+            prefixed_store, fernet=Fernet(config.AUTOSECOPS__DB_ENCRYPTION_KEY)
         )
     else:
         logger.warning(
-            "TRACECAT__DB_ENCRYPTION_KEY is not set; "
+            "AUTOSECOPS__DB_ENCRYPTION_KEY is not set; "
             "MCP OAuth state will be stored unencrypted in Redis"
         )
         client_storage = prefixed_store
@@ -1244,7 +1244,7 @@ async def resolve_role(email: str, workspace_id: WorkspaceID) -> Role:
         user_id=user.id,
         workspace_id=workspace_id,
         organization_id=org_id,
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
     )
     scopes = await compute_effective_scopes(role)
 
@@ -1338,7 +1338,7 @@ async def list_user_workspaces(
                 user_id=user.id,
                 organization_id=oid,
                 workspace_id=None,
-                service_id="tracecat-mcp",
+                service_id="autosecops-mcp",
             )
             scopes = await compute_effective_scopes(role)
             if has_scope(scopes, "org:workspace:read"):
@@ -1517,7 +1517,7 @@ async def resolve_org_role_for_request(
         user_id=user.id,
         workspace_id=None,
         organization_id=organization_id,
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
     )
     scopes = await compute_effective_scopes(role)
     role = role.model_copy(update={"scopes": scopes})

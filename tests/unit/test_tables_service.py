@@ -111,7 +111,7 @@ async def svc_editor_role(svc_workspace) -> Role:  # type: ignore[override]
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=EDITOR_SCOPES,
     )
 
@@ -188,7 +188,7 @@ async def _list_rows(
     next_cursor = cursor
 
     while len(rows) < limit:
-        page_limit = min(limit - len(rows), config.TRACECAT__LIMIT_CURSOR_MAX)
+        page_limit = min(limit - len(rows), config.AUTOSECOPS__LIMIT_CURSOR_MAX)
         page = await _list_rows_page(
             tables_service,
             table,
@@ -2815,7 +2815,7 @@ class TestTableAggregations:
                 sa.select(sa.func.generate_series(1, 200_000)),
             )
         )
-        monkeypatch.setattr(config, "TRACECAT__AGG_STATEMENT_TIMEOUT_MS", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 1)
 
         with pytest.raises(TracecatQueryTimeoutError):
             await tables_service.aggregate_rows(

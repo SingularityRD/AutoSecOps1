@@ -137,7 +137,7 @@ async def _create_stdio_mcp_integration(
         server_type="stdio",
         auth_type=MCPAuthType.NONE,
         stdio_command="npx",
-        stdio_args=["@tracecat/test-mcp-server"],
+        stdio_args=["@autosecops/test-mcp-server"],
     )
     session.add(integration)
     await session.flush()
@@ -153,17 +153,17 @@ async def configure_minio_for_skills(
 
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
         f"http://localhost:{os.environ.get('MINIO_PORT', '9000')}",
         raising=False,
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_BUCKET_SKILLS",
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS",
         minio_bucket,
         raising=False,
     )
-    monkeypatch.setenv("TRACECAT__BLOB_STORAGE_BUCKET_SKILLS", minio_bucket)
+    monkeypatch.setenv("AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS", minio_bucket)
     monkeypatch.setenv(
         "AWS_ACCESS_KEY_ID",
         os.environ.get("AWS_ACCESS_KEY_ID", "minio"),
@@ -4071,7 +4071,7 @@ async def test_skill_dependency_policy_is_shared_by_reads_and_runtime(
         auth_type=MCPAuthType.NONE,
         server_uri="https://mcp.example.test",
         stdio_command="npx",
-        stdio_args=["@tracecat/test-mcp-server"],
+        stdio_args=["@autosecops/test-mcp-server"],
         tools=[
             {
                 "name": "write",
@@ -4117,7 +4117,7 @@ async def test_skill_dependency_policy_is_shared_by_reads_and_runtime(
         AgentPresetToolPolicyPreview(skill_ids=[skill.id])
     )
     assert preview == read.tool_policy
-    assert read.tool_policy.max_tools == config.TRACECAT__AGENT_MAX_TOOLS
+    assert read.tool_policy.max_tools == config.AUTOSECOPS__AGENT_MAX_TOOLS
     assert listed.tool_summary.tool_count == 0
     assert listed.tool_summary.namespaces == []
     assert listed.tool_summary.mcp_slugs == ["synthetic"]
@@ -4257,10 +4257,10 @@ async def test_effective_skill_tool_limit_is_checked_before_execution(
     await skill_service.publish_skill(skill.id)
     agent_preset_create_params.skills = [AgentPresetSkillBindingBase(skill_id=skill.id)]
     agent_preset_create_params.actions = ["core.http_request"]
-    monkeypatch.setattr(config, "TRACECAT__AGENT_MAX_TOOLS", 2)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_MAX_TOOLS", 2)
     preset = await agent_preset_service.create_preset(agent_preset_create_params)
     version = await agent_preset_service.get_current_version_for_preset(preset)
-    monkeypatch.setattr(config, "TRACECAT__AGENT_MAX_TOOLS", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_MAX_TOOLS", 1)
     with pytest.raises(TracecatValidationError) as exc_info:
         match operation:
             case "create":
@@ -4293,7 +4293,7 @@ async def test_tool_policy_read_reports_configured_limit(
     max_tools: int,
 ) -> None:
     """Policy reads expose the configured limit and represent unlimited as null."""
-    monkeypatch.setattr(config, "TRACECAT__AGENT_MAX_TOOLS", max_tools)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_MAX_TOOLS", max_tools)
     read = await agent_preset_service.preview_tool_policy(
         AgentPresetToolPolicyPreview()
     )

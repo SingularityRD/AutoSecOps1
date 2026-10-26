@@ -196,8 +196,8 @@ async def test_parent_runs_child_then_completes(
     _EVENTS.clear()
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-parent-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
-    role = Role(type="service", service_id="tracecat-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
+    role = Role(type="service", service_id="autosecops-api")
 
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=get_data_converter()
@@ -235,8 +235,8 @@ async def test_parent_waits_while_child_is_running(
     _RELEASE_CHILD = asyncio.Event()
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-waiting-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
-    role = Role(type="service", service_id="tracecat-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
+    role = Role(type="service", service_id="autosecops-api")
 
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=get_data_converter()
@@ -285,8 +285,8 @@ async def test_parent_routes_failure_stage_and_preserves_error(
     _FAILURES.clear()
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-{stage}-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
-    role = Role(type="service", service_id="tracecat-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
+    role = Role(type="service", service_id="autosecops-api")
     prepare_activity = fail_prepare_turn if stage == "preparation" else prepare_turn
     complete_activity = fail_complete_turn if stage == "completion" else complete_turn
     child_workflow = (
@@ -333,8 +333,8 @@ async def test_parent_never_runs_a_turn_whose_workflow_id_was_tombstoned(
     _FAILURES.clear()
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-tombstoned-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
-    role = Role(type="service", service_id="tracecat-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
+    role = Role(type="service", service_id="autosecops-api")
 
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=get_data_converter()
@@ -385,8 +385,8 @@ async def test_parent_preserves_failure_across_cleanup(
     _CHILD_WAITING = asyncio.Event()
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-{origin}-cleanup-{cleanup_fails}-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
-    role = Role(type="service", service_id="tracecat-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
+    role = Role(type="service", service_id="autosecops-api")
     child_workflow = (
         FailingAgentWorkflow
         if origin == "agent_turn"
@@ -460,7 +460,7 @@ async def test_failure_cleanup_survives_repeated_cancellation(
     cleanup_task = asyncio.create_task(
         invocation_workflows.CaseCommentAgentInvocationWorkflow()._record_failure(
             schemas.CaseCommentAgentInvocationWorkflowInput(
-                role=Role(type="service", service_id="tracecat-api"),
+                role=Role(type="service", service_id="autosecops-api"),
                 invocation_id=invocation_id,
             ),
             "cancelled",
@@ -494,7 +494,7 @@ async def test_comment_mention_runs_agent_and_posts_reply(
     assert role.workspace_id is not None
     invocation_id = uuid.uuid4()
     queue = f"comment-agent-e2e-{invocation_id}"
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", queue)
     temporal_client_mock = AsyncMock()
     monkeypatch.setattr(invocation_queue, "get_temporal_client", temporal_client_mock)
     monkeypatch.setattr(

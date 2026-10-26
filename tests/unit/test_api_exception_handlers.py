@@ -20,9 +20,9 @@ from autosecops.api.app import (
     create_app as create_api_app,
 )
 from autosecops.api.common import (
+    autosecops_exception_handler,
     query_overflow_exception_handler,
     query_timeout_exception_handler,
-    tracecat_exception_handler,
 )
 from autosecops.exceptions import (
     ScopeDeniedError,
@@ -51,7 +51,7 @@ def _build_app(exc: Exception, path: str = "/boom") -> FastAPI:
     own handler must win over the generic authorization handler.
     """
     app = FastAPI()
-    app.add_exception_handler(TracecatException, tracecat_exception_handler)
+    app.add_exception_handler(TracecatException, autosecops_exception_handler)
     app.add_exception_handler(
         TracecatQueryTimeoutError,
         query_timeout_exception_handler,
@@ -98,7 +98,7 @@ def _get(exc: Exception):
             id="rls-subclass-403",
         ),
         pytest.param(
-            TracecatValidationError("bad"), 500, id="other-tracecat-error-500"
+            TracecatValidationError("bad"), 500, id="other-autosecops-error-500"
         ),
         pytest.param(TracecatQueryTimeoutError(), 422, id="query-timeout-422"),
         pytest.param(TracecatQueryOverflowError(), 400, id="query-overflow-400"),

@@ -20,7 +20,7 @@ The following security features are available in AutoSecOps:
 
 > [!WARNING]
 > The `direct` executor backend does not provide the supported `nsjail` boundary for ordinary workflow actions.
-> Use `TRACECAT__EXECUTOR_BACKEND=nsjail` for supported action isolation.
+> Use `AUTOSECOPS__EXECUTOR_BACKEND=nsjail` for supported action isolation.
 > The legacy `ephemeral` value remains a compatibility alias for `nsjail`.
 > See the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security#nsjail-sandbox-recommended-for-production) for deployment requirements.
 

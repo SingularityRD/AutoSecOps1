@@ -51,7 +51,7 @@ def _role(org: Organization, *, is_platform_superuser: bool = False) -> Role:
         type="user",
         user_id=uuid.uuid4(),
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:member:read"}),
         is_platform_superuser=is_platform_superuser,
     )
@@ -117,7 +117,7 @@ async def test_search_without_org_context_returns_not_found(
     role = Role(
         type="user",
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=True,
     )
 

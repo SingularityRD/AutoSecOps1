@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autosecops.agent.common.config import TRACECAT__LITELLM_BASE_URL
+from autosecops.agent.common.config import AUTOSECOPS__LITELLM_BASE_URL
 from autosecops.agent.gateway_providers import resolve_gateway_provider_config
 from autosecops.agent.llm_routing import get_litellm_route_model
 from autosecops.agent.service import AgentManagementService
@@ -138,7 +138,7 @@ async def _call_litellm(
         body["max_tokens"] = max_tokens
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         resp = await client.post(
-            f"{TRACECAT__LITELLM_BASE_URL.rstrip('/')}/chat/completions",
+            f"{AUTOSECOPS__LITELLM_BASE_URL.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {token}"},
             json=body,
         )

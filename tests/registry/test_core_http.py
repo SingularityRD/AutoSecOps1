@@ -938,11 +938,11 @@ async def test_http_request_empty_filename_after_sanitization() -> None:
 
 @pytest.mark.anyio
 async def test_http_request_file_upload_max_files_exceeded() -> None:
-    """Test HTTP request fails if number of files exceeds TRACECAT__MAX_UPLOAD_FILES_COUNT."""
+    """Test HTTP request fails if number of files exceeds AUTOSECOPS__MAX_UPLOAD_FILES_COUNT."""
     from autosecops_registry.core import http as core_http  # For accessing the constant
 
     files_to_upload: dict[str, str | FileUploadData] = {}
-    for i in range(core_http.TRACECAT__MAX_UPLOAD_FILES_COUNT + 1):
+    for i in range(core_http.AUTOSECOPS__MAX_UPLOAD_FILES_COUNT + 1):
         files_to_upload[f"file{i}.txt"] = base64.b64encode(
             f"content{i}".encode()
         ).decode()
@@ -954,14 +954,14 @@ async def test_http_request_file_upload_max_files_exceeded() -> None:
             files=files_to_upload,
         )
     assert (
-        f"Number of files ({core_http.TRACECAT__MAX_UPLOAD_FILES_COUNT + 1}) exceeds the maximum allowed limit of {core_http.TRACECAT__MAX_UPLOAD_FILES_COUNT}"
+        f"Number of files ({core_http.AUTOSECOPS__MAX_UPLOAD_FILES_COUNT + 1}) exceeds the maximum allowed limit of {core_http.AUTOSECOPS__MAX_UPLOAD_FILES_COUNT}"
         in str(excinfo.value)
     )
 
 
 @pytest.mark.anyio
 async def test_http_request_file_upload_aggregate_size_exceeded() -> None:
-    """Test HTTP request fails if total size of files exceeds TRACECAT__MAX_AGGREGATE_UPLOAD_SIZE_BYTES."""
+    """Test HTTP request fails if total size of files exceeds AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES."""
     pytest.skip(
         "Cannot test aggregate size limit with current config: individual limit (20MB) * max files (5) = 100MB which equals aggregate limit (100MB). Need individual limit > 20MB or aggregate limit < 100MB to test this scenario."
     )

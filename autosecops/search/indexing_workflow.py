@@ -87,7 +87,7 @@ async def index_search_collection(work: CollectionWork) -> IndexingProgress:
                 result = await index_collection(
                     work, configuration, lambda request: embed_current(request, client)
                 )
-            meter = metrics.get_meter("tracecat.search")
+            meter = metrics.get_meter("autosecops.search")
             tags = {"outcome": result.outcome}
             meter.create_counter("search.indexing.batches").add(1, tags)
             for name, count in (

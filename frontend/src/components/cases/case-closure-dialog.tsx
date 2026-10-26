@@ -16,7 +16,7 @@ import type {
   CaseFieldReadMinimal,
 } from "@/client"
 import { CaseDescriptionEditor } from "@/components/cases/case-description-editor"
-import { tracecatSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
+import { autosecopsSyntaxHighlighting } from "@/components/editor/codemirror/syntax-highlight"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -650,7 +650,7 @@ function JsonField({
   const extensions = useMemo(
     () => [
       json(),
-      tracecatSyntaxHighlighting,
+      autosecopsSyntaxHighlighting,
       lintGutter(),
       linter(jsonLinter),
       history(),

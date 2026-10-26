@@ -72,7 +72,7 @@ Networks marked `internal` cannot reach the internet, preventing direct external
 
 ## OIDC
 
-Set `TRACECAT__AUTH_TYPES=oidc` in your `.env` file and configure these variables:
+Set `AUTOSECOPS__AUTH_TYPES=oidc` in your `.env` file and configure these variables:
 
 - `OIDC_ISSUER` — your identity provider's issuer URL
 - `OIDC_CLIENT_ID` — client ID from your identity provider
@@ -84,7 +84,7 @@ See [OIDC configuration](/authentication/oidc) for provider-specific setup instr
 
 ## SAML
 
-Set `TRACECAT__AUTH_TYPES=saml` in your `.env` file and configure `SAML_IDP_METADATA_URL` with your identity provider's metadata URL.
+Set `AUTOSECOPS__AUTH_TYPES=saml` in your `.env` file and configure `SAML_IDP_METADATA_URL` with your identity provider's metadata URL.
 
 Supported identity providers: Okta, Microsoft Entra ID, Authentik, and Keycloak.
 
@@ -94,7 +94,7 @@ See [SAML configuration](/authentication/saml) for provider-specific setup instr
 
 <AccordionGroup>
   <Accordion title="Can I use an external PostgreSQL or Redis?">
-    Yes. Update `TRACECAT__DB_URI` to point to your managed PostgreSQL 15 or newer instance and `REDIS_URL` for Redis. For Temporal, update the Temporal PostgreSQL credentials in your `.env` file.
+    Yes. Update `AUTOSECOPS__DB_URI` to point to your managed PostgreSQL 15 or newer instance and `REDIS_URL` for Redis. For Temporal, update the Temporal PostgreSQL credentials in your `.env` file.
 
     See [Security](/self-hosting/security) for production credential recommendations.
   </Accordion>
@@ -112,6 +112,6 @@ See [SAML configuration](/authentication/saml) for provider-specific setup instr
   <Accordion title="How do I connect AutoSecOps MCP from my IDE?">
     Point your IDE's MCP configuration to `<PUBLIC_APP_URL>/mcp`. Authentication uses a built-in OIDC provider — your agent will be redirected to sign in through the browser on first connection.
 
-    See [AutoSecOps MCP](/automations/tracecat-mcp#setup) for IDE-specific setup instructions.
+    See [AutoSecOps MCP](/automations/autosecops-mcp#setup) for IDE-specific setup instructions.
   </Accordion>
 </AccordionGroup>

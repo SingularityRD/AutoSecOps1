@@ -45,7 +45,7 @@ def role() -> Role:
         workspace_id=_WORKSPACE_ID,
         user_id=UUID("00000000-0000-0000-0000-000000000001"),
         organization_id=UUID("00000000-0000-0000-0000-000000000099"),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
 
 
@@ -68,7 +68,7 @@ def _base_aws_secrets(
             "AWS_ROLE_ARN": role_arn,
             "AWS_REGION": "us-east-1",
         },
-        "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+        "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
     }
 
 
@@ -286,7 +286,7 @@ class TestProjectSecretEnv:
                 "AWS_PROFILE": "customer-profile",
                 "AWS_REGION": "us-east-1",
             },
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
         with pytest.raises(
@@ -317,7 +317,7 @@ class TestProjectSecretEnv:
                 "AWS_SECRET_ACCESS_KEY": "static_secret",
                 "AWS_REGION": "us-west-2",
             },
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
         projection = await project_secret_env(
@@ -330,7 +330,7 @@ class TestProjectSecretEnv:
             "AWS_ACCESS_KEY_ID": "AKIA_STATIC",
             "AWS_SECRET_ACCESS_KEY": "static_secret",
             "AWS_REGION": "us-west-2",
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
     @pytest.mark.anyio

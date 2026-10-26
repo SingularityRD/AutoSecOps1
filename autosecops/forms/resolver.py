@@ -429,7 +429,7 @@ def _resolve_file_config(
     return FormFieldConfig(
         accept=entry.accept,
         max_files=(entry.max_files or MAX_FILES_PER_FIELD) if multiple else 1,
-        max_file_size=app_config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES,
+        max_file_size=app_config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES,
     )
 
 

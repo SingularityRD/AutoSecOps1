@@ -15,34 +15,34 @@ from autosecops.executor.enums import ExecutorBackendType
 
 # === Agent Sandbox Config (read directly from env) === #
 
-TRACECAT__AGENT_SANDBOX_TIMEOUT = int(
-    os.environ.get("TRACECAT__AGENT_SANDBOX_TIMEOUT")
+AUTOSECOPS__AGENT_SANDBOX_TIMEOUT = int(
+    os.environ.get("AUTOSECOPS__AGENT_SANDBOX_TIMEOUT")
     or AGENT_SANDBOX_TIMEOUT_SECONDS_DEFAULT
 )
 """Ceiling for agent execution timeouts in seconds."""
 
-TRACECAT__AGENT_SANDBOX_MEMORY_MB = int(
-    os.environ.get("TRACECAT__AGENT_SANDBOX_MEMORY_MB") or 4096
+AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB = int(
+    os.environ.get("AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB") or 4096
 )
 """Aggregate cgroup memory budget for each agent sandbox in MiB (4 GiB)."""
 
 # Leave unset to rely on the cgroup memory budget; without a cgroup the guard
 # falls back to twice that budget.
 _address_space_mb = os.environ.get(
-    "TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB", ""
+    "AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB", ""
 ).strip()
-TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB = (
+AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB = (
     int(_address_space_mb) if _address_space_mb else None
 )
 """Per-process address-space cap in MiB; unset means uncapped under the cgroup."""
 if (
-    TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB is not None
-    and TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB <= 0
+    AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB is not None
+    and AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB <= 0
 ):
-    raise ValueError("TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB must be positive")
+    raise ValueError("AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB must be positive")
 
-TRACECAT__EXECUTOR_BACKEND = ExecutorBackendType.from_config(
-    os.environ.get("TRACECAT__EXECUTOR_BACKEND")
+AUTOSECOPS__EXECUTOR_BACKEND = ExecutorBackendType.from_config(
+    os.environ.get("AUTOSECOPS__EXECUTOR_BACKEND")
 )
 """Execution mode shared with action execution and registry sync."""
 
@@ -59,7 +59,7 @@ _AGENT_RUNTIME_UV_PATH_ENV_VARS = (
 AGENT_RUNTIME_PROTECTED_ENV_VARS = frozenset(
     {
         "UV_LINK_MODE",
-        "TRACECAT__SANDBOX_RLIMIT_NPROC",
+        "AUTOSECOPS__SANDBOX_RLIMIT_NPROC",
         *(key for key, _relative_path in _AGENT_RUNTIME_UV_PATH_ENV_VARS),
     }
 )
@@ -78,19 +78,19 @@ def build_agent_runtime_uv_env(uv_state_dir: Path) -> dict[str, str]:
 
 # === Well-known runtime paths (internal to agent worker) === #
 
-AGENT_RUNTIME_DIR = Path("/run/tracecat")
+AGENT_RUNTIME_DIR = Path("/run/autosecops")
 """AutoSecOps-owned runtime namespace for agent sandbox mountpoints and sockets."""
 
 TRUSTED_MCP_SOCKET_PATH = AGENT_RUNTIME_DIR / "mcp.sock"
 """Path to the trusted MCP socket (shared across jobs)."""
 
-TRACECAT__AGENT_MCP_SOCKET_PATH = Path(
-    os.environ.get("TRACECAT__AGENT_MCP_SOCKET_PATH") or str(TRUSTED_MCP_SOCKET_PATH)
+AUTOSECOPS__AGENT_MCP_SOCKET_PATH = Path(
+    os.environ.get("AUTOSECOPS__AGENT_MCP_SOCKET_PATH") or str(TRUSTED_MCP_SOCKET_PATH)
 )
 """Path to the trusted MCP socket visible to the runtime shim."""
 
-TRACECAT__AGENT_MCP_BRIDGE_PORT = int(
-    os.environ.get("TRACECAT__AGENT_MCP_BRIDGE_PORT") or 4101
+AUTOSECOPS__AGENT_MCP_BRIDGE_PORT = int(
+    os.environ.get("AUTOSECOPS__AGENT_MCP_BRIDGE_PORT") or 4101
 )
 """Loopback port for the in-sandbox trusted MCP HTTP bridge."""
 
@@ -120,37 +120,37 @@ JAILED_LLM_SOCKET_PATH = AGENT_RUNTIME_DIR / "llm.sock"
 OTEL_SOCKET_NAME = "otel.sock"
 """Name of the per-job Agent OTel relay socket."""
 
-JAILED_OTEL_SOCKET_PATH = Path("/var/run/tracecat/otel.sock")
+JAILED_OTEL_SOCKET_PATH = Path("/var/run/autosecops/otel.sock")
 """Path to the Agent OTel relay socket inside the jail."""
 
 # === Runtime socket overrides (primarily for direct subprocess mode) === #
 #
 # In NSJail mode, the orchestrator mounts per-job sockets into the jailed paths above.
-# In direct subprocess mode (TRACECAT__EXECUTOR_BACKEND=direct), there is no mount, so the
+# In direct subprocess mode (AUTOSECOPS__EXECUTOR_BACKEND=direct), there is no mount, so the
 # runtime must connect to the orchestrator's real socket paths.
-TRACECAT__AGENT_CONTROL_SOCKET_PATH = Path(
+AUTOSECOPS__AGENT_CONTROL_SOCKET_PATH = Path(
     os.environ.get(
-        "TRACECAT__AGENT_CONTROL_SOCKET_PATH", str(JAILED_CONTROL_SOCKET_PATH)
+        "AUTOSECOPS__AGENT_CONTROL_SOCKET_PATH", str(JAILED_CONTROL_SOCKET_PATH)
     )
 )
 """Path to the orchestrator control socket for the runtime to connect to."""
 
-TRACECAT__AGENT_LLM_SOCKET_PATH = Path(
-    os.environ.get("TRACECAT__AGENT_LLM_SOCKET_PATH", str(JAILED_LLM_SOCKET_PATH))
+AUTOSECOPS__AGENT_LLM_SOCKET_PATH = Path(
+    os.environ.get("AUTOSECOPS__AGENT_LLM_SOCKET_PATH", str(JAILED_LLM_SOCKET_PATH))
 )
 """Path to the orchestrator LLM socket for the runtime bridge to connect to."""
 
-TRACECAT__AGENT_OTEL_SOCKET_PATH = Path(
-    os.environ.get("TRACECAT__AGENT_OTEL_SOCKET_PATH", str(JAILED_OTEL_SOCKET_PATH))
+AUTOSECOPS__AGENT_OTEL_SOCKET_PATH = Path(
+    os.environ.get("AUTOSECOPS__AGENT_OTEL_SOCKET_PATH", str(JAILED_OTEL_SOCKET_PATH))
 )
 """Path to the orchestrator OTel relay socket for the runtime bridge to connect to."""
 
 # === Managed LiteLLM defaults === #
 
-TRACECAT__LITELLM_PORT = int(os.environ.get("TRACECAT__LITELLM_PORT") or 4000)
+AUTOSECOPS__LITELLM_PORT = int(os.environ.get("AUTOSECOPS__LITELLM_PORT") or 4000)
 """Bind port for the managed LiteLLM service."""
 
-TRACECAT__LITELLM_BASE_URL = os.environ.get(
-    "TRACECAT__LITELLM_BASE_URL", f"http://127.0.0.1:{TRACECAT__LITELLM_PORT}"
+AUTOSECOPS__LITELLM_BASE_URL = os.environ.get(
+    "AUTOSECOPS__LITELLM_BASE_URL", f"http://127.0.0.1:{AUTOSECOPS__LITELLM_PORT}"
 )
 """Internal base URL for the managed LiteLLM service."""

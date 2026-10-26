@@ -900,7 +900,7 @@ class LoopbackHandler:
 
                 role = Role(
                     type="service",
-                    service_id="tracecat-executor",
+                    service_id="autosecops-executor",
                     workspace_id=self.input.workspace_id,
                     organization_id=organization_id,
                 )

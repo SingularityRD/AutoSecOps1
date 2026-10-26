@@ -29,9 +29,9 @@ from sqlalchemy.pool import (
 )
 
 POOL_METRICS_PATH: Final = "/db-pool-metrics"
-HOLD_STARTED_AT_KEY: Final = "tracecat_benchmark_pool_hold_started_at"
-CONNECTION_OPEN_SECONDS_KEY: Final = "tracecat_benchmark_pool_connection_open_seconds"
-_POOL_METRICS_PORT_ENV: Final = "TRACECAT_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT"
+HOLD_STARTED_AT_KEY: Final = "autosecops_benchmark_pool_hold_started_at"
+CONNECTION_OPEN_SECONDS_KEY: Final = "autosecops_benchmark_pool_connection_open_seconds"
+_POOL_METRICS_PORT_ENV: Final = "AUTOSECOPS_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT"
 _EAGER_METRICS_SERVICES: Final = frozenset({"worker", "executor"})
 LATENCY_BUCKETS_SECONDS: Final = (
     0.0001,
@@ -314,7 +314,7 @@ def start_pool_metrics_server(port: int) -> None:
         server = ThreadingHTTPServer(("0.0.0.0", port), _PoolMetricsRequestHandler)
         thread = threading.Thread(
             target=server.serve_forever,
-            name="tracecat-benchmark-db-pool-metrics",
+            name="autosecops-benchmark-db-pool-metrics",
             daemon=True,
         )
         thread.start()
@@ -380,7 +380,7 @@ def install_pool_metrics_instrumentation() -> None:
     _instrumentation_installed = True
     if (
         os.getpid() == 1
-        and os.environ.get("TRACECAT__SERVICE_NAME") in _EAGER_METRICS_SERVICES
+        and os.environ.get("AUTOSECOPS__SERVICE_NAME") in _EAGER_METRICS_SERVICES
     ):
         # Worker processes create their database engines only after work
         # arrives, but the benchmark collector must scrape every endpoint

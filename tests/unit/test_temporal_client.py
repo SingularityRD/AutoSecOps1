@@ -13,7 +13,7 @@ from autosecops.temporal.codec import CompositePayloadCodec, CompressionPayloadC
 
 
 @pytest.mark.anyio
-async def test_connect_to_temporal_configures_tracecat_data_converter(
+async def test_connect_to_temporal_configures_autosecops_data_converter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connect_mock = AsyncMock(spec=Client.connect)
@@ -21,7 +21,7 @@ async def test_connect_to_temporal_configures_tracecat_data_converter(
     monkeypatch.setattr(temporal_client, "TEMPORAL__API_KEY", None)
     monkeypatch.setattr(temporal_client, "TEMPORAL__API_KEY__ARN", None)
     monkeypatch.setattr(temporal_client, "TEMPORAL__METRICS_PORT", None)
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", True)
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", False)
 
     await temporal_client.connect_to_temporal()

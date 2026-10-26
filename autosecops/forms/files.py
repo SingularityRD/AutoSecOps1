@@ -224,7 +224,7 @@ class FormFilesService(BaseWorkspaceService):
             await blob.upload_file(
                 content=content,
                 key=key,
-                bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+                bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
                 content_type=validated.content_type,
                 redact_log_identifiers=True,
             )
@@ -439,7 +439,7 @@ class FormFilesService(BaseWorkspaceService):
             return None
         download_url = await blob.generate_presigned_download_url(
             key=file_blob_key(self.workspace_id, file.form_id, file.id),
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
             force_download=True,
             override_content_type="application/octet-stream",
             redact_log_identifiers=True,
@@ -463,7 +463,7 @@ class FormFilesService(BaseWorkspaceService):
         try:
             content = await blob.download_file(
                 key=file_blob_key(self.workspace_id, file.form_id, file.id),
-                bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+                bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
                 redact_log_identifiers=True,
             )
         except FileNotFoundError:

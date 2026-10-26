@@ -179,10 +179,10 @@ class WorkspaceService(BaseOrgService):
         # Initialize workspace-scoped case fields schema in the same transaction
         bootstrap_role = Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=self.organization_id,
             workspace_id=workspace.id,
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
         case_fields_service = CaseFieldsService(
             session=self.session, role=bootstrap_role
@@ -278,10 +278,10 @@ class WorkspaceService(BaseOrgService):
         workspace = result.scalar_one()
         bootstrap_role = Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=self.organization_id,
             workspace_id=workspace.id,
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
 
         # Delete Temporal schedules before workspace deletion

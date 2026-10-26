@@ -49,8 +49,8 @@ def _store_read(
         store,
         authorized_workspace_ids=[a.workspace_id for a in store.authorizations],
         workspace_usage=usage.get(store.id, []),
-        tracecat_aws_account_id=config.TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID or None,
-        tracecat_aws_principal_arn=config.TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN
+        autosecops_aws_account_id=config.AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID or None,
+        autosecops_aws_principal_arn=config.AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN
         or None,
     )
 
@@ -69,9 +69,9 @@ async def list_secret_stores(
     role: OrgActorRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[SecretStoreRead]:

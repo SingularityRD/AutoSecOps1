@@ -9,7 +9,10 @@ from minio.commonconfig import CopySource
 from typing_extensions import Doc
 
 from autosecops_registry import RegistrySecret, registry, secrets
-from autosecops_registry.config import TRACECAT__MAX_FILE_SIZE_BYTES, to_jsonable_python
+from autosecops_registry.config import (
+    AUTOSECOPS__MAX_FILE_SIZE_BYTES,
+    to_jsonable_python,
+)
 
 minio_secret = RegistrySecret(
     name="minio",
@@ -200,10 +203,10 @@ def put_object(
 
     content_bytes = base64.b64decode(file_data, validate=True)
 
-    if len(content_bytes) > TRACECAT__MAX_FILE_SIZE_BYTES:
+    if len(content_bytes) > AUTOSECOPS__MAX_FILE_SIZE_BYTES:
         raise ValueError(
             f"MinIO object '{key}' exceeds maximum size limit of "
-            f"{TRACECAT__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
+            f"{AUTOSECOPS__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
         )
 
     client = _get_client(endpoint, cert_check, secure)

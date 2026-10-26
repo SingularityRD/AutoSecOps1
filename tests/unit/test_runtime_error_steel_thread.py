@@ -338,7 +338,7 @@ async def test_collection_boundaries_classify_storage_failures(
     failure_stage: str,
     kind: RuntimeErrorKind,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", True)
     diagnostic = f"{activity_name} {failure_stage} diagnostic"
     error = HTTPClientError(error=RuntimeError(diagnostic))
     storage = MagicMock()
@@ -439,7 +439,7 @@ def test_subflow_batch_storage_failure_keeps_persistence_classification() -> Non
 async def test_synchronize_collection_streams_externalized_child_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", True)
     events: list[tuple[str, object]] = []
     inputs: list[StoredObject] = [
         InlineObject(data="first"),
@@ -508,7 +508,7 @@ def _prepare_subflow_input() -> PrepareSubflowActivityInput:
     return PrepareSubflowActivityInput(
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),

@@ -53,7 +53,7 @@ def delegated_cgroup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root.mkdir()
     (root / "cgroup.subtree_control").write_text("memory")
     (root / "cgroup.procs").touch()
-    monkeypatch.setenv("TRACECAT__SANDBOX_CGROUP_PATH", str(root))
+    monkeypatch.setenv("AUTOSECOPS__SANDBOX_CGROUP_PATH", str(root))
     return root
 
 
@@ -62,11 +62,11 @@ def mock_role() -> Role:
     """Create a mock role for testing."""
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -180,10 +180,10 @@ class TestActionRunner:
             patch("autosecops.executor.action_runner.config") as mock_config,
             patch("asyncio.create_subprocess_exec") as mock_subprocess,
         ):
-            mock_config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT = 0.1
-            mock_config.TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE = 0
-            mock_config.TRACECAT__EXECUTOR_BACKEND = ExecutorBackendType.DIRECT
-            mock_config.TRACECAT__EXECUTOR_REGISTRY_CACHE_DIR = str(temp_cache_dir)
+            mock_config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT = 0.1
+            mock_config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE = 0
+            mock_config.AUTOSECOPS__EXECUTOR_BACKEND = ExecutorBackendType.DIRECT
+            mock_config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_DIR = str(temp_cache_dir)
 
             # Create a mock process that hangs
             mock_proc = AsyncMock()
@@ -318,8 +318,8 @@ class TestActionRunner:
         monkeypatch.setenv("SENTRY_DSN", "https://public@example.com/1")
         monkeypatch.setattr(
             action_runner.config,
-            "TRACECAT__ACTION_GATEWAY_SOCKET",
-            "/var/run/tracecat/action-gateway.sock",
+            "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
+            "/var/run/autosecops/action-gateway.sock",
         )
         runner = ActionRunner(cache_dir=temp_cache_dir)
         base_dir = temp_cache_dir / "base"
@@ -370,22 +370,22 @@ class TestActionRunner:
             )
 
         assert result == {"data": "test"}
-        assert captured_env["TRACECAT__API_URL"] == config.TRACECAT__API_URL
-        assert captured_env["TRACECAT__WORKSPACE_ID"] == resolved_context.workspace_id
-        assert captured_env["TRACECAT__WORKFLOW_ID"] == resolved_context.workflow_id
-        assert captured_env["TRACECAT__RUN_ID"] == resolved_context.run_id
-        assert captured_env["TRACECAT__WF_EXEC_ID"] == str(
+        assert captured_env["AUTOSECOPS__API_URL"] == config.AUTOSECOPS__API_URL
+        assert captured_env["AUTOSECOPS__WORKSPACE_ID"] == resolved_context.workspace_id
+        assert captured_env["AUTOSECOPS__WORKFLOW_ID"] == resolved_context.workflow_id
+        assert captured_env["AUTOSECOPS__RUN_ID"] == resolved_context.run_id
+        assert captured_env["AUTOSECOPS__WF_EXEC_ID"] == str(
             mock_run_action_input.run_context.wf_exec_id
         )
         assert (
-            captured_env["TRACECAT__ENVIRONMENT"]
+            captured_env["AUTOSECOPS__ENVIRONMENT"]
             == mock_run_action_input.run_context.environment
         )
-        assert captured_env["TRACECAT__EXECUTOR_TOKEN"] == "test-executor-token"
+        assert captured_env["AUTOSECOPS__EXECUTOR_TOKEN"] == "test-executor-token"
         assert "SENTRY_DSN" not in captured_env
         assert (
-            captured_env["TRACECAT__ACTION_GATEWAY_SOCKET"]
-            == "/var/run/tracecat/action-gateway.sock"
+            captured_env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"]
+            == "/var/run/autosecops/action-gateway.sock"
         )
 
     @pytest.mark.anyio
@@ -440,7 +440,8 @@ class TestActionRunner:
 
         assert result == {"data": "test"}
         assert (
-            captured_env["TRACECAT__EXECUTOR_TOKEN"] == resolved_context.executor_token
+            captured_env["AUTOSECOPS__EXECUTOR_TOKEN"]
+            == resolved_context.executor_token
         )
 
     @pytest.mark.anyio
@@ -455,7 +456,7 @@ class TestActionRunner:
         base_dir = temp_cache_dir / "base"
         base_dir.mkdir()
         monkeypatch.setattr(
-            action_runner.config, "TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
+            action_runner.config, "AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
         )
         captured: dict[str, Any] = {}
 
@@ -501,7 +502,7 @@ class TestActionRunner:
         base_dir = temp_cache_dir / "base"
         base_dir.mkdir()
         monkeypatch.setattr(
-            action_runner.config, "TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
+            action_runner.config, "AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
         )
 
         async def communicate(*_args: object, **_kwargs: object) -> tuple[bytes, bytes]:
@@ -539,7 +540,7 @@ class TestActionRunner:
         base_dir = temp_cache_dir / "base"
         base_dir.mkdir()
         monkeypatch.setattr(
-            action_runner.config, "TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
+            action_runner.config, "AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 60.0
         )
         captured: dict[str, Any] = {}
 
@@ -952,7 +953,7 @@ class TestActionRunner:
 
         monkeypatch.setattr(
             action_runner.config,
-            "TRACECAT__EXECUTOR_BACKEND",
+            "AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         )
 
@@ -1040,7 +1041,7 @@ class TestActionRunner:
 
         monkeypatch.setattr(
             action_runner.config,
-            "TRACECAT__EXECUTOR_BACKEND",
+            "AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         )
 

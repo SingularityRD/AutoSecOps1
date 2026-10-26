@@ -128,11 +128,11 @@ def mock_role() -> Role:
     """Create a mock role for testing."""
     return Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-agent-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-agent-executor"],
     )
 
 
@@ -364,7 +364,7 @@ class TestBuildToolDefinitionsActivity:
         must carry registry defaults; explicit rules still win."""
         result = await AgentActivities().build_tool_definitions(
             BuildToolDefsArgs(
-                role=Role(type="service", service_id="tracecat-api"),
+                role=Role(type="service", service_id="autosecops-api"),
                 tool_filters=ToolFilters(actions=list(REGISTRY_APPROVAL_DEFAULTS)),
                 tool_approvals={"custom.waived": False},
             )
@@ -384,7 +384,7 @@ class TestBuildToolDefinitionsActivity:
         """Durable compilation sees a child's registry default and rejects it."""
         result = await AgentActivities().build_agent_tool_definitions(
             BuildAgentToolDefsArgs(
-                role=Role(type="service", service_id="tracecat-api"),
+                role=Role(type="service", service_id="autosecops-api"),
                 scopes=[
                     BuildAgentScopeToolDefsArgs(
                         scope="root",
@@ -417,7 +417,7 @@ class TestBuildToolDefinitionsActivity:
         )
 
         args = BuildToolDefsArgs(
-            role=Role(type="service", service_id="tracecat-api"),
+            role=Role(type="service", service_id="autosecops-api"),
             tool_filters=ToolFilters(actions=["core.http_request"]),
         )
 
@@ -448,7 +448,7 @@ class TestBuildToolDefinitionsActivity:
         with pytest.raises(ApplicationError) as exc_info:
             await AgentActivities().build_tool_definitions(
                 BuildToolDefsArgs(
-                    role=Role(type="service", service_id="tracecat-api"),
+                    role=Role(type="service", service_id="autosecops-api"),
                     tool_filters=ToolFilters(actions=[]),
                 )
             )
@@ -503,7 +503,7 @@ class TestBuildToolDefinitionsActivity:
         with pytest.raises(ApplicationError) as exc_info:
             await AgentActivities().build_tool_definitions(
                 BuildToolDefsArgs(
-                    role=Role(type="service", service_id="tracecat-api"),
+                    role=Role(type="service", service_id="autosecops-api"),
                     tool_filters=ToolFilters(actions=[]),
                 )
             )
@@ -544,7 +544,7 @@ class TestBuildToolDefinitionsActivity:
         )
 
         args = BuildToolDefsArgs(
-            role=Role(type="service", service_id="tracecat-api"),
+            role=Role(type="service", service_id="autosecops-api"),
             tool_filters=ToolFilters(actions=[]),
             mcp_servers=[
                 {
@@ -1534,7 +1534,7 @@ class TestRunAgentActivity:
         """An absent explicit timeout gets the default even under a raised ceiling."""
         expected_result = AgentExecutorResult(success=True)
         monkeypatch.setattr(
-            "autosecops.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
+            "autosecops.agent.types.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT",
             21600,
         )
 
@@ -1561,12 +1561,12 @@ class TestRunAgentActivity:
             )
             set_span_attributes.assert_called_once_with(
                 {
-                    "tracecat.organization.id": str(
+                    "autosecops.organization.id": str(
                         mock_executor_input.role.organization_id
                     ),
-                    "tracecat.workspace.id": str(mock_executor_input.workspace_id),
-                    "tracecat.agent.session.id": str(mock_executor_input.session_id),
-                    "tracecat.agent.run.id": str(mock_executor_input.curr_run_id),
+                    "autosecops.workspace.id": str(mock_executor_input.workspace_id),
+                    "autosecops.agent.session.id": str(mock_executor_input.session_id),
+                    "autosecops.agent.run.id": str(mock_executor_input.curr_run_id),
                     "temporal.activity.attempt": mock_activity.info.return_value.attempt,
                     "temporal.task_queue": mock_activity.info.return_value.task_queue,
                 }
@@ -1674,9 +1674,9 @@ class TestRunAgentActivity:
     ) -> None:
         exporter = InMemorySpanExporter()
         shutdown_platform_tracing()
-        monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+        monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
         runtime = initialize_platform_tracing(
-            "tracecat-agent-executor", exporter=exporter
+            "autosecops-agent-executor", exporter=exporter
         )
         assert runtime is not None
         try:
@@ -1699,12 +1699,12 @@ class TestRunAgentActivity:
         runtime_spans = [
             span
             for span in exporter.get_finished_spans()
-            if span.name == "tracecat.agent.runtime"
+            if span.name == "autosecops.agent.runtime"
         ]
         assert len(runtime_spans) == 1
         runtime_span = runtime_spans[0]
         assert runtime_span.attributes is not None
-        assert runtime_span.attributes["tracecat.agent.outcome"] == expected_outcome
+        assert runtime_span.attributes["autosecops.agent.outcome"] == expected_outcome
         assert runtime_span.status.status_code is expected_status
 
 
@@ -2925,10 +2925,10 @@ class TestSandboxedAgentExecutorFilesystemPersistence:
         assert parent is not None
         assert parent.trace_id == span_context.trace_id.to_bytes(16, "big")
         assert parent.span_id == span_context.span_id.to_bytes(8, "big")
-        assert parent.resource_attributes["tracecat.agent.session.id"] == str(
+        assert parent.resource_attributes["autosecops.agent.session.id"] == str(
             mock_session_id
         )
-        assert parent.resource_attributes["tracecat.agent.run.id"] == str(run_id)
+        assert parent.resource_attributes["autosecops.agent.run.id"] == str(run_id)
 
 
 class TestSandboxedAgentExecutorSkillCaching:
@@ -3004,11 +3004,11 @@ class TestSandboxedAgentExecutorSkillCaching:
             return 2
 
         monkeypatch.setattr(
-            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
+            "autosecops.agent.executor.activity.AUTOSECOPS__AGENT_SKILL_CACHE_DIR",
             str(tmp_path),
         )
         monkeypatch.setattr(
-            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
+            "autosecops.agent.executor.activity.AUTOSECOPS__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
             2,
         )
         monkeypatch.setattr(
@@ -3072,11 +3072,11 @@ class TestSandboxedAgentExecutorSkillCaching:
             return 2
 
         monkeypatch.setattr(
-            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_DIR",
+            "autosecops.agent.executor.activity.AUTOSECOPS__AGENT_SKILL_CACHE_DIR",
             str(tmp_path),
         )
         monkeypatch.setattr(
-            "autosecops.agent.executor.activity.TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
+            "autosecops.agent.executor.activity.AUTOSECOPS__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS",
             0,
         )
         monkeypatch.setattr(

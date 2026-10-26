@@ -149,7 +149,7 @@ def scim_validation_exception_handler(
 
 
 def _resource_location(kind: str, resource_id: UUID) -> str:
-    return f"{config.TRACECAT__PUBLIC_API_URL.rstrip('/')}{SCIM_PREFIX}/{kind}/{resource_id}"
+    return f"{config.AUTOSECOPS__PUBLIC_API_URL.rstrip('/')}{SCIM_PREFIX}/{kind}/{resource_id}"
 
 
 def _user_resource(external_user: ExternalUser, user: User) -> ScimUserResource:

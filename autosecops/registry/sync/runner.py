@@ -162,18 +162,18 @@ class RegistrySyncRunner:
             clone_timeout: Timeout for Git clone operations (default from config).
         """
         self.install_timeout = (
-            install_timeout or config.TRACECAT__REGISTRY_SYNC_INSTALL_TIMEOUT
+            install_timeout or config.AUTOSECOPS__REGISTRY_SYNC_INSTALL_TIMEOUT
         )
         self.discover_timeout = (
-            discover_timeout or config.TRACECAT__REGISTRY_SYNC_DISCOVER_TIMEOUT
+            discover_timeout or config.AUTOSECOPS__REGISTRY_SYNC_DISCOVER_TIMEOUT
         )
         self.clone_timeout = (
-            clone_timeout or config.TRACECAT__REGISTRY_SYNC_CLONE_TIMEOUT
+            clone_timeout or config.AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT
         )
         # Worker startup already rejects nsjail without its binary and rootfs.
         self._backend: _RegistrySyncBackend = (
             _SandboxedBackend()
-            if config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail
+            if config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail
             else _UnsandboxedBackend()
         )
 
@@ -191,11 +191,11 @@ class RegistrySyncRunner:
         """
         if (
             request.origin_type == "local"
-            and not config.TRACECAT__LOCAL_REPOSITORY_ENABLED
+            and not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED
         ):
             raise RegistrySyncRunnerError(
                 "Local repository is not enabled on this instance. "
-                "Please set TRACECAT__LOCAL_REPOSITORY_ENABLED=true."
+                "Please set AUTOSECOPS__LOCAL_REPOSITORY_ENABLED=true."
             )
         logger.info(
             "Starting registry sync",
@@ -206,7 +206,7 @@ class RegistrySyncRunner:
 
         # Use a temporary directory for all intermediate files
         async with aiofiles.tempfile.TemporaryDirectory(
-            prefix="tracecat_sync_"
+            prefix="autosecops_sync_"
         ) as temp_dir:
             work_dir = Path(temp_dir)
             match self._backend:
@@ -297,7 +297,7 @@ class RegistrySyncRunner:
             return _ResolvedPackage(await self._get_builtin_package_path(), None)
         if request.origin_type == "local":
             return _ResolvedPackage(
-                Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH),
+                Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH),
                 None,
             )
         if not request.git_url:
@@ -329,7 +329,7 @@ class RegistrySyncRunner:
             return _ResolvedPackage(await self._get_builtin_package_path(), None)
         if request.origin_type == "local":
             return _ResolvedPackage(
-                Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH),
+                Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH),
                 None,
             )
         if not request.git_url:
@@ -457,9 +457,9 @@ class RegistrySyncRunner:
 
         role = Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=organization_id,
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
 
         async with SecretsService.with_session(role=role) as secrets_service:
@@ -779,7 +779,7 @@ class RegistrySyncRunner:
             version = datetime.now(UTC).strftime("%Y.%m.%d.%H%M%S")
 
         # Ensure bucket exists
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY
         await blob.ensure_bucket_exists(bucket)
 
         # Generate S3 key

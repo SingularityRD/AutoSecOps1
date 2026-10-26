@@ -86,7 +86,7 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
         <Alert>
           <AlertTitle>No license key installed</AlertTitle>
           <AlertDescription>
-            Set TRACECAT__LICENSE_KEY to unlock paid features. Contact{" "}
+            Set AUTOSECOPS__LICENSE_KEY to unlock paid features. Contact{" "}
             {LICENSE_CONTACT} to buy a license.
           </AlertDescription>
         </Alert>

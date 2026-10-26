@@ -130,7 +130,7 @@ def _create_squashfs_image(
     preserve_symlinks: bool = True,
 ) -> bool:
     """Create a SquashFS image from path entries when mksquashfs is available."""
-    if not config.TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED:
+    if not config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED:
         return False
 
     mksquashfs = shutil.which("mksquashfs")
@@ -138,7 +138,7 @@ def _create_squashfs_image(
         logger.warning("Skipping SquashFS image build; mksquashfs is not installed")
         return False
 
-    with tempfile.TemporaryDirectory(prefix="tracecat_squashfs_root_") as staging:
+    with tempfile.TemporaryDirectory(prefix="autosecops_squashfs_root_") as staging:
         staging_dir = Path(staging)
         # TemporaryDirectory creates a 0700 root, which would make the mounted
         # SquashFS unreadable to non-root executor processes after -all-root.
@@ -160,9 +160,9 @@ def _create_squashfs_image(
             "-no-xattrs",
             "-all-root",
             "-processors",
-            str(config.TRACECAT__REGISTRY_SYNC_SQUASHFS_PROCESSORS),
+            str(config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_PROCESSORS),
             "-mem",
-            config.TRACECAT__REGISTRY_SYNC_SQUASHFS_MEM,
+            config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_MEM,
         ]
         result = subprocess_run(cmd)
         if result.returncode != 0:
@@ -187,7 +187,7 @@ def _build_required_squashfs_image(
         squashfs_path.unlink(missing_ok=True)
         raise RegistryArtifactBuildError(
             "Cannot build registry venv: mksquashfs is unavailable or SquashFS "
-            "build is disabled (TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED)."
+            "build is disabled (AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED)."
         )
 
 
@@ -204,7 +204,7 @@ def get_builtin_registry_source_path() -> Path:
     """Get the path to the builtin autosecops_registry package source.
 
     Checks in order:
-    1. Config path (TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH)
+    1. Config path (AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH)
     2. Relative to installed package (editable/source install)
 
     Returns:
@@ -214,7 +214,7 @@ def get_builtin_registry_source_path() -> Path:
         RegistryArtifactBuildError: If package path cannot be determined.
     """
     # Check configured path first (Docker default: /app/packages/autosecops-registry)
-    config_path = Path(config.TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH)
+    config_path = Path(config.AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH)
     if (config_path / "pyproject.toml").exists():
         return config_path
 
@@ -228,7 +228,7 @@ def get_builtin_registry_source_path() -> Path:
     if not pyproject.exists():
         raise RegistryArtifactBuildError(
             "Cannot find pyproject.toml for autosecops_registry. "
-            "Set TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH or use source installation."
+            "Set AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH or use source installation."
         )
 
     return package_path
@@ -279,7 +279,7 @@ async def build_artifact_from_installed_environment(
     """
 
     if output_dir is None:
-        output_dir = Path(tempfile.mkdtemp(prefix="tracecat_registry_venv_"))
+        output_dir = Path(tempfile.mkdtemp(prefix="autosecops_registry_venv_"))
     output_dir.mkdir(parents=True, exist_ok=True)
 
     site_packages_paths = get_installed_site_packages_paths()
@@ -386,7 +386,7 @@ async def build_artifact_from_path(
         raise RegistryArtifactBuildError(f"No pyproject.toml found in {package_path}")
 
     if output_dir is None:
-        output_dir = Path(tempfile.mkdtemp(prefix="tracecat_registry_venv_"))
+        output_dir = Path(tempfile.mkdtemp(prefix="autosecops_registry_venv_"))
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -527,12 +527,12 @@ async def build_artifact_from_git(
         RegistryArtifactBuildError: If the build fails
     """
     if output_dir is None:
-        output_dir = Path(tempfile.mkdtemp(prefix="tracecat_registry_venv_"))
+        output_dir = Path(tempfile.mkdtemp(prefix="autosecops_registry_venv_"))
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     async with aiofiles.tempfile.TemporaryDirectory(
-        prefix="tracecat_git_"
+        prefix="autosecops_git_"
     ) as clone_dir:
         clone_path = Path(clone_dir)
 
@@ -610,7 +610,7 @@ async def build_builtin_registry_artifact(
     Raises:
         RegistryArtifactBuildError: If the build fails
     """
-    if config.TRACECAT__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES:
+    if config.AUTOSECOPS__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES:
         return await build_artifact_from_installed_environment(
             package_name="autosecops_registry",
             package_dir=Path(autosecops_registry.__file__).resolve().parent,

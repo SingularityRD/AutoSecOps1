@@ -13,7 +13,7 @@ class _PreviousClassification(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_: Literal["tracecat.error.v1"] = Field(alias="schema")
+    schema_: Literal["autosecops.error.v1"] = Field(alias="schema")
     owner: Literal["platform"]
     kind: Literal["agent.executor.unclassified"]
     message: str

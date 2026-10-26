@@ -21,7 +21,7 @@ from autosecops_registry import (
     registry,
     secrets,
 )
-from autosecops_registry.config import TRACECAT__MAX_FILE_SIZE_BYTES
+from autosecops_registry.config import AUTOSECOPS__MAX_FILE_SIZE_BYTES
 
 databricks_user_oauth_secret = RegistryOAuthSecret(
     provider_id="databricks",
@@ -109,16 +109,16 @@ def _serialize(value: Any) -> Any:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, bytes | bytearray | memoryview):
-        if len(value) > TRACECAT__MAX_FILE_SIZE_BYTES:
+        if len(value) > AUTOSECOPS__MAX_FILE_SIZE_BYTES:
             raise ValueError(
                 "Databricks SDK binary response exceeds maximum size limit of "
-                f"{TRACECAT__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB"
+                f"{AUTOSECOPS__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB"
             )
         return {
             "content_base64": base64.b64encode(bytes(value)).decode("ascii"),
         }
     if isinstance(value, _BinaryStream):
-        return _serialize(value.read(TRACECAT__MAX_FILE_SIZE_BYTES + 1))
+        return _serialize(value.read(AUTOSECOPS__MAX_FILE_SIZE_BYTES + 1))
     if isinstance(value, Enum):
         return _serialize(value.value)
     if isinstance(value, Wait):

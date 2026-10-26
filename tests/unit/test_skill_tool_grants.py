@@ -23,14 +23,14 @@ async def test_explicit_requirements_are_validated_before_union(
     monkeypatch: pytest.MonkeyPatch, whole_first: bool, available: bool
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     workspace_id = uuid.uuid4()
     integration_id = uuid.uuid4()
     version_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
     )

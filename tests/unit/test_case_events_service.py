@@ -62,8 +62,8 @@ async def test_events_service_initialization_requires_workspace(
         user_id=uuid.uuid4(),
         workspace_id=None,
         organization_id=uuid.uuid4(),
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
     # Attempt to create service without workspace should raise error

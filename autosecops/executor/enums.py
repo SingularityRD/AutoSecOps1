@@ -25,7 +25,7 @@ class ExecutorBackendType(StrEnum):
             return cls((value or "").strip() or cls.DIRECT)
         except ValueError:
             raise ValueError(
-                f"Invalid TRACECAT__EXECUTOR_BACKEND: {value!r}. "
+                f"Invalid AUTOSECOPS__EXECUTOR_BACKEND: {value!r}. "
                 "Expected 'direct' or 'nsjail' ('ephemeral' is an alias for "
                 "'nsjail')."
             ) from None

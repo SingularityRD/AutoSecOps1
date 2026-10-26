@@ -31,7 +31,7 @@ def platform_role() -> PlatformRole:
     return PlatformRole(
         type="user",
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 

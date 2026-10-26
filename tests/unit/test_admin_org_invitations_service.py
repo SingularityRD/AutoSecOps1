@@ -86,7 +86,7 @@ async def platform_role(platform_admin: User) -> PlatformRole:
     return PlatformRole(
         type="user",
         user_id=platform_admin.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 

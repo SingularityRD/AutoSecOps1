@@ -17,20 +17,20 @@ class CaseAttachmentCreate(BaseModel):
 
     file_name: str = Field(
         ...,
-        max_length=config.TRACECAT__MAX_ATTACHMENT_FILENAME_LENGTH,
+        max_length=config.AUTOSECOPS__MAX_ATTACHMENT_FILENAME_LENGTH,
         description="Original filename",
     )
     content_type: str = Field(..., max_length=255, description="MIME type of the file")
     size: int = Field(
         ...,
         gt=0,
-        le=config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES,
+        le=config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES,
         description="File size in bytes",
     )
     content: Annotated[
         bytes,
         annotated_types.Len(
-            min_length=1, max_length=config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES
+            min_length=1, max_length=config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES
         ),
     ] = Field(..., description="File content")
 

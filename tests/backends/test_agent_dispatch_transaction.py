@@ -121,7 +121,7 @@ async def make_context(db: AsyncSession) -> SessionTurnContext:
         session=session,
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             workspace_id=workspace_id,
         ),

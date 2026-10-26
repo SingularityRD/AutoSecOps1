@@ -433,7 +433,7 @@ async def _store_list_result(key: str, items: list[Any]) -> StoredObject:
     Falls back to an inline list for non-externalized deployments, which cannot
     use chunked storage.
     """
-    if config.TRACECAT__RESULT_EXTERNALIZATION_ENABLED:
+    if config.AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED:
         return await _store_collection_as_refs(key, items)
     return InlineObject(data=items, typename="list")
 
@@ -885,7 +885,7 @@ class DSLActivities:
         # Guard CollectionObject: only use chunked storage when externalization
         # is enabled. Fall back to inline list for non-externalized deployments.
         storage = get_object_storage()
-        if config.TRACECAT__RESULT_EXTERNALIZATION_ENABLED:
+        if config.AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED:
             refs: list[dict[str, Any]] = []
             for i, obj in enumerate(input.collection):
                 with activity_error_boundary(_materialization_error_classification):

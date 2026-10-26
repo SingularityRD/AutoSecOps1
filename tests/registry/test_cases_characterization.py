@@ -103,8 +103,8 @@ from autosecops.validation.common import json_schema_to_pydantic
 # Advisory lock ID for serializing case_fields schema creation in tests.
 # This prevents deadlocks when concurrent tests create workspace-scoped tables
 # with FK constraints to the same parent table.
-_CASE_FIELDS_SCHEMA_LOCK_ID = 0x7472616365636174  # "tracecat" in hex
-_ACTION_GATEWAY_SOCKET = "/tmp/tracecat-test-action-gateway.sock"
+_CASE_FIELDS_SCHEMA_LOCK_ID = 0x7472616365636174  # "autosecops" in hex
+_ACTION_GATEWAY_SOCKET = "/tmp/autosecops-test-action-gateway.sock"
 app = create_action_gateway_app()
 # Exercise public and internal case routes with the same real test database.
 app.include_router(cases_router)
@@ -127,8 +127,8 @@ async def cases_test_role(svc_workspace: Workspace) -> Role:
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-runner",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        service_id="autosecops-runner",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
 
 
@@ -147,7 +147,7 @@ async def cases_ctx(
 
     Routes SDK calls through the Action Gateway ASGI app.
     """
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", "enabled")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", "enabled")
 
     # Acquire advisory lock to serialize schema creation across concurrent tests
     await session.execute(
@@ -178,7 +178,7 @@ async def cases_ctx(
         token=executor_token,
     )
     set_context(registry_ctx)
-    monkeypatch.setenv("TRACECAT__ACTION_GATEWAY_SOCKET", _ACTION_GATEWAY_SOCKET)
+    monkeypatch.setenv("AUTOSECOPS__ACTION_GATEWAY_SOCKET", _ACTION_GATEWAY_SOCKET)
 
     def create_gateway_transport(*, uds: str) -> ASGITransport:
         assert uds == _ACTION_GATEWAY_SOCKET
@@ -342,7 +342,7 @@ class TestAggregateCases:
         result = await aggregate_cases(
             group_by=["priority"], order_by="priority", sort="asc"
         )
-        expected_count = min(config.TRACECAT__LIMIT_AGG_GROUPS_DEFAULT, 3)
+        expected_count = min(config.AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT, 3)
         assert result == {
             "groups": [
                 {"priority": priority, "count": 1}
@@ -351,11 +351,11 @@ class TestAggregateCases:
             "truncated": expected_count < 3,
         }
         assert await aggregate_cases(
-            group_by=[], limit=config.TRACECAT__LIMIT_AGG_GROUPS_MAX
+            group_by=[], limit=config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX
         ) == {"groups": [{"count": 3}], "truncated": False}
         with pytest.raises(SDKValidationError) as exc:
             await aggregate_cases(
-                group_by=[], limit=config.TRACECAT__LIMIT_AGG_GROUPS_MAX + 1
+                group_by=[], limit=config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX + 1
             )
         assert exc.value.status_code == 422
 
@@ -418,13 +418,13 @@ class TestAggregateCases:
                 "SELECT id AS case_id, 1 AS slow FROM public.case CROSS JOIN pg_sleep(0.05)"
             )
         )
-        monkeypatch.setattr(config, "TRACECAT__AGG_STATEMENT_TIMEOUT_MS", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 1)
         with pytest.raises(SDKValidationError) as exc:
             await aggregate_cases(group_by=["fields.slow"])
         assert exc.value.status_code == 422
         assert isinstance(exc.value.detail, dict)
         assert exc.value.detail["code"] == "query_timeout"
-        monkeypatch.setattr(config, "TRACECAT__AGG_STATEMENT_TIMEOUT_MS", 30_000)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 30_000)
         assert await aggregate_cases(group_by=[]) == {
             "groups": [{"count": 1}],
             "truncated": False,
@@ -460,8 +460,8 @@ def test_aggregate_cases_server_limit_overrides(
         env={
             **os.environ,
             "PYTEST_ADDOPTS": "",
-            "TRACECAT__LIMIT_AGG_GROUPS_DEFAULT": str(default),
-            "TRACECAT__LIMIT_AGG_GROUPS_MAX": str(maximum),
+            "AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT": str(default),
+            "AUTOSECOPS__LIMIT_AGG_GROUPS_MAX": str(maximum),
         },
         capture_output=True,
         text=True,
@@ -479,13 +479,13 @@ def blob_storage_config(monkeypatch: pytest.MonkeyPatch):
     config module values to point to this endpoint.
     """
     # Set environment variables for blob storage
-    monkeypatch.setenv("TRACECAT__BLOB_STORAGE_ENDPOINT", "http://localhost:9000")
+    monkeypatch.setenv("AUTOSECOPS__BLOB_STORAGE_ENDPOINT", "http://localhost:9000")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "minio")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "password")
 
     # Also update the config module's values directly since they're already loaded
     monkeypatch.setattr(
-        config, "TRACECAT__BLOB_STORAGE_ENDPOINT", "http://localhost:9000"
+        config, "AUTOSECOPS__BLOB_STORAGE_ENDPOINT", "http://localhost:9000"
     )
 
     yield
@@ -1892,7 +1892,7 @@ class TestGetAttachmentDownloadUrl:
         assert isinstance(result, str)
         assert result.startswith("http")
         # Presigned URLs contain the bucket and key
-        assert "tracecat-attachments" in result or "attachments" in result
+        assert "autosecops-attachments" in result or "attachments" in result
 
     async def test_get_attachment_download_url_with_expiry(
         self, db, session: AsyncSession, cases_ctx: Role, blob_storage_config

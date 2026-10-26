@@ -108,13 +108,13 @@ def test_alpha_hotfix_replaces_complete_tags_in_tracked_files(checkout: Path) ->
     seed_versions(checkout, "1.2.0-alpha.1.1", "1.2.0a1.post1")
     # Different old versions exercise pattern replacement, not just literal replacement.
     content = (
-        "${TRACECAT__IMAGE_TAG:-1.2.0-alpha.1.9}\n"
+        "${AUTOSECOPS__IMAGE_TAG:-1.2.0-alpha.1.9}\n"
         "docker pull ghcr.io/singularityrd/autosecops:1.2.0-alpha.1.9\n"
         "image: ghcr.io/singularityrd/autosecops-ui:1.2.0-alpha.1.9\n"
         'docker cp "$id":/opt/autosecops/install/. autosecops-1.2.0-alpha.1.9/\n'
         "https://github.com/TracecatHQ/tracecat/blob/1.2.0-alpha.1.9/file\n"
         "`1.2.0-alpha.1.9`\n"
-        "TF_VAR_tracecat_image_tag=1.2.0-alpha.1.9\n"
+        "TF_VAR_autosecops_image_tag=1.2.0-alpha.1.9\n"
         "Current version: 1.2.0-alpha.1.1\n"
     )
     doc = checkout / "docs/install.md"
@@ -138,12 +138,12 @@ def test_only_release_pins_are_replaced(checkout: Path) -> None:
         "https://www.conventionalcommits.org/en/v1.0.0/\n"
         "Example: `affects=package1,package2@1.0.0`\n"
         "Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).\n"
-        "image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}\n"
+        "image: ${AUTOSECOPS__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}\n"
     )
     pinned = (
         "docker pull ghcr.io/singularityrd/autosecops:1.0.0\n"
         "mkdir -p autosecops-1.0.0\n"
-        "image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}\n"
+        "image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}\n"
         "Current version: 1.0.0.\n"
     )
     tf = checkout / "deployments/main.tf"

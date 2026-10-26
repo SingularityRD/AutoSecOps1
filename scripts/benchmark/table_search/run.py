@@ -1,6 +1,6 @@
 """Benchmark isolated PostgreSQL lexical-search storage prototypes.
 
-Create an empty PostgreSQL 16 database named tracecat_search_bench_* and set
+Create an empty PostgreSQL 16 database named autosecops_search_bench_* and set
 TABLE_SEARCH_BENCH_DSN to its connection URI. The role needs CONNECT and CREATE;
 pg_trgm must be available in public. Setup refuses user relations and routines.
 Cleanup removes only this invocation's random schema, preserving the database
@@ -100,8 +100,8 @@ def connect(dsn: str, schema: str, timeout_ms: int) -> Connection:
 def validate_database(conn: Connection) -> None:
     """Refuse application databases even if accidentally renamed with the prefix."""
     name = conn.execute("SELECT pg_catalog.current_database()").fetchone()[0]
-    if not name.startswith("tracecat_search_bench_"):
-        raise ValueError("Database name must start with tracecat_search_bench_")
+    if not name.startswith("autosecops_search_bench_"):
+        raise ValueError("Database name must start with autosecops_search_bench_")
     count = conn.execute("""
         SELECT count(*) FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace

@@ -27,7 +27,7 @@ def _role_with_scopes(scopes: frozenset[str] | None) -> Role:
         user_id=uuid4(),
         organization_id=uuid4(),
         workspace_id=uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=scopes,
     )
 
@@ -292,7 +292,7 @@ async def test_delete_tag_by_id_allows_delete_scope_without_read(
 
 
 @pytest.mark.anyio
-async def test_get_tag_missing_raises_tracecat_not_found(
+async def test_get_tag_missing_raises_autosecops_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Missing tag definitions should surface app-level not-found errors."""
@@ -311,7 +311,7 @@ async def test_get_tag_missing_raises_tracecat_not_found(
 
 
 @pytest.mark.anyio
-async def test_update_tag_commit_conflict_raises_tracecat_conflict(
+async def test_update_tag_commit_conflict_raises_autosecops_conflict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Commit-time uniqueness races should be translated by the service."""

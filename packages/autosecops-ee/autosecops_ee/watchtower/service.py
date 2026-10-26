@@ -681,7 +681,7 @@ async def maybe_create_oauth_provisional_session(
     # user_agent from the OAuth callback is the browser's UA, not the MCP
     # client's — discard it to avoid misleading fingerprints.
     del user_agent
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return
 
     async with get_async_session_context_manager() as session:
@@ -789,7 +789,7 @@ async def ingest_watchtower_initialize_event(
     Returns a ``WatchtowerAgentCallContext`` that the middleware caches for
     subsequent tool-call telemetry within the same MCP session.
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return None
 
     async with get_async_session_context_manager() as session:
@@ -989,7 +989,7 @@ async def get_watchtower_tool_call_context(
     single-tenant, unresolvable user/org, missing entitlement, or no
     matching session).
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return None, None
 
     async with get_async_session_context_manager() as session:
@@ -1100,7 +1100,7 @@ async def record_watchtower_tool_call(
     3. Inserts a ``WatchtowerAgentToolCall`` row with redacted arguments
        and an optional truncated error summary.
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return
 
     async with get_async_session_context_manager() as session:

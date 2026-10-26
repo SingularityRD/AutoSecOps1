@@ -14,7 +14,7 @@ from ipaddress import (
 from pathlib import Path
 from typing import Literal
 
-from autosecops import config as tracecat_config
+from autosecops import config as autosecops_config
 from autosecops.sandbox.types import (
     IPNetwork,
     SandboxEgressRule,
@@ -43,7 +43,7 @@ _NSTUN_GATEWAY_ADDRESS6 = IPv6Address(NSTUN_GATEWAY_IP6)
 # NSTUN rules require explicit dst_ip CIDRs, so the property-based check cannot
 # be used here. The registry's other globally-routable anycast assignments
 # (192.31.196.0/24, 192.52.193.0/24, 192.175.48.0/24) are deliberately not
-# blocked. IPv6 is denied by default; TRACECAT__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS
+# blocked. IPv6 is denied by default; AUTOSECOPS__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS
 # opts a deployment into public-only IPv6 egress guarded by
 # ``_FILTERED_BLOCKED_IPV6_CIDRS``.
 _FILTERED_BLOCKED_IPV4_CIDRS: tuple[IPv4Network, ...] = (
@@ -69,7 +69,7 @@ _FILTERED_BLOCKED_IPV4_CIDRS: tuple[IPv4Network, ...] = (
 # every IPv4-embedding transition mechanism that would otherwise smuggle
 # traffic past ``_FILTERED_BLOCKED_IPV4_CIDRS``.
 # Deployments running NAT64 on a network-specific prefix (RFC 6052) must add
-# that prefix to TRACECAT__SANDBOX_BLOCKED_EGRESS_CIDRS themselves; a static
+# that prefix to AUTOSECOPS__SANDBOX_BLOCKED_EGRESS_CIDRS themselves; a static
 # baseline cannot know it.
 _FILTERED_BLOCKED_IPV6_CIDRS: tuple[IPv6Network, ...] = (
     IPv6Network("::/96"),  # IPv4-compatible (deprecated, RFC 4291); covers :: and ::1
@@ -190,35 +190,35 @@ def configured_sandbox_network_policy(
     match purpose:
         case SandboxNetworkPurpose.INSTALL:
             allowed_rules = _tcp_egress_rules(
-                tracecat_config.TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS,
-                tracecat_config.TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS,
+                autosecops_config.AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS,
+                autosecops_config.AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS,
             )
         case SandboxNetworkPurpose.REGISTRY:
             allowed_rules = _tcp_egress_rules(
-                tracecat_config.TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS,
-                tracecat_config.TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS,
+                autosecops_config.AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS,
+                autosecops_config.AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS,
             )
         case SandboxNetworkPurpose.SCRIPT:
             allowed_rules = _tcp_egress_rules(
-                tracecat_config.TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS,
-                tracecat_config.TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS,
+                autosecops_config.AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS,
+                autosecops_config.AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS,
             )
         case SandboxNetworkPurpose.ACTION:
             allowed_rules = _tcp_egress_rules(
-                tracecat_config.TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS,
-                tracecat_config.TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS,
+                autosecops_config.AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS,
+                autosecops_config.AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS,
             )
         case SandboxNetworkPurpose.AGENT:
             allowed_rules = _tcp_egress_rules(
-                tracecat_config.TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS,
-                tracecat_config.TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS,
+                autosecops_config.AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS,
+                autosecops_config.AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS,
             )
 
     return SandboxNetworkPolicy(
         mode=SandboxNetworkMode.FILTERED,
         allowed_rules=allowed_rules,
-        blocked_cidrs=tracecat_config.TRACECAT__SANDBOX_BLOCKED_EGRESS_CIDRS,
-        allow_public_ipv6=tracecat_config.TRACECAT__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS,
+        blocked_cidrs=autosecops_config.AUTOSECOPS__SANDBOX_BLOCKED_EGRESS_CIDRS,
+        allow_public_ipv6=autosecops_config.AUTOSECOPS__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS,
     )
 
 
@@ -523,7 +523,7 @@ def resolve_sandbox_network_plan(
             nstun_user_net_config_lines(
                 policy,
                 dns_routes=files.dns_routes,
-                dns_networks=tracecat_config.TRACECAT__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS,
+                dns_networks=autosecops_config.AUTOSECOPS__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS,
             )
         ),
         dns_mount_lines=tuple(sandbox_dns_mount_config_lines(files)),

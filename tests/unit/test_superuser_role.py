@@ -40,7 +40,7 @@ async def test_require_superuser_allows_superuser() -> None:
     assert isinstance(role, PlatformRole)
     assert role.type == "user"
     assert role.user_id == user.id
-    assert role.service_id == "tracecat-api"
+    assert role.service_id == "autosecops-api"
     # PlatformRole is always a platform superuser
     assert role.is_platform_superuser is True
     # Note: PlatformRole doesn't have organization_id - it's platform-scoped

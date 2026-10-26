@@ -240,9 +240,9 @@ async def lookup_many(
         Doc("The maximum number of rows to return."),
     ] = 100,
 ) -> list[dict[str, Any]]:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise ValueError(
-            f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+            f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {
@@ -303,9 +303,9 @@ async def search_rows(
         Doc("If true, return cursor pagination metadata along with items."),
     ] = False,
 ) -> types.TableSearchResponse | list[dict[str, Any]]:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise ValueError(
-            f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+            f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"table": table}
@@ -600,11 +600,11 @@ async def download(
     ] = None,
     limit: Annotated[
         int, Doc("The maximum number of rows to download.")
-    ] = config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX,
+    ] = config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX,
 ) -> list[dict[str, Any]] | str:
-    if limit > config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX:
+    if limit > config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX:
         raise ValueError(
-            f"Cannot return more than {config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX} rows"
+            f"Cannot return more than {config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX} rows"
         )
 
     params: dict[str, Any] = {"table": name}

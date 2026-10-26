@@ -94,7 +94,7 @@ def _make_auth_code_data(**overrides) -> AuthCodeData:
         "email": "user@example.com",
         "organization_id": uuid.uuid4(),
         "is_platform_superuser": False,
-        "client_id": "tracecat-mcp-oidc-internal",
+        "client_id": "autosecops-mcp-oidc-internal",
         "redirect_uri": "https://mcp.example.com/auth/callback",
         "code_challenge": "challenge-value",
         "code_challenge_method": "S256",
@@ -112,7 +112,7 @@ def _make_resume_transaction(**overrides) -> ResumeTransaction:
         "transaction_id": "txn-abc-123",
         "authorize_params": {
             "response_type": "code",
-            "client_id": "tracecat-mcp-oidc-internal",
+            "client_id": "autosecops-mcp-oidc-internal",
             "redirect_uri": "https://mcp.example.com/auth/callback",
             "code_challenge": "challenge-value",
             "state": "random-state",

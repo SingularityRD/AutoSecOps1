@@ -1,5 +1,5 @@
 {
-  "name": "tracecat",
+  "name": "autosecops",
   "version": "0.0.1",
   "private": true,
   "engines": {
@@ -23,7 +23,7 @@
     "test:frontend-smoke": "playwright test",
     "test:frontend-smoke:report": "playwright show-report",
     "generate-client": "pnpm generate-client-ci",
-    "generate-client-ci": "uv run --directory .. scripts/openapi/generate_openapi.py /tmp/tracecat-openapi.json && openapi-ts --input /tmp/tracecat-openapi.json --output ./src/client --client axios && rm /tmp/tracecat-openapi.json",
+    "generate-client-ci": "uv run --directory .. scripts/openapi/generate_openapi.py /tmp/autosecops-openapi.json && openapi-ts --input /tmp/autosecops-openapi.json --output ./src/client --client axios && rm /tmp/autosecops-openapi.json",
     "upgrade:next": "pnpm add next@14 react@18 react-dom@18 && pnpm add -D eslint-config-next@14 eslint@8"
   },
   "dependencies": {

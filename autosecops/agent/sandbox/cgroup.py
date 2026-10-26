@@ -4,7 +4,7 @@ from pathlib import Path
 
 from autosecops.sandbox import cgroup
 
-CGROUP_PATH_ENV = "TRACECAT__AGENT_SANDBOX_CGROUP_PATH"
+CGROUP_PATH_ENV = "AUTOSECOPS__AGENT_SANDBOX_CGROUP_PATH"
 
 
 def sandbox_cgroup() -> Path:

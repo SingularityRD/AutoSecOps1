@@ -39,7 +39,7 @@ export function freshEmail(testTitle: string): string {
     .slice(0, 32)
   return `smoke-${slug}-${Date.now()}-${Math.random()
     .toString(36)
-    .slice(2, 8)}@smoke.tracecat.dev`
+    .slice(2, 8)}@smoke.autosecops.dev`
 }
 
 /**

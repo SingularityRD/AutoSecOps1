@@ -103,7 +103,7 @@ def _infer_grant_type_from_token_name(token_name: str) -> OAuthGrantType | None:
     return None
 
 
-_AWS_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
+_AWS_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
 _AWS_ROLE_SECRET_NAMES = frozenset({"aws", "amazon_s3", "amazon_bedrock"})
 
 

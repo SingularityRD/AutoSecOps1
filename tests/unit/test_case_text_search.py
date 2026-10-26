@@ -99,7 +99,7 @@ def test_identifiers_match_exact_columns_and_indexed_text_mentions(value: str) -
     sql = str(statement.compile(dialect=postgresql.dialect()))
     assert "case_number =" in sql
     assert "LIKE" not in sql
-    assert "tracecat_case_safe_vector_v1" in sql
+    assert "autosecops_case_safe_vector_v1" in sql
     assert "@@" in sql
 
 
@@ -147,9 +147,10 @@ def test_phrase_sql_uses_separate_source_vectors() -> None:
         .compile(dialect=postgresql.dialect())
     )
     assert sql.count("phraseto_tsquery(") == 2
-    assert 'tracecat_case_safe_vector_v1(coalesce(CAST("case".summary AS TEXT)' in sql
+    assert 'autosecops_case_safe_vector_v1(coalesce(CAST("case".summary AS TEXT)' in sql
     assert (
-        'tracecat_case_safe_vector_v1(coalesce(CAST("case".description AS TEXT)' in sql
+        'autosecops_case_safe_vector_v1(coalesce(CAST("case".description AS TEXT)'
+        in sql
     )
     assert "pg_catalog.simple" in sql
     assert "||" not in sql

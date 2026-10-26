@@ -37,11 +37,11 @@ def _set_smtp_config(
     password: str | None = None,
     from_addr: str | None = None,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SMTP_HOST", host)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_PORT", 587)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_USER", user)
-    monkeypatch.setattr(config, "TRACECAT__SMTP_PASSWORD", password)
-    monkeypatch.setattr(config, "TRACECAT__EMAIL_FROM", from_addr)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_HOST", host)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_PORT", 587)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_USER", user)
+    monkeypatch.setattr(config, "AUTOSECOPS__SMTP_PASSWORD", password)
+    monkeypatch.setattr(config, "AUTOSECOPS__EMAIL_FROM", from_addr)
 
 
 @pytest.mark.parametrize(

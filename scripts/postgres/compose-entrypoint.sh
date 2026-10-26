@@ -39,7 +39,7 @@ if [[ -n "$DATABASE_ALREADY_EXISTS" ]]; then
     export PGPASSWORD="${PGPASSWORD:-$POSTGRES_PASSWORD}"
     docker_temp_server_start "$@"
     temporary_server_started=true
-    docker_process_sql -v install=true -f /usr/local/share/tracecat/pgvector.sql
+    docker_process_sql -v install=true -f /usr/local/share/autosecops/pgvector.sql
     docker_temp_server_stop
     temporary_server_started=false
     trap - EXIT TERM INT

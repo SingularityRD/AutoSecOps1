@@ -119,7 +119,7 @@ def _client_config() -> AioConfig:
 
 def _role_session_name(reference: ExternalSecretReference) -> str:
     store_short = str(reference.store_id).replace("-", "")[:12]
-    return f"tracecat-secretstore-{store_short}"[:_ROLE_SESSION_NAME_MAX_LEN]
+    return f"autosecops-secretstore-{store_short}"[:_ROLE_SESSION_NAME_MAX_LEN]
 
 
 def is_secret_arn(secret_id: str) -> bool:
@@ -336,7 +336,7 @@ def collect_output_keys(references: Iterable[ExternalSecretReference]) -> list[s
 
 def generate_store_external_id() -> str:
     """Generate an opaque, server-owned AssumeRole external ID."""
-    return f"tracecat-{std_secrets.token_urlsafe(_EXTERNAL_ID_BYTES)}"
+    return f"autosecops-{std_secrets.token_urlsafe(_EXTERNAL_ID_BYTES)}"
 
 
 class AwsSecretsManagerBackend:

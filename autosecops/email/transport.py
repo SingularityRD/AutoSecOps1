@@ -52,15 +52,15 @@ class SMTPTransport:
     @classmethod
     def from_config(cls) -> SMTPTransport | None:
         """Return the configured transport, or None while any SMTP setting is unset."""
-        host = config.TRACECAT__SMTP_HOST
-        username = config.TRACECAT__SMTP_USER
-        password = config.TRACECAT__SMTP_PASSWORD
-        from_addr = config.TRACECAT__EMAIL_FROM
+        host = config.AUTOSECOPS__SMTP_HOST
+        username = config.AUTOSECOPS__SMTP_USER
+        password = config.AUTOSECOPS__SMTP_PASSWORD
+        from_addr = config.AUTOSECOPS__EMAIL_FROM
         if not (host and username and password and from_addr):
             return None
         return cls(
             host=host,
-            port=config.TRACECAT__SMTP_PORT,
+            port=config.AUTOSECOPS__SMTP_PORT,
             username=username,
             password=password,
             from_addr=from_addr,

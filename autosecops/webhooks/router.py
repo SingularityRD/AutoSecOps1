@@ -123,15 +123,15 @@ def _annotate_webhook_trace(
         role = ctx_role.get()
         set_current_span_attributes(
             {
-                "tracecat.organization.id": (
+                "autosecops.organization.id": (
                     role.organization_id if role is not None else None
                 ),
-                "tracecat.workspace.id": role.workspace_id
+                "autosecops.workspace.id": role.workspace_id
                 if role is not None
                 else None,
-                "tracecat.workflow.id": wf_id,
-                "tracecat.workflow.execution.id": wf_exec_id,
-                "tracecat.trigger.type": TriggerType.WEBHOOK,
+                "autosecops.workflow.id": wf_id,
+                "autosecops.workflow.execution.id": wf_exec_id,
+                "autosecops.trigger.type": TriggerType.WEBHOOK,
             }
         )
         if response is not None and (trace_id := current_trace_id()):
@@ -145,7 +145,7 @@ async def _to_external_download_response(
     external: ExternalObject,
 ) -> WebhookStoredObjectDownloadResponse:
     ref = external.ref
-    expiry = config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
+    expiry = config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
     download_url = await blob.generate_presigned_download_url(
         key=ref.key,
         bucket=ref.bucket,
@@ -177,7 +177,7 @@ async def _to_collection_download_response(
         content_type="application/json",
     )
 
-    expiry = config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
+    expiry = config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
     download_url = await blob.generate_presigned_download_url(
         key=export_key,
         bucket=collection.manifest_ref.bucket,
@@ -356,7 +356,7 @@ async def incoming_webhook_get(
 
 
 # Auth headers that must never be exposed to workflows via the trigger envelope.
-_REDACTED_HEADERS = frozenset({"x-tracecat-api-key"})
+_REDACTED_HEADERS = frozenset({"x-autosecops-api-key"})
 
 
 class WebhookTriggerEnvelope(TypedDict):

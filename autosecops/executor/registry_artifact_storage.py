@@ -125,7 +125,7 @@ def _contention_error(
     )
 
 
-_METER = metrics.get_meter("tracecat.executor.registry_cache")
+_METER = metrics.get_meter("autosecops.executor.registry_cache")
 _ADMISSION_WAIT_MS = _METER.create_histogram(
     "registry_cache.admission_lock.wait_ms",
     unit="ms",
@@ -354,7 +354,7 @@ class RegistryArtifactMaterializationContext:
         """Return whether SquashFS mounting is enabled and worth attempting."""
         return (
             not self.squashfs_remount_failed
-            and config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED
+            and config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED
             and self.squashfs_mount_policy.should_attempt_mount()
         )
 
@@ -633,10 +633,10 @@ class RegistryArtifactCacheStorage:
         self._owner_thread_id: int | None = None
         self._admission_lock = MeteredAdmissionLock()
         self._download_slots = MeteredSlots(
-            "download", config.TRACECAT__EXECUTOR_REGISTRY_DOWNLOAD_SLOTS
+            "download", config.AUTOSECOPS__EXECUTOR_REGISTRY_DOWNLOAD_SLOTS
         )
         self._extract_slots = MeteredSlots(
-            "extract", config.TRACECAT__EXECUTOR_REGISTRY_EXTRACT_SLOTS
+            "extract", config.AUTOSECOPS__EXECUTOR_REGISTRY_EXTRACT_SLOTS
         )
         self._mount_slots = MeteredSlots("mount", SQUASHFS_MOUNT_SLOTS)
         self._reserved_bytes = 0
@@ -814,7 +814,7 @@ class RegistryArtifactCacheStorage:
         measured on disk, so a waiting or settled reservation holds only its
         owned staging bytes (a tarball during extraction).
         """
-        max_bytes = config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES
+        max_bytes = config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES
         if max_bytes <= 0:
             return None
         allocation_unit = _filesystem_allocation_unit(self.cache_dir)
@@ -1107,8 +1107,8 @@ class RegistryArtifactCacheStorage:
             return False
 
         budget = RegistryArtifactCacheBudget(
-            max_entries=config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES,
-            max_bytes=config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES,
+            max_entries=config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES,
+            max_bytes=config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES,
         )
         if budget.max_entries <= 0 and budget.max_bytes <= 0:
             return True
@@ -1678,8 +1678,8 @@ class RegistryArtifactCacheStorage:
     def _trim_startup_cache(self) -> bool:
         """Apply the shared measured budget during startup."""
         budget = RegistryArtifactCacheBudget(
-            max_entries=config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES,
-            max_bytes=config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES,
+            max_entries=config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES,
+            max_bytes=config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES,
         )
         if budget.max_entries <= 0 and budget.max_bytes <= 0:
             return True

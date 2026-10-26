@@ -160,12 +160,12 @@ def _seed_test_user_with_retry(live_ldap_server: dict[str, Any]) -> dict[str, st
                 {
                     "cn": "AutoSecOps",
                     "sn": "Test",
-                    "uid": "tracecat.test",
-                    "mail": "tracecat@example.com",
+                    "uid": "autosecops.test",
+                    "mail": "autosecops@example.com",
                 },
             )
             _assert_ldap_result(conn, ok_codes={0}, operation="add user")
-            return {"base_dn": users_dn, "filter": "(uid=tracecat.test)"}
+            return {"base_dn": users_dn, "filter": "(uid=autosecops.test)"}
         except (LDAPException, RuntimeError):
             if attempt == LDAP_MAX_RETRIES - 1:
                 raise
@@ -221,7 +221,7 @@ def test_live_search_all_attributes(
     ldap_test_data: dict[str, str], configure_ldap_secrets
 ) -> None:
     results = _run_search(ldap_test_data)
-    assert results and results[0]["attributes"]["uid"] == ["tracecat.test"]
+    assert results and results[0]["attributes"]["uid"] == ["autosecops.test"]
 
 
 def test_live_search_returns_all_attributes(
@@ -234,5 +234,5 @@ def test_live_search_returns_all_attributes(
     assert "uid" in attrs
     assert "mail" in attrs
     assert "cn" in attrs
-    assert attrs["uid"] == ["tracecat.test"]
-    assert attrs["mail"] == ["tracecat@example.com"]
+    assert attrs["uid"] == ["autosecops.test"]
+    assert attrs["mail"] == ["autosecops@example.com"]

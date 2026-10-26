@@ -193,8 +193,8 @@ async def test_service_initialization_requires_workspace(session: AsyncSession) 
         user_id=uuid.uuid4(),
         workspace_id=None,
         organization_id=uuid.uuid4(),
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
     # Attempt to create service without workspace should raise error
@@ -851,7 +851,7 @@ class TestCaseCommentsService:
             retry = await dispatcher.create_or_get_agent_session(invocation.id)
             assert first is not None and retry == first
             assert first.display_messages == ("@Thread agent",)
-            assert first.prompt.startswith("<tracecat-model-context>\n")
+            assert first.prompt.startswith("<autosecops-model-context>\n")
             assert "Root &lt;context&gt;" in first.prompt
             assert "Workflow: Investigation workflow" in first.prompt
             assert 'invoking="true"' in first.prompt

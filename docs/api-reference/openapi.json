@@ -9276,7 +9276,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__organization__schemas__OrgRead"
+                  "$ref": "#/components/schemas/autosecops__organization__schemas__OrgRead"
                 }
               }
             }
@@ -9347,7 +9347,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/tracecat__organization__schemas__OrgRead"
+                    "$ref": "#/components/schemas/autosecops__organization__schemas__OrgRead"
                   },
                   "type": "array",
                   "title": "Response Organization-List Current User Organization Memberships"
@@ -9378,7 +9378,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/tracecat__organization__schemas__OrgDomainRead"
+                    "$ref": "#/components/schemas/autosecops__organization__schemas__OrgDomainRead"
                   },
                   "type": "array",
                   "title": "Response Organization-List Organization Domains"
@@ -18925,7 +18925,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgRead"
+                    "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgRead"
                   },
                   "type": "array",
                   "title": "Response Admin-List Organizations"
@@ -18964,7 +18964,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgRead"
+                  "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgRead"
                 }
               }
             }
@@ -19019,7 +19019,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgRead"
+                  "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgRead"
                 }
               }
             }
@@ -19077,7 +19077,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgRead"
+                  "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgRead"
                 }
               }
             }
@@ -19523,7 +19523,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgDomainRead"
+                    "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgDomainRead"
                   },
                   "title": "Response Admin-List Organization Domains"
                 }
@@ -19583,7 +19583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgDomainRead"
+                  "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgDomainRead"
                 }
               }
             }
@@ -19653,7 +19653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat_ee__admin__organizations__schemas__OrgDomainRead"
+                  "$ref": "#/components/schemas/autosecops_ee__admin__organizations__schemas__OrgDomainRead"
                 }
               }
             }
@@ -21287,7 +21287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__admin__registry__schemas__RegistrySyncResponse"
+                  "$ref": "#/components/schemas/autosecops__admin__registry__schemas__RegistrySyncResponse"
                 }
               }
             }
@@ -21348,7 +21348,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__admin__registry__schemas__RegistrySyncResponse"
+                  "$ref": "#/components/schemas/autosecops__admin__registry__schemas__RegistrySyncResponse"
                 }
               }
             }
@@ -21445,7 +21445,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/tracecat__admin__registry__schemas__RegistryVersionRead"
+                    "$ref": "#/components/schemas/autosecops__admin__registry__schemas__RegistryVersionRead"
                   },
                   "title": "Response Admin:Registry-List Registry Versions"
                 }
@@ -21553,7 +21553,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__admin__registry__schemas__RegistryVersionPromoteResponse"
+                  "$ref": "#/components/schemas/autosecops__admin__registry__schemas__RegistryVersionPromoteResponse"
                 }
               }
             }
@@ -22199,7 +22199,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__registry__repositories__schemas__RegistrySyncResponse"
+                  "$ref": "#/components/schemas/autosecops__registry__repositories__schemas__RegistrySyncResponse"
                 }
               }
             }
@@ -22256,7 +22256,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/tracecat__registry__repositories__schemas__RegistryVersionRead"
+                    "$ref": "#/components/schemas/autosecops__registry__repositories__schemas__RegistryVersionRead"
                   },
                   "title": "Response Registry-Repositories-List Repository Versions"
                 }
@@ -22614,7 +22614,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse"
+                  "$ref": "#/components/schemas/autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse"
                 }
               }
             }
@@ -22796,7 +22796,7 @@
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/tracecat__registry__repositories__schemas__RegistryVersionRead"
+                      "$ref": "#/components/schemas/autosecops__registry__repositories__schemas__RegistryVersionRead"
                     },
                     {
                       "type": "null"
@@ -46600,11 +46600,11 @@
       },
       "AwsAssumeRoleAccessRead": {
         "properties": {
-          "tracecat_aws_account_id": {
+          "autosecops_aws_account_id": {
             "type": "string",
             "title": "AutoSecOps AWS Account ID"
           },
-          "tracecat_aws_principal_arn": {
+          "autosecops_aws_principal_arn": {
             "type": "string",
             "title": "AutoSecOps AWS Principal ARN"
           },
@@ -46615,8 +46615,8 @@
         },
         "type": "object",
         "required": [
-          "tracecat_aws_account_id",
-          "tracecat_aws_principal_arn",
+          "autosecops_aws_account_id",
+          "autosecops_aws_principal_arn",
           "external_id"
         ],
         "title": "AwsAssumeRoleAccessRead",
@@ -68460,7 +68460,7 @@
           "actions"
         ],
         "title": "RegistryLock",
-        "description": "Registry version lock with action-level bindings for O(1) resolution.\n\nAttributes:\n    origins: Maps repository origin to pinned version string.\n        Example: {\"tracecat_registry\": \"2024.12.10.123456\"}\n    actions: Maps action name to its source origin.\n        Example: {\"core.transform.reshape\": \"tracecat_registry\"}\n    origin_fingerprints: Optional immutable manifest fingerprints for origins.\n        New executors use the builtin fingerprint to decide whether their\n        bundled tracecat_registry package is an exact match for the lock."
+        "description": "Registry version lock with action-level bindings for O(1) resolution.\n\nAttributes:\n    origins: Maps repository origin to pinned version string.\n        Example: {\"autosecops_registry\": \"2024.12.10.123456\"}\n    actions: Maps action name to its source origin.\n        Example: {\"core.transform.reshape\": \"autosecops_registry\"}\n    origin_fingerprints: Optional immutable manifest fingerprints for origins.\n        New executors use the builtin fingerprint to decide whether their\n        bundled autosecops_registry package is an exact match for the lock."
       },
       "RegistryLockEntryRead": {
         "properties": {
@@ -69486,19 +69486,19 @@
           "service_id": {
             "type": "string",
             "enum": [
-              "tracecat-api",
-              "tracecat-bootstrap",
-              "tracecat-cli",
-              "tracecat-executor",
-              "tracecat-agent-executor",
-              "tracecat-case-duration-sync",
-              "tracecat-case-triggers",
-              "tracecat-llm-gateway",
-              "tracecat-mcp",
-              "tracecat-runner",
-              "tracecat-schedule-runner",
-              "tracecat-service",
-              "tracecat-ui"
+              "autosecops-api",
+              "autosecops-bootstrap",
+              "autosecops-cli",
+              "autosecops-executor",
+              "autosecops-agent-executor",
+              "autosecops-case-duration-sync",
+              "autosecops-case-triggers",
+              "autosecops-llm-gateway",
+              "autosecops-mcp",
+              "autosecops-runner",
+              "autosecops-schedule-runner",
+              "autosecops-service",
+              "autosecops-ui"
             ],
             "title": "Service Id"
           },
@@ -72330,7 +72330,7 @@
             "type": "boolean",
             "title": "All Workspaces"
           },
-          "tracecat_aws_account_id": {
+          "autosecops_aws_account_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -72341,7 +72341,7 @@
             ],
             "title": "AutoSecOps AWS Account ID"
           },
-          "tracecat_aws_principal_arn": {
+          "autosecops_aws_principal_arn": {
             "anyOf": [
               {
                 "type": "string"
@@ -85466,7 +85466,7 @@
         ],
         "title": "Body_auth-auth:database.login"
       },
-      "tracecat__admin__registry__schemas__RegistrySyncResponse": {
+      "autosecops__admin__registry__schemas__RegistrySyncResponse": {
         "properties": {
           "success": {
             "type": "boolean",
@@ -85494,7 +85494,7 @@
         "title": "RegistrySyncResponse",
         "description": "Response from sync operation."
       },
-      "tracecat__admin__registry__schemas__RegistryVersionPromoteResponse": {
+      "autosecops__admin__registry__schemas__RegistryVersionPromoteResponse": {
         "properties": {
           "repository_id": {
             "type": "string",
@@ -85538,7 +85538,7 @@
         "title": "RegistryVersionPromoteResponse",
         "description": "Response from promoting a registry version."
       },
-      "tracecat__admin__registry__schemas__RegistryVersionRead": {
+      "autosecops__admin__registry__schemas__RegistryVersionRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -85614,7 +85614,7 @@
         "title": "RegistryVersionRead",
         "description": "Registry version details."
       },
-      "tracecat__organization__schemas__OrgDomainRead": {
+      "autosecops__organization__schemas__OrgDomainRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -85684,7 +85684,7 @@
         ],
         "title": "OrgDomainRead"
       },
-      "tracecat__organization__schemas__OrgRead": {
+      "autosecops__organization__schemas__OrgRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -85703,7 +85703,7 @@
         ],
         "title": "OrgRead"
       },
-      "tracecat__registry__repositories__schemas__RegistrySyncResponse": {
+      "autosecops__registry__repositories__schemas__RegistrySyncResponse": {
         "properties": {
           "success": {
             "type": "boolean",
@@ -85766,7 +85766,7 @@
         "title": "RegistrySyncResponse",
         "description": "Response model for registry sync operation."
       },
-      "tracecat__registry__repositories__schemas__RegistryVersionPromoteResponse": {
+      "autosecops__registry__repositories__schemas__RegistryVersionPromoteResponse": {
         "properties": {
           "repository_id": {
             "type": "string",
@@ -85810,7 +85810,7 @@
         "title": "RegistryVersionPromoteResponse",
         "description": "Response model for version promotion."
       },
-      "tracecat__registry__repositories__schemas__RegistryVersionRead": {
+      "autosecops__registry__repositories__schemas__RegistryVersionRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -85866,7 +85866,7 @@
         "title": "RegistryVersionRead",
         "description": "Response model for reading a registry version."
       },
-      "tracecat_ee__admin__organizations__schemas__OrgDomainRead": {
+      "autosecops_ee__admin__organizations__schemas__OrgDomainRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -85936,7 +85936,7 @@
         "title": "OrgDomainRead",
         "description": "Organization domain response."
       },
-      "tracecat_ee__admin__organizations__schemas__OrgRead": {
+      "autosecops_ee__admin__organizations__schemas__OrgRead": {
         "properties": {
           "id": {
             "type": "string",
@@ -86004,7 +86004,7 @@
       "APIKeyHeader": {
         "type": "apiKey",
         "in": "header",
-        "name": "x-tracecat-service-key"
+        "name": "x-autosecops-service-key"
       }
     }
   },

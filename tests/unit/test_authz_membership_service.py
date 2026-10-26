@@ -138,7 +138,7 @@ def actor_role(
         user_id=actor_user.id,
         organization_id=organization.id,
         workspace_id=workspace.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         # Presets no longer carry the add scope; API callers hold it explicitly.
         scopes=ADMIN_SCOPES | {"workspace:member:invite"},
     )
@@ -388,7 +388,7 @@ async def test_create_membership_rejects_inviter_without_editor_scopes(
             user_id=actor_user.id,
             organization_id=organization.id,
             workspace_id=workspace.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({"workspace:member:invite"}),
         ),
     )
@@ -511,7 +511,7 @@ async def test_create_membership_allows_org_admin_inviter(
             user_id=actor_user.id,
             organization_id=organization.id,
             workspace_id=workspace.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_ADMIN_SCOPES,
         ),
     )

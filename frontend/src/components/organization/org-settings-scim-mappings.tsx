@@ -209,7 +209,7 @@ export function OrgSettingsScimMappings({
   }
 
   const allGroups = externalGroups ?? []
-  const tracecatGroups = groups ?? []
+  const autosecopsGroups = groups ?? []
 
   function targetsFor(group: ExternalGroupRead): Target[] {
     if (isPending) {
@@ -295,7 +295,7 @@ export function OrgSettingsScimMappings({
                       <TargetPicker
                         group={group}
                         targets={targets}
-                        tracecatGroups={tracecatGroups}
+                        autosecopsGroups={autosecopsGroups}
                         disabled={!canEdit || reviewIsPending}
                         onAdd={onAdd}
                         onRemove={(target) => {
@@ -357,14 +357,14 @@ function RowLine({
 function TargetPicker({
   group,
   targets,
-  tracecatGroups,
+  autosecopsGroups,
   disabled,
   onAdd,
   onRemove,
 }: {
   group: ExternalGroupRead
   targets: Target[]
-  tracecatGroups: { id: string; name: string }[]
+  autosecopsGroups: { id: string; name: string }[]
   disabled: boolean
   onAdd: (draft: ScimMappingDraft) => void
   onRemove: (target: Target) => void
@@ -414,7 +414,7 @@ function TargetPicker({
           <CommandList>
             <CommandEmpty>No groups found.</CommandEmpty>
             <CommandGroup>
-              {tracecatGroups.map((candidate) => {
+              {autosecopsGroups.map((candidate) => {
                 const target = targets.find(
                   (item) => item.group_id === candidate.id
                 )

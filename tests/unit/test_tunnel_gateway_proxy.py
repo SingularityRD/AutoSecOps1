@@ -147,7 +147,7 @@ async def test_bearer_token_tunnels_bytes(
 async def test_basic_credentials_from_proxy_url(
     gateway_port: int, upstream_port: int
 ) -> None:
-    basic = base64.b64encode(f"tracecat:{_token()}".encode()).decode()
+    basic = base64.b64encode(f"autosecops:{_token()}".encode()).decode()
     status, _, writer = await _request(
         gateway_port, _connect(f"127.0.0.1:{upstream_port}", f"Basic {basic}")
     )
@@ -254,9 +254,9 @@ async def test_unreachable_upstream_returns_bad_gateway(upstream_port: int) -> N
 def test_config_from_env() -> None:
     config = GatewayConfig.from_env(
         {
-            "TRACECAT_TUNNEL_ID": str(TUNNEL_ID),
-            "TRACECAT_TUNNEL_GATEWAY_KEY": KEY,
-            "TRACECAT_TUNNEL_API_URL": "http://api:8000",
+            "AUTOSECOPS_TUNNEL_ID": str(TUNNEL_ID),
+            "AUTOSECOPS_TUNNEL_GATEWAY_KEY": KEY,
+            "AUTOSECOPS_TUNNEL_API_URL": "http://api:8000",
         }
     )
     assert config.api_url == "http://api:8000"
@@ -265,9 +265,12 @@ def test_config_from_env() -> None:
 
 
 def test_config_requires_settings() -> None:
-    with pytest.raises(ValueError, match="TRACECAT_TUNNEL_API_URL"):
+    with pytest.raises(ValueError, match="AUTOSECOPS_TUNNEL_API_URL"):
         GatewayConfig.from_env(
-            {"TRACECAT_TUNNEL_ID": str(TUNNEL_ID), "TRACECAT_TUNNEL_GATEWAY_KEY": KEY}
+            {
+                "AUTOSECOPS_TUNNEL_ID": str(TUNNEL_ID),
+                "AUTOSECOPS_TUNNEL_GATEWAY_KEY": KEY,
+            }
         )
 
 
@@ -315,7 +318,7 @@ async def http_gateway_port(http_upstream_port: int) -> AsyncGenerator[int, None
 async def test_http_client_forwards_plain_http_requests(
     http_gateway_port: int, http_upstream_port: int
 ) -> None:
-    proxy = f"http://tracecat:{_token()}@127.0.0.1:{http_gateway_port}"
+    proxy = f"http://autosecops:{_token()}@127.0.0.1:{http_gateway_port}"
     async with httpx.AsyncClient(proxy=proxy) as client:
         response = await client.post(
             f"http://127.0.0.1:{http_upstream_port}/services/search/jobs?output_mode=json",
@@ -337,12 +340,12 @@ async def test_http_client_forwards_plain_http_requests(
 async def test_http_forward_rejects_bad_token_and_targets(
     http_gateway_port: int, http_upstream_port: int
 ) -> None:
-    bad_proxy = f"http://tracecat:{_token(tunnel_id=uuid.uuid4())}@127.0.0.1:{http_gateway_port}"
+    bad_proxy = f"http://autosecops:{_token(tunnel_id=uuid.uuid4())}@127.0.0.1:{http_gateway_port}"
     async with httpx.AsyncClient(proxy=bad_proxy) as client:
         response = await client.get(f"http://127.0.0.1:{http_upstream_port}/")
     assert response.status_code == 407
 
-    proxy = f"http://tracecat:{_token()}@127.0.0.1:{http_gateway_port}"
+    proxy = f"http://autosecops:{_token()}@127.0.0.1:{http_gateway_port}"
     async with httpx.AsyncClient(proxy=proxy) as client:
         other_port = await client.get(f"http://127.0.0.1:{http_upstream_port + 1}/")
         other_host = await client.get(f"http://localhost:{http_upstream_port}/")
@@ -599,7 +602,7 @@ async def test_blocks_internal_destinations_after_resolution(
 
 
 @pytest.mark.anyio
-async def test_blocks_the_tracecat_api(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_blocks_the_autosecops_api(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         TunnelGateway, "_refresh_api_addresses", _REAL_REFRESH_API_ADDRESSES
     )
@@ -648,10 +651,10 @@ async def test_dials_resolved_private_address(monkeypatch: pytest.MonkeyPatch) -
 def test_config_reads_blocked_cidrs() -> None:
     config = GatewayConfig.from_env(
         {
-            "TRACECAT_TUNNEL_ID": str(TUNNEL_ID),
-            "TRACECAT_TUNNEL_GATEWAY_KEY": KEY,
-            "TRACECAT_TUNNEL_API_URL": "http://api:8000",
-            "TRACECAT_TUNNEL_GATEWAY_BLOCKED_CIDRS": "10.96.0.0/12, 172.20.0.0/16",
+            "AUTOSECOPS_TUNNEL_ID": str(TUNNEL_ID),
+            "AUTOSECOPS_TUNNEL_GATEWAY_KEY": KEY,
+            "AUTOSECOPS_TUNNEL_API_URL": "http://api:8000",
+            "AUTOSECOPS_TUNNEL_GATEWAY_BLOCKED_CIDRS": "10.96.0.0/12, 172.20.0.0/16",
         }
     )
     assert ipaddress.ip_network("10.96.0.0/12") in config.blocked_networks

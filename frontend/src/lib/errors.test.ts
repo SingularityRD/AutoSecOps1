@@ -36,7 +36,7 @@ describe("getApiErrorDetail", () => {
     const error = Object.assign(new Error("Bad Request"), {
       body: {
         detail: {
-          action: "tracecat.examples.broken",
+          action: "autosecops.examples.broken",
           reason: "Action not found",
         },
         message: "Internal Server Error",
@@ -45,7 +45,7 @@ describe("getApiErrorDetail", () => {
 
     expect(getApiErrorDetail(error)).toBe(
       JSON.stringify({
-        action: "tracecat.examples.broken",
+        action: "autosecops.examples.broken",
         reason: "Action not found",
       })
     )

@@ -42,7 +42,7 @@ def delegated_cgroup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root.mkdir()
     (root / "cgroup.subtree_control").write_text("memory")
     (root / "cgroup.procs").touch()
-    monkeypatch.setenv("TRACECAT__SANDBOX_CGROUP_PATH", str(root))
+    monkeypatch.setenv("AUTOSECOPS__SANDBOX_CGROUP_PATH", str(root))
     return root
 
 
@@ -426,11 +426,11 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
     site_packages.mkdir(parents=True)
     host_site_packages = tmp_path / "host-site-packages"
     host_site_packages.mkdir()
-    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_autosecops = tmp_path / "trusted" / "autosecops"
     trusted_registry = tmp_path / "trusted" / "autosecops_registry"
-    trusted_tracecat.mkdir(parents=True)
+    trusted_autosecops.mkdir(parents=True)
     trusted_registry.mkdir()
-    (trusted_tracecat / "__init__.py").write_text("")
+    (trusted_autosecops / "__init__.py").write_text("")
     (trusted_registry / "__init__.py").write_text("")
 
     async def execute(
@@ -451,7 +451,7 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
         }
         assert sandbox_config.resources.memory_mb == 2048
         assert sandbox_config.resources.max_processes == 64
-        assert job_dir.parent.name.startswith("tracecat_registry_discovery_")
+        assert job_dir.parent.name.startswith("autosecops_registry_discovery_")
         assert job_dir.parent != site_packages.parent.parent / "sandbox-discovery"
         assert sandbox_config.python_path_dirs == [
             job_dir.parent / "trusted" / "0",
@@ -492,7 +492,7 @@ async def test_registry_discovery_runs_without_network_or_worker_environment(
     )
     mocker.patch(
         "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
-        return_value=[trusted_tracecat, trusted_registry],
+        return_value=[trusted_autosecops, trusted_registry],
     )
 
     result = await RegistrySyncSandbox().discover_actions(
@@ -522,9 +522,9 @@ async def test_registry_discovery_ignores_installer_planted_symlinks(
     executor_owned_file.write_text("SAFE\n")
     (old_job_dir / "script.py").symlink_to(executor_owned_file)
 
-    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_autosecops = tmp_path / "trusted" / "autosecops"
     trusted_registry = tmp_path / "trusted" / "autosecops_registry"
-    trusted_tracecat.mkdir(parents=True)
+    trusted_autosecops.mkdir(parents=True)
     trusted_registry.mkdir()
     discovery_job_dirs: list[Path] = []
 
@@ -557,7 +557,7 @@ async def test_registry_discovery_ignores_installer_planted_symlinks(
     )
     mocker.patch(
         "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
-        return_value=[trusted_tracecat, trusted_registry],
+        return_value=[trusted_autosecops, trusted_registry],
     )
 
     await RegistrySyncSandbox().discover_actions(
@@ -622,9 +622,9 @@ async def test_registry_discovery_preserves_structured_registry_errors(
 ) -> None:
     site_packages = tmp_path / "sandbox-install" / "cache" / "site-packages"
     site_packages.mkdir(parents=True)
-    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_autosecops = tmp_path / "trusted" / "autosecops"
     trusted_registry = tmp_path / "trusted" / "autosecops_registry"
-    trusted_tracecat.mkdir(parents=True)
+    trusted_autosecops.mkdir(parents=True)
     trusted_registry.mkdir()
     executor = mocker.Mock(
         execute=mocker.AsyncMock(
@@ -646,7 +646,7 @@ async def test_registry_discovery_preserves_structured_registry_errors(
     )
     mocker.patch(
         "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
-        return_value=[trusted_tracecat, trusted_registry],
+        return_value=[trusted_autosecops, trusted_registry],
     )
 
     with pytest.raises(RegistryError, match="Failed to load template action"):
@@ -669,9 +669,9 @@ async def test_registry_discovery_raises_typed_content_error(
 ) -> None:
     site_packages = tmp_path / "sandbox-install" / "cache" / "site-packages"
     site_packages.mkdir(parents=True)
-    trusted_tracecat = tmp_path / "trusted" / "autosecops"
+    trusted_autosecops = tmp_path / "trusted" / "autosecops"
     trusted_registry = tmp_path / "trusted" / "autosecops_registry"
-    trusted_tracecat.mkdir(parents=True)
+    trusted_autosecops.mkdir(parents=True)
     trusted_registry.mkdir()
     executor = mocker.Mock(
         execute=mocker.AsyncMock(
@@ -694,7 +694,7 @@ async def test_registry_discovery_raises_typed_content_error(
     )
     mocker.patch(
         "autosecops.registry.sync.sandbox._trusted_runtime_package_paths",
-        return_value=[trusted_tracecat, trusted_registry],
+        return_value=[trusted_autosecops, trusted_registry],
     )
 
     with pytest.raises(RegistrySyncContentError) as exc_info:

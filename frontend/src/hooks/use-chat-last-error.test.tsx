@@ -172,7 +172,7 @@ describe("useVercelChat dropped prompt across reloads", () => {
     expect(seeded && "messages" in seeded && seeded.messages).toHaveLength(3)
     expect(hook.result.current.lastError).toBeNull()
     expect(
-      window.localStorage.getItem("tracecat:chat:dropped-prompt:chat-1")
+      window.localStorage.getItem("autosecops:chat:dropped-prompt:chat-1")
     ).toBeNull()
   })
 

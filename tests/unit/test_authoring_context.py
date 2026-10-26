@@ -253,7 +253,7 @@ class TestComputeAttributedUserScopes:
 
         role = Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             user_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
@@ -266,7 +266,7 @@ class TestComputeAttributedUserScopes:
 
         role = Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
         )
@@ -283,7 +283,7 @@ class TestComputeAttributedUserScopes:
         ws_id = uuid.uuid4()
         role = Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             user_id=user_id,
             organization_id=org_id,
             workspace_id=ws_id,
@@ -317,7 +317,7 @@ class TestAuthoringContextRouteCallerScoping:
 
         return Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             user_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),

@@ -38,10 +38,10 @@ pytestmark = pytest.mark.usefixtures("db")
 def set_db_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         channel_service_module.config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ async def test_to_read_preserves_pending_bot_token_placeholder(
                 slack_bot_token=PENDING_SLACK_BOT_TOKEN,
                 slack_client_id="12345.67890",
                 slack_client_secret="client-secret",
-                slack_signing_secret="__tracecat_pending_signing_secret__placeholder",
+                slack_signing_secret="__autosecops_pending_signing_secret__placeholder",
             ),
             is_active=False,
         )
@@ -458,7 +458,7 @@ async def test_update_token_rejects_pending_bot_token_when_token_remains_active(
 
 
 def _set_signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
 
 
 def _build_legacy_state(
@@ -568,7 +568,7 @@ def test_parse_slack_oauth_state_accepts_legacy_signed_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     signing_secret = "test-signing-secret"
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", signing_secret)
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", signing_secret)
     monkeypatch.setattr(
         "autosecops.agent.channels.service.time.time", lambda: 1_000_000
     )

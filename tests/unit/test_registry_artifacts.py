@@ -53,15 +53,15 @@ from autosecops.executor.registry_artifacts import (
 
 MAX_ENTRIES_CONFIG = (
     "autosecops.executor.registry_artifacts.config"
-    ".TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES"
+    ".AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES"
 )
 MAX_BYTES_CONFIG = (
     "autosecops.executor.registry_artifacts.config"
-    ".TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES"
+    ".AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES"
 )
 SQUASHFS_ENABLED_CONFIG = (
     "autosecops.executor.registry_artifacts.config"
-    ".TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"
+    ".AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"
 )
 RESERVATION_WAIT_CONFIG = (
     "autosecops.executor.registry_artifact_storage.RESERVATION_WAIT_SECONDS"
@@ -1777,7 +1777,7 @@ class TestRegistryArtifactCache:
                 return_value=True,
             ),
             patch(
-                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch(
@@ -2240,7 +2240,7 @@ class TestRegistryArtifactCache:
 
         with (
             patch(
-                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch.object(SquashfsArtifact, "mount", mock_mount),
@@ -2329,7 +2329,7 @@ class TestRegistryArtifactCache:
                 side_effect=[True, False],
             ),
             patch(
-                "autosecops.executor.registry_artifacts.config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "autosecops.executor.registry_artifacts.config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 True,
             ),
             patch(

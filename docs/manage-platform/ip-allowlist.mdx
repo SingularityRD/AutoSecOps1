@@ -47,11 +47,11 @@ Platform superusers can restrict the platform admin console and admin API to app
 
 While enforcement is on, every superuser-only request from an address outside the allowlist fails with `403` and `Access from your IP address is not permitted by the platform admin IP allowlist.` This covers every `/admin` endpoint and the superuser-only `/users/{id}` endpoints. It does not restrict organization access: organization-scoped requests, including those from superusers, are never checked against the platform admin allowlist.
 
-If every platform admin is locked out, set `TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS=true` on the API service and restart it. AutoSecOps then skips the platform admin allowlist, so you can sign in to `/admin/security` and fix or disable it. Remove the variable afterwards. It has no effect on organization allowlists.
+If every platform admin is locked out, set `AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS=true` on the API service and restart it. AutoSecOps then skips the platform admin allowlist, so you can sign in to `/admin/security` and fix or disable it. Remove the variable afterwards. It has no effect on organization allowlists.
 
 ## Client IP resolution
 
-AutoSecOps resolves the client address from `X-Forwarded-For`, skipping hops listed in `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS`. The default covers loopback and private ranges, which includes the bundled reverse proxy, the UI container, and load balancers on private subnets. Add any proxy with a public address to that variable before enabling enforcement; otherwise AutoSecOps treats the proxy address as the client and denies every request. A hop outside the trusted list can never inject a forwarded address, so a client cannot spoof its way onto the allowlist.
+AutoSecOps resolves the client address from `X-Forwarded-For`, skipping hops listed in `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`. The default covers loopback and private ranges, which includes the bundled reverse proxy, the UI container, and load balancers on private subnets. Add any proxy with a public address to that variable before enabling enforcement; otherwise AutoSecOps treats the proxy address as the client and denies every request. A hop outside the trusted list can never inject a forwarded address, so a client cannot spoof its way onto the allowlist.
 
 Confirm what AutoSecOps resolves before you enable enforcement: open Sessions in the organization sidebar and check the IP column for your own session.
 
@@ -64,6 +64,6 @@ AutoSecOps records the address and user agent at sign-in and refreshes `last_see
 ## Related pages
 
 - See [Roles and permissions](/manage-platform/rbac) for which built-in roles hold `org:settings:update` and `org:member:remove`.
-- See [Environment variables](/self-hosting/environment-variables) for `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS`.
+- See [Environment variables](/self-hosting/environment-variables) for `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`.
 - See [Security architecture](/security/architecture#network-access) for how the allowlist fits the identity controls.
 - See [Organization audit logs](/audit-logs/organization) to stream settings changes to your SIEM.

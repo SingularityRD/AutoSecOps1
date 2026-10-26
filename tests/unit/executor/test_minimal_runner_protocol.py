@@ -24,14 +24,14 @@ from autosecops.executor import minimal_runner
 # --- Action Gateway compatibility regressions ---
 
 
-def test_action_gateway_sdk_transport_patches_legacy_tracecat_client(
+def test_action_gateway_sdk_transport_patches_legacy_autosecops_client(
     monkeypatch,
 ) -> None:
     """Legacy SDK clients are patched to use the executor-local gateway.
 
     Cached registry artifacts can contain SDKs from before
     `_request_url_and_transport` existed. Those clients would otherwise keep
-    calling `/internal` over `TRACECAT__API_URL`; the minimal runner shim must
+    calling `/internal` over `AUTOSECOPS__API_URL`; the minimal runner shim must
     replace only their `request()` method and send traffic through the UDS.
     """
     captured: dict[str, Any] = {}
@@ -99,7 +99,7 @@ def test_action_gateway_sdk_transport_patches_legacy_tracecat_client(
     monkeypatch.setattr(
         minimal_runner,
         "_ACTION_GATEWAY_SOCKET",
-        "/var/run/tracecat/action-gateway.sock",
+        "/var/run/autosecops/action-gateway.sock",
     )
     monkeypatch.setattr(minimal_runner.importlib, "import_module", import_module)
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", FakeTransport)
@@ -115,17 +115,17 @@ def test_action_gateway_sdk_transport_patches_legacy_tracecat_client(
     )
 
     assert result == {"ok": True}
-    assert captured["uds"] == "/var/run/tracecat/action-gateway.sock"
+    assert captured["uds"] == "/var/run/autosecops/action-gateway.sock"
     # The hostname is intentionally synthetic: httpx ignores it when a UDS
     # transport is supplied, while FastAPI still receives the `/internal` path.
     assert captured["timeout"] == 12.0
     assert captured["method"] == "GET"
-    assert captured["url"] == "http://tracecat-action-gateway/internal/cases"
+    assert captured["url"] == "http://autosecops-action-gateway/internal/cases"
     assert captured["params"] == {"limit": 1}
     assert captured["headers"]["Authorization"] == "Bearer executor-token"
 
 
-def test_action_gateway_sdk_transport_leaves_current_tracecat_client_unpatched(
+def test_action_gateway_sdk_transport_leaves_current_autosecops_client_unpatched(
     monkeypatch,
 ) -> None:
     """Current SDK clients keep native request and transport behavior.
@@ -154,7 +154,7 @@ def test_action_gateway_sdk_transport_leaves_current_tracecat_client_unpatched(
     monkeypatch.setattr(
         minimal_runner,
         "_ACTION_GATEWAY_SOCKET",
-        "/var/run/tracecat/action-gateway.sock",
+        "/var/run/autosecops/action-gateway.sock",
     )
     monkeypatch.setattr(minimal_runner.importlib, "import_module", import_module)
 
@@ -296,12 +296,12 @@ def test_run_udf_supports_legacy_registry_context_and_sdk_gateway_transport(
     monkeypatch.setattr(
         minimal_runner,
         "_ACTION_GATEWAY_SOCKET",
-        "/var/run/tracecat/action-gateway.sock",
+        "/var/run/autosecops/action-gateway.sock",
     )
-    monkeypatch.setenv("TRACECAT__WORKSPACE_ID", "workspace-id")
-    monkeypatch.setenv("TRACECAT__WORKFLOW_ID", "workflow-id")
-    monkeypatch.setenv("TRACECAT__RUN_ID", "run-id")
-    monkeypatch.setenv("TRACECAT__EXECUTOR_TOKEN", "executor-token")
+    monkeypatch.setenv("AUTOSECOPS__WORKSPACE_ID", "workspace-id")
+    monkeypatch.setenv("AUTOSECOPS__WORKFLOW_ID", "workflow-id")
+    monkeypatch.setenv("AUTOSECOPS__RUN_ID", "run-id")
+    monkeypatch.setenv("AUTOSECOPS__EXECUTOR_TOKEN", "executor-token")
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", FakeTransport)
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
@@ -323,8 +323,8 @@ def test_run_udf_supports_legacy_registry_context_and_sdk_gateway_transport(
         api_url="http://api:8000",
         token="executor-token",
     )
-    assert captured["uds"] == "/var/run/tracecat/action-gateway.sock"
-    assert captured["url"] == "http://tracecat-action-gateway/internal/cases"
+    assert captured["uds"] == "/var/run/autosecops/action-gateway.sock"
+    assert captured["url"] == "http://autosecops-action-gateway/internal/cases"
     assert captured["params"] == {"limit": 1}
     assert captured["headers"]["Authorization"] == "Bearer executor-token"
 
@@ -1135,7 +1135,7 @@ def test_sandbox_runner_skips_heavy_imports_for_plain_builtin_action() -> None:
         [sys.executable, "-c", probe],
         input=payload,
         capture_output=True,
-        env={"TRACECAT__ACTION_GATEWAY_SOCKET": "/nonexistent/gateway.sock"},
+        env={"AUTOSECOPS__ACTION_GATEWAY_SOCKET": "/nonexistent/gateway.sock"},
         check=True,
         timeout=60,
     )
