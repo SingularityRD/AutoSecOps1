@@ -18,7 +18,7 @@ from autosecops.auth.api_keys import (
 )
 from autosecops.auth.types import Role
 from autosecops.db.models import Organization, ScimConnection, User
-from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, ScopeDeniedError
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -120,7 +120,7 @@ async def test_get_connection_without_one_raises(
     session: AsyncSession, org: Organization, admin_role: Role
 ) -> None:
     service = ScimConnectionService(session, role=admin_role)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_connection()
 
 

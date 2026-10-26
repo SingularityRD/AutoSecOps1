@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
 from autosecops.db.models import Secret
-from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, ScopeDeniedError
 from autosecops.git.types import GitUrl
 from autosecops.secrets.enums import SecretType
 from autosecops.secrets.schemas import SecretKeyValue
@@ -122,8 +122,8 @@ class TestGitHubAppService:
         """Test retrieving GitHub App credentials when not found."""
         with patch("autosecops.vcs.github.app.SecretsService") as mock_secrets_service:
             mock_service = AsyncMock()
-            mock_service._get_github_app_org_secret.side_effect = TracecatNotFoundError(
-                "Secret not found"
+            mock_service._get_github_app_org_secret.side_effect = (
+                AutoSecOpsNotFoundError("Secret not found")
             )
             mock_secrets_service.return_value = mock_service
 
@@ -615,10 +615,10 @@ class TestGitHubAppService:
         self, github_service, mock_credentials
     ):
         """Test that non-admin role cannot register app."""
-        from autosecops.exceptions import TracecatAuthorizationError
+        from autosecops.exceptions import AutoSecOpsAuthorizationError
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="You don't have permission to perform this action.",
         ):
             await github_service.register_app(
@@ -633,10 +633,10 @@ class TestGitHubAppService:
         self, github_service
     ):
         """Test that non-admin role cannot update credentials."""
-        from autosecops.exceptions import TracecatAuthorizationError
+        from autosecops.exceptions import AutoSecOpsAuthorizationError
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="You don't have permission to perform this action.",
         ):
             await github_service.update_github_app_credentials(app_id="new-id")

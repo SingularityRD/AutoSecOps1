@@ -22,10 +22,10 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatException,
-    TracecatManagementError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsException,
+    AutoSecOpsManagementError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import UserID, WorkspaceID
 from autosecops.service import BaseOrgService
@@ -63,7 +63,7 @@ class WorkspaceService(BaseOrgService):
         )
         if limit is not None:
             if limit <= 0:
-                raise TracecatException("List workspace limit must be greater than 0")
+                raise AutoSecOpsException("List workspace limit must be greater than 0")
             statement = statement.limit(limit)
         result = await self.session.execute(statement)
         return result.scalars().all()
@@ -84,7 +84,7 @@ class WorkspaceService(BaseOrgService):
         )
         if limit is not None:
             if limit <= 0:
-                raise TracecatException("List workspace limit must be greater than 0")
+                raise AutoSecOpsException("List workspace limit must be greater than 0")
             statement = statement.limit(limit)
         result = await self.session.execute(statement)
         return result.scalars().all()
@@ -103,14 +103,14 @@ class WorkspaceService(BaseOrgService):
             ) is None:
                 if self.role.scopes and has_scope(self.role.scopes, "org:read"):
                     return []
-                raise TracecatAuthorizationError(
+                raise AutoSecOpsAuthorizationError(
                     "Service account does not have access to list workspaces"
                 )
             workspace = await self.get_workspace(bound_workspace_id)
             return [workspace] if workspace is not None else []
 
         if self.role.user_id is None:
-            raise TracecatAuthorizationError("User ID is required to list workspaces")
+            raise AutoSecOpsAuthorizationError("User ID is required to list workspaces")
         return await self.list_workspaces(self.role.user_id, limit=limit)
 
     async def _lock_workspace_creation(self) -> None:
@@ -220,7 +220,7 @@ class WorkspaceService(BaseOrgService):
                 .with_for_update()
             )
             if preset_id is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Default agent must be an active preset in this workspace"
                 )
         set_fields = params.model_dump(exclude_unset=True, mode="json")
@@ -267,7 +267,7 @@ class WorkspaceService(BaseOrgService):
         await lock_role_changes(self.session, self.organization_id)
         all_workspaces = await self.admin_list_workspaces()
         if len(all_workspaces) == 1:
-            raise TracecatManagementError(
+            raise AutoSecOpsManagementError(
                 "There must be at least one workspace in the organization."
             )
         statement = select(Workspace).where(
@@ -312,13 +312,13 @@ class WorkspaceService(BaseOrgService):
                 ) is None:
                     if self.role.scopes and has_scope(self.role.scopes, "org:read"):
                         return []
-                    raise TracecatAuthorizationError(
+                    raise AutoSecOpsAuthorizationError(
                         "Service account does not have access to search workspaces"
                     )
                 statement = statement.where(Workspace.id == bound_workspace_id)
             else:
                 if self.role.user_id is None:
-                    raise TracecatAuthorizationError(
+                    raise AutoSecOpsAuthorizationError(
                         "User ID is required to search workspaces"
                     )
                 statement = statement.where(

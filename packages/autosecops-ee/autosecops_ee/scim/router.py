@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from autosecops import config
 from autosecops.auth.dependencies import OrgActorRole
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.pagination import Page, PageParams
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
@@ -72,7 +72,7 @@ async def get_scim_connection(
     service = ScimConnectionService(session, role=role)
     try:
         connection = await service.get_connection()
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="SCIM connection not found"
         ) from e
@@ -131,7 +131,7 @@ async def disconnect_scim(
     """Remove all mappings, revoke the token, and disable the connection."""
     try:
         await SCIMService(session, role=role).disconnect()
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -158,7 +158,7 @@ async def review_scim_activation(
         return await SCIMService(session, role=role).review_activation(
             params.mappings, params.delete, full=params.full
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -183,9 +183,9 @@ async def activate_scim_connection(
     """Admit the pushed directory and install the reviewed mappings."""
     try:
         await SCIMService(session, role=role).activate(params.mappings)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
@@ -220,9 +220,9 @@ async def create_scim_mapping(
         mapping = await service.create_mapping(
             external_group_id=params.external_group_id, group_id=params.group_id
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     await session.commit()
     return await service.get_mapping(mapping.id)
@@ -249,9 +249,9 @@ async def apply_scim_mapping_changes(
         await SCIMService(session, role=role).apply_mapping_changes(
             create=params.create, delete=params.delete
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     await session.commit()
 
@@ -268,6 +268,6 @@ async def delete_scim_mapping(
     """Remove a mapping and revoke the membership only it supplied."""
     try:
         await SCIMService(session, role=role).delete_mapping(mapping_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     await session.commit()

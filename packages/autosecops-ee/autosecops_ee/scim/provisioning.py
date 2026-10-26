@@ -46,9 +46,9 @@ from autosecops.db.models import (
     User,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsValidationError,
 )
 from autosecops.organization.domains import normalize_domain
 from autosecops.service import BaseOrgService
@@ -98,8 +98,8 @@ class ScimProvisioningService(BaseOrgService):
             The provisioned user and whether the account was newly created.
 
         Raises:
-            TracecatAuthorizationError: The account is a platform superuser.
-            TracecatValidationError: The email is not a usable address, or is
+            AutoSecOpsAuthorizationError: The account is a platform superuser.
+            AutoSecOpsValidationError: The email is not a usable address, or is
                 not at a domain this organization owns.
         """
         normalized = _normalize_email(email)
@@ -123,7 +123,7 @@ class ScimProvisioningService(BaseOrgService):
             created = False
         # A superuser is platform-wide; one org's IdP must not own it.
         if user.is_superuser:
-            raise TracecatAuthorizationError("Cannot provision superuser")
+            raise AutoSecOpsAuthorizationError("Cannot provision superuser")
 
         # Account creation may commit; acquire the directory lock afterwards.
         await lock_role_changes(self.session, self.organization_id)
@@ -158,7 +158,9 @@ class ScimProvisioningService(BaseOrgService):
             )
         )
         if duplicate is not None:
-            raise TracecatConflictError("An external user already uses this externalId")
+            raise AutoSecOpsConflictError(
+                "An external user already uses this externalId"
+            )
         external_user.external_id = external_id
         await self.session.flush()
 
@@ -169,24 +171,24 @@ class ScimProvisioningService(BaseOrgService):
         Both addresses must be at domains this organization owns.
 
         Raises:
-            TracecatAuthorizationError: The account is a platform superuser.
-            TracecatValidationError: Either address is outside the owned domains.
-            TracecatConflictError: Another account already uses the new address.
+            AutoSecOpsAuthorizationError: The account is a platform superuser.
+            AutoSecOpsValidationError: Either address is outside the owned domains.
+            AutoSecOpsConflictError: Another account already uses the new address.
         """
         normalized = _normalize_email(email)
         user = await self.session.get_one(User, user_id)
         # A superuser's email is platform-wide; one org's IdP must not move it.
         if user.is_superuser:
-            raise TracecatAuthorizationError("Cannot rename superuser")
+            raise AutoSecOpsAuthorizationError("Cannot rename superuser")
         await self._require_owned_domain(user.email)
         await self._require_owned_domain(normalized)
         if await self._user_by_email(normalized) is not None:
-            raise TracecatConflictError("Another account already uses this userName")
+            raise AutoSecOpsConflictError("Another account already uses this userName")
         user.email = normalized
         try:
             await self.session.flush()
         except IntegrityError as e:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Another account already uses this userName"
             ) from e
         # An invitation to the new address could outrank the directory's grants.
@@ -200,7 +202,7 @@ class ScimProvisioningService(BaseOrgService):
         try:
             domain = normalize_domain(raw_domain).normalized_domain
         except ValueError as e:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "userName is not a valid email address"
             ) from e
         active_domains = set(
@@ -218,7 +220,7 @@ class ScimProvisioningService(BaseOrgService):
         if not is_domain_allowed_for_org(
             normalized_domain=domain, active_domains=active_domains
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "userName must be at a domain this organization owns"
             )
 
@@ -243,7 +245,7 @@ class ScimProvisioningService(BaseOrgService):
                         allow_auto_provisioning=True,
                     )
                 except (InvalidEmailException, InvalidPasswordException) as e:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "userName is not a valid email address"
                     ) from e
 
@@ -261,7 +263,7 @@ class ScimProvisioningService(BaseOrgService):
         provider's identifier rather than creating a second row.
 
         Raises:
-            TracecatConflictError: Another account in this organization already
+            AutoSecOpsConflictError: Another account in this organization already
                 holds the identifier. The upsert below resolves a conflict on
                 the user, so this one would surface as an integrity error.
         """
@@ -273,7 +275,9 @@ class ScimProvisioningService(BaseOrgService):
             )
         )
         if duplicate is not None:
-            raise TracecatConflictError("An external user already uses this externalId")
+            raise AutoSecOpsConflictError(
+                "An external user already uses this externalId"
+            )
         stmt = (
             pg_insert(ExternalUser)
             .values(
@@ -297,5 +301,5 @@ def _normalize_email(email: str) -> str:
     try:
         _EMAIL.validate_python(normalized)
     except ValidationError as e:
-        raise TracecatValidationError("userName is not a valid email address") from e
+        raise AutoSecOpsValidationError("userName is not a valid email address") from e
     return normalized

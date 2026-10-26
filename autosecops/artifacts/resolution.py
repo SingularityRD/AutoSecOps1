@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.artifacts.bindings import ArtifactIdentityRef, ArtifactSideEffect
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.logger import logger
 from autosecops.tables.service import TablesService
 
@@ -80,7 +80,7 @@ async def _resolve_table_identity_ref(
         case "name":
             try:
                 table = await table_service.get_table_by_name(identity_ref.ref)
-            except (TracecatNotFoundError, ValueError):
+            except (AutoSecOpsNotFoundError, ValueError):
                 return None
         case "id":
             try:
@@ -89,7 +89,7 @@ async def _resolve_table_identity_ref(
                 return None
             try:
                 table = await table_service.get_table(table_id)
-            except TracecatNotFoundError:
+            except AutoSecOpsNotFoundError:
                 return None
         case _:
             return None

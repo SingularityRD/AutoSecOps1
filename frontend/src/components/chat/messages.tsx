@@ -3,7 +3,7 @@
 import { MessageSquare } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { type ComponentProps, useEffect, useRef } from "react"
 import type { Streamdown } from "streamdown"
 import { MarkdownWithFrontmatter } from "@/components/ai-elements/markdown-with-frontmatter"
@@ -207,7 +207,11 @@ export function Messages({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <Image src={TracecatIcon} alt="AutoSecOps" className="size-4 mt-1" />
+          <Image
+            src={AutoSecOpsIcon}
+            alt="AutoSecOps"
+            className="size-4 mt-1"
+          />
           <MarkdownWithFrontmatter
             allowedImagePrefixes={ALLOWED_MARKDOWN_IMAGE_PREFIXES}
             allowedLinkPrefixes={ALLOWED_MARKDOWN_LINK_PREFIXES}
@@ -229,7 +233,7 @@ export function Messages({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <Image src={TracecatIcon} alt="AutoSecOps" className="size-4" />
+          <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="size-4" />
           <Dots />
         </motion.div>
       )}
@@ -273,7 +277,7 @@ function AgentChatMessage({ message }: { message: ModelResponse }) {
 
   return (
     <div className="flex gap-3">
-      <Image src={TracecatIcon} alt="AutoSecOps" className="size-4 mt-1" />
+      <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="size-4 mt-1" />
       <div className="flex flex-1 flex-col gap-3 text-sm text-foreground">
         {textContent && (
           <MarkdownWithFrontmatter

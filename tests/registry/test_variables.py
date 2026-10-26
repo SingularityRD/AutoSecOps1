@@ -8,13 +8,13 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from autosecops_registry.sdk.exceptions import TracecatNotFoundError
+from autosecops_registry.sdk.exceptions import AutoSecOpsNotFoundError
 from autosecops_registry.sdk.variables import VariablesClient
 
 
 @pytest.fixture
 def mock_autosecops_client() -> MagicMock:
-    """Create a mock TracecatClient."""
+    """Create a mock AutoSecOpsClient."""
     client = MagicMock()
     client.get = AsyncMock()
     return client
@@ -75,12 +75,12 @@ class TestVariablesClientGet:
     async def test_get_raises_not_found_for_missing_variable(
         self, variables_client: VariablesClient, mock_autosecops_client: MagicMock
     ):
-        """Test get raises TracecatNotFoundError when variable doesn't exist."""
-        mock_autosecops_client.get.side_effect = TracecatNotFoundError(
+        """Test get raises AutoSecOpsNotFoundError when variable doesn't exist."""
+        mock_autosecops_client.get.side_effect = AutoSecOpsNotFoundError(
             resource="Variable", identifier="nonexistent"
         )
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await variables_client.get("nonexistent", "key")
 
 
@@ -103,7 +103,7 @@ class TestVariablesClientGetOrDefault:
         self, variables_client: VariablesClient, mock_autosecops_client: MagicMock
     ):
         """Test get_or_default returns default when variable doesn't exist."""
-        mock_autosecops_client.get.side_effect = TracecatNotFoundError(
+        mock_autosecops_client.get.side_effect = AutoSecOpsNotFoundError(
             resource="Variable", identifier="nonexistent"
         )
 
@@ -191,10 +191,10 @@ class TestVariablesClientGetVariable:
     async def test_get_variable_raises_not_found(
         self, variables_client: VariablesClient, mock_autosecops_client: MagicMock
     ):
-        """Test get_variable raises TracecatNotFoundError when variable doesn't exist."""
-        mock_autosecops_client.get.side_effect = TracecatNotFoundError(
+        """Test get_variable raises AutoSecOpsNotFoundError when variable doesn't exist."""
+        mock_autosecops_client.get.side_effect = AutoSecOpsNotFoundError(
             resource="Variable", identifier="nonexistent"
         )
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await variables_client.get_variable("nonexistent")

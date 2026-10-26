@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from autosecops.db.models import OrganizationSecretStore
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.secrets.enums import SecretStoreProvider
 from autosecops.secrets.schemas import (
     SecretStoreConfig,
@@ -67,7 +67,7 @@ def get_backend(provider: SecretStoreProvider | str) -> SecretStoreBackend:
     try:
         return BACKENDS[SecretStoreProvider(provider)]
     except (KeyError, ValueError) as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Unsupported secret store provider {provider!r}"
         ) from e
 

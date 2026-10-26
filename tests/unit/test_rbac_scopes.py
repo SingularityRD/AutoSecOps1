@@ -27,7 +27,7 @@ from autosecops.authz.scopes import (
     WORKSPACE_OPERATIONAL_SCOPES,
 )
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import ScopeDeniedError, TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, ScopeDeniedError
 
 
 @pytest.fixture(autouse=True)
@@ -206,7 +206,7 @@ class TestEnsureCanGrantScopes:
 
     def test_concrete_granter_cannot_grant_wildcard_scope(self):
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match=r"Cannot grant scopes not held by the caller: org:\*",
         ):
             ensure_can_grant_scopes(
@@ -214,7 +214,7 @@ class TestEnsureCanGrantScopes:
             )
 
     def test_empty_granter_denied(self):
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             ensure_can_grant_scopes(frozenset(), ["org:member:read"])
 
 

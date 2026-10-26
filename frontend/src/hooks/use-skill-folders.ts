@@ -15,7 +15,7 @@ import {
   skillFoldersUpdateFolder,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 async function listAllSkillFolders(
@@ -54,7 +54,7 @@ export function useSkillFolders(
   options: { enabled: boolean } = { enabled: true }
 ) {
   const queryClient = useQueryClient()
-  const foldersQuery = useQuery<SkillFolderRead[], TracecatApiError>({
+  const foldersQuery = useQuery<SkillFolderRead[], AutoSecOpsApiError>({
     queryKey: ["skill-folders", workspaceId],
     queryFn: async () => await listAllSkillFolders(workspaceId),
     enabled: options.enabled,
@@ -62,7 +62,7 @@ export function useSkillFolders(
 
   const createMutation = useMutation<
     SkillFolderRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     SkillFolderCreate
   >({
     mutationFn: async (requestBody) =>
@@ -87,7 +87,7 @@ export function useSkillFolders(
 
   const updateMutation = useMutation<
     SkillFolderRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { folderId: string; name: string }
   >({
     mutationFn: async ({ folderId, name }) =>
@@ -116,7 +116,7 @@ export function useSkillFolders(
 
   const moveMutation = useMutation<
     SkillFolderRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { folderId: string; newParentPath: string | null }
   >({
     mutationFn: async ({ folderId, newParentPath }) =>
@@ -145,7 +145,7 @@ export function useSkillFolders(
 
   const deleteMutation = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { folderId: string; recursive?: boolean }
   >({
     mutationFn: async ({ folderId, recursive = false }) =>
@@ -201,7 +201,7 @@ export function useSkillDirectoryItems(
   options: { enabled?: boolean } = {}
 ) {
   const enabled = options.enabled ?? true
-  const query = useQuery<SkillDirectoryEntry[], TracecatApiError>({
+  const query = useQuery<SkillDirectoryEntry[], AutoSecOpsApiError>({
     queryKey: ["skill-directory-items", workspaceId, path],
     queryFn: async () =>
       await skillFoldersGetDirectory({
@@ -230,7 +230,7 @@ export function useMoveSkill(workspaceId: string) {
   const queryClient = useQueryClient()
   const mutation = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string } & SkillMoveToFolder
   >({
     mutationFn: async ({ skillId, ...requestBody }) =>

@@ -20,7 +20,7 @@ from autosecops.cases.versions.schemas import (
     CaseVersionReadMinimal,
 )
 from autosecops.db.models import Case, CaseVersion, User
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import (
     CursorPaginatedResponse,
     PageParams,
@@ -60,7 +60,7 @@ class CaseVersionsService(BaseWorkspaceService):
             .with_for_update()
         )
         if (await self.session.execute(statement)).scalar_one_or_none() is None:
-            raise TracecatNotFoundError(f"Case '{case_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Case '{case_id}' not found")
 
     async def create_initial_versions(
         self,

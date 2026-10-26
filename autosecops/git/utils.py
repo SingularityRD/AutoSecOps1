@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import TracecatSettingsError
+from autosecops.exceptions import AutoSecOpsSettingsError
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.git.types import GitUrl
 from autosecops.logger import logger
@@ -265,7 +265,7 @@ async def prepare_git_url(
             ref=sha,
         )
     except ValueError as e:
-        raise TracecatSettingsError(str(e)) from e
+        raise AutoSecOpsSettingsError(str(e)) from e
     return git_url
 
 

@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react"
 import { useScopeCheck } from "@/components/auth/scope-guard"
 import type { FilterOption } from "@/components/filters/filter-multi-select"
 import { useAgentPresets } from "@/hooks/use-agent-presets"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import {
   parseSkillAgentFilter,
   skillIdsForAgents,
@@ -38,7 +38,7 @@ export function useSkillAgentFilter({
   agentSkillIds: Set<string> | null
   /** An active filter is waiting on agents. */
   filterIsLoading: boolean
-  filterError: TracecatApiError | null
+  filterError: AutoSecOpsApiError | null
 } {
   const canReadAgents = useScopeCheck("agent:read") === true
   const { presets, presetsIsLoading, presetsError } = useAgentPresets(

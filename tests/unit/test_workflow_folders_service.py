@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
 from autosecops.db.models import Workflow, WorkflowFolder, Workspace
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkflowID
 from autosecops.workflow.management.folders.schemas import WorkflowFolderCreate
 from autosecops.workflow.management.folders.service import (
@@ -132,7 +132,7 @@ class TestWorkflowFolderService:
         assert folder.path == "/trimmed/"
 
         with pytest.raises(
-            TracecatValidationError, match="Folder name cannot be empty"
+            AutoSecOpsValidationError, match="Folder name cannot be empty"
         ):
             await folder_service.create_folder(name="   ", parent_path="/")
 
@@ -202,7 +202,7 @@ class TestWorkflowFolderService:
         folder = await folder_service.create_folder(name="old-name", parent_path="/")
         await folder_service.create_folder(name="existing", parent_path="/")
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await folder_service.rename_folder(folder.id, "existing")
 
         assert exc_info.value.detail == {"code": WorkflowFolderErrorCode.CONFLICT.value}
@@ -283,7 +283,7 @@ class TestWorkflowFolderService:
         await folder_service.create_folder(name="child", parent_path="/parent/")
 
         # Try to delete parent non-recursively - should fail
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await folder_service.delete_folder(parent.id, recursive=False)
 
         # Parent should still exist

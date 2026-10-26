@@ -64,7 +64,7 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useOrgSecuritySettings } from "@/hooks/use-org-security-settings"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 
 const IPV4_CIDR_PATTERN =
   /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}(\/(3[0-2]|[12]?\d))?$/
@@ -107,7 +107,7 @@ type AllowlistFormValues = z.infer<typeof allowlistFormSchema>
 export interface IPAllowlistSettingsFormProps {
   securitySettings?: SecuritySettingsRead
   securitySettingsIsLoading: boolean
-  securitySettingsError: TracecatApiError | null
+  securitySettingsError: AutoSecOpsApiError | null
   updateSecuritySettings: (params: SecuritySettingsUpdate) => Promise<unknown>
   updateSecuritySettingsIsPending: boolean
   checkIpAllowlist: (

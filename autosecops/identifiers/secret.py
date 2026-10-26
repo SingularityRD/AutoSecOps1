@@ -7,7 +7,7 @@ from typing import Annotated
 
 from pydantic import StringConstraints
 
-from autosecops.identifiers.common import TracecatUUID
+from autosecops.identifiers.common import AutoSecOpsUUID
 
 # Prefixes
 SECRET_ID_PREFIX = "secret_"
@@ -17,12 +17,12 @@ LEGACY_SECRET_ID_PREFIX = "secret-"
 _SECRET_ID_SHORT_PATTERN = rf"{SECRET_ID_PREFIX}[0-9a-zA-Z]+"
 _LEGACY_SECRET_ID_PATTERN = r"secret-[0-9a-f]{32}"
 
-# Short ID type (used as TracecatUUID type parameter)
+# Short ID type (used as AutoSecOpsUUID type parameter)
 SecretIDShort = Annotated[str, StringConstraints(pattern=_SECRET_ID_SHORT_PATTERN)]
 LegacySecretID = Annotated[str, StringConstraints(pattern=_LEGACY_SECRET_ID_PATTERN)]
 
 
-class SecretUUID(TracecatUUID[SecretIDShort]):
+class SecretUUID(AutoSecOpsUUID[SecretIDShort]):
     """UUID for secret resources.
 
     Supports:

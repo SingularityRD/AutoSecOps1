@@ -9,7 +9,7 @@ from fastapi_users import InvalidPasswordException
 
 from autosecops.auth.credentials import SuperuserRole
 from autosecops.db.dependencies import AsyncDBSessionBypass
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 from .schemas import AdminUserCreate, AdminUserRead
 from .service import AdminUserService
@@ -126,7 +126,7 @@ async def delete_user(
     service = AdminUserService(session, role)
     try:
         await service.delete_user(user_id, current_user_id=role.user_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(

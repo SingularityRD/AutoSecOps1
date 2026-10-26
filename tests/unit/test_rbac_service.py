@@ -50,11 +50,11 @@ from autosecops.db.models import (
 )
 from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.invitations.enums import InvitationStatus
 from tests.support.membership import (
@@ -275,7 +275,7 @@ class TestRBACServiceScopes:
         assert scope.organization_id == org.id
 
         await service.delete_scope(scope.id)
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.get_scope(scope.id)
 
     async def test_create_scope_invalid_format(
@@ -285,7 +285,7 @@ class TestRBACServiceScopes:
     ):
         """Creating scope with invalid format should fail."""
         service = RBACService(session, role=role)
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.create_scope(name="INVALID SCOPE")
 
     async def test_delete_system_scope_fails(
@@ -298,7 +298,7 @@ class TestRBACServiceScopes:
         service = RBACService(session, role=role)
         system_scope = seeded_scopes[0]
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service.delete_scope(system_scope.id)
 
 
@@ -336,7 +336,7 @@ class TestRBACServiceRoles:
         service = RBACService(session, role=role)
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.create_role(
@@ -355,7 +355,7 @@ class TestRBACServiceRoles:
         custom_role = await service.create_role(name="Assignable Role")
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.update_role(
@@ -382,7 +382,7 @@ class TestRBACServiceRoles:
         assert updated.updated_at >= updated.created_at
 
         await service.delete_role(custom_role.id)
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.get_role(custom_role.id)
 
     async def test_update_role_serializes_with_assignment_writers(
@@ -421,7 +421,7 @@ class TestRBACServiceRoles:
         )
 
         # Try to delete - should fail
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.delete_role(custom_role.id)
 
 
@@ -484,7 +484,7 @@ class TestRBACServiceGroups:
 
         await service.add_group_member(group.id, user.id)
 
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.add_group_member(group.id, user.id)
 
     async def test_add_member_rejects_unheld_group_role(
@@ -510,7 +510,7 @@ class TestRBACServiceGroups:
         await session.commit()
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.add_group_member(group.id, user.id)
@@ -551,7 +551,7 @@ class TestRBACServiceGroups:
         )
         await session.commit()
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.remove_group_member(other_group.id, other_user.id)
 
         remaining_member = await session.scalar(
@@ -645,7 +645,7 @@ class TestRBACServiceAssignments:
         group = await service.create_group(name="Target Group")
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.create_group_role_assignment(
@@ -669,7 +669,7 @@ class TestRBACServiceAssignments:
         )
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.update_group_role_assignment(
@@ -769,7 +769,7 @@ class TestRBACServiceUserAssignments:
         )
 
         with pytest.raises(
-            TracecatConflictError,
+            AutoSecOpsConflictError,
             match="User already has an assignment for this workspace",
         ):
             await service.create_user_assignment(
@@ -795,7 +795,7 @@ class TestRBACServiceUserAssignments:
         await session.commit()
 
         with pytest.raises(
-            TracecatNotFoundError, match="User not found in organization"
+            AutoSecOpsNotFoundError, match="User not found in organization"
         ):
             await service.create_user_assignment(
                 user_id=external_user.id,
@@ -813,7 +813,7 @@ class TestRBACServiceUserAssignments:
         service = RBACService(session, role=role)
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.create_user_assignment(
@@ -837,7 +837,7 @@ class TestRBACServiceUserAssignments:
         )
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.update_user_assignment(
@@ -910,9 +910,9 @@ class TestRBACServiceUserAssignments:
         )
         await session.flush()
 
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await service.add_group_member(group.id, user.id)
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await service.remove_group_member(group.id, user.id)
 
     async def test_delete_org_wide_assignment_with_workspace_path(
@@ -1478,7 +1478,7 @@ class TestAtomicRoleEdits:
         )
         assert admin
         params.assignments = [UserRoleAssignmentSpec(role_id=admin)]
-        error: type[Exception] = TracecatNotFoundError
+        error: type[Exception] = AutoSecOpsNotFoundError
         if failure == "invalid_role":
             params.assignments.append(
                 UserRoleAssignmentSpec(role_id=uuid.uuid4(), workspace_id=workspace.id)
@@ -1502,14 +1502,14 @@ class TestAtomicRoleEdits:
             )
         elif failure == "duplicate_scope":
             params.assignments.append(UserRoleAssignmentSpec(role_id=admin))
-            error = TracecatValidationError
+            error = AutoSecOpsValidationError
         elif failure == "grant_ceiling":
             params.assignments.append(
                 UserRoleAssignmentSpec(
                     role_id=privileged_role.id, workspace_id=workspace.id
                 )
             )
-            error = TracecatAuthorizationError
+            error = AutoSecOpsAuthorizationError
         else:
             service = RBACService(
                 session,
@@ -1548,7 +1548,7 @@ class TestAtomicRoleEdits:
             )
             await session.commit()
         before = (await _replacement(service, member.id)).expected_assignments
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await service.replace_user_assignments(params)
         assert (
             await _replacement(service, params.user_id)
@@ -1617,7 +1617,7 @@ async def test_idp_group_roles_are_visible_and_protect_role_edit_snapshots(
         user_id=user.id, workspace_id=workspace.id
     )
     assert [a.id for a in grants] == [grant.id]
-    with pytest.raises(TracecatConflictError, match="group access changed"):
+    with pytest.raises(AutoSecOpsConflictError, match="group access changed"):
         await service.replace_user_assignments(before_mapping)
 
     before_deactivation = await _replacement(service, user_id)
@@ -1633,7 +1633,7 @@ async def test_idp_group_roles_are_visible_and_protect_role_edit_snapshots(
         )
         == []
     )
-    with pytest.raises(TracecatConflictError, match="group access changed"):
+    with pytest.raises(AutoSecOpsConflictError, match="group access changed"):
         await service.replace_user_assignments(before_deactivation)
 
 
@@ -1797,7 +1797,7 @@ class TestImplicitMemberRoleIsHidden:
         )
         assert hidden_id is not None
 
-        with pytest.raises(TracecatValidationError, match="granted implicitly"):
+        with pytest.raises(AutoSecOpsValidationError, match="granted implicitly"):
             await RBACService(session, role=role).create_user_assignment(
                 user_id=user.id, role_id=hidden_id
             )
@@ -1834,7 +1834,7 @@ class TestRoleLevelGuard:
     ):
         service = RBACService(session, role=role)
         target = await create_org_role(service, name="Org Role")
-        with pytest.raises(TracecatValidationError, match="organization role"):
+        with pytest.raises(AutoSecOpsValidationError, match="organization role"):
             await service.create_user_assignment(
                 user_id=user.id, role_id=target.id, workspace_id=workspace.id
             )
@@ -1848,7 +1848,7 @@ class TestRoleLevelGuard:
         service = RBACService(session, role=role)
         group = await service.create_group(name="Level Group")
         target = await create_org_role(service, name="Org Role")
-        with pytest.raises(TracecatValidationError, match="organization role"):
+        with pytest.raises(AutoSecOpsValidationError, match="organization role"):
             await service.create_group_role_assignment(
                 group_id=group.id, role_id=target.id, workspace_id=workspace.id
             )
@@ -1952,7 +1952,7 @@ class TestRoleLevelGuard:
             workspace_id=workspace.id,
         )
         org_role = await create_org_role(service, name="Org Role")
-        with pytest.raises(TracecatValidationError, match="organization role"):
+        with pytest.raises(AutoSecOpsValidationError, match="organization role"):
             await service.update_user_assignment(assignment.id, role_id=org_role.id)
 
     async def test_replace_rejects_wrong_level(
@@ -1969,7 +1969,7 @@ class TestRoleLevelGuard:
         params.assignments = [
             UserRoleAssignmentSpec(role_id=org_role.id, workspace_id=workspace.id)
         ]
-        with pytest.raises(TracecatValidationError, match="organization role"):
+        with pytest.raises(AutoSecOpsValidationError, match="organization role"):
             await service.replace_user_assignments(params)
         assert (await _replacement(service, user_id)).expected_assignments == []
 
@@ -1992,7 +1992,7 @@ class TestRoleLevelGuard:
         )
         assert org_read
         target_id = target.id
-        with pytest.raises(TracecatConflictError, match="switching it between"):
+        with pytest.raises(AutoSecOpsConflictError, match="switching it between"):
             await service.update_role(target_id, scope_ids=[org_read])
         assert (await service.get_role(target_id)).scopes == []
 
@@ -2055,7 +2055,7 @@ class TestRoleLevelGuard:
         assert org_read
 
         if blocked:
-            with pytest.raises(TracecatConflictError, match="pending invitations"):
+            with pytest.raises(AutoSecOpsConflictError, match="pending invitations"):
                 await service.update_role(target_id, scope_ids=[org_read])
             assert (await service.get_role(target_id)).scopes == []
         else:
@@ -2076,7 +2076,7 @@ class TestRoleLevelGuard:
         self, session: AsyncSession, role: Role, name: str
     ):
         service = RBACService(session, role=role)
-        with pytest.raises(TracecatValidationError, match="reserved prefix"):
+        with pytest.raises(AutoSecOpsValidationError, match="reserved prefix"):
             await service.create_scope(name=name)
 
     async def test_create_scope_allows_unreserved_platform_root(
@@ -2117,5 +2117,5 @@ class TestRoleLevelGuard:
         session.add(invitation)
         await session.commit()
 
-        with pytest.raises(TracecatValidationError, match="pending invitations"):
+        with pytest.raises(AutoSecOpsValidationError, match="pending invitations"):
             await service.delete_role(target_id)

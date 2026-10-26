@@ -22,7 +22,7 @@ from autosecops.agent.skill.schemas import SkillRead, SkillUpload, SkillUploadFi
 from autosecops.agent.skill.service import SkillService
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import AgentPreset, SkillLibraryInstall
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import (
     BaseCursorPaginator,
     CursorPaginatedResponse,
@@ -82,7 +82,7 @@ class SkillLibraryService(BaseWorkspaceService):
 
     def _get_skill(self, slug: str) -> LibrarySkill:
         if (skill := load_library().get(slug)) is None:
-            raise TracecatNotFoundError(f"Library skill '{slug}' not found")
+            raise AutoSecOpsNotFoundError(f"Library skill '{slug}' not found")
         return skill
 
     async def _installed(self, slugs: Sequence[str], *, lock: bool = False) -> set[str]:
@@ -227,7 +227,7 @@ class SkillLibraryService(BaseWorkspaceService):
             ).all()
         )
         if missing := sorted(set(normalized) - installed):
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Library skills are not installed: {', '.join(missing)}"
             )
         bound_stmt = (
@@ -243,7 +243,7 @@ class SkillLibraryService(BaseWorkspaceService):
         if bound:
             noun = "agent" if len(bound) == 1 else "agents"
             names = ", ".join(f"'{name}'" for _, name in bound)
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Remove the selected skills from {noun} {names} before uninstalling. "
                 "No skills were uninstalled.",
                 detail={
@@ -297,7 +297,7 @@ class SkillLibraryService(BaseWorkspaceService):
         """Require every registry tool the entries declare to exist here.
 
         Raises:
-            TracecatValidationError: If a slug is unknown or a tool is missing.
+            AutoSecOpsValidationError: If a slug is unknown or a tool is missing.
         """
 
         tool_ids = [
@@ -306,7 +306,7 @@ class SkillLibraryService(BaseWorkspaceService):
         if missing := await SkillToolDependencyService(
             self.session, role=self.role
         ).missing_registry_tools(tool_ids):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Library skills need tools that are not available: {', '.join(missing)}",
                 detail={
                     "code": SkillLibraryErrorCode.TOOLS_UNAVAILABLE.value,
@@ -321,13 +321,13 @@ class SkillLibraryService(BaseWorkspaceService):
         uninstall cannot slip past the binding it is about to write.
 
         Raises:
-            TracecatValidationError: If a slug is unknown or not installed.
+            AutoSecOpsValidationError: If a slug is unknown or not installed.
         """
 
         await self.validate_declared_tools(slugs)
         installed = await self._installed(slugs, lock=True)
         if missing := sorted(set(slugs) - installed):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Install {', '.join(missing)} from the skill library first.",
                 detail={
                     "code": SkillLibraryErrorCode.NOT_INSTALLED.value,

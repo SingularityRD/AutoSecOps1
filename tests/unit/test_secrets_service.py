@@ -16,9 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsNotFoundError,
     ScopeDeniedError,
-    TracecatCredentialsNotFoundError,
-    TracecatNotFoundError,
 )
 from autosecops.secrets.enums import SecretType
 from autosecops.secrets.schemas import (
@@ -509,7 +509,7 @@ class TestSecretsService:
         await service.delete_secret(secret)
 
         # Verify deletion
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.get_secret_by_name(secret_create_params.name)
 
     async def test_update_secret_rejects_ssh_key_rotation(
@@ -604,7 +604,7 @@ class TestSecretsService:
 
     async def test_get_nonexistent_ssh_key(self, service: SecretsService) -> None:
         """Test retrieving non-existent SSH key."""
-        with pytest.raises(TracecatCredentialsNotFoundError):
+        with pytest.raises(AutoSecOpsCredentialsNotFoundError):
             await service.get_ssh_key("nonexistent-key")
 
     async def test_search_secrets(

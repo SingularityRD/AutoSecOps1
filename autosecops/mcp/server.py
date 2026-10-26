@@ -175,14 +175,14 @@ from autosecops.dsl.validation import (
     normalize_trigger_inputs,
 )
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryActionValidationError,
     RegistryError,
     ScopeDeniedError,
-    TracecatCredentialsNotFoundError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.forms.access import can_read_form_config
@@ -1675,7 +1675,7 @@ def _validate_staged_skill_paths(paths: Sequence[str]) -> list[str]:
     for path in paths:
         try:
             normalized_path = SkillService._normalize_path(path)
-        except TracecatValidationError as exc:
+        except AutoSecOpsValidationError as exc:
             raise ToolError(str(exc)) from exc
         if normalized_path in seen_paths:
             raise ToolError(f"Skill upload contains duplicate path '{normalized_path}'")
@@ -1730,7 +1730,7 @@ def _validate_staged_skill_files(
     return normalized_paths
 
 
-def _skill_validation_tool_error(error: TracecatValidationError) -> ToolError:
+def _skill_validation_tool_error(error: AutoSecOpsValidationError) -> ToolError:
     """Preserve structured skill validation details for agent recovery."""
 
     if error.detail is not None:
@@ -1854,7 +1854,7 @@ async def _build_workflow_yaml_envelope(
             "event_types": case_trigger.event_types,
             "tag_filters": case_trigger.tag_filters,
         }
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         payload["case_trigger"] = None
     except Exception as e:
         logger.warning(
@@ -2026,7 +2026,7 @@ async def _apply_case_trigger_payload(
             create_missing_tags=True,
             commit=False,
         )
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         config = CaseTriggerConfig(
             status=patch.status or "offline",
             event_types=patch.event_types or [],
@@ -2348,7 +2348,7 @@ async def _validate_template_action_text(
                 }
             ],
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         return TemplateValidationResponse(
             valid=False,
             action_name=action_name,
@@ -4776,7 +4776,7 @@ async def rename_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename workflow folder", error=str(e))
@@ -4819,7 +4819,7 @@ async def move_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move workflow folder", error=str(e))
@@ -4852,7 +4852,7 @@ async def delete_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete workflow folder", error=str(e))
@@ -5114,8 +5114,8 @@ async def sync_custom_registry(
             except (
                 RegistryActionValidationError,
                 RegistryError,
-                TracecatCredentialsNotFoundError,
-                TracecatValidationError,
+                AutoSecOpsCredentialsNotFoundError,
+                AutoSecOpsValidationError,
                 ValueError,
             ) as exc:
                 return CustomRegistrySyncResponse(
@@ -5368,7 +5368,7 @@ async def validate_workflow(
             dsl: DSLInput | None = None
             try:
                 dsl = await svc.build_dsl_from_workflow(workflow)
-            except TracecatValidationError as e:
+            except AutoSecOpsValidationError as e:
                 errors.append({"type": "dsl", "message": str(e)})
             except ValidationError as e:
                 errors.append({"type": "dsl", "message": str(e)})
@@ -5544,7 +5544,7 @@ async def publish_workflow(
         async with WorkflowsManagementService.with_session(role=role) as svc:
             try:
                 result = await svc.publish_workflow(workflow_id)
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ToolError(str(e)) from e
 
         if not result.ok:
@@ -5620,9 +5620,9 @@ async def run_workflow(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(
             json.dumps(
                 {
@@ -5799,7 +5799,7 @@ async def lock_workflow_action(
             )
     except ToolError:
         raise
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -5923,9 +5923,9 @@ async def rerun_workflow_execution(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(
             json.dumps(
                 {
@@ -6287,7 +6287,7 @@ async def update_webhook(
                     workflow_id=workflow_id,
                     params=update_params,
                 )
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ToolError(f"Webhook not found for workflow {workflow_id}") from e
         return MCPMessageResponse(
             message=f"Webhook for workflow {workflow_id} updated successfully"
@@ -6322,7 +6322,7 @@ async def get_case_trigger(
         async with CaseTriggersService.with_session(role=role) as svc:
             case_trigger = await svc.get_case_trigger(workflow_id)
             return CaseTriggerRead.model_validate(case_trigger, from_attributes=True)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -6395,7 +6395,7 @@ async def update_case_trigger(
         return MCPMessageResponse(
             message=f"Case trigger for workflow {workflow_id} updated successfully"
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ToolError:
         raise
@@ -6973,7 +6973,7 @@ async def search_cases(
         raise ToolError(
             f"Missing required scope: {', '.join(e.required_scopes)}"
         ) from e
-    except (EntitlementRequired, TracecatValidationError) as e:
+    except (EntitlementRequired, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7136,9 +7136,9 @@ async def create_case(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7242,9 +7242,9 @@ async def update_case(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7288,8 +7288,8 @@ async def set_case_parent(
         raise ToolError(f"Missing required scope: {required}") from e
     except (
         EntitlementRequired,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
         ValueError,
     ) as e:
         raise ToolError(str(e)) from e
@@ -7328,8 +7328,8 @@ async def clear_case_parent(
         raise ToolError(f"Missing required scope: {required}") from e
     except (
         EntitlementRequired,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
         ValueError,
     ) as e:
         raise ToolError(str(e)) from e
@@ -7453,7 +7453,7 @@ async def create_case_comment(
             return MCPMessageResponse(message="Comment created successfully")
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7500,7 +7500,7 @@ async def update_case_comment(
             )
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7543,7 +7543,7 @@ async def delete_case_comment(
             )
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7606,7 +7606,7 @@ async def get_case_task(
         async with CaseTasksService.with_session(role=role) as svc:
             task = await svc.get_task(task_id)
             return _case_task_payload(task)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7670,9 +7670,9 @@ async def create_case_task(
             return _case_task_payload(task)
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7748,9 +7748,9 @@ async def update_case_task(
             return _case_task_payload(task)
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7856,7 +7856,7 @@ async def run_case_task(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8165,7 +8165,7 @@ async def remove_case_tag(
             return MCPMessageResponse(
                 message=f"Case tag {tag_identifier} removed from case {case_id}"
             )
-    except (NoResultFound, TracecatNotFoundError) as e:
+    except (NoResultFound, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8428,7 +8428,7 @@ async def create_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8494,9 +8494,9 @@ async def update_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8536,7 +8536,7 @@ async def delete_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8597,9 +8597,9 @@ async def add_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8663,9 +8663,9 @@ async def update_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8708,7 +8708,7 @@ async def delete_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8765,9 +8765,9 @@ async def set_case_dropdown_value(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8947,7 +8947,7 @@ async def create_column(
             )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -9408,7 +9408,7 @@ async def get_secret_metadata(
                 secret = await svc.get_secret_by_name(
                     secret_name, environment=environment
                 )
-            except TracecatNotFoundError:
+            except AutoSecOpsNotFoundError:
                 raise ToolError(f"Secret {secret_name!r} not found") from None
             return SecretMetadataResponse(
                 id=secret.id,
@@ -9698,7 +9698,7 @@ async def create_agent_preset(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create agent preset", error=str(e))
@@ -9826,7 +9826,7 @@ async def update_agent_preset(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error(
@@ -9995,7 +9995,7 @@ async def create_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create agent folder", error=str(e))
@@ -10026,7 +10026,7 @@ async def rename_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename agent folder", error=str(e))
@@ -10069,7 +10069,7 @@ async def move_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move agent folder", error=str(e))
@@ -10102,7 +10102,7 @@ async def delete_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete agent folder", error=str(e))
@@ -10359,7 +10359,7 @@ async def create_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create skill folder", error=str(e))
@@ -10390,7 +10390,7 @@ async def rename_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename skill folder", error=str(e))
@@ -10433,7 +10433,7 @@ async def move_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move skill folder", error=str(e))
@@ -10466,7 +10466,7 @@ async def delete_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete skill folder", error=str(e))
@@ -10593,7 +10593,7 @@ async def list_skills(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to list skills", error_type=type(e).__name__)
@@ -10637,9 +10637,9 @@ async def get_skill(
             raise
         except ValidationError as e:
             raise ToolError(str(e)) from e
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise ToolError(str(e)) from e
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             raise ToolError(str(e)) from e
         except Exception as e:
             logger.error("Failed to get skill draft", error_type=type(e).__name__)
@@ -10665,9 +10665,9 @@ async def get_skill(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to get skill draft file", error_type=type(e).__name__)
@@ -10707,9 +10707,9 @@ async def prepare_skill_download(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to prepare skill download", error_type=type(e).__name__)
@@ -10817,9 +10817,9 @@ async def prepare_skill_upload(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to prepare skill upload", error_type=type(e).__name__)
@@ -10852,7 +10852,7 @@ async def complete_skill_upload(
             if draft is None:
                 raise ToolError(f"Skill '{skill_id}' not found")
             if draft.draft_revision != base_revision:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Draft revision conflict",
                     detail={
                         "code": "draft_revision_conflict",
@@ -10888,9 +10888,9 @@ async def complete_skill_upload(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to complete skill upload", error_type=type(e).__name__)
@@ -10917,9 +10917,9 @@ async def publish_skill(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to publish skill", error_type=type(e).__name__)

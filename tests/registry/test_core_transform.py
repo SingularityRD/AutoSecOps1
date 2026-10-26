@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import redis.asyncio as aioredis
-from autosecops_registry._internal.exceptions import TracecatExpressionError
+from autosecops_registry._internal.exceptions import AutoSecOpsExpressionError
 from autosecops_registry.context import clear_context, set_context
 from autosecops_registry.core.transform import (
     apply,
@@ -680,19 +680,19 @@ async def test_deduplicate_requires_registry_context() -> None:
         (
             [{"id": 1}, {"name": "test"}],
             ["id"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
         # Invalid jsonpath
         (
             [{"id": 1}],
             ["id..invalid"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
         # Non-dict items in list
         (
             ["not a dict"],
             ["id"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
     ],
 )
@@ -1117,5 +1117,5 @@ def test_eval_jsonpaths_invalid_expressions(
     input_json: dict[str, Any], jsonpaths: list[str]
 ) -> None:
     """Test eval_jsonpaths with invalid JSONPath expressions."""
-    with pytest.raises(TracecatExpressionError):
+    with pytest.raises(AutoSecOpsExpressionError):
         eval_jsonpaths(input_json, jsonpaths)

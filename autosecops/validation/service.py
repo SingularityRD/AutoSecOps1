@@ -27,7 +27,7 @@ from autosecops.dsl.common import (
 )
 from autosecops.dsl.enums import PlatformAction
 from autosecops.dsl.schemas import ActionStatement, ScatterArgs
-from autosecops.exceptions import RegistryValidationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, RegistryValidationError
 from autosecops.expressions import patterns
 from autosecops.expressions.common import ExprType
 from autosecops.expressions.eval import extract_expressions, is_template_only
@@ -90,7 +90,7 @@ async def validate_single_secret(
         defined_secret = await secrets_service.get_secret_by_name(
             registry_secret.name, environment=environment
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         # If the secret is required, we fail early
         if not registry_secret.optional:
             secret_repr = f"{registry_secret.name!r} (env: {environment!r})"

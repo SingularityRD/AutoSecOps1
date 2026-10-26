@@ -23,7 +23,7 @@ from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CaseEventsService, CasesService
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Case, CaseAttachment, CaseEvent, File
-from autosecops.exceptions import TracecatAuthorizationError, TracecatException
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsException
 from autosecops.storage.blob import ensure_bucket_exists
 from autosecops.storage.exceptions import (
     FileExtensionError,
@@ -416,7 +416,7 @@ async def test_integrity_check_failure_after_object_corruption(
         content_type="text/plain",
     )
 
-    with pytest.raises(TracecatException, match="File integrity check failed"):
+    with pytest.raises(AutoSecOpsException, match="File integrity check failed"):
         await attachments_service.download_attachment(case, created.id)
 
 
@@ -443,7 +443,7 @@ async def test_delete_authorization_basic_vs_admin(
         scopes=ADMIN_SCOPES,
     )
     other_svc = CaseAttachmentService(session=session, role=other_role)
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await other_svc.delete_attachment(case, created.id)
 
     # Admin role can delete

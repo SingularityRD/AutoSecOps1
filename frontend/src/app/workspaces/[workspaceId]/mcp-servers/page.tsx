@@ -36,8 +36,8 @@ import {
   useStdioMcpVerificationStatus,
 } from "@/hooks/use-stdio-mcp-verification-status"
 import {
+  type AutoSecOpsApiError,
   getMcpOAuthConnectErrorDetail,
-  type TracecatApiError,
 } from "@/lib/errors"
 import {
   getPendingStdioMcpCatalogVerificationIds,
@@ -308,7 +308,7 @@ export default function McpServersPage() {
     data: catalogData,
     isLoading: catalogIsLoading,
     error: catalogError,
-  } = useQuery<PlatformMCPCatalogListResponse, TracecatApiError>({
+  } = useQuery<PlatformMCPCatalogListResponse, AutoSecOpsApiError>({
     queryKey: catalogQueryKey,
     queryFn: async () =>
       await mcpIntegrationsListPlatformMcpCatalog({
@@ -330,7 +330,7 @@ export default function McpServersPage() {
     data: workspaceMcpIntegrations,
     isLoading: workspaceMcpIsLoading,
     error: workspaceMcpError,
-  } = useQuery<MCPIntegrationRead[], TracecatApiError>({
+  } = useQuery<MCPIntegrationRead[], AutoSecOpsApiError>({
     queryKey: workspaceMcpQueryKey,
     queryFn: async () =>
       await mcpIntegrationsListMcpIntegrations({
@@ -392,7 +392,7 @@ export default function McpServersPage() {
       })
     },
     onError: (error) => {
-      const apiError = error as TracecatApiError
+      const apiError = error as AutoSecOpsApiError
       toast({
         title: "Failed to connect MCP server",
         description: getMcpOAuthConnectErrorDetail(apiError),
@@ -423,7 +423,7 @@ export default function McpServersPage() {
       })
     },
     onError: (error) => {
-      const apiError = error as TracecatApiError
+      const apiError = error as AutoSecOpsApiError
       toast({
         title: "Failed to disconnect MCP server",
         description: String(apiError.body?.detail ?? apiError.message),

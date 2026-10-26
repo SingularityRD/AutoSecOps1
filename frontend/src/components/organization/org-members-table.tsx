@@ -61,7 +61,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useEntitlements } from "@/hooks/use-entitlements"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { getRelativeTime } from "@/lib/event-history"
 import {
   useOrgMembers,
@@ -356,7 +356,8 @@ export function OrgMembersTable() {
                                         description: member.email,
                                       })
                                     } catch (error) {
-                                      const apiError = error as TracecatApiError
+                                      const apiError =
+                                        error as AutoSecOpsApiError
                                       if (apiError.status === 409) {
                                         toast({
                                           title:

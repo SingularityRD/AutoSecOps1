@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from autosecops import config
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.pagination import CursorPaginatedResponse
 
@@ -107,7 +107,7 @@ _DOMAIN_ID = uuid.uuid4()
             f"/admin/organizations/{_ORG_ID}/invitations",
             {"email": "owner@example.com"},
             "create_organization_invitation",
-            TracecatValidationError(
+            AutoSecOpsValidationError(
                 "An invitation already exists for owner@example.com in this organization"
             ),
             status.HTTP_400_BAD_REQUEST,
@@ -147,7 +147,7 @@ async def test_delete_organization_bad_confirmation_returns_400(
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.delete_organization.side_effect = TracecatValidationError(
+        mock_svc.delete_organization.side_effect = AutoSecOpsValidationError(
             "Confirmation text must exactly match the organization name."
         )
         MockService.return_value = mock_svc
@@ -258,7 +258,7 @@ async def test_list_organization_invitations_invalid_cursor(
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.list_organization_invitations.side_effect = TracecatValidationError(
+        mock_svc.list_organization_invitations.side_effect = AutoSecOpsValidationError(
             "Invalid cursor for organization invitations"
         )
         MockService.return_value = mock_svc

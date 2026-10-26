@@ -80,7 +80,7 @@ from autosecops.agent.skill.service import SkillService
 from autosecops.agent.skill.types import ResolvedSkillRef
 from autosecops.agent.types import AgentConfig
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.observability.types import PlatformErrorCapture
 from autosecops.runtime.errors import (
@@ -3231,7 +3231,7 @@ async def test_executor_classifies_revoked_passthrough_catalog_as_invalid_config
             self, requested_catalog_id: uuid.UUID
         ) -> dict[str, str]:
             assert requested_catalog_id == catalog_id
-            raise TracecatAuthorizationError("catalog access revoked")
+            raise AutoSecOpsAuthorizationError("catalog access revoked")
 
     @contextlib.asynccontextmanager
     async def fake_agent_management_context(

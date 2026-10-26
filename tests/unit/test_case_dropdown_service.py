@@ -18,9 +18,9 @@ from autosecops.cases.dropdowns.service import (
 )
 from autosecops.db.models import Case
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -89,7 +89,7 @@ class TestCaseDropdownDefinitionsService:
         definition = await _create_definition(dropdown_service)
 
         with pytest.raises(
-            TracecatValidationError, match="must produce a valid reference"
+            AutoSecOpsValidationError, match="must produce a valid reference"
         ):
             await dropdown_service.update_definition(
                 definition,
@@ -111,7 +111,7 @@ class TestCaseDropdownDefinitionsService:
             CaseDropdownOptionCreate(label="High", ref="high"),
         )
 
-        with pytest.raises(TracecatNotFoundError, match="not found for definition"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found for definition"):
             await dropdown_service.update_option(
                 definition_a.id,
                 option_b.id,
@@ -140,13 +140,13 @@ class TestCaseDropdownDefinitionsService:
             CaseDropdownOptionCreate(label="High", ref="high"),
         )
 
-        with pytest.raises(TracecatNotFoundError, match="not found for definition"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found for definition"):
             await dropdown_service.delete_option(definition_a.id, option_b.id)
 
         # The option survives the mismatched delete and is removable through
         # its own definition exactly once.
         await dropdown_service.delete_option(definition_b.id, option_b.id)
-        with pytest.raises(TracecatNotFoundError, match="not found for definition"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found for definition"):
             await dropdown_service.delete_option(definition_b.id, option_b.id)
 
     async def test_mutations_require_case_scopes(
@@ -219,7 +219,7 @@ class TestCaseDropdownDefinitionsService:
 
         # apply_values serves the scope-guarded CasesService create path, so a
         # create-only role passes its scope gate (and fails later on lookup).
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await values_service.apply_values(uuid.uuid4(), [])
 
     async def test_apply_values_rejects_case_model_from_other_workspace(
@@ -238,7 +238,7 @@ class TestCaseDropdownDefinitionsService:
             description="",
         )
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await values_service.apply_values(foreign_case, [])
 
     async def test_list_definitions_order_is_deterministic(

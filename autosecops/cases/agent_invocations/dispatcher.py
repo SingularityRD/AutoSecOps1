@@ -24,7 +24,7 @@ from autosecops.cases.enums import (
     MentionTargetType,
 )
 from autosecops.db.models import CaseCommentAgentInvocation, CaseCommentMention
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.service import BaseWorkspaceService
 
 COMMENT_AGENT_SESSION_CONTEXT = {"session_origin": "case_comment"}
@@ -63,12 +63,12 @@ class CaseCommentAgentInvocationDispatcher(BaseWorkspaceService):
         )
         target = (await self.session.execute(target_statement)).tuples().one_or_none()
         if target is None:
-            raise TracecatNotFoundError("Agent invocation mention not found")
+            raise AutoSecOpsNotFoundError("Agent invocation mention not found")
         case_id, preset_id = target
 
         thread_context = await invocation_service.load_thread_context(invocation.id)
         if thread_context is None:
-            raise TracecatNotFoundError("Agent invocation comment thread not found")
+            raise AutoSecOpsNotFoundError("Agent invocation comment thread not found")
 
         agent_input = build_comment_agent_input(thread_context)
 
@@ -76,7 +76,7 @@ class CaseCommentAgentInvocationDispatcher(BaseWorkspaceService):
         if invocation.session_id is not None:
             agent_session = await session_service.get_session(invocation.session_id)
             if agent_session is None:
-                raise TracecatNotFoundError("Linked agent session not found")
+                raise AutoSecOpsNotFoundError("Linked agent session not found")
         else:
             preset_service = AgentPresetService(
                 self.session, session_service.execution_role

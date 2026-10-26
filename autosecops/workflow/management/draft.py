@@ -39,7 +39,7 @@ from autosecops.dsl.common import (
     expects_key_order,
 )
 from autosecops.dsl.schemas import DSLConfig
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.mcp.json_patch import validate_patch_paths
 from autosecops.mcp.schemas import (
@@ -595,9 +595,9 @@ def validate_workflow_patch_payload(payload: dict[str, Any]) -> WorkflowEditDocu
                 "errors": ValidationDetailListTA.dump_python(details, mode="json"),
             },
         ) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         # Nested ActionStatement validators can raise
-        # a raw TracecatValidationError, not a Pydantic ValidationError, so it
+        # a raw AutoSecOpsValidationError, not a Pydantic ValidationError, so it
         # bypasses the branch above. Surface it as a structured WorkflowEditError
         # too so the caller gets a 400/tool error to correct, never a 500.
         message = str(exc) or "The patched workflow document is invalid."
@@ -718,7 +718,7 @@ async def validate_workflow_edit_document(
     if document.definition.actions:
         try:
             dsl = workflow_edit_document_to_dsl(document)
-        except (TracecatValidationError, ValidationError, ValueError) as exc:
+        except (AutoSecOpsValidationError, ValidationError, ValueError) as exc:
             raise WorkflowEditError(f"Invalid workflow definition: {exc}") from exc
         if validate_definition:
             if session is None or role is None:
@@ -776,7 +776,7 @@ async def validate_workflow_edit_document(
             await case_trigger_service.validate_case_trigger_config(
                 workflow_id, document.case_trigger
             )
-        except TracecatValidationError as exc:
+        except AutoSecOpsValidationError as exc:
             raise WorkflowEditError(f"Invalid case trigger: {exc}") from exc
 
 
@@ -1006,7 +1006,7 @@ async def persist_workflow_edit_document(
                 create_missing_tags=True,
                 commit=False,
             )
-        except (TracecatValidationError, TracecatNotFoundError) as exc:
+        except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as exc:
             raise WorkflowEditError(f"Invalid case trigger: {exc}") from exc
 
     try:

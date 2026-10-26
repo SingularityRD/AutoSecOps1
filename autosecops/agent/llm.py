@@ -21,9 +21,9 @@ from autosecops.agent.service import AgentManagementService
 from autosecops.agent.tokens import mint_llm_token
 from autosecops.auth.types import Role
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.network import DisallowedUrlError
 from autosecops.outbound import create_outbound_http_client
@@ -52,20 +52,20 @@ async def complete(
         LLMCompletionError: If the provider request fails, returns an
             unexpected response, the model configuration is invalid, or the
             workspace lacks access to the model.
-        TracecatNotFoundError: If the default model or credentials are missing.
+        AutoSecOpsNotFoundError: If the default model or credentials are missing.
     """
     svc = AgentManagementService(session, role)
     model_selection = await svc.get_default_model_selection()
     if model_selection is None:
-        raise TracecatNotFoundError("No default model set")
+        raise AutoSecOpsNotFoundError("No default model set")
     try:
         creds = await svc.get_catalog_credentials(model_selection.catalog_id)
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise LLMCompletionError(
             f"Workspace does not have access to the default model: {e}"
         ) from e
     if not creds:
-        raise TracecatNotFoundError("No credentials for default model")
+        raise AutoSecOpsNotFoundError("No credentials for default model")
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -88,9 +88,9 @@ async def complete(
                 )
             else:
                 if role.workspace_id is None:
-                    raise TracecatAuthorizationError("Role has no workspace_id")
+                    raise AutoSecOpsAuthorizationError("Role has no workspace_id")
                 if role.organization_id is None:
-                    raise TracecatAuthorizationError("Role has no organization_id")
+                    raise AutoSecOpsAuthorizationError("Role has no organization_id")
                 token = mint_llm_token(
                     workspace_id=role.workspace_id,
                     organization_id=role.organization_id,
@@ -119,7 +119,7 @@ async def complete(
         raise LLMCompletionError(message) from e
     except httpx.RequestError as e:
         raise LLMCompletionError(f"LLM request failed: {e}") from e
-    except (TracecatValidationError, DisallowedUrlError) as e:
+    except (AutoSecOpsValidationError, DisallowedUrlError) as e:
         detail = str(e) or "model configuration failed validation"
         raise LLMCompletionError(f"LLM model configuration is invalid: {detail}") from e
 
@@ -156,7 +156,7 @@ async def _call_passthrough(
     timeout_seconds: float,
 ) -> str:
     if not base_url:
-        raise TracecatValidationError("Passthrough base URL is required")
+        raise AutoSecOpsValidationError("Passthrough base URL is required")
     headers: dict[str, str] = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"

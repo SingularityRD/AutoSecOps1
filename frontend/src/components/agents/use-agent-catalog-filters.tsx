@@ -14,7 +14,7 @@ import {
   parseAgentCatalogFilters,
   writeAgentCatalogFilters,
 } from "@/lib/agent-catalog-filters"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 
 /** URL-backed agents catalog filters, scoped to what the viewer can read. */
 export function useAgentCatalogFilterState({
@@ -69,7 +69,7 @@ export function useAgentCatalogFilterOptions({
   workflowEmptyMessage: string
   /** An active workflow filter is waiting on references. */
   workflowFilterIsLoading: boolean
-  workflowFilterError: TracecatApiError | null
+  workflowFilterError: AutoSecOpsApiError | null
 } {
   const {
     workflowReferences,

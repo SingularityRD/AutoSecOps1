@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from lark import Token, Tree, Visitor
 
 from autosecops.contexts import ctx_secret_masks
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions import patterns
 from autosecops.expressions.common import ExprContext, ExprOperand, ExprType
 from autosecops.expressions.jsonpath import find_with_secret_masks
@@ -95,11 +95,11 @@ class Expression:
             case ExprExtractor():
                 return self.extract(self._visitor)
             case None:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     "Visitor is required to evaluate an expression"
                 )
             case _:
-                raise TracecatExpressionError(f"Unsupported visitor: {self._visitor}")
+                raise AutoSecOpsExpressionError(f"Unsupported visitor: {self._visitor}")
 
     def result(self) -> Any:
         """Evaluate the expression and return the result."""
@@ -107,8 +107,8 @@ class Expression:
         # NOTE: These exceptions are the top-level exceptions caught by the workflow engine
         try:
             parse_tree = self._parser.parse(self._expr)
-        except TracecatExpressionError as e:
-            raise TracecatExpressionError(
+        except AutoSecOpsExpressionError as e:
+            raise AutoSecOpsExpressionError(
                 f"Error parsing expression `{self._expr}`\n\n{e}",
                 detail=str(e),
             ) from e
@@ -143,8 +143,8 @@ class Expression:
                     standalone=self._standalone,
                 )
             return default()
-        except TracecatExpressionError as e:
-            error = TracecatExpressionError(
+        except AutoSecOpsExpressionError as e:
+            error = AutoSecOpsExpressionError(
                 masks.redact(f"Error evaluating expression `{self._expr}`\n\n{e}"),
                 detail=masks.redact(e.detail if e.detail is not None else str(e)),
             )
@@ -164,10 +164,10 @@ class Expression:
         try:
             parse_tree = self._parser.parse(self._expr)
             if parse_tree is None:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     f"Parser returned None for expression `{self._expr}`"
                 )
-        except TracecatExpressionError as e:
+        except AutoSecOpsExpressionError as e:
             return visitor.add(
                 status="error",
                 msg=str(e),
@@ -178,7 +178,7 @@ class Expression:
         # 2) Validate the AST
         try:
             return visitor.visit_with_locator(parse_tree, loc=loc, exclude=exclude)
-        except TracecatExpressionError as e:
+        except AutoSecOpsExpressionError as e:
             return visitor.add(
                 status="error",
                 msg=str(e),
@@ -189,14 +189,14 @@ class Expression:
     def extract(self, visitor: ExprExtractor[ExtractorResult]) -> ExtractorResult:
         parse_tree = self._parser.parse(self._expr)
         if parse_tree is None:
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Parser returned None for expression `{self._expr}`"
             )
         try:
             visitor.visit(parse_tree)
             return visitor.results()
         except Exception as e:
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Error extracting components from expression `{self._expr}`\n\n{e}"
             ) from e
 
@@ -218,12 +218,12 @@ class TemplateExpression:
     ) -> None:
         match = pattern.match(template)
         if match is None:
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Template expression {template!r} does not match expected pattern. "
             )
         expr = match.group("expr")
         if expr is None:
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Template expression {template!r} matched pattern but contained no expression. "
             )
         self.expr = Expression(

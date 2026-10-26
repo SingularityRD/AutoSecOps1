@@ -70,7 +70,7 @@ from autosecops.db.models import (
     ScimConnection,
     User,
 )
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.organization.domains import normalize_domain
@@ -541,13 +541,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                     org_id=str(invitation.organization_id),
                 )
                 return invitation.organization_id
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             self.logger.warning(
                 "Invitation token not found during registration",
                 user_id=str(user.id),
                 email=user.email,
             )
-        except TracecatAuthorizationError as e:
+        except AutoSecOpsAuthorizationError as e:
             self.logger.warning(
                 "Invitation acceptance failed during registration",
                 user_id=str(user.id),

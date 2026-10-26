@@ -708,7 +708,7 @@ def _create_oidc_auth() -> OIDCProxy:
     _required_scopes = ["openid", "profile", "email"]
     _supported_scopes = get_supported_scopes()
 
-    class TracecatProxyDCRClient(ProxyDCRClient):
+    class AutoSecOpsProxyDCRClient(ProxyDCRClient):
         """Relax CIMD loopback callback validation to allow ephemeral local ports."""
 
         def validate_redirect_uri(self, redirect_uri: AnyUrl | None) -> AnyUrl:
@@ -727,7 +727,7 @@ def _create_oidc_auth() -> OIDCProxy:
                     raise
                 return redirect_uri
 
-    class TracecatOIDCProxy(OIDCProxy):
+    class AutoSecOpsOIDCProxy(OIDCProxy):
         """OIDC proxy with user-existence validation and a custom consent page."""
 
         async def register_client(
@@ -751,9 +751,9 @@ def _create_oidc_auth() -> OIDCProxy:
 
             if not isinstance(client, ProxyDCRClient) or client.cimd_document is None:
                 return client
-            if isinstance(client, TracecatProxyDCRClient):
+            if isinstance(client, AutoSecOpsProxyDCRClient):
                 return client
-            return TracecatProxyDCRClient.model_validate(client.model_dump())
+            return AutoSecOpsProxyDCRClient.model_validate(client.model_dump())
 
         async def authorize(
             self,
@@ -1115,7 +1115,7 @@ def _create_oidc_auth() -> OIDCProxy:
     # Use the internal issuer's discovery URL for server-to-server
     # communication (avoids hairpin NAT through the reverse proxy).
     config_url = get_internal_discovery_url()
-    auth = TracecatOIDCProxy(
+    auth = AutoSecOpsOIDCProxy(
         config_url=config_url,
         client_id=INTERNAL_CLIENT_ID,
         client_secret=get_internal_client_secret(),

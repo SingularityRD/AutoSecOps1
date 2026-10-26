@@ -13,7 +13,7 @@ from autosecops.agent.preset.schemas import AgentPresetSkillBindingBase
 from autosecops.agent.skill.types import ResolvedSkillRef
 from autosecops.db.models import AgentPresetVersionSkill, Skill, SkillVersion
 from autosecops.db.soft_delete import with_deleted
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.service import BaseWorkspaceService
 
 
@@ -24,11 +24,11 @@ def validate_no_duplicate_skill_ids(skill_ids: Sequence[uuid.UUID]) -> None:
         skill_ids: Requested Skill IDs, in the order the caller supplied them.
 
     Raises:
-        TracecatValidationError: If any Skill ID appears more than once.
+        AutoSecOpsValidationError: If any Skill ID appears more than once.
     """
 
     if len(set(skill_ids)) != len(skill_ids):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Duplicate skills are not allowed on a preset",
             detail={"code": "duplicate_skill_binding"},
         )
@@ -79,7 +79,7 @@ class SkillBindingService(BaseWorkspaceService):
         skills = await self._get_bindable_skills(skill_ids, for_update=for_update)
         missing = [str(skill_id) for skill_id in skill_ids if skill_id not in skills]
         if missing:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Some skills were not found in this workspace: {sorted(missing)}",
                 detail={"code": "skill_not_found", "missing_skill_ids": missing},
             )
@@ -87,7 +87,7 @@ class SkillBindingService(BaseWorkspaceService):
         for binding in bindings:
             skill = skills[binding.skill_id]
             if skill.current_version_id is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Skill '{skill.name}' has no published version",
                     detail={"code": "skill_not_published", "skill_id": str(skill.id)},
                 )
@@ -224,7 +224,7 @@ class SkillBindingService(BaseWorkspaceService):
             )
 
         if missing_current:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Some skills have no current published version",
                 detail={
                     "code": "skill_not_published",
@@ -238,7 +238,7 @@ class SkillBindingService(BaseWorkspaceService):
     def _raise_missing_version_name(*, skill_version_id: uuid.UUID) -> Never:
         """Raise when a published Skill version is missing its required name."""
 
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill version '{skill_version_id}' is missing a required name",
             detail={
                 "code": "missing_skill_version_name",

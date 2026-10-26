@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 import autosecops.auth.credentials as auth_credentials_module
 import autosecops.registry.repositories.router as repos_router_module
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatCredentialsNotFoundError
+from autosecops.exceptions import AutoSecOpsCredentialsNotFoundError
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ class _MissingSshKeyContext:
         pass
 
     async def __aenter__(self) -> None:
-        raise TracecatCredentialsNotFoundError("No SSH key found")
+        raise AutoSecOpsCredentialsNotFoundError("No SSH key found")
 
     async def __aexit__(self, *exc: object) -> None:
         return None

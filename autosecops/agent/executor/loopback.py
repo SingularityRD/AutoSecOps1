@@ -65,7 +65,7 @@ from autosecops.db.models import (
     AgentSessionHistory,
     Workspace,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.logger import logger
 from autosecops.observability.sentry import capture_activity_failure
 from autosecops.observability.types import PlatformErrorCapture
@@ -1162,7 +1162,7 @@ class LoopbackHandler:
                     channel_type=ChannelType.SLACK,
                     config_payload=channel_token.config,
                 )
-            except TracecatValidationError:
+            except AutoSecOpsValidationError:
                 logger.exception(
                     "Slack token config is invalid; falling back to Redis",
                     session_id=self.input.session_id,

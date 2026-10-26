@@ -85,8 +85,8 @@ from autosecops.observability.sentry import (
 )
 from autosecops.observability.types import AlertPriority
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.runtime.errors import (
     RetryDisposition,
@@ -1095,8 +1095,8 @@ def test_gateway_excludes_request_validation_failure(
             "insufficient_scope",
         ),
         (EntitlementRequired("synthetic-feature"), 403, "EntitlementRequired"),
-        (TracecatQueryTimeoutError(), 422, "query_timeout"),
-        (TracecatQueryOverflowError(), 400, "query_numeric_overflow"),
+        (AutoSecOpsQueryTimeoutError(), 422, "query_timeout"),
+        (AutoSecOpsQueryOverflowError(), 400, "query_numeric_overflow"),
     ],
 )
 def test_gateway_excludes_typed_dependency_failures(

@@ -29,7 +29,7 @@ from autosecops.cases.schemas import (
 )
 from autosecops.cases.service import CaseEventsService, CasesService
 from autosecops.db.models import Case, CaseTableRow, Table
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import (
     CursorPaginatedResponse,
     CursorPaginationParams,
@@ -201,7 +201,7 @@ class CaseTableRowsService(BaseWorkspaceService):
         They apply to one table's rows, so they require ``table_id``.
 
         Raises:
-            TracecatNotFoundError: If the table does not exist
+            AutoSecOpsNotFoundError: If the table does not exist
             ValueError: If a row data parameter is given without ``table_id``,
                 or is invalid for the table
         """
@@ -434,11 +434,11 @@ class CaseTableRowsService(BaseWorkspaceService):
             )
             if existing is not None:
                 return existing
-            raise TracecatNotFoundError("Case row link was not created")
+            raise AutoSecOpsNotFoundError("Case row link was not created")
 
         link = await self.session.get(CaseTableRow, link_surrogate_id)
         if link is None:
-            raise TracecatNotFoundError("Case row link was not created")
+            raise AutoSecOpsNotFoundError("Case row link was not created")
 
         await CaseEventsService(self.session, self.role).create_event(
             case,
@@ -469,7 +469,7 @@ class CaseTableRowsService(BaseWorkspaceService):
         found = await self.tables.get_rows(table, requested)
         missing = [row_id for row_id in requested if row_id not in found]
         if missing:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"{len(missing)} of {len(requested)} rows not found in table {table.name}"
             )
 
@@ -709,7 +709,7 @@ class CaseTableRowsService(BaseWorkspaceService):
             )
         )
         if table_exists is None:
-            raise TracecatNotFoundError(f"Table {table_id} not found")
+            raise AutoSecOpsNotFoundError(f"Table {table_id} not found")
         return await CasesService(self.session, self.role).search_cases(
             params=params,
             linked_row=(table_id, row_id),
@@ -725,5 +725,5 @@ class CaseTableRowsService(BaseWorkspaceService):
         )
         case = (await self.session.execute(stmt)).scalars().first()
         if case is None:
-            raise TracecatNotFoundError(f"Case {case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case_id} not found")
         return case

@@ -16,12 +16,12 @@ from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import RegistryRepository
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     RegistryActionValidationError,
     RegistryError,
     RegistryNotFound,
-    TracecatCredentialsNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.git.utils import list_git_commits, parse_git_url
 from autosecops.logger import logger
@@ -129,7 +129,7 @@ async def sync_registry_repository(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
-    except TracecatCredentialsNotFoundError as e:
+    except AutoSecOpsCredentialsNotFoundError as e:
         logger.warning("Credentials not found", exc=e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -360,7 +360,7 @@ async def list_repository_commits(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to list commits: {str(e)}",
         ) from e
-    except TracecatCredentialsNotFoundError as e:
+    except AutoSecOpsCredentialsNotFoundError as e:
         logger.warning(_NO_REGISTRY_SSH_KEY_DETAIL, origin=repo.origin)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -411,7 +411,7 @@ async def create_registry_repository(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         logger.error("Error creating registry repository", exc=e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

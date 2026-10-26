@@ -25,7 +25,7 @@ from autosecops.db.models import (
     AgentCustomProvider,
     Organization,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginationParams
 from autosecops.secrets.encryption import decrypt_value, encrypt_keyvalues
 from autosecops.secrets.schemas import SecretKeyValue
@@ -90,9 +90,9 @@ async def test_provider_crud_lifecycle(
     assert updated.passthrough is True
 
     await service.delete_provider(created.id)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_provider(created.id)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_provider(uuid.uuid4())
 
 

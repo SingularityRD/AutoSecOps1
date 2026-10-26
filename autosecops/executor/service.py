@@ -43,11 +43,11 @@ from autosecops.dsl.schemas import (
     TemplateExecutionContext,
 )
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsException,
     ExecutionError,
     LoopExecutionError,
     RegistryValidationError,
-    TracecatAuthorizationError,
-    TracecatException,
 )
 from autosecops.executor import registry_resolver
 from autosecops.executor.backends.base import ExecutorBackend
@@ -1019,7 +1019,7 @@ async def dispatch_action(backend: ExecutorBackend, input: RunActionInput) -> An
              a list of results from all parallel executions.
 
     Raises:
-        TracecatException: If there are errors evaluating for_each expressions or during execution
+        AutoSecOpsException: If there are errors evaluating for_each expressions or during execution
         ExecutionError: If there are errors from the executor itself
         LoopExecutionError: If there are errors in for_each loop execution
     """
@@ -1094,7 +1094,7 @@ async def dispatch_action(backend: ExecutorBackend, input: RunActionInput) -> An
     except* Exception as eg:
         errors = [str(x) for x in eg.exceptions]
         logger.error("Unexpected error(s) in loop", errors=errors, exc_group=eg)
-        raise TracecatException(
+        raise AutoSecOpsException(
             (
                 f"\n[{context_locator(task, 'for_each')}]"
                 "\n\nUnexpected error(s) in loop:"
@@ -1188,7 +1188,7 @@ async def get_workspace_variables(
             variables = await service.search_variables(
                 VariableSearch(names=variable_exprs, environment=environment)
             )
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         logger.warning("No access to workspace variables", error=e)
         return {}
     return {variable.name: variable.values for variable in variables}

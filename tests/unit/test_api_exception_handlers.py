@@ -25,12 +25,12 @@ from autosecops.api.common import (
     query_timeout_exception_handler,
 )
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsRLSViolationError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatException,
-    TracecatNotFoundError,
-    TracecatRLSViolationError,
-    TracecatValidationError,
 )
 from autosecops.executor.action_gateway import app as action_gateway_app
 from autosecops.executor.action_gateway.app import (
@@ -38,8 +38,8 @@ from autosecops.executor.action_gateway.app import (
 )
 from autosecops.forms.schemas import FormValidateRequest
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 
 
@@ -51,17 +51,17 @@ def _build_app(exc: Exception, path: str = "/boom") -> FastAPI:
     own handler must win over the generic authorization handler.
     """
     app = FastAPI()
-    app.add_exception_handler(TracecatException, autosecops_exception_handler)
+    app.add_exception_handler(AutoSecOpsException, autosecops_exception_handler)
     app.add_exception_handler(
-        TracecatQueryTimeoutError,
+        AutoSecOpsQueryTimeoutError,
         query_timeout_exception_handler,
     )
     app.add_exception_handler(
-        TracecatQueryOverflowError,
+        AutoSecOpsQueryOverflowError,
         query_overflow_exception_handler,
     )
     app.add_exception_handler(
-        TracecatAuthorizationError, authorization_exception_handler
+        AutoSecOpsAuthorizationError, authorization_exception_handler
     )
     app.add_exception_handler(ScopeDeniedError, scope_denied_exception_handler)
 
@@ -81,7 +81,7 @@ def _get(exc: Exception):
     ("exc", "expected_status"),
     [
         pytest.param(
-            TracecatAuthorizationError("denied"), 403, id="authorization-error-403"
+            AutoSecOpsAuthorizationError("denied"), 403, id="authorization-error-403"
         ),
         pytest.param(
             ScopeDeniedError(
@@ -91,17 +91,17 @@ def _get(exc: Exception):
             id="scope-denied-subclass-403",
         ),
         pytest.param(
-            TracecatRLSViolationError(
+            AutoSecOpsRLSViolationError(
                 "RLS blocked", table="secret", operation="SELECT"
             ),
             403,
             id="rls-subclass-403",
         ),
         pytest.param(
-            TracecatValidationError("bad"), 500, id="other-autosecops-error-500"
+            AutoSecOpsValidationError("bad"), 500, id="other-autosecops-error-500"
         ),
-        pytest.param(TracecatQueryTimeoutError(), 422, id="query-timeout-422"),
-        pytest.param(TracecatQueryOverflowError(), 400, id="query-overflow-400"),
+        pytest.param(AutoSecOpsQueryTimeoutError(), 422, id="query-timeout-422"),
+        pytest.param(AutoSecOpsQueryOverflowError(), 400, id="query-overflow-400"),
     ],
 )
 def test_exception_handler_status_codes(exc: Exception, expected_status: int) -> None:
@@ -112,7 +112,7 @@ def test_exception_handler_status_codes(exc: Exception, expected_status: int) ->
 def test_authorization_response_is_fixed_and_opaque() -> None:
     """The generic 403 body must not echo the exception message."""
     response = _get(
-        TracecatAuthorizationError(
+        AutoSecOpsAuthorizationError(
             "Cannot grant scopes not held by the caller: org:owner:assign"
         )
     )
@@ -124,11 +124,11 @@ def test_authorization_response_is_fixed_and_opaque() -> None:
 def test_rls_violation_does_not_leak_internal_state() -> None:
     """RLS denials must not expose table, operation, or tenant identifiers.
 
-    TracecatRLSViolationError puts these on ``detail``; serializing that on a
+    AutoSecOpsRLSViolationError puts these on ``detail``; serializing that on a
     403 would hand an unauthorized caller schema and tenant information.
     """
     response = _get(
-        TracecatRLSViolationError(
+        AutoSecOpsRLSViolationError(
             "RLS blocked access",
             table="secret",
             operation="SELECT",
@@ -163,13 +163,13 @@ def test_scope_denied_keeps_its_structured_body() -> None:
     ("exc", "expected_status", "expected_code"),
     [
         pytest.param(
-            TracecatQueryTimeoutError(),
+            AutoSecOpsQueryTimeoutError(),
             422,
             "query_timeout",
             id="timeout",
         ),
         pytest.param(
-            TracecatQueryOverflowError(),
+            AutoSecOpsQueryOverflowError(),
             400,
             "query_numeric_overflow",
             id="overflow",
@@ -196,11 +196,11 @@ def test_query_error_response_contract(
 def test_query_error_handlers_are_registered_in_both_api_apps() -> None:
     for app in (create_api_app(), create_action_gateway_app()):
         assert (
-            app.exception_handlers[TracecatQueryTimeoutError]
+            app.exception_handlers[AutoSecOpsQueryTimeoutError]
             is query_timeout_exception_handler
         )
         assert (
-            app.exception_handlers[TracecatQueryOverflowError]
+            app.exception_handlers[AutoSecOpsQueryOverflowError]
             is query_overflow_exception_handler
         )
 
@@ -208,11 +208,11 @@ def test_query_error_handlers_are_registered_in_both_api_apps() -> None:
 @pytest.mark.parametrize(
     "exc",
     [
-        TracecatAuthorizationError("Cannot delete superuser"),
+        AutoSecOpsAuthorizationError("Cannot delete superuser"),
         ScopeDeniedError(
             required_scopes=["org:member:remove"], missing_scopes=["org:member:remove"]
         ),
-        TracecatRLSViolationError(
+        AutoSecOpsRLSViolationError(
             "Internal denial", table="secret", operation="SELECT"
         ),
     ],
@@ -272,7 +272,9 @@ def test_scim_errors_keep_their_status_under_an_unstripped_root_path(
     request_path: str,
 ) -> None:
     """The Helm ingress forwards ``/api``; a SCIM 404 must not become a 500."""
-    app = _build_app(TracecatNotFoundError("User not found"), "/scim/v2/Users/missing")
+    app = _build_app(
+        AutoSecOpsNotFoundError("User not found"), "/scim/v2/Users/missing"
+    )
     app.root_path = "/api"
     _install_scim_exception_handlers(app)
     with TestClient(app, raise_server_exceptions=False) as client:

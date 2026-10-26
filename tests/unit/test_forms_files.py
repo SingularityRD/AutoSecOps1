@@ -21,7 +21,7 @@ from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.db.models import Form, FormFile, FormSubmission, FormView, Workspace
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.forms import router as forms_router
 from autosecops.forms import storage
 from autosecops.forms.constants import MAX_PENDING_FILES_PER_UPLOADER, PENDING_FILE_TTL
@@ -243,7 +243,7 @@ async def test_upload_stores_a_pending_file_and_serves_it_back(
     assert base64.b64decode(content.content_base64) == PDF
     assert content.model_dump(exclude={"content_base64"}) == uploaded.model_dump()
     blob_store.objects[key] = b"tampered"
-    with pytest.raises(TracecatException):
+    with pytest.raises(AutoSecOpsException):
         await files.read_content(uploaded.id)
     del blob_store.objects[key]
     assert await files.read_content(uploaded.id) is None

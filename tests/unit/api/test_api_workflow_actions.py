@@ -7,7 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.workflow.actions.service import WorkflowActionService
 
 _WORKFLOW_ID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
@@ -28,7 +28,7 @@ _MISSING_ACTION_ID = "00000000-0000-4000-8000-000000000000"
                 "inputs": "url: https://example.com\nmethod: GET",
             },
             "create_action",
-            TracecatValidationError("ref exists"),
+            AutoSecOpsValidationError("ref exists"),
             status.HTTP_409_CONFLICT,
             id="create-conflict",
         ),

@@ -14,7 +14,7 @@ from litellm.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownMan
 from litellm.proxy.utils import ProxyLogging
 
 from autosecops.agent import gateway_drain
-from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway import AutoSecOpsCallbackHandler
 
 
 @pytest.mark.anyio
@@ -22,7 +22,7 @@ async def test_response_headers_carry_gateway_worker_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """LiteLLM's own header merge adds ``x-autosecops-gateway: <pod>/<pid>``."""
-    monkeypatch.setattr(litellm, "callbacks", [TracecatCallbackHandler()])
+    monkeypatch.setattr(litellm, "callbacks", [AutoSecOpsCallbackHandler()])
     monkeypatch.setattr(gateway_drain.socket, "gethostname", lambda: "litellm-0")
     proxy_logging = ProxyLogging(user_api_key_cache=UserApiKeyCache())
 

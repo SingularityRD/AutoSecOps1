@@ -32,7 +32,7 @@ from autosecops.db.models import (
     Secret,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.integrations.aws_assume_role import build_workspace_external_id
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.encryption import encrypt_keyvalues
@@ -295,7 +295,7 @@ async def test_get_catalog_credentials_respects_workspace_override_access(
 
     service = _db_service(session, svc_organization, svc_workspace)
 
-    with pytest.raises(agent_service.TracecatAuthorizationError):
+    with pytest.raises(agent_service.AutoSecOpsAuthorizationError):
         await service.get_catalog_credentials(inherited_catalog.id)
     credentials = await service.get_catalog_credentials(workspace_catalog.id)
     assert credentials == {"ANTHROPIC_API_KEY": "live-anthropic"}
@@ -596,7 +596,7 @@ async def test_load_custom_model_provider_creds_requires_catalog_access(
 
     service = _db_service(session, svc_organization, svc_workspace)
 
-    with pytest.raises(agent_service.TracecatAuthorizationError):
+    with pytest.raises(agent_service.AutoSecOpsAuthorizationError):
         await _load_custom_model_provider_creds(
             service,
             catalog_id=catalog.id,
@@ -1079,7 +1079,7 @@ async def test_refresh_bedrock_catalog_requires_credentials(role: Role) -> None:
     service = AgentManagementService(AsyncMock(), role=role)
     service.get_provider_credentials = AsyncMock(return_value=None)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.refresh_bedrock_catalog()
 
 

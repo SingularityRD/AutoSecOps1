@@ -25,7 +25,7 @@ from autosecops.db.models import (
     SkillVersion,
     SkillVersionFile,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.storage import blob
 from autosecops.sync import PullDiagnostic
 from autosecops.workspace_sync.adapters.base import (
@@ -355,7 +355,7 @@ class SkillAdapter(DirectoryManifestAdapter):
             noun="slug",
             kind_label="Skill",
             owner_label="skill",
-            error_cls=TracecatValidationError,
+            error_cls=AutoSecOpsValidationError,
             temp_prefix="__tc_sync_tmp_",
             row_predicates=(Skill.deleted_at.is_(None), Skill.archived_at.is_(None)),
             availability_predicates=(
@@ -433,7 +433,7 @@ class SkillAdapter(DirectoryManifestAdapter):
                     [(path, file_ref.blob) for path, file_ref in file_refs.items()]
                 )
                 if validation.errors:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "Workspace-synced skill failed validation",
                         detail={
                             "code": "workspace_sync_skill_validation_failed",
@@ -452,7 +452,7 @@ class SkillAdapter(DirectoryManifestAdapter):
                     if desired != actual
                 ]
                 if mismatched_fields:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "Skill metadata must match root SKILL.md frontmatter",
                         detail={
                             "code": "workspace_sync_skill_metadata_mismatch",
@@ -529,14 +529,14 @@ class SkillAdapter(DirectoryManifestAdapter):
         for file_spec in spec.files:
             content_text = spec.file_contents.get(file_spec.path)
             if content_text is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Skill {spec.slug!r} head "
                     f"declares file {file_spec.path!r} but no content was provided."
                 )
             try:
                 content = _skill_file_content_bytes(file_spec, content_text)
             except ValueError as e:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Skill {spec.slug!r} head "
                     f"file {file_spec.path!r} could not be decoded: {e}"
                 ) from e

@@ -27,7 +27,7 @@ from autosecops.db.models import (
     RegistryVersion,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
 from autosecops.invitations.service import (
@@ -221,13 +221,13 @@ class AdminOrgService(BasePlatformService):
                 cursor_data = paginator.decode_cursor(pagination.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as e:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for organization invitations"
                 ) from e
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for organization invitations"
                 )
 
@@ -325,7 +325,7 @@ class AdminOrgService(BasePlatformService):
         """Revoke a pending platform-created organization invitation."""
         invitation = await self._get_platform_invitation(org_id, invitation_id)
         if invitation.status != InvitationStatus.PENDING:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Cannot revoke invitation with status '{invitation.status}'"
             )
         await revoke_invitation_row(self.session, invitation)
@@ -357,7 +357,7 @@ class AdminOrgService(BasePlatformService):
     ) -> DBRole:
         """Get an allowed preset organization role for platform invitations."""
         if role_slug not in PLATFORM_ORG_INVITATION_ROLE_SLUGS:
-            raise TracecatValidationError("Invalid organization invitation role")
+            raise AutoSecOpsValidationError("Invalid organization invitation role")
 
         stmt = select(DBRole).where(
             DBRole.organization_id == org_id,
@@ -365,7 +365,7 @@ class AdminOrgService(BasePlatformService):
         )
         role_obj = await self.session.scalar(stmt)
         if role_obj is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Role {role_slug!r} not found for organization"
             )
         return role_obj

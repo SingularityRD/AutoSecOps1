@@ -15,9 +15,9 @@ from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import User
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.logger import logger
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
@@ -82,11 +82,11 @@ workspace_router = APIRouter(
 def _translate_error(exc: Exception) -> HTTPException:
     if isinstance(exc, HTTPException):
         return exc
-    if isinstance(exc, TracecatNotFoundError):
+    if isinstance(exc, AutoSecOpsNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    if isinstance(exc, TracecatAuthorizationError):
+    if isinstance(exc, AutoSecOpsAuthorizationError):
         return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    if isinstance(exc, TracecatValidationError):
+    if isinstance(exc, AutoSecOpsValidationError):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     logger.exception("Unhandled service account route error")
     return HTTPException(

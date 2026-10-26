@@ -12,9 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { jsonSchemaToParams } from "@/lib/jsonschema"
-import type { TracecatJsonSchema } from "@/lib/schema"
+import type { AutoSecOpsJsonSchema } from "@/lib/schema"
 
-export function JSONSchemaTable({ schema }: { schema: TracecatJsonSchema }) {
+export function JSONSchemaTable({ schema }: { schema: AutoSecOpsJsonSchema }) {
   const params = jsonSchemaToParams(schema).sort((a, b) => {
     // Sort required fields first, then alphabetically
     if (a.required && !b.required) return -1

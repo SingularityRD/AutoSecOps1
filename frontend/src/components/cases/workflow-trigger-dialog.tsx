@@ -28,12 +28,12 @@ import { toast } from "@/components/ui/use-toast"
 import { useWorkflowTriggerInputs } from "@/hooks/use-workflow-trigger-inputs"
 import { useCreateManualWorkflowExecution } from "@/lib/hooks"
 import { useQuery } from "@/lib/query"
-import type { TracecatJsonSchema } from "@/lib/schema"
+import type { AutoSecOpsJsonSchema } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
 type WorkflowWithSchema = WorkflowRead & {
-  expects_schema?: TracecatJsonSchema | null
+  expects_schema?: AutoSecOpsJsonSchema | null
 }
 
 interface WorkflowTriggerDialogProps {
@@ -90,7 +90,7 @@ export function WorkflowTriggerDialog({
     },
   })
 
-  const triggerSchema = useMemo<TracecatJsonSchema | null>(() => {
+  const triggerSchema = useMemo<AutoSecOpsJsonSchema | null>(() => {
     const schema = selectedWorkflowDetail?.expects_schema
     if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
       return null
@@ -98,7 +98,7 @@ export function WorkflowTriggerDialog({
     if ("type" in schema && schema.type !== "object") {
       return null
     }
-    return schema as TracecatJsonSchema
+    return schema as AutoSecOpsJsonSchema
   }, [selectedWorkflowDetail])
 
   const effectiveGroupCaseFields = triggerSchema ? false : groupCaseFields

@@ -59,11 +59,11 @@ from autosecops.dsl.view import (
     UDFNodeData,
 )
 from autosecops.exceptions import (
-    TracecatCredentialsError,
-    TracecatDSLError,
-    TracecatException,
-    TracecatExpressionError,
-    TracecatValidationError,
+    AutoSecOpsCredentialsError,
+    AutoSecOpsDSLError,
+    AutoSecOpsException,
+    AutoSecOpsExpressionError,
+    AutoSecOpsValidationError,
 )
 from autosecops.expressions.common import ExprContext
 from autosecops.expressions.core import extract_expressions
@@ -232,19 +232,19 @@ class DSLInput(BaseModel):
     @model_validator(mode="after")
     def validate_structure(self) -> Self:
         if not self.actions:
-            raise TracecatDSLError("At least one action must be defined.")
+            raise AutoSecOpsDSLError("At least one action must be defined.")
         if len({action.ref for action in self.actions}) != len(self.actions):
             counter = {}
             for action in self.actions:
                 counter[action.ref] = counter.get(action.ref, 0) + 1
             duplicates = ", ".join(f"{k!r}" for k, v in counter.items() if v > 1)
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 "All action references (the action title in snake case) must be unique."
                 f" Duplicate refs: {duplicates}"
             )
         n_entrypoints = sum(1 for action in self.actions if not action.depends_on)
         if n_entrypoints == 0:
-            raise TracecatDSLError("No entrypoints found")
+            raise AutoSecOpsDSLError("No entrypoints found")
 
         # Validate that all the refs in depends_on are valid actions
         valid_action_refs = {a.ref for a in self.actions}
@@ -255,13 +255,13 @@ class DSLInput(BaseModel):
                 try:
                     src, _ = edge_components_from_dep(dep)
                 except ValueError:
-                    raise TracecatDSLError(
+                    raise AutoSecOpsDSLError(
                         f"Invalid depends_on ref: {dep!r} in action {a.ref!r}"
                     ) from None
                 dependencies.add(src)
         invalid_deps = dependencies - valid_action_refs
         if invalid_deps:
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 f"Invalid depends_on refs in actions: {invalid_deps}."
                 f" Valid actions: {valid_action_refs}"
             )
@@ -277,7 +277,7 @@ class DSLInput(BaseModel):
                 expr_ctxs = extract_expressions(value)
                 for dep in expr_ctxs[ExprContext.ACTIONS]:
                     if dep not in valid_action_refs:
-                        raise TracecatDSLError(
+                        raise AutoSecOpsDSLError(
                             f"Action '{action.ref}' has an expression in field '{key2loc(key)}' that references unknown action '{dep}'"
                         )
 
@@ -307,11 +307,11 @@ class DSLInput(BaseModel):
                 loop_end_actions.append(action.ref)
 
         if len(gather_actions) > len(scatter_actions):
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 "There are more gather actions than scatter actions."
             )
         if len(loop_end_actions) != len(loop_start_actions):
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 "Loop scopes must be balanced: "
                 f"found {len(loop_start_actions)} loop start action(s) and "
                 f"{len(loop_end_actions)} loop end action(s)."
@@ -381,13 +381,13 @@ class DSLInput(BaseModel):
                                 f"Loop start action '{action.ref}' has an edge from"
                                 f" '{dep}', which isn't the parent scope"
                             )
-                        raise TracecatDSLError(msg)
+                        raise AutoSecOpsDSLError(msg)
                 elif action.action == PlatformAction.LOOP_END:
                     # loop_end must only depend on actions from the loop scope
                     # it closes; otherwise it can accidentally close a sibling scope.
                     closed_loop_scope = loop_end_scope_by_ref[action.ref]
                     if dep_scope != closed_loop_scope:
-                        raise TracecatDSLError(
+                        raise AutoSecOpsDSLError(
                             f"Loop end action '{action.ref}' has an edge from '{dep}', "
                             f"which isn't the closed loop scope '{closed_loop_scope}'"
                         )
@@ -399,7 +399,7 @@ class DSLInput(BaseModel):
                             action.action in CLOSER_TO_OPENER_ACTION
                             and opener != CLOSER_TO_OPENER_ACTION[action.action]
                         ):
-                            raise TracecatDSLError(
+                            raise AutoSecOpsDSLError(
                                 f"Action '{action.ref}' closes the wrong scope type for edge '{dep}'"
                             )
                         if action.action == PlatformAction.TRANSFORM_GATHER:
@@ -412,10 +412,10 @@ class DSLInput(BaseModel):
                                 f"Loop end action '{action.ref}' has an edge from"
                                 f" '{dep}', which isn't the child scope"
                             )
-                        raise TracecatDSLError(msg)
+                        raise AutoSecOpsDSLError(msg)
                 else:
                     if dep_scope != action_scope:
-                        raise TracecatDSLError(
+                        raise AutoSecOpsDSLError(
                             f"Action '{action.ref}' has an edge from '{dep}', which is in a different scatter-gather scope"
                         )
 
@@ -437,7 +437,7 @@ class DSLInput(BaseModel):
                                     f"Loop start action '{action.ref}' has an expression in field '{key2loc(key)}' "
                                     f"that references '{dep}', which isn't the parent scope"
                                 )
-                            raise TracecatDSLError(msg)
+                            raise AutoSecOpsDSLError(msg)
                     elif action.action == PlatformAction.LOOP_END:
                         closed_loop_scope = loop_end_scope_by_ref[action.ref]
                         condition_refs = loop_end_condition_refs_by_ref[action.ref]
@@ -445,7 +445,7 @@ class DSLInput(BaseModel):
                         # This is the decision point that controls iteration continuation.
                         if key == "args" and dep in condition_refs:
                             if dep_scope != closed_loop_scope:
-                                raise TracecatDSLError(
+                                raise AutoSecOpsDSLError(
                                     f"Loop end action '{action.ref}' has an expression "
                                     f"in field '{key2loc(key)}.condition' that "
                                     f"references '{dep}', but condition refs must be "
@@ -458,14 +458,14 @@ class DSLInput(BaseModel):
                                 action.action in CLOSER_TO_OPENER_ACTION
                                 and opener != CLOSER_TO_OPENER_ACTION[action.action]
                             ):
-                                raise TracecatDSLError(
+                                raise AutoSecOpsDSLError(
                                     f"Action '{action.ref}' closes the wrong scope type for expression dependency '{dep}'"
                                 )
                             msg = (
                                 f"Loop end action '{action.ref}' has an expression in field '{key2loc(key)}' "
                                 f"that references '{dep}', which isn't the child scope"
                             )
-                            raise TracecatDSLError(msg)
+                            raise AutoSecOpsDSLError(msg)
                     elif action.action in SCOPE_CLOSER_ACTIONS:
                         # Here, action_scope is the parent scope
                         if action_scope != scope_hierarchy[dep_scope]:
@@ -474,7 +474,7 @@ class DSLInput(BaseModel):
                                 action.action in CLOSER_TO_OPENER_ACTION
                                 and opener != CLOSER_TO_OPENER_ACTION[action.action]
                             ):
-                                raise TracecatDSLError(
+                                raise AutoSecOpsDSLError(
                                     f"Action '{action.ref}' closes the wrong scope type for expression dependency '{dep}'"
                                 )
                             if action.action == PlatformAction.TRANSFORM_GATHER:
@@ -487,7 +487,7 @@ class DSLInput(BaseModel):
                                     f"Loop end action '{action.ref}' has an expression in field '{key2loc(key)}' "
                                     f"that references '{dep}', which isn't the child scope"
                                 )
-                            raise TracecatDSLError(msg)
+                            raise AutoSecOpsDSLError(msg)
                     else:
                         # Dep scope must be the same as action_scope or an ancestor (parent, grandparent, etc.)
                         is_ancestor = self._is_same_or_ancestor_scope(
@@ -502,7 +502,7 @@ class DSLInput(BaseModel):
                             scope_openers=scope_openers,
                         )
                         if not is_ancestor and not is_loop_descendant:
-                            raise TracecatDSLError(
+                            raise AutoSecOpsDSLError(
                                 f"Action '{action.ref}' has an expression in field '{key2loc(key)}' that references '{dep}' which cannot be referenced from this scope"
                             )
 
@@ -529,7 +529,7 @@ class DSLInput(BaseModel):
             for dep_ref in loop_end_stmt.depends_on
         }
         if len(dep_scopes) != 1:
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 f"Loop end action '{loop_end_stmt.ref}' must depend on actions "
                 "from exactly one loop scope"
             )
@@ -537,12 +537,12 @@ class DSLInput(BaseModel):
         loop_scope = next(iter(dep_scopes))
         # A closer in parent scope can only close one of its direct children.
         if scope_hierarchy.get(loop_scope) != action_scope:
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 f"Loop end action '{loop_end_stmt.ref}' must depend on actions "
                 "from its child loop scope"
             )
         if scope_openers.get(loop_scope) != PlatformAction.LOOP_START:
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 f"Loop end action '{loop_end_stmt.ref}' must close a loop.start scope"
             )
         return loop_scope
@@ -598,7 +598,7 @@ class DSLInput(BaseModel):
                 scope_openers=scope_openers,
             )
             if existing := loop_end_by_scope.get(loop_scope):
-                raise TracecatDSLError(
+                raise AutoSecOpsDSLError(
                     f"Loop start action '{loop_scope}' has multiple loop end actions: "
                     f"'{existing}' and '{stmt.ref}'"
                 )
@@ -607,7 +607,7 @@ class DSLInput(BaseModel):
         missing_end_scopes = sorted(loop_scopes - set(loop_end_by_scope))
         if missing_end_scopes:
             missing_scope = missing_end_scopes[0]
-            raise TracecatDSLError(
+            raise AutoSecOpsDSLError(
                 f"Loop start action '{missing_scope}' has no matching loop end action"
             )
 
@@ -642,7 +642,7 @@ class DSLInput(BaseModel):
                 and action_ref not in can_reach_loop_end
             )
             if unsynchronized_actions:
-                raise TracecatDSLError(
+                raise AutoSecOpsDSLError(
                     f"Loop scope opened by '{loop_scope}' must synchronize at "
                     f"'{loop_end_ref}'. Every action in the loop region needs a success path "
                     "to loop_end so iterations cannot interleave and overwrite each other. "
@@ -702,10 +702,10 @@ class DSLInput(BaseModel):
         """Assign scope IDs to actions using topological sort.
 
         Returns action ref -> scope ID, scope -> parent scope, and scope -> opener action.
-        Raises TracecatDSLError on scope conflicts or dependency cycles.
+        Raises AutoSecOpsDSLError on scope conflicts or dependency cycles.
         """
         if blocked := self.blocked_refs():
-            raise TracecatDSLError(dependency_cycle_message(blocked))
+            raise AutoSecOpsDSLError(dependency_cycle_message(blocked))
 
         stmts = {a.ref: a for a in self.actions}
         scopes: dict[str, str] = {}
@@ -734,7 +734,7 @@ class DSLInput(BaseModel):
                 scopes[action_ref] = scope
             else:
                 if scopes[action_ref] != scope:
-                    raise TracecatDSLError(
+                    raise AutoSecOpsDSLError(
                         f"Action {action_ref!r} cannot belong to multiple scopes: "
                         f"already in {scopes[action_ref]!r}, trying to assign to {scope!r}"
                     )
@@ -761,12 +761,12 @@ class DSLInput(BaseModel):
                         if stmt.action == PlatformAction.TRANSFORM_GATHER
                         else "loop.end"
                     )
-                    raise TracecatDSLError(
+                    raise AutoSecOpsDSLError(
                         f"You cannot use a {action_name} action {ref!r} in the root scope"
                     )
                 expected_opener = CLOSER_TO_OPENER_ACTION[stmt.action]
                 if scope_openers.get(curr_scope) != expected_opener:
-                    raise TracecatDSLError(
+                    raise AutoSecOpsDSLError(
                         f"Action {ref!r} closes the wrong scope type"
                     )
                 assign_scope(ref, next_scope)
@@ -827,11 +827,11 @@ class DSLInput(BaseModel):
         elif isinstance(path, SpooledTemporaryFile):
             yaml_str = path.read().decode()
         else:
-            raise TracecatDSLError(f"Invalid file/path type {type(path)}")
+            raise AutoSecOpsDSLError(f"Invalid file/path type {type(path)}")
         dsl_dict = yaml.safe_load(yaml_str)
         try:
             return DSLInput.model_validate(dsl_dict)
-        except* TracecatDSLError as eg:
+        except* AutoSecOpsDSLError as eg:
             logger.error(eg.message, error=eg.exceptions)
             raise eg
 
@@ -1474,11 +1474,11 @@ NON_RETRYABLE_ERROR_TYPES = [
     # Pydantic
     ValidationError.__name__,
     # AutoSecOps
-    TracecatException.__name__,
-    TracecatExpressionError.__name__,
-    TracecatValidationError.__name__,
-    TracecatDSLError.__name__,
-    TracecatCredentialsError.__name__,
+    AutoSecOpsException.__name__,
+    AutoSecOpsExpressionError.__name__,
+    AutoSecOpsValidationError.__name__,
+    AutoSecOpsDSLError.__name__,
+    AutoSecOpsCredentialsError.__name__,
     # Temporal
     ApplicationError.__name__,
     ChildWorkflowError.__name__,

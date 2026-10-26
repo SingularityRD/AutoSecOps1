@@ -97,9 +97,9 @@ import {
   getAuditWebhookTestTitle,
 } from "@/lib/audit-webhook-test"
 import {
+  type AutoSecOpsApiError,
   getApiErrorDetail,
   retryHandler,
-  type TracecatApiError,
 } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
@@ -935,7 +935,7 @@ export function useAdminAuditSettings() {
   const { mutate: testAuditWebhook, isPending: testAuditWebhookIsPending } =
     useMutation<
       AuditWebhookTestResult,
-      TracecatApiError,
+      AutoSecOpsApiError,
       AdminTestAuditWebhookData
     >({
       mutationFn: adminTestAuditWebhook,
@@ -979,7 +979,7 @@ export function useAdminSecuritySettings() {
     data: securitySettings,
     isLoading: securitySettingsIsLoading,
     error: securitySettingsError,
-  } = useQuery<PlatformSecuritySettingsRead, TracecatApiError>({
+  } = useQuery<PlatformSecuritySettingsRead, AutoSecOpsApiError>({
     queryKey: ADMIN_SECURITY_SETTINGS_QUERY_KEY,
     queryFn: adminGetSecuritySettings,
   })
@@ -989,7 +989,7 @@ export function useAdminSecuritySettings() {
     isPending: updateSecuritySettingsIsPending,
   } = useMutation<
     PlatformSecuritySettingsRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     PlatformSecuritySettingsUpdate
   >({
     mutationFn: async (requestBody) =>
@@ -1017,7 +1017,7 @@ export function useAdminSecuritySettings() {
     isPending: checkIpAllowlistIsPending,
   } = useMutation<
     IPAllowlistCheckResult,
-    TracecatApiError,
+    AutoSecOpsApiError,
     IPAllowlistCheckRequest
   >({
     mutationFn: async (requestBody) =>
@@ -1048,7 +1048,7 @@ export function useAdminPlatformCatalog({
     isLoading,
     error,
     refetch,
-  } = useQuery<AgentCatalogRead[], TracecatApiError>({
+  } = useQuery<AgentCatalogRead[], AutoSecOpsApiError>({
     queryKey: ["admin", "agent-platform-catalog"],
     queryFn: async () => {
       const items: AgentCatalogRead[] = []

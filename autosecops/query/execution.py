@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 
 
@@ -63,8 +63,8 @@ async def query_execution_context(
         statement_timeout_ms: PostgreSQL statement timeout in milliseconds.
 
     Raises:
-        TracecatQueryTimeoutError: If PostgreSQL cancels the query at its timeout.
-        TracecatQueryOverflowError: If PostgreSQL reports numeric overflow.
+        AutoSecOpsQueryTimeoutError: If PostgreSQL cancels the query at its timeout.
+        AutoSecOpsQueryOverflowError: If PostgreSQL reports numeric overflow.
     """
     resolved_timeout_ms = (
         config.AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS
@@ -85,7 +85,7 @@ async def query_execution_context(
         )
     except DBAPIError as exc:
         if _has_driver_error(exc.orig, QueryCanceledError):
-            raise TracecatQueryTimeoutError from exc
+            raise AutoSecOpsQueryTimeoutError from exc
         if _has_driver_error(exc.orig, NumericValueOutOfRangeError):
-            raise TracecatQueryOverflowError from exc
+            raise AutoSecOpsQueryOverflowError from exc
         raise

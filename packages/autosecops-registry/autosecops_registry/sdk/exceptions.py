@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 
-class TracecatSDKError(Exception):
+class AutoSecOpsSDKError(Exception):
     """Base exception for all AutoSecOps SDK errors."""
 
     def __init__(self, message: str) -> None:
@@ -14,7 +14,7 @@ class TracecatSDKError(Exception):
         super().__init__(message)
 
 
-class TracecatAPIError(TracecatSDKError):
+class AutoSecOpsAPIError(AutoSecOpsSDKError):
     """Exception raised when the API returns an error response."""
 
     def __init__(
@@ -38,7 +38,7 @@ class TracecatAPIError(TracecatSDKError):
         return f"{self.message} (status={self.status_code})"
 
 
-class TracecatAuthError(TracecatAPIError):
+class AutoSecOpsAuthError(AutoSecOpsAPIError):
     """Exception raised for authentication/authorization errors (401, 403)."""
 
     def __init__(self, detail: Any | None = None, status_code: int = 401) -> None:
@@ -49,7 +49,7 @@ class TracecatAuthError(TracecatAPIError):
         )
 
 
-class TracecatNotFoundError(TracecatAPIError):
+class AutoSecOpsNotFoundError(AutoSecOpsAPIError):
     """Exception raised when a resource is not found (404)."""
 
     def __init__(
@@ -69,7 +69,7 @@ class TracecatNotFoundError(TracecatAPIError):
         )
 
 
-class TracecatValidationError(TracecatAPIError):
+class AutoSecOpsValidationError(AutoSecOpsAPIError):
     """Exception raised for validation errors (400, 422)."""
 
     def __init__(self, detail: Any | None = None, status_code: int = 400) -> None:
@@ -80,7 +80,7 @@ class TracecatValidationError(TracecatAPIError):
         )
 
 
-class TracecatConflictError(TracecatAPIError):
+class AutoSecOpsConflictError(AutoSecOpsAPIError):
     """Exception raised for conflict errors (409)."""
 
     def __init__(self, detail: Any | None = None) -> None:

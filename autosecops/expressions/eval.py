@@ -5,7 +5,7 @@ from collections.abc import Callable
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions import patterns
 from autosecops.expressions.common import ExprContext, ExprOperand, IterableExpr
 from autosecops.expressions.core import (
@@ -42,7 +42,7 @@ def _eval_templated_obj_rec(
                     (key_operator or operator)(key) if isinstance(key, str) else key
                 )
                 if processed_key in processed:
-                    raise TracecatExpressionError(
+                    raise AutoSecOpsExpressionError(
                         "Expression resolution produced a duplicate dictionary key",
                         detail={"code": "expression_key_collision"},
                     )
@@ -170,7 +170,7 @@ def get_iterables_from_expression(
         isinstance(iterable_exprs, list)
         and all(isinstance(expr, IterableExpr) for expr in iterable_exprs)
     ):
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             "Invalid for_each expression. Must be an IterableExpr or a list of IterableExprs."
         )
     return iterable_exprs

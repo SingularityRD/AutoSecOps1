@@ -142,13 +142,13 @@ from autosecops.db.soft_delete import assert_soft_delete_listener_registered
 from autosecops.editor.router import router as editor_router
 from autosecops.email.transport import SMTPTransport
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatException,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.feature_flags import FeatureFlag, FlagLike, is_feature_enabled
 from autosecops.feature_flags.router import router as feature_flags_router
@@ -189,8 +189,8 @@ from autosecops.organization.management import (
 )
 from autosecops.organization.router import router as org_router
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.registry.actions.router import router as registry_actions_router
 from autosecops.registry.repositories.router import router as registry_repos_router
@@ -380,9 +380,9 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
 
     # Domain errors differ only in the status and scimType they render.
     scim_statuses: dict[type[Exception], tuple[int, str | None]] = {
-        TracecatNotFoundError: (status.HTTP_404_NOT_FOUND, None),
-        TracecatValidationError: (status.HTTP_400_BAD_REQUEST, "invalidValue"),
-        TracecatConflictError: (status.HTTP_409_CONFLICT, None),
+        AutoSecOpsNotFoundError: (status.HTTP_404_NOT_FOUND, None),
+        AutoSecOpsValidationError: (status.HTTP_400_BAD_REQUEST, "invalidValue"),
+        AutoSecOpsConflictError: (status.HTTP_409_CONFLICT, None),
     }
 
     def _domain(exc_type: type[Exception]) -> Callable[[Request, Exception], Response]:
@@ -425,7 +425,7 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
         )
 
     app.add_exception_handler(Exception, _unexpected)
-    app.add_exception_handler(TracecatAuthorizationError, _authorization)
+    app.add_exception_handler(AutoSecOpsAuthorizationError, _authorization)
     app.add_exception_handler(ScopeDeniedError, _scope_denied)
     app.add_exception_handler(HTTPException, _http_async)
     app.add_exception_handler(RequestValidationError, _validation)
@@ -494,12 +494,12 @@ def entitlement_exception_handler(request: Request, exc: Exception) -> Response:
 
 
 def authorization_exception_handler(request: Request, exc: Exception) -> Response:
-    """Handle TracecatAuthorizationError exceptions with a 403 Forbidden response.
+    """Handle AutoSecOpsAuthorizationError exceptions with a 403 Forbidden response.
 
     Without this, authorization denials fall through to the generic
-    TracecatException handler, which returns 500.
+    AutoSecOpsException handler, which returns 500.
 
-    The body is deliberately fixed. Subtypes such as TracecatRLSViolationError
+    The body is deliberately fixed. Subtypes such as AutoSecOpsRLSViolationError
     carry internal state (table, operation, org/workspace IDs) on ``detail``,
     and denial messages may embed identifiers, so nothing derived from the
     exception is serialized here. Subtypes that need a structured body must
@@ -511,7 +511,7 @@ def authorization_exception_handler(request: Request, exc: Exception) -> Respons
         path=request.url.path,
         role=ctx_role.get(),
         exception_type=type(exc).__name__,
-        detail=exc.detail if isinstance(exc, TracecatException) else None,
+        detail=exc.detail if isinstance(exc, AutoSecOpsException) else None,
     )
     return ORJSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -812,15 +812,15 @@ def create_app(**kwargs) -> FastAPI:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
-    app.add_exception_handler(TracecatException, autosecops_exception_handler)
+    app.add_exception_handler(AutoSecOpsException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
     app.add_exception_handler(
-        TracecatQueryTimeoutError,
+        AutoSecOpsQueryTimeoutError,
         query_timeout_exception_handler,
     )
     app.add_exception_handler(
-        TracecatQueryOverflowError,
+        AutoSecOpsQueryOverflowError,
         query_overflow_exception_handler,
     )
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -832,7 +832,7 @@ def create_app(**kwargs) -> FastAPI:
     # Registered before ScopeDeniedError for readability only; Starlette dispatches
     # on the exception MRO, so the subclass handler still wins.
     app.add_exception_handler(
-        TracecatAuthorizationError, authorization_exception_handler
+        AutoSecOpsAuthorizationError, authorization_exception_handler
     )
     app.add_exception_handler(ScopeDeniedError, scope_denied_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)

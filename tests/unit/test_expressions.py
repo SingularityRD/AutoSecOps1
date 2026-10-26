@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 import pytest
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions.common import (
     ExprContext,
     ExprType,
@@ -70,7 +70,7 @@ def test_primary_expr_indexing(
 def test_primary_expr_indexing_errors(
     evaluator: ExprEvaluator, base, indexes, error_message: str
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as exc:
+    with pytest.raises(AutoSecOpsExpressionError) as exc:
         evaluator.primary_expr(base, *indexes)
     assert error_message in str(exc.value)
 
@@ -109,7 +109,7 @@ def test_eval_jsonpath():
     assert eval_jsonpath("$.webhook.result", operand) == 42
     assert eval_jsonpath("$.webhook.data.name", operand) == "John"
     assert eval_jsonpath("$.webhook.data.age", operand) == 30
-    with pytest.raises(TracecatExpressionError) as e:
+    with pytest.raises(AutoSecOpsExpressionError) as e:
         _ = eval_jsonpath("$.webhook.data.nonexistent", operand=operand, strict=True)
         assert "Operand has no path" in str(e.value)
     assert (
@@ -947,12 +947,12 @@ def test_parser_error():
 
     expr = "ACTIONS.action_test.bar -> str -> int"
     parser = ExprParser()
-    with pytest.raises(TracecatExpressionError):
+    with pytest.raises(AutoSecOpsExpressionError):
         parser.parse(expr)
 
     # ExprContext is a StrEnum so values are strings - pyright doesn't recognize this
     strict_evaluator = ExprEvaluator(operand=context, strict=True)  # pyright: ignore[reportArgumentType]
-    with pytest.raises(TracecatExpressionError):
+    with pytest.raises(AutoSecOpsExpressionError):
         test = "ACTIONS.action_test.foo"
         parse_tree = parser.parse(test)
         assert parse_tree is not None
@@ -1169,7 +1169,7 @@ async def test_expr_validator_vars_key_depth_limit(test_role, env_sandbox):
     parse_tree = parser.parse("VARS.config.api.base_url")
     assert parse_tree is not None
     with pytest.raises(
-        TracecatExpressionError, match="support at most one key segment"
+        AutoSecOpsExpressionError, match="support at most one key segment"
     ):
         evaluator.evaluate(parse_tree)
 

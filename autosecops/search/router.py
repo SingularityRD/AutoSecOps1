@@ -9,8 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.exceptions import AutoSecOpsNotFoundError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.search.embeddings.schemas import EmbeddingErrorRead
 from autosecops.search.embeddings.types import EmbeddingError, EmbeddingErrorCode
 from autosecops.search.retrieval import TableRetrievalService
@@ -104,9 +104,9 @@ async def semantic_search(
                 retry_after=exc.retry_after,
             ).model_dump(),
         )
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         error = HTTPException(404, detail={"code": "NOT_FOUND"})
-    except TracecatQueryTimeoutError:
+    except AutoSecOpsQueryTimeoutError:
         error = HTTPException(503, detail={"code": "TIMEOUT"})
     except (RedisError, SQLAlchemyError):
         error = HTTPException(503, detail={"code": "UNAVAILABLE"})

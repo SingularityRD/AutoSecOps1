@@ -15,7 +15,7 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.contexts import ctx_role, get_env
 from autosecops.db.models import Secret
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.encryption import encrypt_keyvalues
 from autosecops.secrets.schemas import (
@@ -234,7 +234,7 @@ async def test_auth_sandbox_optional_secrets(
 
     # Test that missing required secret still raises an error
     mock_secrets_service.search_secrets.return_value = []
-    with pytest.raises(TracecatCredentialsError) as exc_info:
+    with pytest.raises(AutoSecOpsCredentialsError) as exc_info:
         async with AuthSandbox(
             secrets=["required_secret", "optional_secret"],
             optional_secrets=["optional_secret"],

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { useEffect, useMemo } from "react"
 import { useScopeCheck } from "@/components/auth/scope-guard"
 import { CenteredSpinner } from "@/components/loading/spinner"
@@ -15,7 +15,7 @@ function NoAccessibleSections() {
 
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
+      <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="mb-4 size-16" />
       <h1 className="text-2xl font-semibold tracking-tight">
         No accessible pages
       </h1>

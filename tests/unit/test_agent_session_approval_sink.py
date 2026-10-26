@@ -36,7 +36,7 @@ from autosecops.chat.schemas import (
     ContinueRunRequest,
 )
 from autosecops.db.models import AgentSession, AgentSessionHistory, Approval
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -1092,7 +1092,7 @@ async def test_run_turn_continue_conflicting_resubmission_raises(
     with _mock_approval_continuation_dependencies(
         _ApprovalContinuationRedis(), execute_update
     ):
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await service.run_turn(
                 agent_session.id,
                 ContinueRunRequest(
@@ -1177,7 +1177,7 @@ async def test_run_turn_continue_conflicting_after_batch_settled_raises(
     with _mock_approval_continuation_dependencies(
         _ApprovalContinuationRedis(), AsyncMock(return_value=False)
     ):
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await service.run_turn(
                 agent_session.id,
                 ContinueRunRequest(

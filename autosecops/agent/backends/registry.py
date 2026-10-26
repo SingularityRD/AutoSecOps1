@@ -11,7 +11,7 @@ from temporalio import workflow
 
 from autosecops.agent.backends.base import AgentBackend
 from autosecops.agent.backends.types import SessionHistoryAdapter
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 AGENT_BACKEND_ENTRY_POINT_GROUP = "autosecops.agent_backends"
 DEFAULT_AGENT_BACKEND = "oss"
@@ -153,9 +153,9 @@ def get_agent_backend(
     """Resolve an executable backend and validate its selected harness."""
     backend = find_agent_backend(identifier)
     if backend is None or not backend.is_enabled():
-        raise TracecatValidationError("Agent backend is unavailable")
+        raise AutoSecOpsValidationError("Agent backend is unavailable")
     if harness_type is not None and harness_type not in backend.supported_harnesses:
-        raise TracecatValidationError("Session harness is unsupported by its backend")
+        raise AutoSecOpsValidationError("Session harness is unsupported by its backend")
     return backend
 
 

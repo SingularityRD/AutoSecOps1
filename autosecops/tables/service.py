@@ -36,8 +36,8 @@ from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Table, TableColumn
 from autosecops.exceptions import (
-    TracecatImportError,
-    TracecatNotFoundError,
+    AutoSecOpsImportError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.identifiers import TableColumnID, TableID
 from autosecops.identifiers.workflow import WorkspaceUUID
@@ -339,7 +339,7 @@ class BaseTablesService(BaseWorkspaceService):
         while True:
             try:
                 await self.get_table_by_name(candidate)
-            except TracecatNotFoundError:
+            except AutoSecOpsNotFoundError:
                 return candidate
             candidate = f"{base_name}_{suffix}"
             suffix += 1
@@ -482,7 +482,7 @@ class BaseTablesService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         table = result.scalars().first()
         if table is None:
-            raise TracecatNotFoundError("Table not found")
+            raise AutoSecOpsNotFoundError("Table not found")
 
         return table
 
@@ -563,7 +563,7 @@ class BaseTablesService(BaseWorkspaceService):
 
         Raises:
             ValueError: If the provided table name is not a valid external identifier
-            TracecatNotFoundError: If the table does not exist
+            AutoSecOpsNotFoundError: If the table does not exist
         """
         statement = select(Table).where(
             Table.workspace_id == self.ws_uuid,
@@ -576,7 +576,7 @@ class BaseTablesService(BaseWorkspaceService):
 
         normalized_name = validate_identifier(table_name)
         if normalized_name == table_name:
-            raise TracecatNotFoundError(f"Table '{table_name}' not found")
+            raise AutoSecOpsNotFoundError(f"Table '{table_name}' not found")
 
         statement = select(Table).where(
             Table.workspace_id == self.ws_uuid,
@@ -585,7 +585,7 @@ class BaseTablesService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         table = result.scalars().first()
         if table is None:
-            raise TracecatNotFoundError(f"Table '{table_name}' not found")
+            raise AutoSecOpsNotFoundError(f"Table '{table_name}' not found")
         return table
 
     @audit_log(resource_type="table", action="create")
@@ -599,7 +599,7 @@ class BaseTablesService(BaseWorkspaceService):
             The created Table metadata object
 
         Raises:
-            TracecatAuthorizationError: If user lacks required permissions
+            AutoSecOpsAuthorizationError: If user lacks required permissions
             ValueError: If table name is invalid
         """
         schema_name = self._get_schema_name(self.ws_uuid)
@@ -765,7 +765,7 @@ class BaseTablesService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         column = result.scalars().first()
         if column is None:
-            raise TracecatNotFoundError("Column not found")
+            raise AutoSecOpsNotFoundError("Column not found")
         return column
 
     @audit_log(resource_type="table_column", action="create")
@@ -1114,7 +1114,9 @@ class BaseTablesService(BaseWorkspaceService):
         result = await conn.execute(stmt)
         row = result.mappings().first()
         if row is None:
-            raise TracecatNotFoundError(f"Row {row_id} not found in table {table.name}")
+            raise AutoSecOpsNotFoundError(
+                f"Row {row_id} not found in table {table.name}"
+            )
         return dict(row)
 
     async def get_rows(
@@ -1256,7 +1258,7 @@ class BaseTablesService(BaseWorkspaceService):
             The updated row data
 
         Raises:
-            TracecatNotFoundError: If the row does not exist
+            AutoSecOpsNotFoundError: If the row does not exist
             TableRowError: If no columns are provided
         """
         if not data:
@@ -1300,7 +1302,7 @@ class BaseTablesService(BaseWorkspaceService):
         try:
             row = result.mappings().one()
         except NoResultFound:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Row {row_id} not found in table {table.name}"
             ) from None
 
@@ -1458,7 +1460,7 @@ class BaseTablesService(BaseWorkspaceService):
                 while root.__cause__ is not None:
                     root = root.__cause__
                 if isinstance(root, UndefinedTableError):
-                    raise TracecatNotFoundError(
+                    raise AutoSecOpsNotFoundError(
                         f"Table '{table_name}' does not exist"
                     ) from exc
                 raise
@@ -1529,7 +1531,7 @@ class BaseTablesService(BaseWorkspaceService):
                 while (cause := e.__cause__) is not None:
                     e = cause
                 if isinstance(e, UndefinedTableError):
-                    raise TracecatNotFoundError(
+                    raise AutoSecOpsNotFoundError(
                         f"Table '{table_name}' does not exist"
                     ) from e
                 raise ValueError(str(e)) from e
@@ -1603,7 +1605,7 @@ class BaseTablesService(BaseWorkspaceService):
                 while (cause := e.__cause__) is not None:
                     e = cause
                 if isinstance(e, UndefinedTableError):
-                    raise TracecatNotFoundError(
+                    raise AutoSecOpsNotFoundError(
                         f"Table '{table_name}' does not exist"
                     ) from e
                 raise ValueError(str(e)) from e
@@ -1691,7 +1693,7 @@ class BaseTablesService(BaseWorkspaceService):
             Cursor paginated response with matching rows
 
         Raises:
-            TracecatNotFoundError: If the table does not exist
+            AutoSecOpsNotFoundError: If the table does not exist
             ValueError: If search parameters are invalid, or the order_by or
                 search_column column doesn't exist
         """
@@ -1848,7 +1850,7 @@ class BaseTablesService(BaseWorkspaceService):
             while (cause := e.__cause__) is not None:
                 e = cause
             if isinstance(e, UndefinedTableError):
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Table '{table.name}' does not exist"
                 ) from e
             raise ValueError(str(e)) from e
@@ -2051,7 +2053,7 @@ class TablesService(BaseTablesService):
         try:
             csv_text = contents.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
-            raise TracecatImportError(
+            raise AutoSecOpsImportError(
                 "CSV import requires UTF-8 encoded files"
             ) from exc
 
@@ -2067,7 +2069,7 @@ class TablesService(BaseTablesService):
         inferred_columns = inferer.result()
 
         if not inferred_columns:
-            raise TracecatImportError("CSV file does not contain any columns")
+            raise AutoSecOpsImportError("CSV file does not contain any columns")
 
         raw_table_name = table_name
         if not raw_table_name and filename:
@@ -2110,7 +2112,7 @@ class TablesService(BaseTablesService):
                             value_to_convert, column.type
                         )
                     except TypeError as exc:
-                        raise TracecatImportError(
+                        raise AutoSecOpsImportError(
                             f"Cannot convert value {raw_value!r} in column "
                             f"{column.original_name!r} to type {column.type}"
                         ) from exc
@@ -2150,7 +2152,7 @@ class TablesService(BaseTablesService):
                 message = message.split("[SQL:", 1)[0].strip()
             if not message:
                 message = cause.__class__.__name__
-            raise TracecatImportError(
+            raise AutoSecOpsImportError(
                 f"Failed to insert rows into table '{table.name}': {message}"
             ) from exc
 
@@ -2424,7 +2426,7 @@ class TableEditorService(BaseWorkspaceService):
             service, table = managed
             column = next((c for c in table.columns if c.name == column_name), None)
             if column is None:
-                raise TracecatNotFoundError("Column not found")
+                raise AutoSecOpsNotFoundError("Column not found")
             await service.update_column(column, params)
             self._invalidate_visible_columns_cache()
             return
@@ -2526,7 +2528,7 @@ class TableEditorService(BaseWorkspaceService):
             service, table = managed
             column = next((c for c in table.columns if c.name == column_name), None)
             if column is None:
-                raise TracecatNotFoundError("Column not found")
+                raise AutoSecOpsNotFoundError("Column not found")
             await service.delete_column(column)
             self._invalidate_visible_columns_cache()
             return
@@ -2613,7 +2615,7 @@ class TableEditorService(BaseWorkspaceService):
         result = await conn.execute(stmt)
         row = result.mappings().first()
         if row is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Row {row_id} not found in table {self.table_name}"
             )
         return dict(row)
@@ -2683,7 +2685,7 @@ class TableEditorService(BaseWorkspaceService):
             The updated row data
 
         Raises:
-            TracecatNotFoundError: If the row does not exist
+            AutoSecOpsNotFoundError: If the row does not exist
         """
         for column_name in data:
             self._assert_user_column_name_allowed(column_name)
@@ -2738,7 +2740,7 @@ class TableEditorService(BaseWorkspaceService):
         try:
             row = result.mappings().one()
         except NoResultFound:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Row {row_id} not found in table {self.table_name}"
             ) from None
 

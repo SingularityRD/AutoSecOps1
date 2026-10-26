@@ -8,7 +8,7 @@ type ErrorHandler<TError, TArguments extends unknown[]> = (
 
 type GlobalErrorHandler = (error: unknown) => boolean
 
-export interface TracecatApiError<T = unknown> extends ApiError {
+export interface AutoSecOpsApiError<T = unknown> extends ApiError {
   readonly body: {
     detail?: T
     message?: string | null
@@ -73,7 +73,7 @@ export function getApiErrorDetail(error: unknown): string | null {
     return null
   }
 
-  const maybeApiError = error as TracecatApiError<unknown>
+  const maybeApiError = error as AutoSecOpsApiError<unknown>
   const detail = maybeApiError.body?.detail
   if (typeof detail === "string") {
     return detail
@@ -218,7 +218,7 @@ export function getApiErrorCode(error: unknown): string | null {
   if (!(error instanceof Error)) {
     return null
   }
-  const detail = (error as TracecatApiError<unknown>).body?.detail
+  const detail = (error as AutoSecOpsApiError<unknown>).body?.detail
   if (
     typeof detail === "object" &&
     detail !== null &&

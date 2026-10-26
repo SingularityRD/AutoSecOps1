@@ -21,9 +21,9 @@ from autosecops.auth.types import Role
 from autosecops.authz.controls import has_scope, require_scope
 from autosecops.db.models import Scope, ServiceAccount, ServiceAccountApiKey
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.pagination import (
     BaseCursorPaginator,
@@ -77,10 +77,10 @@ def _apply_created_cursor_filter[T](
         cursor_data = BaseCursorPaginator.decode_cursor(params.cursor)
         cursor_id = uuid.UUID(cursor_data.id)
     except ValueError as exc:
-        raise TracecatValidationError(invalid_cursor_message) from exc
+        raise AutoSecOpsValidationError(invalid_cursor_message) from exc
     cursor_sort_value = cursor_data.sort_value
     if not isinstance(cursor_sort_value, datetime):
-        raise TracecatValidationError(invalid_cursor_message)
+        raise AutoSecOpsValidationError(invalid_cursor_message)
 
     if params.reverse:
         return stmt.where(
@@ -285,7 +285,7 @@ async def _ensure_role_can_assign_scopes(role: Role, scopes: list[Scope]) -> Non
     ]
     if denied:
         joined = ", ".join(sorted(denied))
-        raise TracecatAuthorizationError(
+        raise AutoSecOpsAuthorizationError(
             f"Cannot assign service account scopes not held by the caller: {joined}"
         )
 
@@ -303,7 +303,7 @@ async def _resolve_assignable_scopes(
     result = await session.execute(stmt)
     scopes = list(result.scalars().all())
     if len(scopes) != len(set(scope_ids)):
-        raise TracecatValidationError("One or more scopes were not found")
+        raise AutoSecOpsValidationError("One or more scopes were not found")
 
     invalid = [
         scope.name
@@ -316,7 +316,7 @@ async def _resolve_assignable_scopes(
     ]
     if invalid:
         joined = ", ".join(sorted(invalid))
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Unsupported service account scopes requested: {joined}"
         )
     return scopes
@@ -414,7 +414,7 @@ class BaseServiceAccountService:
             stmt = stmt.execution_options(populate_existing=True)
         result = await self.session.execute(stmt)
         if (service_account := result.scalar_one_or_none()) is None:
-            raise TracecatNotFoundError(self.not_found_message)
+            raise AutoSecOpsNotFoundError(self.not_found_message)
         return service_account
 
     async def _create_api_key(
@@ -547,7 +547,7 @@ class BaseServiceAccountService:
         for api_key in service_account.api_keys:
             if api_key.id == api_key_id:
                 return api_key
-        raise TracecatNotFoundError("Service account API key not found")
+        raise AutoSecOpsNotFoundError("Service account API key not found")
 
     async def _issue_api_key(
         self,
@@ -560,7 +560,7 @@ class BaseServiceAccountService:
             for_update=True,
         )
         if service_account.disabled_at is not None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Disabled service accounts cannot generate new API keys"
             )
         if active_key := get_active_service_account_key(service_account):

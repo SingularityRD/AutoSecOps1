@@ -13,9 +13,9 @@ from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Webhook
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.identifiers import WorkflowID
 from autosecops.webhooks.schemas import WebhookCreate, WebhookUpdate
@@ -75,9 +75,9 @@ async def create_webhook(
 ) -> Webhook:
     """Create a webhook for a workflow."""
     if role.workspace_id is None:
-        raise TracecatAuthorizationError("Webhook creation requires a workspace")
+        raise AutoSecOpsAuthorizationError("Webhook creation requires a workspace")
     if await get_webhook(session, role.workspace_id, workflow_id) is not None:
-        raise TracecatConflictError(
+        raise AutoSecOpsConflictError(
             "Workflow already has a webhook. Update it with PATCH instead."
         )
     webhook = Webhook(
@@ -110,14 +110,14 @@ async def update_webhook(
 ) -> Webhook:
     """Update webhook configuration shared by all control-plane callers."""
     if role.workspace_id is None:
-        raise TracecatAuthorizationError("Webhook update requires a workspace")
+        raise AutoSecOpsAuthorizationError("Webhook update requires a workspace")
     webhook = await get_webhook(
         session,
         workspace_id=role.workspace_id,
         workflow_id=workflow_id,
     )
     if webhook is None:
-        raise TracecatNotFoundError("Webhook not found")
+        raise AutoSecOpsNotFoundError("Webhook not found")
     for key, value in params.model_dump(exclude_unset=True).items():
         # Safety: params have been validated by WebhookUpdate.
         setattr(webhook, key, value)

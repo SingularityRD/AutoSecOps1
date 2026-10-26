@@ -62,11 +62,11 @@ from autosecops.db.models import (
 )
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatCredentialsError,
-    TracecatValidationError,
 )
 from autosecops.forms.enums import FormStatus
 from autosecops.forms.schemas import FormConfig
@@ -426,7 +426,7 @@ async def test_agent_chat_metadata_rejects_multiple_workspace_defaults(
     assert diagnostics[0].details == {
         "agent_preset_source_ids": ["qa-first", "qa-second"]
     }
-    with pytest.raises(TracecatValidationError, match="Only one agent preset"):
+    with pytest.raises(AutoSecOpsValidationError, match="Only one agent preset"):
         await WorkspaceResourceImportService(
             session=session, role=svc_role
         ).import_non_workflow_resources(snapshot.spec)
@@ -453,7 +453,7 @@ async def test_agent_chat_metadata_import_rolls_back_with_parent_transaction(
             )
         }
     )
-    with pytest.raises(TracecatValidationError, match="Synthetic import failure"):
+    with pytest.raises(AutoSecOpsValidationError, match="Synthetic import failure"):
         async with session.begin_nested():
             await WorkspaceResourceImportService(
                 session=session, role=svc_role
@@ -465,7 +465,7 @@ async def test_agent_chat_metadata_import_rolls_back_with_parent_transaction(
                     )
                 )
             ) is not None
-            raise TracecatValidationError("Synthetic import failure")
+            raise AutoSecOpsValidationError("Synthetic import failure")
     assert (
         await session.scalar(
             select(Workspace.default_agent_preset_id).where(
@@ -2877,7 +2877,7 @@ async def test_import_skill_rejects_missing_declared_file_content(
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="no content was provided"):
+    with pytest.raises(AutoSecOpsValidationError, match="no content was provided"):
         await WorkspaceResourceImportService(
             session=session,
             role=svc_role,
@@ -6318,7 +6318,7 @@ async def test_secret_metadata_import_leaves_reference_unlinked_without_matching
         == []
     )
     await session.refresh(secret, ["store"])
-    with pytest.raises(TracecatCredentialsError, match="missing its store"):
+    with pytest.raises(AutoSecOpsCredentialsError, match="missing its store"):
         build_external_secret_reference(secret)
 
 

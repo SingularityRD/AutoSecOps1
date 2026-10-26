@@ -17,7 +17,7 @@ from autosecops.db.models import (
     OrganizationSecretStore,
     Workspace,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -165,7 +165,7 @@ async def test_delete_organization_requires_exact_confirmation(
     service = AdminOrgService(session, role=platform_role)
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="Confirmation text must exactly match the organization name.",
     ):
         await service.delete_organization(org_a.id, confirmation="wrong")

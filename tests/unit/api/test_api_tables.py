@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from autosecops.auth.types import Role
 from autosecops.db.models import Table, TableColumn, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginatedResponse
 from autosecops.tables import internal_router as internal_tables_router
 from autosecops.tables import router as tables_router
@@ -105,7 +105,7 @@ def _duplicate_table_error() -> ProgrammingError:
             f"/tables/{uuid.uuid4()}",
             None,
             "get_table",
-            TracecatNotFoundError("Table not found"),
+            AutoSecOpsNotFoundError("Table not found"),
             status.HTTP_404_NOT_FOUND,
             id="get-not-found",
         ),

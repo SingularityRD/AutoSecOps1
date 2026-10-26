@@ -10,13 +10,13 @@ from autosecops_registry import types
 from autosecops_registry.sdk.types import UNSET, Unset, is_set
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 class TablesClient:
     """Client for Tables API operations."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def aggregate_rows(

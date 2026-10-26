@@ -21,9 +21,9 @@ from autosecops.contexts import RequestAuditContext, ctx_request_audit, ctx_role
 from autosecops.db.models import WebhookApiKey
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatConflictError,
-    TracecatValidationError,
 )
 from autosecops.identifiers import ScheduleUUID
 from autosecops.identifiers.workflow import (
@@ -312,7 +312,7 @@ async def _workflow_publish(mp: pytest.MonkeyPatch, role: Role):
     mp.setattr(
         service,
         "build_dsl_from_workflow",
-        AsyncMock(side_effect=TracecatValidationError("invalid draft")),
+        AsyncMock(side_effect=AutoSecOpsValidationError("invalid draft")),
     )
     await service.publish_workflow(workflow_id)
     return _pair(
@@ -328,7 +328,7 @@ async def _workflow_restore(mp: pytest.MonkeyPatch, role: Role):
     del mp
     workflow = SimpleNamespace(id=uuid.uuid4())
     service = WorkflowsManagementService(cast(Any, _session()), role=role)
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.restore_workflow_definition(
             cast(Any, workflow), cast(Any, SimpleNamespace(workflow_id=uuid.uuid4()))
         )
@@ -708,7 +708,7 @@ async def test_webhook_create_rejects_existing_workflow_webhook(
     )
     role_token = ctx_role.set(role)
     try:
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await webhook_service.create_webhook(
                 role=role,
                 session=cast(Any, session),
@@ -730,7 +730,7 @@ async def test_webhook_create_route_returns_conflict_for_existing_webhook(
     monkeypatch.setattr(
         webhook_service,
         "create_webhook",
-        AsyncMock(side_effect=TracecatConflictError("exists")),
+        AsyncMock(side_effect=AutoSecOpsConflictError("exists")),
     )
     role_token = ctx_role.set(role)
     try:
@@ -928,10 +928,12 @@ async def test_internal_publish_with_user_attribution_audits(
     _capture_events(monkeypatch, calls)
     service = WorkflowsManagementService(cast(Any, _session()), role=role)
     monkeypatch.setattr(
-        service, "get_workflow", AsyncMock(side_effect=TracecatValidationError("stop"))
+        service,
+        "get_workflow",
+        AsyncMock(side_effect=AutoSecOpsValidationError("stop")),
     )
     workflow_id = WorkflowUUID.new_uuid4()
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.publish_workflow(workflow_id)
     assert calls == list(
         _pair(
@@ -953,8 +955,10 @@ async def test_unattributed_service_publish_is_suppressed(
     _capture_events(monkeypatch, calls)
     service = WorkflowsManagementService(cast(Any, _session()), role=role)
     monkeypatch.setattr(
-        service, "get_workflow", AsyncMock(side_effect=TracecatValidationError("stop"))
+        service,
+        "get_workflow",
+        AsyncMock(side_effect=AutoSecOpsValidationError("stop")),
     )
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.publish_workflow(WorkflowUUID.new_uuid4())
     assert calls == []

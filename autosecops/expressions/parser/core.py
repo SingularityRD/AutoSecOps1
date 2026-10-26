@@ -1,7 +1,7 @@
 from lark import Lark, Token, Tree
 from lark.exceptions import UnexpectedCharacters, UnexpectedEOF, UnexpectedInput
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions.parser.grammar import grammar
 from autosecops.logger import logger
 
@@ -22,12 +22,12 @@ class ExprParser:
             if hasattr(e, "allowed"):
                 # Zero out the allowed attribute to hide allowed characters
                 e.allowed = None  # pyright: ignore[reportAttributeAccessIssue]
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Failed to parse expression: {e}", detail=str(e)
             ) from e
         except Exception as e:
             logger.error(e)
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Unexpected error when parsing expression: {e!r}"
             ) from e
 

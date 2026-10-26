@@ -13,9 +13,9 @@ from sqlalchemy.exc import IntegrityError
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Skill, SkillTag, SkillTagLink
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import SkillTagID
 from autosecops.pagination import (
@@ -40,7 +40,7 @@ class SkillTagsService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatConflictError(conflict_message) from err
+            raise AutoSecOpsConflictError(conflict_message) from err
 
     async def _get_tag(self, tag_id: SkillTagID) -> SkillTag:
         statement = select(SkillTag).where(
@@ -50,7 +50,7 @@ class SkillTagsService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         if tag := result.scalar_one_or_none():
             return tag
-        raise TracecatNotFoundError("Skill tag not found")
+        raise AutoSecOpsNotFoundError("Skill tag not found")
 
     @require_scope("agent:read")
     @requires_entitlement(Entitlement.AGENT_ADDONS)
@@ -74,11 +74,13 @@ class SkillTagsService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError("Invalid cursor for skill tags") from err
+                raise AutoSecOpsValidationError(
+                    "Invalid cursor for skill tags"
+                ) from err
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError("Invalid cursor for skill tags")
+                raise AutoSecOpsValidationError("Invalid cursor for skill tags")
 
             predicate = sa.or_(
                 SkillTag.created_at < cursor_created_at,
@@ -157,7 +159,7 @@ class SkillTagsService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         if tag := result.scalar_one_or_none():
             return tag
-        raise TracecatNotFoundError("Skill tag not found")
+        raise AutoSecOpsNotFoundError("Skill tag not found")
 
     @require_scope("agent:create")
     @requires_entitlement(Entitlement.AGENT_ADDONS)
@@ -172,7 +174,7 @@ class SkillTagsService(BaseWorkspaceService):
             )
         )
         if existing.one_or_none():
-            raise TracecatConflictError(f"Skill tag with slug '{ref}' already exists")
+            raise AutoSecOpsConflictError(f"Skill tag with slug '{ref}' already exists")
 
         db_tag = SkillTag(
             name=tag.name,
@@ -202,7 +204,7 @@ class SkillTagsService(BaseWorkspaceService):
                     )
                 )
                 if existing.one_or_none():
-                    raise TracecatConflictError(
+                    raise AutoSecOpsConflictError(
                         f"Skill tag with slug '{new_ref}' already exists"
                     )
                 tag.ref = new_ref
@@ -252,7 +254,7 @@ class SkillTagsService(BaseWorkspaceService):
         )
         is_allowed = await self.session.scalar(select(skill_exists & tag_exists))
         if not is_allowed:
-            raise TracecatNotFoundError("Skill or tag not found")
+            raise AutoSecOpsNotFoundError("Skill or tag not found")
 
     async def _require_skill_in_workspace(self, skill_id: uuid.UUID) -> None:
         skill_exists = exists(
@@ -265,7 +267,7 @@ class SkillTagsService(BaseWorkspaceService):
         )
         is_allowed = await self.session.scalar(select(skill_exists))
         if not is_allowed:
-            raise TracecatNotFoundError("Skill not found")
+            raise AutoSecOpsNotFoundError("Skill not found")
 
     @require_scope("agent:read")
     @requires_entitlement(Entitlement.AGENT_ADDONS)
@@ -315,11 +317,13 @@ class SkillTagsService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError("Invalid cursor for skill tags") from err
+                raise AutoSecOpsValidationError(
+                    "Invalid cursor for skill tags"
+                ) from err
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError("Invalid cursor for skill tags")
+                raise AutoSecOpsValidationError("Invalid cursor for skill tags")
 
             predicate = sa.or_(
                 SkillTag.created_at < cursor_created_at,
@@ -405,7 +409,7 @@ class SkillTagsService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         if link := result.scalar_one_or_none():
             return link
-        raise TracecatNotFoundError("Tag not found")
+        raise AutoSecOpsNotFoundError("Tag not found")
 
     @require_scope("agent:update")
     @requires_entitlement(Entitlement.AGENT_ADDONS)
@@ -431,7 +435,7 @@ class SkillTagsService(BaseWorkspaceService):
             )
             link = existing.scalar_one_or_none()
             if link is None:
-                raise TracecatNotFoundError("Skill or tag not found")
+                raise AutoSecOpsNotFoundError("Skill or tag not found")
         await self.session.commit()
         return link
 

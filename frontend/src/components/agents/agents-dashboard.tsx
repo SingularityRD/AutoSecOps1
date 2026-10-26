@@ -164,7 +164,7 @@ import {
   compareAgentStatusPriority,
   getAgentStatusMetadata,
 } from "@/lib/agents"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { executionId as splitExecutionId } from "@/lib/event-history"
 import { useListMcpIntegrations } from "@/lib/hooks"
 import { useQueryClient } from "@/lib/query"
@@ -190,7 +190,7 @@ const toneBadgeClasses: Record<AgentStatusTone, string> = {
 type AgentsBoardProps = {
   sessions?: AgentSessionWithStatus[]
   isLoading: boolean
-  error: TracecatApiError | null
+  error: AutoSecOpsApiError | null
   onRetry: () => void
 }
 

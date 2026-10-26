@@ -11,7 +11,7 @@ import { OrgSettingsScimConnection } from "@/components/organization/org-setting
 import { OrganizationSidebar } from "@/components/sidebar/organization-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 
 let mappings: ExternalGroupMappingRead[] = []
 const applyMappingChanges = jest.fn()
@@ -37,7 +37,7 @@ const initialConnection: ScimConnectionRead = {
   updated_at: "2026-01-01T00:00:00Z",
 }
 let connection: ScimConnectionRead | null | undefined = initialConnection
-let connectionError: Pick<TracecatApiError, "status"> | null = null
+let connectionError: Pick<AutoSecOpsApiError, "status"> | null = null
 let connectionIsFetching = false
 const sourceGroup: ExternalGroupRead = {
   id: "source",

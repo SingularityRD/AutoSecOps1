@@ -26,9 +26,9 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
 from autosecops.mcp.personal_access_tokens.types import MCPPATIdentity
@@ -105,13 +105,13 @@ class MCPPersonalAccessTokenService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as exc:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for MCP personal access tokens"
                 ) from exc
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for MCP personal access tokens"
                 )
 
@@ -218,7 +218,7 @@ class MCPPersonalAccessTokenService(BaseWorkspaceService):
             organization_id=self.organization_id,
             workspace_id=self.workspace_id,
         ):
-            raise TracecatAuthorizationError("User cannot access workspace")
+            raise AutoSecOpsAuthorizationError("User cannot access workspace")
 
         generated = generate_managed_api_key(prefix=MCP_PAT_PREFIX)
         token = MCPPersonalAccessToken(
@@ -255,7 +255,7 @@ class MCPPersonalAccessTokenService(BaseWorkspaceService):
             stmt = stmt.with_for_update()
         result = await self.session.execute(stmt)
         if (token := result.scalar_one_or_none()) is None:
-            raise TracecatNotFoundError("MCP personal access token not found")
+            raise AutoSecOpsNotFoundError("MCP personal access token not found")
         return token
 
     @require_scope("workspace:read")

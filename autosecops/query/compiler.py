@@ -15,7 +15,7 @@ from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.type_api import TypeEngine
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.aggregations import (
     AggFunction,
     AggregationSpec,
@@ -80,24 +80,24 @@ def compile_aggregation(
         The compiled SQLAlchemy select.
 
     Raises:
-        TracecatValidationError: If resolved fields or requested operations are
+        AutoSecOpsValidationError: If resolved fields or requested operations are
             semantically incompatible.
     """
     if limit < 1:
-        raise TracecatValidationError("Aggregation limit must be at least 1")
+        raise AutoSecOpsValidationError("Aggregation limit must be at least 1")
     # SQLAlchemy has no public Select API for inspecting or removing DISTINCT.
     # Dropping it would silently change the entity set for join-backed queries,
     # while retaining DISTINCT ON can conflict with aggregation ordering.
     if statement._distinct:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Aggregation base statement must not use DISTINCT or DISTINCT ON"
         )
     if statement._group_by_clauses or statement._having_criteria:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Aggregation base statement must not use GROUP BY or HAVING"
         )
     if statement._for_update_arg is not None:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Aggregation base statement must not use row locking"
         )
 
@@ -130,7 +130,7 @@ def compile_aggregation(
     )
     entity_id_expression = None if entity_id is None else _column_expression(entity_id)
     if has_multi_valued_join and needs_entity_id and entity_id_expression is None:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Aggregation with a multi-valued field requires an entity id expression"
         )
 
@@ -190,7 +190,7 @@ def _resolve_aggregation_field(
 ) -> ResolvedAggregationField:
     resolved = resolved_fields.get(field)
     if resolved is None:
-        raise TracecatValidationError(f"Unknown aggregation field {field!r}")
+        raise AutoSecOpsValidationError(f"Unknown aggregation field {field!r}")
     return resolved
 
 
@@ -406,10 +406,10 @@ def _ordered(
     return ordered.nulls_last()
 
 
-def _aggregation_error(field: str | None, message: str) -> TracecatValidationError:
+def _aggregation_error(field: str | None, message: str) -> AutoSecOpsValidationError:
     if field is None:
-        return TracecatValidationError(f"Invalid aggregation: {message}")
-    return TracecatValidationError(
+        return AutoSecOpsValidationError(f"Invalid aggregation: {message}")
+    return AutoSecOpsValidationError(
         f"Invalid aggregation for field {field!r}: {message}"
     )
 
@@ -714,8 +714,8 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _condition_error(condition: Condition, message: str) -> TracecatValidationError:
-    return TracecatValidationError(
+def _condition_error(condition: Condition, message: str) -> AutoSecOpsValidationError:
+    return AutoSecOpsValidationError(
         f"Invalid filter condition for field {condition.field!r} "
         f"with operation {condition.op.value!r}: {message}"
     )

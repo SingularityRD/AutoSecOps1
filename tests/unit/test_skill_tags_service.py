@@ -10,11 +10,11 @@ from autosecops.agent.skill.tags.service import SkillTagsService
 from autosecops.auth.types import Role
 from autosecops.db.models import SkillTag, SkillTagLink
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
 from autosecops.tags.schemas import TagCreate, TagUpdate
@@ -260,12 +260,16 @@ async def test_list_tags_invalid_cursor_raises_validation(
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
     monkeypatch.setattr(service, "_require_skill_in_workspace", AsyncMock())
 
-    with pytest.raises(TracecatValidationError, match="Invalid cursor for skill tags"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Invalid cursor for skill tags"
+    ):
         await service.list_tags_for_skill_paginated(
             uuid4(), CursorPaginationParams(cursor="invalid")
         )
 
-    with pytest.raises(TracecatValidationError, match="Invalid cursor for skill tags"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Invalid cursor for skill tags"
+    ):
         await service.list_tags_paginated(CursorPaginationParams(cursor="invalid"))
 
 
@@ -306,7 +310,7 @@ async def test_get_tag_missing_raises_autosecops_not_found(
     )
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatNotFoundError, match="Skill tag not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Skill tag not found"):
         await service.get_tag(uuid4())
 
 
@@ -333,7 +337,7 @@ async def test_update_tag_commit_conflict_raises_autosecops_conflict(
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
     with pytest.raises(
-        TracecatConflictError, match="Skill tag with slug 'beta' already exists"
+        AutoSecOpsConflictError, match="Skill tag with slug 'beta' already exists"
     ):
         await service.update_tag(tag, TagUpdate(name="beta"))
 
@@ -354,7 +358,7 @@ async def test_list_tags_for_skill_requires_existing_skill(
     )
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatNotFoundError, match="Skill not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Skill not found"):
         await service.list_tags_for_skill(uuid4())
 
     session.execute.assert_not_awaited()

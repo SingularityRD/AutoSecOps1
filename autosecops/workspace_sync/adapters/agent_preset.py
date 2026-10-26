@@ -41,7 +41,7 @@ from autosecops.db.models import (
 )
 from autosecops.db.soft_delete import with_deleted
 from autosecops.dsl.enums import PlatformAction
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.sync import (
     CatalogMappingAffectedPreset,
     CatalogMappingAffectedWorkflow,
@@ -1340,7 +1340,7 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
             noun="slug",
             kind_label="Agent preset",
             owner_label="preset",
-            error_cls=TracecatValidationError,
+            error_cls=AutoSecOpsValidationError,
             options=(selectinload(AgentPreset.tags),),
             row_predicates=(AgentPreset.deleted_at.is_(None),),
             availability_predicates=(AgentPreset.deleted_at.is_(None),),
@@ -1511,11 +1511,11 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
 
         Topologically sorts presets by their subagent references so that a
         parent is imported only after every subagent it depends on. Raises
-        :class:`TracecatValidationError` on duplicate slugs or cyclic
+        :class:`AutoSecOpsValidationError` on duplicate slugs or cyclic
         references.
         """
         if sum(spec.is_workspace_default is True for spec in presets.values()) > 1:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Only one agent preset can be the workspace default"
             )
         # Index slug -> source id so subagent refs (which name slugs) can be
@@ -1523,7 +1523,7 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
         slug_to_source_id: dict[str, str] = {}
         for source_id, spec in sorted(presets.items()):
             if spec.slug in slug_to_source_id:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Agent preset sync specs must have unique slugs: {spec.slug!r}"
                 )
             slug_to_source_id[spec.slug] = source_id
@@ -1541,7 +1541,7 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
                 return
             # Re-entering a node still on the stack closes a cycle.
             if source_id in visiting:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Cyclic agent preset subagent reference detected during import"
                 )
             # Mark on-stack, recurse into each subagent child first, then mark
@@ -1741,7 +1741,7 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
         for subagent in spec.subagents:
             target = await self._resolved_subagent_target(workspace_service, subagent)
             if target is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Subagent preset {subagent.slug!r} is missing or unpublished"
                 )
             child, version = target
@@ -1830,7 +1830,7 @@ class AgentPresetAdapter(DirectoryManifestAdapter):
                 workspace_service, binding
             )
             if skill is None or skill_version is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Skill {binding.slug!r} is missing or unpublished"
                 )
             targets.append((skill, skill_version))

@@ -41,8 +41,8 @@ from autosecops.db.models import (
 )
 from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
 )
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.router import get_invitation_by_token
@@ -325,7 +325,7 @@ class TestCreateInvitationGrants:
         editor_role_id = await _role_id(session, org.id, "workspace-editor")
         foreign_workspace = await _workspace(session, other_org.id, "foreign")
 
-        with pytest.raises(TracecatValidationError, match="Workspace not found"):
+        with pytest.raises(AutoSecOpsValidationError, match="Workspace not found"):
             await service.create_invitation(
                 InvitationCreate(
                     email="foreign@example.com",
@@ -351,7 +351,7 @@ class TestCreateInvitationGrants:
 
         await service.create_invitation(params)
         with pytest.raises(
-            TracecatValidationError, match="An invitation already exists"
+            AutoSecOpsValidationError, match="An invitation already exists"
         ):
             await service.create_invitation(params)
 
@@ -390,7 +390,7 @@ class TestCreateInvitationGrants:
         service = InvitationService(session, role=_admin_role(org.id, admin.id))
         member_role_id = await _role_id(session, org.id, "organization-admin")
 
-        with pytest.raises(TracecatValidationError, match="already a member"):
+        with pytest.raises(AutoSecOpsValidationError, match="already a member"):
             await service.create_invitation(
                 InvitationCreate(
                     email=invitee.email,
@@ -613,7 +613,7 @@ class TestCreateInvitationGroups:
             scopes=frozenset({"org:member:invite"}),
         )
 
-        with pytest.raises(TracecatAuthorizationError, match="org:rbac:update"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="org:rbac:update"):
             await InvitationService(session, role=role).create_invitation(
                 InvitationCreate(
                     email="limited-target@example.com",
@@ -637,7 +637,7 @@ class TestCreateInvitationGroups:
             AsyncMock(return_value=False),
         )
 
-        with pytest.raises(TracecatAuthorizationError, match="entitlement"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="entitlement"):
             await InvitationService(
                 session, role=_admin_role(org.id, admin.id)
             ).create_invitation(
@@ -659,7 +659,7 @@ class TestCreateInvitationGroups:
         group = await _group(session, other_org.id, "foreign")
         role_id = await _role_id(session, org.id, "organization-admin")
 
-        with pytest.raises(TracecatValidationError, match="Invalid group ID"):
+        with pytest.raises(AutoSecOpsValidationError, match="Invalid group ID"):
             await InvitationService(
                 session, role=_admin_role(org.id, admin.id)
             ).create_invitation(
@@ -692,7 +692,7 @@ class TestCreateInvitationGroups:
         await session.commit()
         role_id = await _role_id(session, org.id, "organization-admin")
 
-        with pytest.raises(TracecatValidationError, match="provider-managed"):
+        with pytest.raises(AutoSecOpsValidationError, match="provider-managed"):
             await InvitationService(
                 session, role=_admin_role(org.id, admin.id)
             ).create_invitation(
@@ -721,7 +721,7 @@ class TestCreateInvitationGroups:
         await session.commit()
         grant_role_id = await _role_id(session, org.id, "organization-admin")
 
-        with pytest.raises(TracecatAuthorizationError, match="Cannot grant scopes"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="Cannot grant scopes"):
             await InvitationService(
                 session, role=_admin_role(org.id, admin.id)
             ).create_invitation(
@@ -746,7 +746,7 @@ class TestImplicitMemberRoleGrant:
         service = InvitationService(session, role=_admin_role(org.id, admin.id))
         hidden_role_id = await _role_id(session, org.id, "organization-member")
 
-        with pytest.raises(TracecatValidationError, match="granted implicitly"):
+        with pytest.raises(AutoSecOpsValidationError, match="granted implicitly"):
             await service.create_invitation(
                 InvitationCreate(
                     email="implicit@example.com",
@@ -1166,7 +1166,7 @@ class TestSamlEnforcedAcceptance:
                 session, user_id=invitee.id, token=invitation.token, via_sso=True
             )
         else:
-            with pytest.raises(TracecatAuthorizationError, match="SSO"):
+            with pytest.raises(AutoSecOpsAuthorizationError, match="SSO"):
                 await accept_invitation_for_user(
                     session, user_id=invitee.id, token=invitation.token
                 )
@@ -1289,7 +1289,7 @@ class TestGrantlessInvitation:
         )
         assert [m for m in members if m.email == "grantless@example.com"] == []
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await accept_invitation_for_user(session, user_id=invitee.id, token=token)
 
         # The admin listing drops it as well.
@@ -1388,7 +1388,7 @@ class TestGrantRoleDeletion:
             )
         ).scalar_one() == 0
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await accept_invitation_for_user(session, user_id=invitee.id, token=token)
 
 
@@ -1469,7 +1469,7 @@ async def test_accept_rejects_grant_at_wrong_role_level(
     token, user_id, org_id = invitation.token, invitee.id, org.id
 
     with pytest.raises(
-        TracecatAuthorizationError, match="can only be assigned organization-wide"
+        AutoSecOpsAuthorizationError, match="can only be assigned organization-wide"
     ):
         await accept_invitation_for_user(session, user_id=user_id, token=token)
     await session.rollback()

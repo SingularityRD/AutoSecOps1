@@ -110,10 +110,10 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.dsl.validation import format_input_schema_validation_error
     from autosecops.dsl.workflow_logging import get_workflow_logger
     from autosecops.exceptions import (
-        TracecatDSLError,
-        TracecatException,
-        TracecatExpressionError,
-        TracecatNotFoundError,
+        AutoSecOpsDSLError,
+        AutoSecOpsException,
+        AutoSecOpsExpressionError,
+        AutoSecOpsNotFoundError,
     )
     from autosecops.expressions.eval import is_template_only
     from autosecops.identifiers.workflow import (
@@ -522,7 +522,7 @@ class DSLWorkflow:
                 trigger_inputs = await self._get_schedule_trigger_inputs(
                     schedule_id=args.schedule_id, worflow_id=args.wf_id
                 )
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ApplicationError(
                     "Failed to fetch trigger inputs as the schedule was not found",
                     non_retryable=True,
@@ -656,7 +656,7 @@ class DSLWorkflow:
                     for ref, fixed in args.fixed_action_results.items()
                 },
             )
-        except TracecatDSLError as e:
+        except AutoSecOpsDSLError as e:
             raise_application_error_from_classification(
                 RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.WORKFLOW_DEFINITION_INVALID,
@@ -711,7 +711,7 @@ class DSLWorkflow:
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                     cause=e,
                 )
-                if isinstance(e, TracecatExpressionError)
+                if isinstance(e, AutoSecOpsExpressionError)
                 else RuntimeErrorClassification.platform(
                     kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
                     message="AutoSecOps could not finalize the workflow return value",
@@ -1305,7 +1305,7 @@ class DSLWorkflow:
         except PlatformExecutionError:
             raise
 
-        except TracecatExpressionError as e:
+        except AutoSecOpsExpressionError as e:
             err_type = e.__class__.__name__
             detail = e.detail or "Error occurred when handling an expression"
             raise ApplicationError(detail, non_retryable=True, type=err_type) from e
@@ -1720,7 +1720,7 @@ class DSLWorkflow:
                 self._upsert_terminal_error_owner(error.cause)
                 raise error.cause from error
             raise
-        except TracecatException as error:
+        except AutoSecOpsException as error:
             self.logger.error("Failed to fetch workflow definition")
             raise ApplicationError(
                 "Failed to fetch workflow definition",
@@ -1752,7 +1752,7 @@ class DSLWorkflow:
 
         Raises
         ------
-        TracecatNotFoundError
+        AutoSecOpsNotFoundError
             If the schedule is not found.
         """
         activity_inputs = GetScheduleActivityInputs(
@@ -2182,8 +2182,8 @@ class DSLWorkflow:
     ) -> WorkflowID | None:
         """Get the error handler workflow ID.
 
-        This is done by checking if the error is a TracecatValidationError or
-        TracecatExpressionError.
+        This is done by checking if the error is a AutoSecOpsValidationError or
+        AutoSecOpsExpressionError.
         """
         return await workflow.execute_activity(
             WorkflowsManagementService.get_error_handler_workflow_id,

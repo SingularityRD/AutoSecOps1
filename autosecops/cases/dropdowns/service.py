@@ -25,7 +25,7 @@ from autosecops.db.models import (
     CaseDropdownOption,
     CaseDropdownValue,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.service import BaseWorkspaceService, requires_entitlement
 from autosecops.tiers.enums import Entitlement
 
@@ -75,7 +75,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         definition = result.scalar_one_or_none()
         if definition is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown definition {definition_id} not found"
             )
         return definition
@@ -97,7 +97,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         definition = result.scalar_one_or_none()
         if definition is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown definition with ref '{ref}' not found"
             )
         return definition
@@ -135,7 +135,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Dropdown definition with this ref already exists"
             ) from err
         await self.session.refresh(definition)
@@ -154,11 +154,11 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
         # Keep name/ref aligned when only the name is edited.
         if "name" in update_data:
             if not update_data["name"]:
-                raise TracecatValidationError("Dropdown name cannot be empty")
+                raise AutoSecOpsValidationError("Dropdown name cannot be empty")
             if "ref" not in update_data:
                 generated_ref = slugify(update_data["name"], separator="_")
                 if not generated_ref:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "Dropdown name must produce a valid reference"
                     )
                 update_data["ref"] = generated_ref
@@ -167,10 +167,10 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
         if "ref" in update_data:
             ref = update_data["ref"]
             if ref is None:
-                raise TracecatValidationError("Dropdown reference cannot be empty")
+                raise AutoSecOpsValidationError("Dropdown reference cannot be empty")
             stripped_ref = ref.strip()
             if not stripped_ref:
-                raise TracecatValidationError("Dropdown reference cannot be empty")
+                raise AutoSecOpsValidationError("Dropdown reference cannot be empty")
             update_data["ref"] = stripped_ref
 
         for key, value in update_data.items():
@@ -179,7 +179,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Dropdown definition with this ref already exists"
             ) from err
         await self.session.refresh(definition)
@@ -213,7 +213,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         option = result.scalar_one_or_none()
         if option is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown option {option_id} not found for definition {definition_id}"
             )
         return option
@@ -239,7 +239,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Option with this ref already exists for this dropdown"
             ) from err
         await self.session.refresh(option)
@@ -261,7 +261,7 @@ class CaseDropdownDefinitionsService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Option with this ref already exists for this dropdown"
             ) from err
         await self.session.refresh(option)
@@ -308,7 +308,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         case = result.scalar_one_or_none()
         if case is None:
-            raise TracecatNotFoundError(f"Case {case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case_id} not found")
         return case
 
     async def _resolve_definition_id(
@@ -324,13 +324,13 @@ class CaseDropdownValuesService(BaseWorkspaceService):
             )
             resolved_definition_id = await self.session.scalar(stmt)
             if resolved_definition_id is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Dropdown definition {definition_id} not found"
                 )
             return resolved_definition_id
 
         if definition_ref is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Either definition_id or definition_ref must be provided"
             )
 
@@ -340,7 +340,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
         )
         resolved_definition_id = await self.session.scalar(stmt)
         if resolved_definition_id is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown definition with ref '{definition_ref}' not found"
             )
         return resolved_definition_id
@@ -359,7 +359,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
             )
             resolved_option_id = await self.session.scalar(stmt)
             if resolved_option_id is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Dropdown option {option_id} not found for definition {definition_id}"
                 )
             return resolved_option_id
@@ -373,7 +373,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
         )
         resolved_option_id = await self.session.scalar(stmt)
         if resolved_option_id is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown option with ref '{option_ref}' not found for definition {definition_id}"
             )
         return resolved_option_id
@@ -458,7 +458,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
         def_result = await self.session.execute(def_stmt)
         definition = def_result.scalar_one_or_none()
         if definition is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Dropdown definition {definition_id} not found"
             )
 
@@ -473,7 +473,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
             opt_result = await self.session.execute(opt_stmt)
             new_option = opt_result.scalar_one_or_none()
             if new_option is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Dropdown option {params.option_id} not found for definition {definition_id}"
                 )
             new_option_label = new_option.label
@@ -588,7 +588,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
             case = await self._get_case(case)
         elif case.workspace_id != self.workspace_id:
             # Preserve the same tenant scoping _get_case enforces for UUIDs.
-            raise TracecatNotFoundError(f"Case {case.id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case.id} not found")
         seen_definition_ids: set[uuid.UUID] = set()
         results: list[CaseDropdownValueRead] = []
 
@@ -598,7 +598,7 @@ class CaseDropdownValuesService(BaseWorkspaceService):
                 definition_ref=value.definition_ref,
             )
             if definition_id in seen_definition_ids:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Duplicate dropdown definition {definition_id} in request"
                 )
             seen_definition_ids.add(definition_id)

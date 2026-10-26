@@ -18,10 +18,10 @@ from autosecops.db.models import (
     User,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import (
@@ -80,9 +80,9 @@ async def create_invitation(
     service = InvitationService(session, role=role)
     try:
         invitation = await service.create_invitation(params)
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -127,9 +127,9 @@ async def accept_invitation(
             token=params.token,
         )
         return {"message": "Invitation accepted successfully"}
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -265,7 +265,7 @@ async def revoke_invitation(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
         ) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 
 
@@ -285,12 +285,12 @@ async def resend_invitation(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Invitation email was sent less than a minute ago",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e

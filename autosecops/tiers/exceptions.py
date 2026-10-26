@@ -5,21 +5,21 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from autosecops.exceptions import TracecatException, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsException, AutoSecOpsNotFoundError
 
 if TYPE_CHECKING:
     from autosecops.identifiers import OrganizationID
 
 
-class TierError(TracecatException):
+class TierError(AutoSecOpsException):
     """Base exception for tier-related errors."""
 
 
-class TierNotFoundError(TracecatNotFoundError):
+class TierNotFoundError(AutoSecOpsNotFoundError):
     """Raised when a tier is not found."""
 
 
-class OrganizationNotFoundError(TracecatNotFoundError):
+class OrganizationNotFoundError(AutoSecOpsNotFoundError):
     """Raised when an organization is not found."""
 
     def __init__(self, org_id: OrganizationID):

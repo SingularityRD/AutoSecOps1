@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from autosecops.db.models import OrganizationSecretStore, Secret
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.secrets.enums import SecretSource, SecretType
 from autosecops.secrets.schemas import (
     EXPRESSION_SECRET_NAME_PATTERN,
@@ -790,7 +790,7 @@ async def _authorized_store_named(
     if name not in stores_by_name:
         try:
             store = await references.get_authorized_store_by_name(name)
-        except TracecatAuthorizationError:
+        except AutoSecOpsAuthorizationError:
             store = None
         stores_by_name[name] = (
             store if store is not None and _is_usable_store(store) else None

@@ -26,7 +26,7 @@ from autosecops.cases.rows.service import MAX_LINKED_ROWS_PER_CASE
 from autosecops.cases.schemas import CaseReadMinimal
 from autosecops.cases.search_service import CaseSearchService
 from autosecops.cases.service import CasesService
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginatedResponse, Page
 from autosecops.tables.enums import SqlType
 from autosecops.tables.schemas import TableColumnRead
@@ -121,7 +121,7 @@ _CASE_ID = uuid.uuid4()
             "list_case_linked_tables",
             {"case_id": _CASE_ID},
             "get_case_or_raise",
-            TracecatNotFoundError("Case not found"),
+            AutoSecOpsNotFoundError("Case not found"),
             status.HTTP_404_NOT_FOUND,
             "Case not found",
             id="linked-tables-missing-case",
@@ -135,7 +135,7 @@ _CASE_ID = uuid.uuid4()
                 ),
             },
             "get_case_or_raise",
-            TracecatNotFoundError("Case not found"),
+            AutoSecOpsNotFoundError("Case not found"),
             status.HTTP_404_NOT_FOUND,
             "Case not found",
             id="batch-link-missing-case",
@@ -149,7 +149,7 @@ _CASE_ID = uuid.uuid4()
                 ),
             },
             "get_case_or_raise",
-            TracecatNotFoundError("Case not found"),
+            AutoSecOpsNotFoundError("Case not found"),
             status.HTTP_404_NOT_FOUND,
             "Case not found",
             id="batch-unlink-missing-case",
@@ -164,7 +164,7 @@ _CASE_ID = uuid.uuid4()
                 ),
             },
             "link_rows",
-            TracecatNotFoundError("2 of 3 rows not found in table t"),
+            AutoSecOpsNotFoundError("2 of 3 rows not found in table t"),
             status.HTTP_404_NOT_FOUND,
             "2 of 3 rows not found in table t",
             id="batch-link-missing-rows",
@@ -196,7 +196,7 @@ _CASE_ID = uuid.uuid4()
                 "exclude_case_id": None,
             },
             "list_linked_cases",
-            TracecatNotFoundError("Table not found"),
+            AutoSecOpsNotFoundError("Table not found"),
             status.HTTP_404_NOT_FOUND,
             None,
             id="linked-cases-missing-table",
@@ -267,7 +267,7 @@ async def test_internal_link_case_row_errors_map_to_http_status(
     ) as mock_service_cls:
         mock_service = AsyncMock()
         if missing_case:
-            mock_service.get_case_or_raise.side_effect = TracecatNotFoundError(
+            mock_service.get_case_or_raise.side_effect = AutoSecOpsNotFoundError(
                 "Case not found"
             )
         else:

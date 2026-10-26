@@ -9,7 +9,7 @@ from autosecops.auth.dependencies import OrgActorRole, WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatNotFoundError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.identifiers import SecretID
 from autosecops.integrations.aws_assume_role import (
@@ -189,7 +189,7 @@ async def get_secret_by_name(
     service = SecretsService(session, role=role)
     try:
         secret = await service.get_secret_by_name(secret_name)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret not found"
         ) from e
@@ -239,7 +239,7 @@ async def update_secret_by_id(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         logger.error("Secret not found", secret_id=secret_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
@@ -265,7 +265,7 @@ async def delete_secret_by_id(
     try:
         secret = await service.get_secret(secret_id)
         await service.delete_secret(secret)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         logger.info(f"Secret {secret_id=} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
@@ -304,7 +304,7 @@ async def get_org_secret_by_name(
     service = SecretsService(session, role=role)
     try:
         secret = await service.get_org_secret_by_name(secret_name, environment)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization secret not found",
@@ -358,7 +358,7 @@ async def update_org_secret_by_id(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         logger.error("Organization secret not found", secret_id=secret_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -389,7 +389,7 @@ async def delete_org_secret_by_id(
     try:
         secret = await service.get_org_secret(secret_id)
         await service.delete_org_secret(secret)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         logger.info(f"Organization secret {secret_id=} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

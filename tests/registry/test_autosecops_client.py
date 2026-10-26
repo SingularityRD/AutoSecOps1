@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 import pytest
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 @pytest.mark.anyio
@@ -62,7 +62,7 @@ async def test_request_uses_action_gateway_unix_socket(
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", FakeTransport)
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
-    client = TracecatClient(
+    client = AutoSecOpsClient(
         token="executor-token",
         timeout=12.0,
     )
@@ -88,7 +88,7 @@ async def test_empty_action_gateway_socket_env_is_rejected(
     monkeypatch.setenv("AUTOSECOPS__ACTION_GATEWAY_SOCKET", "")
 
     with pytest.raises(RuntimeError, match="ACTION_GATEWAY_SOCKET is required"):
-        TracecatClient(token="executor-token")
+        AutoSecOpsClient(token="executor-token")
 
 
 @pytest.mark.anyio
@@ -138,7 +138,7 @@ async def test_action_gateway_socket_keyword_selects_gateway(
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", FakeTransport)
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
-    client = TracecatClient(
+    client = AutoSecOpsClient(
         action_gateway_socket="/var/run/autosecops/action-gateway.sock",
         token="executor-token",
         timeout=12.0,
@@ -162,4 +162,4 @@ async def test_missing_action_gateway_socket_is_rejected(
     monkeypatch.delenv("AUTOSECOPS__ACTION_GATEWAY_SOCKET", raising=False)
 
     with pytest.raises(RuntimeError, match="ACTION_GATEWAY_SOCKET is required"):
-        TracecatClient(token="executor-token")
+        AutoSecOpsClient(token="executor-token")

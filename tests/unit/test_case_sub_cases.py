@@ -18,9 +18,9 @@ from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CasesService
 from autosecops.db.models import Case, CaseEvent
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.pagination import CursorPaginationParams
 
@@ -177,11 +177,11 @@ async def test_set_parent_validation(cases_service: CasesService) -> None:
     missing_id = uuid.uuid4()
 
     # A sub-case cannot become a parent.
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await cases_service.batch_set_parent([other_parent_id], child_id)
 
     # Unknown parent.
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await cases_service.batch_set_parent([other_parent_id], uuid.uuid4())
 
     # Per-item failures: self-parent, missing case, and a case with sub-cases.
@@ -285,9 +285,9 @@ async def test_create_case_with_parent(
     assert parent_changed[0].data["old"] is None
     assert parent_changed[0].data["new"]["id"] == str(parent.id)
 
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await _create(cases_service, "Grandchild", parent_id=child_id)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await _create(cases_service, "Orphan", parent_id=uuid.uuid4())
 
 
@@ -331,7 +331,7 @@ async def test_cross_workspace_parent_is_not_found(
     other_role = svc_role.model_copy(update={"workspace_id": uuid.uuid4()})
     other_service = CasesService(session=session, role=other_role)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.batch_set_parent([child_id], parent_id)
     refreshed = await cases_service.get_case(child_id)
     assert refreshed is not None

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from autosecops_registry.context import RegistryContext
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 def test_registry_context_preserves_positional_executor_url_token_compat() -> None:
@@ -31,7 +31,7 @@ def test_registry_context_preserves_positional_executor_url_token_compat() -> No
 
 def test_registry_context_uses_injected_client() -> None:
     """In-process executor backends can bind SDK calls to their gateway."""
-    client = TracecatClient(action_gateway_socket="/tmp/action-gateway.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/action-gateway.sock")
     context = RegistryContext(
         workspace_id="workspace-id",
         workflow_id="workflow-id",

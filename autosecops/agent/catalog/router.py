@@ -24,7 +24,7 @@ from autosecops.auth.dependencies import (
 )
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginationParams
 
 router = APIRouter()
@@ -85,7 +85,7 @@ async def get_catalog_entry(
             org_id=role.organization_id,
             catalog_id=catalog_id,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -116,14 +116,14 @@ async def create_catalog_entry(
             model_name=params.model_name,
             metadata=metadata,
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from e
     try:
         await access_service.enable_model(row.id)
-    except TracecatValidationError:
+    except AutoSecOpsValidationError:
         # Already enabled — ignore duplicate access row
         pass
     return AgentCatalogRead.model_validate(row)
@@ -148,7 +148,7 @@ async def update_catalog_entry(
             org_id=role.organization_id,
             catalog_id=catalog_id,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -161,12 +161,12 @@ async def update_catalog_entry(
             expected_provider=params.model_provider,
             metadata=metadata,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -192,14 +192,14 @@ async def delete_catalog_entry(
             org_id=role.organization_id,
             catalog_id=catalog_id,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     try:
         await service.delete_catalog_entry(row, org_id=role.organization_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -231,7 +231,7 @@ async def get_workspace_models(
     access_service = AgentModelAccessService(session=session, role=role)
     try:
         return await access_service.list_workspace_models(workspace_id=workspace_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -285,7 +285,7 @@ async def update_workspace_model_access(
         return await access_service.set_workspace_model_access(
             workspace_id=workspace_id, params=params
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

@@ -23,7 +23,7 @@ from autosecops.api.app import create_app
 from autosecops.auth import sandbox as auth_sandbox
 from autosecops.auth.types import Role
 from autosecops.db.models import OrganizationSecretStore, Secret
-from autosecops.exceptions import EntitlementRequired, TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError, EntitlementRequired
 from autosecops.expressions.parser.core import parser
 from autosecops.identifiers import SecretUUID
 from autosecops.pagination import PageParams, PaginationError
@@ -430,6 +430,6 @@ async def test_delete_conflict_rolls_back_without_detaching_references(
     service = SecretStoresService(session, role)
     service.count_references = AsyncMock(return_value={})
     store = OrganizationSecretStore(id=uuid.uuid4())
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await service.delete_store(store)
     session.rollback.assert_awaited_once()

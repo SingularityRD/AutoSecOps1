@@ -25,7 +25,7 @@ from autosecops.agent.preset.workflow_references import (
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import (
     CursorPaginatedResponse,
     CursorPaginationParams,
@@ -35,7 +35,7 @@ from autosecops.pagination import (
 router = APIRouter(prefix="/agent/presets", tags=["agent-presets"])
 
 
-def _validation_error(exc: TracecatValidationError) -> HTTPException:
+def _validation_error(exc: AutoSecOpsValidationError) -> HTTPException:
     detail = exc.detail if exc.detail is not None else str(exc)
     if isinstance(detail, dict) and "message" not in detail:
         detail = {**detail, "message": str(exc)}
@@ -85,7 +85,7 @@ async def list_agent_preset_workflow_references(
     service = AgentPresetWorkflowReferenceService(session, role=role)
     try:
         return await service.list_references(PageParams(limit=limit, cursor=cursor))
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -109,7 +109,7 @@ async def preview_tool_policy(
     """Evaluate unsaved tool selections without changing a preset."""
     try:
         return await AgentPresetService(session, role=role).preview_tool_policy(params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -136,7 +136,7 @@ async def create_agent_preset(
     try:
         preset = await service.create_preset(params)
         return await service.build_preset_read(preset)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -203,9 +203,9 @@ async def update_agent_preset(
         )
     try:
         preset = await service.update_preset(preset, params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         # The preset can be soft-deleted between the lookup above and the
         # service's row lock; surface that race as a 404, not a 500.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
@@ -235,7 +235,7 @@ async def delete_agent_preset(
         )
     try:
         await service.delete_preset(preset)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         # The preset can be soft-deleted between the lookup above and the
         # service's row lock; surface that race as a 404, not a 500.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
@@ -277,7 +277,7 @@ async def list_agent_preset_versions(
             preset_id,
             CursorPaginationParams(limit=limit, cursor=cursor, reverse=reverse),
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -312,7 +312,7 @@ async def get_agent_preset_version(
         )
     try:
         return await service.build_version_read(version)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -357,7 +357,7 @@ async def compare_agent_preset_versions(
         )
     try:
         return await service.compare_versions(base_version, compare_version)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
 
 
@@ -395,13 +395,13 @@ async def restore_agent_preset_version(
         )
     try:
         restored = await service.restore_version(preset, version)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         # The preset can be soft-deleted between the lookup above and the
         # service's row lock; surface that race as a 404, not a 500.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise _validation_error(exc) from exc
     return await service.build_preset_read(restored)
 
@@ -433,5 +433,5 @@ async def move_agent_preset_to_folder(
 
     try:
         await folder_service.move_preset(preset_id, folder)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

@@ -14,7 +14,7 @@ from autosecops.agent.provider.service import AgentCustomProviderService
 from autosecops.auth.dependencies import OrgUserRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginationParams
 
 router = APIRouter(prefix="/organization/agent-custom-providers")
@@ -76,7 +76,7 @@ async def get_custom_provider(
     service = AgentCustomProviderService(session=session, role=role)
     try:
         return await service.get_provider(provider_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -98,7 +98,7 @@ async def update_custom_provider(
     service = AgentCustomProviderService(session=session, role=role)
     try:
         return await service.update_provider(provider_id, updates)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -119,7 +119,7 @@ async def delete_custom_provider(
     service = AgentCustomProviderService(session=session, role=role)
     try:
         await service.delete_provider(provider_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -140,7 +140,7 @@ async def refresh_custom_provider_catalog(
     service = AgentCustomProviderService(session=session, role=role)
     try:
         await service.refresh_provider_catalog(provider_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),

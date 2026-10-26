@@ -14,7 +14,7 @@ from autosecops.db.models import (
     RegistryRepository,
     RegistryVersion,
 )
-from autosecops.exceptions import RegistryError, TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, RegistryError
 from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.registry.sync.base_service import (
     BaseRegistrySyncService,
@@ -114,11 +114,11 @@ class RegistrySyncService(BaseRegistrySyncService[RegistryRepository, RegistryVe
     def _get_storage_namespace(self) -> str:
         """Get storage namespace from the organization context."""
         if self.role is None or not isinstance(self.role, Role):
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "RegistrySyncService requires organization context"
             )
         if self.role.organization_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "RegistrySyncService requires organization_id in role"
             )
         return str(self.role.organization_id)

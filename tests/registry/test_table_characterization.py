@@ -40,8 +40,8 @@ from autosecops_registry.core.table import (
     update_row,
 )
 from autosecops_registry.sdk.exceptions import (
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from httpx import ASGITransport
 from pydantic import TypeAdapter
@@ -221,7 +221,7 @@ class TestAggregateRows:
             group_by=[],
             limit=config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX,
         ) == {"groups": [{"count": 3}], "truncated": False}
-        with pytest.raises(TracecatValidationError) as above_maximum:
+        with pytest.raises(AutoSecOpsValidationError) as above_maximum:
             await aggregate_rows(
                 table=test_table_name,
                 group_by=[],
@@ -357,19 +357,19 @@ class TestAggregateRows:
     async def test_validation_and_missing_table_errors(
         self, test_table_name: str
     ) -> None:
-        with pytest.raises(TracecatNotFoundError) as missing:
+        with pytest.raises(AutoSecOpsNotFoundError) as missing:
             await aggregate_rows(table=test_table_name, group_by=[])
         assert missing.value.status_code == 404
 
         await create_table(name=test_table_name)
-        with pytest.raises(TracecatValidationError) as semantic:
+        with pytest.raises(AutoSecOpsValidationError) as semantic:
             await aggregate_rows(table=test_table_name, group_by=["missing_column"])
         assert semantic.value.status_code == 400
 
-        with pytest.raises(TracecatValidationError) as structural:
+        with pytest.raises(AutoSecOpsValidationError) as structural:
             await aggregate_rows(table=test_table_name, group_by=[], aggs=[])
         assert structural.value.status_code == 422
-        with pytest.raises(TracecatValidationError) as invalid_limit:
+        with pytest.raises(AutoSecOpsValidationError) as invalid_limit:
             await aggregate_rows(table=test_table_name, group_by=[], limit=0)
         assert invalid_limit.value.status_code == 422
 
@@ -396,7 +396,7 @@ class TestAggregateRows:
         )
         monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 1)
 
-        with pytest.raises(TracecatValidationError) as timeout:
+        with pytest.raises(AutoSecOpsValidationError) as timeout:
             await aggregate_rows(
                 table=test_table_name,
                 group_by=[],

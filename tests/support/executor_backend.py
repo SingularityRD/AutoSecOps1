@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from autosecops_registry import secrets as registry_secrets
 from autosecops_registry.context import RegistryContext, set_context
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 from autosecops import config
 from autosecops.concurrency import run_blocking_rejoin_on_cancel
@@ -200,7 +200,7 @@ class TestBackend(ExecutorBackend):
             environment=input.run_context.environment,
             api_url=config.AUTOSECOPS__API_URL,
             token=resolved_context.executor_token,
-            _client=TracecatClient(
+            _client=AutoSecOpsClient(
                 action_gateway_socket=str(action_gateway_socket_path()),
                 token=resolved_context.executor_token,
                 workspace_id=resolved_context.workspace_id,

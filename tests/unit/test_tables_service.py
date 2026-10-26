@@ -14,9 +14,9 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import EDITOR_SCOPES, VIEWER_SCOPES
 from autosecops.db.models import Table, TableColumn, Workspace
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.logger import logger
 from autosecops.pagination import CursorPaginationParams
@@ -26,7 +26,7 @@ from autosecops.query.aggregations import (
     GroupBySpec,
     TimeBucket,
 )
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.filters import Condition, FilterOp, FilterValue
 from autosecops.tables.common import (
     ColumnHasDuplicateValuesError,
@@ -274,7 +274,7 @@ class TestTablesService:
         """Workspace editors should not be allowed to delete tables (admin only)."""
 
         table = await tables_service.create_table(TableCreate(name="editor_nodelete"))
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await tables_service_editor.delete_table(table)
 
     async def test_basic_member_cannot_create_table(
@@ -282,7 +282,7 @@ class TestTablesService:
     ) -> None:
         """Members lacking a workspace role should be rejected for DDL."""
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await tables_service_basic.create_table(TableCreate(name="blocked_table"))
 
     async def test_create_table_with_columns(
@@ -485,8 +485,8 @@ class TestTablesService:
         # Delete the table
         await tables_service.delete_table(table)
 
-        # Attempt to retrieve the table; should raise TracecatNotFoundError
-        with pytest.raises(TracecatNotFoundError):
+        # Attempt to retrieve the table; should raise AutoSecOpsNotFoundError
+        with pytest.raises(AutoSecOpsNotFoundError):
             await tables_service.get_table_by_name("deletable_table")
 
 
@@ -698,8 +698,8 @@ class TestTableColumns:
         # Delete the column
         await tables_service.delete_column(column)
 
-        # Attempt to retrieve the deleted column; should raise TracecatNotFoundError
-        with pytest.raises(TracecatNotFoundError):
+        # Attempt to retrieve the deleted column; should raise AutoSecOpsNotFoundError
+        with pytest.raises(AutoSecOpsNotFoundError):
             await tables_service.get_column(table.id, column.id)
 
     async def test_update_column(self, tables_service: TablesService) -> None:
@@ -936,7 +936,7 @@ class TestTableColumns:
             TableColumnCreate(name="external_col", type=SqlType.TEXT),
         )
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await tables_service.get_column(other_table.id, other_column.id)
 
     async def test_create_single_column_unique_index(
@@ -1404,8 +1404,8 @@ class TestTableRows:
         # Delete the row
         await tables_service.delete_row(table, row_id)
 
-        # Attempt to retrieve the deleted row; should raise TracecatNotFoundError
-        with pytest.raises(TracecatNotFoundError):
+        # Attempt to retrieve the deleted row; should raise AutoSecOpsNotFoundError
+        with pytest.raises(AutoSecOpsNotFoundError):
             await tables_service.get_row(table, row_id)
 
     async def test_lookup_row(
@@ -2749,13 +2749,13 @@ class TestTableAggregations:
         aggregate_table: Table,
         field: str,
     ) -> None:
-        with pytest.raises(TracecatValidationError, match=field):
+        with pytest.raises(AutoSecOpsValidationError, match=field):
             await tables_service.aggregate_rows(
                 aggregate_table.name,
                 TableAggregateRequest(group_by=[GroupBySpec(field=field)]),
             )
 
-        with pytest.raises(TracecatValidationError, match=field):
+        with pytest.raises(AutoSecOpsValidationError, match=field):
             await tables_service.aggregate_rows(
                 aggregate_table.name,
                 TableAggregateRequest(
@@ -2817,7 +2817,7 @@ class TestTableAggregations:
         )
         monkeypatch.setattr(config, "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS", 1)
 
-        with pytest.raises(TracecatQueryTimeoutError):
+        with pytest.raises(AutoSecOpsQueryTimeoutError):
             await tables_service.aggregate_rows(
                 table.name,
                 TableAggregateRequest(

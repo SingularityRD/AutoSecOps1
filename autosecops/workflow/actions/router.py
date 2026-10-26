@@ -7,7 +7,7 @@ from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.dsl.enums import PlatformAction
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import AnyWorkflowIDPath, WorkflowUUID
 from autosecops.logger import logger
 from autosecops.registry.actions.schemas import RegistryActionInterfaceValidator
@@ -128,7 +128,7 @@ async def create_action(
     svc = WorkflowActionService(session, role=role)
     try:
         action = await svc.create_action(params)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Action ref already exists in the workflow",
@@ -229,7 +229,7 @@ async def update_action(
     _clamp_agent_timeout(action.type, params.control_flow)
     try:
         action = await svc.update_action(action, params)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e

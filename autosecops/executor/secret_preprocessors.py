@@ -11,7 +11,7 @@ from botocore.exceptions import ClientError
 
 from autosecops.auth.types import Role
 from autosecops.dsl.schemas import RunContext
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.parse import traverse_leaves
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.secrets_manager import _AWS_EXTERNAL_ID_SECRET_KEY
@@ -77,7 +77,7 @@ async def _assume_role_via_irsa(
         # Constant detail: STS messages echo the role ARN, which masking
         # cannot match once it has been stripped or escaped.
         code = e.response.get("Error", {}).get("Code", "Unknown")
-        raise TracecatCredentialsError(
+        raise AutoSecOpsCredentialsError(
             f"Failed to assume AWS role via STS (error code {code})"
         ) from e
 
@@ -117,7 +117,7 @@ class AwsAssumeRoleSecretPreprocessor:
         if not isinstance(aws_profile := secret_values.get("AWS_PROFILE"), str):
             return
         if aws_profile.strip():
-            raise TracecatCredentialsError(
+            raise AutoSecOpsCredentialsError(
                 "AWS_PROFILE is not supported in protected secret "
                 f"'{secret_name}'. "
                 "Use AWS_ROLE_ARN or static/session credentials instead."
@@ -135,7 +135,7 @@ class AwsAssumeRoleSecretPreprocessor:
             return None
         if not _AWS_ROLE_ARN_PATTERN.match(role_arn):
             # Never echo the value: the stripped form escapes exact masking.
-            raise TracecatCredentialsError(
+            raise AutoSecOpsCredentialsError(
                 f"Invalid AWS role ARN format in secret '{secret_name}' "
                 "key 'AWS_ROLE_ARN'"
             )
@@ -145,7 +145,7 @@ class AwsAssumeRoleSecretPreprocessor:
         """Return the runtime AWS external ID required for AssumeRole."""
         external_id = secrets.get(_AWS_EXTERNAL_ID_SECRET_KEY)
         if not isinstance(external_id, str) or not external_id:
-            raise TracecatCredentialsError(
+            raise AutoSecOpsCredentialsError(
                 "Missing runtime AWS external ID for AssumeRole. "
                 "Ensure the workspace has a valid workspace ID."
             )

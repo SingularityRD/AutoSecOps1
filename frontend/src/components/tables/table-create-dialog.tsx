@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useCreateTable } from "@/lib/hooks"
 import { SqlTypeCreatableEnum } from "@/lib/tables"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -183,7 +183,7 @@ export function CreateTableDialog({
       form.reset()
     } catch (error) {
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         const detail =
           typeof apiError.body?.detail === "string"
             ? apiError.body.detail

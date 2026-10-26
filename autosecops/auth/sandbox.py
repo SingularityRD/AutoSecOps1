@@ -15,7 +15,7 @@ from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
 from autosecops.db.models import BaseSecret
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.logger import logger
 from autosecops.secrets.constants import DEFAULT_SECRETS_ENVIRONMENT
 from autosecops.secrets.encryption import decrypt_keyvalues
@@ -229,7 +229,7 @@ class AuthSandbox:
         if len(unique_req_secret_names) != len(defined_req_secret_names):
             missing_secrets = unique_req_secret_names - defined_req_secret_names
             logger.error("Missing secrets", missing_secrets=missing_secrets)
-            raise TracecatCredentialsError(
+            raise AutoSecOpsCredentialsError(
                 f"Missing workspace secrets: {', '.join(missing_secrets)}.",
                 detail=[
                     {"secret_name": name, "environment": self._environment}

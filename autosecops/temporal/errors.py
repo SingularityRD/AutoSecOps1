@@ -26,10 +26,10 @@ from autosecops.logger import logger
 from autosecops.observability.sentry import capture_activity_failure
 from autosecops.observability.types import PlatformErrorCapture
 from autosecops.runtime.errors import (
+    AutoSecOpsRuntimeError,
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorOwner,
-    TracecatRuntimeError,
 )
 from autosecops.temporal.error_chain import iter_error_chain
 
@@ -277,7 +277,7 @@ def extract_error_classification(
 ) -> RuntimeErrorClassification | None:
     """Extract the first valid classification from an exception chain."""
     for current in iter_error_chain(error):
-        if isinstance(current, TracecatRuntimeError):
+        if isinstance(current, AutoSecOpsRuntimeError):
             return current.classification
         if (
             isinstance(current, ApplicationError)
@@ -306,7 +306,7 @@ def extract_error_classifications(
         error,
         include_implicit_context=include_implicit_context,
     ):
-        if isinstance(current, TracecatRuntimeError):
+        if isinstance(current, AutoSecOpsRuntimeError):
             _append_unique_classification(
                 classifications,
                 seen,

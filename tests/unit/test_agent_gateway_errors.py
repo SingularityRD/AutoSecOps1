@@ -24,7 +24,7 @@ from openai import AsyncOpenAI
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway import AutoSecOpsCallbackHandler
 from autosecops.agent.sandbox.llm_proxy import _http_error_classification
 from autosecops.runtime.errors import (
     RetryDisposition,
@@ -39,7 +39,7 @@ def gateway_callbacks(monkeypatch: pytest.MonkeyPatch) -> ProxyLogging:
     # and returns them, which the Anthropic endpoint currently ignores.
     proxy_logging = ProxyLogging(user_api_key_cache=UserApiKeyCache())
     proxy_logging.alert_types = []
-    monkeypatch.setattr(litellm, "callbacks", [TracecatCallbackHandler()])
+    monkeypatch.setattr(litellm, "callbacks", [AutoSecOpsCallbackHandler()])
     # Router registration also mutates these process-global callback lists.
     for name in (
         "success_callback",

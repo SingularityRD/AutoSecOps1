@@ -17,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.expressions.schemas import ExpectedField
 from autosecops.registry.actions.enums import TemplateActionValidationErrorType
 from autosecops.validation.schemas import (
@@ -77,7 +77,7 @@ class TemplateActionDefinition(BaseModel):
     def validate_steps(self):
         # Check for at least 1 step
         if not self.steps:
-            raise TracecatValidationError("Template action must have at least 1 step")
+            raise AutoSecOpsValidationError("Template action must have at least 1 step")
 
         step_refs = [step.ref for step in self.steps]
         unique_step_refs = set(step_refs)
@@ -85,14 +85,14 @@ class TemplateActionDefinition(BaseModel):
         # Check for duplicate step refs
         if len(step_refs) != len(unique_step_refs):
             duplicate_step_refs = [ref for ref in step_refs if step_refs.count(ref) > 1]
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Duplicate step references found: {duplicate_step_refs}"
             )
 
         # Check if any step action references the template action
         template_action = f"{self.namespace}.{self.name}"
         if violating_steps := [s for s in self.steps if s.action == template_action]:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Steps cannot reference the template action itself: {template_action}."
                 f"{len(violating_steps)} steps reference the template action: {violating_steps}"
             )
@@ -461,7 +461,7 @@ class RegistryActionValidateResponse(BaseModel):
         )
 
     @staticmethod
-    def from_dsl_validation_error(exc: TracecatValidationError):
+    def from_dsl_validation_error(exc: AutoSecOpsValidationError):
         return RegistryActionValidateResponse(
             ok=False, message=str(exc), detail=exc.detail
         )

@@ -24,7 +24,7 @@ from autosecops.agent.channels.schemas import (
 from autosecops.agent.channels.service import AgentChannelService
 from autosecops.auth.types import Role
 from autosecops.chat.schemas import BasicChatRequest
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 class _FakeSlackResponse:
@@ -323,7 +323,7 @@ def test_parse_approval_action_context_invalid_token(
         "container": {"message_ts": "1700000000.111"},
     }
 
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         SlackChannelHandler._parse_approval_action_context(payload)
 
 

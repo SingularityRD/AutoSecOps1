@@ -16,7 +16,7 @@ from typing import Final, cast
 
 import yaml
 
-from .client import TableColumnRef, TracecatClient
+from .client import AutoSecOpsClient, TableColumnRef
 from .models import (
     FixtureHandles,
     LoadType,
@@ -211,7 +211,7 @@ def load_child_workflow_fixtures(load_type: LoadType) -> tuple[WorkflowFixture, 
 
 
 async def _ensure_table(
-    client: TracecatClient, workspace_id: str, fixture: TableFixture
+    client: AutoSecOpsClient, workspace_id: str, fixture: TableFixture
 ) -> tuple[str, str]:
     """Create the fixture table if absent and ensure its unique index exists."""
     tables = await client.list_tables(workspace_id)
@@ -236,7 +236,7 @@ async def _ensure_table(
 
 
 async def _validate_table(
-    client: TracecatClient,
+    client: AutoSecOpsClient,
     workspace_id: str,
     table_id: str,
     fixture: TableFixture,
@@ -270,7 +270,7 @@ async def _validate_table(
 
 
 async def _assert_fixture_workflows_quiescent(
-    client: TracecatClient, workspace_id: str
+    client: AutoSecOpsClient, workspace_id: str
 ) -> None:
     """Refuse to reset while an alias-owned fixture workflow can still write."""
     workflows = await client.list_workflows(workspace_id)
@@ -292,7 +292,7 @@ async def _assert_fixture_workflows_quiescent(
         )
 
 
-async def reset_fixture_table(client: TracecatClient, workspace_id: str) -> str:
+async def reset_fixture_table(client: AutoSecOpsClient, workspace_id: str) -> str:
     """Drop and recreate only the checked-in synthetic table through the API.
 
     Recreating the relation removes accumulated rows, dead tuples, and index
@@ -323,7 +323,7 @@ async def reset_fixture_table(client: TracecatClient, workspace_id: str) -> str:
 
 
 async def _ensure_workflow(
-    client: TracecatClient, workspace_id: str, fixture: WorkflowFixture
+    client: AutoSecOpsClient, workspace_id: str, fixture: WorkflowFixture
 ) -> str:
     """Replace only an alias-marked fixture workflow from YAML, then commit it."""
     if fixture.alias is None:
@@ -379,7 +379,7 @@ async def _ensure_workflow(
 
 
 async def ensure_fixtures(
-    client: TracecatClient,
+    client: AutoSecOpsClient,
     workspace_id: str,
     load_types: tuple[LoadType, ...] = (LoadType.SCATTER, LoadType.BULK),
     *,
@@ -427,7 +427,7 @@ async def ensure_fixtures(
 
 
 async def resolve_workspace(
-    client: TracecatClient, workspace_id: str | None, workspace_name: str
+    client: AutoSecOpsClient, workspace_id: str | None, workspace_name: str
 ) -> str:
     """Resolve the target workspace, creating it by name when necessary."""
     if workspace_id:

@@ -42,7 +42,7 @@ def safe_uuid4() -> UUID:
     return uuid.uuid4()
 
 
-class TracecatUUID[ShortID: str](UUID):
+class AutoSecOpsUUID[ShortID: str](UUID):
     """Base class for prefixed AutoSecOps UUIDs.
 
     This class serves as a base for specialized UUIDs that have specific prefixes
@@ -56,7 +56,7 @@ class TracecatUUID[ShortID: str](UUID):
     legacy_prefix: ClassVar[str | None] = None
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initialize a TracecatUUID.
+        """Initialize a AutoSecOpsUUID.
 
         Args:
             *args: Positional arguments passed to UUID constructor
@@ -104,13 +104,13 @@ class TracecatUUID[ShortID: str](UUID):
 
     @classmethod
     def from_short(cls, short_id: ShortID) -> Self:
-        """Create a TracecatUUID instance from a shortened ID string.
+        """Create a AutoSecOpsUUID instance from a shortened ID string.
 
         Args:
             short_id: The shortened ID string with prefix
 
         Returns:
-            TracecatUUID[ShortIDType]: A new instance created from the short ID
+            AutoSecOpsUUID[ShortIDType]: A new instance created from the short ID
 
         Raises:
             ValueError: If the short_id has an invalid prefix
@@ -137,7 +137,7 @@ class TracecatUUID[ShortID: str](UUID):
 
     @classmethod
     def new(cls, id: Any) -> Self:
-        """Coerce an ID into an instance of TracecatUUID. Handles legacy ids."""
+        """Coerce an ID into an instance of AutoSecOpsUUID. Handles legacy ids."""
         if isinstance(id, cls):
             return id
         match id:

@@ -10,7 +10,7 @@ import orjson
 from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import SearchCollection
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.search.capacity import search_capacity
 from autosecops.search.cursors import SearchWindow, WindowStore
 from autosecops.search.embeddings.catalog import token_counter
@@ -76,7 +76,7 @@ class TableRetrievalService:
 
     def __init__(self, role: Role, client: EmbeddingClient | None = None):
         if role.organization_id is None or role.workspace_id is None:
-            raise TracecatAuthorizationError("Workspace context required")
+            raise AutoSecOpsAuthorizationError("Workspace context required")
         self.client = client
         self.role = role
         self.scope = SearchScope(role.organization_id, role.workspace_id)

@@ -24,7 +24,7 @@ from autosecops.db.engine import get_async_session
 from autosecops.db.models import Case, Organization, Workspace
 from autosecops.executor.action_gateway.app import create_app
 from autosecops.pagination import PaginationError, PaginationErrorCode
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.lexical_types import SearchMode
 from autosecops.tiers import defaults as tier_defaults
 from tests.database import TEST_DB_CONFIG
@@ -506,7 +506,7 @@ async def test_canonical_timeout_rolls_back_its_savepoint(
             await blocker.execute(
                 sa.text('LOCK TABLE public."case" IN ACCESS EXCLUSIVE MODE')
             )
-            with pytest.raises(TracecatQueryTimeoutError) as error:
+            with pytest.raises(AutoSecOpsQueryTimeoutError) as error:
                 async with asyncio.timeout(8):
                     if phase == "status":
                         await timeout_service.query_case_aggregates(

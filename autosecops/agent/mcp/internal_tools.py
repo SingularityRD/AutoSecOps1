@@ -33,7 +33,7 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.contexts import ctx_role
 from autosecops.exceptions import (
-    TracecatValidationError,
+    AutoSecOpsValidationError,
 )
 from autosecops.integrations.enums import OAuthGrantType
 from autosecops.integrations.schemas import ProviderKey
@@ -384,7 +384,7 @@ async def update_preset(args: dict[str, Any], claims: MCPTokenClaims) -> dict[st
                     )
         try:
             updated = await service.update_preset(preset, params)
-        except TracecatValidationError as error:
+        except AutoSecOpsValidationError as error:
             # Surface builder validation issues as errors that the agent can retry
             raise InternalToolError(str(error)) from error
         updated_read = await service.build_preset_read(updated)

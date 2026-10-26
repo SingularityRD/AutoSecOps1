@@ -47,10 +47,10 @@ from autosecops.db.models import (
     User,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from tests.support.membership import (
     grant_org_membership,
@@ -184,13 +184,13 @@ def _install_handlers(app: FastAPI) -> None:
     app.add_exception_handler(HTTPException, _http)
     app.add_exception_handler(RequestValidationError, _validation)
     app.add_exception_handler(
-        TracecatConflictError,
+        AutoSecOpsConflictError,
         lambda request, exc: scim_error_response(status_code=409, detail=str(exc)),
     )
-    app.add_exception_handler(TracecatNotFoundError, _not_found)
-    app.add_exception_handler(TracecatValidationError, _invalid)
+    app.add_exception_handler(AutoSecOpsNotFoundError, _not_found)
+    app.add_exception_handler(AutoSecOpsValidationError, _invalid)
     app.add_exception_handler(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         lambda request, exc: scim_error_response(status_code=403, detail="Forbidden"),
     )
 

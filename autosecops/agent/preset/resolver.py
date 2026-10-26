@@ -20,7 +20,7 @@ from autosecops.agent.subagents import (
 )
 from autosecops.agent.workflow_config import agent_config_to_payload
 from autosecops.agent.workflow_schemas import AgentConfigPayload
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 if TYPE_CHECKING:
     from autosecops.agent.types import AgentConfig
@@ -162,9 +162,9 @@ async def resolve_agents_config(
         try:
             validate_subagent_alias(alias)
         except ValueError as err:
-            raise TracecatValidationError(str(err)) from err
+            raise AutoSecOpsValidationError(str(err)) from err
         if alias in aliases:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Duplicate subagent alias '{alias}' in agents config"
             )
         aliases.add(alias)
@@ -213,11 +213,11 @@ async def resolve_agents_config(
             and ref.preset == parent_slug
         )
         if references_parent_id or references_parent_slug:
-            raise TracecatValidationError("Agent presets cannot reference themselves")
+            raise AutoSecOpsValidationError("Agent presets cannot reference themselves")
 
         child_agents = AgentSubagentsConfig.model_validate(version.agents)
         if child_agents.subagents:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Subagent preset '{ref.preset}' cannot define its own agents in v1"
             )
         if not supports_subagent_approvals:
@@ -225,7 +225,7 @@ async def resolve_agents_config(
                 version, use_latest_skill_versions=follow_latest_versions
             )
             if has_manual_tool_approvals(tool_policy.tool_approvals):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Subagent preset '{ref.preset}' uses manual approvals, "
                     "which are not supported for subagents yet."
                 )

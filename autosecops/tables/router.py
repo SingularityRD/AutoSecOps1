@@ -22,7 +22,7 @@ from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import TableColumn
-from autosecops.exceptions import TracecatImportError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsImportError, AutoSecOpsNotFoundError
 from autosecops.identifiers import TableColumnID, TableID
 from autosecops.logger import logger
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
@@ -185,7 +185,7 @@ async def get_table(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -214,7 +214,7 @@ async def update_table(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -248,7 +248,7 @@ async def delete_table(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -268,7 +268,7 @@ async def create_column(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -314,7 +314,7 @@ async def update_column(
     service = TablesService(session, role=role)
     try:
         column = await service.get_column(table_id, column_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -364,7 +364,7 @@ async def delete_column(
     service = TablesService(session, role=role)
     try:
         column = await service.get_column(table_id, column_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -402,7 +402,7 @@ async def list_rows(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -461,7 +461,7 @@ async def get_row(
     try:
         table = await service.get_table(table_id)
         row = await service.get_row(table, row_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -482,7 +482,7 @@ async def insert_row(
     try:
         table = await service.get_table(table_id)
         row = await service.insert_row(table, params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -513,7 +513,7 @@ async def delete_row(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -534,14 +534,14 @@ async def update_row(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     try:
         row = await service.update_row(table, row_id, params.data)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -576,7 +576,7 @@ async def batch_insert_rows(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -603,7 +603,7 @@ async def batch_delete_rows(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -636,7 +636,7 @@ async def batch_update_rows(
     service = TablesService(session, role=role)
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -720,7 +720,7 @@ async def import_table_from_csv(
         )
     except HTTPException:
         raise
-    except TracecatImportError as e:
+    except AutoSecOpsImportError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
@@ -747,7 +747,7 @@ async def import_csv(
     # Get table info
     try:
         table = await service.get_table(table_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -766,7 +766,7 @@ async def import_csv(
         csv_reader = csv.DictReader(csv_file)
         csv_headers = csv_reader.fieldnames or []
         if not csv_headers:
-            raise TracecatImportError("CSV file must include a header row")
+            raise AutoSecOpsImportError("CSV file must include a header row")
 
         normalized_headers = [
             normalize_csv_header(header or "") for header in csv_headers
@@ -808,7 +808,7 @@ async def import_csv(
         ]
         if missing_mapped_headers:
             missing_headers_display = ", ".join(sorted(set(missing_mapped_headers)))
-            raise TracecatImportError(
+            raise AutoSecOpsImportError(
                 "Mapped CSV columns not found in file headers: "
                 f"{missing_headers_display}"
             )
@@ -828,7 +828,7 @@ async def import_csv(
         await importer.process_chunk(current_chunk, service, table)
     except HTTPException:
         raise
-    except TracecatImportError as e:
+    except AutoSecOpsImportError as e:
         logger.warning(f"Error during import: {e}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.identifiers import TableID
 from autosecops.pagination import PaginationError
 from autosecops.search.embeddings.service import WorkspaceEmbeddingService
@@ -59,7 +59,7 @@ async def get_table_search(
     )
     try:
         await service.table(table_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     # Provider resolution is a separate read-only transaction, never a source
     # mutation. Authorize the table before inspecting workspace availability.
@@ -73,7 +73,7 @@ async def get_table_search(
         return await service.configuration(
             table_id, availability=availability, provider_error=provider_error
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     except SearchError as exc:
         raise search_http_error(exc) from exc
@@ -96,7 +96,7 @@ async def select_table_search_column(
     )
     try:
         await service.select_column(table_id, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     except SearchError as exc:
         raise search_http_error(exc) from exc
@@ -106,7 +106,7 @@ async def select_table_search_column(
     # lock is held, then commit both selection and backfill intent together.
     try:
         result = await service.configuration(table_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     except SearchError as exc:
         raise search_http_error(exc) from exc
@@ -129,7 +129,7 @@ async def retry_table_search(
     )
     try:
         await service.retry(table_id, params.expected_generation, params.document_ids)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     except SearchError as exc:
         raise search_http_error(exc) from exc
@@ -158,7 +158,7 @@ async def get_table_search_progress(
         )
     except PaginationError:
         error = HTTPException(400, detail={"code": "INVALID_CURSOR"})
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(404, detail={"code": "NOT_FOUND"}) from exc
     except SearchError as exc:
         raise search_http_error(exc) from exc

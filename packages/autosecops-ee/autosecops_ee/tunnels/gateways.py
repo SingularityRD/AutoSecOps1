@@ -13,7 +13,7 @@ from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.locks import pg_advisory_unlock, try_pg_advisory_lock
 from autosecops.db.models import Workspace, WorkspaceTunnel
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.secrets.encryption import decrypt_value
@@ -39,7 +39,7 @@ TUNNELS_REQUIRE_KUBERNETES = (
 )
 
 
-class TunnelGatewayUnavailableError(TracecatValidationError):
+class TunnelGatewayUnavailableError(AutoSecOpsValidationError):
     """No gateway backend is configured, so tunnels cannot be used."""
 
 

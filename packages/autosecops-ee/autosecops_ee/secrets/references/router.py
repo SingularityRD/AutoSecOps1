@@ -14,7 +14,7 @@ from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.pagination import Page, PageParams, PaginationError
 from autosecops.secrets.dependencies import AnySecretIDPath
 from autosecops.secrets.schemas import (
@@ -93,7 +93,7 @@ async def create_aws_secret_reference(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
@@ -119,9 +119,9 @@ async def update_aws_secret_reference(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
         ) from e
@@ -164,7 +164,7 @@ async def check_aws_secret_reference(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
         ) from e

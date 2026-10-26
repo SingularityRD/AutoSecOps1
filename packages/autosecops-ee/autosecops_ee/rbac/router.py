@@ -10,10 +10,10 @@ from autosecops.authz.controls import require_scope
 from autosecops.authz.enums import ScopeSource
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
@@ -94,7 +94,7 @@ async def get_scope(
     try:
         scope = await service.get_scope(scope_id)
         return ScopeRead.model_validate(scope)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -127,7 +127,7 @@ async def create_scope(
             description=params.description,
         )
         return ScopeRead.model_validate(scope)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -164,9 +164,9 @@ async def delete_scope(
     service = RBACService(session, role=role)
     try:
         await service.delete_scope(scope_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 
 
@@ -207,7 +207,7 @@ async def get_role(
             created_by=db_role.created_by,
             scopes=ScopeRead.list_adapter().validate_python(db_role.scopes),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -243,9 +243,9 @@ async def create_role(
             created_by=db_role.created_by,
             scopes=ScopeRead.list_adapter().validate_python(db_role.scopes),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
@@ -296,11 +296,11 @@ async def update_role(
             created_by=db_role.created_by,
             scopes=ScopeRead.list_adapter().validate_python(db_role.scopes),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
@@ -326,11 +326,11 @@ async def delete_role(
     service = RBACService(session, role=role)
     try:
         await service.delete_role(role_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -419,7 +419,7 @@ async def get_group(
             member_count=len(members),
             is_idp_managed=group_id in await service.managed_group_ids(),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -503,7 +503,7 @@ async def update_group(
             member_count=len(members),
             is_idp_managed=group_id in await service.managed_group_ids(),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
@@ -529,7 +529,7 @@ async def delete_group(
     service = RBACService(session, role=role)
     try:
         await service.delete_group(group_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -558,11 +558,11 @@ async def add_group_member(
     try:
         await service.add_group_member(group_id, params.user_id)
         return {"message": "Member added successfully"}
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -592,9 +592,9 @@ async def remove_group_member(
     service = RBACService(session, role=role)
     try:
         await service.remove_group_member(group_id, user_id)
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -678,7 +678,7 @@ async def get_assignment(
             role_name=a.role.name,
             workspace_name=a.workspace.name if a.workspace else None,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -732,9 +732,9 @@ async def create_assignment(
             role_name=a.role.name,
             workspace_name=a.workspace.name if a.workspace else None,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -784,9 +784,9 @@ async def update_assignment(
             role_name=a.role.name,
             workspace_name=a.workspace.name if a.workspace else None,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -807,5 +807,5 @@ async def delete_assignment(
     service = RBACService(session, role=role)
     try:
         await service.delete_group_role_assignment(assignment_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

@@ -14,7 +14,7 @@ from autosecops.cases.enums import (
 from autosecops.cases.schemas import CaseCreate, CaseTaskCreate, CaseTaskUpdate
 from autosecops.cases.service import CasesService, CaseTasksService
 from autosecops.db.models import Case, Workflow, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.identifiers import WorkflowUUID
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -225,7 +225,7 @@ class TestCaseTasksService:
         )
         await case_tasks_service.delete_task(created_task.id)
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await case_tasks_service.get_task(created_task.id)
 
     async def test_task_not_found_errors(
@@ -235,15 +235,15 @@ class TestCaseTasksService:
         """Test error handling for non-existent tasks."""
         non_existent_id = uuid.uuid4()
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await case_tasks_service.get_task(non_existent_id)
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await case_tasks_service.update_task(
                 non_existent_id, CaseTaskUpdate(title="New")
             )
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await case_tasks_service.delete_task(non_existent_id)
 
     async def test_create_task_with_all_fields(

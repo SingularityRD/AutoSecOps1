@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useGetTable, useInsertColumn } from "@/lib/hooks"
 import { SqlTypeCreatableEnum } from "@/lib/tables"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -128,7 +128,7 @@ export function TableInsertColumnDialog({
     } catch (error) {
       console.error(error)
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         if (apiError.status === 422) {
           form.setError("type", {
             message: JSON.stringify(apiError.body.detail, null, 2),

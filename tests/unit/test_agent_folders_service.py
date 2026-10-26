@@ -20,10 +20,10 @@ from autosecops.agent.preset.schemas import AgentPresetToolSummary
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentFolder, AgentPreset, MCPIntegration
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.service import IntegrationService
@@ -184,7 +184,7 @@ async def test_list_folders_paginated_invalid_cursor_raises_autosecops_validatio
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
 
     with pytest.raises(
-        TracecatValidationError, match="Invalid cursor for agent folders"
+        AutoSecOpsValidationError, match="Invalid cursor for agent folders"
     ):
         await folder_service.list_folders_paginated(
             "/", CursorPaginationParams(cursor="invalid")
@@ -199,7 +199,7 @@ async def test_list_folders_rejects_missing_parent_path(
     """Missing parent paths should not look like empty folders."""
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         await folder_service.list_folders("/missing/")
 
     assert exc_info.value.detail == {
@@ -280,7 +280,7 @@ async def test_move_preset_rejects_soft_deleted_preset(
     folder_service.session.add(preset)
     await folder_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await folder_service.move_preset(preset.id, target)
 
 
@@ -496,7 +496,7 @@ async def test_create_folder_rejects_blank_name(
 ) -> None:
     """Folder creation should reject empty or whitespace-only names."""
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
-    with pytest.raises(TracecatValidationError, match="Folder name cannot be empty"):
+    with pytest.raises(AutoSecOpsValidationError, match="Folder name cannot be empty"):
         await folder_service.create_folder(name="   ", parent_path="/")
 
 
@@ -522,7 +522,7 @@ async def test_rename_folder_rejects_blank_name(
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
     folder = await folder_service.create_folder(name="parent", parent_path="/")
 
-    with pytest.raises(TracecatValidationError, match="Folder name cannot be empty"):
+    with pytest.raises(AutoSecOpsValidationError, match="Folder name cannot be empty"):
         await folder_service.rename_folder(folder.id, "  ")
 
 

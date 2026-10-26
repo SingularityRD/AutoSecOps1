@@ -41,7 +41,7 @@ from sqlalchemy.sql.selectable import Select
 
 from autosecops import config
 from autosecops.auth.secrets import get_signing_secret
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 T = TypeVar("T")
 
@@ -108,7 +108,7 @@ class PaginationErrorCode(StrEnum):
     UNSUPPORTED_CURSOR_VERSION = "unsupported_cursor_version"
 
 
-class PaginationError(TracecatValidationError, ValueError):
+class PaginationError(AutoSecOpsValidationError, ValueError):
     """A user-facing pagination cursor error."""
 
     def __init__(self, message: str, *, code: PaginationErrorCode) -> None:

@@ -38,7 +38,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.settings.service import SettingsService
@@ -175,7 +175,7 @@ def validate_organization_delete_confirmation(
 ) -> None:
     """Validate the operator confirmation text for destructive org deletion."""
     if confirmation is None or confirmation.strip() != organization.name:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Confirmation text must exactly match the organization name."
         )
 

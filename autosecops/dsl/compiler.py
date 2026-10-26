@@ -7,7 +7,7 @@ from lark import Token, Tree
 
 from autosecops.dsl.common import DSLInput
 from autosecops.dsl.schemas import DSLDependencyPlan
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions.core import Expression, ExprExtractor
 from autosecops.parse import traverse_expressions
 
@@ -26,13 +26,13 @@ class _ActionRefExtractor(ExprExtractor[set[str]]):
         if not isinstance(path, Token) or not (
             match := _ACTION_REF_PATTERN.match(path)
         ):
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 "Action references must use ACTIONS.<action_ref> syntax"
             )
         # Named JSONPath operators can leave the selected action (e.g. `parent`).
         # Conservatively skip compilation rather than omit cross-action reads.
         if "`" in path:
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 "Named JSONPath operators require the original action context"
             )
         self._refs.add(match[1])
@@ -44,7 +44,7 @@ def _action_refs(obj: Any, valid_refs: set[str]) -> list[str]:
         Expression(expression, visitor=extractor).visit()
     refs = extractor.results()
     if unknown := refs - valid_refs:
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             f"Expressions reference unknown actions: {', '.join(sorted(unknown))}"
         )
     # Stable ordering for activity results and subsequent context construction.

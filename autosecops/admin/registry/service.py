@@ -35,7 +35,7 @@ from autosecops.db.models import (
     PlatformRegistryVersion,
     WorkflowDefinition,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.parse import safe_url
 from autosecops.registry.actions.schemas import RegistryActionRead
 from autosecops.registry.actions.types import IndexEntry
@@ -605,7 +605,7 @@ class AdminRegistryService(BasePlatformService):
             version_id for version_id in version_ids if version_id not in found_ids
         ]
         if missing_ids:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Registry versions not found: "
                 + ", ".join(str(version_id) for version_id in missing_ids)
             )
@@ -614,7 +614,7 @@ class AdminRegistryService(BasePlatformService):
             version.id for version in versions if version.tarball_uri is None
         ]
         if missing_tarballs:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Registry versions do not have tarballs: "
                 + ", ".join(str(version_id) for version_id in missing_tarballs)
             )
@@ -683,7 +683,7 @@ class AdminRegistryService(BasePlatformService):
             )
 
         if repo.current_version_id == version.id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete the currently promoted platform registry version. "
                 "Promote another version first."
             )
@@ -693,7 +693,7 @@ class AdminRegistryService(BasePlatformService):
             version=version.version,
         )
         if in_use:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete platform registry version in use by workflow "
                 "definitions."
             )
@@ -754,7 +754,7 @@ class AdminRegistryService(BasePlatformService):
             version.tarball_uri
         )
         if ready_artifact_uri is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Version {version_id} execution artifact is not ready"
             )
         if version.tarball_uri != ready_artifact_uri:

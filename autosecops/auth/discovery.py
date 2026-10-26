@@ -16,7 +16,7 @@ from autosecops.auth.enums import AuthType
 from autosecops.core.schemas import Schema
 from autosecops.db.dependencies import AsyncDBSessionBypass
 from autosecops.db.models import Organization, OrganizationDomain
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.organization.domains import normalize_domain
@@ -66,7 +66,7 @@ class AuthDiscoveryService(BaseService):
         if org_slug:
             org_resolution = await self._resolve_organization_by_slug(org_slug.strip())
             if org_resolution is None:
-                raise TracecatValidationError("Invalid organization")
+                raise AutoSecOpsValidationError("Invalid organization")
             org_id, resolved_org_slug = org_resolution
             method = await self._organization_discovery_method(org_id)
             return AuthDiscoverResponse(
@@ -241,7 +241,7 @@ async def discover_auth_method(
     service = AuthDiscoveryService(session)
     try:
         return await service.discover(params.email, params.org)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

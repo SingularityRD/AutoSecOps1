@@ -53,9 +53,9 @@ from autosecops.dsl.validation import (
     normalize_trigger_inputs,
 )
 from autosecops.exceptions import (
-    TracecatException,
-    TracecatExpressionError,
-    TracecatValidationError,
+    AutoSecOpsException,
+    AutoSecOpsExpressionError,
+    AutoSecOpsValidationError,
 )
 from autosecops.executor import registry_resolver
 from autosecops.executor.service import get_workspace_variables
@@ -146,8 +146,8 @@ async def _resolve_mcp_integrations(
         async with AgentPresetService.with_session(role=role) as svc:
             await svc.load_selected_mcp_integrations(mcp_integration_ids)
             servers = await svc.resolve_mcp_integration_refs(mcp_integration_ids)
-    except (MCPValidationError, TracecatValidationError) as e:
-        raise TracecatValidationError(str(e)) from None
+    except (MCPValidationError, AutoSecOpsValidationError) as e:
+        raise AutoSecOpsValidationError(str(e)) from None
     return servers or []
 
 
@@ -537,7 +537,7 @@ def _expression_error_classification(
     error: Exception,
 ) -> RuntimeErrorClassification:
     """Classify authored expression failures separately from runtime defects."""
-    if isinstance(error, (TracecatExpressionError, TracecatValidationError)):
+    if isinstance(error, (AutoSecOpsExpressionError, AutoSecOpsValidationError)):
         return RuntimeErrorClassification.user(
             kind=RuntimeErrorKind.WORKFLOW_EXPRESSION_INVALID,
             message="The workflow expression could not be evaluated",
@@ -577,7 +577,7 @@ def _agent_preparation_error_classification(
     error: Exception,
 ) -> RuntimeErrorClassification:
     """Classify agent argument preparation at its typed activity boundary."""
-    if isinstance(error, (TracecatException, ValidationError, UserError)):
+    if isinstance(error, (AutoSecOpsException, ValidationError, UserError)):
         return RuntimeErrorClassification.user(
             kind=RuntimeErrorKind.WORKFLOW_AGENT_INPUT_INVALID,
             message="The agent action inputs are invalid",
@@ -764,7 +764,7 @@ class DSLActivities:
         that expressions evaluate against raw values even when results are externalized.
 
         Additional validation is performed so that *invalid* or *empty* expressions
-        no longer fail silently – instead we raise a ``TracecatExpressionError``
+        no longer fail silently – instead we raise a ``AutoSecOpsExpressionError``
         which will cause the activity to fail fast and surface an explicit error
         to the calling workflow.
         """
@@ -777,7 +777,7 @@ class DSLActivities:
             # Fail fast on empty / whitespace‐only expressions so that users receive a
             # clear error instead of silently evaluating to ``False``.
             if not expr_str:
-                raise TracecatExpressionError("Expression cannot be empty")
+                raise AutoSecOpsExpressionError("Expression cannot be empty")
 
             # Evaluate the expression. Any parsing / evaluation errors raised inside
             # ``TemplateExpression`` are propagated unchanged so that Temporal marks
@@ -824,7 +824,7 @@ class DSLActivities:
             if result is None:
                 items: list[Any] = []
             elif not is_iterable(result):
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     "The scatter expression must evaluate to an iterable"
                 )
             else:
@@ -846,7 +846,7 @@ class DSLActivities:
                     expr=input.for_each, operand=materialized
                 )
             except ValueError as error:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     "The loop expression must evaluate to iterable values"
                 ) from error
             return len(list(zip(*iterators, strict=False)))
@@ -1166,7 +1166,7 @@ def _subflow_error_classification(error: Exception) -> RuntimeErrorClassificatio
                 retry_disposition=retry_disposition,
                 cause=error,
             )
-        case TracecatExpressionError() | TracecatValidationError():
+        case AutoSecOpsExpressionError() | AutoSecOpsValidationError():
             return RuntimeErrorClassification.user(
                 kind=RuntimeErrorKind.WORKFLOW_SUBFLOW_INPUT_INVALID,
                 message="The child workflow inputs are invalid",
@@ -1262,7 +1262,7 @@ def _evaluate_subflow_args(
             eval_templated_object(dict(args), operand=operand),
         )
         return evaluated_args, ExecuteSubflowArgs.model_validate(evaluated_args)
-    except TracecatExpressionError as e:
+    except AutoSecOpsExpressionError as e:
         raise UserError(f"Error evaluating subflow arguments: {e}") from e
     except ValidationError as e:
         raise UserError(
@@ -1302,7 +1302,7 @@ def _resolve_subflow_batch(
         iterators = get_iterables_from_expression(
             expr=task.for_each, operand=materialized
         )
-    except (TracecatExpressionError, ValueError) as error:
+    except (AutoSecOpsExpressionError, ValueError) as error:
         raise UserError("The child workflow loop expression is invalid") from error
 
     # Collect all items and slice to batch
@@ -1385,7 +1385,7 @@ def _evaluate_loop_iterations(
         iterators = get_iterables_from_expression(
             expr=task.for_each, operand=materialized
         )
-    except (TracecatExpressionError, ValueError) as e:
+    except (AutoSecOpsExpressionError, ValueError) as e:
         raise UserError(f"Error evaluating subflow for_each expression: {e}") from e
     all_items = list(zip(*iterators, strict=False))
 

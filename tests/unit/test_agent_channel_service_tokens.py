@@ -4,7 +4,7 @@ import pytest
 
 from autosecops import config
 from autosecops.agent.channels.service import AgentChannelService
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 def test_slack_approval_action_token_round_trip(
@@ -37,5 +37,5 @@ def test_slack_approval_action_token_rejects_tamper(
     )
     bad_token = token[:-1] + ("a" if token[-1] != "a" else "b")
 
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         AgentChannelService.parse_slack_approval_action_token(bad_token)

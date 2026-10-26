@@ -24,10 +24,10 @@ from autosecops.cases.enums import CaseEventType
 from autosecops.dsl.common import DSLEntrypoint, DSLInput
 from autosecops.dsl.schemas import ActionStatement
 from autosecops.exceptions import (
+    AutoSecOpsSettingsError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatSettingsError,
-    TracecatValidationError,
 )
 from autosecops.feature_flags import FeatureFlag
 from autosecops.git.types import GitUrl
@@ -1005,7 +1005,7 @@ async def test_preview_export_rejects_missing_skill_head(
         )
     )
 
-    with pytest.raises(TracecatValidationError, match="missing skill slug"):
+    with pytest.raises(AutoSecOpsValidationError, match="missing skill slug"):
         await workspace_sync_service.preview_export_workspace(
             WorkspaceSyncExportPreviewRequest()
         )
@@ -1494,7 +1494,7 @@ async def test_for_workspace_rejects_malformed_git_provider(
         "autosecops.workspace_sync.service.WorkspaceService",
         return_value=workspace_service,
     ):
-        with pytest.raises(TracecatSettingsError) as exc_info:
+        with pytest.raises(AutoSecOpsSettingsError) as exc_info:
             await WorkspaceSyncService.for_workspace(
                 session=workspace_sync_service.session,
                 role=workspace_sync_service.role,
@@ -1769,7 +1769,7 @@ async def test_github_write_files_rejects_pr_for_base_branch(
         ahead_by=0,
     )
 
-    with pytest.raises(TracecatValidationError, match="non-base branch"):
+    with pytest.raises(AutoSecOpsValidationError, match="non-base branch"):
         await _write_files_with_fake_repo(
             repo,
             service=workspace_sync_service,

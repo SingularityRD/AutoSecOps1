@@ -8,7 +8,7 @@ export function isCustomRegistryOrigin(origin: string): boolean {
   return origin.startsWith("git+ssh://")
 }
 
-export function isTracecatRegistryOrigin(
+export function isAutoSecOpsRegistryOrigin(
   origin: string,
   platformOrigins: ReadonlySet<string>
 ): boolean {
@@ -31,7 +31,7 @@ export function getRegistryOriginLabel(params: {
 }): string {
   const { origin, platformOrigins, customOrigin } = params
 
-  if (isTracecatRegistryOrigin(origin, platformOrigins)) {
+  if (isAutoSecOpsRegistryOrigin(origin, platformOrigins)) {
     return "AutoSecOps"
   }
 

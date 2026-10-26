@@ -55,9 +55,9 @@ from autosecops.agent.workflow_config import (
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentPreset, SkillLibraryInstall, Workspace
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.git.types import GitUrl
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
@@ -80,7 +80,7 @@ from tests.database import TEST_DB_CONFIG
 SLUG = "phishing-triage"
 
 
-def _code(exc: pytest.ExceptionInfo[TracecatValidationError]) -> str:
+def _code(exc: pytest.ExceptionInfo[AutoSecOpsValidationError]) -> str:
     assert exc.value.detail is not None
     return exc.value.detail["code"]
 
@@ -475,7 +475,7 @@ def test_tool_policy_blocks_library_tools_outside_namespaces() -> None:
 
 
 def test_skill_paths_reject_nul_bytes() -> None:
-    with pytest.raises(TracecatValidationError, match="NUL"):
+    with pytest.raises(AutoSecOpsValidationError, match="NUL"):
         normalize_skill_path("references/a\x00b.md")
 
 
@@ -547,7 +547,7 @@ async def test_validated_bindings_normalizes_and_maps_empty_to_none(
 
 
 def test_unknown_slug_fails_loudly() -> None:
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         get_library_skills(["does-not-exist"])
     assert _code(exc_info) == "library_skill_not_found"
 
@@ -625,7 +625,7 @@ class TestSkillLibraryService:
     async def test_batch_install_is_all_or_nothing(
         self, library_service: SkillLibraryService
     ) -> None:
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await library_service.batch_install([SLUG, "does-not-exist"])
         page = await library_service.list_skills(CursorPaginationParams(limit=100))
         assert not any(item.installed for item in page.items)
@@ -658,7 +658,7 @@ class TestSkillLibraryService:
     async def test_get_skill_rejects_unknown_slug(
         self, library_service: SkillLibraryService
     ) -> None:
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await library_service.get_skill("does-not-exist")
 
     async def test_list_returns_upstream_source(
@@ -713,7 +713,7 @@ class TestSkillLibraryService:
         library_service: SkillLibraryService,
     ) -> None:
         presets = AgentPresetService(session=session, role=svc_role)
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await presets.create_preset(_preset([SLUG]))
         assert _code(exc_info) == SkillLibraryErrorCode.NOT_INSTALLED.value
 
@@ -730,7 +730,7 @@ class TestSkillLibraryService:
         config = await presets.resolve_agent_preset_config(preset_id=preset.id)
         assert config.library_skills == [SLUG]
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await library_service.uninstall(SLUG)
         assert _code(exc_info) == SkillLibraryErrorCode.IN_USE.value
 
@@ -759,7 +759,7 @@ class TestSkillLibraryService:
             _preset(["incident-summary"])
         )
 
-        with pytest.raises(TracecatValidationError) as exc:
+        with pytest.raises(AutoSecOpsValidationError) as exc:
             await library_service.uninstall_many(slugs)
         await session.rollback()
 
@@ -772,7 +772,7 @@ class TestSkillLibraryService:
         library_service: SkillLibraryService,
     ) -> None:
         await library_service.install(SLUG)
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await library_service.uninstall_many([SLUG, "incident-summary"])
         await library_service.session.rollback()
         assert await library_service._installed([SLUG]) == {SLUG}
@@ -819,7 +819,7 @@ class TestSkillLibraryService:
     ) -> None:
         index = AsyncMock(return_value=[])
         monkeypatch.setattr(RegistryActionsService, "list_actions_from_index", index)
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await library_service.validate_declared_tools([TOOLED_SLUG])
         assert _code(exc_info) == SkillLibraryErrorCode.TOOLS_UNAVAILABLE.value
 
@@ -928,7 +928,7 @@ async def test_uninstall_waits_for_concurrent_bind(svc_role: Role, batch: bool) 
             )
             await binding.commit()
 
-            with pytest.raises(TracecatValidationError) as exc_info:
+            with pytest.raises(AutoSecOpsValidationError) as exc_info:
                 await uninstall
             assert _code(exc_info) == SkillLibraryErrorCode.IN_USE.value
             await uninstalling.rollback()
@@ -981,7 +981,7 @@ async def test_workspace_sync_round_trips_library_skills(
     assert copied is not None and copied.library_skills == [SLUG]
 
     missing = imported_spec.model_copy(update={"library_skills": ["incident-summary"]})
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         await sync.import_non_workflow_resources(
             WorkspaceSpec(agent_presets={"copy": missing})
         )
@@ -1112,7 +1112,7 @@ async def test_pull_rolls_back_library_installs_and_presets_on_late_failure(
     monkeypatch.setattr(
         service,
         "_upsert_mappings",
-        AsyncMock(side_effect=TracecatValidationError("Synthetic import failure")),
+        AsyncMock(side_effect=AutoSecOpsValidationError("Synthetic import failure")),
     )
 
     result = await service._import_snapshot(

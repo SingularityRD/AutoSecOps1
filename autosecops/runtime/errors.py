@@ -188,7 +188,7 @@ class RuntimeErrorClassification(BaseModel):
         )
 
 
-class TracecatRuntimeError(Exception):
+class AutoSecOpsRuntimeError(Exception):
     """Exception carrying an already-classified runtime error."""
 
     def __init__(self, classification: RuntimeErrorClassification) -> None:

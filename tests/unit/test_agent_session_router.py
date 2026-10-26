@@ -66,11 +66,11 @@ from autosecops.chat.schemas import (
 )
 from autosecops.db.engine import get_async_session
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsServiceError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatServiceError,
-    TracecatValidationError,
 )
 
 
@@ -832,7 +832,7 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
             return_value=SimpleNamespace(curr_run_id=None, created_by=None)
         ),
         run_turn=AsyncMock(
-            side_effect=TracecatConflictError(
+            side_effect=AutoSecOpsConflictError(
                 "Approval decision conflicts with a decision already recorded"
                 " for tool call tool_call_123"
             )
@@ -922,8 +922,8 @@ async def test_send_message_rejects_teammate_session() -> None:
 @pytest.mark.parametrize(
     ("error", "status_code"),
     [
-        (TracecatNotFoundError("No active workflow run"), 404),
-        (TracecatValidationError("Subagent preset uses manual approvals"), 400),
+        (AutoSecOpsNotFoundError("No active workflow run"), 404),
+        (AutoSecOpsValidationError("Subagent preset uses manual approvals"), 400),
     ],
 )
 async def test_send_message_does_not_reset_stream_when_validation_fails(
@@ -1123,7 +1123,9 @@ async def test_fork_session_maps_backend_rejection_to_bad_request() -> None:
     fake_svc = SimpleNamespace(
         get_session=AsyncMock(return_value=source_session),
         fork_session=AsyncMock(
-            side_effect=TracecatValidationError("Pi sessions do not support forks yet")
+            side_effect=AutoSecOpsValidationError(
+                "Pi sessions do not support forks yet"
+            )
         ),
     )
 
@@ -1402,7 +1404,7 @@ async def test_session_read_surfaces_history_failure(endpoint) -> None:
     fake_svc = SimpleNamespace(
         get_session=AsyncMock(return_value=session_stub),
         list_messages=AsyncMock(
-            side_effect=TracecatServiceError(
+            side_effect=AutoSecOpsServiceError(
                 "Cannot read session history because its backend is not installed"
             )
         ),
@@ -1412,7 +1414,7 @@ async def test_session_read_surfaces_history_failure(endpoint) -> None:
         patch(
             "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
-        pytest.raises(TracecatServiceError, match="backend is not installed"),
+        pytest.raises(AutoSecOpsServiceError, match="backend is not installed"),
     ):
         await cast(Any, endpoint).__wrapped__(
             session_id=session_stub.id,
@@ -1686,7 +1688,7 @@ def test_control_session_dispatches_each_type_to_the_service(
     "error,code,detail",
     [
         (
-            TracecatConflictError(
+            AutoSecOpsConflictError(
                 "Agent session does not have an active turn",
                 detail={"lifecycle": "completed"},
             ),
@@ -1694,7 +1696,7 @@ def test_control_session_dispatches_each_type_to_the_service(
             "Agent session does not have an active turn",
         ),
         (
-            TracecatConflictError("This agent backend does not support withdrawing"),
+            AutoSecOpsConflictError("This agent backend does not support withdrawing"),
             409,
             "This agent backend does not support withdrawing",
         ),

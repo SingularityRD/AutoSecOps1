@@ -27,8 +27,8 @@ from autosecops.dsl.schemas import (
     RunContext,
 )
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     ExecutionError,
-    TracecatValidationError,
 )
 from autosecops.executor import service
 from autosecops.expressions.expectations import ExpectedField
@@ -449,7 +449,7 @@ def test_template_action_definition_validates_self_reference():
     1. A template action cannot reference itself in its steps
     2. The validation error message is descriptive
     """
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         TemplateActionDefinition(
             title="Self Referential Action",
             description="This action tries to reference itself",

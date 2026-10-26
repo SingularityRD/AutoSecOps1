@@ -57,7 +57,7 @@ from autosecops.db.models import (
     WorkspaceOAuthProvider,
 )
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import UserID
 from autosecops.integrations.catalog.loader import (
     get_platform_mcp_catalog_entries,
@@ -5131,7 +5131,7 @@ class IntegrationService(BaseWorkspaceService):
             )
         ).scalar_one_or_none()
         if referenced_tool_id is not None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete an MCP integration referenced by a live skill version",
                 detail={
                     "code": "mcp_integration_referenced_by_skill",

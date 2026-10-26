@@ -561,7 +561,7 @@ async def test_workflow_completes_and_correct(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.AutoSecOpsExpressionErrorAutoSecOpsValidationError"
                 ],
             ),
         )
@@ -2617,7 +2617,7 @@ DIVISION_BY_ZERO_MESSAGE = (
     "There was an error in the executor when calling action 'core.transform.reshape'.\n"
     "\n"
     "\n"
-    "TracecatExpressionError: Error evaluating expression `1/0`\n"
+    "AutoSecOpsExpressionError: Error evaluating expression `1/0`\n"
     "\n"
     "[evaluator] Evaluation failed at node:\n"
     "```\n"
@@ -3081,7 +3081,7 @@ async def test_workflow_error_path(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.AutoSecOpsExpressionErrorAutoSecOpsValidationError"
                 ],
             ),
         )
@@ -3158,8 +3158,8 @@ async def test_workflow_join_unreachable(
                 retry_policy=RetryPolicy(
                     maximum_attempts=1,
                     non_retryable_error_types=[
-                        "autosecops.exceptions.TracecatExpressionError",
-                        "TracecatValidationError",
+                        "autosecops.exceptions.AutoSecOpsExpressionError",
+                        "AutoSecOpsValidationError",
                     ],
                 ),
             )
@@ -3254,8 +3254,8 @@ async def test_workflow_join_run_if_skip_ok(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )
@@ -3340,8 +3340,8 @@ async def test_workflow_multiple_entrypoints(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )
@@ -3462,8 +3462,8 @@ async def test_workflow_runs_template_for_each(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )

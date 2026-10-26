@@ -8,7 +8,7 @@ from sqlalchemy.exc import NoResultFound
 from autosecops.cases.enums import CaseEventType
 from autosecops.contexts import ctx_run
 from autosecops.db.models import Case, CaseTag, CaseTagLink, CaseTrigger
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.identifiers import CaseTagID
 from autosecops.service import BaseWorkspaceService
 from autosecops.tags.schemas import TagCreate, TagUpdate
@@ -29,7 +29,9 @@ class CaseTagsService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         case = result.scalar_one_or_none()
         if case is None:
-            raise TracecatNotFoundError(f"Case {case_id} not found in this workspace.")
+            raise AutoSecOpsNotFoundError(
+                f"Case {case_id} not found in this workspace."
+            )
         return case
 
     async def _create_tag_event(
@@ -324,7 +326,7 @@ class CaseTagsService(BaseWorkspaceService):
 
         case_tag = await self.get_case_tag(case_id, tag.id)
         if not case_tag:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Tag {tag_identifier} not found on case {case_id}"
             )
         await self.session.delete(case_tag)

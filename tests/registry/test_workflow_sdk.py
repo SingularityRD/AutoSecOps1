@@ -19,7 +19,7 @@ from autosecops_registry.sdk.workflows import (
 
 @pytest.fixture
 def mock_autosecops_client() -> MagicMock:
-    """Create a mock TracecatClient."""
+    """Create a mock AutoSecOpsClient."""
     client = MagicMock()
     client.get = AsyncMock()
     client.post = AsyncMock()

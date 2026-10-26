@@ -33,7 +33,7 @@ import { actionTypeToLabel } from "@/components/registry/icons"
 import {
   getCustomRegistryRepository,
   getRegistryOriginLabel,
-  isTracecatRegistryOrigin,
+  isAutoSecOpsRegistryOrigin,
   shortCommitSha,
 } from "@/components/registry/utils"
 import { Badge } from "@/components/ui/badge"
@@ -67,7 +67,7 @@ import { cn, copyToClipboard } from "@/lib/utils"
 type ActionTypeFilter = RegistryActionReadMinimal["type"] | "all"
 type ActionSortField = "name" | "action" | "namespace"
 type ActionSortDirection = "asc" | "desc"
-type TracecatVersionState =
+type AutoSecOpsVersionState =
   | { status: "ready"; version: string }
   | { status: "loading" }
   | { status: "truncated" }
@@ -85,7 +85,7 @@ type RegistryActionGroup = {
   kind: "autosecops" | "custom" | "other"
   actions: RegistryActionReadMinimal[]
   metadata: RegistryRepositoryReadMinimal | RepositoryStatus | null
-  currentVersionState?: TracecatVersionState | null
+  currentVersionState?: AutoSecOpsVersionState | null
 }
 
 function buildSearchText(action: RegistryActionReadMinimal): string {
@@ -292,7 +292,7 @@ export function WorkspaceActionsInventory() {
   })
 
   const platformCurrentVersionStateByOrigin = useMemo(() => {
-    const versionsByOrigin = new Map<string, TracecatVersionState>()
+    const versionsByOrigin = new Map<string, AutoSecOpsVersionState>()
 
     for (const [index, repo] of platformRepos.entries()) {
       if (!repo.current_version_id) {
@@ -409,7 +409,7 @@ export function WorkspaceActionsInventory() {
 
     const groups: RegistryActionGroup[] = Array.from(grouped.entries()).map(
       ([origin, actions]) => {
-        const kind = isTracecatRegistryOrigin(origin, platformOriginSet)
+        const kind = isAutoSecOpsRegistryOrigin(origin, platformOriginSet)
           ? "autosecops"
           : customRepo?.origin === origin
             ? "custom"

@@ -24,7 +24,7 @@ from autosecops.db.engine import (
 )
 from autosecops.db.models import Webhook, WorkflowDefinition, Workspace
 from autosecops.dsl.schemas import TriggerInputs
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import AnyWorkflowIDPath
 from autosecops.logger import logger
 from autosecops.middleware.request import resolve_client_ip
@@ -341,11 +341,11 @@ async def validate_draft_workflow(
             # Draft executions use None for registry_lock to resolve at runtime (latest registry)
             # This avoids stale locks when actions are edited in the UI
             return DraftWorkflowContext(dsl=dsl, registry_lock=None)
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "type": "TracecatValidationError",
+                    "type": "AutoSecOpsValidationError",
                     "message": str(e),
                     "detail": e.detail,
                 },

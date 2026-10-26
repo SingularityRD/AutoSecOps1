@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 import autosecops.admin.registry.router as registry_router_module
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 _REPO_ID = uuid.uuid4()
 _VERSION_ID = uuid.uuid4()
@@ -25,7 +25,7 @@ _PROMOTE_PATH = f"/admin/registry/{_REPO_ID}/versions/{_VERSION_ID}/promote"
             _BACKFILL_PATH,
             {"version_ids": [str(_VERSION_ID)]},
             "start_artifacts_backfill",
-            TracecatNotFoundError(f"Registry versions not found: {_VERSION_ID}"),
+            AutoSecOpsNotFoundError(f"Registry versions not found: {_VERSION_ID}"),
             status.HTTP_404_NOT_FOUND,
             f"Registry versions not found: {_VERSION_ID}",
             id="backfill-missing-version",
@@ -34,7 +34,7 @@ _PROMOTE_PATH = f"/admin/registry/{_REPO_ID}/versions/{_VERSION_ID}/promote"
             _BACKFILL_PATH,
             {"version_ids": [str(_VERSION_ID)]},
             "start_artifacts_backfill",
-            TracecatValidationError(
+            AutoSecOpsValidationError(
                 f"Registry versions do not have tarballs: {_VERSION_ID}"
             ),
             status.HTTP_400_BAD_REQUEST,
@@ -54,7 +54,7 @@ _PROMOTE_PATH = f"/admin/registry/{_REPO_ID}/versions/{_VERSION_ID}/promote"
             _PROMOTE_PATH,
             None,
             "promote_version",
-            TracecatValidationError("Version artifact is not ready"),
+            AutoSecOpsValidationError("Version artifact is not ready"),
             status.HTTP_400_BAD_REQUEST,
             "Version artifact is not ready",
             id="promote-artifact-not-ready",

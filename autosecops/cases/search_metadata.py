@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops.cases.query import DROPDOWN_PREFIX, CaseFieldResolver
 from autosecops.cases.search_adapters import iter_case_filter_conditions
 from autosecops.db.models import CaseDropdownDefinition, CaseDropdownOption, CaseTag
-from autosecops.exceptions import EntitlementRequired, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError, EntitlementRequired
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import Filter, FilterScalar
 from autosecops.tiers.enums import Entitlement
@@ -56,7 +56,7 @@ async def validate_case_filter_metadata(
 
     Raises:
         EntitlementRequired: Any dropdown is requested without its entitlement.
-        TracecatValidationError: A metadata condition or reference is invalid.
+        AutoSecOpsValidationError: A metadata condition or reference is invalid.
     """
     conditions = [
         condition for tree in filters for condition in iter_case_filter_conditions(tree)
@@ -70,7 +70,7 @@ async def validate_case_filter_metadata(
     if dropdown_refs and not case_addons_enabled:
         raise EntitlementRequired(Entitlement.CASE_ADDONS.value)
     if any("\x00" in ref for ref in dropdown_refs):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Case dropdown refs cannot contain null characters"
         )
 
@@ -102,7 +102,7 @@ async def validate_case_filter_metadata(
             ).all()
         )
         if missing_tags := tag_refs - known_tags:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Unknown case tag refs: {', '.join(sorted(missing_tags))}"
             )
 
@@ -134,12 +134,12 @@ async def validate_case_filter_metadata(
             options.add(option)
 
     if missing_dropdowns := dropdown_refs - known_options.keys():
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Unknown case dropdown refs: {', '.join(sorted(missing_dropdowns))}"
         )
     for ref, options in dropdown_options.items():
         if missing_options := options - known_options[ref]:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Unknown options for case dropdown {ref!r}: "
                 f"{', '.join(sorted(missing_options))}"
             )

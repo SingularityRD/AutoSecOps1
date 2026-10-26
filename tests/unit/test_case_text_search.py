@@ -16,7 +16,7 @@ from autosecops.cases.text_search import (
     parse_case_text_query,
 )
 from autosecops.db.models import Case
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.lexical_types import SearchMode
 
 
@@ -273,10 +273,10 @@ async def test_timeout_message_is_specific_to_case_search_and_retains_error_code
     session = AsyncMock()
     session.scalar.side_effect = ["0", "0.5"]
     with pytest.raises(
-        TracecatQueryTimeoutError, match="Case search timed out"
+        AutoSecOpsQueryTimeoutError, match="Case search timed out"
     ) as error:
         async with case_search_execution_context(session):
-            raise TracecatQueryTimeoutError()
+            raise AutoSecOpsQueryTimeoutError()
     assert error.value.code.value == "query_timeout"
 
 

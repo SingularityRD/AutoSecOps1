@@ -21,7 +21,7 @@ from autosecops.db.models import (
     WorkflowDefinition,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -189,7 +189,7 @@ async def test_promote_version_requires_ready_artifact(
     )
 
     service = AdminRegistryService(session, platform_role)
-    with pytest.raises(TracecatValidationError, match="artifact is not ready"):
+    with pytest.raises(AutoSecOpsValidationError, match="artifact is not ready"):
         await service.promote_version(repo.id, version.id)
 
     await session.refresh(repo)
@@ -320,7 +320,7 @@ async def test_delete_version_rejects_current_version(
     await session.commit()
 
     service = AdminRegistryService(session, platform_role)
-    with pytest.raises(TracecatValidationError, match="currently promoted"):
+    with pytest.raises(AutoSecOpsValidationError, match="currently promoted"):
         await service.delete_version(repo.id, current_version.id)
 
     persisted = await session.scalar(
@@ -353,7 +353,7 @@ async def test_delete_version_rejects_version_used_by_any_workflow_definition(
     await session.commit()
 
     service = AdminRegistryService(session, platform_role)
-    with pytest.raises(TracecatValidationError, match="in use"):
+    with pytest.raises(AutoSecOpsValidationError, match="in use"):
         await service.delete_version(repo.id, target_version.id)
 
     persisted = await session.scalar(
@@ -416,7 +416,7 @@ async def test_start_artifacts_backfill_missing_version_raises_not_found(
     service = AdminRegistryService(session, platform_role)
     missing_version_id = uuid.uuid4()
 
-    with pytest.raises(TracecatNotFoundError, match="Registry versions not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Registry versions not found"):
         await service.start_artifacts_backfill(
             RegistryArtifactsBackfillStartRequest(version_ids=[missing_version_id])
         )
@@ -449,7 +449,7 @@ async def test_start_artifacts_backfill_version_without_tarball_raises_validatio
 
     service = AdminRegistryService(cast(AsyncSession, session), platform_role)
     with pytest.raises(
-        TracecatValidationError, match="Registry versions do not have tarballs"
+        AutoSecOpsValidationError, match="Registry versions do not have tarballs"
     ):
         await service.start_artifacts_backfill(
             RegistryArtifactsBackfillStartRequest(version_ids=[version_id])

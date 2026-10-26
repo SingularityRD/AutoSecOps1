@@ -26,10 +26,10 @@ from autosecops.dsl.error_transport import (
 from autosecops.dsl.types import ActionErrorInfo
 from autosecops.identifiers.workflow import WorkflowUUID, generate_exec_id
 from autosecops.runtime.errors import (
+    AutoSecOpsRuntimeError,
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorKind,
-    TracecatRuntimeError,
 )
 from autosecops.storage.object import InlineObject
 from autosecops.temporal.errors import (
@@ -971,7 +971,7 @@ def test_ambiguous_nested_classification_does_not_override_fallback() -> None:
 
 def test_exception_chain_preserves_runtime_classification() -> None:
     classification = _user_classification()
-    classified = TracecatRuntimeError(classification)
+    classified = AutoSecOpsRuntimeError(classification)
 
     try:
         raise RuntimeError("Outer wrapper") from classified
