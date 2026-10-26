@@ -219,6 +219,7 @@
       "prosemirror-view": "1.42.3",
       "sharp": "0.35.5",
       "tar": "7.5.21",
+      "undici": "7.30.1",
       "ws": "8.21.0",
       "cosmiconfig>yaml": "1.10.3",
       "@hey-api/openapi-ts>handlebars": "4.7.10",
