@@ -88,7 +88,7 @@ from autosecops.api.common import (
 from autosecops.api.docs import install_api_docs
 from autosecops.api.lifespan import (
     LifespanTaskSupervisor,
-    freeze_startup_heap,
+    freeze_startup_heap_after,
     unfreeze_startup_heap,
 )
 from autosecops.auth.credentials import authenticated_user_only, require_superuser
@@ -298,12 +298,12 @@ async def lifespan(app: FastAPI):
 
     # Spawn platform registry sync as background task (non-blocking)
     # Uses leader election to prevent race conditions across multiple API processes
-    supervisor.spawn(
+    registry_sync = supervisor.spawn(
         sync_platform_registry_on_startup(),
         name="platform_registry_sync",
         kind="finite",
     )
-    supervisor.spawn(
+    catalog_load = supervisor.spawn(
         load_platform_catalog_on_startup(),
         name="platform_catalog_load",
         kind="finite",
@@ -339,15 +339,20 @@ async def lifespan(app: FastAPI):
     )
     logger.info("RLS mode", rls_mode=config.TRACECAT__RLS_MODE.value)
     log_license_startup()
-    # Last start-up step: everything alive now lives for the process, so take
-    # it out of full garbage collections (see freeze_startup_heap).
-    freeze_startup_heap()
+    # Last start-up step: once the start-up registry sync and catalog load
+    # finish, everything alive lives for the process, so take it out of full
+    # garbage collections (see freeze_startup_heap_after).
+    supervisor.spawn(
+        freeze_startup_heap_after(supervisor, [registry_sync, catalog_load]),
+        name="startup_heap_freeze",
+        kind="finite",
+    )
     logger.info("API startup complete")
 
     yield
 
-    unfreeze_startup_heap()
     await supervisor.drain()
+    unfreeze_startup_heap()
     await close_storage_client_cache()
     shutdown_platform_tracing()
 

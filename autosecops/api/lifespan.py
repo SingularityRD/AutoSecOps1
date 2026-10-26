@@ -23,9 +23,10 @@ drain budget for the bounded await to have any effect.
 
 import asyncio
 import gc
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Sequence
 from typing import Any, Literal
 
+from autosecops import config
 from autosecops.logger import logger
 from autosecops.observability.sentry import capture_api_background_task_failure
 
@@ -229,17 +230,48 @@ def freeze_startup_heap() -> None:
     calling process's collector (it is not inherited by the RoboDR check
     workers, which are spawned, nor by Temporal or executor workers, which do
     not run this lifespan). The cost is that start-up objects which later
-    become cyclic garbage are never reclaimed (this includes whatever the
-    supervised start-up tasks, such as the registry sync, hold at that moment);
-    start-up state lives for the process anyway. :func:`unfreeze_startup_heap` reverses it at shutdown so a
-    process that runs the lifespan more than once (tests) does not accumulate
-    frozen objects.
+    become cyclic garbage are never reclaimed; start-up state lives for the
+    process anyway. :func:`freeze_startup_heap_after` therefore waits for the
+    supervised start-up tasks (registry sync, catalog load) so their transient
+    state is collected first. :func:`unfreeze_startup_heap` reverses it at
+    shutdown so a process that runs the lifespan more than once (tests) does
+    not accumulate frozen objects.
+
+    Module reloads: the start-up registry sync loads the registry in a
+    subprocess (``autosecops.registry.sync.subprocess``), so it reloads
+    nothing here and leaks nothing. The API process reloads registry modules
+    in-process only with ``TRACECAT__LOCAL_REPOSITORY_ENABLED`` (development)
+    or on an import-recovery path; a reload after the freeze keeps the old
+    module's classes (cyclic) alive. Measured on the full start-up heap
+    (about 1.3 million frozen objects): reloading every imported
+    ``autosecops_registry`` module once kept about 4,300 objects, about
+    1.2 MB, per reload. :func:`freeze_startup_heap_after` does not freeze in
+    local-repository mode, where reloads repeat.
     """
     gc.collect()
     gc.freeze()
     logger.info(
         "Froze start-up heap for the garbage collector", objects=gc.get_freeze_count()
     )
+
+
+async def freeze_startup_heap_after(
+    supervisor: LifespanTaskSupervisor, tasks: Sequence[asyncio.Task[None]]
+) -> None:
+    """Freeze the start-up heap once ``tasks`` finish (failed ones included).
+
+    Skipped when shutdown has begun (the lifespan unfreezes after draining,
+    so a late freeze would leak into the next lifespan) and in
+    local-repository mode, which reloads registry modules on every run.
+    """
+    if tasks:
+        await asyncio.wait(tasks)
+    if supervisor.draining:
+        return
+    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        logger.info("Local registry repository enabled; start-up heap not frozen")
+        return
+    freeze_startup_heap()
 
 
 def unfreeze_startup_heap() -> None:
