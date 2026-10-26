@@ -32,26 +32,25 @@ import {
   type RobodrCasePayload,
 } from "@/lib/robodr"
 
-/**
- * Name prefix of verified RoboDR evidence reports. The API reserves it: only
- * `tools.robodr.download_evidence_export` creates such attachments, after the
- * export passed every check of robodr.control-plane §11.6.
- */
-export const EVIDENCE_REPORT_PREFIX = "robodr-evidence-"
-
 /** Text shown when no verified evidence is stored for the case. */
 export const EVIDENCE_NONE =
   "No verified evidence is stored for this case. Run the Robot evidence export workflow to export and verify the finding's black-box records."
 
-/** Verified evidence reports among a case's attachments, newest first. */
+/**
+ * Verified evidence reports among a case's attachments, newest first.
+ *
+ * Trusts only the server-side `robodr_evidence` mark, which the API sets on
+ * the report it writes after an export passed robodr.control-plane §11.6 and
+ * never carries to a copy. The `robodr-evidence-` file name proves nothing.
+ */
 export function verifiedEvidenceReports(
   attachments: CaseAttachmentRead[] | undefined
 ): CaseAttachmentRead[] {
   return (attachments ?? []).filter(
     (attachment) =>
+      attachment.robodr_evidence === true &&
       !attachment.is_deleted &&
-      attachment.content_type === "text/plain" &&
-      attachment.file_name.startsWith(EVIDENCE_REPORT_PREFIX)
+      attachment.content_type === "text/plain"
   )
 }
 
@@ -147,8 +146,8 @@ function formatBytes(size: number): string {
 
 /**
  * The case's verified evidence reports. Reads the case attachments (shared
- * cache with the Attachments panel) and shows only `robodr-evidence-`
- * reports; it never derives evidence from the finding's own links.
+ * cache with the Attachments panel) and shows only reports the API marked as
+ * verified evidence; it never derives evidence from the finding's own links.
  */
 export function RobodrEvidence({
   caseId,

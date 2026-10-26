@@ -244,11 +244,19 @@ describe("RobodrCasePanel", () => {
   })
 
   it("lists verified evidence reports from the case attachments", async () => {
+    const verified = { robodr_evidence: true }
     listAttachments.mockResolvedValue([
       attachment("notes.txt"),
-      attachment("robodr-evidence-2b882fd3f1f17896.txt"),
-      attachment("robodr-evidence-deleted.txt", { is_deleted: true }),
-      attachment("robodr-evidence-image.png", { content_type: "image/png" }),
+      attachment("robodr-evidence-2b882fd3f1f17896.txt", verified),
+      attachment("robodr-evidence-copied.txt"),
+      attachment("robodr-evidence-deleted.txt", {
+        ...verified,
+        is_deleted: true,
+      }),
+      attachment("robodr-evidence-image.png", {
+        ...verified,
+        content_type: "image/png",
+      }),
     ])
     withQuery(<RobodrCasePanel caseData={robodrCase([])} workspaceId="ws-1" />)
     const list = await screen.findByRole("list", { name: "Verified evidence" })
@@ -265,17 +273,22 @@ describe("RobodrCasePanel", () => {
     })
   })
 
-  it("only reserved, live, plain-text reports count as verified", () => {
+  it("only server-marked, live, plain-text reports count as verified", () => {
+    const verified = { robodr_evidence: true }
     expect(
       verifiedEvidenceReports([
-        attachment("robodr-evidence-a.txt"),
-        attachment("evidence-robodr-a.txt"),
-        attachment("robodr-evidence-b.txt", { is_deleted: true }),
+        attachment("robodr-evidence-a.txt", verified),
+        attachment("report.txt", verified),
+        // The reserved name alone (a copy in another case) is not evidence.
+        attachment("robodr-evidence-copy.txt"),
+        attachment("robodr-evidence-unmarked.txt", { robodr_evidence: false }),
+        attachment("robodr-evidence-b.txt", { ...verified, is_deleted: true }),
         attachment("robodr-evidence-c.pdf", {
+          ...verified,
           content_type: "application/pdf",
         }),
       ]).map((a) => a.file_name)
-    ).toEqual(["robodr-evidence-a.txt"])
+    ).toEqual(["robodr-evidence-a.txt", "report.txt"])
     expect(verifiedEvidenceReports(undefined)).toEqual([])
   })
 
