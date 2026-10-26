@@ -9061,6 +9061,23 @@ export type RobotRead = {
 }
 
 /**
+ * Model selection for installing the Robot SOC preset.
+ */
+export type RobotSocPresetInstall = {
+  model_name: string
+  model_provider: string
+  catalog_id?: string | null
+}
+
+/**
+ * Result of installing the Robot SOC preset.
+ */
+export type RobotSocPresetInstallRead = {
+  created: boolean
+  preset: AgentPresetRead
+}
+
+/**
  * Update a robot's descriptive fields or signature policy.
  */
 export type RobotUpdate = {
@@ -15357,6 +15374,14 @@ export type AgentPresetsPreviewToolPolicyData = {
 }
 
 export type AgentPresetsPreviewToolPolicyResponse = AgentPresetToolPolicyRead
+
+export type AgentPresetsInstallRobotSocPresetData = {
+  requestBody: RobotSocPresetInstall
+  workspaceId: string
+}
+
+export type AgentPresetsInstallRobotSocPresetResponse =
+  RobotSocPresetInstallRead
 
 export type AgentPresetsGetAgentPresetData = {
   presetId: string
@@ -21792,6 +21817,25 @@ export type $OpenApiTs = {
         200: AgentPresetToolPolicyRead
         /**
          * Invalid tool policy selections
+         */
+        400: AgentPresetValidationErrorResponse
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/agent/presets/robot-soc": {
+    post: {
+      req: AgentPresetsInstallRobotSocPresetData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotSocPresetInstallRead
+        /**
+         * RoboDR tools or library skills are unavailable
          */
         400: AgentPresetValidationErrorResponse
         /**

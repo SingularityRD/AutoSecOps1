@@ -29732,6 +29732,55 @@ export const $RobotRead = {
   description: "A registered robot.",
 } as const
 
+export const $RobotSocPresetInstall = {
+  properties: {
+    model_name: {
+      type: "string",
+      maxLength: 120,
+      minLength: 1,
+      title: "Model Name",
+    },
+    model_provider: {
+      type: "string",
+      maxLength: 120,
+      minLength: 1,
+      title: "Model Provider",
+    },
+    catalog_id: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Catalog Id",
+    },
+  },
+  type: "object",
+  required: ["model_name", "model_provider"],
+  title: "RobotSocPresetInstall",
+  description: "Model selection for installing the Robot SOC preset.",
+} as const
+
+export const $RobotSocPresetInstallRead = {
+  properties: {
+    created: {
+      type: "boolean",
+      title: "Created",
+    },
+    preset: {
+      $ref: "#/components/schemas/AgentPresetRead",
+    },
+  },
+  type: "object",
+  required: ["created", "preset"],
+  title: "RobotSocPresetInstallRead",
+  description: "Result of installing the Robot SOC preset.",
+} as const
+
 export const $RobotUpdate = {
   properties: {
     site: {

@@ -169,6 +169,8 @@ import type {
   AgentPresetsGetAgentPresetResponse,
   AgentPresetsGetAgentPresetVersionData,
   AgentPresetsGetAgentPresetVersionResponse,
+  AgentPresetsInstallRobotSocPresetData,
+  AgentPresetsInstallRobotSocPresetResponse,
   AgentPresetsListAgentPresetsData,
   AgentPresetsListAgentPresetsResponse,
   AgentPresetsListAgentPresetVersionsData,
@@ -6637,6 +6639,35 @@ export const agentPresetsPreviewToolPolicy = (
     mediaType: "application/json",
     errors: {
       400: "Invalid tool policy selections",
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Install Robot Soc Preset
+ * Install the Robot SOC preset in this workspace. Idempotent.
+ *
+ * An existing ``robot-soc`` preset is returned unchanged.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns RobotSocPresetInstallRead Successful Response
+ * @throws ApiError
+ */
+export const agentPresetsInstallRobotSocPreset = (
+  data: AgentPresetsInstallRobotSocPresetData
+): CancelablePromise<AgentPresetsInstallRobotSocPresetResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/agent/presets/robot-soc",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      400: "RoboDR tools or library skills are unavailable",
       422: "Validation Error",
     },
   })
