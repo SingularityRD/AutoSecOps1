@@ -16,6 +16,7 @@ import {
   RobotEdrAccessGate,
 } from "@/components/robot-edr/robot-edr-access"
 import { AddRobotKeyDialog } from "@/components/robot-edr/robot-edr-dialogs"
+import { RobotFleetPanel } from "@/components/robot-edr/robot-fleet-panel"
 import { RobotKeysTable } from "@/components/robot-edr/robot-keys-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -181,6 +182,17 @@ function RobotDetailContent({ robotId }: RobotDetailProps) {
               canUpdate={canUpdate}
             />
           ) : null}
+        </section>
+
+        <section aria-labelledby="robot-fleet" className="space-y-3">
+          <h3 id="robot-fleet" className="text-sm font-medium">
+            Fleet
+          </h3>
+          <RobotFleetPanel
+            workspaceId={workspaceId}
+            robotId={robotId}
+            robodrRobotId={data.robot_id}
+          />
         </section>
 
         <section aria-labelledby="robot-findings" className="space-y-3">

@@ -17,6 +17,12 @@ export const ROBOT_READ_SCOPE = "robot:read"
 /** Scope needed to register robots and keys or revoke keys. */
 export const ROBOT_UPDATE_SCOPE = "robot:update"
 
+/** Scope needed to manage the SOC fleet key and issue enrollment tokens. */
+export const ROBOT_ENROLL_SCOPE = "robot:enroll"
+
+/** Scope needed to sign off profile approvals (observe to enforce). */
+export const ROBOT_APPROVE_SCOPE = "robot:approve"
+
 /**
  * Renders its children only when the user holds `robot:read` and the
  * organization has the `robot_edr` entitlement; otherwise renders the

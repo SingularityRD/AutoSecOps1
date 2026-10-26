@@ -231,6 +231,8 @@ const ROLE_DESCRIPTIONS: Record<RobotKeyRole, string> = {
   relay:
     "Signs batches for any registered robot in the workspace, such as a sensor box or the diode importer.",
   finding: "Verifies the optional per-finding signature. Never signs a batch.",
+  blackbox:
+    "Verifies black-box records and evidence bundles. Registered at fleet enrollment; never signs a batch.",
 }
 
 /**
@@ -247,7 +249,7 @@ export function AddRobotKeyDialog({
   const fieldId = useId()
   const createKey = useCreateRobotKey(workspaceId)
   const roles: RobotKeyRole[] = robodrRobotId
-    ? ["uplink", "relay", "finding"]
+    ? ["uplink", "relay", "finding", "blackbox"]
     : ["relay"]
   const [role, setRole] = useState<RobotKeyRole>(roles[0])
   const [publicKey, setPublicKey] = useState("")
