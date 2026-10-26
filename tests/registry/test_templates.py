@@ -5,6 +5,10 @@ from typing import Any
 
 import pytest
 
+from autosecops.agent.mcp.utils import (
+    REGISTRY_MCP_SERVER_NAME,
+    action_name_to_mcp_tool_name,
+)
 from autosecops.expressions.policy import ExpressionPolicy, expression_policy
 from autosecops.registry.actions.schemas import (
     RegistryActionValidationErrorInfo,
@@ -77,6 +81,24 @@ async def test_base_registry_validate_template_actions():
         error_output = file.getvalue()
         raise AssertionError(error_output)
     assert len(val_errs) == 0
+
+
+@pytest.mark.anyio
+async def test_base_registry_action_tool_names_fit_the_model_api():
+    # Agents call each action as `mcp__<server>__<action>`; the model API
+    # rejects tool names longer than 128 characters.
+    repo = Repository(origin=DEFAULT_REGISTRY_ORIGIN)
+    await repo.load_from_origin()
+    too_long = {
+        name: len(name)
+        for action_name in repo.store
+        if len(
+            name := f"mcp__{REGISTRY_MCP_SERVER_NAME}__"
+            f"{action_name_to_mcp_tool_name(action_name)}"
+        )
+        > 128
+    }
+    assert not too_long, f"Shorten these action names: {too_long}"
 
 
 @pytest.mark.anyio
