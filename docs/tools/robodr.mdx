@@ -8,7 +8,7 @@ description: "Reference for the AutoSecOps RoboDR integration: registered action
 
 Action ID: `tools.robodr.check_action_policy`
 
-Check a robot action request against the SOC-side rules before it is sent: catalog action, approvals (single or two-person, never the requester), and morphology (no safe_pause, request_safe_state or rollback_config on a humanoid; no rollback_config on a quadruped).
+Check a robot action against the SOC-side rules before it is prepared: catalog action, how many sign-offs it needs (single or two-person), and morphology (safe_pause, request_safe_state and rollback_config only for wheeled_mobile, arm, aerial or other; never rollback_config on a quadruped). Advisory: request_action enforces the same rules and the platform sign-off itself.
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 
@@ -20,12 +20,6 @@ Catalog action, wire name (e.g. robot_restrict_motion) or plain name.
 
 </ParamField>
 
-<ParamField path="requested_by" type="string" required>
-
-Person who requests the action.
-
-</ParamField>
-
 <ParamField path="advertised_actions" type="array[string] | null">
 
 The robot snapshot's `actions` list (plain names).
@@ -34,17 +28,9 @@ Default: `null`.
 
 </ParamField>
 
-<ParamField path="approved_by" type="array[string] | null">
-
-People who approved the request. Two-person actions need two.
-
-Default: `null`.
-
-</ParamField>
-
 <ParamField path="morphology" type="string | null">
 
-Robot morphology from the robot snapshot (humanoid, quadruped, wheeled_mobile, ...). Unknown is treated like humanoid.
+Robot morphology from the robot snapshot. De-energising actions need wheeled_mobile, arm, aerial or other; anything else is refused.
 
 Default: `null`.
 
@@ -68,7 +54,7 @@ Required secrets:
 
 <ParamField path="base_url" type="string" required>
 
-Robot control-plane URL (scheme://host[:port]) of the TLS terminator in front of robodr-agentd. It must forward the request target unchanged.
+Robot control-plane URL, https://host[:port] with no path, of the TLS terminator in front of robodr-agentd (plain http only to a loopback IP literal). It must forward the request target unchanged.
 
 </ParamField>
 
@@ -94,7 +80,7 @@ Default: `null`.
 
 <ParamField path="answer_public_key_hex" type="string | null">
 
-Optional robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
+Robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
 
 Default: `null`.
 
@@ -118,7 +104,7 @@ Required secrets:
 
 <ParamField path="base_url" type="string" required>
 
-Robot control-plane URL (scheme://host[:port]) of the TLS terminator in front of robodr-agentd. It must forward the request target unchanged.
+Robot control-plane URL, https://host[:port] with no path, of the TLS terminator in front of robodr-agentd (plain http only to a loopback IP literal). It must forward the request target unchanged.
 
 </ParamField>
 
@@ -138,7 +124,7 @@ Default: `null`.
 
 <ParamField path="answer_public_key_hex" type="string | null">
 
-Optional robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
+Robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
 
 Default: `null`.
 
@@ -148,15 +134,15 @@ Default: `null`.
 
 Action ID: `tools.robodr.finding_to_case_fields`
 
-Build case inputs (summary, description, severity, priority, status, custom fields, payload) from a robodr.findings 2.x value. Tainted fields appear only as neutralised code spans in the description.
+Build case inputs (summary, description, severity, priority, status, custom fields, payload) from a robodr.findings 2.x record value. Only catalog-verified text and neutralised code spans reach the summary and description.
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 
 ### Input fields
 
-<ParamField path="finding" type="string | object" required>
+<ParamField path="finding" type="string" required>
 
-The record value string, or the output of `tools.robodr.parse_finding`.
+The record value string exactly as received. A parsed object is refused: it cannot be re-validated.
 
 </ParamField>
 
@@ -176,61 +162,13 @@ The robodr.findings record value exactly as received (the decoded `value` string
 
 </ParamField>
 
-## Render untrusted RoboDR value
+## Prepare RoboDR action request
 
-Action ID: `tools.robodr.render_untrusted`
+Action ID: `tools.robodr.prepare_action_request`
 
-Neutralise and delimit an adversary-controlled value (a tainted field of a robot finding) before it reaches an agent prompt, a case, or a chat message. Every workflow and agent must use this for tainted fields.
-
-Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
-
-### Input fields
-
-<ParamField path="value" type="any" required>
-
-The untrusted value: a tainted object (&#123;value, display, taint, ...&#125;, whose `display` is used), a tainted OCSF resource, a string, or any JSON value.
-
-</ParamField>
-
-<ParamField path="field" type="string | null">
-
-Label for the block, usually the JSON Pointer of the field.
-
-Default: `null`.
-
-</ParamField>
-
-<ParamField path="max_length" type="integer">
-
-Maximum characters of the value kept (1..4096); the rest is cut.
-
-Default: `400`.
-
-</ParamField>
-
-<ParamField path="mode" type="string">
-
-`prompt`: a three-line [untrusted-data ...] block for LLM prompts. `markdown`: an inline code span for case descriptions and chat.
-
-Default: `"prompt"`.
-
-Allowed values: `prompt`, `markdown`.
-
-</ParamField>
-
-## Request RoboDR robot action
-
-Action ID: `tools.robodr.request_action`
-
-Send one approved catalog action request (robot_restrict_motion, robot_quarantine_node, robot_isolate_network, robot_record_evidence, robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a robot's control plane. The robot judges it against its safety state and may refuse it. The current RoboDR release records but never executes: recorded_not_executed is reported as not applied.
+Validate a robot action request and compute the request_id and request_digest its sign-offs must carry. Sends nothing. The requester and the approvers submit the sign-off form with these values, then request_action sends the identical request.
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
-
-### Secrets
-
-Required secrets:
-
-- `robodr_control_plane`: required values `ROBODR_SOC_KEY_ID`, `ROBODR_SOC_SECRET_HEX`.
 
 ### Input fields
 
@@ -240,43 +178,9 @@ Catalog action by wire name (robot_&lt;name>) or plain name.
 
 </ParamField>
 
-<ParamField path="approved_by" type="array[string]" required>
-
-Approvers other than the requester: one, or two different people for robot_safe_pause, robot_request_safe_state, robot_rollback_config.
-
-</ParamField>
-
-<ParamField path="base_url" type="string" required>
-
-Robot control-plane URL (scheme://host[:port]) of the TLS terminator in front of robodr-agentd. It must forward the request target unchanged.
-
-</ParamField>
-
-<ParamField path="requested_by" type="string" required>
-
-Requester, 1..100 characters.
-
-</ParamField>
-
 <ParamField path="robot_id" type="string" required>
 
 Robot id robodr-agentd is configured with.
-
-</ParamField>
-
-<ParamField path="answer_key_id" type="string | null">
-
-Optional expected key id of the answer signature.
-
-Default: `null`.
-
-</ParamField>
-
-<ParamField path="answer_public_key_hex" type="string | null">
-
-Optional robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
-
-Default: `null`.
 
 </ParamField>
 
@@ -330,9 +234,229 @@ Default: `""`.
 
 <ParamField path="request_id" type="string | null">
 
-Idempotency key, [A-Za-z0-9._:-]&#123;1,128&#125;. Reuse only to resubmit the identical request. Default: robot_&lt;action>:&lt;robot_id>:&lt;random>.
+Idempotency key, [A-Za-z0-9._:-]&#123;1,128&#125;. Default: robot_&lt;action>:&lt;robot_id>:&lt;random>.
 
 Default: `null`.
+
+</ParamField>
+
+<ParamField path="source" type="string">
+
+SOC label, [a-z0-9_-]&#123;1,32&#125;.
+
+Default: `"autosecops"`.
+
+</ParamField>
+
+<ParamField path="to_version" type="string | null">
+
+rollback_config: target version, [A-Za-z0-9._-]&#123;1,64&#125;.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="ttl_seconds" type="integer | null">
+
+Lifetime in seconds, 1..86400. Required for restrict_motion and isolate_network; not allowed for the other actions.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="workspace_zone" type="string | null">
+
+restrict_motion: zone name, [A-Za-z0-9._-]&#123;1,64&#125;.
+
+Default: `null`.
+
+</ParamField>
+
+## Prepare RoboDR action revert
+
+Action ID: `tools.robodr.prepare_revert_request`
+
+Validate a revert and compute the request_digest its sign-offs must carry. Sends nothing.
+
+Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
+
+### Input fields
+
+<ParamField path="request_id" type="string" required>
+
+The request_id of the action request.
+
+</ParamField>
+
+<ParamField path="robot_id" type="string" required>
+
+Robot id robodr-agentd is configured with.
+
+</ParamField>
+
+<ParamField path="reason" type="string">
+
+Why, at most 500 characters.
+
+Default: `""`.
+
+</ParamField>
+
+## Render untrusted RoboDR value
+
+Action ID: `tools.robodr.render_untrusted`
+
+Neutralise and delimit an adversary-controlled value (a tainted field of a robot finding) before it reaches an agent prompt, a case, or a chat message. Every workflow and agent must use this for tainted fields.
+
+Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
+
+### Input fields
+
+<ParamField path="value" type="any" required>
+
+The untrusted value. Pass a whole tainted entry (a parse_finding `tainted[]` entry, a case payload `untrusted.values[]` entry or a raw tainted object): its `display` is used and its `suspicious` flag (true when missing) is kept. Also a tainted OCSF resource, a string, or any JSON value.
+
+</ParamField>
+
+<ParamField path="field" type="string | null">
+
+Label for the block, usually the JSON Pointer of the field. A non-string is converted with str(); the label is sanitised.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="max_length" type="integer">
+
+Maximum characters of the value kept (1..4096); the rest is cut.
+
+Default: `400`.
+
+</ParamField>
+
+<ParamField path="mode" type="string">
+
+`prompt`: a three-line [untrusted-data ...] block for LLM prompts. `markdown`: an inline code span for case descriptions and chat, followed by ` (suspicious)` when the value is flagged.
+
+Default: `"prompt"`.
+
+Allowed values: `prompt`, `markdown`.
+
+</ParamField>
+
+## Request RoboDR robot action
+
+Action ID: `tools.robodr.request_action`
+
+Send one signed-off catalog action request (robot_restrict_motion, robot_quarantine_node, robot_isolate_network, robot_record_evidence, robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a robot's control plane. Refuses unless platform form submissions prove the requester and one approver (two for the two-person actions), all different platform users, signed off this exact request. The robot judges it against its safety state and may refuse it. The current RoboDR release records but never executes: recorded_not_executed is reported as not applied.
+
+<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+
+Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
+
+### Secrets
+
+Required secrets:
+
+- `robodr_control_plane`: required values `ROBODR_SOC_KEY_ID`, `ROBODR_SOC_SECRET_HEX`.
+
+### Input fields
+
+<ParamField path="action" type="string" required>
+
+Catalog action by wire name (robot_&lt;name>) or plain name.
+
+</ParamField>
+
+<ParamField path="answer_public_key_hex" type="string" required>
+
+Robot finding public key (64 hex). Required: the snapshot and the answer must carry a valid X-RoboDR-Answer-Signature bound to each request.
+
+</ParamField>
+
+<ParamField path="approval_submission_ids" type="array[string]" required>
+
+Form submission ids of the approvers' sign-offs (robodr_decision=approve): one, or two different platform users for robot_safe_pause, robot_request_safe_state, robot_rollback_config and their reverts. Never the requester.
+
+</ParamField>
+
+<ParamField path="base_url" type="string" required>
+
+Robot control-plane URL, https://host[:port] with no path, of the TLS terminator in front of robodr-agentd (plain http only to a loopback IP literal). It must forward the request target unchanged.
+
+</ParamField>
+
+<ParamField path="request_id" type="string" required>
+
+The request_id from prepare_action_request that was signed off.
+
+</ParamField>
+
+<ParamField path="request_submission_id" type="string" required>
+
+Form submission id of the requester's sign-off (robodr_decision=request) for this request_id and request_digest.
+
+</ParamField>
+
+<ParamField path="robot_id" type="string" required>
+
+Robot id robodr-agentd is configured with.
+
+</ParamField>
+
+<ParamField path="answer_key_id" type="string | null">
+
+Optional expected key id of the answer signature.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="config" type="string | null">
+
+rollback_config: profile (default) or program.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="max_joint_speed" type="number | null">
+
+restrict_motion: joint speed cap in (0, 10].
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="max_linear_speed" type="number | null">
+
+restrict_motion: linear speed cap in (0, 10].
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="node" type="string | null">
+
+quarantine_node: plain ROS 2 node name.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="participant_guid" type="string | null">
+
+quarantine_node: DDS participant GUID, 24 or 32 lower-case hex.
+
+Default: `null`.
+
+</ParamField>
+
+<ParamField path="reason" type="string">
+
+Why the action is requested, at most 500 characters.
+
+Default: `""`.
 
 </ParamField>
 
@@ -372,7 +496,9 @@ Default: `null`.
 
 Action ID: `tools.robodr.revert_action`
 
-Ask a robot to revert an action request. request_safe_state and rollback_config are not reversible (refused, not_reversible); a request that never took effect answers not_applied.
+Ask a robot to revert a signed-off action request. Needs the same platform sign-off as a request (two approvers to revert a two-person action such as robot_safe_pause). request_safe_state and rollback_config are not reversible (refused, not_reversible); a request that never took effect answers not_applied.
+
+<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 
@@ -384,15 +510,21 @@ Required secrets:
 
 ### Input fields
 
-<ParamField path="approved_by" type="array[string]" required>
+<ParamField path="answer_public_key_hex" type="string" required>
 
-At least one approver other than the requester.
+Robot finding public key (64 hex). Required: the snapshot and the answer must carry a valid X-RoboDR-Answer-Signature bound to each request.
+
+</ParamField>
+
+<ParamField path="approval_submission_ids" type="array[string]" required>
+
+Form submission ids of the approvers' sign-offs (robodr_decision=approve): one, or two different platform users for robot_safe_pause, robot_request_safe_state, robot_rollback_config and their reverts. Never the requester.
 
 </ParamField>
 
 <ParamField path="base_url" type="string" required>
 
-Robot control-plane URL (scheme://host[:port]) of the TLS terminator in front of robodr-agentd. It must forward the request target unchanged.
+Robot control-plane URL, https://host[:port] with no path, of the TLS terminator in front of robodr-agentd (plain http only to a loopback IP literal). It must forward the request target unchanged.
 
 </ParamField>
 
@@ -402,9 +534,9 @@ The request_id of the action request.
 
 </ParamField>
 
-<ParamField path="requested_by" type="string" required>
+<ParamField path="request_submission_id" type="string" required>
 
-Requester, 1..100 characters.
+Form submission id of the requester's sign-off (robodr_decision=request) for this request_id and request_digest.
 
 </ParamField>
 
@@ -417,14 +549,6 @@ Robot id robodr-agentd is configured with.
 <ParamField path="answer_key_id" type="string | null">
 
 Optional expected key id of the answer signature.
-
-Default: `null`.
-
-</ParamField>
-
-<ParamField path="answer_public_key_hex" type="string | null">
-
-Optional robot finding public key (64 hex). When set, the answer must carry a valid X-RoboDR-Answer-Signature bound to this request.
 
 Default: `null`.
 

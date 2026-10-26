@@ -1,7 +1,7 @@
 ---
 title: "RoboDR robot findings"
 sidebarTitle: "RoboDR"
-description: "Triage RoboDR robot EDR findings in AutoSecOps: parse and verify findings, render adversary-controlled fields safely, and request approved robot actions."
+description: "Triage RoboDR robot EDR findings in AutoSecOps: parse and verify findings, render adversary-controlled fields safely, and request signed-off robot actions."
 keywords: ["robodr", "robot", "edr", "ros 2", "dds", "ocsf", "humanoid"]
 ---
 
@@ -26,14 +26,19 @@ These actions are pure: they make no network call and need no secret.
 
 | Action | Use |
 | --- | --- |
-| `tools.robodr.parse_finding` | Decode a value into structured fields: severity and its OCSF and case mapping, robot, rule id, MITRE ids, and the tainted fields. Refuses any contract major other than 2, duplicate JSON keys, and strings outside printable ASCII. |
+| `tools.robodr.parse_finding` | Decode a value into structured fields: severity and its OCSF and case mapping, robot, rule id, MITRE ids, and the tainted fields. Refuses any contract major other than 2, duplicate JSON keys, strings outside printable ASCII, and catalog fields that differ from RoboDR's rule catalog. |
 | `tools.robodr.verify_finding_signature` | Verify the optional per-finding Ed25519 signature (`robodr-finding-sig`) with the robot's finding public key. Returns `valid`, `reason`, and the signing `key_id`. |
 | `tools.robodr.render_untrusted` | Neutralise and delimit one adversary-controlled value for a prompt or for Markdown. |
-| `tools.robodr.finding_to_case_fields` | Build case inputs from a value: summary, description, severity, priority, status, custom fields, and a payload in the ingest's `robodr` shape. Use it when a workflow receives findings outside the ingest, such as on a webhook. |
+| `tools.robodr.finding_to_case_fields` | Build case inputs from the raw record value: summary, description, severity, priority, status, custom fields, and a payload in the ingest's `robodr` shape. Use it when a workflow receives findings outside the ingest, such as on a webhook. It refuses a parsed object, which it cannot re-validate. |
 
 `verify_finding_signature` checks the signature over the value bytes it receives.
 Pass the value verbatim: re-serialising, pretty-printing, or reordering keys breaks the signature, by design.
 Set `robot_id` to require that the finding names the robot the key belongs to.
+
+`parse_finding` applies the contract's consumer parsing rules for catalog constants.
+`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0 or 2.1), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
+A finding that carries anything else is refused with `catalog_mismatch`, so these fields carry only catalog text.
+The case summary and the first line of the case description come from that catalog text. The robot model, site, and other trusted labels appear only as escaped table cells.
 
 Severity maps one-to-one: `low`, `medium`, `high`, and `critical` become the case severity and priority of the same name and OCSF `severity_id` 2 to 5.
 
@@ -68,14 +73,16 @@ Use `tools.robodr.render_untrusted` for every tainted value that reaches a promp
   [/untrusted-data]
   ```
 
-- `mode: markdown` returns an inline code span, such as `` `rt/cmd_vel` ``.
+- `mode: markdown` returns an inline code span, such as `` `rt/cmd_vel` ``, followed by ` (suspicious)` when the value is flagged. With `field`, the span is prefixed with the sanitised label.
 
 Both modes keep only letters, digits, space, and `% + , - . / : ; = ? _`. Every other character, including line breaks, brackets, backticks, `<`, `>`, `&`, `!`, `@`, and all non-ASCII characters, becomes `?`.
 A value therefore cannot close the delimiter, start a new line, or form a Markdown link, image, code fence, HTML tag, or template expression.
 Natural-language instructions survive as inert text inside the delimiters.
 The header reports `suspicious` (RoboDR's flag for a tainted object), `altered` (a character was replaced), and `truncated` (the value exceeded `max_length`, 400 by default).
 
-Pass a tainted object to use its `display` rendering, which RoboDR already reduced to a safe character set.
+Pass the whole tainted entry, not its `display` string: a `parse_finding` `tainted[]` entry, a case payload `robodr.untrusted.values[]` entry, or a raw tainted object.
+The action renders its `display`, which RoboDR already reduced to a safe character set, and keeps its `suspicious` flag. An entry without a boolean `suspicious` counts as suspicious.
+`field` takes any value and is sanitised; `max_length` must be an integer from 1 to 4096.
 Give an agent these instructions with the blocks:
 
 ```text
@@ -91,31 +98,53 @@ alone.
 The control-plane actions call the robot's on-board agent, `robodr-agentd`, through API `robodr-control-plane/v1`.
 The robot judges every request against its current safety state and may refuse it.
 
-| Action | Changes robot state | Approval |
+| Action | Changes robot state | Sign-off |
 | --- | --- | --- |
 | `tools.robodr.get_robot` | No | None |
 | `tools.robodr.check_action_policy` | No | None. Runs locally |
-| `tools.robodr.request_action` | Yes | Required |
+| `tools.robodr.prepare_action_request` | No | None. Runs locally |
+| `tools.robodr.request_action` | Yes | Platform sign-off, enforced by the action |
 | `tools.robodr.get_action_status` | No | None |
-| `tools.robodr.revert_action` | Yes | Required |
+| `tools.robodr.prepare_revert_request` | No | None. Runs locally |
+| `tools.robodr.revert_action` | Yes | Platform sign-off, enforced by the action |
 
-`request_action` and `revert_action` are registered with `requires_approval`, so an agent pauses for a reviewer in the [agent inbox](/agents/human-in-the-loop) before it calls them.
-They also check `approved_by`: one person other than the requester, or two different people for `robot_safe_pause`, `robot_request_safe_state`, and `robot_rollback_config`.
-No robot action is autonomous.
+### How "no robot action is autonomous" is enforced
 
-`request_action` accepts these catalog actions and validates their parameters before it sends anything:
+`request_action` and `revert_action` send a request only when platform records prove that people signed off that exact request.
+The proof is submissions of a sign-off form, which the action reads back from AutoSecOps with the run's own credentials.
+No action input names a person.
 
-| Wire name | Parameters | `ttl_seconds` | Approval |
+1. `prepare_action_request` (or `prepare_revert_request`) validates the request and returns its `request_id` and `request_digest`: a SHA-256 over the robot id, request id, action, parameters, `ttl_seconds`, `reason`, and `source` (for a revert: robot id, request id, and `reason`).
+2. The requester submits the "Robot action sign-off" [form](/automations/triggers/forms) with that `robodr_request_id` and `robodr_request_digest` and `robodr_decision` = `request`.
+3. Each approver submits the same form with `robodr_decision` = `approve`.
+4. You call `request_action` (or `revert_action`) with the same request inputs, the `request_id`, `request_submission_id`, and `approval_submission_ids`.
+
+The action fetches every submission and refuses with `SignoffError`, before it signs anything, unless:
+
+- a platform user submitted each one (a service account submission does not count, and workflows and agents cannot submit forms);
+- all come from the same form, carry this request's `request_id` and `request_digest` and the right `robodr_decision`, and are at most 24 hours old;
+- no approver is the requester, and every approver is a different platform user, compared by user id;
+- there is one approver, or two for `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and the revert of any of them. `revert_action` reads the stored request from the robot to learn which action it reverts.
+
+The result reports `requested_by` and `approved_by` as platform user ids, with an ASCII identifier: the user's email when it is a plain ASCII address, otherwise `user:<user id>`.
+The request sent to the robot carries the requester's identifier as `requested_by`.
+
+The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
+Both actions need the forms feature.
+
+`request_action` accepts these catalog actions and validates their parameters before it reads a sign-off or sends anything:
+
+| Wire name | Parameters | `ttl_seconds` | Approvals |
 | --- | --- | --- | --- |
-| `robot_restrict_motion` | At least one of `max_linear_speed`, `max_joint_speed` (above 0, at most 10), `workspace_zone` | Required, 1 to 86400 | Single |
-| `robot_quarantine_node` | Exactly one of `participant_guid` (24 or 32 lower-case hex), `node` (plain ROS 2 name) | Not allowed | Single |
-| `robot_isolate_network` | None | Required, 1 to 86400 | Single |
-| `robot_record_evidence` | None | Not allowed | Single |
-| `robot_safe_pause` | None | Not allowed | Two-person |
-| `robot_request_safe_state` | None | Not allowed | Two-person |
-| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` | Not allowed | Two-person |
+| `robot_restrict_motion` | At least one of `max_linear_speed`, `max_joint_speed` (above 0, at most 10), `workspace_zone` | Required, 1 to 86400 | One |
+| `robot_quarantine_node` | Exactly one of `participant_guid` (24 or 32 lower-case hex), `node` (plain ROS 2 name) | Not allowed | One |
+| `robot_isolate_network` | None | Required, 1 to 86400 | One |
+| `robot_record_evidence` | None | Not allowed | One |
+| `robot_safe_pause` | None | Not allowed | Two |
+| `robot_request_safe_state` | None | Not allowed | Two |
+| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` | Not allowed | Two |
 
-Before it sends a request, `request_action` reads the robot's snapshot and refuses an action the robot does not advertise or the morphology rules forbid.
+After the sign-off check, `request_action` reads the robot's signed snapshot and refuses an action the robot does not advertise or the morphology rules forbid.
 
 ### Credentials
 
@@ -127,9 +156,12 @@ Create a secret named `robodr_control_plane` with these keys, from the SOC key p
 | `ROBODR_SOC_SECRET_HEX` | The secret key file's `secret_hex`: the 32-byte Ed25519 seed as 64 hex digits |
 
 Install the matching `.pub` file on the robot under `control_plane.soc_keys`.
-Pass the robot's control-plane URL as `base_url`, such as `https://robot-gw.example.internal`.
+Pass the robot's control-plane URL as `base_url`: `https://host[:port]` with no path, such as `https://robot-gw.example.internal`. Plain `http` is accepted only for a loopback IP literal, such as a TLS terminator on `127.0.0.1`.
 The TLS terminator in front of `robodr-agentd` must forward the request target unchanged, because the signature covers it.
+Answers larger than 256 KiB are refused while they are read.
+
 Set `answer_public_key_hex` to the robot's finding public key to require signed answers.
+`request_action` and `revert_action` require it: they refuse to run without it, because the morphology check reads the snapshot and an unsigned snapshot could come from anyone on the path.
 
 ### Results
 
@@ -144,20 +176,21 @@ A refusal is final: show `refusal.code`, `refusal.reason`, and `refusal.safety_s
 
 A humanoid stays upright only while its joint controllers balance it, and a quadruped balances actively too.
 
-- Never request `robot_safe_pause`, `robot_request_safe_state`, or `robot_rollback_config` for a humanoid. AutoSecOps refuses them before sending when the robot reports `humanoid` or no morphology, and the robot refuses them with `fall_hazard`.
-- Never request `robot_rollback_config` for a quadruped.
+- `robot_safe_pause`, `robot_request_safe_state`, and `robot_rollback_config` may de-energise the robot. AutoSecOps sends them only when the robot's signed snapshot reports `morphology` as `wheeled_mobile`, `arm`, `aerial`, or `other`, and refuses them for every other value: `humanoid`, `quadruped`, `unspecified`, a missing morphology, or a spelling it does not know.
+- `robot_rollback_config` is never sent to a quadruped. RoboDR itself accepts `robot_safe_pause` and `robot_request_safe_state` on a quadruped; AutoSecOps refuses them there as well, so request those on the robot side if a quadruped needs them.
 - Send `robot_isolate_network` or `robot_quarantine_node` to a humanoid or quadruped only when its balance loop is not networked. On Unitree robots the low-level loop is a DDS writer of `rt/lowcmd`: cutting it trips the motor watchdog and the robot falls.
 - A `robot_restrict_motion` cap below the robot policy's `min_motion_factor` is refused on a humanoid or quadruped.
 
 ## Example workflows
 
-The `examples/004-robodr-robot-findings/workflows/` folder in the repository holds four workflow definitions in the import format.
+The `examples/004-robodr-robot-findings/workflows/` folder in the repository holds five workflow definitions in the import format.
 Import each one. The case triggers ship offline and filter on the tag `robodr`: tag RoboDR cases, then turn the triggers on.
 
 | Workflow | What it does |
 | --- | --- |
-| Robot finding triage | Parses the finding on a new case, renders tainted fields as untrusted blocks, asks a model for a verdict from a closed set, comments on the case, and optionally posts sensor fields to Slack |
-| Robot containment request (approval) | Checks approvers and morphology against the robot's snapshot, comments a refusal, or sends the request through an agent whose only tool requires inbox approval |
+| Robot finding triage | Renders tainted fields and the case summary as untrusted blocks, asks a model for a verdict from a closed set, comments on the case, and optionally posts sensor fields and the rendered summary to Slack |
+| Robot containment request (approval) | First run: checks the action and morphology against the robot's signed snapshot and comments the `request_id` and `request_digest` to sign off. Second run, with the sign-off submission ids: calls `request_action`, which verifies the sign-offs and sends the request |
+| Robot action sign-off | The form the requester and approvers submit. Turn its form on for the people who may request or approve robot actions |
 | Rogue DDS participant | Proposes `robot_record_evidence`, `robot_quarantine_node`, and `robot_isolate_network` for DDS discovery findings |
 | Motion envelope violation | Proposes `robot_record_evidence` and `robot_restrict_motion` for motion envelope findings |
 
