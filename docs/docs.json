@@ -218,6 +218,7 @@
             "icon": "wrench",
             "pages": [
               "integrations/overview",
+              "integrations/robodr-tools",
               "tools/1password",
               "tools/1password_sdk",
               "tools/abuseipdb",
@@ -309,6 +310,7 @@
               "tools/rapid7",
               "tools/recorded_future",
               "tools/rippling",
+              "tools/robodr",
               "tools/rootly",
               "tools/scanner",
               "tools/sentinel_one",
