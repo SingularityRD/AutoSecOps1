@@ -66,6 +66,18 @@ async def create_schedule(
         ) from e
 
 
+@router.get("/search", response_model=list[ScheduleRead])
+@require_scope("schedule:read")
+async def search_schedules(
+    role: WorkspaceActorRouteRole, session: AsyncDBSession, params: ScheduleSearch
+) -> list[ScheduleRead]:
+    """**[WORK IN PROGRESS]** Search for schedules."""
+    statement = select(Schedule).where(Schedule.workspace_id == role.workspace_id)
+    results = await session.execute(statement)
+    schedules = results.scalars().all()
+    return ScheduleRead.list_adapter().validate_python(schedules)
+
+
 @router.get("/{schedule_id}", response_model=ScheduleRead)
 @require_scope("schedule:read")
 async def get_schedule(
@@ -134,15 +146,3 @@ async def delete_schedule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete schedule: {e}. Please try again or contact support.",
         ) from e
-
-
-@router.get("/search", response_model=list[ScheduleRead])
-@require_scope("schedule:read")
-async def search_schedules(
-    role: WorkspaceActorRouteRole, session: AsyncDBSession, params: ScheduleSearch
-) -> list[ScheduleRead]:
-    """**[WORK IN PROGRESS]** Search for schedules."""
-    statement = select(Schedule).where(Schedule.workspace_id == role.workspace_id)
-    results = await session.execute(statement)
-    schedules = results.scalars().all()
-    return ScheduleRead.list_adapter().validate_python(schedules)

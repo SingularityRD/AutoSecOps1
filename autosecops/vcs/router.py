@@ -184,6 +184,8 @@ async def save_github_app_credentials(
             app_id=config.app_id or request.app_id,
         )
 
+    except EntitlementRequired:
+        raise
     except GitHubAppError as e:
         logger.error(
             "Failed to save GitHub App credentials",
@@ -218,6 +220,8 @@ async def delete_github_app_credentials(
         github_service = GitHubAppService(session=session, role=role)
         await github_service.delete_github_app_credentials()
 
+    except EntitlementRequired:
+        raise
     except GitHubAppError as e:
         logger.error("Failed to delete GitHub App credentials", error=str(e))
         raise HTTPException(
@@ -246,6 +250,8 @@ async def get_github_app_credentials_status(
         status_data = await github_service.get_github_app_credentials_status()
         return GitHubAppCredentialsStatus(**status_data)
 
+    except EntitlementRequired:
+        raise
     except Exception as e:
         logger.error(
             "Error getting GitHub App credentials status",

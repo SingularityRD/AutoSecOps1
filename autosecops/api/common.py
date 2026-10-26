@@ -27,7 +27,12 @@ from autosecops.config import TEMPORAL__CLUSTER_NAMESPACE
 from autosecops.contexts import ctx_role
 from autosecops.db.exceptions import AuthPoolExhaustedError
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import AutoSecOpsException
+from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
+)
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.observability.sentry import capture_auth_pool_exhaustion
@@ -170,16 +175,39 @@ async def get_default_organization_id(session: AsyncSession) -> OrganizationID:
     return org.id
 
 
+_CLIENT_ERROR_STATUSES: tuple[tuple[type[AutoSecOpsException], int], ...] = (
+    (AutoSecOpsNotFoundError, status.HTTP_404_NOT_FOUND),
+    (AutoSecOpsValidationError, status.HTTP_400_BAD_REQUEST),
+    (AutoSecOpsConflictError, status.HTTP_409_CONFLICT),
+)
+"""Domain errors that describe a problem with the request, not the server.
+
+These match the statuses routers already use when they catch these errors
+explicitly, and the SCIM handlers in ``autosecops.api.app``.
+"""
+
+
+def _autosecops_exception_status(exc: AutoSecOpsException) -> int:
+    for exc_type, status_code in _CLIENT_ERROR_STATUSES:
+        if isinstance(exc, exc_type):
+            return status_code
+    return status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
 def autosecops_exception_handler(request: Request, exc: Exception) -> Response:
     """Generic exception handler for AutoSecOps exceptions.
 
-    We can customize exceptions to expose only what should be user facing.
+    Not-found, validation and conflict errors are client errors (404, 400 and
+    409). Every other AutoSecOps exception is a 500. The response body has the
+    same shape either way.
     """
     autosecops_exc = (
         exc if isinstance(exc, AutoSecOpsException) else AutoSecOpsException(str(exc))
     )
     msg = str(autosecops_exc)
-    logger.error(
+    status_code = _autosecops_exception_status(autosecops_exc)
+    log = logger.error if status_code >= 500 else logger.warning
+    log(
         msg,
         role=ctx_role.get(),
         params=request.query_params,
@@ -187,7 +215,7 @@ def autosecops_exception_handler(request: Request, exc: Exception) -> Response:
         detail=autosecops_exc.detail,
     )
     return ORJSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=status_code,
         content={
             "type": type(exc).__name__,
             "message": msg,

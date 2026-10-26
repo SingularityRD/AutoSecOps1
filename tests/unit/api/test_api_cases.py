@@ -44,6 +44,7 @@ from autosecops.exceptions import (
     AutoSecOpsConflictError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
+    EntitlementRequired,
 )
 from autosecops.pagination import CursorPaginatedResponse
 
@@ -1483,3 +1484,68 @@ async def test_search_cases_rejects_parent_id_with_top_level(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "cannot be combined" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["post", "patch", "delete"])
+async def test_case_task_routes_return_403_when_entitlement_missing(
+    client: TestClient,
+    test_admin_role: Role,
+    method: str,
+) -> None:
+    """Missing case_addons must surface as 403, not a generic 400/500."""
+    case_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+    with patch.object(cases_router, "CaseTasksService") as MockService:
+        mock_svc = AsyncMock()
+        error = EntitlementRequired("case_addons")
+        mock_svc.create_task.side_effect = error
+        mock_svc.get_task.side_effect = error
+        MockService.return_value = mock_svc
+
+        params = {"workspace_id": str(test_admin_role.workspace_id)}
+        match method:
+            case "post":
+                response = client.post(
+                    f"/cases/{case_id}/tasks", params=params, json={"title": "t"}
+                )
+            case "patch":
+                response = client.patch(
+                    f"/cases/{case_id}/tasks/{task_id}",
+                    params=params,
+                    json={"title": "t"},
+                )
+            case _:
+                response = client.delete(
+                    f"/cases/{case_id}/tasks/{task_id}", params=params
+                )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["type"] == "EntitlementRequired"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["patch", "delete"])
+async def test_case_task_routes_return_404_for_task_of_other_case(
+    client: TestClient,
+    test_admin_role: Role,
+    method: str,
+) -> None:
+    """A task that belongs to another case is a 404, not a generic 400/500."""
+    task_id = uuid.uuid4()
+    with patch.object(cases_router, "CaseTasksService") as MockService:
+        mock_svc = AsyncMock()
+        mock_svc.get_task.return_value.case_id = uuid.uuid4()
+        MockService.return_value = mock_svc
+
+        params = {"workspace_id": str(test_admin_role.workspace_id)}
+        url = f"/cases/{uuid.uuid4()}/tasks/{task_id}"
+        if method == "patch":
+            response = client.patch(url, params=params, json={"title": "t"})
+        else:
+            response = client.delete(url, params=params)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Task not found"
+    mock_svc.update_task.assert_not_called()
+    mock_svc.delete_task.assert_not_called()
