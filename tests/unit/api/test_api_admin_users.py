@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from fastapi_users import InvalidPasswordException
 
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 _USER_ID = uuid.uuid4()
 _NEW_USER = {"email": "new-user@example.com", "password": "short"}
@@ -68,7 +68,7 @@ _NEW_USER = {"email": "new-user@example.com", "password": "short"}
             f"/admin/users/{_USER_ID}",
             None,
             "delete_user",
-            TracecatNotFoundError(f"User {_USER_ID} not found"),
+            AutoSecOpsNotFoundError(f"User {_USER_ID} not found"),
             status.HTTP_404_NOT_FOUND,
             None,
             id="delete-not-found",

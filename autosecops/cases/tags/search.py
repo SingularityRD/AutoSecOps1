@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.cases.types import ResolvedCaseTag
 from autosecops.db.models import CaseTag
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 async def resolve_case_tag_filters(
@@ -31,7 +31,7 @@ async def resolve_case_tag_filters(
     tag_refs: set[str] = set()
     for identifier in dict.fromkeys(identifiers):
         if "\x00" in identifier:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Case tag filters cannot contain null characters"
             )
         try:
@@ -60,6 +60,6 @@ async def resolve_case_tag_filters(
         else:
             tag = next((by_ref[ref] for ref in candidate if ref in by_ref), None)
         if tag is None:
-            raise TracecatValidationError(f"Unknown case tag filter: {identifier!r}")
+            raise AutoSecOpsValidationError(f"Unknown case tag filter: {identifier!r}")
         resolved.append(tag)
     return resolved

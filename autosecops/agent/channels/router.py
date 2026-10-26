@@ -36,7 +36,7 @@ from autosecops.contexts import ctx_role
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Workspace
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.logger import logger
 from autosecops.tiers.access import is_org_entitled
 from autosecops.tiers.enums import Entitlement
@@ -231,7 +231,7 @@ async def handle_slack_oauth_callback(
 ) -> RedirectResponse:
     try:
         state_payload = AgentChannelService.parse_slack_oauth_state(state)
-    except TracecatValidationError:
+    except AutoSecOpsValidationError:
         return RedirectResponse(
             _build_callback_redirect_url(
                 base_url=config.AUTOSECOPS__PUBLIC_APP_URL,
@@ -279,7 +279,7 @@ async def handle_slack_oauth_callback(
             service = AgentChannelService(session, role=role)
             token = await service.get_token(token_id)
             if token is None:
-                raise TracecatNotFoundError(f"Channel token '{token_id}' not found")
+                raise AutoSecOpsNotFoundError(f"Channel token '{token_id}' not found")
             await service.require_active_preset_for_token(token, lock=True)
 
             slack_config = service.parse_stored_channel_config(
@@ -289,7 +289,7 @@ async def handle_slack_oauth_callback(
             client_id = slack_config.slack_client_id
             client_secret = slack_config.slack_client_secret
             if not client_id or not client_secret:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Slack client ID and client secret are required"
                 )
 
@@ -310,10 +310,10 @@ async def handle_slack_oauth_callback(
                     is_active=True,
                 ),
             )
-    except (TracecatNotFoundError, TracecatValidationError) as exc:
+    except (AutoSecOpsNotFoundError, AutoSecOpsValidationError) as exc:
         message = (
             _SLACK_CHANNEL_CONFIG_INACTIVE_MESSAGE
-            if isinstance(exc, TracecatNotFoundError)
+            if isinstance(exc, AutoSecOpsNotFoundError)
             else str(exc)
         )
         return RedirectResponse(

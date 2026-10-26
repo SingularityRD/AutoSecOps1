@@ -24,7 +24,7 @@ from autosecops.cases.schemas import (
 )
 from autosecops.cases.service import CaseFieldsService
 from autosecops.db.models import Case, CaseFields, WorkspaceSyncResourceMapping
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.tables.enums import SqlType
 from autosecops.workspace_sync.enums import SyncResourceType, VcsProvider
 
@@ -78,7 +78,7 @@ class TestCaseFieldsService:
         )
 
         # Attempt to create service without workspace should raise error
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             CaseFieldsService(session=session, role=role_without_workspace)
 
     @pytest.mark.parametrize(

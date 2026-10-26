@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from autosecops.auth.api_keys import SCIM_API_KEY_PREFIX
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 BASE = "/scim/connection"
 
@@ -99,7 +99,7 @@ async def test_get_without_a_connection_is_404(
         ),
         patch(
             "autosecops_ee.scim.connections.ScimConnectionService.get_connection",
-            new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
+            new=AsyncMock(side_effect=AutoSecOpsNotFoundError("missing")),
         ),
     ):
         response = client.get(BASE)
@@ -137,7 +137,7 @@ async def test_disconnect_without_a_connection_is_404(
         ),
         patch(
             "autosecops_ee.scim.service.SCIMService.disconnect",
-            new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
+            new=AsyncMock(side_effect=AutoSecOpsNotFoundError("missing")),
         ),
     ):
         response = client.post("/scim/disconnect")

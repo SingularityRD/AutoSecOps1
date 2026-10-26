@@ -14,7 +14,7 @@ from autosecops.authz.enums import WorkspaceRole
 from autosecops.authz.scopes import ORG_MEMBER_SCOPES
 from autosecops.contexts import ctx_role
 from autosecops.db.models import Workspace
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.logger import logger
 from autosecops.workspaces import router as workspaces_router
 
@@ -236,7 +236,7 @@ async def test_create_workspace_membership_non_org_member_returns_404(
     )
     with patch.object(workspaces_router, "MembershipService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.create_membership.side_effect = TracecatNotFoundError(
+        mock_svc.create_membership.side_effect = AutoSecOpsNotFoundError(
             "User not found in organization"
         )
         MockService.return_value = mock_svc
@@ -282,7 +282,7 @@ async def test_search_workspaces_authorization_error_returns_403(
 ) -> None:
     with patch.object(workspaces_router, "WorkspaceService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.search_workspaces.side_effect = TracecatAuthorizationError("Denied")
+        mock_svc.search_workspaces.side_effect = AutoSecOpsAuthorizationError("Denied")
         MockService.return_value = mock_svc
 
         response = client.get(

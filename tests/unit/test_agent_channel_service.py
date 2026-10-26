@@ -29,7 +29,7 @@ from autosecops.agent.channels.service import (
 )
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentPreset, Workspace
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -172,7 +172,7 @@ async def test_update_token_rejects_null_is_active(
         )
     )
 
-    with pytest.raises(TracecatValidationError, match="is_active cannot be null"):
+    with pytest.raises(AutoSecOpsValidationError, match="is_active cannot be null"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(is_active=None),
@@ -189,7 +189,7 @@ async def test_create_token_rejects_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.create_token(
             AgentChannelTokenCreate(
                 agent_preset_id=agent_preset.id,
@@ -274,7 +274,7 @@ async def test_update_token_rejects_reactivating_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(is_active=True),
@@ -304,7 +304,7 @@ async def test_update_token_rejects_config_update_for_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(
@@ -441,7 +441,7 @@ async def test_update_token_rejects_pending_bot_token_when_token_remains_active(
     )
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="Cannot activate token without Slack bot token",
     ):
         await agent_channel_service.update_token(
@@ -539,7 +539,7 @@ def test_parse_slack_oauth_state_v2_rejects_tampering(
     ciphertext[0] ^= 0x01
     tampered_state = f"{version}.{nonce_b64}.{_b64url_encode(bytes(ciphertext))}"
 
-    with pytest.raises(TracecatValidationError, match="Invalid OAuth state"):
+    with pytest.raises(AutoSecOpsValidationError, match="Invalid OAuth state"):
         AgentChannelService.parse_slack_oauth_state(tampered_state)
 
 
@@ -560,7 +560,7 @@ def test_parse_slack_oauth_state_v2_rejects_expired_state(
         lambda: 1_000_000 + SLACK_OAUTH_STATE_TTL_SECONDS + 1,
     )
 
-    with pytest.raises(TracecatValidationError, match="OAuth state expired"):
+    with pytest.raises(AutoSecOpsValidationError, match="OAuth state expired"):
         AgentChannelService.parse_slack_oauth_state(state)
 
 

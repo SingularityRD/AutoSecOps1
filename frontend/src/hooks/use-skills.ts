@@ -28,9 +28,9 @@ import {
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
 import {
+  type AutoSecOpsApiError,
   getApiErrorDetail,
   retryHandler,
-  type TracecatApiError,
 } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
@@ -47,7 +47,7 @@ export function useSkills(
   workspaceId?: string,
   options: { enabled?: boolean } = {}
 ) {
-  const query = useQuery<SkillReadMinimal[], TracecatApiError>({
+  const query = useQuery<SkillReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["skills", workspaceId],
     queryFn: async () => {
       if (!workspaceId) {
@@ -87,7 +87,7 @@ export function useSkills(
  * @returns Skill detail query state.
  */
 export function useSkill(workspaceId?: string, skillId?: string | null) {
-  const query = useQuery<SkillRead, TracecatApiError>({
+  const query = useQuery<SkillRead, AutoSecOpsApiError>({
     queryKey: ["skill", workspaceId, skillId],
     queryFn: async () => {
       if (!workspaceId || !skillId) {
@@ -114,7 +114,7 @@ export function useSkill(workspaceId?: string, skillId?: string | null) {
  * @returns Draft query state.
  */
 export function useSkillDraft(workspaceId?: string, skillId?: string | null) {
-  const query = useQuery<SkillDraftRead, TracecatApiError>({
+  const query = useQuery<SkillDraftRead, AutoSecOpsApiError>({
     queryKey: ["skill-draft", workspaceId, skillId],
     queryFn: async () => {
       if (!workspaceId || !skillId) {
@@ -146,7 +146,7 @@ export function useSkillDraftFile(
   skillId?: string | null,
   path?: string | null
 ) {
-  const query = useQuery<SkillDraftFileRead, TracecatApiError>({
+  const query = useQuery<SkillDraftFileRead, AutoSecOpsApiError>({
     queryKey: ["skill-draft-file", workspaceId, skillId, path],
     queryFn: async () => {
       if (!workspaceId || !skillId || !path) {
@@ -176,7 +176,7 @@ export function useSkillVersions(
   workspaceId?: string,
   skillId?: string | null
 ) {
-  const query = useQuery<SkillVersionRead[], TracecatApiError>({
+  const query = useQuery<SkillVersionRead[], AutoSecOpsApiError>({
     queryKey: ["skill-versions", workspaceId, skillId],
     queryFn: async () => {
       if (!workspaceId || !skillId) {
@@ -222,7 +222,7 @@ export function useSkillVersion(
   skillId?: string | null,
   versionId?: string | null
 ) {
-  const query = useQuery<SkillVersionRead, TracecatApiError>({
+  const query = useQuery<SkillVersionRead, AutoSecOpsApiError>({
     queryKey: ["skill-version", workspaceId, skillId, versionId],
     queryFn: async () => {
       if (!workspaceId || !skillId || !versionId) {
@@ -260,7 +260,7 @@ export function useSkillVersionFile(
   versionId?: string | null,
   path?: string | null
 ) {
-  const query = useQuery<SkillDraftFileRead, TracecatApiError>({
+  const query = useQuery<SkillDraftFileRead, AutoSecOpsApiError>({
     queryKey: ["skill-version-file", workspaceId, skillId, versionId, path],
     queryFn: async () => {
       if (!workspaceId || !skillId || !versionId || !path) {
@@ -294,7 +294,7 @@ export function useSkillVersionFile(
  */
 export function useCreateSkill(workspaceId: string) {
   const queryClient = useQueryClient()
-  const mutation = useMutation<SkillRead, TracecatApiError, SkillCreate>({
+  const mutation = useMutation<SkillRead, AutoSecOpsApiError, SkillCreate>({
     mutationFn: async (requestBody) =>
       await agentSkillsCreateSkill({ workspaceId, requestBody }),
     onSuccess: (skill) => {
@@ -334,7 +334,7 @@ export function useCreateSkill(workspaceId: string) {
  */
 export function useUploadSkill(workspaceId: string) {
   const queryClient = useQueryClient()
-  const mutation = useMutation<SkillRead, TracecatApiError, SkillUpload>({
+  const mutation = useMutation<SkillRead, AutoSecOpsApiError, SkillUpload>({
     mutationFn: async (requestBody) =>
       await agentSkillsUploadSkill({ workspaceId, requestBody }),
     onSuccess: (skill) => {
@@ -376,7 +376,7 @@ export function usePatchSkillDraft(workspaceId: string) {
   const queryClient = useQueryClient()
   const mutation = useMutation<
     SkillDraftRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string; requestBody: SkillDraftPatch }
   >({
     mutationFn: async ({ skillId, requestBody }) =>
@@ -423,7 +423,7 @@ export function usePatchSkillDraft(workspaceId: string) {
 export function useCreateSkillDraftUpload(workspaceId: string) {
   const mutation = useMutation<
     SkillUploadSessionRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string; requestBody: SkillUploadSessionCreate }
   >({
     mutationFn: async ({ skillId, requestBody }) =>
@@ -451,7 +451,7 @@ export function usePublishSkill(workspaceId: string) {
   const queryClient = useQueryClient()
   const mutation = useMutation<
     SkillVersionRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string }
   >({
     mutationFn: async ({ skillId }) =>
@@ -498,7 +498,7 @@ export function useRestoreSkillVersion(workspaceId: string) {
   const queryClient = useQueryClient()
   const mutation = useMutation<
     SkillReadMinimal,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string; versionId: string }
   >({
     mutationFn: async ({ skillId, versionId }) =>
@@ -544,7 +544,7 @@ export function useRestoreSkillVersion(workspaceId: string) {
  */
 export function useDeleteSkill(workspaceId: string) {
   const queryClient = useQueryClient()
-  const mutation = useMutation<void, TracecatApiError, { skillId: string }>({
+  const mutation = useMutation<void, AutoSecOpsApiError, { skillId: string }>({
     mutationFn: async ({ skillId }) =>
       await agentSkillsArchiveSkill({ workspaceId, skillId }),
     onSuccess: (_result, variables) => {

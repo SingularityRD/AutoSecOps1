@@ -10,7 +10,7 @@ from autosecops import config
 from autosecops.auth.dependencies import OrgUserRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
 from autosecops_ee.watchtower.schemas import (
@@ -103,7 +103,7 @@ async def list_watchtower_agent_sessions(
             workspace_id=workspace_id,
             state=session_state,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -144,7 +144,7 @@ async def list_watchtower_session_tool_calls(
             cursor=cursor,
             status=status_filter,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -172,7 +172,7 @@ async def revoke_watchtower_session(
     service = WatchtowerService(session, role=role)
     try:
         await service.revoke_session(session_id, payload.reason)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -195,7 +195,7 @@ async def disable_watchtower_agent(
     service = WatchtowerService(session, role=role)
     try:
         await service.disable_agent(agent_id, payload.reason)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -217,7 +217,7 @@ async def enable_watchtower_agent(
     service = WatchtowerService(session, role=role)
     try:
         await service.enable_agent(agent_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

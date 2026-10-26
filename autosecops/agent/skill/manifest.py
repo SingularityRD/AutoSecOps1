@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from autosecops import config
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,17 +119,17 @@ def normalize_skill_path(path: str) -> str:
         The normalized relative POSIX path.
 
     Raises:
-        TracecatValidationError: If the path is empty, absolute, or escapes
+        AutoSecOpsValidationError: If the path is empty, absolute, or escapes
             the skill root.
     """
 
     if "\x00" in path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Skill paths cannot contain NUL bytes",
             detail={"code": "invalid_path", "path": path.replace("\x00", "")},
         )
     if "\\" in path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill paths must use POSIX separators: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )
@@ -137,17 +137,17 @@ def normalize_skill_path(path: str) -> str:
     path_obj = PurePosixPath(path)
     normalized = str(path_obj)
     if normalized in {"", "."}:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Skill path cannot be empty",
             detail={"code": "invalid_path", "path": path},
         )
     if path_obj.is_absolute() or ".." in path_obj.parts:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill path cannot escape the skill root: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )
     if normalized != path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill path must already be normalized: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )

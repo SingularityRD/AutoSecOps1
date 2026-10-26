@@ -7,7 +7,7 @@ from starlette.status import HTTP_400_BAD_REQUEST
 
 from autosecops.auth.types import Role
 from autosecops.cases.tags.search import resolve_case_tag_filters
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 UNASSIGNED_ASSIGNEE_IDENTIFIERS = frozenset({"unassigned", "__UNASSIGNED__"})
 
@@ -56,6 +56,6 @@ async def resolve_tag_ids(
         resolved = await resolve_case_tag_filters(
             session=session, workspace_id=role.workspace_id, tags=identifiers
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return [tag.id for tag in resolved]

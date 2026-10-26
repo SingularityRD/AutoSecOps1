@@ -9,9 +9,9 @@ from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import AgentTagID
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
@@ -40,7 +40,7 @@ async def list_agent_tags(
         page = await service.list_tags_paginated(
             CursorPaginationParams(limit=limit, cursor=cursor, reverse=reverse)
         )
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
@@ -69,7 +69,7 @@ async def get_agent_tag(
     service = AgentTagsService(session=session, role=role)
     try:
         tag = await service.get_tag(tag_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),
@@ -89,7 +89,7 @@ async def create_agent_tag(
     service = AgentTagsService(session=session, role=role)
     try:
         tag = await service.create_tag(params)
-    except TracecatConflictError as err:
+    except AutoSecOpsConflictError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -110,14 +110,14 @@ async def update_agent_tag(
     service = AgentTagsService(session=session, role=role)
     try:
         tag = await service.get_tag(tag_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),
         ) from err
     try:
         updated = await service.update_tag(tag, params)
-    except TracecatConflictError as err:
+    except AutoSecOpsConflictError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -137,7 +137,7 @@ async def delete_agent_tag(
     service = AgentTagsService(session=session, role=role)
     try:
         await service.delete_tag_by_id(tag_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),

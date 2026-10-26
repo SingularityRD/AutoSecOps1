@@ -29,7 +29,7 @@ from autosecops.agent.schemas import ToolFilters
 from autosecops.agent.tools import BuildToolsResult
 from autosecops.auth.types import Role
 from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.mcp_validation import MCPConfigurationError
 from autosecops.integrations.service import IntegrationService
@@ -377,7 +377,7 @@ async def test_existing_reserved_slugs_fail_before_routing(slug: str) -> None:
         auth_type=MCPAuthType.NONE,
     )
     preset_service = AgentPresetService(session, role=role)
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         preset_service._mcp_integration_refs(
             [str(integration.id)], {integration.id: integration}
         )

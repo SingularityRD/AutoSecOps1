@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from autosecops.dsl.schemas import TemplateExecutionContext
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions.policy import (
     PRESERVE_PARAMETERS,
     REDACT_PARAMETERS,
@@ -430,7 +430,7 @@ def test_redact_secret_expressions_rejects_secret_dependent_keys() -> None:
         "${{ SECRETS.other.KEY }}": 2,
     }
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         _redact(value)
 
     assert "Details withheld:" not in str(exc_info.value)
@@ -768,7 +768,7 @@ def test_secret_dependent_input_key_is_rejected_only_at_sink() -> None:
         {"content": "${{ inputs.content }}"},
     ) == {"content": "plain"}
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         state.resolve_action_args(
             "core.cases.create_case",
             {"payload": "${{ inputs.context }}"},
@@ -938,7 +938,7 @@ def test_preserve_rejects_source_key_collisions() -> None:
         runtime_inputs={"first": "same", "second": "same"},
     )
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         state.resolve_action_args(
             "core.workflow.edit_workflow",
             {

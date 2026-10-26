@@ -106,7 +106,7 @@ class RegistryReposService(BaseOrgService):
                 returns for missing IDs so this defense-in-depth check
                 cannot be used to probe for cross-org repository IDs.
             EntitlementRequired: for non-default origins without the entitlement.
-            RegistryActionValidationError, TracecatCredentialsNotFoundError:
+            RegistryActionValidationError, AutoSecOpsCredentialsNotFoundError:
                 surfaced from the underlying sync.
         """
         # parse_git_url and RegistryActionsService are imported lazily

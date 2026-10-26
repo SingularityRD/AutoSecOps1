@@ -23,7 +23,7 @@ from autosecops.cases.search_adapters import (
 from autosecops.cases.search_schemas import CaseQuery, CaseSearchRequest
 from autosecops.cases.search_service import CaseSearchService
 from autosecops.db.models import Case
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import (
     MAX_FILTER_CONDITIONS,
@@ -190,7 +190,7 @@ def test_query_retains_shared_filter_and_projection_limits() -> None:
     ):
         with pytest.raises(ValidationError):
             CaseSearchRequest.model_validate(selectors)
-    with pytest.raises(TracecatValidationError, match="payload fields"):
+    with pytest.raises(AutoSecOpsValidationError, match="payload fields"):
         case_payload_projection([*fields, "one_too_many"])
 
 
@@ -221,7 +221,7 @@ def test_query_uses_custom_fields_physical_types(
 def test_query_compiler_rejects_unknown_or_unsupported_leaves(field: str) -> None:
     query = CaseQuery(filters=Condition(field=field, op=FilterOp.EQ, value="synthetic"))
     assert query.filters is not None
-    with pytest.raises(TracecatValidationError, match="unknown field"):
+    with pytest.raises(AutoSecOpsValidationError, match="unknown field"):
         compile_filter(query.filters, CaseFieldResolver(WORKSPACE_ID, {}))
 
 

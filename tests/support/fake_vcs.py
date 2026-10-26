@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.git.types import GitUrl
 from autosecops.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
 from autosecops.sync import CommitInfo, PushStatus
@@ -44,7 +44,9 @@ class FakeVcsServer:
             VcsProvider.BITBUCKET,
             VcsProvider.BITBUCKET_DATA_CENTER,
         }:
-            raise TracecatValidationError(f"Unsupported fake VCS provider: {provider}")
+            raise AutoSecOpsValidationError(
+                f"Unsupported fake VCS provider: {provider}"
+            )
         return FakeVcsTransport(server=self)
 
     def repo_files(self, url: GitUrl, *, ref: str | None = None) -> dict[str, str]:

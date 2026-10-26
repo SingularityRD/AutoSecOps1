@@ -41,7 +41,7 @@ import {
 } from "@/lib/case-field-display"
 import { invalidateCaseFieldQueries } from "@/lib/cases/invalidation"
 import { CASE_FIELD_KIND_CONFIG } from "@/lib/data-type"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useCaseFields } from "@/lib/hooks"
 import { useQueryClient } from "@/lib/query"
 import { type SqlTypeCreatable, SqlTypeCreatableEnum } from "@/lib/tables"
@@ -337,7 +337,7 @@ export function AddCustomFieldDialog({
     } catch (error) {
       console.error("Failed to create case field", error)
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         if (apiError.status === 409) {
           // Duplicate field error - show inline error only, no toast
           form.setError("displayName", {

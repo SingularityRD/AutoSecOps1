@@ -65,9 +65,9 @@ from autosecops.chat.schemas import BasicChatRequest
 from autosecops.db.models import AgentSession, AgentSessionHistory
 from autosecops.dsl._converter import get_data_converter
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatServiceError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsServiceError,
+    AutoSecOpsValidationError,
 )
 from autosecops.temporal.codec import TemporalPayloadCodecError
 from autosecops.tiers.enums import Entitlement
@@ -94,7 +94,7 @@ def test_discovery_loads_factories_once_and_rejects_unknown_backends():
         assert registry.get_agent_backend("external") is provider
         assert isinstance(registry.get_agent_backend(None), DefaultBackend)
         factory.assert_called_once_with()
-        with pytest.raises(TracecatValidationError, match="unavailable"):
+        with pytest.raises(AutoSecOpsValidationError, match="unavailable"):
             registry.get_agent_backend("missing")
 
 
@@ -130,7 +130,7 @@ def test_disabled_plugins_cannot_be_selected():
         patch.object(
             registry, "entry_points", return_value=[entry("external", lambda: provider)]
         ),
-        pytest.raises(TracecatValidationError, match="unavailable"),
+        pytest.raises(AutoSecOpsValidationError, match="unavailable"),
     ):
         registry.get_agent_backend("external")
 
@@ -497,7 +497,7 @@ async def test_dispatch_rejects_missing_or_owned_session_before_preparation(miss
         ),
         patch.object(backend, "build_workflow_args") as prepare,
         patch.object(backend, "handle", side_effect=TimeoutError),
-        pytest.raises(TracecatConflictError),
+        pytest.raises(AutoSecOpsConflictError),
     ):
         await backend.start_turn(ctx)
     prepare.assert_not_called()
@@ -535,7 +535,7 @@ async def test_turn_admission_preserves_running_or_unconfirmed_ownership(outcome
         ),
         patch.object(backend, "handle", return_value=handle),
         patch.object(backend, "get_turn_lifecycle") as lifecycle,
-        pytest.raises(TracecatConflictError),
+        pytest.raises(AutoSecOpsConflictError),
     ):
         await backend.start_turn(ctx)
     lifecycle.assert_not_called()
@@ -565,7 +565,7 @@ async def test_recovery_rechecks_ownership_after_releasing_the_lock():
             "autosecops.agent.backends.base.get_temporal_client", return_value=client
         ),
         patch.object(backend, "handle", return_value=handle),
-        pytest.raises(TracecatConflictError),
+        pytest.raises(AutoSecOpsConflictError),
     ):
         await backend.start_turn(ctx)
     ctx.db.commit.assert_awaited_once()
@@ -653,7 +653,7 @@ async def test_backend_can_retain_ownership_of_terminal_turn(status, consulted):
         ),
         patch.object(backend, "handle", return_value=handle),
         patch.object(backend, "build_workflow_args") as prepare,
-        pytest.raises(TracecatConflictError),
+        pytest.raises(AutoSecOpsConflictError),
     ):
         await backend.start_turn(ctx)
     assert checked == ([(ctx.session, old_run_id)] if consulted else [])
@@ -752,7 +752,7 @@ async def test_session_creation_and_backend_changes_fail_before_database_writes(
     ctx = context()
     assert isinstance(ctx.db, AsyncMock)
     service = AgentSessionService(ctx.db, ctx.role)
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.create_session(
             AgentSessionCreate(
                 entity_type=AgentSessionEntity.WORKSPACE_CHAT,
@@ -760,11 +760,11 @@ async def test_session_creation_and_backend_changes_fail_before_database_writes(
                 backend_id="missing",
             )
         )
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.update_session(
             ctx.session, params=AgentSessionUpdate(backend_id="oss")
         )
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.update_session(
             ctx.session, params=AgentSessionUpdate(harness_type=None)
         )
@@ -952,7 +952,7 @@ async def test_controls_need_the_capability_and_a_running_turn(
     )
     with (
         _patched_control(service, ctx, provider),
-        pytest.raises(TracecatConflictError),
+        pytest.raises(AutoSecOpsConflictError),
     ):
         await service.control(ctx.session.id, _control_request(control))
     provider.steer.assert_not_awaited()
@@ -981,9 +981,9 @@ async def test_controlling_an_unavailable_backend_is_a_conflict(control: str):
         ),
         patch(
             "autosecops.agent.session.service.get_agent_backend",
-            side_effect=TracecatValidationError("Agent backend is unavailable"),
+            side_effect=AutoSecOpsValidationError("Agent backend is unavailable"),
         ),
-        pytest.raises(TracecatConflictError, match="unavailable"),
+        pytest.raises(AutoSecOpsConflictError, match="unavailable"),
     ):
         await service.control(ctx.session.id, request)
     provider.cancel.assert_not_awaited()
@@ -1045,7 +1045,7 @@ async def test_caller_owned_dispatch_remains_builtin_only():
     with (
         patch.object(service, "validate_turn_request", return_value=ctx.session),
     ):
-        with pytest.raises(TracecatValidationError, match="caller-owned"):
+        with pytest.raises(AutoSecOpsValidationError, match="caller-owned"):
             await service.prepare_new_turn(ctx.session.id, "Hello")
     ctx.db.commit.assert_not_awaited()
 
@@ -1158,13 +1158,13 @@ async def test_backend_and_harness_are_independent_and_defaults_resolve_internal
         assert (
             registry.get_agent_backend("ee", harness_type="another_harness") is provider
         )
-        with pytest.raises(TracecatValidationError, match="unsupported"):
+        with pytest.raises(AutoSecOpsValidationError, match="unsupported"):
             registry.get_agent_backend("oss", harness_type="custom_harness")
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.update_session(
                 created, params=AgentSessionUpdate(backend_id=None)
             )
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.update_session(
                 created, params=AgentSessionUpdate(harness_type="another_harness")
             )
@@ -1446,12 +1446,12 @@ async def test_missing_backend_history_raises_and_lifecycle_reports_unavailable(
     assert isinstance(ctx.db, AsyncMock)
     ctx.db.execute.return_value = result
     with patch.object(service, "get_session", return_value=ctx.session):
-        with pytest.raises(TracecatServiceError, match="backend is not installed"):
+        with pytest.raises(AutoSecOpsServiceError, match="backend is not installed"):
             await service.list_messages(ctx.session.id)
         lifecycle = await service.get_turn_lifecycle(ctx.session)
         assert lifecycle.lifecycle == TurnLifecycle.UNAVAILABLE
         assert lifecycle.run_id == ctx.run_id
-        with pytest.raises(TracecatValidationError, match="unavailable"):
+        with pytest.raises(AutoSecOpsValidationError, match="unavailable"):
             await service.validate_turn_request(
                 ctx.session.id, BasicChatRequest(message="Hello")
             )
@@ -1499,7 +1499,7 @@ async def test_disabled_backend_keeps_saved_history_readable(native_history):
         assert len(messages) == 1
         assert isinstance(messages[0].message, UserMessage)
         assert messages[0].message.content == "Saved message"
-        with pytest.raises(TracecatValidationError, match="unavailable"):
+        with pytest.raises(AutoSecOpsValidationError, match="unavailable"):
             await service.validate_turn_request(
                 ctx.session.id, BasicChatRequest(message="New message")
             )

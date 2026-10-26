@@ -13,7 +13,7 @@ import autosecops.service_accounts.service as service_accounts_service
 from autosecops.auth.types import Role
 from autosecops.authz.enums import ScopeSource
 from autosecops.db.models import Scope
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.service_accounts.service import OrganizationServiceAccountService
 from autosecops.tiers import defaults as tier_defaults
 
@@ -161,7 +161,7 @@ async def test_create_service_account_rejects_scopes_not_held_by_caller(
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match=(
             "Cannot assign service account scopes not held by the caller: "
             "workspace:delete"
@@ -221,7 +221,7 @@ async def test_update_service_account_rejects_scopes_not_held_by_caller(
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match=(
             "Cannot assign service account scopes not held by the caller: "
             "workspace:delete"

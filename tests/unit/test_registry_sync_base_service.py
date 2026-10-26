@@ -19,7 +19,7 @@ from autosecops.db.models import (
     PlatformRegistryVersion,
     RegistryRepository,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.registry.actions.schemas import (
     RegistryActionCreate,
     RegistryActionOptions,
@@ -670,7 +670,7 @@ async def test_sync_via_temporal_git_requires_registry_ssh_key_before_workflow(
     )
     get_org_secret_by_name = mocker.patch(
         "autosecops.registry.sync.base_service.SecretsService.get_org_secret_by_name",
-        mocker.AsyncMock(side_effect=TracecatNotFoundError("missing")),
+        mocker.AsyncMock(side_effect=AutoSecOpsNotFoundError("missing")),
     )
     get_ssh_key = mocker.patch(
         "autosecops.registry.sync.base_service.SecretsService.get_ssh_key",

@@ -6,7 +6,7 @@ from typing import Any
 from autosecops.agent.schemas import RunAgentArgs
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 
 
 class BaseAgentRunHandle[T](ABC):
@@ -35,7 +35,7 @@ class BaseAgentExecutor[T](ABC):
         self.role = role or ctx_role.get()
 
         if self.role is None or self.role.workspace_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"{self.__class__.__name__} requires workspace"
             )
         self.workspace_id = self.role.workspace_id

@@ -25,7 +25,7 @@ from autosecops.cases.schemas import CaseCommentWorkflowStatus
 from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import Case, CaseComment, CaseEvent, CaseTrigger, Workspace
 from autosecops.dsl.common import DSLInput
-from autosecops.exceptions import TracecatDSLError
+from autosecops.exceptions import AutoSecOpsDSLError
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.logger import logger
 from autosecops.redis.client import RedisClient, get_redis_client
@@ -638,7 +638,7 @@ class CaseTriggerConsumer:
 
         try:
             dsl = DSLInput.model_validate(defn.content)
-        except (ValidationError, TracecatDSLError):
+        except (ValidationError, AutoSecOpsDSLError):
             logger.warning(
                 "Workflow definition content invalid",
                 workflow_id=str(trigger.workflow_id),

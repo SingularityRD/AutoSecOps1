@@ -5,16 +5,16 @@ from within UDF actions running in sandboxed environments.
 """
 
 from autosecops_registry.sdk.cases import CasesClient
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 from autosecops_registry.sdk.tables import TablesClient
 
 from autosecops_registry.sdk.exceptions import (
-    TracecatAPIError,
-    TracecatAuthError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatSDKError,
-    TracecatValidationError,
+    AutoSecOpsAPIError,
+    AutoSecOpsAuthError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsSDKError,
+    AutoSecOpsValidationError,
 )
 from autosecops_registry.sdk.types import (
     UNSET,
@@ -28,17 +28,17 @@ from autosecops_registry.sdk.types import (
 
 __all__ = [
     # Main client
-    "TracecatClient",
+    "AutoSecOpsClient",
     # Sub-clients
     "CasesClient",
     "TablesClient",
     # Exceptions
-    "TracecatAPIError",
-    "TracecatAuthError",
-    "TracecatConflictError",
-    "TracecatNotFoundError",
-    "TracecatSDKError",
-    "TracecatValidationError",
+    "AutoSecOpsAPIError",
+    "AutoSecOpsAuthError",
+    "AutoSecOpsConflictError",
+    "AutoSecOpsNotFoundError",
+    "AutoSecOpsSDKError",
+    "AutoSecOpsValidationError",
     # Sentinel types and helpers
     "UNSET",
     "Unset",

@@ -8,7 +8,7 @@ from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import ScopeDeniedError, TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, ScopeDeniedError
 from autosecops.logger import logger
 
 T = TypeVar("T", bound=Callable[..., Coroutine[Any, Any, Any] | Any])
@@ -158,13 +158,13 @@ def ensure_can_grant_scopes(
     whether to pass live or cached state; grant decisions must pass live state.
 
     Raises:
-        TracecatAuthorizationError: If any scope is outside the caller's ceiling.
+        AutoSecOpsAuthorizationError: If any scope is outside the caller's ceiling.
     """
     denied = sorted(
         {name for name in scope_names if not has_scope(caller_scopes, name)}
     )
     if denied:
-        raise TracecatAuthorizationError(
+        raise AutoSecOpsAuthorizationError(
             "Cannot grant scopes not held by the caller: " + ", ".join(denied)
         )
 

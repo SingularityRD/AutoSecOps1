@@ -7,7 +7,7 @@ import {
   settingsUpdateAgentOtelSettings,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 /** Load and update organization-scoped agent telemetry settings. */
@@ -40,7 +40,7 @@ export function useOrgAgentOtelSettings() {
         description: "Agent telemetry settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({

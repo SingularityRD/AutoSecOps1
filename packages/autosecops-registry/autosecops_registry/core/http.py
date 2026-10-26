@@ -24,7 +24,7 @@ import yaml
 from typing_extensions import Doc
 
 from autosecops_registry import RegistrySecret, registry, secrets
-from autosecops_registry._internal.exceptions import TracecatException
+from autosecops_registry._internal.exceptions import AutoSecOpsException
 from autosecops_registry._internal.jsonpath import eval_jsonpath
 from autosecops_registry._internal.logger import logger
 from autosecops_registry._internal.safe_lambda import build_safe_lambda
@@ -641,7 +641,7 @@ async def http_request(
         httpx_files_param = _process_file_uploads(files, action_name="http_request")
     except (ValueError, TypeError) as e:
         logger.error(f"File processing error in http_request: {str(e)}")
-        raise TracecatException(str(e)) from e
+        raise AutoSecOpsException(str(e)) from e
 
     client_cert_str = secrets.get_or_default("TLS_CERTIFICATE")
     client_key_str = secrets.get_or_default("TLS_PRIVATE_KEY")
@@ -685,7 +685,7 @@ async def http_request(
             logger.error(
                 f"HTTP request failed with status {e.response.status_code}: {error_message}"
             )
-            raise TracecatException(error_message) from e
+            raise AutoSecOpsException(error_message) from e
         except httpx.ReadTimeout as e:
             logger.error(f"HTTP request timed out after {timeout} seconds.")
             raise e
@@ -922,7 +922,7 @@ async def http_paginate(
         if items_jsonpath is not None:
             data = response["data"]
             # Apply jsonpath to either dict or list root. If not a dict/list, this will raise
-            # a TracecatExpressionError, surfacing misuse clearly to users.
+            # a AutoSecOpsExpressionError, surfacing misuse clearly to users.
             if isinstance(data, dict):
                 items_value = eval_jsonpath(items_jsonpath, data)
             else:

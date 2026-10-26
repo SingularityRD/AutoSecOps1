@@ -9,7 +9,7 @@ from autosecops.agent.tags.service import AgentTagsService
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 router = APIRouter(prefix="/agent/presets", tags=["agent-presets"])
@@ -40,12 +40,12 @@ async def list_preset_tags(
                 reverse=reverse,
             ),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -72,7 +72,7 @@ async def add_preset_tag(
     service = AgentTagsService(session, role=role)
     try:
         await service.add_preset_tag(preset_id, params.tag_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -91,7 +91,7 @@ async def remove_preset_tag(
     service = AgentTagsService(session, role=role)
     try:
         link = await service.get_preset_tag(preset_id, tag_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),

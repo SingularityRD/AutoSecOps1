@@ -42,7 +42,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
@@ -264,7 +264,7 @@ async def test_mapping_and_manual_add_share_ownership_boundary(
             await RBACService(session, cohort.role).add_group_member(
                 cohort.group_id, cohort.users[2]
             )
-        except TracecatConflictError:
+        except AutoSecOpsConflictError:
             await session.rollback()
             return "managed"
 
@@ -346,7 +346,7 @@ async def test_source_delete_and_mapping_have_controlled_outcomes(
                 external_group_id=cohort.source_id, group_id=cohort.group_id
             )
             await session.commit()
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             await session.rollback()
             return "missing"
 

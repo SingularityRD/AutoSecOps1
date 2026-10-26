@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from autosecops.auth.schemas import UserReadMinimal, UserRole
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse
 from autosecops.service_accounts import router as service_accounts_router
 from autosecops.service_accounts.schemas import (
@@ -367,7 +367,7 @@ async def test_list_organization_service_accounts_returns_bad_request_for_valida
         service_accounts_router, "OrganizationServiceAccountService"
     ) as mock_service_cls:
         mock_svc = AsyncMock()
-        mock_svc.list_service_accounts.side_effect = TracecatValidationError(
+        mock_svc.list_service_accounts.side_effect = AutoSecOpsValidationError(
             "Invalid cursor for service accounts"
         )
         mock_service_cls.return_value = mock_svc

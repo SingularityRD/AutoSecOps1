@@ -5,7 +5,7 @@ import {
   workflowsRestoreWorkflowDefinition,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 export function useWorkflowDefinitions(
@@ -18,7 +18,7 @@ export function useWorkflowDefinitions(
     isLoading: definitionsIsLoading,
     error: definitionsError,
     refetch: refetchDefinitions,
-  } = useQuery<WorkflowDefinitionRead[], TracecatApiError>({
+  } = useQuery<WorkflowDefinitionRead[], AutoSecOpsApiError>({
     queryKey: ["workflow-definitions", workspaceId, workflowId],
     queryFn: async () => {
       if (!workspaceId || !workflowId) {
@@ -52,7 +52,7 @@ export function useRestoreWorkflowDefinition(
     mutateAsync: restoreWorkflowDefinition,
     isPending: restoreWorkflowDefinitionIsPending,
     error: restoreWorkflowDefinitionError,
-  } = useMutation<WorkflowRead, TracecatApiError, { version: number }>({
+  } = useMutation<WorkflowRead, AutoSecOpsApiError, { version: number }>({
     mutationFn: async ({ version }) => {
       if (!workspaceId || !workflowId) {
         throw new Error("workspaceId and workflowId are required")

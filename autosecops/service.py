@@ -53,7 +53,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Concatenate, ParamSpec, Self, T
 
 from autosecops.contexts import ctx_role
 from autosecops.db.engine import get_async_session_context_manager
-from autosecops.exceptions import EntitlementRequired, TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, EntitlementRequired
 from autosecops.identifiers import OrganizationID, WorkspaceID
 from autosecops.logger import logger
 from autosecops.tiers.access import is_org_entitled
@@ -161,11 +161,11 @@ class BaseOrgService(BaseService):
         super().__init__(session)
         resolved_role = role or ctx_role.get()
         if resolved_role is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"{self.service_name} service requires organization context"
             )
         if resolved_role.organization_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"{self.service_name} service requires organization_id in role"
             )
         self.role = resolved_role
@@ -238,7 +238,7 @@ class BaseWorkspaceService(BaseOrgService):
         super().__init__(session, role)
         # Note: role None check is handled by BaseOrgService
         if self.role.workspace_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"{self.service_name} service requires workspace"
             )
         self.workspace_id = self.role.workspace_id

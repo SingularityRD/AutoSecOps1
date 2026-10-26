@@ -16,7 +16,7 @@ from autosecops.agent.skill.types import ResolvedSkillRef
 from autosecops.agent.skill.validation import STDIO_MCP_TOOL_SUBSET_UNSUPPORTED
 from autosecops.auth.types import Role
 from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.service import IntegrationService
 
 
@@ -126,7 +126,7 @@ async def test_validation_rechecks_existing_immutable_stdio_grants(
 
     metadata = await service.load_metadata([ctx.resolved.skill_version_id])
     if server_type == "stdio" and "search" in tool_names:
-        with pytest.raises(TracecatValidationError) as exc:
+        with pytest.raises(AutoSecOpsValidationError) as exc:
             await service.validate_dependencies(
                 metadata=metadata, resolved_skills=[ctx.resolved]
             )

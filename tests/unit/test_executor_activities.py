@@ -51,10 +51,10 @@ from autosecops.dsl.schemas import (
     StreamID,
 )
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
-    TracecatValidationError,
 )
 from autosecops.executor.activities import ExecutorActivities
 from autosecops.executor.registry_artifacts import (
@@ -568,7 +568,7 @@ class TestProbeStdioMCPConnectionActivity:
         ("resolve_error", "expected_error"),
         [
             (
-                TracecatValidationError("invalid template references super-secret"),
+                AutoSecOpsValidationError("invalid template references super-secret"),
                 "invalid template references [redacted]",
             ),
             (

@@ -49,10 +49,10 @@ from autosecops.db.models import (
 from autosecops.db.models import Role as DBRole
 from autosecops.email.transport import SMTPTransport
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import OrganizationID, UserID
 from autosecops.invitations.enums import InvitationStatus
@@ -89,7 +89,7 @@ async def create_invitation_row(
     Does not commit.
 
     Raises:
-        TracecatValidationError: If the email is already an org member or a
+        AutoSecOpsValidationError: If the email is already an org member or a
             pending unexpired invitation already exists.
     """
     email = params.email
@@ -104,7 +104,7 @@ async def create_invitation_row(
         )
     ).scalar_one_or_none()
     if existing_member is not None:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"{email} is already a member of this organization"
         )
 
@@ -124,7 +124,7 @@ async def create_invitation_row(
     now = datetime.now(UTC)
     if pending is not None:
         if pending.expires_at >= now and pending.grants:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"An invitation already exists for {email} in this organization"
             )
         await session.delete(pending)
@@ -182,7 +182,7 @@ async def validate_grants(
             .all()
         )
         if missing := workspace_ids - found:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Workspace not found in this organization: {sorted(map(str, missing))}"
             )
 
@@ -201,9 +201,9 @@ async def validate_grants(
         .all()
     )
     if {granted_role.id for granted_role in granted_roles} != role_ids:
-        raise TracecatValidationError("Invalid role ID for this organization")
+        raise AutoSecOpsValidationError("Invalid role ID for this organization")
     if any(granted_role.slug == ORG_MEMBER_ROLE_SLUG for granted_role in granted_roles):
-        raise TracecatValidationError("organization-member is granted implicitly")
+        raise AutoSecOpsValidationError("organization-member is granted implicitly")
     roles_by_id = {granted_role.id: granted_role for granted_role in granted_roles}
     for grant in grants:
         ensure_role_fits_scope(roles_by_id[grant.role_id], grant.workspace_id)
@@ -237,12 +237,12 @@ async def validate_groups(
     caller_scopes = granter_scopes or frozenset()
     if not role.is_platform_superuser:
         if not has_scope(caller_scopes, "org:rbac:update"):
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Inviting users to groups requires org:rbac:update"
             )
 
     if not await is_org_entitled(session, organization_id, Entitlement.RBAC_ADDONS):
-        raise TracecatAuthorizationError(
+        raise AutoSecOpsAuthorizationError(
             "Inviting users to groups requires the RBAC add-ons entitlement"
         )
 
@@ -268,9 +268,9 @@ async def validate_groups(
     )
     found_ids = {group_id for group_id, _mapped in group_rows}
     if found_ids != set(group_ids):
-        raise TracecatValidationError("Invalid group ID for this organization")
+        raise AutoSecOpsValidationError("Invalid group ID for this organization")
     if any(mapped for _group_id, mapped in group_rows):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Identity provider-managed groups cannot be assigned by invitation"
         )
 
@@ -403,11 +403,11 @@ async def _apply_grants(
     # Grants made before roles were pinned to a level may no longer fit.
     for grant in explicit:
         if (granted_role := roles_by_id.get(grant.role_id)) is None:
-            raise TracecatAuthorizationError("Invitation is no longer valid")
+            raise AutoSecOpsAuthorizationError("Invitation is no longer valid")
         try:
             ensure_role_fits_scope(granted_role, grant.workspace_id)
-        except TracecatValidationError as e:
-            raise TracecatAuthorizationError(
+        except AutoSecOpsValidationError as e:
+            raise AutoSecOpsAuthorizationError(
                 f"Invitation is no longer valid: {e}"
             ) from e
 
@@ -450,16 +450,16 @@ async def _claim_pending(session: AsyncSession, invitation: Invitation) -> None:
     if update_result.rowcount != 0:  # pyright: ignore[reportAttributeAccessIssue]
         # The claim may have waited on a row lock past the initial expiry check.
         if invitation.expires_at < datetime.now(UTC):
-            raise TracecatAuthorizationError("Invitation has expired")
+            raise AutoSecOpsAuthorizationError("Invitation has expired")
         return
 
     # Status changed between fetch and update - re-fetch for an accurate error
     await session.refresh(invitation)
     if invitation.status == InvitationStatus.ACCEPTED:
-        raise TracecatAuthorizationError("Invitation has already been accepted")
+        raise AutoSecOpsAuthorizationError("Invitation has already been accepted")
     if invitation.status == InvitationStatus.REVOKED:
-        raise TracecatAuthorizationError("Invitation has been revoked")
-    raise TracecatAuthorizationError("Invitation is no longer valid")
+        raise AutoSecOpsAuthorizationError("Invitation has been revoked")
+    raise AutoSecOpsAuthorizationError("Invitation is no longer valid")
 
 
 async def accept_invitation_for_user(
@@ -482,31 +482,31 @@ async def accept_invitation_for_user(
             enforcement, that is the only path that may accept.
 
     Raises:
-        TracecatNotFoundError: If the invitation doesn't exist.
-        TracecatAuthorizationError: If the invitation is expired, revoked, already
+        AutoSecOpsNotFoundError: If the invitation doesn't exist.
+        AutoSecOpsAuthorizationError: If the invitation is expired, revoked, already
             accepted, the user's email doesn't match the invitation email, or the
             organization enforces SAML and the caller is not its SSO callback.
     """
     invitation = await find_invitation_by_token(session, token)
     if invitation is None:
-        raise TracecatNotFoundError("Invitation not found")
+        raise AutoSecOpsNotFoundError("Invitation not found")
 
     user = (
         await session.execute(select(User).where(User.id == user_id))  # pyright: ignore[reportArgumentType]
     ).scalar_one_or_none()
     if user is None:
-        raise TracecatAuthorizationError("User not found")
+        raise AutoSecOpsAuthorizationError("User not found")
     if user.email.lower() != invitation.email.lower():
-        raise TracecatAuthorizationError(
+        raise AutoSecOpsAuthorizationError(
             "This invitation was sent to a different email address"
         )
     if invitation.expires_at < datetime.now(UTC):
-        raise TracecatAuthorizationError("Invitation has expired")
+        raise AutoSecOpsAuthorizationError("Invitation has expired")
     # A grant whose workspace or role was deleted is gone by foreign key.
     if not invitation.grants:
-        raise TracecatAuthorizationError("Invitation is no longer valid")
+        raise AutoSecOpsAuthorizationError("Invitation is no longer valid")
     if not via_sso and await is_org_saml_enforced(session, invitation.organization_id):
-        raise TracecatAuthorizationError("Sign in with SSO to accept this invitation")
+        raise AutoSecOpsAuthorizationError("Sign in with SSO to accept this invitation")
 
     audit_role = Role(
         type="user",
@@ -535,7 +535,7 @@ async def accept_invitation_for_user(
             groups=invitation.groups,
         )
         await session.commit()
-    except TracecatAuthorizationError:
+    except AutoSecOpsAuthorizationError:
         # Expected user errors are not audit failures.
         raise
     except Exception:
@@ -565,7 +565,7 @@ async def revoke_invitation_row(session: AsyncSession, invitation: Invitation) -
     """Mark a pending invitation revoked. Does not commit.
 
     Raises:
-        TracecatAuthorizationError: If the invitation is not pending.
+        AutoSecOpsAuthorizationError: If the invitation is not pending.
     """
     result = await session.execute(
         update(Invitation)
@@ -580,7 +580,7 @@ async def revoke_invitation_row(session: AsyncSession, invitation: Invitation) -
     # The row may have changed while this update waited for acceptance's lock.
     await session.refresh(invitation)
     if result.scalar_one_or_none() is None:
-        raise TracecatAuthorizationError(
+        raise AutoSecOpsAuthorizationError(
             f"Cannot revoke invitation with status '{invitation.status}'"
         )
 
@@ -600,19 +600,19 @@ async def reset_invitation_email(session: AsyncSession, invitation: Invitation) 
 
     Raises:
         NoResultFound: If the row no longer exists.
-        TracecatValidationError: If the row is not pending, has expired, or
+        AutoSecOpsValidationError: If the row is not pending, has expired, or
             email delivery is not configured.
-        TracecatConflictError: If the row is inside the resend cooldown.
+        AutoSecOpsConflictError: If the row is inside the resend cooldown.
     """
     now = datetime.now(UTC)
     if invitation.status != InvitationStatus.PENDING:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Cannot resend invitation with status '{invitation.status}'"
         )
     if invitation.expires_at <= now:
-        raise TracecatValidationError("Cannot resend an expired invitation")
+        raise AutoSecOpsValidationError("Cannot resend an expired invitation")
     if SMTPTransport.from_config() is None:
-        raise TracecatValidationError("Email delivery is not configured")
+        raise AutoSecOpsValidationError("Email delivery is not configured")
 
     cutoff = now - RESEND_COOLDOWN
     result = await session.execute(
@@ -640,12 +640,14 @@ async def reset_invitation_email(session: AsyncSession, invitation: Invitation) 
         if fresh is None:
             raise NoResultFound("Invitation not found")
         if fresh.status != InvitationStatus.PENDING:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Cannot resend invitation with status '{fresh.status}'"
             )
         if fresh.expires_at <= now:
-            raise TracecatValidationError("Cannot resend an expired invitation")
-        raise TracecatConflictError("Invitation email was sent less than a minute ago")
+            raise AutoSecOpsValidationError("Cannot resend an expired invitation")
+        raise AutoSecOpsConflictError(
+            "Invitation email was sent less than a minute ago"
+        )
 
 
 # --- Lookups
@@ -704,12 +706,12 @@ class InvitationService(BaseOrgService):
         """Create an invitation carrying one or more grants.
 
         Raises:
-            TracecatAuthorizationError: If the caller is not an authenticated user.
-            TracecatValidationError: If a grant is invalid, the email is already an
+            AutoSecOpsAuthorizationError: If the caller is not an authenticated user.
+            AutoSecOpsValidationError: If a grant is invalid, the email is already an
                 org member, or a pending unexpired invitation already exists.
         """
         if self.role.user_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "User must be authenticated to create invitation"
             )
 
@@ -805,7 +807,7 @@ class InvitationService(BaseOrgService):
 
         Raises:
             NoResultFound: If the invitation doesn't exist or belongs to another org.
-            TracecatAuthorizationError: If the invitation is not pending.
+            AutoSecOpsAuthorizationError: If the invitation is not pending.
         """
         invitation = await self.get_invitation(invitation_id)
         await revoke_invitation_row(self.session, invitation)
@@ -823,9 +825,9 @@ class InvitationService(BaseOrgService):
 
         Raises:
             NoResultFound: If the invitation doesn't exist or belongs to another org.
-            TracecatValidationError: If the invitation is not pending, has expired,
+            AutoSecOpsValidationError: If the invitation is not pending, has expired,
                 or email delivery is not configured.
-            TracecatConflictError: If the invitation was claimed within the cooldown.
+            AutoSecOpsConflictError: If the invitation was claimed within the cooldown.
         """
         invitation = await self.get_invitation(invitation_id)
         await reset_invitation_email(self.session, invitation)

@@ -27,10 +27,10 @@ from autosecops.db.models import (
 from autosecops.db.rls import set_rls_context
 from autosecops.db.tenant_rls import enable_org_table_rls, enable_workspace_table_rls
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.pagination import PageParams
 from autosecops.secrets.enums import AwsSecretMappingMode, SecretSource
@@ -127,7 +127,7 @@ async def test_store_collections_paginate_without_skips(
         assert {s.id for s in first.items + second.items + last.items} == {
             s.id for s in created
         }
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await list_page(PageParams(limit=1, cursor="invalid"))
 
 
@@ -229,7 +229,7 @@ async def test_store_with_unparseable_config_can_be_renamed_and_disabled(
 async def test_store_lookup_is_scoped_to_organization(
     stores: SecretStoresService,
 ) -> None:
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await stores.get_store(uuid.uuid4())
 
 
@@ -247,7 +247,7 @@ async def test_reference_requires_workspace_authorization(
     )
     assert (await secrets.list_authorized_stores(PageParams())).items == []
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await secrets.create_aws_secret_reference(reference_params(store.id))
 
     await stores.authorize_workspace(store, svc_workspace.id)
@@ -300,7 +300,7 @@ async def test_authorize_rejects_workspace_outside_organization(
             config=AwsSecretsManagerStoreCreate(role_arn=ROLE_ARN, region=REGION),
         )
     )
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await stores.authorize_workspace(store, uuid.uuid4())
 
 
@@ -359,7 +359,7 @@ async def test_region_change_rejected_while_arn_references_exist(
         await stores.update_store(store, region_update)
         assert parse_store_config(store).region == "eu-west-1"
     else:
-        with pytest.raises(TracecatConflictError, match="by ARN"):
+        with pytest.raises(AutoSecOpsConflictError, match="by ARN"):
             await stores.update_store(store, region_update)
         assert parse_store_config(store).region == REGION
 
@@ -447,9 +447,9 @@ async def test_store_and_authorization_lifecycle_guards(
     await stores.authorize_workspace(store, svc_workspace.id)
     created = await secrets.create_aws_secret_reference(reference_params(store.id))
 
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await stores.revoke_workspace(store, svc_workspace.id)
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await stores.delete_store(store)
 
     # The DB refuses to drop an authorization a reference still depends on,
@@ -493,7 +493,7 @@ async def test_delete_preserves_references_missed_by_preflight(
         await session.refresh(store, attribute_names=["secrets"])
     # Model a reference committed after the count, before the ORM delete.
     monkeypatch.setattr(stores, "count_references", AsyncMock(return_value={}))
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await stores.delete_store(store)
     assert (await secrets.get_secret(secret_id)).store_id == store_id
     assert (await stores.get_store(store_id)).id == store_id
@@ -589,10 +589,10 @@ async def test_reference_guards_with_enforced_rls_and_org_only_context(
             (svc_workspace.id, 1),
             (other_workspace.id, 1),
         }
-        with pytest.raises(TracecatConflictError) as revoked:
+        with pytest.raises(AutoSecOpsConflictError) as revoked:
             await org_stores.revoke_workspace(store, svc_workspace.id)
         assert revoked.value.detail == {"reference_count": 1}
-        with pytest.raises(TracecatConflictError) as deleted:
+        with pytest.raises(AutoSecOpsConflictError) as deleted:
             await org_stores.delete_store(store)
         assert deleted.value.detail == {"reference_count": 2}
         # The privileged read must not change the request session's RLS context.
@@ -605,7 +605,7 @@ async def test_reference_guards_with_enforced_rls_and_org_only_context(
 async def test_store_config_round_trips_and_rejects_unknown_provider(
     stores: SecretStoresService,
 ) -> None:
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await stores.create_store(
             SecretStoreCreate.model_construct(
                 name="unknown",
@@ -691,7 +691,7 @@ async def test_org_wide_access_includes_future_workspaces_and_preserves_bindings
         )
     ).all()
     assert [grant.workspace_id for grant in grants] == [svc_workspace.id]
-    with pytest.raises(TracecatConflictError, match="Turn off all-workspace"):
+    with pytest.raises(AutoSecOpsConflictError, match="Turn off all-workspace"):
         await stores.revoke_workspace(store, svc_workspace.id)
 
     # Disabling the store remains independent of workspace access.
@@ -708,9 +708,9 @@ async def test_org_wide_access_includes_future_workspaces_and_preserves_bindings
         s.id for s in (await secrets.list_authorized_stores(PageParams())).items
     ] == [store.id]
     assert (await future_secrets.list_authorized_stores(PageParams())).items == []
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await future_secrets.create_aws_secret_reference(reference_params(store.id))
-    with pytest.raises(TracecatConflictError, match="still has 2 secret"):
+    with pytest.raises(AutoSecOpsConflictError, match="still has 2 secret"):
         await stores.revoke_workspace(store, svc_workspace.id)
 
 
@@ -745,7 +745,7 @@ async def test_org_wide_access_never_crosses_organization_boundaries(
             ),
         )
         assert (await foreign_secrets.list_authorized_stores(PageParams())).items == []
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await foreign_secrets.create_aws_secret_reference(
                 reference_params(store.id)
             )
@@ -823,7 +823,7 @@ async def test_org_wide_scope_change_serializes_with_reference_creation(
                     ] == [store.id]
                 else:
                     await first.commit()
-                    with pytest.raises(TracecatAuthorizationError):
+                    with pytest.raises(AutoSecOpsAuthorizationError):
                         await other_references.create_aws_secret_reference(
                             reference_params(store.id)
                         )

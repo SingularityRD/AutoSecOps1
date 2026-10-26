@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import type { SqlType } from "@/lib/data-type"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useGetTable, useImportCsv } from "@/lib/hooks"
 import {
   type CsvPreviewData,
@@ -200,7 +200,7 @@ export function TableImportCsvDialog({
     } catch (error) {
       console.error("Error importing data:", error)
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         const detail =
           typeof apiError.body.detail === "string"
             ? apiError.body.detail

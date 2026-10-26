@@ -4,7 +4,7 @@ import pytest
 
 from autosecops.dsl.common import DSLEntrypoint, DSLInput
 from autosecops.dsl.schemas import ActionStatement
-from autosecops.exceptions import TracecatDSLError
+from autosecops.exceptions import AutoSecOpsDSLError
 from autosecops.validation.service import validate_dsl_acyclic
 
 
@@ -14,7 +14,7 @@ class TestScopeValidation:
     def test_invalid_upward_reference(self):
         """Test that upward references (outer -> inner) are caught."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="Action 'invalid_action_ref' has an expression in field 'inputs' that references 'process_item' which cannot be referenced from this scope",
         ):
             DSLInput(
@@ -100,7 +100,7 @@ class TestScopeValidation:
     def test_cross_region_dependency(self):
         """Test that cross-region dependencies are caught."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="Action 'process_item2' has an edge from 'scatter_items2', which is in a different scatter-gather scope",
         ):
             DSLInput(
@@ -238,10 +238,10 @@ class TestScopeValidation:
         Test that a gather action without a corresponding scatter raises an error.
 
         A gather action must always be paired with a scatter action. This test ensures
-        that a gather without a scatter is not allowed and raises a TracecatDSLError.
+        that a gather without a scatter is not allowed and raises a AutoSecOpsDSLError.
         """
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="There are more gather actions than scatter actions.",
         ):
             DSLInput(
@@ -284,7 +284,7 @@ class TestScopeValidation:
         (C depends on both B (inner scope) and Gather (outer scope))
         """
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="Action 'c' has an edge from 'b', which is in a different scatter-gather scope",
         ):
             DSLInput(
@@ -368,7 +368,7 @@ class TestScopeValidation:
     def test_loop_end_condition_rejects_sibling_scatter_scope_reference(self):
         """Loop end condition cannot read from a sibling scatter branch."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="condition refs must be in loop scope",
         ):
             DSLInput(
@@ -456,7 +456,7 @@ class TestScopeValidation:
     def test_loop_end_condition_rejects_nested_scatter_item_reference(self):
         """Loop end condition cannot read per-item action in nested scatter scope."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="condition refs must be in loop scope",
         ):
             DSLInput(
@@ -562,7 +562,7 @@ class TestScopeValidation:
     def test_loop_end_condition_rejects_ancestor_scope_reference(self):
         """Loop end condition cannot read from an ancestor/root action."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="condition refs must be in loop scope",
         ):
             DSLInput(
@@ -598,7 +598,7 @@ class TestScopeValidation:
     def test_outer_loop_end_condition_rejects_inner_loop_reference(self):
         """Outer loop condition cannot read inner-loop action output."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="condition refs must be in loop scope",
         ):
             DSLInput(
@@ -651,7 +651,7 @@ class TestScopeValidation:
     def test_loop_end_requires_single_dependency_scope(self):
         """Loop end must not depend on multiple distinct dependency scopes."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="must depend on actions from exactly one loop scope",
         ):
             DSLInput(
@@ -733,7 +733,7 @@ class TestScopeValidation:
         sibling in-loop branch is still running and mutating ACTIONS.
         """
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="must synchronize at 'loop_end'",
         ):
             DSLInput(
@@ -775,7 +775,7 @@ class TestScopeValidation:
     def test_loop_scope_with_scatter_requires_synchronization_at_loop_end(self):
         """Scatter work inside a loop must also converge before loop_end."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="must synchronize at 'loop_end'",
         ):
             DSLInput(
@@ -869,7 +869,7 @@ class TestScopeValidation:
     def test_outer_scope_cannot_reference_scatter_descendant_expression(self):
         """Test parent scope still cannot reference scatter descendant expression."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match=(
                 "Action 'after' has an expression in field 'inputs' "
                 "that references 'step' which cannot be referenced from this scope"
@@ -920,7 +920,7 @@ class TestScopeValidation:
     def test_loop_end_without_loop_start(self):
         """Test that loop.end without loop.start raises an error."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="Loop scopes must be balanced:",
         ):
             DSLInput(
@@ -945,7 +945,7 @@ class TestScopeValidation:
     def test_loop_start_without_loop_end(self):
         """Test that loop.start without loop.end raises an error."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match="Loop scopes must be balanced:",
         ):
             DSLInput(
@@ -975,7 +975,7 @@ class TestScopeValidation:
     def test_edge_crossing_from_loop_scope_to_root_is_invalid(self):
         """Test that root action cannot depend on both loop-inner and root actions."""
         with pytest.raises(
-            TracecatDSLError,
+            AutoSecOpsDSLError,
             match=(
                 "Action 'after' has an edge from 'body', "
                 "which is in a different scatter-gather scope"

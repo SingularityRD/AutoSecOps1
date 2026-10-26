@@ -11,7 +11,7 @@ from autosecops.agent.types import ToolApproved, ToolDenied
 from autosecops.auth.dependencies import WorkspaceUserRouteRole
 from autosecops.chat.schemas import ApprovalDecision, ContinueRunRequest
 from autosecops.db.engine import get_async_session
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.logger import logger
 from autosecops_ee.agent.approvals.service import ApprovalMap
 
@@ -117,7 +117,7 @@ async def submit_approvals(
             source="inbox",
         )
         await session_service.run_turn(session_id, continuation)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         logger.warning(
             "Agent session not found while submitting approvals",
             session_id=session_id,

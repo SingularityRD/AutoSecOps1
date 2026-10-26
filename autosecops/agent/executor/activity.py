@@ -111,7 +111,7 @@ from autosecops.config import (
     AUTOSECOPS__AGENT_SKILL_CACHE_DIR,
     AUTOSECOPS__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS,
 )
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.integrations.mcp_validation import MCPSecretResolutionError
 from autosecops.integrations.service import IntegrationService
@@ -1289,7 +1289,7 @@ async def _resolve_and_probe_stdio_config(
                 mcp_integration_id=mcp_integration_id,
                 mcp_integration_slug=mcp_integration_slug,
             )
-        except (TracecatException, ValueError) as exc:
+        except (AutoSecOpsException, ValueError) as exc:
             return StdioMCPProbeResult(
                 success=False,
                 message="MCP integration stdio environment could not be resolved",

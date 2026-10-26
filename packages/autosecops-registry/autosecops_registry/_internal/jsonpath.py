@@ -12,7 +12,7 @@ import jsonpath_ng.jsonpath as jsonpath_nodes
 from jsonpath_ng.exceptions import JsonPathParserError
 from jsonpath_ng.ext.parser import ExtentedJsonPathParser
 
-from autosecops_registry._internal.exceptions import TracecatExpressionError
+from autosecops_registry._internal.exceptions import AutoSecOpsExpressionError
 from autosecops_registry._internal.logger import logger
 
 # jsonpath_ng builds a new PLY parser per parse() call, and without a shipped
@@ -83,7 +83,7 @@ def eval_jsonpath(
 
     if operand is None or not isinstance(operand, dict | list):
         logger.error(f"Invalid operand for jsonpath: {type(operand)}")
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             f"A dict or list operand is required as jsonpath target. Got {type(operand)}"
         )
     try:
@@ -91,7 +91,7 @@ def eval_jsonpath(
         jsonpath_expr = _parse_jsonpath(expr)
     except JsonPathParserError as e:
         logger.error(f"Invalid jsonpath expression: {expr!r}")
-        raise TracecatExpressionError(f"Invalid jsonpath {expr!r}") from e
+        raise AutoSecOpsExpressionError(f"Invalid jsonpath {expr!r}") from e
     matches = [found.value for found in jsonpath_expr.find(operand)]
 
     def _contains_filter(path: jsonpath_nodes.JSONPath) -> bool:
@@ -143,7 +143,7 @@ def eval_jsonpath(
             # Operands may contain sensitive values, so report the expression
             # only
             logger.error(f"Jsonpath no match: {expr!r}")
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Couldn't resolve expression {expr!r} in the context",
                 detail={"expression": expr},
             )

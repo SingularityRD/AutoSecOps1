@@ -5,7 +5,7 @@ import base64
 import httpx
 import pytest
 import respx
-from autosecops_registry._internal.exceptions import TracecatException
+from autosecops_registry._internal.exceptions import AutoSecOpsException
 from autosecops_registry.core.http import (
     FileUploadData,
     http_paginate,
@@ -289,7 +289,7 @@ async def test_http_request_failure() -> None:
         )
     )
 
-    with pytest.raises(TracecatException) as excinfo:
+    with pytest.raises(AutoSecOpsException) as excinfo:
         await http_request(
             url="https://api.example.com",
             method="GET",
@@ -313,7 +313,7 @@ async def test_http_request_bad_request() -> None:
         )
     )
 
-    with pytest.raises(TracecatException) as excinfo:
+    with pytest.raises(AutoSecOpsException) as excinfo:
         await http_request(
             url="https://api.example.com",
             method="GET",
@@ -708,7 +708,8 @@ async def test_http_request_with_multiple_files_and_form_data() -> None:
 async def test_http_request_files_missing_content_base64_in_dict() -> None:
     """Test HTTP request fails if 'content_base64' is missing in a file dict."""
     with pytest.raises(
-        TracecatException, match=r"Missing 'content_base64' for form field 'data_file'"
+        AutoSecOpsException,
+        match=r"Missing 'content_base64' for form field 'data_file'",
     ):
         await http_request(
             url="https://api.example.com",
@@ -724,7 +725,7 @@ async def test_http_request_files_invalid_form_field_name_null_byte() -> None:
     """Test HTTP request fails if a form_field_name contains a null byte."""
     base64_content = base64.b64encode(b"test").decode("utf-8")
     with pytest.raises(
-        TracecatException,
+        AutoSecOpsException,
         match=r"Invalid form_field_name.*cannot be empty or contain null bytes",
     ):
         await http_request(
@@ -739,7 +740,7 @@ async def test_http_request_files_empty_form_field_name() -> None:
     """Test HTTP request fails if a form_field_name is empty."""
     base64_content = base64.b64encode(b"test").decode("utf-8")
     with pytest.raises(
-        TracecatException, match=r"Invalid form_field_name.*cannot be empty"
+        AutoSecOpsException, match=r"Invalid form_field_name.*cannot be empty"
     ):
         await http_request(
             url="https://api.example.com", method="POST", files={"": base64_content}
@@ -750,7 +751,7 @@ async def test_http_request_files_empty_form_field_name() -> None:
 async def test_http_request_with_invalid_base64_in_files() -> None:
     """Test HTTP request with invalid base64 data in the files dictionary."""
     with pytest.raises(
-        TracecatException, match=r"Invalid base64 data for form field 'test.txt'"
+        AutoSecOpsException, match=r"Invalid base64 data for form field 'test.txt'"
     ):
         await http_request(
             url="https://api.example.com",
@@ -766,7 +767,7 @@ async def test_http_request_file_size_limit_in_files() -> None:
     base64_content = base64.b64encode(large_content_bytes).decode("utf-8")
 
     with pytest.raises(
-        TracecatException,
+        AutoSecOpsException,
         match=r"File for form field 'large_file.dat' in http_request exceeds maximum size limit of 20MB\.",
     ):
         await http_request(
@@ -781,7 +782,7 @@ async def test_http_request_actual_filename_null_bytes_in_files_dict() -> None:
     """Test HTTP request fails with null bytes in actual_filename within a file dict."""
     base64_file_content = base64.b64encode(b"Test data").decode("utf-8")
     with pytest.raises(
-        TracecatException,
+        AutoSecOpsException,
         match=r"Invalid filename.*cannot be empty or contain null bytes",
     ):
         await http_request(
@@ -947,7 +948,7 @@ async def test_http_request_file_upload_max_files_exceeded() -> None:
             f"content{i}".encode()
         ).decode()
 
-    with pytest.raises(TracecatException) as excinfo:
+    with pytest.raises(AutoSecOpsException) as excinfo:
         await http_request(
             url="https://api.example.com/upload",
             method="POST",
@@ -1463,7 +1464,7 @@ async def test_http_paginate_error_handling() -> None:
         ]
     )
 
-    with pytest.raises(TracecatException) as excinfo:
+    with pytest.raises(AutoSecOpsException) as excinfo:
         await http_paginate(
             url="https://api.example.com/error",
             method="GET",

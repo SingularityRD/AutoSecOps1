@@ -43,9 +43,9 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { getAgentPresetErrorMessage } from "@/lib/agent-presets"
 import {
+  type AutoSecOpsApiError,
   getApiErrorDetail,
   retryHandler,
-  type TracecatApiError,
 } from "@/lib/errors"
 import { useMutation, useQueries, useQuery, useQueryClient } from "@/lib/query"
 
@@ -131,7 +131,7 @@ export function useAgentPresetWorkflowReferences(
 ) {
   const { data, isLoading, error } = useQuery<
     AgentPresetWorkflowReference[],
-    TracecatApiError
+    AutoSecOpsApiError
   >({
     queryKey: ["agent-preset-workflow-references", workspaceId],
     queryFn: () => listAllAgentPresetWorkflowReferences(workspaceId),
@@ -162,7 +162,7 @@ export function useAgentPresets(
     isLoading: presetsIsLoading,
     error: presetsError,
     refetch: refetchPresets,
-  } = useQuery<AgentPresetReadMinimal[], TracecatApiError>({
+  } = useQuery<AgentPresetReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["agent-presets", workspaceId, { useInChat }],
     queryFn: async () => {
       if (!workspaceId) {
@@ -196,7 +196,7 @@ export function useAgentPresetVersions(
     isLoading: versionsIsLoading,
     error: versionsError,
     refetch: refetchVersions,
-  } = useQuery<AgentPresetVersionReadMinimal[], TracecatApiError>({
+  } = useQuery<AgentPresetVersionReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["agent-preset-versions", workspaceId, presetId],
     queryFn: async () => {
       if (!workspaceId || !presetId) {
@@ -263,7 +263,7 @@ export function useAgentPreset(
     isLoading: presetIsLoading,
     error: presetError,
     refetch: refetchPreset,
-  } = useQuery<AgentPresetRead, TracecatApiError>({
+  } = useQuery<AgentPresetRead, AutoSecOpsApiError>({
     queryKey: ["agent-preset", workspaceId, presetId],
     queryFn: async () => {
       if (!workspaceId || !presetId) {
@@ -315,7 +315,7 @@ export function useAgentPresetVersion(
     isLoading: presetVersionIsLoading,
     error: presetVersionError,
     refetch: refetchPresetVersion,
-  } = useQuery<AgentPresetVersionRead, TracecatApiError>({
+  } = useQuery<AgentPresetVersionRead, AutoSecOpsApiError>({
     queryKey: ["agent-preset-version", workspaceId, presetId, versionId],
     queryFn: async () => {
       if (!workspaceId || !presetId || !versionId) {
@@ -350,7 +350,7 @@ export function useCreateAgentPreset(workspaceId: string) {
     mutateAsync: createAgentPreset,
     isPending: createAgentPresetIsPending,
     error: createAgentPresetError,
-  } = useMutation<AgentPresetRead, TracecatApiError, AgentPresetCreate>({
+  } = useMutation<AgentPresetRead, AutoSecOpsApiError, AgentPresetCreate>({
     mutationFn: async (payload) =>
       await agentPresetsCreateAgentPreset({
         workspaceId,
@@ -407,7 +407,7 @@ export function useUpdateAgentPreset(workspaceId: string) {
     error: updateAgentPresetError,
   } = useMutation<
     AgentPresetRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     AgentPresetUpdate & { presetId: string }
   >({
     mutationFn: async ({ presetId, ...requestBody }) =>
@@ -472,7 +472,7 @@ export function useDeleteAgentPreset(workspaceId: string) {
     error: deleteAgentPresetError,
   } = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { presetId: string; presetName?: string }
   >({
     mutationFn: async ({ presetId }) =>
@@ -556,7 +556,7 @@ export function useRestoreAgentPresetVersion(workspaceId: string) {
     error: restoreAgentPresetVersionError,
   } = useMutation<
     AgentPresetRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { presetId: string; versionId: string }
   >({
     mutationFn: async ({ presetId, versionId }) =>
@@ -662,7 +662,7 @@ export function useAgentFolders(
         description: "Folder created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           console.error("Error creating folder", error)
@@ -714,7 +714,7 @@ export function useAgentFolders(
         description: "Folder updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           console.error("Error updating folder", error)
@@ -763,7 +763,7 @@ export function useAgentFolders(
         description: "Folder moved successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error moving folder", error)
       toast({
         title: "Error moving folder",
@@ -800,7 +800,7 @@ export function useAgentFolders(
         description: "Folder deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -865,7 +865,7 @@ export function useAgentDirectoryItems(
     data: directoryItems,
     isLoading: directoryItemsIsLoading,
     error: directoryItemsError,
-  } = useQuery<AgentDirectoryItem[], TracecatApiError>({
+  } = useQuery<AgentDirectoryItem[], AutoSecOpsApiError>({
     enabled: enabled && !!workspaceId,
     queryKey: ["agent-directory-items", workspaceId, path],
     queryFn: async () =>
@@ -925,7 +925,7 @@ export function useAgentTagCatalog(
         description: "Agent tag created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           toast({
@@ -974,7 +974,7 @@ export function useAgentTagCatalog(
         description: "Agent tag updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           toast({
@@ -1014,7 +1014,7 @@ export function useAgentTagCatalog(
         description: "Agent tag deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -1052,7 +1052,7 @@ export function useMoveAgentPreset(workspaceId: string) {
     error: moveAgentPresetError,
   } = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { presetId: string } & AgentPresetMoveToFolder
   >({
     mutationFn: async ({ presetId, ...requestBody }) =>

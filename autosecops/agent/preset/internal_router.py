@@ -22,7 +22,7 @@ from autosecops.agent.types import OutputType
 from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 router = APIRouter(
     prefix="/internal/agent/presets",
@@ -134,7 +134,7 @@ async def _create_payload_with_default_model(
     has_model_name = bool(payload.get("model_name"))
     has_model_provider = bool(payload.get("model_provider"))
     if has_model_name != has_model_provider:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "model_name and model_provider must be provided together"
         )
     if catalog_id := payload.get("catalog_id"):
@@ -151,7 +151,7 @@ async def _create_payload_with_default_model(
         role=role,
     ).get_default_model_selection()
     if default_model is None:
-        raise TracecatNotFoundError("No default model set")
+        raise AutoSecOpsNotFoundError("No default model set")
     if not payload.get("model_name"):
         payload["model_name"] = default_model.model_name
     if not payload.get("model_provider"):
@@ -193,12 +193,12 @@ async def create_preset(
         )
         preset = await service.create_preset(AgentPresetCreate(**payload))
         return await service.build_preset_read(preset)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -246,7 +246,7 @@ async def update_preset_by_slug(
             preset, AgentPresetUpdate(**params.model_dump(exclude_unset=True))
         )
         return await service.build_preset_read(updated_preset)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -271,7 +271,7 @@ async def delete_preset_by_slug(
         )
     try:
         await service.delete_preset(preset)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

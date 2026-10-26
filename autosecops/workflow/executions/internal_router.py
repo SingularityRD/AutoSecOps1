@@ -34,9 +34,9 @@ from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.identifiers import WorkflowExecutionID, WorkflowID
 from autosecops.identifiers.workflow import (
@@ -378,12 +378,12 @@ async def create_workflow(
         raise
     except (
         BuiltinRegistryHasNoSelectionError,
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         ValueError,
         ValidationError,
     ) as e:
         # Recoverable client errors -> 400, matching the import router.
-        # TracecatValidationError covers raw TracecatDSLError from DSLInput
+        # AutoSecOpsValidationError covers raw AutoSecOpsDSLError from DSLInput
         # validators (not wrapped as a Pydantic ValidationError).
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -609,7 +609,7 @@ async def publish_workflow(
     service = WorkflowsManagementService(session, role=role)
     try:
         result = await service.publish_workflow(workflow_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     if not result.ok:
@@ -681,7 +681,7 @@ async def update_webhook(
             workflow_id=workflow_id,
             params=params,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="Webhook not found"
         ) from e
@@ -703,7 +703,7 @@ async def get_case_trigger(
     service = CaseTriggersService(session, role=role)
     try:
         case_trigger = await service.get_case_trigger(workflow_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
     return CaseTriggerRead.model_validate(case_trigger, from_attributes=True)
 
@@ -727,9 +727,9 @@ async def update_case_trigger(
     service = CaseTriggersService(session, role=role)
     try:
         await service.update_case_trigger(workflow_id, params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
@@ -934,13 +934,13 @@ async def run_workflow(
                 use_draft=params.use_draft,
                 version=params.version,
             )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail={
-                "type": "TracecatValidationError",
+                "type": "AutoSecOpsValidationError",
                 "message": str(e),
                 "detail": e.detail,
             },

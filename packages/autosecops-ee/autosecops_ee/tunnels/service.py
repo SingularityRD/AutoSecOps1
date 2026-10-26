@@ -23,7 +23,7 @@ from autosecops.db.models import (
     Workspace,
     WorkspaceTunnel,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.secrets.encryption import decrypt_value, encrypt_value
 from autosecops.service import BaseWorkspaceService
@@ -148,7 +148,7 @@ class TunnelsService(BaseWorkspaceService):
         )
         result = await self.session.execute(stmt)
         if (tunnel := result.scalar_one_or_none()) is None:
-            raise TracecatNotFoundError("Tunnel not found")
+            raise AutoSecOpsNotFoundError("Tunnel not found")
         return tunnel
 
     @require_scope("tunnel:read")
@@ -160,7 +160,7 @@ class TunnelsService(BaseWorkspaceService):
         )
         result = await self.session.execute(stmt)
         if (tunnel := result.scalar_one_or_none()) is None:
-            raise TracecatNotFoundError(f"Tunnel {name!r} not found")
+            raise AutoSecOpsNotFoundError(f"Tunnel {name!r} not found")
         return tunnel
 
     @require_scope("tunnel:create")
@@ -199,7 +199,7 @@ class TunnelsService(BaseWorkspaceService):
         fields = params.model_fields_set
         managed_fields = {"endpoint", "client_id", "client_secret", "allowed_targets"}
         if tunnel.managed and fields & managed_fields:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Endpoint, credentials, and targets of a managed tunnel cannot be changed"
             )
         if "name" in fields and params.name is not None and params.name != tunnel.name:
@@ -443,7 +443,7 @@ class TunnelsService(BaseWorkspaceService):
         await self.require_entitlement(Entitlement.TUNNELS)
         self._ensure_owned(tunnel)
         if tunnel.encrypted_gateway_key is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Tunnel {tunnel.name!r} has no gateway key. Issue one first."
             )
         return decrypt_value(
@@ -544,7 +544,7 @@ class TunnelsService(BaseWorkspaceService):
     async def _pangolin_settings(self) -> PangolinSettings:
         settings = await resolve_pangolin_settings()
         if settings is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Managed tunnels are not configured for this deployment"
             )
         return settings
@@ -589,7 +589,7 @@ class TunnelsService(BaseWorkspaceService):
 
     def _ensure_owned(self, tunnel: WorkspaceTunnel) -> None:
         if tunnel.workspace_id != self.workspace_id:
-            raise TracecatNotFoundError("Tunnel not found")
+            raise AutoSecOpsNotFoundError("Tunnel not found")
 
     @staticmethod
     def _encrypt_secret(value: str) -> bytes:

@@ -17,7 +17,7 @@ from autosecops.db.models import (
     Workspace,
     WorkspaceSecretStoreAuthorization,
 )
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.secrets.enums import (
     AwsSecretResolutionErrorCode,
@@ -95,7 +95,7 @@ class SecretReferencesService(SecretsService):
         result = await self.session.execute(stmt)
         store = result.scalar_one_or_none()
         if store is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "This workspace is not authorized to use the selected secret store."
             )
         if store.all_workspaces:
@@ -119,7 +119,7 @@ class SecretReferencesService(SecretsService):
         )
         store = (await self.session.execute(stmt)).scalar_one_or_none()
         if store is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"This workspace is not authorized to use a secret store named {name!r}."
             )
         return await self._get_authorized_store(store.id)
@@ -172,7 +172,7 @@ class SecretReferencesService(SecretsService):
             if not isinstance(cause, ForeignKeyViolationError):
                 raise
             await self.session.rollback()
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "This workspace is not authorized to use the selected secret store."
             ) from e
 

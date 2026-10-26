@@ -28,7 +28,7 @@ from botocore.exceptions import (
     PartialCredentialsError,
 )
 
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.logger import logger
 from autosecops.secrets.enums import (
     AwsSecretMappingMode,
@@ -72,7 +72,7 @@ _SECRETS_CODE_TO_ERROR: dict[str, AwsSecretResolutionErrorCode] = {
 }
 
 
-class AwsSecretResolutionError(TracecatCredentialsError):
+class AwsSecretResolutionError(AutoSecOpsCredentialsError):
     """Sanitized failure while resolving an AWS-backed workspace secret."""
 
     def __init__(

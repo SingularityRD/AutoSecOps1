@@ -15,9 +15,9 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import EDITOR_SCOPES
 from autosecops.db.models import Schedule, Workflow
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
     ScopeDeniedError,
-    TracecatConflictError,
-    TracecatNotFoundError,
 )
 from autosecops.identifiers import ScheduleUUID, WorkspaceID
 from autosecops.identifiers.workflow import WorkflowUUID
@@ -43,7 +43,7 @@ pytestmark = pytest.mark.usefixtures("db")
     ("error", "kind", "retry_disposition"),
     [
         (
-            TracecatNotFoundError("missing schedule"),
+            AutoSecOpsNotFoundError("missing schedule"),
             RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
             RetryDisposition.NON_RETRYABLE,
         ),
@@ -164,7 +164,7 @@ async def test_create_schedule_unpublished_workflow_emits_failure(
     service = WorkflowSchedulesService(session, role=svc_role)
 
     with pytest.raises(
-        TracecatConflictError,
+        AutoSecOpsConflictError,
         match="Workflow must be saved before creating a schedule",
     ):
         await service.create_schedule(

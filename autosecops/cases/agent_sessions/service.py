@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from autosecops.cases.enums import CaseAgentSessionInteractionOperation
 from autosecops.contexts import ctx_agent_session_id
 from autosecops.db.models import AgentSession, Case, CaseAgentSessionInteraction
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.service import BaseWorkspaceService
 
 
@@ -43,7 +43,7 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
                 agent_session_id=agent_session_id,
                 operation=operation,
             )
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             self.logger.warning(
                 "Skipping case interaction; agent session not found",
                 agent_session_id=agent_session_id,
@@ -61,8 +61,8 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
             The root agent session ID.
 
         Raises:
-            TracecatNotFoundError: If the session lineage leaves the workspace.
-            TracecatValidationError: If the session lineage contains a cycle.
+            AutoSecOpsNotFoundError: If the session lineage leaves the workspace.
+            AutoSecOpsValidationError: If the session lineage contains a cycle.
         """
         current_session_id = session_id
         visited: set[uuid.UUID] = set()
@@ -82,7 +82,7 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
             statement = statement.with_for_update(read=True, key_share=True)
             result = (await self.session.execute(statement)).one_or_none()
             if result is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Agent session '{session_id}' not found in this workspace"
                 )
 
@@ -92,7 +92,7 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
                 return resolved_session_id
             current_session_id = related_session_id
 
-        raise TracecatValidationError("Agent session lineage contains a cycle")
+        raise AutoSecOpsValidationError("Agent session lineage contains a cycle")
 
     async def record(
         self,
@@ -112,7 +112,7 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
             The inserted or refreshed interaction.
 
         Raises:
-            TracecatNotFoundError: If the case or session is outside the workspace.
+            AutoSecOpsNotFoundError: If the case or session is outside the workspace.
         """
         case_exists = await self.session.scalar(
             select(Case.id).where(
@@ -121,7 +121,9 @@ class CaseAgentSessionInteractionService(BaseWorkspaceService):
             )
         )
         if case_exists is None:
-            raise TracecatNotFoundError(f"Case '{case_id}' not found in this workspace")
+            raise AutoSecOpsNotFoundError(
+                f"Case '{case_id}' not found in this workspace"
+            )
 
         root_session_id = await self.resolve_root_session_id(agent_session_id)
         statement = pg_insert(CaseAgentSessionInteraction).values(

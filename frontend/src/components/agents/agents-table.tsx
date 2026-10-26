@@ -40,7 +40,7 @@ import {
 } from "@/hooks/use-agent-presets"
 import { useAuth } from "@/hooks/use-auth"
 import { buildDuplicateAgentPresetPayload } from "@/lib/agent-presets"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import { useListMcpIntegrations } from "@/lib/hooks"
 import { useQuery } from "@/lib/query"
 import {
@@ -277,7 +277,7 @@ export function AgentsTable() {
     isLoading: presetsIsLoading,
     error: presetsError,
     refetch: refetchPresets,
-  } = useQuery<AgentPresetTableRow[], TracecatApiError>({
+  } = useQuery<AgentPresetTableRow[], AutoSecOpsApiError>({
     queryKey: ["agent-presets-detailed", workspaceId],
     queryFn: async () => {
       if (!workspaceId) {

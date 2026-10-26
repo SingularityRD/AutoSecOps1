@@ -13,7 +13,7 @@ from autosecops.db.models import (
     Organization,
     Workspace,
 )
-from autosecops.exceptions import EntitlementRequired, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError, EntitlementRequired
 from autosecops.query.filters import Condition, FilterOp
 
 pytestmark = pytest.mark.anyio
@@ -68,7 +68,7 @@ async def test_shared_compiler_rejects_invalid_metadata_condition_before_queryin
     condition: Condition,
 ) -> None:
     session = AsyncMock(spec=AsyncSession)
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await validate_case_filter_metadata(
             session=session,
             workspace_id=WORKSPACE_ID,
@@ -116,7 +116,7 @@ async def test_null_dropdown_refs_never_query_and_preserve_entitlement_first(
     extra: bool, enabled: bool
 ) -> None:
     session = AsyncMock(spec=AsyncSession)
-    expected_error = TracecatValidationError if enabled else EntitlementRequired
+    expected_error = AutoSecOpsValidationError if enabled else EntitlementRequired
     with pytest.raises(expected_error):
         await validate_case_filter_metadata(
             session=session,
@@ -198,7 +198,7 @@ async def test_missing_tag_under_negation_is_rejected(
     query = CaseQuery.model_validate(
         {"filters": {"not": {"field": "tags", "op": "in", "value": tags}}}
     )
-    with pytest.raises(TracecatValidationError, match="missing-tag"):
+    with pytest.raises(AutoSecOpsValidationError, match="missing-tag"):
         await validate_case_filter_metadata(
             session=session,
             workspace_id=local.id,
@@ -225,7 +225,7 @@ async def test_other_workspace_metadata_cannot_satisfy_validation(
         Condition(field="tags", op=FilterOp.CONTAINS, value="foreign-tag"),
         Condition(field="dropdowns.foreign", op=FilterOp.IS_NULL),
     ):
-        with pytest.raises(TracecatValidationError, match="Unknown"):
+        with pytest.raises(AutoSecOpsValidationError, match="Unknown"):
             await validate_case_filter_metadata(
                 session=session,
                 workspace_id=local.id,
@@ -246,7 +246,7 @@ async def test_dropdown_option_from_another_definition_is_rejected(
         CaseDropdownOption(definition_id=second.id, label="Selected", ref="selected")
     )
     await session.flush()
-    with pytest.raises(TracecatValidationError, match="Unknown options"):
+    with pytest.raises(AutoSecOpsValidationError, match="Unknown options"):
         await validate_case_filter_metadata(
             session=session,
             workspace_id=local.id,
@@ -275,7 +275,7 @@ async def test_unset_dropdown_and_empty_membership_keep_definition_validation(
         extra_dropdown_refs=["empty"],
     )
     assert result == ("empty",)
-    with pytest.raises(TracecatValidationError, match="Unknown case dropdown refs"):
+    with pytest.raises(AutoSecOpsValidationError, match="Unknown case dropdown refs"):
         await validate_case_filter_metadata(
             session=session,
             workspace_id=local.id,

@@ -18,7 +18,7 @@ from temporalio.client import WorkflowFailureError
 from autosecops import config
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.registry.actions.schemas import (
     RegistryActionCreate,
     RegistryActionValidationErrorInfo,
@@ -698,7 +698,7 @@ class BaseRegistrySyncService[
                 await secrets_service.get_org_secret_by_name(
                     REGISTRY_GIT_SSH_KEY_SECRET_NAME
                 )
-            except TracecatNotFoundError as exc:
+            except AutoSecOpsNotFoundError as exc:
                 raise self._sync_error_cls()(
                     "Git repository sync requires a "
                     f"'{REGISTRY_GIT_SSH_KEY_SECRET_NAME}' organization secret."

@@ -14,9 +14,9 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { invalidateCaseActivityQueries } from "@/lib/cases/invalidation"
 import {
+  type AutoSecOpsApiError,
   getApiErrorDetail,
   retryHandler,
-  type TracecatApiError,
 } from "@/lib/errors"
 import {
   useInfiniteQuery,
@@ -81,7 +81,7 @@ export function useCaseVersions({
 }: UseCaseVersionsOptions) {
   const query = useInfiniteQuery<
     CasesListCaseVersionsResponse,
-    TracecatApiError
+    AutoSecOpsApiError
   >({
     queryKey: caseVersionListQueryKey(workspaceId, caseId, field),
     queryFn: async ({ pageParam }) =>
@@ -136,7 +136,7 @@ export function useCaseVersionComparison({
   versionId,
   enabled = true,
 }: UseCaseVersionComparisonOptions) {
-  const query = useQuery<CaseVersionCompareRead, TracecatApiError>({
+  const query = useQuery<CaseVersionCompareRead, AutoSecOpsApiError>({
     queryKey: caseVersionComparisonQueryKey(
       workspaceId,
       caseId,
@@ -183,7 +183,7 @@ export function useRestoreCaseVersion({
   const queryClient = useQueryClient()
   const mutation = useMutation<
     CaseVersionRestoreRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     RestoreCaseVersionVariables
   >({
     mutationFn: async ({ versionId }) =>

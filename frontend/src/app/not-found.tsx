@@ -2,14 +2,14 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { Button } from "@/components/ui/button"
 
 export default function NotFound() {
   const router = useRouter()
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
+      <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="mb-4 size-16" />
       <h1 className="text-2xl font-medium">Page not found</h1>
       <p className="text-sm text-muted-foreground">
         The page you are looking for does not exist.

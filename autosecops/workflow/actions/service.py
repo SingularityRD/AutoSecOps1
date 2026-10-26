@@ -8,7 +8,7 @@ from autosecops.authz.controls import require_scope
 from autosecops.db.models import Action, Workflow
 from autosecops.dsl.enums import PlatformAction
 from autosecops.dsl.view import Position
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import ActionID, WorkflowID, WorkflowUUID
 from autosecops.identifiers.workflow import exec_id_to_parts
 from autosecops.service import BaseWorkspaceService
@@ -123,9 +123,9 @@ class WorkflowActionService(BaseWorkspaceService):
             try:
                 locked_wf_id = exec_id_to_parts(locked)[0]
             except ValueError as e:
-                raise TracecatValidationError(str(e)) from e
+                raise AutoSecOpsValidationError(str(e)) from e
             if locked_wf_id != action.workflow_id:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "An action can only be locked to a run of its own workflow."
                 )
         for field, value in set_fields.items():

@@ -4,7 +4,7 @@ from typing import Literal, assert_never
 import sqlalchemy as sa
 
 from autosecops.db.models import TableColumn
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.filters import FilterOp
 from autosecops.query.resolver import (
     FieldKind,
@@ -150,7 +150,7 @@ class TableFieldResolver:
         try:
             return SqlType(column.type)
         except ValueError as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Column {column.name!r} has invalid stored type {column.type!r}"
             ) from exc
 
@@ -173,7 +173,7 @@ class TableFieldResolver:
             case SqlType.SELECT:
                 return FieldKind.ENUM
             case SqlType.JSONB | SqlType.MULTI_SELECT:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Column {column.name!r} of type {sql_type.value} "
                     f"cannot be used in {usage}"
                 )

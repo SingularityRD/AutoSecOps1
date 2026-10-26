@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import (
     AndClause,
@@ -170,7 +170,7 @@ def test_operation_kind_matrix(kind: FieldKind, op: FilterOp) -> None:
     condition = Condition(field="value", op=op, value=_value(kind, op))
 
     if op not in KIND_OPS[kind]:
-        with pytest.raises(TracecatValidationError, match="field 'value'"):
+        with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
             compile_filter(condition, resolver)
         return
 
@@ -451,7 +451,7 @@ def test_predicate_factory_requires_value_type_for_non_null_value() -> None:
     )
 
     with pytest.raises(
-        TracecatValidationError, match="predicate factory requires a value type"
+        AutoSecOpsValidationError, match="predicate factory requires a value type"
     ):
         compile_filter(
             Condition(field="tags", op=FilterOp.CONTAINS, value="malware"),
@@ -499,7 +499,7 @@ def test_rejects_wrong_operator_value_shape(condition: Condition) -> None:
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'value'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
         compile_filter(condition, resolver)
 
 
@@ -527,7 +527,7 @@ def test_rejects_wrong_kind_value(kind: FieldKind, value: Any) -> None:
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'value'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
         compile_filter(Condition(field="value", op=FilterOp.EQ, value=value), resolver)
 
 
@@ -543,7 +543,7 @@ def test_rejects_nul_in_string_values(kind: FieldKind) -> None:
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'value'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
         compile_filter(
             Condition(field="value", op=FilterOp.IN, value=["before\x00after"]),
             resolver,
@@ -622,7 +622,7 @@ def test_validates_integer_bounds(
         assert list(params.values()) == [value]
 
     for value in (minimum - 1, maximum + 1):
-        with pytest.raises(TracecatValidationError, match="field 'value'"):
+        with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
             compile_filter(
                 Condition(field="value", op=FilterOp.EQ, value=value), resolver
             )
@@ -678,7 +678,7 @@ def test_rejects_invalid_numeric_string(value: str) -> None:
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'value'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
         compile_filter(Condition(field="value", op=FilterOp.EQ, value=value), resolver)
 
 
@@ -710,7 +710,7 @@ def test_validates_postgresql_numeric_extent(value: str, should_pass: bool) -> N
         _, params = _compile_sql(compile_filter(condition, resolver))
         assert list(params.values()) == [Decimal(value)]
     else:
-        with pytest.raises(TracecatValidationError, match="field 'value'"):
+        with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
             compile_filter(condition, resolver)
 
 
@@ -738,7 +738,7 @@ def test_rejects_values_outside_column_type_range(
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'value'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'value'"):
         compile_filter(Condition(field="value", op=FilterOp.EQ, value=value), resolver)
 
 
@@ -775,7 +775,7 @@ def test_rejects_unknown_native_enum_value() -> None:
         }
     )
 
-    with pytest.raises(TracecatValidationError, match="field 'status'"):
+    with pytest.raises(AutoSecOpsValidationError, match="field 'status'"):
         compile_filter(
             Condition(field="status", op=FilterOp.EQ, value="invalid"), resolver
         )
@@ -818,5 +818,5 @@ def test_normalizes_timezone_free_datetime_without_tzinfo(
 def test_rejects_unknown_and_hostile_field_names(field: str) -> None:
     resolver = StubResolver({})
 
-    with pytest.raises(TracecatValidationError, match=field.replace("?", "\\?")):
+    with pytest.raises(AutoSecOpsValidationError, match=field.replace("?", "\\?")):
         compile_filter(Condition(field=field, op=FilterOp.EQ, value="value"), resolver)

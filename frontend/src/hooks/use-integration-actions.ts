@@ -8,7 +8,7 @@ import {
   integrationsTestConnection,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { integrationKeys } from "@/lib/integrations"
 import { useMutation, useQueryClient } from "@/lib/query"
 
@@ -58,7 +58,7 @@ export function useConnectProvider(workspaceId: string) {
     onSuccess: (result) => {
       window.location.href = result.auth_url
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Failed to start OAuth",
         description: String(error.body?.detail ?? error.message),
@@ -88,7 +88,7 @@ export function useDisconnectProvider(workspaceId: string) {
         description: "Successfully disconnected from provider",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Failed to disconnect",
         description: `${error.body?.detail ?? error.message}`,
@@ -118,7 +118,7 @@ export function useDeleteProvider(workspaceId: string) {
         description: "The custom provider and its credentials were removed.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Failed to delete provider",
         description: `${error.body?.detail ?? error.message}`,
@@ -153,7 +153,7 @@ export function useTestProvider(workspaceId: string) {
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Test failed",
         description: `${error.body?.detail ?? error.message}`,

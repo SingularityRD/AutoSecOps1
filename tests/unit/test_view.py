@@ -13,7 +13,7 @@ from autosecops.dsl.common import (
 from autosecops.dsl.enums import EdgeType
 from autosecops.dsl.schemas import ActionStatement
 from autosecops.dsl.view import RFEdge, RFGraph, TriggerNode, TriggerNodeData, UDFNode
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 if TYPE_CHECKING:
     from autosecops.db.models import Action, Workflow
@@ -1517,7 +1517,7 @@ def test_build_action_statements_keeps_legacy_trigger_roots_in_mixed_workflow():
 def test_validate_graph_empty_nodes():
     """Test that RFGraph raises error when nodes list is empty."""
     with pytest.raises(
-        TracecatValidationError, match="Graph must have at least one node"
+        AutoSecOpsValidationError, match="Graph must have at least one node"
     ):
         RFGraph.model_validate({"nodes": [], "edges": []})
 
@@ -1535,7 +1535,9 @@ def test_validate_graph_no_trigger():
         "edges": [],
     }
 
-    with pytest.raises(TracecatValidationError, match="Expected 1 trigger node, got 0"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Expected 1 trigger node, got 0"
+    ):
         RFGraph.model_validate(rf_obj)
 
 
@@ -1557,7 +1559,9 @@ def test_validate_graph_multiple_triggers():
         "edges": [],
     }
 
-    with pytest.raises(TracecatValidationError, match="Expected 1 trigger node, got 2"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Expected 1 trigger node, got 2"
+    ):
         RFGraph.model_validate(rf_obj)
 
 

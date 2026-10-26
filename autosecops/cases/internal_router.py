@@ -78,17 +78,17 @@ from autosecops.core.schemas import Schema
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import Case
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.logger import logger
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.query.lexical_types import LexicalSearchError, SearchMode
 from autosecops.tiers.enums import Entitlement
@@ -103,9 +103,9 @@ duration_router = APIRouter()
 
 
 def _raise_comment_http_error(
-    exc: TracecatValidationError | TracecatAuthorizationError,
+    exc: AutoSecOpsValidationError | AutoSecOpsAuthorizationError,
 ) -> NoReturn:
-    if isinstance(exc, TracecatValidationError):
+    if isinstance(exc, AutoSecOpsValidationError):
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
@@ -172,9 +172,9 @@ async def aggregate_cases(
     service = CasesService(session, role=role)
     try:
         return await service.aggregate_cases(params)
-    except TracecatQueryOverflowError:
+    except AutoSecOpsQueryOverflowError:
         raise
-    except (ValueError, TracecatValidationError) as exc:
+    except (ValueError, AutoSecOpsValidationError) as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
@@ -246,7 +246,7 @@ async def list_cases(
             include_rows=include_rows,
             field_ids=field_ids,
         )
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         logger.warning(f"Invalid request for list cases: {e}")
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -273,7 +273,7 @@ async def query_cases(
         return await CasesService(session, role).query_cases(params)
     except LexicalSearchError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
-    except (ValueError, TracecatValidationError) as exc:
+    except (ValueError, AutoSecOpsValidationError) as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
@@ -287,7 +287,7 @@ async def query_case_aggregates(
         return await CasesService(session, role).query_case_aggregates(params)
     except LexicalSearchError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
-    except (ValueError, TracecatValidationError) as exc:
+    except (ValueError, AutoSecOpsValidationError) as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
@@ -437,13 +437,13 @@ async def search_cases(
 
     except LexicalSearchError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         logger.warning(f"Invalid request for search cases: {e}")
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except (HTTPException, EntitlementRequired, TracecatQueryTimeoutError):
+    except (HTTPException, EntitlementRequired, AutoSecOpsQueryTimeoutError):
         raise
     except Exception as e:
         logger.error(f"Failed to search cases: {e}")
@@ -736,7 +736,7 @@ async def create_comment(
     comments_svc = CaseCommentsService(session, role)
     try:
         comment = await comments_svc.create_comment(case, params)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
     return await comments_svc.serialize_comment_with_mentions(comment)
 
@@ -770,7 +770,7 @@ async def update_comment(
         )
     try:
         updated_comment = await comments_svc.update_comment(comment, params)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
     return await comments_svc.serialize_comment_with_mentions(updated_comment)
 
@@ -803,7 +803,7 @@ async def update_comment_by_id(
         )
     try:
         updated_comment = await comments_svc.update_comment(comment, params)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
     return await comments_svc.serialize_comment_with_mentions(updated_comment)
 
@@ -855,7 +855,7 @@ async def delete_comment(
         )
     try:
         await comments_svc.delete_comment(comment)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
 
 
@@ -953,11 +953,11 @@ async def get_case_metrics(
     for case_ref in params.case_ids:
         try:
             case_id = await cases_service.resolve_case_id(case_ref)
-        except TracecatValidationError as exc:
+        except AutoSecOpsValidationError as exc:
             raise HTTPException(
                 status_code=HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
             ) from exc
-        except TracecatNotFoundError as exc:
+        except AutoSecOpsNotFoundError as exc:
             raise HTTPException(
                 status_code=HTTP_404_NOT_FOUND, detail=str(exc)
             ) from exc
@@ -1069,7 +1069,7 @@ async def create_task(
             else None,
             default_trigger_values=task.default_trigger_values,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Case not found",
@@ -1115,7 +1115,7 @@ async def update_task(
             else None,
             default_trigger_values=task.default_trigger_values,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
@@ -1143,7 +1143,7 @@ async def delete_task(
         if existing.case_id != case_id:
             raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Task not found")
         await service.delete_task(task_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
@@ -1185,7 +1185,7 @@ async def get_task_by_id(
             else None,
             default_trigger_values=task.default_trigger_values,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
@@ -1222,7 +1222,7 @@ async def update_task_by_id(
             else None,
             default_trigger_values=task.default_trigger_values,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
@@ -1247,7 +1247,7 @@ async def delete_task_by_id(
     service = CaseTasksService(session, role)
     try:
         await service.delete_task(task_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail="Task not found",
@@ -1403,12 +1403,12 @@ async def update_case_simple(
                 )
             await session.refresh(updated_case)
 
-    except (NoResultFound, TracecatNotFoundError) as e:
+    except (NoResultFound, AutoSecOpsNotFoundError) as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -1448,7 +1448,7 @@ async def create_comment_simple(
     comments_svc = CaseCommentsService(session, role)
     try:
         comment = await comments_svc.create_comment(case, params)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
     return InternalCaseCommentData.model_validate(comment, from_attributes=True)
 
@@ -1472,7 +1472,7 @@ async def update_comment_simple(
         )
     try:
         updated_comment = await comments_svc.update_comment(comment, params)
-    except (TracecatAuthorizationError, TracecatValidationError) as exc:
+    except (AutoSecOpsAuthorizationError, AutoSecOpsValidationError) as exc:
         _raise_comment_http_error(exc)
     return InternalCaseCommentData.model_validate(updated_comment, from_attributes=True)
 

@@ -21,7 +21,7 @@ import {
   scimReviewScimActivation,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import {
   useInfiniteQuery,
   useMutation,
@@ -35,7 +35,7 @@ const SCIM_MAPPINGS_KEY = ["scim-mappings"]
 const SCIM_DIRECTORY_SUMMARY_KEY = ["scim-directory-summary"]
 
 /** Report a failed SCIM mutation without leaking raw error shapes into the UI. */
-function toastScimError(title: string, error: TracecatApiError) {
+function toastScimError(title: string, error: AutoSecOpsApiError) {
   if (error.status === 403) {
     toast({
       title: "Permission denied",
@@ -67,13 +67,13 @@ export function useScimConnection() {
     isFetching: connectionIsFetching,
     error: connectionError,
     refetch: refetchConnection,
-  } = useQuery<ScimConnectionRead | null, TracecatApiError>({
+  } = useQuery<ScimConnectionRead | null, AutoSecOpsApiError>({
     queryKey: SCIM_CONNECTION_KEY,
     queryFn: async () => {
       try {
         return await scimGetScimConnection()
       } catch (error) {
-        if ((error as TracecatApiError).status === 404) {
+        if ((error as AutoSecOpsApiError).status === 404) {
           return null
         }
         throw error
@@ -83,7 +83,7 @@ export function useScimConnection() {
   })
 
   const { mutateAsync: issueToken, isPending: issueTokenIsPending } =
-    useMutation<ScimConnectionTokenRead, TracecatApiError, void>({
+    useMutation<ScimConnectionTokenRead, AutoSecOpsApiError, void>({
       mutationFn: async () => await scimIssueScimToken(),
       // The API returns the raw token exactly once. Refresh in the background
       // so a failed refetch cannot block the caller from displaying it.
@@ -94,7 +94,7 @@ export function useScimConnection() {
     })
 
   const { mutateAsync: disconnect, isPending: disconnectIsPending } =
-    useMutation<void, TracecatApiError, void>({
+    useMutation<void, AutoSecOpsApiError, void>({
       mutationFn: async () => await scimDisconnectScim(),
       onSuccess: async () => {
         await queryClient.invalidateQueries()
@@ -130,7 +130,7 @@ export function useScimExternalGroups({
 } = {}) {
   const query = useInfiniteQuery<
     ScimListExternalGroupsResponse,
-    TracecatApiError
+    AutoSecOpsApiError
   >({
     queryKey: SCIM_EXTERNAL_GROUPS_KEY,
     queryFn: async ({ pageParam }) =>
@@ -164,7 +164,7 @@ export function useScimDirectorySummary({
   enabled: boolean
   poll?: boolean
 }) {
-  const query = useQuery<ScimDirectorySummaryRead, TracecatApiError>({
+  const query = useQuery<ScimDirectorySummaryRead, AutoSecOpsApiError>({
     queryKey: SCIM_DIRECTORY_SUMMARY_KEY,
     queryFn: async () => await scimGetScimDirectorySummary(),
     enabled,
@@ -191,7 +191,7 @@ export function useScimMappings() {
 
   const query = useInfiniteQuery<
     ScimListScimMappingsResponse,
-    TracecatApiError
+    AutoSecOpsApiError
   >({
     queryKey: SCIM_MAPPINGS_KEY,
     queryFn: async ({ pageParam }) =>
@@ -206,7 +206,7 @@ export function useScimMappings() {
   const {
     mutateAsync: applyMappingChanges,
     isPending: applyMappingChangesIsPending,
-  } = useMutation<void, TracecatApiError, ScimMappingChangesRequest>({
+  } = useMutation<void, AutoSecOpsApiError, ScimMappingChangesRequest>({
     mutationFn: async (requestBody) =>
       await scimApplyScimMappingChanges({ requestBody }),
     onSuccess: async () => {
@@ -238,7 +238,7 @@ export function useScimActivation() {
   const queryClient = useQueryClient()
   const review = useMutation<
     ScimActivationReviewRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     ScimReviewRequest
   >({
     mutationFn: (requestBody) => scimReviewScimActivation({ requestBody }),
@@ -246,7 +246,7 @@ export function useScimActivation() {
   })
   const activate = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     ExternalGroupMappingCreate[]
   >({
     mutationFn: (mappings) =>

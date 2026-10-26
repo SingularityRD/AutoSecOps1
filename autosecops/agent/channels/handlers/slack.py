@@ -36,7 +36,7 @@ from autosecops.chat.schemas import (
     ContinueRunRequest,
 )
 from autosecops.db.models import AgentSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.logger import logger
 from autosecops.redis.client import RedisClient, get_redis_client
 
@@ -702,7 +702,7 @@ class SlackChannelHandler:
         slack_client = AsyncWebClient(token=token.config.slack_bot_token)
         try:
             context = self._parse_approval_action_context(payload)
-        except (ValueError, TracecatValidationError):
+        except (ValueError, AutoSecOpsValidationError):
             logger.warning("Invalid Slack approval action payload")
             return
 
@@ -778,8 +778,8 @@ class SlackChannelHandler:
         session_service = AgentSessionService(self.session, role=self.role)
         try:
             if await session_service.get_session(session_id) is None:
-                raise TracecatNotFoundError(f"Session with ID {session_id} not found")
-        except TracecatNotFoundError:
+                raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
+        except AutoSecOpsNotFoundError:
             await self._post_ephemeral_notice(
                 slack_client,
                 channel_id=context.channel_id,

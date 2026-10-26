@@ -59,9 +59,9 @@ from autosecops.db.models import (
 )
 from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.identifiers import SessionID, UserID
 from autosecops.organization.management import (
@@ -175,8 +175,8 @@ class OrgService(BaseOrgService):
                 deactivation and removal land in one transaction.
 
         Raises:
-            TracecatAuthorizationError: If the user is a superuser and cannot be deleted.
-            TracecatConflictError: If the user is managed by the identity
+            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be deleted.
+            AutoSecOpsConflictError: If the user is managed by the identity
                 provider and ``allow_idp_managed`` is not set.
         """
         await lock_role_changes(self.session, self.organization_id)
@@ -184,7 +184,7 @@ class OrgService(BaseOrgService):
         # Checked before the provider guard: a superuser is never removable
         # here, whichever directory happens to manage them.
         if user.is_superuser:
-            raise TracecatAuthorizationError("Cannot delete superuser")
+            raise AutoSecOpsAuthorizationError("Cannot delete superuser")
 
         idp_managed = await self.session.scalar(
             select(
@@ -203,7 +203,7 @@ class OrgService(BaseOrgService):
             )
         )
         if idp_managed and not allow_idp_managed:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Member is managed by the identity provider; deprovision them there."
             )
 
@@ -860,11 +860,11 @@ class OrgService(BaseOrgService):
             User: The updated user object.
 
         Raises:
-            TracecatAuthorizationError: If the user is a superuser and cannot be updated.
+            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be updated.
         """
         user = await self.get_member(user_id)
         if user.is_superuser:
-            raise TracecatAuthorizationError("Cannot update superuser")
+            raise AutoSecOpsAuthorizationError("Cannot update superuser")
         async with self._manager() as user_manager:
             updated_user = await user_manager.update(
                 user_update=params, user=user, safe=True
@@ -879,7 +879,7 @@ class OrgService(BaseOrgService):
         result = await self.session.execute(statement)
         organization = result.scalar_one_or_none()
         if organization is None:
-            raise TracecatNotFoundError("Organization not found")
+            raise AutoSecOpsNotFoundError("Organization not found")
 
         validate_organization_delete_confirmation(
             organization, confirmation=confirmation

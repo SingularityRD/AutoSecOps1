@@ -56,11 +56,11 @@ from autosecops.db.models import (
     Workflow,
 )
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatValidationError,
 )
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.tiers.enums import Entitlement
@@ -198,7 +198,7 @@ async def test_service_initialization_requires_workspace(session: AsyncSession) 
     )
 
     # Attempt to create service without workspace should raise error
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         CaseCommentsService(session=session, role=role_without_workspace)
 
 
@@ -979,7 +979,7 @@ class TestCaseCommentsService:
             case_comments_service.role,
         )
         with pytest.raises(
-            TracecatConflictError,
+            AutoSecOpsConflictError,
             match="Cannot reply to a deleted comment thread",
         ):
             await completion.create_reply_and_mark_succeeded(
@@ -1342,7 +1342,7 @@ class TestCaseCommentsService:
         test_case: Case,
         draft_workflow: Workflow,
     ) -> None:
-        with pytest.raises(TracecatValidationError, match="not published"):
+        with pytest.raises(AutoSecOpsValidationError, match="not published"):
             await case_comments_service.create_comment(
                 test_case,
                 CaseCommentCreate(
@@ -1608,7 +1608,8 @@ class TestCaseCommentsService:
         )
 
         with pytest.raises(
-            TracecatValidationError, match="Parent comment must belong to the same case"
+            AutoSecOpsValidationError,
+            match="Parent comment must belong to the same case",
         ):
             await case_comments_service.create_comment(
                 second_case,
@@ -1639,7 +1640,7 @@ class TestCaseCommentsService:
         )
 
         with pytest.raises(
-            TracecatValidationError, match="Replies cannot have replies"
+            AutoSecOpsValidationError, match="Replies cannot have replies"
         ):
             await case_comments_service.create_comment(
                 test_case,
@@ -1741,7 +1742,7 @@ class TestCaseCommentsService:
         await session.refresh(comment)
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="Workflow-backed comments cannot be edited",
         ):
             await case_comments_service.update_comment(
@@ -1765,7 +1766,8 @@ class TestCaseCommentsService:
         )
 
         with pytest.raises(
-            TracecatValidationError, match="Changing a comment parent is not supported"
+            AutoSecOpsValidationError,
+            match="Changing a comment parent is not supported",
         ):
             await case_comments_service.update_comment(
                 reply,
@@ -1808,7 +1810,7 @@ class TestCaseCommentsService:
         update_params = CaseCommentUpdate(content="Attempted update by different user")
 
         # Should raise authorization error
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service2.update_comment(created_comment, update_params)
 
         # Verify the comment wasn't updated
@@ -1862,7 +1864,7 @@ class TestCaseCommentsService:
         )
         service = CaseCommentsService(session=session, role=service_account_role)
 
-        with pytest.raises(TracecatAuthorizationError, match=error):
+        with pytest.raises(AutoSecOpsAuthorizationError, match=error):
             if action == "update":
                 await service.update_comment(
                     comment,
@@ -2067,7 +2069,7 @@ class TestCaseCommentsService:
 
         # Try to delete the comment with a different user
         # Should raise authorization error
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service2.delete_comment(created_comment)
 
         # Verify the comment wasn't deleted

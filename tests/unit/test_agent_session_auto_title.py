@@ -11,7 +11,7 @@ from autosecops.agent.session.service import AgentSessionService
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.db.models import AgentSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 
 @pytest.fixture
@@ -138,9 +138,9 @@ async def test_auto_title_does_not_skip_when_history_exists(role: Role) -> None:
 @pytest.mark.parametrize(
     "error",
     [
-        TracecatNotFoundError("model missing"),
+        AutoSecOpsNotFoundError("model missing"),
         LLMCompletionError("provider down"),
-        TracecatValidationError("invalid model config"),
+        AutoSecOpsValidationError("invalid model config"),
     ],
     ids=["not-found", "llm-completion", "validation"],
 )

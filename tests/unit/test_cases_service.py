@@ -64,10 +64,10 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.pagination import CursorPaginationParams
 from autosecops.tables.enums import SqlType
@@ -117,7 +117,7 @@ async def test_service_initialization_requires_workspace(session: AsyncSession) 
     )
 
     # Attempt to create service without workspace should raise error
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         CasesService(session=session, role=role_without_workspace)
 
 
@@ -458,7 +458,7 @@ class TestCasesService:
     async def test_resolve_case_id_rejects_invalid_refs(
         self, cases_service: CasesService, case_ref: str
     ) -> None:
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await cases_service.resolve_case_id(case_ref)
 
     async def test_resolve_case_id_is_workspace_scoped(
@@ -490,7 +490,7 @@ class TestCasesService:
         )
         second_service = CasesService(session=session, role=second_role)
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await second_service.resolve_case_id("CASE-0001")
 
     async def test_create_case_concurrently_allocates_unique_workspace_numbers(
@@ -985,7 +985,7 @@ class TestCasesService:
             patch.object(session, "execute", new_callable=AsyncMock) as mock_execute,
             patch.object(session, "rollback", wraps=session.rollback) as mock_rollback,
         ):
-            with pytest.raises(TracecatConflictError) as exc_info:
+            with pytest.raises(AutoSecOpsConflictError) as exc_info:
                 if action == "update":
                     await cases_service.batch_update_cases(case_ids, CaseUpdate())
                 else:
@@ -1145,7 +1145,7 @@ class TestCasesService:
 
         async def apply_with_missing_ref(case: Case, params: CaseUpdate) -> None:
             if case.id == invalid_case_id:
-                raise TracecatNotFoundError("Dropdown definition not found")
+                raise AutoSecOpsNotFoundError("Dropdown definition not found")
             await apply_case_update(case, params)
 
         with (
@@ -2438,7 +2438,7 @@ class TestCasesService:
         self, cases_service: CasesService, case_create_params: CaseCreate, mocker
     ) -> None:
         """Test that case creation is atomic when field update fails."""
-        from autosecops.exceptions import TracecatException, TracecatNotFoundError
+        from autosecops.exceptions import AutoSecOpsException, AutoSecOpsNotFoundError
 
         # Add fields to the params
         params_with_fields = CaseCreate(
@@ -2450,15 +2450,15 @@ class TestCasesService:
             fields={"test_field": "test_value"},
         )
 
-        # Mock update_row to raise TracecatNotFoundError (simulating UPDATE matching 0 rows)
+        # Mock update_row to raise AutoSecOpsNotFoundError (simulating UPDATE matching 0 rows)
         mocker.patch.object(
             cases_service.fields.editor,
             "update_row",
-            side_effect=TracecatNotFoundError("Row not found in table case_fields"),
+            side_effect=AutoSecOpsNotFoundError("Row not found in table case_fields"),
         )
 
-        # Should raise TracecatException with helpful message
-        with pytest.raises(TracecatException) as exc_info:
+        # Should raise AutoSecOpsException with helpful message
+        with pytest.raises(AutoSecOpsException) as exc_info:
             await cases_service.create_case(params_with_fields)
 
         # Verify error message is user-friendly

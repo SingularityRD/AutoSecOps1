@@ -30,8 +30,8 @@ from autosecops.executor.action_gateway.policy import (
 from autosecops.logger import logger
 from autosecops.observability.otel import instrument_fastapi_app
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.tables.exceptions import TableRowError
 
@@ -200,9 +200,9 @@ def _add_exception_handlers(app: FastAPI) -> None:
     )
     from autosecops.db.exceptions import AuthPoolExhaustedError
     from autosecops.exceptions import (
+        AutoSecOpsException,
         EntitlementRequired,
         ScopeDeniedError,
-        TracecatException,
     )
     from autosecops.forms.exceptions import FormError, form_error_handler
 
@@ -211,15 +211,15 @@ def _add_exception_handlers(app: FastAPI) -> None:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
-    app.add_exception_handler(TracecatException, autosecops_exception_handler)
+    app.add_exception_handler(AutoSecOpsException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
     app.add_exception_handler(
-        TracecatQueryTimeoutError,
+        AutoSecOpsQueryTimeoutError,
         query_timeout_exception_handler,
     )
     app.add_exception_handler(
-        TracecatQueryOverflowError,
+        AutoSecOpsQueryOverflowError,
         query_overflow_exception_handler,
     )
     app.add_exception_handler(RequestValidationError, validation_exception_handler)

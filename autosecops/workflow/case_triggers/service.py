@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from autosecops.audit.logger import AuditEventDetails, audit_log
 from autosecops.db.models import CaseTag, CaseTrigger, Workflow, WorkflowDefinition
 from autosecops.dsl.common import DSLInput
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkflowID, WorkflowUUID
 from autosecops.service import BaseWorkspaceService, requires_entitlement
 from autosecops.tiers.enums import Entitlement
@@ -70,7 +70,7 @@ class CaseTriggersService(BaseWorkspaceService):
             .with_for_update()
         )
         if await self.session.scalar(stmt) is None:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
     async def _ensure_case_trigger_exists(
         self, workflow_id: WorkflowID, *, commit: bool = True
@@ -89,7 +89,7 @@ class CaseTriggersService(BaseWorkspaceService):
             Workflow.id == workflow_uuid,
         )
         if await self.session.scalar(workflow_exists_stmt) is None:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
         await self.session.execute(
             insert(CaseTrigger)
@@ -110,7 +110,7 @@ class CaseTriggersService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         if case_trigger := result.scalar_one_or_none():
             return case_trigger
-        raise TracecatValidationError("Failed to ensure case trigger")
+        raise AutoSecOpsValidationError("Failed to ensure case trigger")
 
     async def _ensure_workflow_has_runnable_definition(
         self, workflow_id: WorkflowID
@@ -122,7 +122,7 @@ class CaseTriggersService(BaseWorkspaceService):
         )
         workflow_version = await self.session.scalar(version_stmt)
         if workflow_version is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Publish the workflow before enabling case triggers"
             )
 
@@ -133,13 +133,13 @@ class CaseTriggersService(BaseWorkspaceService):
         )
         content = await self.session.scalar(definition_stmt)
         if not content:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Publish the workflow before enabling case triggers"
             )
         try:
             DSLInput.model_validate(content)
         except ValidationError as e:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Publish the workflow before enabling case triggers"
             ) from e
 
@@ -155,12 +155,12 @@ class CaseTriggersService(BaseWorkspaceService):
         instead of reporting ``valid: true`` for a config that fails on persist.
 
         Raises:
-            TracecatValidationError: If the config is not applyable.
+            AutoSecOpsValidationError: If the config is not applyable.
         """
         if config.status != "online":
             return
         if not config.event_types:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "event_types must be non-empty when status is online"
             )
         await self._ensure_workflow_has_runnable_definition(workflow_id)
@@ -230,7 +230,7 @@ class CaseTriggersService(BaseWorkspaceService):
                 create_missing_tags=create_missing_tags,
                 commit=commit,
             )
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             resolved_tags = await self._resolve_tag_filters(
                 params.tag_filters, create_missing=create_missing_tags
             )
@@ -292,7 +292,7 @@ class CaseTriggersService(BaseWorkspaceService):
                 evt.value if hasattr(evt, "value") else evt for evt in event_types
             ]
         if status == "online" and not event_types:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "event_types must be non-empty when status is online"
             )
         if status == "online":
@@ -342,7 +342,9 @@ class CaseTriggersService(BaseWorkspaceService):
         missing = [ref for ref in deduped if ref not in existing]
 
         if missing and not create_missing:
-            raise TracecatNotFoundError(f"Case tag(s) not found: {', '.join(missing)}")
+            raise AutoSecOpsNotFoundError(
+                f"Case tag(s) not found: {', '.join(missing)}"
+            )
 
         if missing and create_missing:
             for ref in missing:

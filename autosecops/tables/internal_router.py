@@ -18,11 +18,11 @@ from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import Table, TableColumn
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.expressions.functions import tabulate
 from autosecops.logger import logger
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
-from autosecops.query.errors import TracecatQueryOverflowError
+from autosecops.query.errors import AutoSecOpsQueryOverflowError
 from autosecops.search.router import router as semantic_search_router
 from autosecops.tables.common import coerce_optional_to_utc_datetime
 from autosecops.tables.enums import SqlType
@@ -154,7 +154,7 @@ def _find_column_by_name(table: Table, column_name: str) -> TableColumn:
         None,
     )
     if column is None:
-        raise TracecatNotFoundError(
+        raise AutoSecOpsNotFoundError(
             f"Column '{column_name}' not found in table '{table.name}'"
         )
     return column
@@ -226,7 +226,7 @@ async def update_table(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -253,7 +253,7 @@ async def get_table_metadata(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -282,7 +282,7 @@ async def create_column(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -314,7 +314,7 @@ async def update_column(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -345,7 +345,7 @@ async def delete_column(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -380,7 +380,7 @@ async def lookup_rows(
             values=params.values,
             limit=params.limit,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -425,14 +425,14 @@ async def aggregate_rows(
     service = TablesService(session, role=role)
     try:
         return await service.aggregate_rows(table_name, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except TracecatQueryOverflowError:
+    except AutoSecOpsQueryOverflowError:
         raise
-    except (ValueError, TracecatValidationError) as exc:
+    except (ValueError, AutoSecOpsValidationError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -456,7 +456,7 @@ async def exists_rows(
             columns=params.columns,
             values=params.values,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -486,7 +486,7 @@ async def search_rows(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -531,7 +531,7 @@ async def insert_row(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -564,7 +564,7 @@ async def insert_rows_batch(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -598,7 +598,7 @@ async def update_row(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -606,7 +606,7 @@ async def update_row(
 
     try:
         return await service.update_row(table, row_id=row_id, data=params.data)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -636,7 +636,7 @@ async def delete_row(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -644,7 +644,7 @@ async def delete_row(
 
     try:
         await service.delete_row(table, row_id=row_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -674,7 +674,7 @@ async def download_table(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

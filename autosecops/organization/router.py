@@ -20,10 +20,10 @@ from autosecops.db.models import (
     Role as DBRole,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import SessionID, UserID
 from autosecops.invitations.enums import InvitationStatus
@@ -167,17 +167,17 @@ async def delete_organization(
     service = OrgService(session, role=role)
     try:
         await service.delete_organization(confirmation=confirm)
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -393,11 +393,11 @@ async def delete_org_member(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Action cannot be performed because related records still reference this member.",
         ) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
@@ -439,7 +439,7 @@ async def update_org_member(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         ) from e
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
         ) from e

@@ -22,7 +22,7 @@ from autosecops.db.models import (
     SkillVersionMcpTool,
     SkillVersionTool,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.service import IntegrationService
 
@@ -145,7 +145,7 @@ async def test_restore_uses_original_mcp_identity_and_checks_availability(
     await session.commit()
 
     if state != "renamed":
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await service.restore_version(
                 skill_id=source.skill_id, version_id=source.id
             )

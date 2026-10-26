@@ -13,7 +13,7 @@ import {
   skillLibraryUninstallLibrarySkill,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 async function listAllLibrarySkills(
@@ -35,7 +35,7 @@ async function listAllLibrarySkills(
   return skills
 }
 
-function showError(title: string, error: TracecatApiError) {
+function showError(title: string, error: AutoSecOpsApiError) {
   toast({
     title,
     description: getApiErrorDetail(error) ?? "Please try again.",
@@ -56,7 +56,7 @@ export function useSkillLibrary(
   options: { enabled: boolean } = { enabled: true }
 ) {
   const queryClient = useQueryClient()
-  const libraryQuery = useQuery<LibrarySkillRead[], TracecatApiError>({
+  const libraryQuery = useQuery<LibrarySkillRead[], AutoSecOpsApiError>({
     queryKey: ["skill-library", workspaceId],
     queryFn: async () => await listAllLibrarySkills(workspaceId),
     enabled: options.enabled,
@@ -70,7 +70,7 @@ export function useSkillLibrary(
 
   const installMutation = useMutation<
     LibrarySkillRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     string
   >({
     mutationFn: async (slug) =>
@@ -82,7 +82,7 @@ export function useSkillLibrary(
     onError: (error) => showError("Failed to install skill", error),
   })
 
-  const uninstallMutation = useMutation<void, TracecatApiError, string>({
+  const uninstallMutation = useMutation<void, AutoSecOpsApiError, string>({
     mutationFn: async (slug) =>
       await skillLibraryUninstallLibrarySkill({ workspaceId, slug }),
     onSuccess: (_, slug) => {
@@ -94,7 +94,7 @@ export function useSkillLibrary(
 
   const installManyMutation = useMutation<
     LibrarySkillRead[],
-    TracecatApiError,
+    AutoSecOpsApiError,
     string[]
   >({
     mutationFn: async (slugs) =>
@@ -111,19 +111,21 @@ export function useSkillLibrary(
     onSettled: invalidateLibrary,
   })
 
-  const uninstallManyMutation = useMutation<void, TracecatApiError, string[]>({
-    mutationFn: async (slugs) =>
-      await skillLibraryBatchUninstallLibrarySkills({
-        workspaceId,
-        requestBody: { slugs },
-      }),
-    onSuccess: (_, slugs) =>
-      toast({ title: "Uninstalled skills", description: slugs.join(", ") }),
-    onError: (error) => showError("Failed to uninstall skills", error),
-    onSettled: invalidateLibrary,
-  })
+  const uninstallManyMutation = useMutation<void, AutoSecOpsApiError, string[]>(
+    {
+      mutationFn: async (slugs) =>
+        await skillLibraryBatchUninstallLibrarySkills({
+          workspaceId,
+          requestBody: { slugs },
+        }),
+      onSuccess: (_, slugs) =>
+        toast({ title: "Uninstalled skills", description: slugs.join(", ") }),
+      onError: (error) => showError("Failed to uninstall skills", error),
+      onSettled: invalidateLibrary,
+    }
+  )
 
-  const forkMutation = useMutation<SkillRead, TracecatApiError, string>({
+  const forkMutation = useMutation<SkillRead, AutoSecOpsApiError, string>({
     mutationFn: async (slug) =>
       await skillLibraryForkLibrarySkill({ workspaceId, slug }),
     onSuccess: (skill) => {
@@ -169,7 +171,7 @@ export function useLibrarySkill(
   slug: string,
   options: { enabled: boolean } = { enabled: true }
 ) {
-  const query = useQuery<LibrarySkillDetailRead, TracecatApiError>({
+  const query = useQuery<LibrarySkillDetailRead, AutoSecOpsApiError>({
     // Nested under the library key so install changes refresh the preview.
     queryKey: ["skill-library", workspaceId, "skill", slug],
     queryFn: async () =>

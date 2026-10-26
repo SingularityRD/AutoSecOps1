@@ -12,7 +12,7 @@ from autosecops.agent.skill.dependencies import SkillToolDependencyService
 from autosecops.agent.skill.types import ResolvedSkillRef
 from autosecops.auth.types import Role
 from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.service import IntegrationService
 
 
@@ -76,7 +76,7 @@ async def test_explicit_requirements_are_validated_before_union(
 
     metadata = await service.load_metadata([version_id])
     if not available:
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await service.validate_dependencies(
                 metadata=metadata,
                 preset_version_id=uuid.uuid4(),

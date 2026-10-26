@@ -476,7 +476,7 @@ OptionalUserDep = Annotated[User | None, Depends(optional_current_active_user)]
 OptionalInternalServiceKeyDep = Annotated[
     str | None, Security(internal_service_key_header_scheme)
 ]
-OptionalTracecatApiKeyDep = Annotated[
+OptionalAutoSecOpsApiKeyDep = Annotated[
     str | None, Depends(_get_service_account_api_key_from_bearer)
 ]
 
@@ -1016,7 +1016,7 @@ def RoleACL(
                     ),
                     user: OptionalUserDep = None,
                     internal_service_key: OptionalInternalServiceKeyDep = None,
-                    autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                    autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
                 ) -> Role:
                     workspace_id = _resolve_workspace_id_from_path_or_query(
                         request, workspace_id_query
@@ -1080,7 +1080,7 @@ def RoleACL(
                         include_in_schema=False,
                     ),
                     user: OptionalUserDep = None,
-                    autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                    autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
                 ) -> Role:
                     workspace_id = _resolve_workspace_id_from_path_or_query(
                         request, workspace_id_query
@@ -1140,7 +1140,7 @@ def RoleACL(
                 workspace_id: uuid.UUID = GetWsDep(...),
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1190,7 +1190,7 @@ def RoleACL(
                 session: AsyncDBSession,
                 workspace_id: uuid.UUID = GetWsDep(...),
                 user: OptionalUserDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1244,7 +1244,7 @@ def RoleACL(
                 workspace_id: uuid.UUID | None = Query(None),
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1294,7 +1294,7 @@ def RoleACL(
                 session: AsyncDBSession,
                 workspace_id: uuid.UUID | None = Query(None),
                 user: OptionalUserDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1344,7 +1344,7 @@ def RoleACL(
                 session: AsyncDBSession,
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1390,7 +1390,7 @@ def RoleACL(
                 request: Request,
                 session: AsyncDBSession,
                 user: OptionalUserDep = None,
-                autosecops_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,

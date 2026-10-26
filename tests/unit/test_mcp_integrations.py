@@ -3978,16 +3978,16 @@ class TestMCPIntegrationValidation:
 
         # Simulate tightened policy: remove 'npx' from the allowed set after the
         # row was already persisted.
-        from autosecops.exceptions import TracecatValidationError
+        from autosecops.exceptions import AutoSecOpsValidationError
         from autosecops.integrations import mcp_validation
 
         original = mcp_validation.ALLOWED_MCP_COMMANDS
         mcp_validation.ALLOWED_MCP_COMMANDS = frozenset(original - {"npx"})
         try:
             # The integration should be skipped; with no remaining refs the
-            # method raises TracecatValidationError rather than returning an
+            # method raises AutoSecOpsValidationError rather than returning an
             # empty list.
-            with pytest.raises(TracecatValidationError):
+            with pytest.raises(AutoSecOpsValidationError):
                 await preset_service.resolve_mcp_integration_refs([str(created.id)])
         finally:
             mcp_validation.ALLOWED_MCP_COMMANDS = original

@@ -22,7 +22,7 @@ from autosecops.agent.channels.service import (
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
 
@@ -54,12 +54,12 @@ async def create_channel_token(
     service = AgentChannelService(session, role=role)
     try:
         token = await service.create_token(params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -106,12 +106,12 @@ async def update_channel_token(
         )
     try:
         updated = await service.update_token(token, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -221,12 +221,12 @@ async def start_slack_oauth(
                 ),
             )
             token = updated
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import StringConstraints
 
-from autosecops.identifiers.common import TracecatUUID
+from autosecops.identifiers.common import AutoSecOpsUUID
 
 # Prefixes
 SCH_ID_PREFIX = "sch_"
@@ -22,14 +22,14 @@ _UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 TEMPORAL_SCHEDULE_ID_PATTERN = rf"(?:{_LEGACY_SCHEDULE_ID_PATTERN}|{_UUID_PATTERN})"
 SCHEDULE_EXEC_ID_PATTERN = rf"{TEMPORAL_SCHEDULE_ID_PATTERN}-.*"
 
-# Short ID type (used as TracecatUUID type parameter)
+# Short ID type (used as AutoSecOpsUUID type parameter)
 ScheduleIDShort = Annotated[str, StringConstraints(pattern=_SCH_ID_SHORT_PATTERN)]
 LegacyScheduleID = Annotated[
     str, StringConstraints(pattern=_LEGACY_SCHEDULE_ID_PATTERN)
 ]
 
 
-class ScheduleUUID(TracecatUUID[ScheduleIDShort]):
+class ScheduleUUID(AutoSecOpsUUID[ScheduleIDShort]):
     """UUID for schedule resources.
 
     Supports:

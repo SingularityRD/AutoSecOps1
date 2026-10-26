@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from autosecops_registry.sdk.exceptions import (
-    TracecatAPIError,
-    TracecatAuthError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAPIError,
+    AutoSecOpsAuthError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from autosecops_registry.sdk.workflows import WorkflowsClient
 
 
-class TracecatClient:
+class AutoSecOpsClient:
     """HTTP client for the executor-local Action Gateway.
 
     This client is used by registry actions to communicate with the
@@ -185,17 +185,17 @@ class TracecatClient:
         detail = self._extract_error_detail(response)
 
         if status_code == 401:
-            raise TracecatAuthError(detail=detail, status_code=401)
+            raise AutoSecOpsAuthError(detail=detail, status_code=401)
         elif status_code == 403:
-            raise TracecatAuthError(detail=detail, status_code=403)
+            raise AutoSecOpsAuthError(detail=detail, status_code=403)
         elif status_code == 404:
-            raise TracecatNotFoundError(detail=detail)
+            raise AutoSecOpsNotFoundError(detail=detail)
         elif status_code == 409:
-            raise TracecatConflictError(detail=detail)
+            raise AutoSecOpsConflictError(detail=detail)
         elif status_code in (400, 422):
-            raise TracecatValidationError(detail=detail, status_code=status_code)
+            raise AutoSecOpsValidationError(detail=detail, status_code=status_code)
         else:
-            raise TracecatAPIError(
+            raise AutoSecOpsAPIError(
                 message="API request failed",
                 status_code=status_code,
                 detail=detail,
@@ -223,10 +223,10 @@ class TracecatClient:
             Parsed JSON response, or None if response has no content.
 
         Raises:
-            TracecatAuthError: For 401/403 responses
-            TracecatNotFoundError: For 404 responses
-            TracecatValidationError: For 400/422 responses
-            TracecatAPIError: For other error responses
+            AutoSecOpsAuthError: For 401/403 responses
+            AutoSecOpsNotFoundError: For 404 responses
+            AutoSecOpsValidationError: For 400/422 responses
+            AutoSecOpsAPIError: For other error responses
         """
         url, transport = self._request_url_and_transport(path)
         request_headers = self._get_headers()

@@ -77,7 +77,7 @@ from autosecops.agent.service import AgentManagementService
 from autosecops.agent.tokens import verify_llm_token
 from autosecops.agent.types import AgentConfig
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.logger import logger
 from autosecops.network import DisallowedUrlError
 from autosecops.observability.otel import get_platform_tracing
@@ -570,7 +570,7 @@ class LLMRoute:
         if self.catalog_id is not None:
             try:
                 creds = await svc.get_catalog_credentials(self.catalog_id)
-            except TracecatAuthorizationError as exc:
+            except AutoSecOpsAuthorizationError as exc:
                 raise AgentSandboxValidationError(
                     f"Model provider {provider} is not available for this workspace."
                 ) from exc

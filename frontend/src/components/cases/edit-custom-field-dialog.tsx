@@ -37,7 +37,7 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { invalidateCaseFieldQueries } from "@/lib/cases/invalidation"
 import { getCaseFieldTypeConfig } from "@/lib/data-type"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useQueryClient } from "@/lib/query"
 import { type SqlTypeCreatable, SqlTypeCreatableEnum } from "@/lib/tables"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -341,7 +341,7 @@ export function EditCustomFieldDialog({
     } catch (error) {
       console.error("Failed to update case field", error)
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         if (apiError.status === 409) {
           form.setError("reference", {
             type: "manual",

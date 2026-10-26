@@ -68,11 +68,11 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.contexts import ctx_role
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ExecutionError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.integrations.mcp_tunnel import resolve_mcp_tunnel_proxy
 from autosecops.integrations.mcp_validation import (
@@ -111,7 +111,7 @@ _USER_MCP_DISCOVERY_CACHE: dict[
 _USER_MCP_DISCOVERY_CACHE_LOCK = asyncio.Lock()
 
 
-class TracecatScopedTool(Tool):
+class AutoSecOpsScopedTool(Tool):
     """A concrete token-scoped tool exposed by the trusted MCP server."""
 
     claims: SkipJsonSchema[MCPTokenClaims] = Field(exclude=True)
@@ -421,7 +421,7 @@ async def _resolve_user_mcp_config(
         raise ToolError(
             f"Credentials for MCP server '{ref.name}' could not be resolved"
         ) from e
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(f"MCP integration {ref.id} is unavailable: {e}") from None
     except Exception:
         logger.exception(
@@ -468,13 +468,13 @@ def _build_scoped_tool(
     parameters_json_schema: dict[str, Any],
     registry_tool: bool = False,
     claims: MCPTokenClaims,
-) -> TracecatScopedTool:
+) -> AutoSecOpsScopedTool:
     schema = (
         build_registry_tool_schema(parameters_json_schema)
         if registry_tool
         else parameters_json_schema
     )
-    return TracecatScopedTool(
+    return AutoSecOpsScopedTool(
         name=tool_name,
         description=description,
         parameters=schema,

@@ -9,7 +9,7 @@ from autosecops.cases.enums import CaseEventType
 from autosecops.cases.tags.service import CaseTagsService
 from autosecops.db.models import CaseTrigger, Workflow, WorkflowDefinition
 from autosecops.dsl.common import DSLInput
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.workflow.case_triggers.schemas import (
     CaseTriggerConfig,
@@ -117,7 +117,7 @@ async def test_case_trigger_update_online_requirements(
         else CaseTriggerUpdate(status="online", event_types=event_types)
     )
     if error is not None:
-        with pytest.raises(TracecatValidationError, match=error):
+        with pytest.raises(AutoSecOpsValidationError, match=error):
             await service.update_case_trigger(WorkflowUUID.new(workflow.id), params)
         return
 
@@ -222,7 +222,7 @@ async def test_case_trigger_rejects_unknown_tags(session: AsyncSession, svc_role
     await session.commit()
 
     service = CaseTriggersService(session, role=svc_role)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.update_case_trigger(
             WorkflowUUID.new(workflow.id),
             CaseTriggerUpdate(tag_filters=["missing-tag"]),

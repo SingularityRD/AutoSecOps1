@@ -19,9 +19,9 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatValidationError,
 )
 from autosecops.workspace_sync.enums import VcsProvider
 from autosecops.workspaces.schemas import (
@@ -122,7 +122,7 @@ class TestWorkspaceService:
         await session.commit()
         original_settings = dict(svc_workspace.settings)
 
-        with pytest.raises(TracecatValidationError, match="active preset"):
+        with pytest.raises(AutoSecOpsValidationError, match="active preset"):
             await service.update_workspace(
                 svc_workspace,
                 WorkspaceUpdate(default_agent_preset_id=preset_id),
@@ -391,7 +391,7 @@ class TestWorkspaceService:
             ),
         )
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service.list_accessible_workspaces()
 
     async def test_list_accessible_workspaces_returns_empty_for_org_read_service_account(

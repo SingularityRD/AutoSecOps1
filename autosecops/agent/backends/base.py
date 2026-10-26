@@ -48,7 +48,7 @@ from autosecops.contexts import ctx_role
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import AgentSession
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 from autosecops.logger import logger
 from autosecops.workflow.executions.correlation import (
     build_agent_session_correlation_id,
@@ -141,18 +141,18 @@ class AgentBackend[InputT, OutputT](ABC):
         )
         session = await context.db.scalar(locked_session)
         if session is None:
-            raise TracecatConflictError("This chat already has an active turn")
+            raise AutoSecOpsConflictError("This chat already has an active turn")
         if session.curr_run_id is not None:
             recovered = await self._release_terminal_turn(
                 replace(context, session=session), client
             )
             if not recovered:
-                raise TracecatConflictError("This chat already has an active turn")
+                raise AutoSecOpsConflictError("This chat already has an active turn")
             # Recovery commits independently so a subsequent preparation failure
             # cannot restore stale ownership. Reacquire the lock before admission.
             session = await context.db.scalar(locked_session)
             if session is None or session.curr_run_id is not None:
-                raise TracecatConflictError("This chat already has an active turn")
+                raise AutoSecOpsConflictError("This chat already has an active turn")
         # Once admitted, finish the ownership decision before releasing the
         # request's DB session. Cancellation must not interrupt a commit that
         # PostgreSQL may already have accepted, or skip dispatch/cleanup after it.

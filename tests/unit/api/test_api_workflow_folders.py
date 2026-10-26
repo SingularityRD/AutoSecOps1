@@ -8,7 +8,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.workflow.management.folders import router as workflow_folder_router
 from autosecops.workflow.management.folders.service import WorkflowFolderErrorCode
 
@@ -40,7 +40,7 @@ async def test_update_folder_conflict_returns_409(
     ) as mock_service_cls:
         mock_service = _mock_service_with_async_method(
             "rename_folder",
-            side_effect=TracecatValidationError(
+            side_effect=AutoSecOpsValidationError(
                 "Duplicate target",
                 detail={"code": WorkflowFolderErrorCode.CONFLICT.value},
             ),

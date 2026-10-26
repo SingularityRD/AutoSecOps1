@@ -26,7 +26,7 @@ from autosecops.db.models import (
     CaseAgentSessionInteraction,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("db")]
 
@@ -215,13 +215,13 @@ async def test_record_rejects_cross_workspace_case_and_session(
     await session.commit()
     service = CaseAgentSessionInteractionService(session, svc_role)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.record(
             case_id=other_case.id,
             agent_session_id=own_session.id,
             operation=CaseAgentSessionInteractionOperation.UPDATE,
         )
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.record(
             case_id=own_case.id,
             agent_session_id=other_session.id,
@@ -254,5 +254,5 @@ async def test_root_resolution_rejects_session_lineage_cycle(
     await session.commit()
     service = CaseAgentSessionInteractionService(session, svc_role)
 
-    with pytest.raises(TracecatValidationError, match="lineage contains a cycle"):
+    with pytest.raises(AutoSecOpsValidationError, match="lineage contains a cycle"):
         await service.resolve_root_session_id(first_session.id)

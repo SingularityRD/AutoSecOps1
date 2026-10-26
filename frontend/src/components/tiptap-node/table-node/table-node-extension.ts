@@ -51,7 +51,7 @@ function rectHasColumnRight(rect: TableRect | null): rect is TableRect {
 }
 
 /**
- * Whether {@link TracecatTable}'s `moveTableColumnLeft` would move a column.
+ * Whether {@link AutoSecOpsTable}'s `moveTableColumnLeft` would move a column.
  *
  * The toolbar asks through here rather than through `editor.can()`, which would
  * run the command for real — `moveTableColumn` transposes and rebuilds the
@@ -65,7 +65,7 @@ export function canMoveTableColumnLeft(state: EditorState): boolean {
 }
 
 /**
- * Whether {@link TracecatTable}'s `moveTableColumnRight` would move a column.
+ * Whether {@link AutoSecOpsTable}'s `moveTableColumnRight` would move a column.
  *
  * The mirror of {@link canMoveTableColumnLeft}; see it for why this exists.
  */
@@ -76,7 +76,7 @@ export function canMoveTableColumnRight(state: EditorState): boolean {
 /**
  * The upstream table extension plus the two move-column commands.
  */
-export const TracecatTable = Table.extend({
+export const AutoSecOpsTable = Table.extend({
   addCommands() {
     return {
       // The whole upstream table command set — `insertTable`,

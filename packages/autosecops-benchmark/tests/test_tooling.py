@@ -24,9 +24,9 @@ from autosecops_benchmark import provision_monitor as provision_monitor_module
 from autosecops_benchmark import runner as runner_module
 from autosecops_benchmark.activity_metrics import ActivityMetricsCaptureError
 from autosecops_benchmark.client import (
+    AutoSecOpsClient,
     ExecutionFailureDiagnostic,
     ExecutionStatusRefreshError,
-    TracecatClient,
 )
 from autosecops_benchmark.collector import (
     ACTIVITY_SQL,
@@ -147,7 +147,7 @@ def test_activity_metrics_require_ids_for_possibly_accepted_admissions(
 ) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -464,7 +464,7 @@ def test_failed_status_refresh_is_throttled() -> None:
             requested_workflow_ids.append(request.url.params.get("workflow_id"))
             return httpx.Response(503)
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -522,7 +522,7 @@ def test_execution_status_refresh_uses_configured_poll_interval(
             "autosecops_benchmark.client.time.monotonic",
             monotonic,
         )
-        client = TracecatClient(
+        client = AutoSecOpsClient(
             "http://autosecops.test/api",
             execution_poll_interval_seconds=0.25,
         )
@@ -580,7 +580,7 @@ def test_execution_status_refresh_pages_past_snapshot_limit() -> None:
                 },
             )
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -622,7 +622,7 @@ def test_successful_submission_requires_a_nonempty_execution_id(
         async def handler(_request: httpx.Request) -> httpx.Response:
             return httpx.Response(202, json=payload)
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -662,7 +662,7 @@ def test_running_execution_check_uses_filtered_search(
             assert request.url.params["limit"] == "1"
             return httpx.Response(200, json={"items": items})
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -696,7 +696,7 @@ def test_execution_snapshot_retains_event_count() -> None:
                 },
             )
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -745,7 +745,7 @@ def test_execution_failure_diagnostics_exclude_free_form_messages() -> None:
                 },
             )
 
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -797,7 +797,7 @@ def test_submission_is_bounded_by_the_run_timeout(tmp_path: Path) -> None:
     async def exercise() -> tuple[LoadRunner, ExecutionRecord]:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, StalledAdmissionClient()),
+            cast(AutoSecOpsClient, StalledAdmissionClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -853,7 +853,7 @@ def test_submission_without_execution_id_retires_ambiguous_2xx_slot(
     async def exercise() -> tuple[LoadRunner, ExecutionRecord]:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, MissingExecutionIdClient()),
+            cast(AutoSecOpsClient, MissingExecutionIdClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -890,7 +890,7 @@ def test_runner_records_terminal_history_length(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, FakeClient()),
+            cast(AutoSecOpsClient, FakeClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -959,7 +959,7 @@ def test_poll_timeout_classification_uses_polling_history(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, HistoryClient()),
+            cast(AutoSecOpsClient, HistoryClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1029,7 +1029,7 @@ def test_execution_polling_subtracts_request_duration(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, SlowPollClient()),
+            cast(AutoSecOpsClient, SlowPollClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1100,7 +1100,7 @@ def test_execution_timeout_prevents_late_poll(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, client),
+            cast(AutoSecOpsClient, client),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1170,7 +1170,7 @@ def test_execution_response_after_deadline_is_timed_out(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, SlowTerminalClient()),
+            cast(AutoSecOpsClient, SlowTerminalClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1262,7 +1262,7 @@ def test_measured_timing_starts_after_warmup(
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         scenario = _scenario_config(
             tmp_path,
             warmup=True,
@@ -1311,7 +1311,7 @@ def test_unresolved_warmup_aborts_before_measured_load(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = UnresolvedWarmupRunner(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             _scenario_config(
                 tmp_path,
                 warmup=True,
@@ -1337,7 +1337,7 @@ def test_unresolved_warmup_aborts_before_measured_load(tmp_path: Path) -> None:
 def test_sustained_summary_targets_actual_submissions(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -1376,7 +1376,7 @@ def test_sustained_summary_targets_actual_submissions(tmp_path: Path) -> None:
 def test_runner_only_summary_does_not_claim_row_correctness(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         replace(
             _scenario_config(
                 tmp_path,
@@ -1402,7 +1402,7 @@ def test_runner_only_summary_does_not_claim_row_correctness(tmp_path: Path) -> N
 def test_noop_summary_expects_no_fixture_rows(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         replace(
             _scenario_config(
                 tmp_path,
@@ -1441,7 +1441,7 @@ def test_noop_summary_expects_no_fixture_rows(tmp_path: Path) -> None:
 def test_timeout_summary_includes_every_deadline_expiry_mode(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -1493,7 +1493,7 @@ def test_one_shot_worker_does_not_replenish_completed_work(tmp_path: Path) -> No
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         runner = OneShotRunner(
             client,
             _scenario_config(
@@ -1531,7 +1531,7 @@ def test_staggered_worker_wakes_immediately_on_abort(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = StaggeredRunner(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1575,7 +1575,7 @@ def test_worker_does_not_replenish_timed_out_in_flight_work(
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = TimedOutRunner(
             client,
@@ -1635,7 +1635,7 @@ def test_failure_diagnostics_are_captured_after_measured_time(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, DiagnosticClient()),
+            cast(AutoSecOpsClient, DiagnosticClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1715,7 +1715,7 @@ def test_failure_diagnostics_capture_error_invalidates_run(
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, DiagnosticClient()),
+            cast(AutoSecOpsClient, DiagnosticClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -2862,7 +2862,7 @@ def test_noop_runner_omits_runtime_branch_count_input(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, RejectingClient()),
+            cast(AutoSecOpsClient, RejectingClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -2903,7 +2903,7 @@ def test_static_warmup_uses_its_small_fixture_workflow(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, RejectingClient()),
+            cast(AutoSecOpsClient, RejectingClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -3136,7 +3136,7 @@ def test_workspace_bootstrap_prints_resolved_id(
         assert workspace_name == "load-test"
         return "00000000-0000-4000-8000-000000000001"
 
-    monkeypatch.setattr(runner_module, "TracecatClient", FakeClient)
+    monkeypatch.setattr(runner_module, "AutoSecOpsClient", FakeClient)
     monkeypatch.setattr(
         runner_module,
         "resolve_workspace",
@@ -3181,7 +3181,7 @@ def test_fixture_reset_mode_runs_without_collector(
         assert workspace_id == "00000000-0000-4000-8000-000000000001"
         return "scatter_load_rows"
 
-    monkeypatch.setattr(runner_module, "TracecatClient", FakeClient)
+    monkeypatch.setattr(runner_module, "AutoSecOpsClient", FakeClient)
     monkeypatch.setattr(
         runner_module,
         "reset_fixture_table",
@@ -3506,12 +3506,12 @@ def test_static_fixture_setup_materializes_a_dedicated_small_warmup(
     ensured_workflows: list[WorkflowFixture] = []
 
     async def fake_ensure_table(
-        _client: TracecatClient, _workspace_id: str, _fixture: object
+        _client: AutoSecOpsClient, _workspace_id: str, _fixture: object
     ) -> tuple[str, str]:
         return "table-1", "scatter_load_rows"
 
     async def fake_ensure_workflow(
-        _client: TracecatClient,
+        _client: AutoSecOpsClient,
         _workspace_id: str,
         fixture: WorkflowFixture,
     ) -> str:
@@ -3523,7 +3523,7 @@ def test_static_fixture_setup_materializes_a_dedicated_small_warmup(
 
     handles = asyncio.run(
         fixtures_module.ensure_fixtures(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             "workspace-1",
             (LoadType.SCATTER,),
             branch_count=256,
@@ -3922,7 +3922,7 @@ def test_existing_fixture_workflow_is_replaced_from_yaml(tmp_path: Path) -> None
         )
 
     async def exercise() -> str:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -3986,7 +3986,7 @@ def test_existing_fixture_workflow_is_not_replaced_while_running() -> None:
         )
         with pytest.raises(fixtures_module.FixtureError, match="still has running"):
             await fixtures_module._ensure_workflow(
-                cast(TracecatClient, client), "workspace-1", fixture
+                cast(AutoSecOpsClient, client), "workspace-1", fixture
             )
         return client
 
@@ -4028,7 +4028,7 @@ def test_same_title_without_fixture_alias_is_not_deleted(tmp_path: Path) -> None
         )
 
     async def exercise() -> str:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -4082,7 +4082,7 @@ def test_reused_fixture_table_requires_the_complete_schema() -> None:
         )
 
     async def exercise() -> None:
-        client = TracecatClient("http://autosecops.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
             base_url="http://autosecops.test/api",
@@ -4164,7 +4164,7 @@ def test_fixture_reset_recreates_only_the_checked_in_table() -> None:
     async def exercise() -> FakeClient:
         client = FakeClient()
         table_name = await fixtures_module.reset_fixture_table(
-            cast(TracecatClient, client),
+            cast(AutoSecOpsClient, client),
             "workspace-1",
         )
         assert table_name == "scatter_load_rows"
@@ -4218,7 +4218,7 @@ def test_fixture_reset_refuses_while_a_fixture_child_is_running() -> None:
             match="fixture workflows must be quiescent",
         ):
             await fixtures_module.reset_fixture_table(
-                cast(TracecatClient, client),
+                cast(AutoSecOpsClient, client),
                 "workspace-1",
             )
         return client

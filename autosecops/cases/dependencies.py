@@ -10,7 +10,7 @@ from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.cases.constants import MAX_PAYLOAD_PATH_KEYS, MAX_PAYLOAD_PATHS
 from autosecops.cases.service import CasesService
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 _PAYLOAD_PATHS_ADAPTER = TypeAdapter(
     Annotated[
@@ -62,11 +62,11 @@ async def executor_case_id_path_dependency(
     service = CasesService(session, role)
     try:
         return await service.resolve_case_id(case_id)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 

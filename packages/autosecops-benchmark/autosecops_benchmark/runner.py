@@ -53,9 +53,9 @@ from autosecops.identifiers.workflow import WorkspaceUUID
 
 from .client import (
     ApiError,
+    AutoSecOpsClient,
     ExecutionFailureDiagnostic,
     ExecutionStatusRefreshError,
-    TracecatClient,
 )
 from .fixtures import (
     FixtureError,
@@ -486,7 +486,7 @@ class LoadRunner:
 
     def __init__(
         self,
-        client: TracecatClient,
+        client: AutoSecOpsClient,
         scenario: ScenarioConfig,
         workflow_id: str,
         writer: JsonLinesWriter,
@@ -1122,7 +1122,7 @@ async def amain(argv: list[str]) -> int:
         api_key = os.environ.get(args.api_key_env) or None
         password = os.environ.get(args.password_env) or DEFAULT_PASSWORD
         try:
-            async with TracecatClient(
+            async with AutoSecOpsClient(
                 args.base_url,
                 api_key=api_key,
                 max_connections=args.max_connections,
@@ -1156,7 +1156,7 @@ async def amain(argv: list[str]) -> int:
         api_key = os.environ.get(args.api_key_env) or None
         password = os.environ.get(args.password_env) or DEFAULT_PASSWORD
         try:
-            async with TracecatClient(
+            async with AutoSecOpsClient(
                 args.base_url,
                 api_key=api_key,
                 max_connections=args.max_connections,
@@ -1338,7 +1338,7 @@ async def amain(argv: list[str]) -> int:
             api_key=api_key,
         )
 
-        async with TracecatClient(
+        async with AutoSecOpsClient(
             public_api_url,
             api_key=auth.api_key,
             max_connections=args.max_connections,

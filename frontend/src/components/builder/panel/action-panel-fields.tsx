@@ -83,11 +83,11 @@ import {
 } from "@/lib/hooks"
 import { getType } from "@/lib/jsonschema"
 import {
+  type AutoSecOpsComponentId,
+  type AutoSecOpsEditorComponent,
+  type AutoSecOpsJsonSchema,
   type ExpressionComponent,
-  getTracecatComponents,
-  type TracecatComponentId,
-  type TracecatEditorComponent,
-  type TracecatJsonSchema,
+  getAutoSecOpsComponents,
 } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -95,7 +95,7 @@ import { useWorkspaceId } from "@/providers/workspace-id"
 export interface FormComponentProps {
   label: string
   fieldName: string
-  fieldDefn: TracecatJsonSchema
+  fieldDefn: AutoSecOpsJsonSchema
   description?: string
   className?: string
   actionProperties?: Record<string, unknown>
@@ -239,7 +239,7 @@ export function PolymorphicField({
   const currentValue = methods.watch(fieldName)
   const isCurrentValueExpression = isExpression(currentValue)
   const [activeFieldType, setActiveFieldType] = useState<
-    TracecatComponentId | undefined
+    AutoSecOpsComponentId | undefined
   >(() => {
     if (isCurrentValueExpression) {
       return "expression"
@@ -251,7 +251,7 @@ export function PolymorphicField({
   const type = getType(fieldDefn)
 
   // Get all available components for this field
-  const components = getTracecatComponents(fieldDefn)
+  const components = getAutoSecOpsComponents(fieldDefn)
 
   if (components.length === 0) {
     // Fallback to YAML if no components defined
@@ -399,8 +399,8 @@ export function PolymorphicField({
         .filter(
           (
             component
-          ): component is TracecatEditorComponent & {
-            component_id: TracecatComponentId
+          ): component is AutoSecOpsEditorComponent & {
+            component_id: AutoSecOpsComponentId
           } => component.component_id !== undefined
         )
         .map((component) => {
@@ -422,13 +422,13 @@ export function PolymorphicField({
   }
 
   // Compose the list of components to render, always including the expression component last.
-  const allComponents: TracecatEditorComponent[] = [
+  const allComponents: AutoSecOpsEditorComponent[] = [
     ...components,
     { component_id: "expression" } as ExpressionComponent,
   ]
 
   // Handle field type changes
-  const handleFieldTypeChange = (newFieldType: TracecatComponentId) => {
+  const handleFieldTypeChange = (newFieldType: AutoSecOpsComponentId) => {
     setActiveFieldType(newFieldType)
 
     // If switching from expression to a native type, and the current value is an expression,
@@ -440,13 +440,13 @@ export function PolymorphicField({
   }
 
   // Find the active component by component_id
-  const activeComponent: TracecatEditorComponent | undefined =
+  const activeComponent: AutoSecOpsEditorComponent | undefined =
     allComponents.find(
       (component) => component.component_id === activeFieldType
     )
 
   // Fallback to the first component if no match is found
-  const componentToRender: TracecatEditorComponent =
+  const componentToRender: AutoSecOpsEditorComponent =
     activeComponent ?? allComponents[0]
 
   // if the component is yaml, we need to render the yaml editor
@@ -503,7 +503,7 @@ function ComponentContent({
   fieldName,
   actionProperties,
 }: {
-  component: TracecatEditorComponent
+  component: AutoSecOpsEditorComponent
   field: ControllerRenderProps<FieldValues>
   fieldName: string
   actionProperties?: Record<string, unknown>
@@ -817,7 +817,7 @@ export function ActionTypeField({
   )
 }
 
-const COMPONENT_LABELS: Record<TracecatComponentId, string> = {
+const COMPONENT_LABELS: Record<AutoSecOpsComponentId, string> = {
   text: "Text",
   "text-area": "Text Area",
   select: "Select",
@@ -835,7 +835,7 @@ const COMPONENT_LABELS: Record<TracecatComponentId, string> = {
   "mcp-integration": "MCP Integrations",
 }
 
-const COMPONENT_ICONS: Record<TracecatComponentId, LucideIcon> = {
+const COMPONENT_ICONS: Record<AutoSecOpsComponentId, LucideIcon> = {
   text: TypeIcon,
   "text-area": TypeIcon,
   select: ListIcon,

@@ -30,7 +30,7 @@ from autosecops.cases.text_search_indexes import (
     ensure_case_text_indexes,
 )
 from autosecops.db.models import Case
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.execution import query_execution_context
 from autosecops.query.lexical import (
     literal_search_pattern,
@@ -660,7 +660,7 @@ async def case_search_execution_context(
                     ),
                     {"threshold": previous_threshold},
                 )
-    except TracecatQueryTimeoutError as exc:
-        raise TracecatQueryTimeoutError(
+    except AutoSecOpsQueryTimeoutError as exc:
+        raise AutoSecOpsQueryTimeoutError(
             "Case search timed out. Narrow the query or filters."
         ) from exc

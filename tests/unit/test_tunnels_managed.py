@@ -23,7 +23,7 @@ from autosecops import config
 from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import Role
 from autosecops.db.models import Organization, Workspace, WorkspaceTunnel
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.secrets.encryption import decrypt_value
 
 SETTINGS = PangolinSettings(
@@ -295,7 +295,7 @@ class TestManagedTunnels:
         monkeypatch.setattr(
             service_module, "resolve_pangolin_settings", AsyncMock(return_value=None)
         )
-        with pytest.raises(TracecatValidationError, match="not configured"):
+        with pytest.raises(AutoSecOpsValidationError, match="not configured"):
             await service.create_managed_tunnel(_params())
         assert _calls() == []
 
@@ -311,7 +311,7 @@ class TestManagedTunnels:
         assert ("delete_resource", 101) in _calls()
         assert ("delete_client", 11) in _calls()
         assert ("delete_site", 7) in _calls()
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.get_tunnel(created.tunnel.id)
 
     async def test_managed_fields_are_immutable(self, service: TunnelsService) -> None:
@@ -321,7 +321,7 @@ class TestManagedTunnels:
         update = TunnelUpdate.model_validate(
             {"allowed_targets": [{"host": "other.corp.example", "ports": [22]}]}
         )
-        with pytest.raises(TracecatValidationError, match="managed tunnel"):
+        with pytest.raises(AutoSecOpsValidationError, match="managed tunnel"):
             await service.update_tunnel(tunnel, update)
 
         renamed = await service.update_tunnel(
@@ -352,11 +352,11 @@ class TestManagedTunnels:
     ) -> None:
         created = await service.create_managed_tunnel(_params())
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await other_service.get_tunnel(created.tunnel.id)
         tunnel = await service.get_tunnel(created.tunnel.id)
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await other_service.get_tunnel_status(tunnel)
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await other_service.delete_tunnel(tunnel)
         assert not any(c[0].startswith("delete") for c in _calls())

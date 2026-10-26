@@ -77,7 +77,7 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { useResourceCategories } from "@/hooks/use-resource-categories"
 import { getDisplayName } from "@/lib/auth"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useQuery } from "@/lib/query"
 import { getCategoryScopes, type PermissionLevel } from "@/lib/rbac"
 import { cn } from "@/lib/utils"
@@ -244,7 +244,7 @@ function getUserDisplayName(
 
 function getApiErrorDetail(error: unknown, fallback: string): string {
   if (typeof error === "object" && error !== null) {
-    const apiError = error as TracecatApiError
+    const apiError = error as AutoSecOpsApiError
     if (typeof apiError.body?.detail === "string") {
       return apiError.body.detail
     }

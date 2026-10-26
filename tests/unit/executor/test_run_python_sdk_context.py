@@ -91,7 +91,7 @@ class _FakeCasesClient:
         return {"items": [{"id": "case-1"}], "limit": limit}
 
 
-class _FakeTracecatClient:
+class _FakeAutoSecOpsClient:
     @property
     def cases(self) -> _FakeCasesClient:
         return _FakeCasesClient()
@@ -376,9 +376,9 @@ class RegistryContext:
 
     @property
     def client(self):
-        from autosecops_registry.sdk.client import TracecatClient
+        from autosecops_registry.sdk.client import AutoSecOpsClient
 
-        return TracecatClient(
+        return AutoSecOpsClient(
             api_url=self.api_url,
             token=self.token,
             workspace_id=self.workspace_id,
@@ -409,7 +409,7 @@ import os
 import httpx
 
 
-class TracecatClient:
+class AutoSecOpsClient:
     def __init__(
         self,
         *,
@@ -1000,7 +1000,7 @@ def test_registry_pythonpaths_can_import_ctx_without_site_packages(
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "autosecops_registry.ctx TracecatClient"
+    assert result.stdout.strip() == "autosecops_registry.ctx AutoSecOpsClient"
 
 
 def test_unsafe_pid_pythonpath_uses_registry_paths(tmp_path: Path) -> None:
@@ -1086,7 +1086,7 @@ def test_autosecops_registry_ctx_runs_async_sdk_methods_synchronously() -> None:
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1107,7 +1107,7 @@ async def test_autosecops_registry_ctx_supports_typed_async_client_namespace() -
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1126,7 +1126,7 @@ def test_autosecops_registry_ctx_does_not_expose_modal_style_method_aio() -> Non
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1143,7 +1143,7 @@ async def test_autosecops_registry_ctx_rejects_sync_call_in_async_code() -> None
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1469,7 +1469,7 @@ async def test_run_python_nsjail_sdk_calls_use_action_gateway_without_network(
     disabled by default, but `autosecops_registry.ctx` calls are internal platform
     calls and should route through the worker-owned Unix socket. The matrix also
     uses a minimal pre-gateway registry package to catch cached legacy artifacts
-    whose `TracecatClient` does not natively read the gateway socket env var.
+    whose `AutoSecOpsClient` does not natively read the gateway socket env var.
     """
     if not _run_python_nsjail_available():
         _run_nsjail_sdk_gateway_harness_in_docker_or_skip()

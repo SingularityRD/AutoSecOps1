@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from autosecops.auth.dependencies import ExecutorWorkspaceRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.variables.schemas import VariableReadMinimal
 from autosecops.variables.service import VariablesService
 
@@ -41,7 +41,7 @@ async def get_variable_by_name(
         variable = await service.get_variable_by_name(
             variable_name, environment=environment
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from autosecops.dsl.enums import EdgeType
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import ActionID
 from autosecops.identifiers.action import ActionUUID
 
@@ -147,10 +147,10 @@ class RFGraph(TSObject):
             # NOTE: self.nodes includes all node types.
             # Having no action nodes is a valid graph state.
             # However, having no nodes at all is not valid.
-            raise TracecatValidationError("Graph must have at least one node")
+            raise AutoSecOpsValidationError("Graph must have at least one node")
         try:
             _ = self.trigger
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise e
 
         # Complex validations
@@ -161,7 +161,7 @@ class RFGraph(TSObject):
         ):
             # NOTE: We should not consider the trigger node as a source or target
             # in the main graph.
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Trigger node should not have edges in the main graph"
             )
 
@@ -171,7 +171,7 @@ class RFGraph(TSObject):
     def trigger(self) -> TriggerNode:
         triggers = [node for node in self.nodes if node.type == "trigger"]
         if len(triggers) != 1:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Expected 1 trigger node, got {len(triggers)}"
             )
         return triggers[0]

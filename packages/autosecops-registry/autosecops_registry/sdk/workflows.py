@@ -13,7 +13,7 @@ from autosecops_registry._internal.models import WorkflowExecutionID
 from autosecops_registry.sdk.types import UNSET, Unset, is_set
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 # Terminal statuses that indicate workflow completion
 TERMINAL_STATUSES = frozenset(
@@ -93,7 +93,7 @@ class JsonPatchOperation(BaseModel):
 class WorkflowsClient:
     """Client for Workflows API operations."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def create_workflow(
@@ -123,8 +123,8 @@ class WorkflowsClient:
                 - title: The workflow title.
 
         Raises:
-            TracecatValidationError: If the title or definition is invalid.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsValidationError: If the title or definition is invalid.
+            AutoSecOpsAPIError: For other API errors.
         """
         data: dict[str, Any] = {}
         if title is not None:
@@ -147,8 +147,8 @@ class WorkflowsClient:
             Pass ``draft_revision`` as ``base_revision`` to :meth:`edit_workflow`.
 
         Raises:
-            TracecatNotFoundError: If the workflow does not exist.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow does not exist.
+            AutoSecOpsAPIError: For other API errors.
         """
         return await self._client.get(f"/workflows/{workflow_id}/edit-document")
 
@@ -180,10 +180,10 @@ class WorkflowsClient:
             dict with ``message``, ``workflow_id``, and the new ``draft_revision``.
 
         Raises:
-            TracecatConflictError: If ``base_revision`` no longer matches the
+            AutoSecOpsConflictError: If ``base_revision`` no longer matches the
                 current draft (concurrent edit). Re-fetch and retry.
-            TracecatValidationError: If the patch is invalid.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsValidationError: If the patch is invalid.
+            AutoSecOpsAPIError: For other API errors.
         """
         normalized_ops = [
             JsonPatchOperation.model_validate(op).to_json_patch() for op in patch_ops
@@ -212,11 +212,11 @@ class WorkflowsClient:
             and ``message``.
 
         Raises:
-            TracecatValidationError: If the draft fails validation (400). The
+            AutoSecOpsValidationError: If the draft fails validation (400). The
                 ``detail`` carries the per-error list so the caller can fix the
                 draft and retry.
-            TracecatNotFoundError: If the workflow does not exist.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow does not exist.
+            AutoSecOpsAPIError: For other API errors.
         """
         return await self._client.post(f"/workflows/{workflow_id}/publish")
 
@@ -244,10 +244,10 @@ class WorkflowsClient:
             ``status`` (``"STARTED"``).
 
         Raises:
-            TracecatValidationError: If the draft fails validation (400).
-            TracecatNotFoundError: If the workflow or requested version does not
+            AutoSecOpsValidationError: If the draft fails validation (400).
+            AutoSecOpsNotFoundError: If the workflow or requested version does not
                 exist.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsAPIError: For other API errors.
         """
         data: dict[str, Any] = {
             "workflow_id": workflow_id,
@@ -290,7 +290,7 @@ class WorkflowsClient:
             this list when configuring AI actions or agent presets).
 
         Raises:
-            TracecatAPIError: For API errors.
+            AutoSecOpsAPIError: For API errors.
         """
         data: dict[str, Any] = {}
         if action_names is not None:
@@ -311,8 +311,8 @@ class WorkflowsClient:
             ``entrypoint_ref``.
 
         Raises:
-            TracecatNotFoundError: If the workflow has no webhook.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow has no webhook.
+            AutoSecOpsAPIError: For other API errors.
         """
         return await self._client.get(f"/workflows/{workflow_id}/webhook")
 
@@ -335,8 +335,8 @@ class WorkflowsClient:
             :meth:`get_webhook`.
 
         Raises:
-            TracecatNotFoundError: If the workflow does not exist.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow does not exist.
+            AutoSecOpsAPIError: For other API errors.
         """
         await self._client.patch(
             f"/workflows/{workflow_id}/webhook",
@@ -355,8 +355,8 @@ class WorkflowsClient:
             (the case events that fire the workflow), and ``tag_filters``.
 
         Raises:
-            TracecatNotFoundError: If the workflow has no case trigger.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow has no case trigger.
+            AutoSecOpsAPIError: For other API errors.
         """
         return await self._client.get(f"/workflows/{workflow_id}/case-trigger")
 
@@ -389,10 +389,10 @@ class WorkflowsClient:
             unchanged, this reflects the full resulting config.
 
         Raises:
-            TracecatNotFoundError: If the workflow does not exist.
-            TracecatValidationError: If ``status`` is ``"online"`` with no
+            AutoSecOpsNotFoundError: If the workflow does not exist.
+            AutoSecOpsValidationError: If ``status`` is ``"online"`` with no
                 ``event_types``.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsAPIError: For other API errors.
         """
         data: dict[str, Any] = {}
         if status is not None:
@@ -444,8 +444,8 @@ class WorkflowsClient:
         Raises:
             WorkflowExecutionError: If workflow fails, is canceled, or terminated.
             WorkflowExecutionTimeout: If timeout is reached while waiting.
-            TracecatNotFoundError: If workflow or alias not found.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If workflow or alias not found.
+            AutoSecOpsAPIError: For other API errors.
         """
         if not workflow_id and not workflow_alias:
             raise ValueError("Either workflow_id or workflow_alias must be provided")
@@ -510,8 +510,8 @@ class WorkflowsClient:
                 - the event-timeline fields above when ``include_events=True``
 
         Raises:
-            TracecatNotFoundError: If execution not found.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If execution not found.
+            AutoSecOpsAPIError: For other API errors.
         """
         # Server uses {execution_id:path} to handle '/' in the ID
         if include_events:
@@ -542,8 +542,8 @@ class WorkflowsClient:
             ``has_more``, and ``has_previous``.
 
         Raises:
-            TracecatNotFoundError: If the workflow does not exist.
-            TracecatAPIError: For other API errors.
+            AutoSecOpsNotFoundError: If the workflow does not exist.
+            AutoSecOpsAPIError: For other API errors.
         """
         params: dict[str, Any] = {"limit": limit}
         if cursor is not None:

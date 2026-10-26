@@ -36,7 +36,7 @@ from autosecops.db.models import (
     CaseTag,
     CaseTagLink,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkspaceUUID
 from autosecops.query.compiler import compile_predicate
 from autosecops.query.filters import AndClause, Condition, FilterOp, NotClause, OrClause
@@ -264,7 +264,9 @@ class CaseFieldResolver:
                 or len(field) > 1000
                 or any(not key or "\x00" in key for key in path)
             ):
-                raise TracecatValidationError(f"Invalid payload filter path {field!r}")
+                raise AutoSecOpsValidationError(
+                    f"Invalid payload filter path {field!r}"
+                )
             # Tuple subscripts bind literal object keys; no user-supplied SQL or
             # JSONPath is evaluated. JSONB equality preserves scalar types.
             expression = Case.payload[tuple(path)]
@@ -387,18 +389,18 @@ def _parse_custom_field_schema(
         try:
             physical_name = validate_identifier(name)
         except ValueError as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has an invalid name"
             ) from exc
         if physical_name in _CUSTOM_FIELD_RESERVED_NAMES or is_internal_column_name(
             physical_name
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} uses a reserved name"
             )
 
         if not isinstance(metadata, Mapping):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has invalid schema metadata"
             )
 
@@ -406,11 +408,11 @@ def _parse_custom_field_schema(
         try:
             sql_type = SqlType(raw_type) if isinstance(raw_type, str) else None
         except ValueError as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has invalid type {raw_type!r}"
             ) from exc
         if sql_type is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has invalid type {raw_type!r}"
             )
 
@@ -418,7 +420,7 @@ def _parse_custom_field_schema(
         try:
             kind = CaseFieldKind(raw_kind) if isinstance(raw_kind, str) else None
         except ValueError as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has invalid kind {raw_kind!r}"
             ) from exc
         options = metadata.get("options")
@@ -426,7 +428,7 @@ def _parse_custom_field_schema(
             not isinstance(options, list)
             or any(not isinstance(option, str) for option in options)
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Case custom field {name!r} has invalid options"
             )
         parsed[name] = CustomFieldDefinition(
@@ -454,12 +456,12 @@ def _ranked_enum_field[
             return compile_predicate(column.expression, op, value)
 
         if not isinstance(value, Enum):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Invalid range value {value!r} for case field {field!r}"
             )
         ranked_value = cast(EnumT, value)
         if ranked_value not in ranks:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Invalid range value {value!r} for case field {field!r}"
             )
         rank_expression = sa.case(
@@ -604,8 +606,8 @@ def _tag_aggregation_field(workspace_id: UUID) -> ResolvedCaseAggregationField:
 def _invalid_custom_field(
     field: CustomFieldDefinition,
     message: str,
-) -> TracecatValidationError:
-    return TracecatValidationError(
+) -> AutoSecOpsValidationError:
+    return AutoSecOpsValidationError(
         f"Case custom field {field.name!r} is invalid: {message}"
     )
 
@@ -616,17 +618,17 @@ def case_payload_projection(
 ) -> ColumnElement[dict[str, Any] | None]:
     """Select object paths in PostgreSQL, keeping the original nesting and nulls."""
     if len(fields) > MAX_PAYLOAD_FIELDS:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"At most {MAX_PAYLOAD_FIELDS} payload fields may be selected"
         )
     if len(paths) > MAX_PAYLOAD_PATHS:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"At most {MAX_PAYLOAD_PATHS} payload paths may be selected"
         )
     selection: PayloadSelection = dict.fromkeys(fields)
     for path in paths:
         if not 1 <= len(path) <= MAX_PAYLOAD_PATH_KEYS:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Payload paths must contain 1 to {MAX_PAYLOAD_PATH_KEYS} keys"
             )
         node = selection

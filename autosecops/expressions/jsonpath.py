@@ -12,7 +12,7 @@ from jsonpath_ng.ext.iterable import Len, Path, SortedThis
 from jsonpath_ng.ext.string import Split, Str, Sub
 from jsonpath_ng.jsonpath import Child, Descendants, Intersect, Union, Where
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.secrets.masking import SecretMaskCollector
 
 
@@ -23,7 +23,7 @@ def _transform[T](run: Callable[[], T], *, sensitive: bool, operation: str) -> T
     except Exception as exc:
         if not sensitive:
             raise
-        error = TracecatExpressionError(
+        error = AutoSecOpsExpressionError(
             f"{type(exc).__name__} in JSONPath {operation}(***)"
         )
     raise error
@@ -66,7 +66,7 @@ def _observe_operation(
         except Exception as exc:
             if not sensitive:
                 raise
-            error = TracecatExpressionError(
+            error = AutoSecOpsExpressionError(
                 f"{type(exc).__name__} in JSONPath arithmetic(***)"
             )
         else:

@@ -14,7 +14,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import OrganizationSecret
-from autosecops.exceptions import TracecatException, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsException, AutoSecOpsNotFoundError
 from autosecops.git.types import GitUrl
 from autosecops.secrets.enums import SecretType
 from autosecops.secrets.schemas import SecretCreate, SecretKeyValue, SecretUpdate
@@ -196,7 +196,7 @@ class GitHubAppService(BaseOrgService):
         secrets_service = SecretsService(session=self.session, role=self.role)
         try:
             secret = await secrets_service._get_github_app_org_secret()
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             return GitHubAppSecretState.MISSING, None, None
 
         try:
@@ -394,12 +394,12 @@ class GitHubAppService(BaseOrgService):
             )
             await secrets_service.delete_org_secret(secret)
             self.logger.info("Deleted GitHub App credentials")
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             self.logger.error("Failed to delete GitHub App credentials", error=str(e))
             raise GitHubAppError(
                 "Failed to delete GitHub App credentials: credentials not found"
             ) from e
-        except TracecatException as e:
+        except AutoSecOpsException as e:
             self.logger.error("Failed to delete GitHub App credentials", error=str(e))
             raise GitHubAppError("Failed to delete GitHub App credentials") from e
 

@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from autosecops.exceptions import (
+    AutoSecOpsExpressionError,
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
-    TracecatExpressionError,
 )
 from autosecops.executor.error_policy import classify_execute_action_error
 from autosecops.executor.registry_artifacts import (
@@ -205,7 +205,7 @@ def test_resource_limit_envelope_code_reaches_classification_without_text() -> N
 
 
 def test_invalid_for_each_expression_is_user_owned_expression_error() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         get_iterables_from_expression(expr="${{ [1, 2] }}", operand={})
 
     result = classify_execute_action_error(exc_info.value, action_name="test_action")
@@ -213,4 +213,4 @@ def test_invalid_for_each_expression_is_user_owned_expression_error() -> None:
     assert result.owner is RuntimeErrorOwner.USER
     assert result.kind is RuntimeErrorKind.WORKFLOW_EXPRESSION_INVALID
     assert result.retry_disposition is RetryDisposition.NON_RETRYABLE
-    assert result.cause_type == "TracecatExpressionError"
+    assert result.cause_type == "AutoSecOpsExpressionError"

@@ -38,9 +38,9 @@ from autosecops.db.models import (
     User,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops_ee.scim.credentials import UNAUTHORIZED_EXCEPTION, ScimConnectionRole
 from autosecops_ee.scim.provisioning import ScimProvisioningService
@@ -223,7 +223,7 @@ async def _linked_user(
     """Fetch a provisioned user by its SCIM resource id.
 
     Raises:
-        TracecatNotFoundError: The resource is not in this organization.
+        AutoSecOpsNotFoundError: The resource is not in this organization.
     """
     stmt = (
         select(ExternalUser, User)
@@ -235,7 +235,7 @@ async def _linked_user(
     )
     row = (await session.execute(stmt)).tuples().one_or_none()
     if row is None:
-        raise TracecatNotFoundError("User not found")
+        raise AutoSecOpsNotFoundError("User not found")
     return row
 
 
@@ -375,16 +375,18 @@ async def patch_user(
         path = operation.path.strip().lower() if operation.path is not None else None
         values = operation.value if path is None else {path: operation.value}
         if not isinstance(values, dict) or not values:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "PATCH requires an attribute path or object value"
             )
         for key, value in values.items():
             attribute = key.strip().lower().removeprefix(f"{ScimSchema.USER.lower()}:")
             if operation.op == "remove":
-                raise TracecatValidationError("Removing user attributes is unsupported")
+                raise AutoSecOpsValidationError(
+                    "Removing user attributes is unsupported"
+                )
             if attribute == "username":
                 if not isinstance(value, str):
-                    raise TracecatValidationError("userName must be a string")
+                    raise AutoSecOpsValidationError("userName must be a string")
                 user_name = value
                 continue
             if re.match(r"^emails(?:$|[.\[])", attribute):
@@ -392,11 +394,11 @@ async def patch_user(
                 continue
             if attribute == "externalid":
                 if not isinstance(value, str) or not value.strip():
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "externalId must be a non-empty string"
                     )
                 if len(value) > EXTERNAL_ID_MAX_LENGTH:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         f"externalId exceeds {EXTERNAL_ID_MAX_LENGTH} characters"
                     )
                 external_id = value
@@ -405,10 +407,10 @@ async def patch_user(
             if attribute == "displayname" or re.match(r"^name(?:$|\.)", attribute):
                 continue
             if attribute != "active":
-                raise TracecatValidationError("Unsupported user PATCH path")
+                raise AutoSecOpsValidationError("Unsupported user PATCH path")
             parsed = _coerce_bool(value)
             if parsed is None:
-                raise TracecatValidationError("active must be a boolean")
+                raise AutoSecOpsValidationError("active must be a boolean")
             active = parsed
 
     _require_primary_email_matches(user_name, emails)
@@ -435,7 +437,7 @@ def _require_primary_email_matches(user_name: str, emails: list[Any]) -> None:
     expected = user_name.strip().lower()
     for email in emails:
         if not isinstance(email, str) or email.strip().lower() != expected:
-            raise TracecatValidationError("The primary email must match userName")
+            raise AutoSecOpsValidationError("The primary email must match userName")
 
 
 def _coerce_bool(value: Any) -> bool | None:
@@ -480,7 +482,7 @@ async def delete_user(
         external_user, _ = await _linked_user(
             session, organization_id=_organization_id(role), resource_id=resource_id
         )
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         # A resource this tenant never had is already in the desired state.
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     await _apply_active(session, role=role, external_user=external_user, active=False)
@@ -534,7 +536,7 @@ async def _get_group(
     )
     group = (await session.execute(stmt)).scalar_one_or_none()
     if group is None:
-        raise TracecatNotFoundError("Group not found")
+        raise AutoSecOpsNotFoundError("Group not found")
     return group
 
 
@@ -545,7 +547,7 @@ async def _resolve_member_ids(
     try:
         candidates = {UUID(member.value) for member in members}
     except ValueError as exc:
-        raise TracecatValidationError("Invalid group member reference") from exc
+        raise AutoSecOpsValidationError("Invalid group member reference") from exc
     if not candidates:
         return []
     stmt = select(ExternalUser.id).where(
@@ -554,7 +556,7 @@ async def _resolve_member_ids(
     )
     resolved = set((await session.execute(stmt)).scalars())
     if resolved != candidates:
-        raise TracecatValidationError("Unknown group member reference")
+        raise AutoSecOpsValidationError("Unknown group member reference")
     return sorted(resolved, key=str)
 
 
@@ -694,7 +696,7 @@ async def patch_group(
                 or not isinstance(operation.value, dict)
                 or not operation.value
             ):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "PATCH requires an attribute path or object value"
                 )
             attributes = list(operation.value.items())
@@ -710,11 +712,11 @@ async def patch_group(
                     or not isinstance(value, str)
                     or not value.strip()
                 ):
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "displayName must be a non-empty string"
                     )
                 if len(value) > DISPLAY_NAME_MAX_LENGTH:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         f"displayName exceeds {DISPLAY_NAME_MAX_LENGTH} characters"
                     )
                 display_name = value
@@ -722,7 +724,7 @@ async def patch_group(
             selected = _member_path(attribute)
             if selected is not None:
                 if operation.op != "remove":
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "Filtered members only supports removal"
                     )
                 current -= selected
@@ -763,18 +765,18 @@ def _member_path(path: str) -> set[UUID] | None:
         return None
     match = re.fullmatch(r"members\[\s*(.*?)\s*\]", path, flags=re.IGNORECASE)
     if match is None:
-        raise TracecatValidationError("Unsupported PATCH path")
+        raise AutoSecOpsValidationError("Unsupported PATCH path")
     selected: set[UUID] = set()
     for clause in re.split(r"\s+or\s+", match[1], flags=re.IGNORECASE):
         term = re.fullmatch(
             r'value\s+eq\s+"([0-9a-fA-F-]+)"', clause.strip(), flags=re.IGNORECASE
         )
         if term is None:
-            raise TracecatValidationError("Unsupported member filter")
+            raise AutoSecOpsValidationError("Unsupported member filter")
         try:
             selected.add(UUID(term[1]))
         except ValueError as exc:
-            raise TracecatValidationError("Invalid group member reference") from exc
+            raise AutoSecOpsValidationError("Invalid group member reference") from exc
     return selected
 
 
@@ -788,7 +790,7 @@ def _member_refs(value: Any) -> list[ScimGroupMemberRef]:
             or not isinstance(item.get("value"), str)
             or not item["value"]
         ):
-            raise TracecatValidationError("Invalid group member reference")
+            raise AutoSecOpsValidationError("Invalid group member reference")
         refs.append(ScimGroupMemberRef(value=item["value"]))
     return refs
 
@@ -948,7 +950,7 @@ async def _commit_if_connected(session: AsyncSession, role: Role) -> None:
 def _organization_id(role: Role) -> UUID:
     """The organization the connection token is bound to."""
     if role.organization_id is None:
-        raise TracecatAuthorizationError("SCIM role requires organization context")
+        raise AutoSecOpsAuthorizationError("SCIM role requires organization context")
     return role.organization_id
 
 

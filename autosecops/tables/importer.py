@@ -7,7 +7,7 @@ import orjson
 from pydantic import BaseModel
 
 from autosecops.db.models import Table, TableColumn
-from autosecops.exceptions import TracecatImportError
+from autosecops.exceptions import AutoSecOpsImportError
 from autosecops.tables.common import coerce_to_utc_datetime, convert_value
 from autosecops.tables.enums import SqlType
 
@@ -80,7 +80,7 @@ class CSVImporter:
                             if row_number is not None
                             else ""
                         )
-                        raise TracecatImportError(
+                        raise AutoSecOpsImportError(
                             f"Mapped CSV column {csv_col!r} was not found"
                             f" in file headers{row_suffix}"
                         )
@@ -88,7 +88,7 @@ class CSVImporter:
                     row_suffix = (
                         f" at CSV row {row_number}" if row_number is not None else ""
                     )
-                    raise TracecatImportError(
+                    raise AutoSecOpsImportError(
                         f"Invalid null byte in column {table_col!r}{row_suffix}"
                     )
                 try:
@@ -97,7 +97,7 @@ class CSVImporter:
                     row_suffix = (
                         f" at CSV row {row_number}" if row_number is not None else ""
                     )
-                    raise TracecatImportError(
+                    raise AutoSecOpsImportError(
                         f"Cannot convert value {value!r} in column {table_col!r}"
                         f" to SQL type {col_info.type}{row_suffix}"
                     ) from e
@@ -233,7 +233,7 @@ class CSVSchemaInferer:
 
     def __init__(self, headers: Sequence[str | None]) -> None:
         if not headers:
-            raise TracecatImportError("CSV file must include a header row")
+            raise AutoSecOpsImportError("CSV file must include a header row")
 
         normalised_headers = [(header or "").strip() for header in headers]
         duplicates: list[str] = []
@@ -243,7 +243,7 @@ class CSVSchemaInferer:
                 duplicates.append(display)
         if duplicates:
             duplicates_str = ", ".join(sorted(duplicates))
-            raise TracecatImportError(
+            raise AutoSecOpsImportError(
                 f"CSV headers must be unique. Duplicate columns: {duplicates_str}"
             )
 

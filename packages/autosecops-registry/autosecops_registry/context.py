@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from autosecops_registry.sdk.agents import AgentsClient
     from autosecops_registry.sdk.cases import CasesClient
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
     from autosecops_registry.sdk.deduplicate import DeduplicateClient
     from autosecops_registry.sdk.forms import FormsClient
     from autosecops_registry.sdk.tables import TablesClient
@@ -53,7 +53,7 @@ class RegistryContext:
     executor_url: str = "http://executor:8000"
     token: str = ""
     # Lazily initialized SDK client
-    _client: TracecatClient | None = field(default=None, repr=False)
+    _client: AutoSecOpsClient | None = field(default=None, repr=False)
 
     @classmethod
     def from_env(cls) -> RegistryContext:
@@ -102,14 +102,14 @@ class RegistryContext:
         )
 
     @cached_property
-    def client(self) -> TracecatClient:
+    def client(self) -> AutoSecOpsClient:
         """Get the SDK client for this context."""
-        from autosecops_registry.sdk.client import TracecatClient
+        from autosecops_registry.sdk.client import AutoSecOpsClient
 
         if self._client is not None:
             return self._client
 
-        return TracecatClient(
+        return AutoSecOpsClient(
             token=self.token,
             workspace_id=self.workspace_id,
         )

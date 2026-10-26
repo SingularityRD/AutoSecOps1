@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/use-toast"
 import { useAdminOrgInvitations } from "@/hooks/use-admin"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 
 type PlatformRoleSlug = NonNullable<AdminOrgInvitationCreate["role_slug"]>
 
@@ -171,7 +171,7 @@ export function AdminOrgInvitationsDialog({
       await resendInvitation(invitation.id)
       toast({ title: "Invitation email queued", description: invitation.email })
     } catch (error) {
-      const apiError = error as TracecatApiError
+      const apiError = error as AutoSecOpsApiError
       if (apiError.status === 409) {
         toast({
           title: "You just sent an invitation email",

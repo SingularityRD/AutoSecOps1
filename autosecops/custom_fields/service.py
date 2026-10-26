@@ -11,7 +11,7 @@ from sqlalchemy.schema import CreateSchema, CreateTable, DropSchema
 from autosecops.auth.types import Role
 from autosecops.custom_fields.schemas import CustomFieldCreate, CustomFieldUpdate
 from autosecops.db.locks import derive_lock_key_from_parts, pg_advisory_lock
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkspaceUUID
 from autosecops.service import BaseWorkspaceService
 from autosecops.tables.service import (
@@ -187,13 +187,13 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
             field_id: The name of the field to delete
 
         Raises:
-            TracecatValidationError: If the field is reserved or internal
+            AutoSecOpsValidationError: If the field is reserved or internal
         """
 
         await self._ensure_schema_ready()
         self._assert_user_field_name_allowed(field_id)
         if field_id in self._reserved_columns:
-            raise TracecatValidationError(f"Field {field_id} is a reserved field")
+            raise AutoSecOpsValidationError(f"Field {field_id} is a reserved field")
         validate_identifier(field_id)
         await self.editor.delete_column(field_id)
         await self.session.commit()

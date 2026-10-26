@@ -13,7 +13,7 @@ from autosecops.agent.access.service import AgentModelAccessService
 from autosecops.auth.dependencies import OrgUserRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginationParams
 
 router = APIRouter(prefix="/organization/agent-model-access")
@@ -36,12 +36,12 @@ async def enable_model(
             catalog_id=access.catalog_id,
             workspace_id=access.workspace_id,
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -77,7 +77,7 @@ async def list_enabled_models(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -98,7 +98,7 @@ async def disable_model(
     service = AgentModelAccessService(session=session, role=role)
     try:
         await service.disable_model(access_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),

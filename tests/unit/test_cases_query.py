@@ -22,7 +22,7 @@ from autosecops.cases.query import (
 )
 from autosecops.cases.schemas import CaseAggregateRequest
 from autosecops.db.models import Case
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import Condition, Filter, FilterOp, NotClause
 from autosecops.query.resolver import FieldKind
@@ -137,7 +137,7 @@ def test_enum_values_are_validated_from_lowercase_public_values(
 @pytest.mark.parametrize("field", ["status", "priority", "severity"])
 @pytest.mark.parametrize("value", ["HIGH", "not_a_member"])
 def test_invalid_enum_values_are_rejected(field: str, value: str) -> None:
-    with pytest.raises(TracecatValidationError, match=field):
+    with pytest.raises(AutoSecOpsValidationError, match=field):
         compile_filter(
             Condition(field=field, op=FilterOp.EQ, value=value),
             _resolver(),
@@ -190,7 +190,7 @@ def test_ranked_enum_ranges_compile_dedicated_case_expression(
 def test_unordered_enum_members_are_rejected_as_range_values(
     field: str, value: str
 ) -> None:
-    with pytest.raises(TracecatValidationError, match=field):
+    with pytest.raises(AutoSecOpsValidationError, match=field):
         compile_filter(
             Condition(field=field, op=FilterOp.GTE, value=value),
             _resolver(),
@@ -202,7 +202,7 @@ def test_unordered_enum_members_are_rejected_as_range_values(
     [FilterOp.GT, FilterOp.GTE, FilterOp.LT, FilterOp.LTE],
 )
 def test_status_rejects_range_operations(op: FilterOp) -> None:
-    with pytest.raises(TracecatValidationError, match="status"):
+    with pytest.raises(AutoSecOpsValidationError, match="status"):
         compile_filter(
             Condition(field="status", op=op, value="new"),
             _resolver(),
@@ -279,9 +279,9 @@ def test_url_kind_uses_nested_url_as_text() -> None:
 def test_rejects_unsupported_custom_field_types(sql_type: SqlType) -> None:
     resolver = _resolver(custom=sql_type.value)
 
-    with pytest.raises(TracecatValidationError) as filter_error:
+    with pytest.raises(AutoSecOpsValidationError) as filter_error:
         resolver.resolve("fields.custom")
-    with pytest.raises(TracecatValidationError) as aggregation_error:
+    with pytest.raises(AutoSecOpsValidationError) as aggregation_error:
         resolver.resolve_aggregation("fields.custom")
 
     assert "custom" in str(filter_error.value)
@@ -295,7 +295,7 @@ def test_unknown_custom_field_is_unresolvable_without_physical_table_access() ->
 
     assert resolver.resolve("fields.missing") is None
     assert resolver.resolve_aggregation("fields.missing") is None
-    with pytest.raises(TracecatValidationError, match="fields.missing"):
+    with pytest.raises(AutoSecOpsValidationError, match="fields.missing"):
         compile_filter(
             Condition(field="fields.missing", op=FilterOp.EQ, value="x"),
             resolver,
@@ -426,7 +426,7 @@ def test_custom_aggregation_fields_share_one_left_join_spec() -> None:
 def test_rejects_invalid_stored_custom_field_schema(
     field_schema: Mapping[str, object],
 ) -> None:
-    with pytest.raises(TracecatValidationError, match="field|case_id|bad"):
+    with pytest.raises(AutoSecOpsValidationError, match="field|case_id|bad"):
         CaseFieldResolver(WORKSPACE_ID, field_schema)
 
 
@@ -440,7 +440,7 @@ def test_rejects_invalid_stored_custom_field_schema(
 def test_rejects_invalid_kind_storage_pair(definition: Mapping[str, object]) -> None:
     resolver = _resolver(custom=definition)
 
-    with pytest.raises(TracecatValidationError, match="custom"):
+    with pytest.raises(AutoSecOpsValidationError, match="custom"):
         resolver.resolve("fields.custom")
 
 
@@ -448,7 +448,7 @@ def test_rejects_invalid_kind_storage_pair(definition: Mapping[str, object]) -> 
     "op", [FilterOp.EQ, FilterOp.NE, FilterOp.NOT_IN, FilterOp.GT, FilterOp.STARTS_WITH]
 )
 def test_tags_reject_non_membership_operations(op: FilterOp) -> None:
-    with pytest.raises(TracecatValidationError, match="not allowed"):
+    with pytest.raises(AutoSecOpsValidationError, match="not allowed"):
         _compile(Condition(field="tags", op=op, value="urgent"), _resolver())
 
 

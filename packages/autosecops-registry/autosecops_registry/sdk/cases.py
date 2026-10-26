@@ -20,13 +20,13 @@ from autosecops_registry.sdk.types import (
 )
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 class CasesClient:
     """Client for Cases API operations."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def aggregate_cases(self, spec: dict[str, Any]) -> types.AggregateResponse:

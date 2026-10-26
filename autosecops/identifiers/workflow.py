@@ -9,7 +9,7 @@ from fastapi import Depends, Query
 from fastapi.exceptions import RequestValidationError
 from pydantic import UUID4, StringConstraints
 
-from autosecops.identifiers.common import TracecatUUID
+from autosecops.identifiers.common import AutoSecOpsUUID
 from autosecops.identifiers.resource import ResourcePrefix, generate_resource_id
 from autosecops.identifiers.schedules import SCHEDULE_EXEC_ID_PATTERN
 
@@ -61,21 +61,21 @@ Examples
 """
 
 
-class WorkflowUUID(TracecatUUID[WorkflowIDShort]):
+class WorkflowUUID(AutoSecOpsUUID[WorkflowIDShort]):
     """UUID for workflow resources."""
 
     prefix = WF_ID_PREFIX
     legacy_prefix = "wf-"
 
 
-class ExecutionUUID(TracecatUUID[ExecutionIDShort]):
+class ExecutionUUID(AutoSecOpsUUID[ExecutionIDShort]):
     """UUID for workflow execution resources."""
 
     prefix = EXEC_ID_PREFIX
     legacy_prefix = "exec-"
 
 
-class WorkspaceUUID(TracecatUUID[WorkspaceIDShort]):
+class WorkspaceUUID(AutoSecOpsUUID[WorkspaceIDShort]):
     """UUID for workspace resources."""
 
     prefix = WS_ID_PREFIX

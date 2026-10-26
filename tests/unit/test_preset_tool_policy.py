@@ -20,7 +20,7 @@ from autosecops.db.models import (
     SkillVersionMcpTool,
     SkillVersionTool,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.service import IntegrationService
 from autosecops.registry.actions.service import RegistryActionsService
 
@@ -347,5 +347,5 @@ async def test_preview_rejects_invalid_direct_selections(
             else ["not-a-uuid" if selection == "malformed_mcp" else str(uuid.uuid4())]
         ),
     )
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.preview_tool_policy(params)

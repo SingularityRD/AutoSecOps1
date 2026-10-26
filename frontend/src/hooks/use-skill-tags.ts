@@ -14,7 +14,7 @@ import {
   type TagUpdate,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 async function listAllSkillTags(workspaceId: string): Promise<SkillTagRead[]> {
@@ -46,7 +46,7 @@ export function useSkillTagCatalog(
   options: { enabled: boolean } = { enabled: true }
 ) {
   const queryClient = useQueryClient()
-  const tagsQuery = useQuery<SkillTagRead[], TracecatApiError>({
+  const tagsQuery = useQuery<SkillTagRead[], AutoSecOpsApiError>({
     queryKey: ["skill-tags", workspaceId],
     queryFn: async () => await listAllSkillTags(workspaceId),
     enabled: options.enabled,
@@ -54,30 +54,32 @@ export function useSkillTagCatalog(
     refetchOnWindowFocus: false,
   })
 
-  const createMutation = useMutation<SkillTagRead, TracecatApiError, TagCreate>(
-    {
-      mutationFn: async (requestBody) =>
-        await skillTagsCreateSkillTag({ workspaceId, requestBody }),
-      onSuccess: () => {
-        invalidateSkillTagQueries(queryClient, workspaceId)
-        toast({
-          title: "Created skill tag",
-          description: "Skill tag created successfully.",
-        })
-      },
-      onError: (error) => {
-        toast({
-          title: "Failed to create skill tag",
-          description: getApiErrorDetail(error) ?? "Please try again.",
-          variant: "destructive",
-        })
-      },
-    }
-  )
+  const createMutation = useMutation<
+    SkillTagRead,
+    AutoSecOpsApiError,
+    TagCreate
+  >({
+    mutationFn: async (requestBody) =>
+      await skillTagsCreateSkillTag({ workspaceId, requestBody }),
+    onSuccess: () => {
+      invalidateSkillTagQueries(queryClient, workspaceId)
+      toast({
+        title: "Created skill tag",
+        description: "Skill tag created successfully.",
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create skill tag",
+        description: getApiErrorDetail(error) ?? "Please try again.",
+        variant: "destructive",
+      })
+    },
+  })
 
   const updateMutation = useMutation<
     SkillTagRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     TagUpdate & { tagId: string }
   >({
     mutationFn: async ({ tagId, ...requestBody }) =>
@@ -98,26 +100,28 @@ export function useSkillTagCatalog(
     },
   })
 
-  const deleteMutation = useMutation<void, TracecatApiError, { tagId: string }>(
-    {
-      mutationFn: async ({ tagId }) =>
-        await skillTagsDeleteSkillTag({ workspaceId, tagId }),
-      onSuccess: () => {
-        invalidateSkillTagQueries(queryClient, workspaceId)
-        toast({
-          title: "Deleted skill tag",
-          description: "Skill tag deleted successfully.",
-        })
-      },
-      onError: (error) => {
-        toast({
-          title: "Failed to delete skill tag",
-          description: getApiErrorDetail(error) ?? "Please try again.",
-          variant: "destructive",
-        })
-      },
-    }
-  )
+  const deleteMutation = useMutation<
+    void,
+    AutoSecOpsApiError,
+    { tagId: string }
+  >({
+    mutationFn: async ({ tagId }) =>
+      await skillTagsDeleteSkillTag({ workspaceId, tagId }),
+    onSuccess: () => {
+      invalidateSkillTagQueries(queryClient, workspaceId)
+      toast({
+        title: "Deleted skill tag",
+        description: "Skill tag deleted successfully.",
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete skill tag",
+        description: getApiErrorDetail(error) ?? "Please try again.",
+        variant: "destructive",
+      })
+    },
+  })
 
   return {
     skillTags: tagsQuery.data,
@@ -146,7 +150,7 @@ export function useSkillTags(
   options: { enabled?: boolean } = {}
 ) {
   const enabled = options.enabled ?? true
-  const query = useQuery<SkillTagRead[], TracecatApiError>({
+  const query = useQuery<SkillTagRead[], AutoSecOpsApiError>({
     queryKey: ["skill-tags-for-skill", workspaceId, skillId],
     queryFn: async () => {
       if (!workspaceId || !skillId) {
@@ -186,7 +190,7 @@ export function useSkillTagMutations(workspaceId: string) {
   const queryClient = useQueryClient()
   const addMutation = useMutation<
     unknown,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string; requestBody: SkillTagCreate }
   >({
     mutationFn: async ({ skillId, requestBody }) =>
@@ -210,7 +214,7 @@ export function useSkillTagMutations(workspaceId: string) {
 
   const removeMutation = useMutation<
     void,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { skillId: string; tagId: string }
   >({
     mutationFn: async ({ skillId, tagId }) =>

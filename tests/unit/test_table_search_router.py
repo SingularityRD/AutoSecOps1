@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.auth.types import Role
 from autosecops.db.engine import get_async_session
-from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, ScopeDeniedError
 from autosecops.pagination import PaginationError, PaginationErrorCode
 from autosecops.search.embeddings.service import WorkspaceEmbeddingService
 from autosecops.tables.search.router import (
@@ -103,7 +103,7 @@ async def test_missing_table_is_rejected_before_provider_lookup(
     monkeypatch.setattr(
         TableSearchService,
         "table",
-        AsyncMock(side_effect=TracecatNotFoundError("Table not found")),
+        AsyncMock(side_effect=AutoSecOpsNotFoundError("Table not found")),
     )
     provider = AsyncMock()
     monkeypatch.setattr(WorkspaceEmbeddingService, "get", provider)
@@ -120,11 +120,11 @@ async def test_unexpected_provider_failure_is_not_a_table_404(
     search_role: Role, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setattr(TableSearchService, "table", AsyncMock())
-    failure = TracecatNotFoundError("Synthetic provider resource missing")
+    failure = AutoSecOpsNotFoundError("Synthetic provider resource missing")
     monkeypatch.setattr(
         WorkspaceEmbeddingService, "get", AsyncMock(side_effect=failure)
     )
-    with pytest.raises(TracecatNotFoundError) as exc:
+    with pytest.raises(AutoSecOpsNotFoundError) as exc:
         await get_table_search(
             table_id=uuid4(), role=search_role, session=AsyncMock(spec=AsyncSession)
         )

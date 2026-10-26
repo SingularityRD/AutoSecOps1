@@ -28,7 +28,7 @@ from autosecops.db.models import (
     AgentModelAccess,
     Organization,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginationParams
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -130,7 +130,7 @@ async def test_get_catalog_entry_not_found(
     svc_organization: Organization,
 ) -> None:
     service = AgentCatalogService(session=session)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_catalog_entry(
             org_id=svc_organization.id,
             catalog_id=uuid.uuid4(),
@@ -368,7 +368,7 @@ async def test_get_catalog_entry_rejects_other_org(
     await session.commit()
 
     service = AgentCatalogService(session=session)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_catalog_entry(
             org_id=svc_organization.id,
             catalog_id=other_row.id,
@@ -413,7 +413,7 @@ async def test_create_catalog_entry_rejects_duplicate(
             model_name="gpt-4o-deploy",
             metadata={"deployment_name": "gpt-4o"},
         )
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.create_catalog_entry(
                 org_id=svc_organization.id,
                 model_provider="azure_openai",
@@ -492,7 +492,7 @@ async def test_update_catalog_entry_rejects_provider_mismatch(
             model_name="mismatch-model",
             metadata={"model_id": "anthropic.claude-legacy"},
         )
-        with pytest.raises(TracecatValidationError):
+        with pytest.raises(AutoSecOpsValidationError):
             await service.update_catalog_entry(
                 row,
                 org_id=svc_organization.id,
@@ -512,7 +512,7 @@ async def test_update_catalog_entry_rejects_platform_row(
     await session.commit()
 
     with _acting_as(svc_organization.id):
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.update_catalog_entry(
                 platform_row,
                 org_id=svc_organization.id,
@@ -553,7 +553,7 @@ async def test_delete_catalog_entry_rejects_platform_row(
     await session.commit()
 
     with _acting_as(svc_organization.id):
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.delete_catalog_entry(
                 platform_row,
                 org_id=svc_organization.id,

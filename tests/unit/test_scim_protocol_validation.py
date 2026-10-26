@@ -10,7 +10,7 @@ from sqlalchemy.dialects import sqlite
 
 from autosecops import config
 from autosecops.db.models import Membership, effective_group_members
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_filtered_remove_multiple_values() -> None:
     ],
 )
 def test_invalid_member_path_never_becomes_clear_all(path: str) -> None:
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         _member_path(path)
 
 
@@ -55,7 +55,7 @@ def test_invalid_member_path_never_becomes_clear_all(path: str) -> None:
     "value", [None, "bad", {}, [{"value": "ok"}, {}], [{"value": 123}]]
 )
 def test_invalid_member_value_never_becomes_empty_replacement(value: object) -> None:
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         _member_refs(value)
 
 

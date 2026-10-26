@@ -4,7 +4,7 @@ import type { AxiosError } from "axios"
 import { ChevronDownIcon } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 // Error components must be Client Components
 import { useEffect } from "react"
 import { ApiError } from "@/client"
@@ -36,7 +36,7 @@ export default function Error({
   const { headline, level, message, action } = refined
   return (
     <main className="container flex size-full max-w-[400px] flex-col items-center justify-center space-y-4">
-      <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
+      <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="mb-4 size-16" />
       <h1 className="text-2xl font-medium">{headline}</h1>
       {action}
       {message ? <AlertNotification level={level} message={message} /> : null}
@@ -115,7 +115,7 @@ function PermissionDeniedPage({ body }: { body: unknown }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="flex max-w-md flex-col items-center text-center">
-        <Image src={TracecatIcon} alt="AutoSecOps" className="mb-6 size-12" />
+        <Image src={AutoSecOpsIcon} alt="AutoSecOps" className="mb-6 size-12" />
 
         <h1 className="mb-2 text-xl font-semibold tracking-tight">
           Access denied

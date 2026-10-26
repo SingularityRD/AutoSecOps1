@@ -23,7 +23,7 @@ from autosecops.db.models import (
     WatchtowerAgentToolCall,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import BaseCursorPaginator
 from autosecops.service import BaseOrgService
 from autosecops.tiers.access import is_org_entitled
@@ -375,7 +375,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower session not found")
+            raise AutoSecOpsNotFoundError("Watchtower session not found")
         await self.session.commit()
 
     async def disable_agent(self, agent_id: uuid.UUID, reason: str | None) -> None:
@@ -396,7 +396,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
         await self.session.commit()
 
     async def enable_agent(self, agent_id: uuid.UUID) -> None:
@@ -415,7 +415,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
         await self.session.commit()
 
     async def _assert_agent_exists(self, agent_id: uuid.UUID) -> None:
@@ -428,7 +428,7 @@ class WatchtowerService(BaseOrgService):
             .exists()
         )
         if not await self.session.scalar(stmt):
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
 
     async def _assert_session_exists(self, session_id: uuid.UUID) -> None:
         stmt = select(
@@ -440,7 +440,7 @@ class WatchtowerService(BaseOrgService):
             .exists()
         )
         if not await self.session.scalar(stmt):
-            raise TracecatNotFoundError("Watchtower session not found")
+            raise AutoSecOpsNotFoundError("Watchtower session not found")
 
 
 def _apply_desc_cursor_filter(

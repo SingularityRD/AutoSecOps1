@@ -18,7 +18,7 @@ from sqlalchemy import ColumnElement, delete, func, or_, select
 
 from autosecops import config
 from autosecops.db.models import Form, FormFile, Workspace
-from autosecops.exceptions import TracecatAuthorizationError, TracecatException
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsException
 from autosecops.forms.access import caller_user_id, can_read_submissions, is_caller
 from autosecops.forms.constants import (
     MAX_FILES_PER_FIELD,
@@ -151,14 +151,14 @@ class FormFilesService(BaseWorkspaceService):
         Raises:
             FormError: If the form cannot be filled in, the field is not a
                 file field, or the file is refused or cannot be stored.
-            TracecatAuthorizationError: If the caller is neither a user nor a
+            AutoSecOpsAuthorizationError: If the caller is neither a user nor a
                 service account.
         """
         form_id = form.id
         user_id = caller_user_id(self.role)
         account_id = self.role.service_account_id if user_id is None else None
         if user_id is None and account_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Uploading a file needs a user or a service account"
             )
         _, _, resolved = await FormsService(self.session, self.role).resolve_published(
@@ -456,7 +456,7 @@ class FormFilesService(BaseWorkspaceService):
         """Read a file's bytes for a workflow run, or None as for a download.
 
         Raises:
-            TracecatException: If the stored bytes do not match the file's hash.
+            AutoSecOpsException: If the stored bytes do not match the file's hash.
         """
         if (file := await self._get_readable_file(file_id)) is None:
             return None
@@ -469,7 +469,7 @@ class FormFilesService(BaseWorkspaceService):
         except FileNotFoundError:
             return None
         if hashlib.sha256(content).hexdigest() != file.sha256:
-            raise TracecatException("File integrity check failed")
+            raise AutoSecOpsException("File integrity check failed")
         return FormFileContent.model_validate(
             {
                 **FormFileRead.model_validate(file).model_dump(),

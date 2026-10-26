@@ -56,10 +56,10 @@ from autosecops_registry.core.cases import (
 from autosecops_registry.core.ee.durations import get_case_metrics
 from autosecops_registry.core.ee.tasks import create_task, list_tasks
 from autosecops_registry.sdk.exceptions import (
-    TracecatNotFoundError as SDKNotFoundError,
+    AutoSecOpsNotFoundError as SDKNotFoundError,
 )
 from autosecops_registry.sdk.exceptions import (
-    TracecatValidationError as SDKValidationError,
+    AutoSecOpsValidationError as SDKValidationError,
 )
 from httpx import ASGITransport
 from pydantic import TypeAdapter

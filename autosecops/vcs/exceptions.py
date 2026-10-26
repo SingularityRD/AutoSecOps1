@@ -1,7 +1,7 @@
 """VCS provider exceptions."""
 
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 
 
-class VcsProviderError(TracecatException):
+class VcsProviderError(AutoSecOpsException):
     """User-facing VCS provider operation error."""

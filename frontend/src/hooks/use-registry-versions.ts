@@ -9,7 +9,7 @@ import {
   type VersionDiff,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 type RegistryVersionRead =
@@ -43,7 +43,7 @@ export function useRegistryVersions(repositoryId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["registry_actions"] })
   }
 
-  function toastVersionError(title: string, error: TracecatApiError) {
+  function toastVersionError(title: string, error: AutoSecOpsApiError) {
     switch (error.status) {
       case 403:
         return toast({
@@ -82,7 +82,7 @@ export function useRegistryVersions(repositoryId: string | null) {
           description: `Version ${versionName} is now active.`,
         })
       },
-      onError: (error: TracecatApiError) =>
+      onError: (error: AutoSecOpsApiError) =>
         toastVersionError("Couldn't promote version", error),
     })
 
@@ -104,7 +104,7 @@ export function useRegistryVersions(repositoryId: string | null) {
           description: "The version has been deleted.",
         })
       },
-      onError: (error: TracecatApiError) =>
+      onError: (error: AutoSecOpsApiError) =>
         toastVersionError("Couldn't delete version", error),
     })
 

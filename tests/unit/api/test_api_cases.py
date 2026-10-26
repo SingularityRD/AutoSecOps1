@@ -41,9 +41,9 @@ from autosecops.cases.versions.schemas import (
 from autosecops.contexts import ctx_role
 from autosecops.db.models import Case, CaseTag, Workspace
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.pagination import CursorPaginatedResponse
 
@@ -359,7 +359,7 @@ def _duplicate_column_error() -> ProgrammingError:
             "/case-fields/bad-field",
             {"default": "value"},
             "update_field",
-            TracecatValidationError("Field nickname is reserved"),
+            AutoSecOpsValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
             id="update-autosecops-validation-error",
@@ -369,7 +369,7 @@ def _duplicate_column_error() -> ProgrammingError:
             "/case-fields/bad-field",
             None,
             "delete_field",
-            TracecatValidationError("Field nickname is reserved"),
+            AutoSecOpsValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
             id="delete-autosecops-validation-error",
@@ -543,7 +543,7 @@ async def test_restore_case_version_success_and_mismatch_404(
         mock_service = AsyncMock()
         mock_service.restore_version.side_effect = [
             restored,
-            TracecatNotFoundError("Case version not found"),
+            AutoSecOpsNotFoundError("Case version not found"),
         ]
         mock_service_cls.return_value = mock_service
 
@@ -667,7 +667,7 @@ async def test_batch_case_lock_conflict_returns_409(
     """Batch lock timeouts map the service conflict to HTTP 409."""
     with patch.object(cases_router, "CasesService") as mock_service_cls:
         mock_svc = AsyncMock()
-        getattr(mock_svc, service_method).side_effect = TracecatConflictError(
+        getattr(mock_svc, service_method).side_effect = AutoSecOpsConflictError(
             "Timed out waiting to lock cases"
         )
         mock_service_cls.return_value = mock_svc
@@ -971,7 +971,7 @@ async def test_case_search_rejects_unresolved_tags(
             case_filters,
             "resolve_case_tag_filters",
             new=AsyncMock(
-                side_effect=TracecatValidationError(
+                side_effect=AutoSecOpsValidationError(
                     "Unknown case tag filter: 'missing-tag'"
                 )
             ),
@@ -1093,7 +1093,7 @@ async def test_update_comment_reparenting_returns_bad_request(
 
         mock_comments_service = AsyncMock()
         mock_comments_service.get_comment_in_case.return_value = object()
-        mock_comments_service.update_comment.side_effect = TracecatValidationError(
+        mock_comments_service.update_comment.side_effect = AutoSecOpsValidationError(
             "Changing a comment parent is not supported"
         )
         mock_comments_service_cls.return_value = mock_comments_service
@@ -1467,7 +1467,7 @@ async def test_search_cases_rejects_parent_id_with_top_level(
     """Contradictory hierarchy filters are a client error, not a 500."""
     with patch.object(cases_router, "CasesService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.search_cases.side_effect = TracecatValidationError(
+        mock_svc.search_cases.side_effect = AutoSecOpsValidationError(
             "parent_id cannot be combined with hierarchy=top_level"
         )
         MockService.return_value = mock_svc

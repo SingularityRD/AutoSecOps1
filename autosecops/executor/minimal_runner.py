@@ -90,7 +90,7 @@ def _install_action_gateway_sdk_transport() -> None:
     except ImportError:
         return
 
-    autosecops_client_cls = getattr(sdk_client, "TracecatClient", None)
+    autosecops_client_cls = getattr(sdk_client, "AutoSecOpsClient", None)
     if autosecops_client_cls is None:
         return
 

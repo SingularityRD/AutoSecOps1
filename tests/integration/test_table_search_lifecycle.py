@@ -25,7 +25,7 @@ from autosecops.db.models import (
     Table,
     Workspace,
 )
-from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, ScopeDeniedError
 from autosecops.pagination import PaginationError
 from autosecops.search.chunking_types import ChunkingIdentity
 from autosecops.search.embeddings.schemas import EmbeddingConfigurationRead
@@ -579,7 +579,7 @@ async def test_column_selection_rejects_nontext_and_foreign_table(
     other = TableSearchService(
         tables.session, SearchScope(tables.organization_id, workspace.id)
     )
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other.configuration(table.id)
 
 

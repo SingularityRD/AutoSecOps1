@@ -663,7 +663,7 @@ async def test_template_action_with_optional_oauth_both_ac_and_cc(
         await run_action_test(input_required, test_role)
 
     assert "Missing required OAuth integrations" in str(exc_info.value)
-    assert exc_info.value.info.type == "TracecatCredentialsError"
+    assert exc_info.value.info.type == "AutoSecOpsCredentialsError"
 
 
 @pytest.mark.integration

@@ -9,7 +9,7 @@ import { chainError } from "@/lib/errors"
 export * from "@tanstack/react-query"
 
 /** Meta flags AutoSecOps's query and mutation error pipeline reads. */
-interface TracecatQueryMeta extends Record<string, unknown> {
+interface AutoSecOpsQueryMeta extends Record<string, unknown> {
   /** Skip the global fallback toast; the caller renders the failure inline. */
   suppressErrorToast?: boolean
   /** Title for the fallback toast when the error carries no detail. */
@@ -18,8 +18,8 @@ interface TracecatQueryMeta extends Record<string, unknown> {
 
 declare module "@tanstack/react-query" {
   interface Register {
-    queryMeta: TracecatQueryMeta
-    mutationMeta: TracecatQueryMeta
+    queryMeta: AutoSecOpsQueryMeta
+    mutationMeta: AutoSecOpsQueryMeta
   }
 }
 

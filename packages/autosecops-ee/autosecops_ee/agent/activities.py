@@ -45,11 +45,11 @@ from autosecops.auth.types import Role
 from autosecops.common import all_activities
 from autosecops.contexts import ctx_role
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryLockAmbiguousActionError,
     RegistryLockInvalidDataError,
-    TracecatValidationError,
 )
 from autosecops.logger import logger
 from autosecops.registry.lock.service import RegistryLockService
@@ -411,7 +411,7 @@ class AgentActivities:
                         refs = await svc.resolve_mcp_integration_refs(
                             [str(i) for _, i in configs_with_integration_id]
                         )
-                    except TracecatValidationError:
+                    except AutoSecOpsValidationError:
                         refs = None
                     http_ref_by_integration_id = {
                         ref_id: ref

@@ -481,7 +481,7 @@ def _trace_request_id(data: dict[str, Any]) -> str | None:
             return None
 
 
-class TracecatCallbackHandler(CustomLogger):
+class AutoSecOpsCallbackHandler(CustomLogger):
     """LiteLLM callback handler that injects provider credentials per request."""
 
     def __init__(self) -> None:
@@ -696,7 +696,7 @@ class TracecatCallbackHandler(CustomLogger):
         return {GATEWAY_IDENTITY_HEADER: gateway_identity()}
 
 
-callback_handler = TracecatCallbackHandler()
+callback_handler = AutoSecOpsCallbackHandler()
 
 # ---------------------------------------------------------------------------
 # Model settings filtering

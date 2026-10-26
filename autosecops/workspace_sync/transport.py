@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from autosecops.db.models import User
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.git.types import GitUrl
 from autosecops.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
@@ -477,7 +477,7 @@ class BaseWorkspaceSyncTransport(BaseWorkspaceService):
             role=self.role,
         ).get_workspace(self.workspace_id)
         if workspace is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
 
         current_user = None
         if self.role.user_id is not None:
@@ -638,7 +638,7 @@ class GitHubWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
             github_endpoint = "GET|POST /repos/{owner}/{repo}/branches|git/refs"
             base_branch_name = pr_base_branch or url.ref or repo.default_branch
             if create_pr and branch == base_branch_name:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "create_pr exports must target a non-base branch"
                 )
             base_branch = await asyncio.to_thread(repo.get_branch, base_branch_name)
@@ -1053,7 +1053,7 @@ class GitLabWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
                 project = await self._get_project(client=client, project_id=project_id)
                 base_branch_name = project.default_branch or "main"
             if create_pr and branch == base_branch_name:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "create_pr exports must target a non-base branch"
                 )
 
@@ -1253,7 +1253,7 @@ class GitLabWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
         if expected_host and not (
             repo_host == expected_host or repo_host.endswith(f".{expected_host}")
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Workspace repository host '{url.host}' does not match the "
                 f"configured GitLab instance '{expected_host}'. Update the "
                 "workspace Git URL or the organization GitLab connection so they "
@@ -1814,7 +1814,7 @@ class BitbucketWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
             await git.run("check-ref-format", f"refs/heads/{branch}")
             await git.run("check-ref-format", f"refs/heads/{base}")
             if create_pr and branch == base:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "The sync branch must differ from the pull request base branch"
                 )
             # A filtered branch list distinguishes absence from permission/network failures.
@@ -2059,7 +2059,7 @@ class BitbucketDataCenterWorkspaceSyncTransport(BitbucketWorkspaceSyncTransport)
             await git.run("check-ref-format", f"refs/heads/{branch}")
             await git.run("check-ref-format", f"refs/heads/{base}")
             if create_pr and branch == base:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "The sync branch must differ from the pull request base branch"
                 )
             # Data Center filterText is a substring filter; require an exact name match.

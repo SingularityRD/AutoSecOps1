@@ -16,10 +16,10 @@ from autosecops.agent.skill.folders.service import (
 from autosecops.auth.types import Role
 from autosecops.db.models import Skill, SkillFolder
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.pagination import CursorPaginationParams
 from autosecops.tiers.enums import Entitlement
@@ -164,7 +164,7 @@ async def test_list_folders_paginated_invalid_cursor_raises_autosecops_validatio
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
 
     with pytest.raises(
-        TracecatValidationError, match="Invalid cursor for skill folders"
+        AutoSecOpsValidationError, match="Invalid cursor for skill folders"
     ):
         await folder_service.list_folders_paginated(
             "/", CursorPaginationParams(cursor="invalid")
@@ -179,7 +179,7 @@ async def test_list_folders_rejects_missing_parent_path(
     """Missing parent paths should not look like empty folders."""
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         await folder_service.list_folders("/missing/")
 
     assert exc_info.value.detail == {
@@ -256,7 +256,7 @@ async def test_move_skill_rejects_soft_deleted_skill(
     folder_service.session.add(skill)
     await folder_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await folder_service.move_skill(skill.id, target)
 
 
@@ -452,12 +452,12 @@ async def test_folder_names_are_trimmed_and_must_not_be_blank(
 ) -> None:
     """Create and rename reject whitespace-only names and store trimmed names."""
     monkeypatch.setattr(folder_service, "has_entitlement", AsyncMock(return_value=True))
-    with pytest.raises(TracecatValidationError, match="Folder name cannot be empty"):
+    with pytest.raises(AutoSecOpsValidationError, match="Folder name cannot be empty"):
         await folder_service.create_folder(name="   ", parent_path="/")
 
     folder = await folder_service.create_folder(name="  parent  ", parent_path="/")
     assert folder.name == "parent"
     assert folder.path == "/parent/"
 
-    with pytest.raises(TracecatValidationError, match="Folder name cannot be empty"):
+    with pytest.raises(AutoSecOpsValidationError, match="Folder name cannot be empty"):
         await folder_service.rename_folder(folder.id, "  ")

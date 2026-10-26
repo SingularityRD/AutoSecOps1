@@ -10,7 +10,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import OrganizationSecret
-from autosecops.exceptions import TracecatException, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsException, AutoSecOpsNotFoundError
 from autosecops.secrets.enums import SecretType
 from autosecops.secrets.schemas import SecretCreate, SecretKeyValue, SecretUpdate
 from autosecops.secrets.service import SecretsService
@@ -65,7 +65,7 @@ class BitbucketTokenService(BaseOrgService):
             secret = await secrets_service._get_org_secret_by_name(
                 BITBUCKET_TOKEN_SECRET_NAME
             )
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             return BitbucketTokenSecretState.MISSING, None, None
 
         try:
@@ -141,11 +141,11 @@ class BitbucketTokenService(BaseOrgService):
             )
             await secrets_service._delete_org_secret(secret)
             self.logger.info("Deleted Bitbucket token credentials")
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             raise BitbucketError(
                 "Failed to delete Bitbucket token credentials: credentials not found"
             ) from e
-        except TracecatException as e:
+        except AutoSecOpsException as e:
             raise BitbucketError("Failed to delete Bitbucket token credentials") from e
 
     @requires_entitlement(Entitlement.GIT_SYNC)

@@ -13,8 +13,8 @@ from autosecops.agent.skill.library.schemas import LibrarySkillBatchUninstall
 from autosecops.agent.skill.library.service import SkillLibraryService
 from autosecops.auth.types import Role
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatValidationError,
 )
 
 
@@ -85,7 +85,7 @@ async def test_batch_route_returns_conflict_for_bound_skill(
     service: SkillLibraryService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     uninstall = AsyncMock(
-        side_effect=TracecatValidationError(
+        side_effect=AutoSecOpsValidationError(
             "No skills were uninstalled.", detail={"code": "library_skill_in_use"}
         )
     )

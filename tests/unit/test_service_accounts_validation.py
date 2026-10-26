@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from autosecops.authz.enums import ScopeSource
 from autosecops.db.models import ServiceAccount, ServiceAccountApiKey
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginationParams
 from autosecops.service_accounts.constants import (
     is_org_service_account_assignable_scope,
@@ -19,7 +19,7 @@ from autosecops.service_accounts.service import (
 
 def test_apply_created_cursor_rejects_invalid_cursor() -> None:
     with pytest.raises(
-        TracecatValidationError, match="Invalid cursor for service accounts"
+        AutoSecOpsValidationError, match="Invalid cursor for service accounts"
     ):
         _apply_created_cursor(
             select(ServiceAccount),
@@ -29,7 +29,7 @@ def test_apply_created_cursor_rejects_invalid_cursor() -> None:
 
 def test_apply_api_key_created_cursor_rejects_invalid_cursor() -> None:
     with pytest.raises(
-        TracecatValidationError, match="Invalid cursor for service account API keys"
+        AutoSecOpsValidationError, match="Invalid cursor for service account API keys"
     ):
         _apply_api_key_created_cursor(
             select(ServiceAccountApiKey),

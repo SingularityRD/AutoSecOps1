@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from autosecops.contexts import ctx_secret_masks
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.executor.schemas import ExecutorActionErrorInfo
 from autosecops.executor.secret_preprocessors import collect_mask_values
 from autosecops.expressions.common import ExprContext
@@ -67,7 +67,7 @@ def test_arg_evaluation_error_masks_secret_value(
 ) -> None:
     context = {ExprContext.SECRETS: secrets}
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object({"value": expression}, operand=context)
 
     assert CANARY not in str(exc_info.value)
@@ -101,7 +101,7 @@ def test_evaluator_logging_omits_resolved_values(
     sink = io.StringIO()
     handler_id = logger.add(sink, level="TRACE", format="{message} | {extra}")
     try:
-        with pytest.raises(TracecatExpressionError):
+        with pytest.raises(AutoSecOpsExpressionError):
             eval_templated_object(
                 {"value": "${{ int(SECRETS.svc.value) }}"},
                 operand={ExprContext.SECRETS: secrets},
@@ -129,7 +129,7 @@ def test_jsonpath_no_match_does_not_log_or_attach_operand(
     sink = io.StringIO()
     handler_id = logger.add(sink, level="ERROR", format="{message} | {extra}")
     try:
-        with pytest.raises(TracecatExpressionError) as exc_info:
+        with pytest.raises(AutoSecOpsExpressionError) as exc_info:
             eval_jsonpath("ACTIONS.missing.result", operand, strict=True)
     finally:
         logger.remove(handler_id)
@@ -151,7 +151,7 @@ def test_jsonpath_no_match_does_not_log_or_attach_operand(
 def test_selective_masking_survives_repr_escaping(secret_value: str) -> None:
     context = {ExprContext.SECRETS: {"svc": {"value": secret_value}}}
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"value": "${{ int(SECRETS.svc.value) }}"}, operand=context
         )
@@ -163,7 +163,7 @@ def test_selective_masking_survives_repr_escaping(secret_value: str) -> None:
 
 
 def test_untainted_expression_keeps_full_error() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"value": "${{ int(TRIGGER.count) }}"},
             operand={ExprContext.TRIGGER: {"count": "abc"}},
@@ -179,7 +179,7 @@ def test_secret_expression_keeps_masked_diagnostic(
 ) -> None:
     context = {ExprContext.SECRETS: {"svc": {"value": "not-a-number"}}}
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"value": "${{ int(SECRETS.svc.value) }}"}, operand=context
         )
@@ -192,7 +192,7 @@ def test_secret_expression_keeps_masked_diagnostic(
 def test_policy_errors_preserve_their_structured_diagnostic() -> None:
     from autosecops.expressions.policy import _CollectionPolicy
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"${{ SECRETS.api.KEY }}": "value"},
             policy=_CollectionPolicy(),
@@ -239,7 +239,7 @@ def test_known_template_input_expressions_are_masked(expression: str) -> None:
     secret = "line-one\nline-two-CANARY"
     context = {ExprContext.TEMPLATE_ACTION_INPUTS: {"value": secret}}
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"value": expression},
             operand=context,
@@ -362,7 +362,7 @@ async def test_stdio_env_value_validation_does_not_echo_resolved_keys(
     from uuid import UUID
 
     from autosecops.agent.preset import service as preset_module
-    from autosecops.exceptions import TracecatValidationError
+    from autosecops.exceptions import AutoSecOpsValidationError
 
     monkeypatch.setattr(
         preset_module.secrets_manager,
@@ -375,7 +375,7 @@ async def test_stdio_env_value_validation_does_not_echo_resolved_keys(
     svc = preset_module.AgentPresetService.__new__(preset_module.AgentPresetService)
     svc.role = mock.Mock(workspace_id=UUID(int=1))  # type: ignore[attr-defined]
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         await svc.resolve_stdio_env(
             stdio_env={"${{ SECRETS.api.TOKEN }}": "${{ 1 }}"},
             mcp_integration_id=UUID(int=2),
@@ -523,7 +523,7 @@ async def _run_template(
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_non_secret_template_input_keeps_full_error() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "abc"},
             steps=[("convert", {"n": "${{ int(inputs.value) }}"})],
@@ -539,7 +539,7 @@ async def test_non_secret_template_input_keeps_full_error() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_secret_backed_template_input_is_masked() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}"},
             steps=[("convert", {"n": "${{ int(inputs.value) }}"})],
@@ -556,7 +556,7 @@ async def test_secret_backed_template_input_is_masked() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_step_reference_masks_known_secret() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}"},
             steps=[
@@ -575,7 +575,7 @@ async def test_step_reference_masks_known_secret() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_step_reference_without_known_secrets_keeps_full_error() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "abc"},
             steps=[
@@ -595,7 +595,7 @@ async def test_step_reference_without_known_secrets_keeps_full_error() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_known_secret_is_masked_across_steps() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}"},
             steps=[
@@ -627,7 +627,7 @@ async def test_opaque_step_transformations_remain_secret_derived(
     reference = (
         "FN.to_keys(steps.rewrite.result)[0]" if mapping_key else "steps.rewrite.result"
     )
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}"} if from_input else {},
             inputs={"value": CANARY} if from_input else {},
@@ -655,7 +655,7 @@ async def test_opaque_step_transformations_remain_secret_derived(
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_opaque_secret_result_does_not_hide_unrelated_public_input() -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}", "public": "not-a-number"},
             inputs={"value": CANARY, "public": "not-a-number"},
@@ -676,7 +676,7 @@ async def test_opaque_secret_result_does_not_hide_unrelated_public_input() -> No
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_step_result_masks_declared_secret_with_literal_args() -> None:
     """Secrets supplied through the environment are known invocation masks."""
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"url": "https://example.test/usage"},
             steps=[
@@ -697,7 +697,7 @@ async def test_step_result_masks_declared_secret_with_literal_args() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_step_without_declared_secrets_keeps_full_error() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"url": "https://example.test/usage"},
             steps=[
@@ -717,7 +717,7 @@ async def test_step_without_declared_secrets_keeps_full_error() -> None:
 @pytest.mark.anyio
 @pytest.mark.usefixtures("async_mask_scope")
 async def test_returns_expression_follows_the_same_rules() -> None:
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         await _run_template(
             caller_args={"value": "${{ SECRETS.svc.value }}"},
             steps=[("fetch", {"token": "${{ inputs.value }}"})],
@@ -728,7 +728,7 @@ async def test_returns_expression_follows_the_same_rules() -> None:
 
     assert WITHHELD_TEXT not in str(exc_info.value)
 
-    with pytest.raises(TracecatExpressionError) as safe_info:
+    with pytest.raises(AutoSecOpsExpressionError) as safe_info:
         await _run_template(
             caller_args={"value": "abc"},
             steps=[("fetch", {"token": "${{ inputs.value }}"})],
@@ -804,7 +804,7 @@ def test_known_runtime_carrier_renamed_to_child_input_is_masked(carrier: str) ->
     assert masks is not None
     masks.observe(CANARY)
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"n": "${{ int(inputs.value) }}"},
             operand={ExprContext.TEMPLATE_ACTION_INPUTS: {"value": CANARY}},
@@ -821,7 +821,7 @@ def test_known_runtime_carrier_renamed_to_child_input_is_masked(carrier: str) ->
 def test_non_carrier_renamed_to_child_input_keeps_full_error() -> None:
     child = build_provenance({"value": "${{ TRIGGER.value }}"})
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"n": "${{ int(inputs.value) }}"},
             operand={ExprContext.TEMPLATE_ACTION_INPUTS: {"value": "abc"}},
@@ -844,7 +844,7 @@ def test_known_carrier_is_masked_through_nested_inputs() -> None:
     assert masks is not None
     masks.observe(CANARY)
 
-    with pytest.raises(TracecatExpressionError) as exc_info:
+    with pytest.raises(AutoSecOpsExpressionError) as exc_info:
         eval_templated_object(
             {"n": "${{ int(inputs.value) }}"},
             operand={ExprContext.TEMPLATE_ACTION_INPUTS: {"value": CANARY}},

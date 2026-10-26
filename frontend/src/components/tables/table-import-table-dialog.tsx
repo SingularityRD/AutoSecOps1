@@ -28,7 +28,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import { useImportTableFromCsv } from "@/lib/hooks"
 import { type CsvPreviewData, getCsvPreview } from "@/lib/tables"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -136,7 +136,7 @@ export function TableImportTableDialog({
       setCsvPreview(null)
     } catch (error) {
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         const detail =
           typeof apiError.body.detail === "string"
             ? apiError.body.detail

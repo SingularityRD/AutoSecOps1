@@ -33,7 +33,7 @@ from litellm.proxy._types import UserAPIKeyAuth
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
-from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway import AutoSecOpsCallbackHandler
 from autosecops.agent.gateway_outbound import OutboundLLMHTTPHandler
 from autosecops.agent.mcp.user_client import _create_transport, list_remote_mcp_tools
 from autosecops.agent.provider.service import (
@@ -427,7 +427,7 @@ async def test_gateway_hook_installs_guard_for_custom_provider(
             }
         ),
     )
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     data = await handler.async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
             api_key="synthetic",
@@ -587,7 +587,7 @@ async def test_gateway_credential_urls_use_guarded_transport(
         "autosecops.agent.gateway.get_provider_credentials",
         AsyncMock(return_value=creds),
     )
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     data = await handler.async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
             api_key="synthetic",

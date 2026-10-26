@@ -15,12 +15,12 @@ import httpx
 import orjson
 import pytest
 from autosecops_registry.sdk.cases import CasesClient
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 @pytest.fixture
 def mock_autosecops_client() -> MagicMock:
-    """Create a mock TracecatClient."""
+    """Create a mock AutoSecOpsClient."""
     client = MagicMock()
     client.get = AsyncMock()
     client.post = AsyncMock()
@@ -65,7 +65,7 @@ async def test_aggregate_cases_uses_exact_gateway_path(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/aggregate-cases-test.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/aggregate-cases-test.sock")
     assert await client.cases.aggregate_cases(spec) == response
     assert len(requests) == 1
 
@@ -94,7 +94,7 @@ async def test_relationship_sort_uses_gateway_query(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-sort.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-sort.sock")
     await client.cases.list_cases(order_by=order_by, sort="asc")
     await client.cases.search_cases(order_by=order_by, sort="asc")
     assert [request.url.path for request in requests] == [
@@ -357,7 +357,7 @@ async def test_search_cases_canonical_gateway_body_and_detail_flags(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
     response = await client.cases.search_cases(
         limit=7,
         search_term="powershell encoded",
@@ -433,7 +433,7 @@ async def test_search_cases_serializes_native_filter_scalars(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
     await client.cases.search_cases(filters=filters)
     assert len(requests) == 1
     assert filters == original

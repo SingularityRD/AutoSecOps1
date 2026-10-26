@@ -50,10 +50,10 @@ from autosecops.db.models import Schedule, Workflow
 from autosecops.dsl.enums import JoinStrategy
 from autosecops.dsl.schemas import ROOT_STREAM, ActionStatement, StreamID
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatValidationError,
 )
 from autosecops.expressions.common import ExprType
 from autosecops.integrations.enums import (
@@ -3978,7 +3978,7 @@ async def test_search_cases_forwards_canonical_request(
     "error",
     [
         EntitlementRequired("case_addons"),
-        TracecatValidationError("Unknown case tag refs"),
+        AutoSecOpsValidationError("Unknown case tag refs"),
     ],
 )
 async def test_search_cases_transports_typed_errors(
@@ -5616,7 +5616,7 @@ async def test_create_agent_folder_without_parents_requires_parent(
             self, name: str, parent_path: str = "/", commit: bool = True
         ) -> None:
             _ = name, parent_path, commit
-            raise TracecatValidationError("Parent path /soc/ not found")
+            raise AutoSecOpsValidationError("Parent path /soc/ not found")
 
     monkeypatch.setattr(mcp_server, "_resolve_workspace_role", _resolve)
     monkeypatch.setattr(

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from autosecops.runtime.errors import RuntimeErrorClassification
 
 
-class TracecatException(Exception):
+class AutoSecOpsException(Exception):
     """AutoSecOps generic user-facing exception"""
 
     def __init__(self, *args, detail: Any | None = None, **kwargs):
@@ -32,39 +32,39 @@ class TracecatException(Exception):
         self.detail = detail
 
 
-class TracecatValidationError(TracecatException):
+class AutoSecOpsValidationError(AutoSecOpsException):
     """AutoSecOps user-facing validation error"""
 
 
-class TracecatConflictError(TracecatException):
+class AutoSecOpsConflictError(AutoSecOpsException):
     """AutoSecOps user-facing resource conflict error"""
 
 
-class TracecatDSLError(TracecatValidationError):
+class AutoSecOpsDSLError(AutoSecOpsValidationError):
     """AutoSecOps user-facing DSL error"""
 
 
-class TracecatExpressionError(TracecatException):
+class AutoSecOpsExpressionError(AutoSecOpsException):
     """AutoSecOps user-facing expression error"""
 
 
-class TracecatCredentialsError(TracecatException):
+class AutoSecOpsCredentialsError(AutoSecOpsException):
     """AutoSecOps user-facing credentials error"""
 
 
-class TracecatCredentialsNotFoundError(TracecatCredentialsError):
+class AutoSecOpsCredentialsNotFoundError(AutoSecOpsCredentialsError):
     """AutoSecOps user-facing credentials not found error"""
 
 
-class TracecatAuthorizationError(TracecatException):
+class AutoSecOpsAuthorizationError(AutoSecOpsException):
     """AutoSecOps user-facing authorization error"""
 
 
-class AgentModelNotEnabledError(TracecatAuthorizationError):
+class AgentModelNotEnabledError(AutoSecOpsAuthorizationError):
     """Raised when workspace model access does not enable a catalog model."""
 
 
-class ScopeDeniedError(TracecatAuthorizationError):
+class ScopeDeniedError(AutoSecOpsAuthorizationError):
     """Raised when a user lacks required scopes for an operation.
 
     This exception provides detailed information about which scopes were
@@ -91,7 +91,7 @@ class ScopeDeniedError(TracecatAuthorizationError):
         )
 
 
-class TracecatRLSViolationError(TracecatAuthorizationError):
+class AutoSecOpsRLSViolationError(AutoSecOpsAuthorizationError):
     """Raised when Row-Level Security blocks access to a resource.
 
     This exception indicates that the current user's context (org/workspace)
@@ -120,23 +120,23 @@ class TracecatRLSViolationError(TracecatAuthorizationError):
         }
 
 
-class TracecatManagementError(TracecatException):
+class AutoSecOpsManagementError(AutoSecOpsException):
     """AutoSecOps user-facing management error"""
 
 
-class TracecatNotFoundError(TracecatException):
+class AutoSecOpsNotFoundError(AutoSecOpsException):
     """Raised when a resource is not found in the AutoSecOps database."""
 
 
-class WorkflowAliasResolutionError(TracecatNotFoundError):
+class WorkflowAliasResolutionError(AutoSecOpsNotFoundError):
     """Raised when a configured workflow alias does not resolve."""
 
 
-class TracecatServiceError(TracecatException):
+class AutoSecOpsServiceError(AutoSecOpsException):
     """AutoSecOps generic user-facing service error"""
 
 
-class RegistryError(TracecatException):
+class RegistryError(AutoSecOpsException):
     """Generic exception raised when a registry error occurs."""
 
 
@@ -199,7 +199,7 @@ class RegistryActionError(RegistryError):
     """Exception raised when a registry action error occurs."""
 
 
-class RegistryActionValidationError(TracecatException):
+class RegistryActionValidationError(AutoSecOpsException):
     """Exception raised when a registry action validation error occurs."""
 
     def __init__(
@@ -230,15 +230,15 @@ class RegistryNotFound(RegistryError):
     """Exception raised when a registry is not found."""
 
 
-class TaskUnreachable(TracecatException):
+class TaskUnreachable(AutoSecOpsException):
     """Raised when a task is unreachable."""
 
 
-class ExecutorClientError(TracecatException):
+class ExecutorClientError(AutoSecOpsException):
     """Exception raised when an error occurs in the executor client."""
 
 
-class ExecutionError(TracecatException):
+class ExecutionError(AutoSecOpsException):
     """Exception raised when an error occurs during action execution.
     Use this to wrap errors from the executor so that we should reraise"""
 
@@ -268,7 +268,7 @@ class ExecutionError(TracecatException):
         super().__init__(message)
 
 
-class LoopExecutionError(TracecatException):
+class LoopExecutionError(AutoSecOpsException):
     """Exception raised when an error occurs during loop execution."""
 
     def __init__(self, loop_errors: list[ExecutionError]):
@@ -278,11 +278,11 @@ class LoopExecutionError(TracecatException):
         super().__init__(message)
 
 
-class TracecatSettingsError(TracecatException):
+class AutoSecOpsSettingsError(AutoSecOpsException):
     """Exception raised when a setting error occurs."""
 
 
-class TracecatImportError(TracecatException):
+class AutoSecOpsImportError(AutoSecOpsException):
     """Exception raised when an import error occurs."""
 
 
@@ -334,11 +334,11 @@ class RateLimitExceeded(ExecutorClientError):
         return cls(message, detail, retry_after)
 
 
-class PayloadSizeExceeded(TracecatException):
+class PayloadSizeExceeded(AutoSecOpsException):
     """Error raised when a payload exceeds a size limit."""
 
 
-class EntitlementRequired(TracecatException):
+class EntitlementRequired(AutoSecOpsException):
     """Exception raised when a feature requires an upgraded plan.
 
     Raised when an organization attempts to use a feature they are not entitled to.

@@ -14,7 +14,7 @@ from autosecops.api.app import app
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
 from autosecops.db.engine import get_async_session, get_async_session_bypass_rls
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 from autosecops.organization import router as organization_router
 from autosecops.organization.schemas import (
     OrgMemberAccess,
@@ -286,7 +286,7 @@ async def test_delete_org_member_scim_managed_returns_conflict(
 
     with patch.object(organization_router, "OrgService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.delete_member.side_effect = TracecatConflictError(
+        mock_svc.delete_member.side_effect = AutoSecOpsConflictError(
             "This member is managed by your identity provider. "
             "Deprovision them there to remove their access."
         )

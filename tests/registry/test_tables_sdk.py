@@ -12,7 +12,7 @@ from autosecops_registry.types import TableSearchResponse
 
 @pytest.fixture
 def mock_autosecops_client() -> MagicMock:
-    """Create a mock TracecatClient."""
+    """Create a mock AutoSecOpsClient."""
     client = MagicMock()
     client.delete = AsyncMock()
     client.patch = AsyncMock()

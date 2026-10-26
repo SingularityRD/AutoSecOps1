@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 from typing_extensions import Doc
 
 from autosecops_registry import config, ctx, registry, types
-from autosecops_registry.sdk.exceptions import TracecatConflictError
+from autosecops_registry.sdk.exceptions import AutoSecOpsConflictError
 
 
 # Query inputs deliberately remain plain data: action schema consumers cannot
@@ -467,7 +467,7 @@ async def create_table(
         client_params["columns"] = columns
     try:
         return await ctx.tables.aio.create_table(**client_params)
-    except TracecatConflictError as exc:
+    except AutoSecOpsConflictError as exc:
         raise ValueError("Table already exists") from exc
 
 

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from autosecops.agent import router as agent_router
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 
 @pytest.mark.anyio
@@ -21,7 +21,7 @@ from autosecops.exceptions import TracecatNotFoundError
             "/agent/providers/invalid/config",
             None,
             "get_provider_credential_config",
-            TracecatNotFoundError("Provider not found"),
+            AutoSecOpsNotFoundError("Provider not found"),
             status.HTTP_404_NOT_FOUND,
             id="get-provider-config-not-found",
         ),
@@ -39,7 +39,7 @@ from autosecops.exceptions import TracecatNotFoundError
             "/agent/credentials/invalid",
             {"credentials": {"api_key": "test"}},
             "update_provider_credentials",
-            TracecatNotFoundError("Credentials not found"),
+            AutoSecOpsNotFoundError("Credentials not found"),
             status.HTTP_404_NOT_FOUND,
             id="update-credentials-not-found",
         ),
@@ -48,7 +48,7 @@ from autosecops.exceptions import TracecatNotFoundError
             "/agent/default-model",
             {"catalog_id": str(uuid.uuid4())},
             "set_default_model",
-            TracecatNotFoundError("Model not found"),
+            AutoSecOpsNotFoundError("Model not found"),
             status.HTTP_404_NOT_FOUND,
             id="set-default-model-not-found",
         ),

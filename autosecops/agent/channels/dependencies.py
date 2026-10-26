@@ -19,7 +19,7 @@ from autosecops.agent.channels.service import (
     AgentChannelService,
 )
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.logger import logger
 
 SLACK_REQUEST_MAX_AGE_SECONDS = 300
@@ -87,7 +87,7 @@ async def validate_channel_token(
 
     try:
         token_id, sig_hex = AgentChannelService.parse_public_token(token)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         logger.warning("Failed to parse channel token", error=str(exc))
         raise _reject_unauthorized() from exc
 
@@ -111,7 +111,7 @@ async def validate_channel_token(
                 channel_type=channel_type,
                 config_payload=token_record.config,
             )
-        except (ValidationError, TracecatValidationError) as exc:
+        except (ValidationError, AutoSecOpsValidationError) as exc:
             logger.warning(
                 "Invalid channel token config in database",
                 channel_type=channel_type.value,

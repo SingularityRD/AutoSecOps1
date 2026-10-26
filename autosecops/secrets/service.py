@@ -21,10 +21,10 @@ from autosecops.db.models import (
     Secret,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatCredentialsError,
-    TracecatCredentialsNotFoundError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsCredentialsError,
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.identifiers import SecretID, WorkspaceID
 from autosecops.logger import logger
@@ -85,7 +85,7 @@ def build_external_secret_reference(secret: Secret) -> ExternalSecretReference:
     before handing descriptors to the resolver.
     """
     if secret.store is None or secret.remote_reference is None:
-        raise TracecatCredentialsError(
+        raise AutoSecOpsCredentialsError(
             f"Externally backed secret {secret.name!r} is missing its store or reference"
         )
     return ExternalSecretReference(
@@ -114,7 +114,7 @@ class SecretsService(BaseOrgService):
     def _require_workspace_id(self) -> WorkspaceID:
         """Get workspace_id, raising if role or workspace_id is None."""
         if self.role is None or self.role.workspace_id is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Workspace context required for this operation"
             )
         return self.role.workspace_id
@@ -297,7 +297,7 @@ class SecretsService(BaseOrgService):
                 secret_id=secret_id,
                 workspace_id=workspace_id,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Multiple secrets found when searching by ID"
             ) from e
         except NoResultFound as e:
@@ -306,7 +306,7 @@ class SecretsService(BaseOrgService):
                 secret_id=secret_id,
                 workspace_id=workspace_id,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Secret not found when searching by ID. Please check that the ID was correctly input."
             ) from e
 
@@ -326,7 +326,7 @@ class SecretsService(BaseOrgService):
             The matching Secret object
 
         Raises:
-            TracecatNotFoundError: If no secret is found with the given name/environment or if multiple secrets are found
+            AutoSecOpsNotFoundError: If no secret is found with the given name/environment or if multiple secrets are found
         """
         workspace_id = self._require_workspace_id()
         statement = select(Secret).where(
@@ -339,12 +339,12 @@ class SecretsService(BaseOrgService):
         try:
             return result.scalar_one()
         except MultipleResultsFound as e:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Multiple secrets found when searching by name."
                 f" Expected one secret {secret_name!r} (env: {environment!r}) only."
             ) from e
         except NoResultFound as e:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Secret {secret_name!r} (env: {environment!r}) not found when searching by name."
                 " Please double check that the name was correctly input."
             ) from e
@@ -454,12 +454,12 @@ class SecretsService(BaseOrgService):
         try:
             return result.scalar_one()
         except MultipleResultsFound as e:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Multiple organization secrets found when searching by name."
                 f" Expected one secret {secret_name!r} (env: {environment!r}) only."
             ) from e
         except NoResultFound as e:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Organization secret {secret_name!r} (env: {environment!r}) not found when searching by name."
                 " Please double check that the name was correctly input."
             ) from e
@@ -564,8 +564,8 @@ class SecretsService(BaseOrgService):
             if not raw_value.endswith("\n"):
                 raw_value += "\n"
             return SecretStr(raw_value)
-        except TracecatNotFoundError as e:
-            raise TracecatCredentialsNotFoundError(
+        except AutoSecOpsNotFoundError as e:
+            raise AutoSecOpsCredentialsNotFoundError(
                 f"SSH key {key_name} not found. "
                 "Add one under Organization settings -> Custom registry -> Repository."
             ) from e

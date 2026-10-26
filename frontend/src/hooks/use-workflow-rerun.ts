@@ -6,7 +6,7 @@ import {
   workflowExecutionsRerunWorkflowExecution,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 /**
@@ -23,7 +23,7 @@ export function useWorkflowRerunPreview(
 ) {
   const { data, isLoading, isPlaceholderData, error } = useQuery<
     WorkflowRerunPlan,
-    TracecatApiError
+    AutoSecOpsApiError
   >({
     queryKey: [
       "workflow-rerun-preview",
@@ -67,7 +67,7 @@ export function useRerunWorkflowExecution(
   const queryClient = useQueryClient()
   const { mutateAsync, isPending } = useMutation<
     WorkflowRerunResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     WorkflowRerunRequest
   >({
     mutationFn: async (requestBody) =>

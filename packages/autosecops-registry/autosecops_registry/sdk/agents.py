@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 from autosecops_registry.sdk.types import UNSET, Unset, is_set
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 type OutputType = (
@@ -56,7 +56,7 @@ def _skill_identifier(skill_id: str, skill_uuid: str | uuid.UUID | None = None) 
 class AgentsClient:
     """Client for agent preset and skill API operations."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     # --- Skill methods ---
@@ -289,7 +289,7 @@ class AgentsClient:
             Preset data including all configuration.
 
         Raises:
-            TracecatNotFoundError: If preset doesn't exist.
+            AutoSecOpsNotFoundError: If preset doesn't exist.
         """
         return await self._client.get(f"/agent/presets/by-slug/{slug}")
 
@@ -338,7 +338,7 @@ class AgentsClient:
             Updated preset data.
 
         Raises:
-            TracecatNotFoundError: If preset doesn't exist.
+            AutoSecOpsNotFoundError: If preset doesn't exist.
         """
         data: dict[str, Any] = {}
         if is_set(name):
@@ -388,7 +388,7 @@ class AgentsClient:
             slug: The preset's slug identifier.
 
         Raises:
-            TracecatNotFoundError: If preset doesn't exist.
+            AutoSecOpsNotFoundError: If preset doesn't exist.
         """
         await self._client.delete(f"/agent/presets/by-slug/{slug}")
 

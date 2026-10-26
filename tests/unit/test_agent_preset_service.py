@@ -72,9 +72,9 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.service import IntegrationService
@@ -489,7 +489,7 @@ class TestAgentPresetService:
         ]
 
         with pytest.raises(
-            TracecatValidationError, match="2 actions were not found in the registry"
+            AutoSecOpsValidationError, match="2 actions were not found in the registry"
         ):
             await agent_preset_service.create_preset(agent_preset_create_params)
 
@@ -652,7 +652,7 @@ class TestAgentPresetService:
             update={"catalog_id": catalog.id}
         )
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match=f"Catalog entry {catalog.id} is not enabled for this workspace",
         ):
             await agent_preset_service.create_preset(params)
@@ -868,7 +868,7 @@ class TestAgentPresetService:
         preset = await agent_preset_service.create_preset(agent_preset_create_params)
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match=(
                 f"Catalog entry {inherited_catalog.id} is not enabled "
                 "for this workspace"
@@ -1120,7 +1120,7 @@ class TestAgentPresetService:
 
         for cursor in ("invalid-base64!", invalid_uuid_cursor):
             with pytest.raises(
-                TracecatValidationError,
+                AutoSecOpsValidationError,
                 match="Invalid cursor for agent preset versions",
             ):
                 await agent_preset_service.list_versions(
@@ -1476,7 +1476,7 @@ class TestAgentPresetService:
                                 ),
                             ),
                         )
-                    except (TracecatNotFoundError, TracecatValidationError):
+                    except (AutoSecOpsNotFoundError, AutoSecOpsValidationError):
                         await update_session.rollback()
 
             async def delete_child() -> None:
@@ -1777,7 +1777,7 @@ class TestAgentPresetService:
             SkillCreate(name="unpublished-binding")
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await agent_preset_service.create_preset(
                 AgentPresetCreate(
                     name="Unpublished skill preset",
@@ -1808,7 +1808,7 @@ class TestAgentPresetService:
         )
         await skill_service.publish_skill(created_skill.id)
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await agent_preset_service.create_preset(
                 AgentPresetCreate(
                     name="Duplicate skill create preset",
@@ -1835,7 +1835,7 @@ class TestAgentPresetService:
             )
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await agent_preset_service.update_preset(
                 created_preset,
                 AgentPresetUpdate(
@@ -2004,7 +2004,7 @@ class TestAgentPresetService:
         )
         await skill_service.archive_skill(created_skill.id)
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await agent_preset_service.update_preset(
                 created_preset,
                 AgentPresetUpdate(
@@ -2377,7 +2377,7 @@ class TestAgentPresetService:
         await session.commit()
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="cannot include duplicate skill names",
         ) as exc_info:
             await agent_preset_service.create_preset(
@@ -2427,7 +2427,7 @@ class TestAgentPresetService:
         await session.commit()
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="Resolved preset version contains duplicate skill names",
         ) as resolve_exc_info:
             await agent_preset_service.resolve_agent_preset_config(
@@ -3009,7 +3009,7 @@ class TestAgentPresetService:
         skill_row.deleted_at = archived_at
         await session.commit()
 
-        with pytest.raises(TracecatValidationError, match="not found"):
+        with pytest.raises(AutoSecOpsValidationError, match="not found"):
             await agent_preset_service.restore_version(created_preset, version_1)
 
     async def test_restore_version_keeps_deleted_subagents_unlinked_after_slug_reuse(
@@ -3146,7 +3146,7 @@ class TestAgentPresetService:
         )
 
         with pytest.raises(
-            TracecatValidationError, match="2 actions were not found in the registry"
+            AutoSecOpsValidationError, match="2 actions were not found in the registry"
         ):
             await agent_preset_service.update_preset(created_preset, update_params)
 
@@ -3200,7 +3200,7 @@ class TestAgentPresetService:
         await agent_preset_service.delete_preset(created_preset)
 
         with pytest.raises(
-            TracecatNotFoundError,
+            AutoSecOpsNotFoundError,
             match=f"Agent preset '{preset_id}' not found",
         ):
             await agent_preset_service.resolve_agent_preset_config(
@@ -3208,7 +3208,7 @@ class TestAgentPresetService:
                 preset_version_id=version_id,
             )
         with pytest.raises(
-            TracecatNotFoundError,
+            AutoSecOpsNotFoundError,
             match=f"Agent preset version with ID '{version_id}' not found",
         ):
             await agent_preset_service.resolve_agent_preset_config(
@@ -3303,7 +3303,7 @@ class TestAgentPresetService:
         )
         await agent_preset_service.delete_preset(created_preset)
 
-        with pytest.raises(TracecatNotFoundError, match="not found"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found"):
             await agent_preset_service.update_preset(
                 created_preset,
                 AgentPresetUpdate(name="Soft-deleted update"),
@@ -3323,7 +3323,7 @@ class TestAgentPresetService:
         )
         await agent_preset_service.delete_preset(created_preset)
 
-        with pytest.raises(TracecatNotFoundError, match="not found"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found"):
             await agent_preset_service.restore_version(created_preset, current_version)
 
     async def test_create_version_rejects_soft_deleted_preset(
@@ -3337,7 +3337,7 @@ class TestAgentPresetService:
         )
         await agent_preset_service.delete_preset(created_preset)
 
-        with pytest.raises(TracecatNotFoundError, match="not found"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found"):
             await agent_preset_service._create_version_from_preset(created_preset)
 
     async def test_delete_preset_locks_only_target(
@@ -3494,7 +3494,7 @@ class TestAgentPresetService:
         )
         assert resolved.subagents == []
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await agent_preset_service.create_preset(
                 agent_preset_create_params.model_copy(
                     update={
@@ -3567,7 +3567,7 @@ class TestAgentPresetService:
 
         # Try to create another with the same name (which generates same slug)
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="Agent preset slug 'test-agent-preset' is already in use",
         ):
             await agent_preset_service.create_preset(agent_preset_create_params)
@@ -3597,7 +3597,7 @@ class TestAgentPresetService:
         agent_preset_create_params.slug = None
 
         with pytest.raises(
-            TracecatValidationError, match="Agent preset slug cannot be empty"
+            AutoSecOpsValidationError, match="Agent preset slug cannot be empty"
         ):
             await agent_preset_service.create_preset(agent_preset_create_params)
 
@@ -3621,12 +3621,14 @@ class TestAgentPresetService:
             assert isinstance(resolved, AgentConfig)
             assert resolved.model_name == agent_preset_create_params.model_name
 
-        with pytest.raises(TracecatNotFoundError, match="Agent preset '.*' not found"):
+        with pytest.raises(
+            AutoSecOpsNotFoundError, match="Agent preset '.*' not found"
+        ):
             await agent_preset_service.resolve_agent_preset_config(
                 preset_id=uuid.uuid4()
             )
         with pytest.raises(
-            TracecatNotFoundError,
+            AutoSecOpsNotFoundError,
             match="Agent preset 'nonexistent' not found",
         ):
             await agent_preset_service.resolve_agent_preset_config(slug="nonexistent")
@@ -3654,7 +3656,7 @@ class TestAgentPresetService:
         update_params = AgentPresetUpdate(slug=preset1.slug)
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match=f"Agent preset slug '{preset1.slug}' is already in use",
         ):
             await agent_preset_service.update_preset(preset2, update_params)
@@ -3834,7 +3836,7 @@ class TestAgentPresetService:
 
         if not backend_runs_approvals:
             with pytest.raises(
-                TracecatValidationError,
+                AutoSecOpsValidationError,
                 match=(
                     "Subagent preset 'approval-child' uses manual approvals, "
                     "which are not supported for subagents yet."
@@ -3892,7 +3894,7 @@ class TestAgentPresetService:
         )
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="soft-deleted or missing subagent",
         ):
             if parent is None:
@@ -4172,7 +4174,7 @@ async def test_skill_dependency_policy_is_shared_by_reads_and_runtime(
         assert runtime.tool_approvals == {"mcp.synthetic.write": True}
         assert "approvals" in listed.capabilities
         assert not listed.current_version_subagent_eligibility.eligible
-        with pytest.raises(TracecatValidationError, match="uses manual approvals"):
+        with pytest.raises(AutoSecOpsValidationError, match="uses manual approvals"):
             await agent_preset_service.create_preset(
                 agent_preset_create_params.model_copy(
                     update={
@@ -4261,7 +4263,7 @@ async def test_effective_skill_tool_limit_is_checked_before_execution(
     preset = await agent_preset_service.create_preset(agent_preset_create_params)
     version = await agent_preset_service.get_current_version_for_preset(preset)
     monkeypatch.setattr(config, "AUTOSECOPS__AGENT_MAX_TOOLS", 1)
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         match operation:
             case "create":
                 agent_preset_create_params.name = "Over limit"
@@ -4441,7 +4443,7 @@ async def test_registry_default_approval_is_shared_by_eligibility_and_attachment
         await agent_preset_service.create_preset(parent)
     else:
         assert listed.current_version_subagent_eligibility.reasons == ["tool_approvals"]
-        with pytest.raises(TracecatValidationError, match="uses manual approvals"):
+        with pytest.raises(AutoSecOpsValidationError, match="uses manual approvals"):
             await agent_preset_service.create_preset(parent)
 
 
@@ -4526,7 +4528,7 @@ async def test_tool_tunnels_follow_effective_tool_policy(
     assert preset.tool_tunnels is None
 
     # Tunnels for MCP tools are still rejected: they belong on the integration.
-    with pytest.raises(TracecatValidationError, match="MCP integration"):
+    with pytest.raises(AutoSecOpsValidationError, match="MCP integration"):
         await agent_preset_service.update_preset(
             preset, AgentPresetUpdate(tool_tunnels={"mcp__jira__search": "onprem"})
         )

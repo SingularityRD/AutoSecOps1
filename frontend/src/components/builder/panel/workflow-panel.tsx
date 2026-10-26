@@ -77,8 +77,8 @@ import {
   useWorkflowDefinitions,
 } from "@/hooks/use-workflow-definitions"
 import {
+  type AutoSecOpsApiError,
   isRequestValidationErrorArray,
-  type TracecatApiError,
 } from "@/lib/errors"
 import { getRelativeTime } from "@/lib/event-history"
 import { useWorkflow } from "@/providers/workflow"
@@ -530,7 +530,7 @@ function WorkflowSettingsPanel({
         await updateWorkflow(updateData)
       } catch (error) {
         if (error instanceof ApiError) {
-          const apiError = error as TracecatApiError
+          const apiError = error as AutoSecOpsApiError
           console.error("Application failed to validate action", apiError.body)
 
           // Set form errors from API validation errors

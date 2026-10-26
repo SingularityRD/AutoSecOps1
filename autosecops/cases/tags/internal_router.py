@@ -7,7 +7,7 @@ from autosecops.cases.dependencies import ExecutorCaseIDPath
 from autosecops.cases.tags.schemas import CaseTagRead, InternalCaseTagCreate
 from autosecops.cases.tags.service import CaseTagsService
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 router = APIRouter(
     prefix="/internal/cases", tags=["internal-cases"], include_in_schema=False
@@ -45,7 +45,7 @@ async def add_tag(
             case_id, str(params.tag_id), create_if_missing=params.create_if_missing
         )
         return CaseTagRead(id=tag.id, name=tag.name, ref=tag.ref, color=tag.color)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
@@ -72,7 +72,7 @@ async def remove_tag(
     service = CaseTagsService(session, role=role)
     try:
         await service.remove_case_tag(case_id, tag_identifier)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err

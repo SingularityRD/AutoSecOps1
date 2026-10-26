@@ -17,7 +17,7 @@ from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import WorkspaceTunnel
 from autosecops.dsl.enums import PlatformAction
 from autosecops.dsl.schemas import RunActionInput
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.identifiers import OrganizationID, WorkspaceID
 from autosecops.secrets.encryption import decrypt_value
 from autosecops.tiers.access import is_org_entitled
@@ -31,7 +31,7 @@ from autosecops_ee.tunnels.tokens import TUNNEL_TOKEN_MAX_TTL_SECONDS, mint_tunn
 PROXY_USERNAME = "autosecops"
 
 
-class TunnelRouteError(TracecatException):
+class TunnelRouteError(AutoSecOpsException):
     """The action's tunnel cannot be used. The action must not run."""
 
 

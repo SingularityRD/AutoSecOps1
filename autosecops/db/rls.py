@@ -27,7 +27,7 @@ from sqlalchemy.engine import Connection
 from autosecops import config
 from autosecops.audit.rls import audit_rls_violation
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import TracecatRLSViolationError
+from autosecops.exceptions import AutoSecOpsRLSViolationError
 from autosecops.logger import logger
 
 if TYPE_CHECKING:
@@ -288,7 +288,7 @@ async def require_rls_access(
 ) -> None:
     """Require that a record is accessible under the current RLS context.
 
-    Raises TracecatRLSViolationError if the record cannot be accessed.
+    Raises AutoSecOpsRLSViolationError if the record cannot be accessed.
     Use this for explicit access checks on sensitive operations.
 
     Args:
@@ -298,7 +298,7 @@ async def require_rls_access(
         operation: Description of the operation being performed (for error messages)
 
     Raises:
-        TracecatRLSViolationError: If RLS blocks access to the record
+        AutoSecOpsRLSViolationError: If RLS blocks access to the record
     """
     if not is_rls_enabled():
         return
@@ -312,7 +312,7 @@ async def require_rls_access(
             record_id=record_id,
             role=role,
         )
-        raise TracecatRLSViolationError(
+        raise AutoSecOpsRLSViolationError(
             f"RLS blocked {operation} on {table_class.__tablename__}",
             table=table_class.__tablename__,
             operation=operation,

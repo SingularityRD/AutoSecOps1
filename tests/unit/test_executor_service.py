@@ -21,7 +21,7 @@ from autosecops.dsl.schemas import (
     RunActionInput,
     RunContext,
 )
-from autosecops.exceptions import ExecutionError, TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError, ExecutionError
 from autosecops.executor import service as executor_service
 from autosecops.executor.schemas import (
     ActionImplementation,
@@ -257,7 +257,7 @@ async def test_get_action_secrets_missing_required_oauth_raises(mocker):
     """Required OAuth integrations should surface a credentials error."""
     _patch_oauth_secret_env(mocker, [])
 
-    with pytest.raises(TracecatCredentialsError):
+    with pytest.raises(AutoSecOpsCredentialsError):
         await secrets_manager.get_action_secrets(
             secret_exprs=set(),
             action_secrets={
@@ -1390,7 +1390,7 @@ async def test_invoke_once_masks_template_expression_errors(
     assert "ValueError in int(***)" in error.info.message
     assert MASK_VALUE in error.info.message
     assert "Details withheld" not in error.info.message
-    assert error.info.type == "TracecatExpressionError"
+    assert error.info.type == "AutoSecOpsExpressionError"
     assert error.info.loop_iteration == 2
     assert error.__cause__ is None
     assert error.__context__ is None

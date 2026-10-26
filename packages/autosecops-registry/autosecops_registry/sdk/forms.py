@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 def _set(**values: Any) -> dict[str, Any]:
@@ -18,10 +18,10 @@ class FormsClient:
     """Client for Forms API operations.
 
     Form reads return ``workflow_id`` as a short ``wf_...`` ID. A missing form,
-    submission, file or workflow raises ``TracecatNotFoundError``.
+    submission, file or workflow raises ``AutoSecOpsNotFoundError``.
     """
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def list_forms(
@@ -44,8 +44,8 @@ class FormsClient:
         """Update a workflow's form, creating it if the workflow has none.
 
         ``workflow_id`` takes a short ``wf_...`` or full ID. Unset arguments
-        leave the stored value unchanged. Raises ``TracecatValidationError`` if
-        the config has errors, and ``TracecatConflictError`` if the form goes
+        leave the stored value unchanged. Raises ``AutoSecOpsValidationError`` if
+        the config has errors, and ``AutoSecOpsConflictError`` if the form goes
         online on an unpublished workflow.
         """
         return await self._client.put(

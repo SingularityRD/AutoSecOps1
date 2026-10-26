@@ -14,8 +14,8 @@ from autosecops.cases.hierarchy import CaseHierarchyService
 from autosecops.cases.rows.schemas import CaseTableRowRead
 from autosecops.db.models import Case, CaseTag, Workspace
 from autosecops.exceptions import (
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 
 
@@ -216,7 +216,7 @@ async def test_internal_update_case_simple_removed_tag_returns_400(
         mock_service.get_case.return_value = mock_internal_case
         mock_service.update_case.return_value = mock_internal_case
         mock_service.tags.list_tags_for_case.return_value = [tag]
-        mock_service.tags.remove_case_tag.side_effect = TracecatNotFoundError(message)
+        mock_service.tags.remove_case_tag.side_effect = AutoSecOpsNotFoundError(message)
         mock_service_cls.return_value = mock_service
 
         response = action_gateway_client.patch(
@@ -317,8 +317,8 @@ async def test_internal_get_case_resolves_short_id(
 @pytest.mark.parametrize(
     ("error", "expected_status"),
     [
-        (TracecatNotFoundError("Case CASE-9999 not found"), 404),
-        (TracecatValidationError("Case ID must be a UUID"), 422),
+        (AutoSecOpsNotFoundError("Case CASE-9999 not found"), 404),
+        (AutoSecOpsValidationError("Case ID must be a UUID"), 422),
     ],
 )
 async def test_internal_case_id_resolution_errors(

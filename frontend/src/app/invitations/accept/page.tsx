@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Clock, UserPlus, UserX } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { Suspense } from "react"
 import {
   invitationsAcceptInvitation,
@@ -195,7 +195,11 @@ function AcceptInvitationContent() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <Image src={TracecatIcon} alt="AutoSecOps" className="mb-4 size-16" />
+          <Image
+            src={AutoSecOpsIcon}
+            alt="AutoSecOps"
+            className="mb-4 size-16"
+          />
           <CardTitle>You&apos;ve been invited!</CardTitle>
           <CardDescription>
             {invitation.inviter_name ? (

@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.workflow.management.folders.schemas import (
     DirectoryItem,
     WorkflowFolderCreate,
@@ -23,7 +23,7 @@ from autosecops.workflow.management.folders.service import (
 router = APIRouter(prefix="/folders", tags=["folders"])
 
 
-def _folder_http_exception(err: TracecatValidationError) -> HTTPException:
+def _folder_http_exception(err: AutoSecOpsValidationError) -> HTTPException:
     detail = err.detail if isinstance(err.detail, dict) else {}
     raw_code = detail.get("code") if isinstance(detail, dict) else None
     try:
@@ -52,7 +52,7 @@ async def get_directory(
     service = WorkflowFolderService(session, role=role)
     try:
         result = await service.get_directory_items(path, order_by="desc")
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     return list(result)
 
@@ -94,7 +94,7 @@ async def create_folder(
             name=params.name, parent_path=params.parent_path
         )
         return WorkflowFolderRead.model_validate(folder, from_attributes=True)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -144,7 +144,7 @@ async def update_folder(
             status_code=status.HTTP_409_CONFLICT,
             detail="A folder with this name already exists at this location",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -173,7 +173,7 @@ async def delete_folder(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found"
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -210,5 +210,5 @@ async def move_folder(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e

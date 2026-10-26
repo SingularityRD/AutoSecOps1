@@ -14,7 +14,7 @@ from autosecops.cases.schemas import CaseCreate, CaseFieldCreate
 from autosecops.cases.service import CaseFieldsService, CasesService
 from autosecops.db.models import Workspace
 from autosecops.db.rls import set_rls_context
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.tables.enums import SqlType
 from autosecops.tables.schemas import (
     TableColumnCreate,
@@ -240,7 +240,7 @@ class TestDynamicWorkspaceServiceRls:
             )
             page = await editor.list_rows(limit=100, cursor=None, reverse=False)
             assert page.items == []
-            with pytest.raises(TracecatNotFoundError):
+            with pytest.raises(AutoSecOpsNotFoundError):
                 await editor.get_row(row["id"])
         finally:
             await session.execute(text("RESET ROLE"))

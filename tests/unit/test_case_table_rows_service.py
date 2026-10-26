@@ -27,7 +27,7 @@ from autosecops.cases.rows.service import (
 from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CasesService
 from autosecops.db.models import CaseEvent, CaseTableRow, Table, Workspace
-from autosecops.exceptions import EntitlementRequired, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, EntitlementRequired
 from autosecops.pagination import CursorPaginationParams
 from autosecops.tables.enums import SqlType
 from autosecops.tables.schemas import TableColumnCreate, TableCreate, TableRowInsert
@@ -961,14 +961,14 @@ async def test_link_rows_raises_not_found_for_missing_table_or_row(
         values=["one"],
     )
 
-    with pytest.raises(TracecatNotFoundError, match="Table not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Table not found"):
         await case_rows_service.link_rows(
             case=case,
             table_id=uuid.uuid4(),
             row_ids=[uuid.uuid4()],
         )
 
-    with pytest.raises(TracecatNotFoundError, match="1 of 2 rows not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="1 of 2 rows not found"):
         await case_rows_service.link_rows(
             case=case,
             table_id=table_id,
@@ -1674,7 +1674,7 @@ async def test_list_linked_cases_returns_empty_for_unlinked_row(
 async def test_list_linked_cases_raises_for_missing_table(
     case_rows_service: CaseTableRowsService,
 ) -> None:
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await case_rows_service.list_linked_cases(
             table_id=uuid.uuid4(),
             row_id=uuid.uuid4(),

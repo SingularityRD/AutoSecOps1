@@ -35,9 +35,9 @@ from autosecops.db.models import (
     effective_group_members,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.organization.service import OrgService
 from autosecops.pagination import PageParams, PaginationError
@@ -577,7 +577,7 @@ async def test_mapping_changes_stop_at_an_unknown_removal(
     )
     group = await _make_group(session, org)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.apply_mapping_changes(
             create=[
                 ExternalGroupMappingCreate(
@@ -597,7 +597,7 @@ async def test_mapping_changes_require_scim_management(
     """Generic RBAC scopes cannot batch mapping changes."""
     service = SCIMService(session, _role(org, "org:rbac:*"))
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.apply_mapping_changes(create=[], delete=[])
 
 
@@ -640,7 +640,7 @@ async def test_mapping_another_organizations_external_group_is_rejected(
     )
     group = await _make_group(session, org)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.create_mapping(external_group_id=theirs.id, group_id=group.id)
 
 
@@ -657,7 +657,7 @@ async def test_mapping_into_another_organizations_group_is_rejected(
     )
     their_group = await _make_group(session, other_org)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.create_mapping(
             external_group_id=external.id, group_id=their_group.id
         )
@@ -680,7 +680,7 @@ async def test_deleting_another_organizations_mapping_is_rejected(
         _role(other_org, "org:scim:manage"),
     ).create_mapping(external_group_id=their_external.id, group_id=their_group.id)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.delete_mapping(theirs.id)
 
 
@@ -701,7 +701,7 @@ async def test_reading_another_organizations_mapping_is_rejected(
         _role(other_org, "org:scim:manage"),
     ).create_mapping(external_group_id=their_external.id, group_id=their_group.id)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_mapping(theirs.id)
 
 
@@ -717,15 +717,15 @@ async def test_listing_requires_scim_management(
     """Generic RBAC and member scopes do not expose the SCIM directory."""
     service = SCIMService(session, _role(org, "org:rbac:*", "org:member:*"))
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.list_external_groups(page=PageParams())
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.list_mappings(page=PageParams())
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.get_mapping(uuid.uuid4())
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.review_activation([])
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.get_directory_summary()
 
 
@@ -736,9 +736,9 @@ async def test_scim_manager_can_list_targets_without_general_write_authority(
     group = await _make_group(session, org)
     targets = await list_groups(role=admin_role, session=session)
     assert [target.id for target in targets.items] == [group.id]
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await RBACService(session, admin_role).create_group(name="Unauthorized")
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await OrgService(session, admin_role).delete_member(uuid.uuid4())
 
 
@@ -753,7 +753,7 @@ async def test_creating_requires_scim_management(
     group = await _make_group(session, org)
     service = SCIMService(session, _role(org, "org:rbac:*", "org:member:*"))
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.create_mapping(external_group_id=external.id, group_id=group.id)
 
 
@@ -771,7 +771,7 @@ async def test_deleting_requires_scim_management(
     )
     without_scim = SCIMService(session, _role(org, "org:rbac:*", "org:member:*"))
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await without_scim.delete_mapping(mapping.id)
 
 
@@ -927,7 +927,7 @@ async def test_activation_requires_a_pending_connection(
         .values(status=state)
     )
 
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await service.activate([])
 
     status = await session.scalar(
@@ -1078,7 +1078,7 @@ async def test_disconnect_requires_scim_management(
     """Generic RBAC scopes cannot disconnect the directory."""
     service = SCIMService(session, _role(org, "org:rbac:*"))
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await service.disconnect()
 
 
@@ -1315,7 +1315,7 @@ async def test_activation_review_combines_sources_per_target(
 @pytest.mark.anyio
 async def test_review_requires_a_connection(service: SCIMService) -> None:
     """Without a connection there is nothing to review."""
-    with pytest.raises(TracecatNotFoundError, match="SCIM connection not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="SCIM connection not found"):
         await service.review_activation([])
 
 
@@ -1460,7 +1460,7 @@ async def test_pending_mapping_preserves_manual_members(
     ).scalar_one()
     connection.status = ScimConnectionStatus.PENDING
     await session.flush()
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await service.create_mapping(external_group_id=external.id, group_id=group.id)
     assert await _manual_members(session, group.id) == {user.id for user in users}
     assert (await service.list_mappings(page=PageParams())).items == []
@@ -1526,7 +1526,7 @@ async def test_activation_removes_existing_inactive_member_atomically(
     user_id, org_id, group_id, connection_id = user.id, org.id, group.id, connection.id
     service = SCIMService(session, _role(org, "org:scim:manage"))
     if invalid_mapping:
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.activate(
                 [
                     ExternalGroupMappingCreate(
@@ -1622,7 +1622,7 @@ async def test_activation_admits_every_pushed_user(
 async def test_activation_requires_scim_management(
     session: AsyncSession, org: Organization
 ) -> None:
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await SCIMService(session, _role(org, "org:rbac:*", "org:member:*")).activate(
             []
         )
@@ -1716,5 +1716,5 @@ async def test_mapping_pages_are_bounded_stable_and_org_scoped(
     other_service = SCIMService(session, _role(other_org, "org:scim:manage"))
     with pytest.raises(PaginationError):
         await other_service.list_mappings(page=PageParams(cursor=first.next_cursor))
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.get_mapping(first.items[0].id)

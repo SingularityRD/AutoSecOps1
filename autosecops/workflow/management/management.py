@@ -47,9 +47,9 @@ from autosecops.dsl.schemas import (
 from autosecops.dsl.validation import normalize_trigger_inputs
 from autosecops.dsl.view import RFGraph
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
-    TracecatNotFoundError,
-    TracecatValidationError,
     WorkflowAliasResolutionError,
 )
 from autosecops.expressions.eval import eval_templated_object
@@ -933,7 +933,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
             # XXX: When we commit from the workflow, we have action IDs
             dsl = DSLInput.model_validate(dsl_data)
             self.logger.info("Creating workflow from database")
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             self.logger.info("Custom validation error", error=e)
             construction_errors.append(
                 DSLValidationResult(status="error", msg=str(e), detail=e.detail)
@@ -988,17 +988,17 @@ class WorkflowsManagementService(BaseWorkspaceService):
         place instead of being duplicated per caller.
 
         Raises:
-            TracecatNotFoundError: If the workflow does not exist.
+            AutoSecOpsNotFoundError: If the workflow does not exist.
         """
 
         workflow = await self.get_workflow(workflow_id)
         if workflow is None:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
         # Tier 1: build DSL from the current draft (structural validation).
         try:
             dsl = await self.build_dsl_from_workflow(workflow)
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             return WorkflowPublishResult(
                 version=None,
                 errors=[
@@ -1077,7 +1077,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
         actions = workflow.actions
         # If it still falsy, raise a user facing error
         if not actions:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Workflow has no actions. Please add an action to the workflow before saving."
             )
         action_statements = build_action_statements_from_actions(actions)
@@ -1164,9 +1164,9 @@ class WorkflowsManagementService(BaseWorkspaceService):
             WorkflowExecutionCreateResponse with the workflow and execution IDs.
 
         Raises:
-            TracecatNotFoundError: If the workflow, or the requested published
+            AutoSecOpsNotFoundError: If the workflow, or the requested published
                 version, does not exist.
-            TracecatValidationError: If the draft has no actions or fails
+            AutoSecOpsValidationError: If the draft has no actions or fails
                 validation, or if the trigger inputs do not match the
                 workflow's input schema.
         """
@@ -1207,15 +1207,15 @@ class WorkflowsManagementService(BaseWorkspaceService):
         if use_draft:
             workflow = await self.get_workflow(wf_id)
             if workflow is None:
-                raise TracecatNotFoundError(f"Workflow {wf_id.short()} not found")
-            # Raises TracecatValidationError on an empty/invalid draft graph.
+                raise AutoSecOpsNotFoundError(f"Workflow {wf_id.short()} not found")
+            # Raises AutoSecOpsValidationError on an empty/invalid draft graph.
             dsl = await self.build_dsl_from_workflow(workflow)
             # Run the same tiered validator used at commit time so a broken draft
             # returns a fixable error instead of failing mid-execution.
             if val_errors := await validate_dsl(
                 session=self.session, dsl=dsl, role=self.role
             ):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Draft workflow validation failed with {len(val_errors)} "
                     "error(s). Fix the draft or publish a working version first.",
                     detail=[err.root.model_dump(mode="json") for err in val_errors],
@@ -1226,10 +1226,10 @@ class WorkflowsManagementService(BaseWorkspaceService):
         defn = await defn_service.get_definition_by_workflow_id(wf_id, version=version)
         if defn is None:
             if version is not None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Workflow {wf_id.short()} has no published version {version}."
                 )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Workflow {wf_id.short()} has no published definition. "
                 "Publish the workflow before running a published version."
             )
@@ -1255,7 +1255,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
                     model_name="TriggerInputsValidator",
                 )
             except ValidationError as e:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Trigger inputs do not match the workflow's input schema.",
                     detail=ValidationDetail.list_from_pydantic(e),
                 ) from e
@@ -1289,9 +1289,9 @@ class WorkflowsManagementService(BaseWorkspaceService):
             dry_run: Return the match plan without starting a run.
 
         Raises:
-            TracecatNotFoundError: If the execution, workflow, or version does
+            AutoSecOpsNotFoundError: If the execution, workflow, or version does
                 not exist.
-            TracecatValidationError: If the target fails validation, the source
+            AutoSecOpsValidationError: If the target fails validation, the source
                 inputs fail the target's input schema, or a requested ref
                 cannot be reused.
         """
@@ -1303,7 +1303,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
         try:
             wf_id, _ = exec_id_to_parts(execution_id)
         except ValueError as e:
-            raise TracecatValidationError(str(e)) from e
+            raise AutoSecOpsValidationError(str(e)) from e
         # Loads through workspace-scoped queries, so another workspace's run
         # is rejected before its history is read.
         dsl, registry_lock, resolved_version = await self._load_run_target(
@@ -1314,7 +1314,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
         try:
             source = await exec_service.get_rerun_source(execution_id)
         except WorkflowExecutionNotFoundError as e:
-            raise TracecatNotFoundError(str(e)) from e
+            raise AutoSecOpsNotFoundError(str(e)) from e
         try:
             match = match_rerun_actions(
                 source,
@@ -1323,11 +1323,11 @@ class WorkflowsManagementService(BaseWorkspaceService):
                 rerun_from_ref=rerun_from_ref,
             )
         except ValueError as e:
-            raise TracecatValidationError(str(e)) from e
-        inputs_error: TracecatValidationError | None = None
+            raise AutoSecOpsValidationError(str(e)) from e
+        inputs_error: AutoSecOpsValidationError | None = None
         try:
             self._validate_trigger_inputs(dsl, source.trigger_inputs)
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             inputs_error = e
         plan = WorkflowRerunPlan(
             source_execution_id=execution_id,
@@ -1342,7 +1342,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
         if dry_run:
             return plan
         if invalid := invalid_requested_refs(match, fixed_action_refs):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "These actions have no reusable result in the source run for "
                 f"this target: {', '.join(invalid)}",
                 detail={"refs": invalid},
@@ -1387,7 +1387,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
     ) -> Workflow:
         """Restore a workflow definition as the current mutable draft."""
         if definition.workflow_id != workflow.id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Workflow definition does not belong to the selected workflow"
             )
 
@@ -1405,7 +1405,7 @@ class WorkflowsManagementService(BaseWorkspaceService):
         )
         current_graph_version = locked.scalar_one_or_none()
         if current_graph_version is None:
-            raise TracecatValidationError("Workflow no longer exists")
+            raise AutoSecOpsValidationError("Workflow no longer exists")
         if current_graph_version != expected_graph_version:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

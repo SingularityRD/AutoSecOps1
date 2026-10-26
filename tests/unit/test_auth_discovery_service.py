@@ -14,7 +14,7 @@ from autosecops.auth import discovery as auth_discovery_module
 from autosecops.auth.discovery import AuthDiscoveryMethod, AuthDiscoveryService
 from autosecops.auth.enums import AuthType
 from autosecops.db.models import Invitation, Organization, OrganizationDomain
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.organization.domains import normalize_domain
 
@@ -403,7 +403,7 @@ async def test_discovery_rejects_invalid_org_hint_without_fallback(
     )
     service = AuthDiscoveryService(session)
 
-    with pytest.raises(TracecatValidationError) as exc:
+    with pytest.raises(AutoSecOpsValidationError) as exc:
         await service.discover("user@acme.com", org_slug="does-not-exist")
 
     assert str(exc.value) == "Invalid organization"

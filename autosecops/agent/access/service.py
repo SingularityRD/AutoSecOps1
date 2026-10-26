@@ -29,7 +29,7 @@ from autosecops.db.models import (
     AgentModelAccess,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
 from autosecops.service import BaseOrgService
 
@@ -67,7 +67,7 @@ class AgentModelAccessService(BaseOrgService):
             )
         )
         if not catalog_exists:
-            raise TracecatNotFoundError(f"Catalog {catalog_id} not found")
+            raise AutoSecOpsNotFoundError(f"Catalog {catalog_id} not found")
 
         if workspace_id is not None:
             workspace_exists = await self.session.scalar(
@@ -79,7 +79,7 @@ class AgentModelAccessService(BaseOrgService):
                 )
             )
             if not workspace_exists:
-                raise TracecatNotFoundError(f"Workspace {workspace_id} not found")
+                raise AutoSecOpsNotFoundError(f"Workspace {workspace_id} not found")
 
         access = AgentModelAccess(
             organization_id=self.organization_id,
@@ -93,11 +93,11 @@ class AgentModelAccessService(BaseOrgService):
             await self.session.rollback()
             pgcode = getattr(getattr(err, "orig", None), "pgcode", None)
             if pgcode == "23505":
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Model access for catalog {catalog_id} already enabled"
                 ) from err
             if pgcode == "23503":
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Catalog {catalog_id} or workspace {workspace_id} not found"
                 ) from err
             raise
@@ -117,7 +117,7 @@ class AgentModelAccessService(BaseOrgService):
             access_id: Access entry ID to delete.
 
         Raises:
-            TracecatNotFoundError: The access row does not exist.
+            AutoSecOpsNotFoundError: The access row does not exist.
         """
         stmt = select(AgentModelAccess).where(
             AgentModelAccess.id == access_id,
@@ -125,7 +125,7 @@ class AgentModelAccessService(BaseOrgService):
         )
         access = (await self.session.execute(stmt)).scalar_one_or_none()
         if access is None:
-            raise TracecatNotFoundError(f"Access entry {access_id} not found")
+            raise AutoSecOpsNotFoundError(f"Access entry {access_id} not found")
         await self.session.delete(access)
         await self.session.commit()
 
@@ -271,7 +271,7 @@ class AgentModelAccessService(BaseOrgService):
         """Replace a workspace's model subset, or clear it to inherit the org set.
 
         Raises:
-            TracecatValidationError: A catalog ID is not enabled for the
+            AutoSecOpsValidationError: A catalog ID is not enabled for the
                 organization.
         """
         # Serialize replacements of one workspace's subset, so concurrent saves
@@ -292,7 +292,7 @@ class AgentModelAccessService(BaseOrgService):
             )
             candidate_ids = {candidate.id for candidate in candidates}
             if unknown := desired_catalog_ids - candidate_ids:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Models not enabled for the organization: "
                     + ", ".join(sorted(str(catalog_id) for catalog_id in unknown))
                 )

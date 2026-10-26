@@ -22,7 +22,7 @@ from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.db.models import OAuthIntegration, Workspace
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.integrations.enums import IntegrationStatus, OAuthGrantType
 from autosecops.integrations.providers.base import (
     AuthorizationCodeOAuthProvider,
@@ -221,7 +221,7 @@ class TestIntegrationService:
         )
 
         # Attempt to create service without workspace should raise error
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             IntegrationService(session=session, role=role_without_workspace)
 
     async def test_store_and_get_integration(

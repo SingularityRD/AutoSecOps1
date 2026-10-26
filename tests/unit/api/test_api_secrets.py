@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from autosecops.auth.types import Role
 from autosecops.db.models import OrganizationSecret, Secret, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.secrets import router as secrets_router
 from autosecops.secrets.enums import SecretType
 
@@ -116,7 +116,7 @@ _MISSING_SECRET_ID = "00000000-0000-4000-8000-000000000000"
             "/secrets/nonexistent",
             None,
             "get_secret_by_name",
-            TracecatNotFoundError("Secret not found"),
+            AutoSecOpsNotFoundError("Secret not found"),
             status.HTTP_404_NOT_FOUND,
             id="get-by-name-not-found",
         ),
@@ -139,7 +139,7 @@ _MISSING_SECRET_ID = "00000000-0000-4000-8000-000000000000"
             f"/secrets/{_MISSING_SECRET_ID}",
             {"description": "Updated"},
             "get_secret",
-            TracecatNotFoundError("Secret not found"),
+            AutoSecOpsNotFoundError("Secret not found"),
             status.HTTP_404_NOT_FOUND,
             id="update-not-found",
         ),
@@ -148,7 +148,7 @@ _MISSING_SECRET_ID = "00000000-0000-4000-8000-000000000000"
             f"/secrets/{_MISSING_SECRET_ID}",
             None,
             "get_secret",
-            TracecatNotFoundError("Secret not found"),
+            AutoSecOpsNotFoundError("Secret not found"),
             status.HTTP_404_NOT_FOUND,
             id="delete-not-found",
         ),

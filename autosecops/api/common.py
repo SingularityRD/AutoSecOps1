@@ -27,13 +27,13 @@ from autosecops.config import TEMPORAL__CLUSTER_NAMESPACE
 from autosecops.contexts import ctx_role
 from autosecops.db.exceptions import AuthPoolExhaustedError
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.observability.sentry import capture_auth_pool_exhaustion
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.tables.exceptions import TableRowError
 from autosecops.workflow.executions.enums import TemporalSearchAttr
@@ -176,7 +176,7 @@ def autosecops_exception_handler(request: Request, exc: Exception) -> Response:
     We can customize exceptions to expose only what should be user facing.
     """
     autosecops_exc = (
-        exc if isinstance(exc, TracecatException) else TracecatException(str(exc))
+        exc if isinstance(exc, AutoSecOpsException) else AutoSecOpsException(str(exc))
     )
     msg = str(autosecops_exc)
     logger.error(
@@ -212,7 +212,7 @@ async def table_row_exception_handler(request: Request, exc: Exception) -> Respo
 
 def _query_exception_response(
     request: Request,
-    exc: TracecatQueryTimeoutError | TracecatQueryOverflowError,
+    exc: AutoSecOpsQueryTimeoutError | AutoSecOpsQueryOverflowError,
     *,
     status_code: int,
 ) -> Response:
@@ -238,8 +238,8 @@ def query_timeout_exception_handler(request: Request, exc: Exception) -> Respons
     """Return the stable 422 contract for timed-out shared queries."""
     query_exc = (
         exc
-        if isinstance(exc, TracecatQueryTimeoutError)
-        else TracecatQueryTimeoutError(str(exc))
+        if isinstance(exc, AutoSecOpsQueryTimeoutError)
+        else AutoSecOpsQueryTimeoutError(str(exc))
     )
     return _query_exception_response(
         request,
@@ -252,8 +252,8 @@ def query_overflow_exception_handler(request: Request, exc: Exception) -> Respon
     """Return the stable 400 contract for shared-query numeric overflow."""
     query_exc = (
         exc
-        if isinstance(exc, TracecatQueryOverflowError)
-        else TracecatQueryOverflowError(str(exc))
+        if isinstance(exc, AutoSecOpsQueryOverflowError)
+        else AutoSecOpsQueryOverflowError(str(exc))
     )
     return _query_exception_response(
         request,

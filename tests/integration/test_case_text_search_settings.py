@@ -12,7 +12,7 @@ from sqlalchemy.pool import NullPool
 
 from autosecops.cases.text_search import case_search_execution_context
 from autosecops.cases.text_search_indexes import ensure_case_text_indexes
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.lexical_types import LexicalSearchError, LexicalSearchErrorCode
 from tests.integration.test_case_text_search_postgres import (
     apply_search_migration,
@@ -130,7 +130,7 @@ async def test_live_timeout_and_settings_restore_on_rollback(
     engine = create_async_engine(url, poolclass=NullPool)
     try:
         async with engine.connect() as conn, AsyncSession(conn) as session:
-            with pytest.raises(TracecatQueryTimeoutError):
+            with pytest.raises(AutoSecOpsQueryTimeoutError):
                 async with (
                     session.begin(),
                     case_search_execution_context(
@@ -163,7 +163,7 @@ async def test_nested_fuzzy_timeout_preserves_outer_settings_and_recovers(
         async with AsyncSession(engine) as session:
             async with session.begin():
                 async with case_search_execution_context(session):
-                    with pytest.raises(TracecatQueryTimeoutError):
+                    with pytest.raises(AutoSecOpsQueryTimeoutError):
                         async with (
                             session.begin_nested(),
                             case_search_execution_context(session),

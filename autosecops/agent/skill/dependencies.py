@@ -14,7 +14,7 @@ from autosecops.agent.skill.types import (
 )
 from autosecops.agent.skill.validation import get_mcp_grant_support_error
 from autosecops.db.models import SkillVersion
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.schemas import MCPToolSummary
 from autosecops.integrations.service import IntegrationService
 from autosecops.registry.actions.service import RegistryActionsService
@@ -98,7 +98,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
             str(version_id) for version_id in set(version_ids) - versions_by_id.keys()
         )
         if missing_version_ids:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Resolved skills require unavailable versions",
                 detail={
                     "code": "skill_versions_unavailable",
@@ -112,7 +112,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
             sorted({tool.tool_id for version in versions for tool in version.tools})
         )
         if missing := await self.missing_registry_tools(registry_tool_ids):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Attached skills require unavailable registry tools",
                 detail={
                     "code": "skill_registry_tools_unavailable",
@@ -126,7 +126,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
             tool.tool_id for tool in mcp_rows if tool.mcp_integration_id is None
         )
         if null_integration_tool_ids:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Attached skills require deleted MCP integrations",
                 detail={
                     "code": "skill_mcp_integrations_unavailable",
@@ -144,7 +144,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
         if missing_integrations := (
             requested_integration_ids - integrations_by_id.keys()
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Attached skills require unavailable MCP integrations",
                 detail={
                     "code": "skill_mcp_integrations_unavailable",
@@ -171,7 +171,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
                 tool_name=row.tool_name,
                 tool_id=row.tool_id,
             ):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     support_error.message,
                     detail={
                         "code": support_error.code,
@@ -192,7 +192,7 @@ class SkillToolDependencyService(BaseWorkspaceService):
                 continue
 
         if unavailable_tool_ids:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Attached skills require unavailable MCP tools",
                 detail={
                     "code": "skill_mcp_tools_unavailable",

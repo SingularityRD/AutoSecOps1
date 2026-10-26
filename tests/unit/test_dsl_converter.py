@@ -6,7 +6,7 @@ import pytest
 import temporalio.api.common.v1
 from temporalio.api.common.v1 import Payload
 
-from autosecops.agent.types import AgentConfig as TracecatAgentConfig
+from autosecops.agent.types import AgentConfig as AutoSecOpsAgentConfig
 from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.dsl._converter import PydanticORJSONPayloadConverter
 from autosecops.dsl.common import AgentActionMemo, ChildWorkflowMemo
@@ -179,7 +179,7 @@ async def test_child_workflow_memo_decode_failure_keeps_best_effort_defaults(
 def _build_autosecops_agent_config_payload() -> Payload:
     converter = PydanticORJSONPayloadConverter()
     payload = converter.to_payload(
-        TracecatAgentConfig(
+        AutoSecOpsAgentConfig(
             model_name="gpt-5.2",
             model_provider="openai",
             instructions="You are a security analyst.",

@@ -5,7 +5,7 @@ import type {
   AgentSessionsGetSessionVercelResponse,
 } from "@/client"
 import { useChatPresetManager } from "@/hooks/use-chat-preset-manager"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 
 const mockUseAgentPreset = jest.fn()
 const mockUseAgentPresets = jest.fn()
@@ -60,7 +60,7 @@ describe("useChatPresetManager", () => {
   it("does not fall back to the head preset when a pinned version fails to load", () => {
     const pinnedVersionError = new Error(
       "Pinned preset version lookup failed"
-    ) as TracecatApiError
+    ) as AutoSecOpsApiError
     mockUseAgentPresetVersion.mockReturnValue({
       presetVersion: null,
       presetVersionIsLoading: false,
