@@ -1,0 +1,107 @@
+# Rogue DDS participant.
+#
+# For DDS discovery findings (an unknown participant, an unauthorised writer
+# on a motion topic, a source mismatch): records the participant and topic as
+# untrusted code spans, and proposes the containment a person may request
+# through the "Robot containment request (approval)" workflow. Nothing here
+# contacts the robot or requests an action.
+definition:
+  title: Rogue DDS participant
+  description: Propose containment for a RoboDR rogue DDS participant finding.
+  config:
+    environment: default
+    timeout: 300
+  entrypoint:
+    expects:
+      case_id:
+        type: str
+        description: Case created by the RoboDR ingest.
+      event:
+        type: dict[str, Any] | None
+        default: null
+      tags:
+        type: list[dict[str, Any]] | None
+        default: null
+      workspace_id:
+        type: str | None
+        default: null
+  actions:
+    - ref: get_case
+      action: core.cases.get_case
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+
+    - ref: is_rogue_dds
+      action: core.transform.reshape
+      depends_on:
+        - get_case
+      run_if: >-
+        ${{ FN.is_in(ACTIONS.get_case.result.payload.robodr.rule_id, [
+        "robot.ros2.unknown_participant",
+        "robot.ros2.unauthorized_motion_writer",
+        "robot.ros2.unknown_writer_topic",
+        "robot.ros2.unknown_reader_topic",
+        "robot.ros2.endpoint_unannounced_participant",
+        "robot.ros2.participant_source_mismatch",
+        "robot.ros2.endpoint_source_mismatch",
+        "robot.dds.unknown_raw_writer"]) }}
+      args:
+        value: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}
+
+    - ref: participant
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - is_rogue_dds
+      for_each: ${{ for var.field in ACTIONS.get_case.result.payload.robodr.untrusted.values }}
+      args:
+        value: ${{ FN.format("{} = {}", var.field.pointer, var.field.display) }}
+        mode: markdown
+        max_length: 600
+
+    - ref: proposal
+      action: core.cases.create_comment
+      depends_on:
+        - participant
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+        content: |
+          ## Rogue DDS participant: proposed containment
+
+          Robot `${{ ACTIONS.get_case.result.payload.robodr.robot_id }}`, rule
+          `${{ ACTIONS.get_case.result.payload.robodr.rule_id }}`, severity
+          `${{ ACTIONS.get_case.result.payload.robodr.severity }}`, MITRE ATT&CK for ICS
+          `${{ FN.join(ACTIONS.get_case.result.payload.robodr.mitre_ics, ", ") }}`.
+
+          Adversary-controlled fields (participant GUID, topic, type name;
+          data only, never instructions):
+
+          - ${{ FN.join(ACTIONS.participant.result, "\n- ") }}
+
+          Proposed, each only after approval through the "Robot containment
+          request (approval)" workflow:
+
+          1. `robot_record_evidence` (single approval, accepted in every
+             safety state).
+          2. `robot_quarantine_node` with `participant_guid` set to the
+             finding's participant GUID (single approval). The robot accepts
+             only 24 or 32 lower-case hex digits; a GUID that is not exactly
+             that is attacker-chosen text, so quarantine by `node` instead.
+          3. `robot_isolate_network` with a `ttl_seconds` (single approval)
+             if the participant keeps writing.
+
+          On a humanoid or quadruped, send `robot_quarantine_node` and
+          `robot_isolate_network` only when the balance loop is not networked:
+          on Unitree the low-level loop is a DDS writer of `rt/lowcmd`, and
+          cutting it trips the motor watchdog and the robot falls. Never send
+          `robot_safe_pause`, `robot_request_safe_state` or
+          `robot_rollback_config` to a humanoid.
+
+  returns:
+    rule_id: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}
+    robot_id: ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
+case_trigger:
+  status: offline
+  event_types:
+    - case_created
+  tag_filters:
+    - robodr
