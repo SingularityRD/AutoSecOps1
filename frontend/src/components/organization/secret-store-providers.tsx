@@ -88,7 +88,8 @@ function buildStoreTrustPolicy(store: SecretStoreRead): string {
           Effect: "Allow",
           Principal: {
             AWS:
-              store.tracecat_aws_principal_arn ?? "<autosecops-principal-arn>",
+              store.autosecops_aws_principal_arn ??
+              "<autosecops-principal-arn>",
           },
           Action: "sts:AssumeRole",
           Condition: {

@@ -194,9 +194,9 @@ def _add_exception_handlers(app: FastAPI) -> None:
 
     from autosecops.api.common import (
         auth_pool_exhausted_exception_handler,
+        autosecops_exception_handler,
         generic_exception_handler,
         http_exception_handler,
-        tracecat_exception_handler,
     )
     from autosecops.db.exceptions import AuthPoolExhaustedError
     from autosecops.exceptions import (
@@ -211,7 +211,7 @@ def _add_exception_handlers(app: FastAPI) -> None:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
-    app.add_exception_handler(TracecatException, tracecat_exception_handler)
+    app.add_exception_handler(TracecatException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
     app.add_exception_handler(
@@ -246,5 +246,5 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(router)
     _include_internal_routers(app)
     _add_exception_handlers(app)
-    instrument_fastapi_app(app, service_name="tracecat-executor")
+    instrument_fastapi_app(app, service_name="autosecops-executor")
     return app

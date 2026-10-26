@@ -48,7 +48,7 @@ async def test_create_schedule_sets_temporal_paused_state(
         schedule_id=ScheduleUUID.new_uuid4(),
         role=Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             workspace_id=WorkspaceUUID.new_uuid4(),
         ),
         every=timedelta(hours=1),

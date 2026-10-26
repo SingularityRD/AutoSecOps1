@@ -73,13 +73,13 @@ jobs:
           context: .
           target: production
           load: true
-          tags: tracecat-ci:frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          tags: autosecops-ci:frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           # Reuse the amd64 layers the nightly image publish caches on main.
           cache-from: type=gha,scope=api-linux-amd64
 
       - name: Build UI image
         env:
-          TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml build ui
 
@@ -89,11 +89,11 @@ jobs:
 
       - name: Start AutoSecOps stack
         env:
-          TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
-          TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
-          TRACECAT__FEATURE_FLAGS: ""
-          TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
+          AUTOSECOPS__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING: "true"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__FEATURE_FLAGS: ""
+          AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
         run: |
           set -euo pipefail
 
@@ -107,7 +107,7 @@ jobs:
           . ./.env
           set +a
 
-          TRACECAT__DB_URI="postgresql+psycopg://postgres:postgres@localhost:5432/postgres" \
+          AUTOSECOPS__DB_URI="postgresql+psycopg://postgres:postgres@localhost:5432/postgres" \
             uv run --no-sync autosecops admin create-dev-user \
               --email dev@autosecops.example \
               --password password1234 \
@@ -142,7 +142,7 @@ jobs:
       - name: Show service logs on failure
         if: failure()
         env:
-          TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           compose_files=(-f docker-compose.local.yml -f .github/docker-compose.integration.yml)
 
@@ -167,6 +167,6 @@ jobs:
       - name: Stop AutoSecOps stack
         if: always()
         env:
-          TRACECAT__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: frontend-smoke-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml down -v

@@ -22,7 +22,7 @@ async def test_get_org_saml_metadata_url_prefers_env_in_single_tenant(
     get_setting_mock = AsyncMock()
     fake_session = AsyncMock()
 
-    monkeypatch.setattr(saml, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(saml, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(saml, "SAML_IDP_METADATA_URL", env_metadata_url)
     monkeypatch.setattr(saml, "get_setting", get_setting_mock)
 
@@ -41,7 +41,7 @@ async def test_get_org_saml_metadata_url_uses_db_settings_in_multi_tenant(
     get_setting_mock = AsyncMock(return_value=db_metadata_url)
     fake_session = AsyncMock()
 
-    monkeypatch.setattr(saml, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(saml, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(saml, "SAML_IDP_METADATA_URL", env_metadata_url)
     monkeypatch.setattr(saml, "get_setting", get_setting_mock)
 
@@ -61,7 +61,7 @@ async def test_get_org_saml_metadata_url_rejects_missing_db_value_in_multi_tenan
     get_setting_mock = AsyncMock(return_value=None)
     fake_session = AsyncMock()
 
-    monkeypatch.setattr(saml, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(saml, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(saml, "SAML_IDP_METADATA_URL", "https://env-idp.example.com")
     monkeypatch.setattr(saml, "get_setting", get_setting_mock)
 
@@ -101,8 +101,8 @@ class _FakeResult:
 def testis_domain_allowed_for_org_denies_no_domains_in_multi_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", set())
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", set())
 
     allowed = is_domain_allowed_for_org(
         normalized_domain="example.com", active_domains=set()
@@ -114,8 +114,8 @@ def testis_domain_allowed_for_org_denies_no_domains_in_multi_tenant(
 def testis_domain_allowed_for_org_allows_no_domains_in_single_tenant_when_env_not_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", set())
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", set())
 
     allowed = is_domain_allowed_for_org(
         normalized_domain="example.com", active_domains=set()
@@ -127,8 +127,8 @@ def testis_domain_allowed_for_org_allows_no_domains_in_single_tenant_when_env_no
 def testis_domain_allowed_for_org_enforces_env_domains_in_single_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"acme.com"})
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", {"acme.com"})
 
     allowed_matching = is_domain_allowed_for_org(
         normalized_domain="acme.com", active_domains=set()
@@ -278,8 +278,8 @@ async def test_select_authorized_email(
     expected_invitation_lookups: int,
 ) -> None:
     if multi_tenant is not None:
-        monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
-        monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", set())
+        monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
+        monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", set())
     monkeypatch.setattr(
         saml, "_get_active_org_domains", AsyncMock(return_value=domains)
     )
@@ -347,7 +347,7 @@ async def test_is_first_superadmin_bootstrap_user(
     user_count: int | None,
     expected: bool,
 ) -> None:
-    monkeypatch.setattr(saml, "TRACECAT__AUTH_SUPERADMIN_EMAIL", "admin@example.com")
+    monkeypatch.setattr(saml, "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL", "admin@example.com")
     fake_session = AsyncMock()
     fake_session.execute.return_value = _FakeResult([user_count])
 

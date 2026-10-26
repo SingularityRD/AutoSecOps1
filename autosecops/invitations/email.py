@@ -57,7 +57,7 @@ def render_invitation_email(
     safe_name = escape(organization_name)
     safe_url = escape(accept_url, quote=True)
     logo_url = escape(
-        f"{config.TRACECAT__PUBLIC_APP_URL.rstrip('/')}/icon.png", quote=True
+        f"{config.AUTOSECOPS__PUBLIC_APP_URL.rstrip('/')}/icon.png", quote=True
     )
     header_safe_name = "".join(char for char in organization_name if char.isprintable())
 
@@ -111,7 +111,7 @@ Accept your invitation:
 def build_accept_url(token: str) -> str:
     """Build the public invitation acceptance URL."""
     return (
-        f"{config.TRACECAT__PUBLIC_APP_URL.rstrip('/')}/invitations/accept"
+        f"{config.AUTOSECOPS__PUBLIC_APP_URL.rstrip('/')}/invitations/accept"
         f"?token={token}"
     )
 

@@ -143,7 +143,7 @@ async def test_child_workflow_memo_decode_failure_keeps_best_effort_defaults(
     memo = temporalio.api.common.v1.Memo(
         fields={
             "action_ref": Payload(
-                metadata={"encoding": b"binary/tracecat-aes256gcm"},
+                metadata={"encoding": b"binary/autosecops-aes256gcm"},
                 data=b"unreadable",
             ),
             "loop_index": Payload(metadata={"encoding": b"json/plain"}, data=b"3"),
@@ -176,7 +176,7 @@ async def test_child_workflow_memo_decode_failure_keeps_best_effort_defaults(
     )
 
 
-def _build_tracecat_agent_config_payload() -> Payload:
+def _build_autosecops_agent_config_payload() -> Payload:
     converter = PydanticORJSONPayloadConverter()
     payload = converter.to_payload(
         TracecatAgentConfig(
@@ -205,12 +205,12 @@ def _build_tracecat_agent_config_payload() -> Payload:
     return payload
 
 
-def test_converter_decodes_legacy_tracecat_agent_config_as_agent_config_payload() -> (
+def test_converter_decodes_legacy_autosecops_agent_config_as_agent_config_payload() -> (
     None
 ):
     """Legacy AgentConfig payloads should decode for workflow replay compatibility."""
     converter = PydanticORJSONPayloadConverter()
-    payload = _build_tracecat_agent_config_payload()
+    payload = _build_autosecops_agent_config_payload()
 
     decoded = converter.from_payload(payload, AgentConfigPayload)
 

@@ -19,7 +19,7 @@ pytestmark = pytest.mark.usefixtures("db")
 @pytest.fixture(autouse=True)
 def enable_multi_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run this suite in multi-tenant mode unless explicitly overridden."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
 
 @pytest.fixture
@@ -223,7 +223,7 @@ async def test_single_tenant_effective_values_use_static_defaults(
     session: AsyncSession, test_org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Single-tenant mode should return static self-host defaults."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     await _create_org_tier(
         session,
         test_org.id,
@@ -247,7 +247,7 @@ async def test_single_tenant_entitlement_check_uses_static_defaults(
     session: AsyncSession, test_org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Single-tenant entitlement checks should not require DB tier rows."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     entitlement_service = EntitlementService(TierService(session))
 
     await entitlement_service.check_entitlement(test_org.id, Entitlement.CASE_ADDONS)

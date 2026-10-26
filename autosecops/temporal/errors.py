@@ -33,7 +33,7 @@ from autosecops.runtime.errors import (
 )
 from autosecops.temporal.error_chain import iter_error_chain
 
-ERROR_TRANSPORT_DETAIL_SCHEMA = "tracecat.temporal_error.v1"
+ERROR_TRANSPORT_DETAIL_SCHEMA = "autosecops.temporal_error.v1"
 
 
 class ErrorTransportDetail[DiagnosticT](BaseModel):
@@ -43,7 +43,7 @@ class ErrorTransportDetail[DiagnosticT](BaseModel):
 
     # Required so validation itself rejects undiscriminated payloads and the
     # discriminator always survives ``exclude_unset`` serialization.
-    schema_: Literal["tracecat.temporal_error.v1"] = Field(alias="schema")
+    schema_: Literal["autosecops.temporal_error.v1"] = Field(alias="schema")
     classification: RuntimeErrorClassification
     diagnostic: DiagnosticT | None = None
 

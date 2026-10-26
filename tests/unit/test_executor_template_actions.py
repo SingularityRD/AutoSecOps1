@@ -161,7 +161,7 @@ async def test_template_action_two_steps_via_direct_backend(
     """
     from autosecops import config
 
-    monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     session, db_repo_id = db_session_with_repo
 
@@ -251,7 +251,7 @@ async def test_template_action_with_secrets_in_top_level_args(
     """
     from autosecops import config
 
-    monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     session, db_repo_id = db_session_with_repo
 
@@ -346,7 +346,7 @@ async def test_nested_template_actions(
     """Test that nested templates (template calling template) work correctly."""
     from autosecops import config
 
-    monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     session, db_repo_id = db_session_with_repo
 

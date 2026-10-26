@@ -15,13 +15,13 @@ resource "aws_ecs_task_definition" "executor_task_definition" {
 
   container_definitions = jsonencode([
     {
-      name    = "TracecatExecutorContainer"
-      image   = "${var.tracecat_image}:${local.tracecat_image_tag}"
+      name    = "AutoSecOpsExecutorContainer"
+      image   = "${var.autosecops_image}:${local.autosecops_image_tag}"
       command = ["python", "-m", "autosecops.executor.worker"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "executor"
         }
@@ -32,9 +32,9 @@ resource "aws_ecs_task_definition" "executor_task_definition" {
   ])
 }
 
-resource "aws_ecs_service" "tracecat_executor" {
-  name                 = "tracecat-executor"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_executor" {
+  name                 = "autosecops-executor"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.executor_task_definition.arn
   launch_type          = "FARGATE"
   desired_count        = var.executor_desired_count
@@ -56,7 +56,7 @@ resource "aws_ecs_service" "tracecat_executor" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-executor"
       }
@@ -65,6 +65,6 @@ resource "aws_ecs_service" "tracecat_executor" {
 
   depends_on = [
     aws_ecs_service.temporal_service,
-    aws_ecs_service.tracecat_api
+    aws_ecs_service.autosecops_api
   ]
 }

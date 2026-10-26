@@ -348,7 +348,7 @@ examples:
         args:
           host: 10.0.10.15
           port: 22
-          username: tracecat
+          username: autosecops
           host_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBEXAMPLEHOSTKEY"
           command: uptime
           timeout_seconds: 20

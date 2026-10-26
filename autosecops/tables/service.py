@@ -1635,7 +1635,9 @@ class BaseTablesService(BaseWorkspaceService):
     ) -> CursorPaginatedResponse[dict[str, Any]]:
         """Search rows in a table using cursor-based pagination."""
         page_limit = (
-            limit if limit is not None else config.TRACECAT__LIMIT_TABLE_SEARCH_DEFAULT
+            limit
+            if limit is not None
+            else config.AUTOSECOPS__LIMIT_TABLE_SEARCH_DEFAULT
         )
         params = CursorPaginationParams(
             limit=page_limit,

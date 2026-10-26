@@ -46,13 +46,13 @@ describe("envMapToForm", () => {
   it("expands resource attributes into decoded key/value rows", () => {
     const form = envMapToForm({
       OTEL_RESOURCE_ATTRIBUTES:
-        "service.name=tracecat%20agent,key%2C1=value%3D1",
+        "service.name=autosecops%20agent,key%2C1=value%3D1",
     })
 
     expect(
       form.resourceAttributes.map(({ name, value }) => ({ name, value }))
     ).toEqual([
-      { name: "service.name", value: "tracecat agent" },
+      { name: "service.name", value: "autosecops agent" },
       { name: "key,1", value: "value=1" },
     ])
   })
@@ -139,7 +139,7 @@ describe("formToEnvMap", () => {
       formToEnvMap({
         ...base,
         resourceAttributes: [
-          { id: "a", name: "service.name", value: "tracecat agent" },
+          { id: "a", name: "service.name", value: "autosecops agent" },
           { id: "b", name: "  ", value: "  " },
         ],
       })
@@ -150,7 +150,7 @@ describe("formToEnvMap", () => {
       OTEL_LOG_USER_PROMPTS: "false",
       OTEL_LOG_TOOL_DETAILS: "false",
       OTEL_LOG_TOOL_CONTENT: "false",
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=tracecat%20agent",
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=autosecops%20agent",
     })
   })
 
@@ -251,7 +251,7 @@ describe("typed API adapters", () => {
       log_tool_details: false,
       log_tool_content: true,
       resource_attributes: {
-        "service.name": "tracecat agent",
+        "service.name": "autosecops agent",
         "key,1": "value=1",
       },
     }
@@ -386,7 +386,7 @@ describe("validateForm / validateEnvMap", () => {
     expect(
       validateEnvMap({
         OTEL_RESOURCE_ATTRIBUTES:
-          "key%2C1=value%3D1,service.name=tracecat%20agent",
+          "key%2C1=value%3D1,service.name=autosecops%20agent",
       })
     ).toEqual([])
     expect(

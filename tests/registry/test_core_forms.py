@@ -112,8 +112,8 @@ async def test_action_is_gated_and_calls_its_exact_internal_route(
 ) -> None:
     # The decorator stores its arguments under a mangled-looking name, so
     # plain attribute access is not possible.
-    registered = getattr(action, "__tracecat_udf_kwargs")
-    assert getattr(action, "__tracecat_udf_key") == f"core.forms.{action.__name__}"
+    registered = getattr(action, "__autosecops_udf_kwargs")
+    assert getattr(action, "__autosecops_udf_key") == f"core.forms.{action.__name__}"
     assert registered["required_entitlements"] == ["forms"]
 
     result = await action(**arguments)
@@ -121,7 +121,7 @@ async def test_action_is_gated_and_calls_its_exact_internal_route(
     [request] = requests
     assert request.method == method
     assert str(request.url.copy_with(query=None)) == (
-        f"http://tracecat-action-gateway/internal{path}"
+        f"http://autosecops-action-gateway/internal{path}"
     )
     assert dict(request.url.params) == query
     assert (orjson.loads(request.content) if request.content else None) == body

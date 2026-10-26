@@ -38,8 +38,8 @@ async def traced_executor_activity() -> str:
     info = activity.info()
     set_current_span_attributes(
         {
-            "tracecat.workflow.execution.id": info.workflow_id,
-            "tracecat.action.name": "core.test.trace",
+            "autosecops.workflow.execution.id": info.workflow_id,
+            "autosecops.action.name": "core.test.trace",
             "temporal.activity.attempt": info.attempt,
             "temporal.task_queue": info.task_queue,
         }
@@ -109,17 +109,17 @@ class GoldenTraceOrigin:
 async def golden_agent_activity(origin: GoldenTraceOrigin) -> str:
     set_current_span_attributes(
         {
-            "tracecat.workflow.id": origin.workflow_id,
-            "tracecat.workflow.execution.id": origin.workflow_execution_id,
-            "tracecat.action.ref": origin.action_ref,
-            "tracecat.trigger.type": origin.trigger_type,
-            "tracecat.agent.session.id": origin.agent_session_id,
-            "tracecat.agent.run.id": origin.agent_run_id,
+            "autosecops.workflow.id": origin.workflow_id,
+            "autosecops.workflow.execution.id": origin.workflow_execution_id,
+            "autosecops.action.ref": origin.action_ref,
+            "autosecops.trigger.type": origin.trigger_type,
+            "autosecops.agent.session.id": origin.agent_session_id,
+            "autosecops.agent.run.id": origin.agent_run_id,
         }
     )
-    with platform_span("tracecat.agent.prepare"):
+    with platform_span("autosecops.agent.prepare"):
         pass
-    with platform_span("tracecat.agent.runtime"):
+    with platform_span("autosecops.agent.runtime"):
         pass
     return "agent-complete"
 
@@ -152,9 +152,9 @@ async def traced_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncGenerator[tuple[WorkflowEnvironment, InMemorySpanExporter], None]:
     shutdown_platform_tracing()
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-api", exporter=exporter)
+    initialize_platform_tracing("autosecops-api", exporter=exporter)
     interceptor = temporal_tracing_interceptor()
     assert interceptor is not None
 
@@ -181,7 +181,7 @@ async def test_async_api_dispatch_keeps_one_temporal_activity_trace(
         max_cached_workflows=0,
     ):
         runtime = initialize_platform_tracing(
-            "tracecat-api",
+            "autosecops-api",
             exporter=exporter,
         )
         assert runtime is not None
@@ -212,8 +212,8 @@ async def test_async_api_dispatch_keeps_one_temporal_activity_trace(
     assert len(activity_spans) == 1
     activity_span = activity_spans[0]
     assert activity_span.attributes is not None
-    assert activity_span.attributes["tracecat.workflow.execution.id"] == workflow_id
-    assert activity_span.attributes["tracecat.action.name"] == "core.test.trace"
+    assert activity_span.attributes["autosecops.workflow.execution.id"] == workflow_id
+    assert activity_span.attributes["autosecops.action.name"] == "core.test.trace"
 
     workflow_spans = [span for span in spans if "RunWorkflow" in span.name]
     assert len(workflow_spans) == 1
@@ -238,9 +238,9 @@ async def test_http_dsl_agent_golden_trace_has_complete_hierarchy(
         del workflow_id, secret
         set_current_span_attributes(
             {
-                "tracecat.workflow.id": origin.workflow_id,
-                "tracecat.workflow.execution.id": origin.workflow_execution_id,
-                "tracecat.trigger.type": origin.trigger_type,
+                "autosecops.workflow.id": origin.workflow_id,
+                "autosecops.workflow.execution.id": origin.workflow_execution_id,
+                "autosecops.trigger.type": origin.trigger_type,
             }
         )
         result = await env.client.execute_workflow(
@@ -256,7 +256,7 @@ async def test_http_dsl_agent_golden_trace_has_complete_hierarchy(
         webhook,
         methods=["POST"],
     )
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     async with Worker(
         env.client,
@@ -296,22 +296,22 @@ async def test_http_dsl_agent_golden_trace_has_complete_hierarchy(
     assert "webhooks" in roots[0].name
 
     span_names = {span.name for span in spans}
-    assert "tracecat.agent.prepare" in span_names
-    assert "tracecat.agent.runtime" in span_names
+    assert "autosecops.agent.prepare" in span_names
+    assert "autosecops.agent.runtime" in span_names
     assert any("StartChildWorkflow" in name for name in span_names)
     assert any("RunActivity" in name for name in span_names)
 
     agent_activity = next(span for span in spans if "RunActivity" in span.name)
     assert agent_activity.attributes is not None
     assert (
-        agent_activity.attributes["tracecat.workflow.execution.id"]
+        agent_activity.attributes["autosecops.workflow.execution.id"]
         == origin.workflow_execution_id
     )
-    assert agent_activity.attributes["tracecat.action.ref"] == origin.action_ref
-    assert agent_activity.attributes["tracecat.agent.session.id"] == (
+    assert agent_activity.attributes["autosecops.action.ref"] == origin.action_ref
+    assert agent_activity.attributes["autosecops.agent.session.id"] == (
         origin.agent_session_id
     )
-    assert agent_activity.attributes["tracecat.agent.run.id"] == origin.agent_run_id
+    assert agent_activity.attributes["autosecops.agent.run.id"] == origin.agent_run_id
     assert "synthetic-webhook-secret" not in str(spans)
 
 

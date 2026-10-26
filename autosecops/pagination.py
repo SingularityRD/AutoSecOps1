@@ -68,9 +68,9 @@ class PageParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     limit: int = Field(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum items per page",
     )
     cursor: str | None = Field(
@@ -294,9 +294,9 @@ def _validate_statement(statement: Select[Any]) -> None:
 def _validate_page(page: PageParams) -> None:
     """Defend pagination limits even if Pydantic validation was bypassed."""
     if (
-        not config.TRACECAT__LIMIT_MIN
+        not config.AUTOSECOPS__LIMIT_MIN
         <= page.limit
-        <= config.TRACECAT__LIMIT_CURSOR_MAX
+        <= config.AUTOSECOPS__LIMIT_CURSOR_MAX
     ):
         raise PaginationConfigurationError(
             "Page limit is outside the configured cursor-pagination bounds"
@@ -661,7 +661,7 @@ async def paginate[T](
         else tuple(key.reversed() for key in ordering)
     )
     cursor_columns = tuple(
-        key.expression.label(f"_tracecat_page_key_{index}")
+        key.expression.label(f"_autosecops_page_key_{index}")
         for index, key in enumerate(ordering)
     )
     query = statement.add_columns(*cursor_columns)
@@ -787,9 +787,9 @@ class CursorPaginationParams(BaseModel):
     """Parameters for cursor-based pagination."""
 
     limit: int = Field(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum items per page",
     )
     cursor: str | None = Field(default=None, description="Cursor for pagination")

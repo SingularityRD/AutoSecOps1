@@ -14,8 +14,8 @@ from autosecops.exceptions import (
 from autosecops.identifiers import SecretID
 from autosecops.integrations.aws_assume_role import (
     build_workspace_external_id,
-    get_tracecat_aws_account_id,
-    get_tracecat_aws_principal_arn,
+    get_autosecops_aws_account_id,
+    get_autosecops_aws_principal_arn,
 )
 from autosecops.logger import logger
 from autosecops.registry.actions.service import RegistryActionsService
@@ -165,8 +165,8 @@ async def get_aws_assume_role_access(
 
     try:
         return AwsAssumeRoleAccessRead(
-            tracecat_aws_account_id=get_tracecat_aws_account_id(),
-            tracecat_aws_principal_arn=get_tracecat_aws_principal_arn(),
+            autosecops_aws_account_id=get_autosecops_aws_account_id(),
+            autosecops_aws_principal_arn=get_autosecops_aws_principal_arn(),
             external_id=build_workspace_external_id(workspace_id),
         )
     except ValueError as exc:

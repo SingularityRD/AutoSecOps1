@@ -53,7 +53,7 @@ def _user_role(organization_id: uuid.UUID) -> Role:
         type="user",
         organization_id=organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )
 

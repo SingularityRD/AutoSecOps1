@@ -93,9 +93,9 @@ async def list_registry_versions(
     session: AsyncDBSessionBypass,
     repository_id: uuid.UUID | None = Query(None),
     limit: int = Query(
-        config.TRACECAT__LIMIT_REGISTRY_VERSIONS_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_REGISTRY_VERSIONS_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[RegistryVersionRead]:
     """List registry versions with optional filtering."""

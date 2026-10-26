@@ -58,7 +58,7 @@ def _role(workspace_id: uuid.UUID | None = None) -> Role:
         user_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         scopes=frozenset({"inbox:read"}),
     )
 

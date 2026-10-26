@@ -48,7 +48,7 @@ def _make_input() -> RunActionInput:
 def _make_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.UUID("38be3315-c172-4332-aea6-53fc4b93f053"),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -88,7 +88,7 @@ async def test_direct_backend_fails_without_tarballs(
         return []
 
     monkeypatch.setattr(
-        "autosecops.executor.backends.direct.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "autosecops.executor.backends.direct.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
         False,
     )
     monkeypatch.setattr(backend, "_get_artifact_uris", _get_tarballs)

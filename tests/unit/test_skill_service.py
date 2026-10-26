@@ -135,18 +135,18 @@ async def configure_minio_for_skills(
 
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
         f"http://localhost:{os.environ.get('MINIO_PORT', '9000')}",
         raising=False,
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_BUCKET_SKILLS",
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS",
         minio_bucket,
         raising=False,
     )
     monkeypatch.setenv(
-        "TRACECAT__BLOB_STORAGE_BUCKET_SKILLS",
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS",
         minio_bucket,
     )
     monkeypatch.setenv(
@@ -188,13 +188,13 @@ class TestSkillService:
 
         original = await skill_service._claim_blob_publication(
             sha256=sha256,
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
             key=storage_key,
             size_bytes=len(content),
         )
         reused = await skill_service._claim_blob_publication(
             sha256=sha256,
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
             key=storage_key,
             size_bytes=len(content),
         )
@@ -272,7 +272,7 @@ class TestSkillService:
         )
         monkeypatch.setattr(
             config,
-            "TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
             "http://downloads.example",
         )
 
@@ -313,7 +313,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="bounded-read"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES", 1)
 
         draft = await skill_service.get_draft(created.id)
 
@@ -1320,7 +1320,7 @@ class TestSkillService:
         created = await skill_service.create_skill(SkillCreate(name="batch-rollback"))
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
 
         seed_markdown = SkillService._build_default_skill_markdown(
             name="batch-rollback", description=None
@@ -1934,7 +1934,7 @@ class TestSkillService:
                 )
                 owner_claim = await owner_service._claim_blob_publication(
                     sha256=sha256,
-                    bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                    bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                     key=storage_key,
                     size_bytes=len(content),
                 )
@@ -1945,7 +1945,7 @@ class TestSkillService:
                     contender_started.set()
                     claim = await contender_service._claim_blob_publication(
                         sha256=sha256,
-                        bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                        bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                         key=storage_key,
                         size_bytes=len(content),
                     )
@@ -2039,7 +2039,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="prepare-batch"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
         captured: list[tuple[str, str, str, str, int]] = []
 
         async def generate_presigned_upload_url(
@@ -2166,7 +2166,7 @@ class TestSkillService:
             hashlib.sha256(seed_markdown.encode("utf-8")).hexdigest()
         )
         assert not await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
         await skill_service.session.refresh(svc_workspace)
 
@@ -2185,7 +2185,7 @@ class TestSkillService:
         seed_sha256 = hashlib.sha256(seed_markdown.encode("utf-8")).hexdigest()
         seed_key = skill_service._storage_key_for(seed_sha256)
         assert await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
 
         async def generate_presigned_upload_url(**_kwargs: Any) -> str:
@@ -2212,7 +2212,7 @@ class TestSkillService:
         # The second skill reused the committed seed blob, so the rollback must
         # leave both the row and its object for the first skill.
         assert await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
         blob_row = await skill_service.session.scalar(
             select(SkillBlob).where(
@@ -2230,7 +2230,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="bounded-prepare"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES", 1)
         params = [
             SkillUploadSessionCreate(
                 sha256=hashlib.sha256(content).hexdigest(),
@@ -2285,7 +2285,7 @@ class TestSkillService:
         )
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 1)
         expected_detail = {
             "code": "skill_transfer_file_count_limit_exceeded",
             "file_count": 2,
@@ -2345,7 +2345,7 @@ class TestSkillService:
             await skill_service.prepare_draft_download(skill_id=created.id)
         assert exc_info.value.detail == expected_detail
 
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
         prepared = await skill_service.prepare_draft_download(skill_id=created.id)
         assert prepared is not None
         assert len(prepared.files) == 2
@@ -2459,7 +2459,7 @@ class TestSkillService:
             await asyncio.gather(*skill_service_module._staged_upload_cleanup_tasks)
         assert deleted == {
             "key": stale_upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
         assert (
             await skill_service.session.scalar(
@@ -2671,7 +2671,7 @@ class TestSkillService:
         }
         assert deleted == {
             "key": upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
 
     async def test_attach_uploaded_blob_stops_streaming_after_size_exceeded(
@@ -2839,7 +2839,7 @@ class TestSkillService:
 
         assert deleted == {
             "key": upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
 
     async def test_attach_uploaded_blob_waits_for_later_op_validation(
@@ -2927,7 +2927,7 @@ class TestSkillService:
         )
         monkeypatch.setattr(
             config,
-            "TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES",
+            "AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES",
             sum(file.size_bytes for file in draft.files) + len(content) - 1,
         )
 

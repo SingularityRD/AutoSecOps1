@@ -62,7 +62,7 @@ type Runner = Callable[
 
 _ACTOR_LABEL = "actor@example.test"
 _CLIENT_IP = "192.0.2.10"
-_USER_AGENT = "TracecatAuditTest/1.0"
+_USER_AGENT = "AutoSecOpsAuditTest/1.0"
 _WEBHOOK_URL = "https://audit.example.test/events"
 
 
@@ -81,7 +81,7 @@ def _role(*, internal: bool = False) -> Role:
         user_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-executor" if internal else "tracecat-api",
+        service_id="autosecops-executor" if internal else "autosecops-api",
         scopes=frozenset({"*"}),
     )
 

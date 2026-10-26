@@ -87,7 +87,7 @@ async def _resolve_regular_user_org(
 ) -> SessionResult:
     """Resolve the org the user is currently working in.
 
-    Uses the same resolution as the HTTP API: the ``tracecat:active-org-id``
+    Uses the same resolution as the HTTP API: the ``autosecops:active-org-id``
     cookie set by the org switcher when the user is a member of that active
     org, otherwise the user's oldest active org membership.
 

@@ -45,7 +45,7 @@ class DirectBackend(EphemeralBackend):
 
         artifact_uris = await self._get_artifact_uris(input, role)
 
-        if not artifact_uris and not config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        if not artifact_uris and not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
             logger.error(
                 "No registry artifacts resolved - cannot execute action",
                 action=action_name,

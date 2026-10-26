@@ -42,7 +42,7 @@ function makeAction(i: number): RegistryActionReadMinimal {
     default_title: `Synthetic action ${i}`,
     description: "",
     type: "template",
-    origin: "tracecat",
+    origin: "autosecops",
   }
 }
 

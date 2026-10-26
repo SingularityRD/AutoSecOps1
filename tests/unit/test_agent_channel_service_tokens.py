@@ -10,7 +10,7 @@ from autosecops.exceptions import TracecatValidationError
 def test_slack_approval_action_token_round_trip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     token = AgentChannelService.create_slack_approval_action_token(
         batch_id="batch-123",
         tool_call_id="tool-123",
@@ -29,7 +29,7 @@ def test_slack_approval_action_token_round_trip(
 def test_slack_approval_action_token_rejects_tamper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     token = AgentChannelService.create_slack_approval_action_token(
         batch_id="batch-123",
         tool_call_id="tool-123",

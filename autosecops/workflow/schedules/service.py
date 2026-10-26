@@ -183,7 +183,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         role_copy = self.role.model_copy(
             update={
                 "type": "service",
-                "service_id": "tracecat-schedule-runner",
+                "service_id": "autosecops-schedule-runner",
                 "user_id": None,
             }
         )

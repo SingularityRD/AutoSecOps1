@@ -371,7 +371,7 @@ async def test_legacy_matching_and_detail_count_projection_are_preserved(
     page_query = next(
         query.statement
         for query in queries
-        if "_tracecat_page_key_0" in query.statement
+        if "_autosecops_page_key_0" in query.statement
     )
     projection = page_query.split("FROM", 1)[0]
     assert '"case".description' not in projection
@@ -456,7 +456,7 @@ async def timeout_service() -> AsyncIterator[CasesService]:
                 session,
                 Role(
                     type="service",
-                    service_id="tracecat-executor",
+                    service_id="autosecops-executor",
                     workspace_id=workspace_id,
                     organization_id=org_id,
                     scopes=frozenset({"case:read"}),

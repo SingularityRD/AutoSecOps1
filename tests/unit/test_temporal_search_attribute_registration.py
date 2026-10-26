@@ -91,7 +91,7 @@ async def test_add_temporal_search_attributes_rejects_wrong_registered_type(
         wait=wait_none(),
     )
 
-    with pytest.raises(RuntimeError, match="TracecatErrorOwner"):
+    with pytest.raises(RuntimeError, match="AutoSecOpsErrorOwner"):
         await single_attempt_add()
 
     operator_service.add_search_attributes.assert_not_awaited()

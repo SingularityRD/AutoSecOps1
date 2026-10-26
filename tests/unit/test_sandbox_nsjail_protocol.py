@@ -48,7 +48,7 @@ async def test_missing_nsjail_binary_is_infrastructure_failure(tmp_path: Path) -
             job_dir,
             ActionSandboxConfig(
                 registry_paths=[],
-                tracecat_app_dir=tmp_path,
+                autosecops_app_dir=tmp_path,
                 network=None,
             ),
         )
@@ -138,7 +138,7 @@ async def _run_phase(tmp_path: Path, job_dir: Path, phase: str) -> SandboxResult
         job_dir,
         ActionSandboxConfig(
             registry_paths=[],
-            tracecat_app_dir=tmp_path,
+            autosecops_app_dir=tmp_path,
             network=None,
         ),
     )
@@ -475,7 +475,7 @@ async def test_workload_start_proof_is_scoped_to_each_nsjail_invocation(
     first = await run_once()
     # A workload-controlled file from an earlier phase must not affect the
     # next invocation's attribution.
-    (tmp_path / ".tracecat-workload-started").touch()
+    (tmp_path / ".autosecops-workload-started").touch()
     second = await run_once()
 
     assert first.workload_started is True

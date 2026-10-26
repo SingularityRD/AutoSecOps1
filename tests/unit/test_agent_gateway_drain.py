@@ -21,7 +21,7 @@ from autosecops.agent.gateway import TracecatCallbackHandler
 async def test_response_headers_carry_gateway_worker_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """LiteLLM's own header merge adds ``x-tracecat-gateway: <pod>/<pid>``."""
+    """LiteLLM's own header merge adds ``x-autosecops-gateway: <pod>/<pid>``."""
     monkeypatch.setattr(litellm, "callbacks", [TracecatCallbackHandler()])
     monkeypatch.setattr(gateway_drain.socket, "gethostname", lambda: "litellm-0")
     proxy_logging = ProxyLogging(user_api_key_cache=UserApiKeyCache())
@@ -30,7 +30,7 @@ async def test_response_headers_carry_gateway_worker_identity(
         data={}, user_api_key_dict=UserAPIKeyAuth(), response=None
     )
 
-    assert headers == {"x-tracecat-gateway": f"litellm-0/{os.getpid()}"}
+    assert headers == {"x-autosecops-gateway": f"litellm-0/{os.getpid()}"}
 
 
 @pytest.mark.anyio

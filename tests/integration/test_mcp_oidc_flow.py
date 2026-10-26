@@ -215,15 +215,15 @@ def _setup_config(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnu
         "autosecops.mcp.oidc.signing.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
-    monkeypatch.setattr(oidc_config, "TRACECAT__PUBLIC_API_URL", _TEST_API_URL)
+    monkeypatch.setattr(oidc_config, "AUTOSECOPS__PUBLIC_API_URL", _TEST_API_URL)
     monkeypatch.setattr(
         "autosecops.mcp.oidc.config.get_user_auth_secret",
         lambda: _TEST_SECRET,
     )
     monkeypatch.setattr(
-        "autosecops.mcp.oidc.endpoints.TRACECAT__PUBLIC_APP_URL", _TEST_APP_URL
+        "autosecops.mcp.oidc.endpoints.AUTOSECOPS__PUBLIC_APP_URL", _TEST_APP_URL
     )
-    monkeypatch.setattr("autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", "enabled")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY", "enabled")
     signing.get_signing_key.cache_clear()
     signing.get_public_jwk.cache_clear()
     yield

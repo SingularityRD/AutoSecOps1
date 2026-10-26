@@ -2,11 +2,11 @@
 
 Run against an isolated test PostgreSQL service:
 
-    PG_PORT=6932 TRACECAT_RUN_CASE_TEXT_BENCHMARKS=1 uv run pytest \
+    PG_PORT=6932 AUTOSECOPS_RUN_CASE_TEXT_BENCHMARKS=1 uv run pytest \
         tests/integration/test_case_text_search_benchmarks.py -s
 
-TRACECAT_CASE_TEXT_BENCHMARK_CASES defaults to 20000, and
-TRACECAT_CASE_TEXT_BENCHMARK_OUTPUT defaults to the ignored
+AUTOSECOPS_CASE_TEXT_BENCHMARK_CASES defaults to 20000, and
+AUTOSECOPS_CASE_TEXT_BENCHMARK_OUTPUT defaults to the ignored
 .worktrees/measurements/case-text-search.json. Timings are measured in one
 disposable database, first without the four search indexes, then with them.
 Writes roll back identical 500-row transactions; query results are never capped
@@ -49,8 +49,8 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.slow,
     pytest.mark.skipif(
-        os.environ.get("TRACECAT_RUN_CASE_TEXT_BENCHMARKS") != "1",
-        reason="Set TRACECAT_RUN_CASE_TEXT_BENCHMARKS=1 for synthetic measurements",
+        os.environ.get("AUTOSECOPS_RUN_CASE_TEXT_BENCHMARKS") != "1",
+        reason="Set AUTOSECOPS_RUN_CASE_TEXT_BENCHMARKS=1 for synthetic measurements",
     ),
 ]
 
@@ -245,7 +245,7 @@ async def _measure_excerpt_batches(engine: Engine) -> list[LatencyMeasurement]:
 
 @pytest.mark.anyio
 async def test_synthetic_search_measurements(search_database: Engine) -> None:
-    count = int(os.environ.get("TRACECAT_CASE_TEXT_BENCHMARK_CASES") or 20000)
+    count = int(os.environ.get("AUTOSECOPS_CASE_TEXT_BENCHMARK_CASES") or 20000)
     assert 1000 <= count <= 200000
     # Compare identical final predicates with/without indexes; retain their
     # localized functions when measuring the unindexed baseline.
@@ -333,7 +333,7 @@ async def test_synthetic_search_measurements(search_database: Engine) -> None:
         "Native rank meets the synthetic exact/phrase/source/fuzzy requirements. It has no corpus-wide inverse document frequency. BM25 is a separate relevance prototype only if representative relevance judgments show a gap; broad-query latency must still be bounded and measured independently. These warm local measurements do not establish an RDS production latency budget.",
     )
     output = Path(
-        os.environ.get("TRACECAT_CASE_TEXT_BENCHMARK_OUTPUT")
+        os.environ.get("AUTOSECOPS_CASE_TEXT_BENCHMARK_OUTPUT")
         or ".worktrees/measurements/case-text-search.json"
     )
     output.parent.mkdir(parents=True, exist_ok=True)

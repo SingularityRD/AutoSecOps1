@@ -18,8 +18,8 @@ from autosecops.contexts import ctx_role
 from autosecops.dsl._converter import get_data_converter
 from autosecops.temporal import codec as temporal_codec
 from autosecops.temporal.codec import (
-    TRACECAT_TEMPORAL_ENCODING,
-    TRACECAT_TEMPORAL_GLOBAL_SCOPE,
+    AUTOSECOPS_TEMPORAL_ENCODING,
+    AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE,
     CompositePayloadCodec,
     CompressionPayloadCodec,
     EncryptionPayloadCodec,
@@ -43,9 +43,9 @@ def reset_temporal_crypto_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN", None)
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS", 3600)
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS", 128)
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", False)
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ALGORITHM", "zstd")
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB", 16)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ALGORITHM", "zstd")
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB", 16)
     reset_temporal_payload_codec_cache()
     reset_temporal_payload_secret_cache()
 
@@ -73,7 +73,7 @@ def _set_workspace_role(workspace_id: uuid.UUID = WORKSPACE_ID):
     return ctx_role.set(
         Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             workspace_id=workspace_id,
         )
     )
@@ -99,9 +99,9 @@ async def test_payload_codec_encrypts_and_decrypts_with_workspace_scope(
         ctx_role.reset(token)
 
     encrypted = encoded[0]
-    assert encrypted.metadata["encoding"] == b"binary/tracecat-aes256gcm"
-    assert encrypted.metadata["tracecat_workspace_id"] == str(WORKSPACE_ID).encode()
-    assert encrypted.metadata["tracecat_key_id"] == b"v1"
+    assert encrypted.metadata["encoding"] == b"binary/autosecops-aes256gcm"
+    assert encrypted.metadata["autosecops_workspace_id"] == str(WORKSPACE_ID).encode()
+    assert encrypted.metadata["autosecops_key_id"] == b"v1"
     assert encrypted.data != payload.data
 
     decoded = await codec.decode(encoded)
@@ -120,7 +120,7 @@ async def test_payload_codec_falls_back_to_global_scope_without_workspace(
     assert codec is not None
 
     # Role without workspace_id (platform-scoped)
-    token = ctx_role.set(Role(type="service", service_id="tracecat-service"))
+    token = ctx_role.set(Role(type="service", service_id="autosecops-service"))
     try:
         encoded = await codec.encode(
             [Payload(metadata={"encoding": b"json/plain"}, data=b'{"scope":"global"}')]
@@ -130,8 +130,8 @@ async def test_payload_codec_falls_back_to_global_scope_without_workspace(
 
     encrypted = encoded[0]
     assert (
-        encrypted.metadata["tracecat_workspace_id"]
-        == TRACECAT_TEMPORAL_GLOBAL_SCOPE.encode()
+        encrypted.metadata["autosecops_workspace_id"]
+        == AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE.encode()
     )
 
 
@@ -144,7 +144,7 @@ async def test_payload_codec_retrieves_root_key_from_secret_arn(
     monkeypatch.setattr(
         config,
         "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:tracecat",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
     )
     keyring_secret = _keyring_json()
 
@@ -190,7 +190,7 @@ async def test_keyring_wraps_malformed_binary_secret(
     monkeypatch.setattr(
         config,
         "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:tracecat",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
     )
 
     class SecretsManagerClient:
@@ -221,7 +221,7 @@ async def test_keyring_wraps_aws_secret_retrieval_failures(
     monkeypatch.setattr(
         config,
         "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:tracecat",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
     )
 
     class SecretsManagerClient:
@@ -252,7 +252,7 @@ async def test_keyring_uses_cached_secret_when_refresh_fails(
     monkeypatch.setattr(
         config,
         "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:tracecat",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
     )
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS", 0)
 
@@ -362,12 +362,12 @@ def _set(
     ("tamper", "match"),
     [
         pytest.param(
-            _drop("tracecat_workspace_id"), _DECRYPT_FAILED, id="missing_workspace_id"
+            _drop("autosecops_workspace_id"), _DECRYPT_FAILED, id="missing_workspace_id"
         ),
-        pytest.param(_drop("tracecat_key_id"), _DECRYPT_FAILED, id="missing_key_id"),
-        pytest.param(_drop("tracecat_nonce"), _DECRYPT_FAILED, id="missing_nonce"),
+        pytest.param(_drop("autosecops_key_id"), _DECRYPT_FAILED, id="missing_key_id"),
+        pytest.param(_drop("autosecops_nonce"), _DECRYPT_FAILED, id="missing_nonce"),
         pytest.param(
-            _set("tracecat_key_id", b"unknown"), _DECRYPT_FAILED, id="unknown_key_id"
+            _set("autosecops_key_id", b"unknown"), _DECRYPT_FAILED, id="unknown_key_id"
         ),
         pytest.param(
             lambda metadata, data: (metadata, b"\xff" * len(data)),
@@ -375,7 +375,7 @@ def _set(
             id="tampered_ciphertext",
         ),
         pytest.param(
-            _set("tracecat_original_encoding", b"binary/null"),
+            _set("autosecops_original_encoding", b"binary/null"),
             _DECRYPT_FAILED,
             id="tampered_original_encoding",
         ),
@@ -385,7 +385,7 @@ def _set(
             id="tampered_encoding_marker",
         ),
         pytest.param(
-            _set("tracecat_workspace_id", str(WORKSPACE_ID_B).encode()),
+            _set("autosecops_workspace_id", str(WORKSPACE_ID_B).encode()),
             _DECRYPT_FAILED,
             id="cross_workspace",
         ),
@@ -623,7 +623,7 @@ async def test_payload_encode_resolves_current_key_from_one_keyring_snapshot() -
         ctx_role.reset(token)
 
     assert keyring.retrieve_calls == 1
-    assert encoded[0].metadata["tracecat_key_id"] == b"v1"
+    assert encoded[0].metadata["autosecops_key_id"] == b"v1"
 
 
 @pytest.mark.anyio
@@ -649,7 +649,7 @@ async def test_keyring_rotation_keeps_old_payloads_decodable(
         encrypted_v1 = await codec.encode([payload])
     finally:
         ctx_role.reset(token)
-    assert encrypted_v1[0].metadata["tracecat_key_id"] == b"v1"
+    assert encrypted_v1[0].metadata["autosecops_key_id"] == b"v1"
 
     reset_temporal_payload_secret_cache()
     monkeypatch.setattr(
@@ -671,7 +671,7 @@ async def test_keyring_rotation_keeps_old_payloads_decodable(
         encrypted_v2 = await rotated_codec.encode([payload])
     finally:
         ctx_role.reset(token)
-    assert encrypted_v2[0].metadata["tracecat_key_id"] == b"v2"
+    assert encrypted_v2[0].metadata["autosecops_key_id"] == b"v2"
 
 
 # --- CompressionPayloadCodec tests ---
@@ -757,7 +757,7 @@ async def test_composite_codec_compress_then_encrypt_roundtrip(
 ) -> None:
     """Full pipeline: compress → encrypt → decrypt → decompress."""
     _enable_encryption(monkeypatch)
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", True)
 
     codec = get_payload_codec(compression_enabled=True)
     assert codec is not None
@@ -771,7 +771,7 @@ async def test_composite_codec_compress_then_encrypt_roundtrip(
         ctx_role.reset(token)
 
     # Outermost encoding should be encryption
-    assert encoded[0].metadata["encoding"] == TRACECAT_TEMPORAL_ENCODING
+    assert encoded[0].metadata["encoding"] == AUTOSECOPS_TEMPORAL_ENCODING
 
     decoded = await codec.decode(encoded)
     assert decoded[0].data == large_data
@@ -831,7 +831,7 @@ async def test_decode_payloads_decompresses_when_compression_disabled(
     assert compressed[0].metadata["encoding"] == b"binary/zstd"
 
     # Disable compression — simulates config change
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", False)
 
     result = await decode_payloads(compressed)
     assert result[0].data == payload.data
@@ -849,7 +849,7 @@ async def test_decode_payloads_decompresses_with_invalid_current_algorithm(
     payload = Payload(metadata={"encoding": b"json/plain"}, data=b'{"key":"value"}')
     compressed = await compress_codec.encode([payload])
 
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ALGORITHM", "zstdd")
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ALGORITHM", "zstdd")
 
     result = await decode_payloads(compressed)
     assert result[0].data == payload.data
@@ -874,7 +874,7 @@ async def test_decode_payloads_handles_compressed_then_encrypted_when_both_disab
 
     # Disable both — simulates full rollback
     monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", False)
-    monkeypatch.setattr(config, "TRACECAT__CONTEXT_COMPRESSION_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED", False)
 
     result = await decode_payloads(encoded)
     assert result[0].data == large_data

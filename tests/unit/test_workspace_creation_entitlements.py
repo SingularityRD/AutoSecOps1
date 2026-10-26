@@ -47,7 +47,7 @@ def _service_role(organization_id: uuid.UUID) -> Role:
     """Return an internal role with the workspace management scopes needed here."""
     return Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=organization_id,
         scopes=frozenset({"*"}),
     )
@@ -229,7 +229,7 @@ async def test_single_tenant_allows_first_workspace_and_rejects_second(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """OSS creates its first workspace and gates later workspace creation."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     organization_id = await workspace_db.create_organization()
 
     first = await _create_workspace(workspace_db, organization_id, "first")
@@ -248,7 +248,7 @@ async def test_existing_workspaces_remain_readable_updatable_and_creation_is_den
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Existing OSS workspaces remain usable after the creation gate is added."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     organization_id = await workspace_db.create_organization()
     first_id = await workspace_db.add_workspace(organization_id, "first")
     second_id = await workspace_db.add_workspace(organization_id, "second")
@@ -278,7 +278,7 @@ async def test_workspace_existence_check_is_scoped_to_the_current_organization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A workspace in another organization must not consume this org's first slot."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     first_organization_id = await workspace_db.create_organization()
     other_organization_id = await workspace_db.create_organization()
     await workspace_db.add_workspace(other_organization_id, "other-org-workspace")
@@ -310,7 +310,7 @@ async def test_hosted_tier_and_override_control_additional_workspace_creation(
     allowed: bool,
 ) -> None:
     """Hosted tiers and per-org overrides determine the second workspace decision."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     organization_id = await workspace_db.create_organization()
     await workspace_db.add_workspace(organization_id, "existing")
     await workspace_db.assign_tier(
@@ -336,7 +336,7 @@ async def test_concurrent_different_name_creation_has_one_success_and_one_denial
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The organization lock prevents two fresh OSS requests from both bypassing the gate."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     organization_id = await workspace_db.create_organization()
 
     results = await asyncio.gather(
@@ -368,7 +368,7 @@ async def test_concurrent_default_workspace_bootstrap_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Concurrent bootstrap creates one workspace even before a hosted tier exists."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     organization_id = await workspace_db.create_organization()
 
     results = await asyncio.gather(

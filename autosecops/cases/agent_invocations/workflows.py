@@ -70,7 +70,7 @@ class CaseCommentAgentInvocationWorkflow:
                 DurableAgentWorkflow.run,
                 prepared.workflow_args,
                 id=AgentWorkflowID(run_id),
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                 # prepare_new_turn reuses a persisted run ID, which may be a
                 # direct dispatch's that recovery tombstoned. Never run it then.

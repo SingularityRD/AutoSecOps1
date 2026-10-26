@@ -228,7 +228,7 @@ class ScenarioObservation:
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -504,7 +504,7 @@ async def run_retryable_materialization_failure_sets_platform_owner(
         test_worker_factory(
             env.client,
             activities=[ExecutorActivities.execute_action_activity],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handle = await env.client.start_workflow(
@@ -551,7 +551,7 @@ async def run_non_retryable_materialization_failure_does_not_retry(
         test_worker_factory(
             env.client,
             activities=[ExecutorActivities.execute_action_activity],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handle = await env.client.start_workflow(
@@ -608,7 +608,7 @@ async def run_successful_materialization_retry_does_not_set_terminal_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -657,7 +657,7 @@ async def run_executor_internal_failure_sets_platform_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -764,7 +764,7 @@ async def run_executor_boundary_failure_sets_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -822,7 +822,7 @@ async def run_successful_registry_contention_retry_has_no_terminal_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -872,7 +872,7 @@ async def run_user_action_failure_sets_user_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -939,7 +939,7 @@ async def run_missing_error_handler_preserves_original_action_failure(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(

@@ -56,8 +56,8 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.agent.llm_routing import get_litellm_route_model
     from autosecops.agent.mcp.executor import (
         AGENT_TOOL_PRIORITY,
+        build_autosecops_mcp_role,
         build_run_input,
-        build_tracecat_mcp_role,
     )
     from autosecops.agent.mcp.metadata import strip_proxy_tool_metadata
     from autosecops.agent.mcp.utils import (
@@ -209,7 +209,7 @@ def _executor_activity_classification(
 
 def _agent_token_ttl_seconds(activity_timeout_seconds: int) -> int:
     """Cover one active turn plus the executor queue and setup window."""
-    return activity_timeout_seconds + int(config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT)
+    return activity_timeout_seconds + int(config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT)
 
 
 def _apply_configured_timeout(
@@ -254,7 +254,7 @@ def _approved_user_mcp_tool_name(tool_name: str) -> str | None:
 
     Approved user MCP tool calls arrive in one of two shapes: the normalized
     approval key (``mcp.{server}.{tool}``) or the raw proxy-routed runtime name
-    (``mcp__tracecat-registry__mcp__{server}__{tool}``). Both map to the
+    (``mcp__autosecops-registry__mcp__{server}__{tool}``). Both map to the
     ``mcp__{server}__{tool}`` name expected by the trusted MCP router. Returns
     None for registry actions, which execute through the executor instead.
     """
@@ -299,7 +299,7 @@ def _start_remote_mcp_tool_call(
         ),
         cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
         start_to_close_timeout=timedelta(
-            seconds=int(config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT)
+            seconds=int(config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT)
         ),
         retry_policy=RETRY_POLICIES["activity:fail_fast"],
     )
@@ -330,13 +330,15 @@ def _start_registry_tool_call(
             ),
             service_role,
         ],
-        task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+        task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
         start_to_close_timeout=timedelta(
-            seconds=int(config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT)
+            seconds=int(config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT)
         ),
-        heartbeat_timeout=timedelta(seconds=config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT)
-        if config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT > 0
+        heartbeat_timeout=timedelta(
+            seconds=config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT
+        )
+        if config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT > 0
         else None,
         retry_policy=RETRY_POLICIES["activity:fail_fast"],
         priority=AGENT_TOOL_PRIORITY,
@@ -401,7 +403,7 @@ def _llm_route_for_config(
 
 def _subagent_litellm_route_model(alias: str, route_model: str) -> str:
     """Return a unique incoming LiteLLM model key for one subagent scope."""
-    return f"{route_model}::tracecat-subagent::{alias}"
+    return f"{route_model}::autosecops-subagent::{alias}"
 
 
 class AgentScopeSpec(BaseModel):
@@ -566,7 +568,7 @@ class DurableAgentWorkflow:
         self.workspace_id = workspace_id
         self.organization_id = organization_id
 
-    def _upsert_tracecat_search_attributes(self) -> None:
+    def _upsert_autosecops_search_attributes(self) -> None:
         """Ensure direct agent runs have core AutoSecOps search attributes.
 
         For workflows started with existing AutoSecOps attributes (e.g. DSL child
@@ -939,9 +941,9 @@ class DurableAgentWorkflow:
 
         try:
             if workflow.patched(
-                DurableAgentWorkflowPatch.UPSERT_TRACECAT_SEARCH_ATTRIBUTES
+                DurableAgentWorkflowPatch.UPSERT_AUTOSECOPS_SEARCH_ATTRIBUTES
             ):
-                self._upsert_tracecat_search_attributes()
+                self._upsert_autosecops_search_attributes()
             logger.debug("DurableAgentWorkflow run", harness_type=self.harness_type)
             logger.debug("AGENT CONTEXT", agent_context=AgentContext.get())
             if workflow.unsafe.is_replaying():
@@ -1464,7 +1466,7 @@ class DurableAgentWorkflow:
                     result = await workflow.execute_activity(
                         run_agent_activity,
                         executor_input,
-                        task_queue=config.TRACECAT__AGENT_EXECUTOR_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
                         start_to_close_timeout=timedelta(
                             seconds=activity_timeout_seconds
                         ),
@@ -1476,7 +1478,7 @@ class DurableAgentWorkflow:
                         run_agent_activity,
                         executor_input,
                         cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
-                        task_queue=config.TRACECAT__AGENT_EXECUTOR_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
                         start_to_close_timeout=timedelta(
                             seconds=activity_timeout_seconds
                         ),
@@ -1952,7 +1954,7 @@ class DurableAgentWorkflow:
         cancel aborted (cancelled in flight or never started), so the caller
         can carry them on the cancelled marker for the UI."""
         logical_time = workflow.now()
-        service_role = build_tracecat_mcp_role(
+        service_role = build_autosecops_mcp_role(
             workspace_id=self.role.workspace_id,
             organization_id=self.role.organization_id,
             user_id=self.role.user_id,

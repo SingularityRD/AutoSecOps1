@@ -10,11 +10,11 @@ This module handles:
 - Generating nsjail config
 - Spawning the sandboxed process
 
-Uses the same rootfs as the action sandbox (TRACECAT__SANDBOX_ROOTFS_PATH).
+Uses the same rootfs as the action sandbox (AUTOSECOPS__SANDBOX_ROOTFS_PATH).
 The sandbox mounts only the standalone shim script and the Claude SDK package
 subtree needed to launch the bundled Claude executable.
 
-When TRACECAT__EXECUTOR_BACKEND=direct, the runtime is spawned as a direct
+When AUTOSECOPS__EXECUTOR_BACKEND=direct, the runtime is spawned as a direct
 subprocess instead of through nsjail. This is useful for:
 - Testing on platforms without nsjail (macOS, Windows, CI)
 - Development workflows
@@ -33,10 +33,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from autosecops.agent.common.config import (
+    AUTOSECOPS__AGENT_MCP_SOCKET_PATH,
+    AUTOSECOPS__EXECUTOR_BACKEND,
     CONTROL_SOCKET_NAME,
     JAILED_OTEL_SOCKET_PATH,
-    TRACECAT__AGENT_MCP_SOCKET_PATH,
-    TRACECAT__EXECUTOR_BACKEND,
     build_agent_runtime_uv_env,
 )
 from autosecops.agent.common.exceptions import (
@@ -58,16 +58,16 @@ from autosecops.agent.sandbox.config import (
     build_agent_nsjail_config,
 )
 from autosecops.config import (
-    TRACECAT__SANDBOX_NSJAIL_PATH,
-    TRACECAT__SANDBOX_ROOTFS_PATH,
+    AUTOSECOPS__SANDBOX_NSJAIL_PATH,
+    AUTOSECOPS__SANDBOX_ROOTFS_PATH,
 )
 from autosecops.logger import logger
 from autosecops.sandbox.file_io import ensure_directory_beneath
 from autosecops.sandbox.types import SandboxNetworkPurpose, SandboxNetworkRequest
 
 BROKER_SHIM_SCRIPT_NAME = Path(JAILED_SHIM_ENTRYPOINT_PATH).name
-SESSION_HOME_ENV_VAR = "TRACECAT__AGENT_SESSION_HOME_DIR"
-SESSION_WORK_DIR_ENV_VAR = "TRACECAT__AGENT_SESSION_WORK_DIR"
+SESSION_HOME_ENV_VAR = "AUTOSECOPS__AGENT_SESSION_HOME_DIR"
+SESSION_WORK_DIR_ENV_VAR = "AUTOSECOPS__AGENT_SESSION_WORK_DIR"
 CLAUDE_SHIM_STDIO_LIMIT_BYTES = 5 * 1024 * 1024
 
 
@@ -100,7 +100,7 @@ def cleanup_spawned_runtime(result: SpawnedRuntime) -> None:
 
 
 def _get_site_packages_dir() -> Path:
-    """Get the site-packages directory containing tracecat dependencies."""
+    """Get the site-packages directory containing autosecops dependencies."""
     # Find site-packages from the current interpreter
     for path in sys.path:
         if "site-packages" in path and Path(path).exists():
@@ -119,7 +119,7 @@ def _get_site_packages_dir() -> Path:
     raise AgentSandboxExecutionError("Could not find site-packages directory")
 
 
-def _get_tracecat_pkg_dir() -> Path:
+def _get_autosecops_pkg_dir() -> Path:
     """Get the autosecops package directory.
 
     This finds the autosecops package directory itself, which is typically
@@ -137,8 +137,8 @@ async def spawn_jailed_runtime(
     llm_socket_path: Path | None = None,
     mcp_socket_path: Path | None = None,
     config: AgentSandboxConfig | None = None,
-    nsjail_path: str = TRACECAT__SANDBOX_NSJAIL_PATH,
-    rootfs_path: str = TRACECAT__SANDBOX_ROOTFS_PATH,
+    nsjail_path: str = AUTOSECOPS__SANDBOX_NSJAIL_PATH,
+    rootfs_path: str = AUTOSECOPS__SANDBOX_ROOTFS_PATH,
     *,
     control_socket_required: bool = True,
     pipe_stdin: bool = False,
@@ -159,7 +159,7 @@ async def spawn_jailed_runtime(
     - Starting the trusted MCP HTTP server on socket_dir/mcp.sock
     - Reading events from the shim stdout/stderr streams
 
-    When TRACECAT__EXECUTOR_BACKEND=direct, the runtime is spawned as a direct
+    When AUTOSECOPS__EXECUTOR_BACKEND=direct, the runtime is spawned as a direct
     subprocess instead of through nsjail. This enables testing on platforms
     without nsjail (macOS, Windows, CI environments).
 
@@ -226,7 +226,7 @@ async def spawn_jailed_runtime(
         uv_state_dir.chmod(0o700)
 
         # Direct subprocess mode for testing (no nsjail)
-        if not TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+        if not AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
             process = await _spawn_direct_runtime(
                 socket_dir=socket_dir,
                 llm_socket_path=llm_socket_path,
@@ -316,7 +316,7 @@ async def _spawn_direct_runtime(
     """Spawn the Claude shim as a direct subprocess (for development/testing).
 
     This bypasses nsjail and runs the same standalone shim script in the current
-    Python environment. Used when TRACECAT__EXECUTOR_BACKEND=direct.
+    Python environment. Used when AUTOSECOPS__EXECUTOR_BACKEND=direct.
 
     Security: Uses minimal base environment to prevent host secrets from
     leaking into the subprocess. Only passes socket paths and essential
@@ -329,7 +329,7 @@ async def _spawn_direct_runtime(
 
     control_socket_path = socket_dir / CONTROL_SOCKET_NAME
     shim_script_path = (
-        _get_tracecat_pkg_dir() / "agent" / "sandbox" / BROKER_SHIM_SCRIPT_NAME
+        _get_autosecops_pkg_dir() / "agent" / "sandbox" / BROKER_SHIM_SCRIPT_NAME
     )
 
     cmd = [
@@ -340,7 +340,7 @@ async def _spawn_direct_runtime(
     logger.info(
         "Spawning agent runtime (direct subprocess - DEVELOPMENT MODE)",
         control_socket_path=str(JAILED_CONTROL_SOCKET_PATH),
-        mcp_socket_path=str(mcp_socket_path or TRACECAT__AGENT_MCP_SOCKET_PATH),
+        mcp_socket_path=str(mcp_socket_path or AUTOSECOPS__AGENT_MCP_SOCKET_PATH),
     )
 
     # Use minimal base environment instead of inheriting full host env
@@ -348,23 +348,23 @@ async def _spawn_direct_runtime(
     env = {
         **AGENT_SANDBOX_BASE_ENV,
         # Override for direct mode
-        "TRACECAT__EXECUTOR_BACKEND": "direct",
+        "AUTOSECOPS__EXECUTOR_BACKEND": "direct",
         # Point the runtime at the per-job init payload file without changing cwd.
-        "TRACECAT__AGENT_INIT_PAYLOAD_PATH": str(init_payload_path),
+        "AUTOSECOPS__AGENT_INIT_PAYLOAD_PATH": str(init_payload_path),
     }
     env.update(build_agent_runtime_uv_env(job_uv_state_dir(job_dir)))
     if control_socket_required:
-        env["TRACECAT__AGENT_CONTROL_SOCKET_PATH"] = str(control_socket_path)
+        env["AUTOSECOPS__AGENT_CONTROL_SOCKET_PATH"] = str(control_socket_path)
     if llm_socket_path is not None:
         # If the runtime uses SandboxSocketBridge (internet access disabled), it
         # must connect to the orchestrator-side LLM socket.
-        env["TRACECAT__AGENT_LLM_SOCKET_PATH"] = str(llm_socket_path)
-    env["TRACECAT__AGENT_MCP_SOCKET_PATH"] = str(
-        mcp_socket_path or TRACECAT__AGENT_MCP_SOCKET_PATH
+        env["AUTOSECOPS__AGENT_LLM_SOCKET_PATH"] = str(llm_socket_path)
+    env["AUTOSECOPS__AGENT_MCP_SOCKET_PATH"] = str(
+        mcp_socket_path or AUTOSECOPS__AGENT_MCP_SOCKET_PATH
     )
     if otel_socket_path is not None:
-        env["TRACECAT__AGENT_OTEL_SOCKET_PATH"] = str(otel_socket_path)
-    for key in ("TRACECAT__LITELLM_BASE_URL",):
+        env["AUTOSECOPS__AGENT_OTEL_SOCKET_PATH"] = str(otel_socket_path)
+    for key in ("AUTOSECOPS__LITELLM_BASE_URL",):
         if value := os.environ.get(key):
             env[key] = value
     if session_home_dir is not None:
@@ -413,7 +413,7 @@ async def _spawn_nsjail_runtime(
     """Spawn the Claude shim inside an NSJail sandbox (production mode).
 
     The host copies the standalone shim script into the job directory and the
-    nsjail config executes that script from the mounted /run/tracecat/job directory.
+    nsjail config executes that script from the mounted /run/autosecops/job directory.
     """
     rootfs = Path(rootfs_path)
     nsjail = Path(nsjail_path)
@@ -426,13 +426,13 @@ async def _spawn_nsjail_runtime(
     if llm_socket_path is not None and not llm_socket_path.exists():
         raise AgentSandboxExecutionError(f"LLM socket not found: {llm_socket_path}")
     if mcp_socket_path is None:
-        mcp_socket_path = TRACECAT__AGENT_MCP_SOCKET_PATH
+        mcp_socket_path = AUTOSECOPS__AGENT_MCP_SOCKET_PATH
     if not mcp_socket_path.exists():
         raise AgentSandboxExecutionError(f"MCP socket not found: {mcp_socket_path}")
 
     # Get site-packages and autosecops package directories
     site_packages_dir = _get_site_packages_dir()
-    tracecat_pkg_dir = _get_tracecat_pkg_dir()
+    autosecops_pkg_dir = _get_autosecops_pkg_dir()
 
     jailed_init_payload_path = job_dir / "init.json"
 
@@ -453,7 +453,7 @@ async def _spawn_nsjail_runtime(
             shutil.copy2, init_payload_path, jailed_init_payload_path
         )
         host_shim_path = (
-            tracecat_pkg_dir / "agent" / "sandbox" / BROKER_SHIM_SCRIPT_NAME
+            autosecops_pkg_dir / "agent" / "sandbox" / BROKER_SHIM_SCRIPT_NAME
         )
         jailed_shim_path = job_dir / BROKER_SHIM_SCRIPT_NAME
         await asyncio.to_thread(shutil.copy2, host_shim_path, jailed_shim_path)
@@ -489,7 +489,7 @@ async def _spawn_nsjail_runtime(
 
         # Build environment
         env_map = build_agent_env_map(config)
-        env_map["TRACECAT__AGENT_INIT_PAYLOAD_PATH"] = str(
+        env_map["AUTOSECOPS__AGENT_INIT_PAYLOAD_PATH"] = str(
             JAILED_AGENT_JOB_DIR / "init.json"
         )
         if session_home_dir is not None:
@@ -501,7 +501,7 @@ async def _spawn_nsjail_runtime(
         # JAILED_OTEL_SOCKET_PATH, so the shim must resolve that path (not the
         # host source path) or telemetry is silently dropped in `drop` mode.
         if otel_socket_path is not None:
-            env_map["TRACECAT__AGENT_OTEL_SOCKET_PATH"] = str(JAILED_OTEL_SOCKET_PATH)
+            env_map["AUTOSECOPS__AGENT_OTEL_SOCKET_PATH"] = str(JAILED_OTEL_SOCKET_PATH)
         env_args: list[str] = []
         for key, value in env_map.items():
             env_args.extend(["--env", f"{key}={value}"])
@@ -519,7 +519,7 @@ async def _spawn_nsjail_runtime(
             job_dir=str(job_dir),
             socket_dir=str(socket_dir),
             site_packages=str(site_packages_dir),
-            tracecat_pkg=str(tracecat_pkg_dir),
+            autosecops_pkg=str(autosecops_pkg_dir),
         )
 
         # Spawn nsjail process

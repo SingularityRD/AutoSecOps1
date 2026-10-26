@@ -26,7 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-RUNTIME_ERROR_CLASSIFICATION_SCHEMA = "tracecat.error.v1"
+RUNTIME_ERROR_CLASSIFICATION_SCHEMA = "autosecops.error.v1"
 
 
 class RuntimeErrorOwner(StrEnum):
@@ -123,7 +123,7 @@ class RuntimeErrorClassification(BaseModel):
     # The field is deliberately required: validation itself then rejects
     # undiscriminated payloads, and a required field always survives
     # ``exclude_unset`` serialization onto the Temporal wire.
-    schema_: Literal["tracecat.error.v1"] = Field(alias="schema")
+    schema_: Literal["autosecops.error.v1"] = Field(alias="schema")
     owner: RuntimeErrorOwner
     kind: RuntimeErrorKind
     message: str

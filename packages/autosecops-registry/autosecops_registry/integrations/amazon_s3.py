@@ -20,8 +20,8 @@ else:
 
 from autosecops_registry import RegistrySecret, registry
 from autosecops_registry.config import (
-    TRACECAT__MAX_FILE_SIZE_BYTES,
-    TRACECAT__S3_CONCURRENCY_LIMIT,
+    AUTOSECOPS__MAX_FILE_SIZE_BYTES,
+    AUTOSECOPS__S3_CONCURRENCY_LIMIT,
 )
 import autosecops_registry.integrations.aws_boto3 as aws_boto3
 
@@ -30,7 +30,7 @@ BUCKET_REGEX = re.compile(r"^[a-z0-9][a-z0-9.-]*[a-z0-9]$")
 
 # Semaphore to limit concurrent S3 operations to prevent resource exhaustion
 # This limits the number of concurrent S3 API calls
-_s3_semaphore = asyncio.Semaphore(TRACECAT__S3_CONCURRENCY_LIMIT)
+_s3_semaphore = asyncio.Semaphore(AUTOSECOPS__S3_CONCURRENCY_LIMIT)
 
 s3_secret = RegistrySecret(
     name="amazon_s3",
@@ -385,10 +385,10 @@ async def put_object(
     except binascii.Error as e:
         raise ValueError(f"Invalid base64 data for S3 object '{key}': {str(e)}") from e
 
-    if len(content_bytes) > TRACECAT__MAX_FILE_SIZE_BYTES:
+    if len(content_bytes) > AUTOSECOPS__MAX_FILE_SIZE_BYTES:
         raise ValueError(
             f"S3 object '{key}' exceeds maximum size limit of "
-            f"{TRACECAT__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
+            f"{AUTOSECOPS__MAX_FILE_SIZE_BYTES // 1024 // 1024}MB."
         )
 
     session = await aws_boto3.get_session(

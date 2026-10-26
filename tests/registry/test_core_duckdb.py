@@ -30,7 +30,7 @@ def test_execute_sql_non_query_returns_json_serializable() -> None:
 
 def test_extension_directory_prefers_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        duckdb_action, "TRACECAT__DUCKDB_EXTENSION_DIRECTORY", "/custom/ext"
+        duckdb_action, "AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY", "/custom/ext"
     )
     assert _extension_directory() == "/custom/ext"
 
@@ -38,7 +38,7 @@ def test_extension_directory_prefers_env(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_extension_directory_falls_back_to_default_when_present(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    monkeypatch.setattr(duckdb_action, "TRACECAT__DUCKDB_EXTENSION_DIRECTORY", None)
+    monkeypatch.setattr(duckdb_action, "AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY", None)
     monkeypatch.setattr(duckdb_action, "_DEFAULT_EXTENSION_DIRECTORY", str(tmp_path))
     assert _extension_directory() == str(tmp_path)
 
@@ -46,7 +46,7 @@ def test_extension_directory_falls_back_to_default_when_present(
 def test_extension_directory_none_when_unset_and_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    monkeypatch.setattr(duckdb_action, "TRACECAT__DUCKDB_EXTENSION_DIRECTORY", None)
+    monkeypatch.setattr(duckdb_action, "AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY", None)
     monkeypatch.setattr(
         duckdb_action, "_DEFAULT_EXTENSION_DIRECTORY", str(tmp_path / "missing")
     )

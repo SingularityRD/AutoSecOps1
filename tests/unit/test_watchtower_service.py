@@ -105,7 +105,7 @@ def test_redact_tool_call_args_ignores_internal_proxy_metadata() -> None:
     result = redact_tool_call_args(
         {
             "query": "find me",
-            "__tracecat": {"tool_call_id": "toolu_123"},
+            "__autosecops": {"tool_call_id": "toolu_123"},
         }
     )
 
@@ -113,7 +113,7 @@ def test_redact_tool_call_args_ignores_internal_proxy_metadata() -> None:
     assert result["keys"] == ["query"]
     args = result["args"]
     assert isinstance(args, dict)
-    assert "__tracecat" not in args
+    assert "__autosecops" not in args
 
 
 def test_sanitize_error_redacted_truncates_long_values() -> None:
@@ -170,7 +170,7 @@ async def test_oauth_provisional_session_does_not_create_agent(
 
     monkeypatch.setattr(
         watchtower_service.config,
-        "TRACECAT__EE_MULTI_TENANT",
+        "AUTOSECOPS__EE_MULTI_TENANT",
         True,
     )
     monkeypatch.setattr(
@@ -321,7 +321,7 @@ def _patch_tool_call_lookup(
         checked.append(organization_id)
         return per_org[organization_id]
 
-    monkeypatch.setattr(watchtower_service.config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(watchtower_service.config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         watchtower_service,
         "get_async_session_context_manager",
@@ -404,7 +404,7 @@ async def test_initialize_event_registers_session_in_each_entitled_org(
         ingested.append(organization_id)
         return SimpleNamespace(organization_id=organization_id)
 
-    monkeypatch.setattr(watchtower_service.config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(watchtower_service.config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         watchtower_service,
         "get_async_session_context_manager",

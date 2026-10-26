@@ -38,7 +38,7 @@ CHILD_TURN_REJECTION = (
 def _service() -> tuple[AgentSessionService, AsyncMock, Role]:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )

@@ -67,7 +67,7 @@ async def query_execution_context(
         TracecatQueryOverflowError: If PostgreSQL reports numeric overflow.
     """
     resolved_timeout_ms = (
-        config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS
+        config.AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS
         if statement_timeout_ms is None
         else statement_timeout_ms
     )

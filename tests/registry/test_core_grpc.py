@@ -183,7 +183,7 @@ def _pem_certificate(cert) -> str:
 def _create_ca() -> tuple[rsa.RSAPrivateKey, x509.Certificate]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "tracecat-test-ca")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, "autosecops-test-ca")]
     )
     cert = (
         x509.CertificateBuilder()
@@ -259,7 +259,7 @@ def _generate_tls_material() -> tuple[str, str, str, str, str]:
     client_key, client_cert = _create_cert(
         ca_key=ca_key,
         ca_cert=ca_cert,
-        common_name="tracecat-client",
+        common_name="autosecops-client",
         client_auth=True,
     )
 

@@ -256,7 +256,7 @@ class TestWorkflowUUID:
                 WorkflowUUID.from_legacy(invalid_id)
 
 
-def test_tracecat_uuid_construction_and_serialization(test_uuid_str):
+def test_autosecops_uuid_construction_and_serialization(test_uuid_str):
     """TracecatUUID accepts every supported input form and round-trips via JSON."""
 
     class TestModel(BaseModel):

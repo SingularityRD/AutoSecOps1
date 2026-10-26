@@ -61,16 +61,16 @@ PGDOG_COMPOSE_FILE: Final = (
 EXPERIMENT_ENV_PATH: Final = (
     Path(__file__).with_name("examples") / "experiment.env.example"
 )
-DEFAULT_ARTIFACT_ROOT: Final = Path("/tmp/tracecat-load-test")
+DEFAULT_ARTIFACT_ROOT: Final = Path("/tmp/autosecops-load-test")
 DEFAULT_WORKSPACE_NAME: Final = "load-test"
-LOADTEST_ENV_FILE_VARIABLE: Final = "TRACECAT_LOADTEST_ENV_FILE"
-LOADTEST_MONITOR_DSN_VARIABLE: Final = "TRACECAT_LOADTEST_MONITOR_DSN"
-LOADTEST_PROVISION_DSN_VARIABLE: Final = "TRACECAT_LOADTEST_PROVISION_DSN"
-LOADTEST_EXECUTOR_REPLICAS_VARIABLE: Final = "TRACECAT__LOADTEST_EXECUTOR_REPLICAS"
+LOADTEST_ENV_FILE_VARIABLE: Final = "AUTOSECOPS_LOADTEST_ENV_FILE"
+LOADTEST_MONITOR_DSN_VARIABLE: Final = "AUTOSECOPS_LOADTEST_MONITOR_DSN"
+LOADTEST_PROVISION_DSN_VARIABLE: Final = "AUTOSECOPS_LOADTEST_PROVISION_DSN"
+LOADTEST_EXECUTOR_REPLICAS_VARIABLE: Final = "AUTOSECOPS__LOADTEST_EXECUTOR_REPLICAS"
 TEMPORAL_HISTORY_SHARDS_VARIABLE: Final = (
-    "TRACECAT__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS"
+    "AUTOSECOPS__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS"
 )
-LOADTEST_ENV_NAME_RE: Final = re.compile(r"^TRACECAT__LOADTEST_[A-Z0-9_]+$")
+LOADTEST_ENV_NAME_RE: Final = re.compile(r"^AUTOSECOPS__LOADTEST_[A-Z0-9_]+$")
 CASE_ID_RE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 CLUSTER_NUMBER_RE: Final = re.compile(r"^Auto-selected new cluster ([0-9]+)\b")
 MIN_RECOVERY_SECONDS: Final = 5.0
@@ -550,14 +550,14 @@ def _load_base_process_environment(repo_root: Path) -> dict[str, str]:
     }
     environment.update(os.environ)
     environment[REPOSITORY_ROOT_ENV] = str(repo_root)
-    if "TRACECAT_LOADTEST_PASSWORD" not in environment:
-        dev_password = environment.get("TRACECAT__DEV_USER_PASSWORD")
+    if "AUTOSECOPS_LOADTEST_PASSWORD" not in environment:
+        dev_password = environment.get("AUTOSECOPS__DEV_USER_PASSWORD")
         if dev_password:
-            environment["TRACECAT_LOADTEST_PASSWORD"] = dev_password
-    if "TRACECAT_LOADTEST_EMAIL" not in environment:
-        dev_email = environment.get("TRACECAT__DEV_USER_EMAIL")
+            environment["AUTOSECOPS_LOADTEST_PASSWORD"] = dev_password
+    if "AUTOSECOPS_LOADTEST_EMAIL" not in environment:
+        dev_email = environment.get("AUTOSECOPS__DEV_USER_EMAIL")
         if dev_email:
-            environment["TRACECAT_LOADTEST_EMAIL"] = dev_email
+            environment["AUTOSECOPS_LOADTEST_EMAIL"] = dev_email
     return environment
 
 
@@ -1149,8 +1149,8 @@ def _resolve_deployment_context(
             "TEMPORAL__CLUSTER_NAMESPACE"
         ),
         "TEMPORAL__CLUSTER_QUEUE": worker_environment.get("TEMPORAL__CLUSTER_QUEUE"),
-        "TRACECAT__EXECUTOR_QUEUE": executor_environment.get(
-            "TRACECAT__EXECUTOR_QUEUE"
+        "AUTOSECOPS__EXECUTOR_QUEUE": executor_environment.get(
+            "AUTOSECOPS__EXECUTOR_QUEUE"
         ),
         "POSTGRES_USER": postgres_environment.get("POSTGRES_USER"),
         "POSTGRES_PASSWORD": postgres_environment.get("POSTGRES_PASSWORD"),
@@ -1165,7 +1165,7 @@ def _resolve_deployment_context(
         compose_files=compose_files,
         temporal_namespace=required_values["TEMPORAL__CLUSTER_NAMESPACE"] or "",
         temporal_workflow_queue=required_values["TEMPORAL__CLUSTER_QUEUE"] or "",
-        temporal_executor_queue=required_values["TRACECAT__EXECUTOR_QUEUE"] or "",
+        temporal_executor_queue=required_values["AUTOSECOPS__EXECUTOR_QUEUE"] or "",
         postgres_user=required_values["POSTGRES_USER"] or "",
         postgres_password=required_values["POSTGRES_PASSWORD"] or "",
     )
@@ -1654,8 +1654,8 @@ def _print_activity_summary(artifact_dir: Path) -> None:
     throughput = Text()
     throughput.append("Completed throughput · ", style="bold")
     throughput.append(
-        f"decoded AutoSecOps actions {history['completed_tracecat_actions']:,} "
-        f"({history['completed_tracecat_actions_per_second']:,.2f}/s)"
+        f"decoded AutoSecOps actions {history['completed_autosecops_actions']:,} "
+        f"({history['completed_autosecops_actions_per_second']:,.2f}/s)"
     )
     throughput.append(" · ")
     throughput.append(
@@ -1852,7 +1852,7 @@ def _print_plan(
 
     override_count = sum(len(case.environment_overrides) for case in selected_cases)
     if override_count:
-        console.print("[dim]Resource names omit the TRACECAT__LOADTEST_ prefix.[/]")
+        console.print("[dim]Resource names omit the AUTOSECOPS__LOADTEST_ prefix.[/]")
         overrides_table = Table(
             title=f"Selected resource overrides · {override_count}",
             title_justify="left",
@@ -1866,7 +1866,7 @@ def _print_plan(
             for name, value in case.environment_overrides:
                 overrides_table.add_row(
                     Text(case.case_id),
-                    Text(name.removeprefix("TRACECAT__LOADTEST_")),
+                    Text(name.removeprefix("AUTOSECOPS__LOADTEST_")),
                     Text(value),
                 )
         console.print(overrides_table)
@@ -1892,7 +1892,7 @@ def execute_matrix(
     try:
         log_context = _create_matrix_log_context(options.artifact_root)
         print(f"\nMatrix logs: {log_context.directory}")
-        with tempfile.TemporaryDirectory(prefix="tracecat-benchmark-") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="autosecops-benchmark-") as temp_dir:
             temp_root = Path(temp_dir)
             for case_index, case in enumerate(cases, start=1):
                 print(

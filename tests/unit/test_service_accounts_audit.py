@@ -83,7 +83,7 @@ async def test_create_service_account_audit_logs_created_service_account_id(
         user_id=uuid4(),
         organization_id=organization_id,
         workspace_id=workspace_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({scope}),
     )
     service = service_cls(AsyncMock(), role=role)
@@ -125,7 +125,7 @@ def _role_with_scope(scope: str) -> Role:
         user_id=uuid4(),
         organization_id=uuid4(),
         workspace_id=uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({scope}),
     )
 

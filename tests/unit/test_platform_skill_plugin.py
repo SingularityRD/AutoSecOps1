@@ -29,15 +29,15 @@ def test_platform_plugin_preserves_portable_names_and_qualifies_references(
     tmp_path: Path,
 ) -> None:
     vendored = tmp_path / "vendored"
-    source = vendored / "tracecat-workspace-chat"
+    source = vendored / "autosecops-workspace-chat"
     source.mkdir(parents=True)
     (source / "SKILL.md").write_text(
-        "---\nname: tracecat-workspace-chat\ndescription: Platform guidance\n---\n"
-        "Follow `$tracecat-automation-best-practices`."
+        "---\nname: autosecops-workspace-chat\ndescription: Platform guidance\n---\n"
+        "Follow `$autosecops-automation-best-practices`."
     )
     references = source / "references"
     references.mkdir()
-    (references / "guide.md").write_text("Read `tracecat-slackbot-best-practices`.")
+    (references / "guide.md").write_text("Read `autosecops-slackbot-best-practices`.")
     # These are deliberately outside the skill. The host must not import plugin
     # capabilities other than its selected skill directories.
     (vendored / "hooks.json").write_text("{}")
@@ -45,13 +45,13 @@ def test_platform_plugin_preserves_portable_names_and_qualifies_references(
     plugin = tmp_path / "plugin"
 
     stage_platform_skill_plugin(
-        asset_names=["tracecat-workspace-chat"],
+        asset_names=["autosecops-workspace-chat"],
         vendored_root=vendored,
         plugin_root=plugin,
     )
 
     assert orjson.loads((plugin / ".claude-plugin" / "plugin.json").read_bytes()) == {
-        "name": "tracecat"
+        "name": "autosecops"
     }
     staged = plugin / "skills" / "workspace-chat"
     markdown = (staged / "SKILL.md").read_text()
@@ -60,9 +60,9 @@ def test_platform_plugin_preserves_portable_names_and_qualifies_references(
     assert parsed.name == staged.name == "workspace-chat"
     assert parsed.description == "Platform guidance"
     assert "## AutoSecOps execution notes" not in markdown
-    assert "$tracecat:automation-best-practices" in markdown
+    assert "$autosecops:automation-best-practices" in markdown
     assert (
-        "`tracecat:slackbot-best-practices`"
+        "`autosecops:slackbot-best-practices`"
         in (staged / "references" / "guide.md").read_text()
     )
     assert not (plugin / "hooks.json").exists()
@@ -135,16 +135,16 @@ def test_workspace_response_cannot_claim_platform_origin() -> None:
 
 def test_prefixed_workspace_frontmatter_is_valid() -> None:
     parsed = parse_skill_markdown(
-        "---\nname: tracecat-triage\n---\nWorkspace instructions"
+        "---\nname: autosecops-triage\n---\nWorkspace instructions"
     )
     assert parsed is not None
-    assert parsed.name == "tracecat-triage"
+    assert parsed.name == "autosecops-triage"
 
 
 def test_workspace_origin_survives_workflow_serialization() -> None:
     skill = ResolvedSkillRef(
         skill_id=uuid.uuid4(),
-        skill_name="tracecat-triage",
+        skill_name="autosecops-triage",
         skill_version_id=uuid.uuid4(),
         manifest_sha256="a" * 64,
     )

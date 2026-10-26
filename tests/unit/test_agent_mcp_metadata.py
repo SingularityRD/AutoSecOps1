@@ -33,7 +33,7 @@ def test_sanitize_message_tool_inputs_strips_claude_tool_use_metadata() -> None:
             {
                 "type": "tool_use",
                 "id": "toolu_123",
-                "name": "mcp__tracecat-registry__core__http_request",
+                "name": "mcp__autosecops-registry__core__http_request",
                 "input": {
                     "url": "https://example.com",
                     PROXY_TOOL_METADATA_KEY: {

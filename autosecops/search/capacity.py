@@ -56,7 +56,7 @@ async def search_capacity(
             client.eval(_ACQUIRE, len(keys), *keys, token, 120000, *limits),
         )
     )
-    meter = metrics.get_meter("tracecat.search")
+    meter = metrics.get_meter("autosecops.search")
     tags = {"lane": "background" if background else "foreground"}
     active = meter.create_up_down_counter("search.capacity.active")
     if acquired:

@@ -40,7 +40,7 @@ def test_run_sync_reuses_storage_client_until_runner_closes(
     blob_module.clear_storage_session_cache()
     monkeypatch.setattr(
         blob_module.config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
         None,
         raising=False,
     )

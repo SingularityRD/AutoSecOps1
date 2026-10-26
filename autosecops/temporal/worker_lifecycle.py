@@ -10,7 +10,7 @@ from typing import Protocol
 from autosecops.logger import logger
 
 # Keep this path off volumes: Kubernetes container replacement must clear it.
-WORKER_READY_FILE = Path("/var/run/tracecat/worker-ready")
+WORKER_READY_FILE = Path("/var/run/autosecops/worker-ready")
 
 WORKER_SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
 WorkerMain = Callable[[asyncio.Event], Awaitable[None]]

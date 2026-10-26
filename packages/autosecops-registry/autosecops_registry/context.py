@@ -60,14 +60,14 @@ class RegistryContext:
         """Create a context from environment variables.
 
         Expected environment variables:
-        - TRACECAT__WORKSPACE_ID: Workspace UUID
-        - TRACECAT__WORKFLOW_ID: Workflow UUID
-        - TRACECAT__RUN_ID: Run UUID
-        - TRACECAT__WF_EXEC_ID: Full workflow execution ID (for correlation)
-        - TRACECAT__ENVIRONMENT: Execution environment (default: "default")
-        - TRACECAT__API_URL: API URL (default: "http://api:8000")
-        - TRACECAT__EXECUTOR_URL: Executor URL (default: "http://executor:8000")
-        - TRACECAT__EXECUTOR_TOKEN: JWT token for authentication
+        - AUTOSECOPS__WORKSPACE_ID: Workspace UUID
+        - AUTOSECOPS__WORKFLOW_ID: Workflow UUID
+        - AUTOSECOPS__RUN_ID: Run UUID
+        - AUTOSECOPS__WF_EXEC_ID: Full workflow execution ID (for correlation)
+        - AUTOSECOPS__ENVIRONMENT: Execution environment (default: "default")
+        - AUTOSECOPS__API_URL: API URL (default: "http://api:8000")
+        - AUTOSECOPS__EXECUTOR_URL: Executor URL (default: "http://executor:8000")
+        - AUTOSECOPS__EXECUTOR_TOKEN: JWT token for authentication
 
         Returns:
             RegistryContext populated from environment.
@@ -75,28 +75,30 @@ class RegistryContext:
         Raises:
             ValueError: If required environment variables are missing.
         """
-        workspace_id = os.environ.get("TRACECAT__WORKSPACE_ID")
-        workflow_id = os.environ.get("TRACECAT__WORKFLOW_ID")
-        run_id = os.environ.get("TRACECAT__RUN_ID")
+        workspace_id = os.environ.get("AUTOSECOPS__WORKSPACE_ID")
+        workflow_id = os.environ.get("AUTOSECOPS__WORKFLOW_ID")
+        run_id = os.environ.get("AUTOSECOPS__RUN_ID")
 
         if not workspace_id:
-            raise ValueError("TRACECAT__WORKSPACE_ID environment variable is required")
+            raise ValueError(
+                "AUTOSECOPS__WORKSPACE_ID environment variable is required"
+            )
         if not workflow_id:
-            raise ValueError("TRACECAT__WORKFLOW_ID environment variable is required")
+            raise ValueError("AUTOSECOPS__WORKFLOW_ID environment variable is required")
         if not run_id:
-            raise ValueError("TRACECAT__RUN_ID environment variable is required")
+            raise ValueError("AUTOSECOPS__RUN_ID environment variable is required")
 
         return cls(
             workspace_id=workspace_id,
             workflow_id=workflow_id,
             run_id=run_id,
-            wf_exec_id=os.environ.get("TRACECAT__WF_EXEC_ID"),
-            environment=os.environ.get("TRACECAT__ENVIRONMENT", "default"),
-            api_url=os.environ.get("TRACECAT__API_URL", "http://api:8000"),
+            wf_exec_id=os.environ.get("AUTOSECOPS__WF_EXEC_ID"),
+            environment=os.environ.get("AUTOSECOPS__ENVIRONMENT", "default"),
+            api_url=os.environ.get("AUTOSECOPS__API_URL", "http://api:8000"),
             executor_url=os.environ.get(
-                "TRACECAT__EXECUTOR_URL", "http://executor:8000"
+                "AUTOSECOPS__EXECUTOR_URL", "http://executor:8000"
             ),
-            token=os.environ.get("TRACECAT__EXECUTOR_TOKEN", ""),
+            token=os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", ""),
         )
 
     @cached_property

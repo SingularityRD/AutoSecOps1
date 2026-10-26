@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 APPROVAL_CONTINUATION_PROMPT = (
-    "<tracecat-approval-continuation>\n"
+    "<autosecops-approval-continuation>\n"
     "This is an automated system notice, not a message from the user. The user "
     "has reviewed the tool calls that required approval; the results are "
     "recorded in the tool_result blocks above.\n"
@@ -22,9 +22,9 @@ APPROVAL_CONTINUATION_PROMPT = (
     "message except the approval decisions above.\n"
     "Resume your response to the user's most recent actual message "
     "accordingly.\n"
-    "</tracecat-approval-continuation>"
+    "</autosecops-approval-continuation>"
 )
-MODEL_CONTEXT_PROMPT_PREFIX = "<tracecat-model-context>\n"
+MODEL_CONTEXT_PROMPT_PREFIX = "<autosecops-model-context>\n"
 DISPLAY_ONLY_SESSION_LINE_FLAG = "isDisplayOnly"
 APPROVAL_INTERRUPT_CONTENT_EXACT = "interrupted"
 APPROVAL_INTERRUPT_CONTENT_MARKERS = (

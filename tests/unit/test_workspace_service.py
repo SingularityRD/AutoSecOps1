@@ -280,7 +280,7 @@ class TestWorkspaceService:
                 workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 user_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=ADMIN_SCOPES,
             ),
         )
@@ -323,7 +323,7 @@ class TestWorkspaceService:
                 bound_workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
@@ -366,7 +366,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:workspace:read"}),
             ),
         )
@@ -386,7 +386,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
@@ -412,7 +412,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:read"}),
             ),
         )
@@ -445,7 +445,7 @@ class TestWorkspaceService:
                 bound_workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
@@ -478,7 +478,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:workspace:read"}),
             ),
         )
@@ -505,7 +505,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:read"}),
             ),
         )

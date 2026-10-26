@@ -1,5 +1,5 @@
 output "vpc_id" {
-  value = aws_vpc.tracecat.id
+  value = aws_vpc.autosecops.id
 }
 
 output "public_subnet_ids" {

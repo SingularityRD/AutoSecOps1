@@ -48,7 +48,7 @@ def skill_file_limit_violation(
 ) -> SkillFileLimitViolation | None:
     """Return the first deterministic skill-tree limit violation."""
 
-    if len(files) > config.TRACECAT__MAX_SKILL_FILES_COUNT:
+    if len(files) > config.AUTOSECOPS__MAX_SKILL_FILES_COUNT:
         return SkillFileLimitViolation(
             code="skill_file_count_limit_exceeded",
             message="Skill draft contains too many files",
@@ -56,13 +56,13 @@ def skill_file_limit_violation(
             actual_field="file_count",
             actual_value=len(files),
             limit_field="max_file_count",
-            limit_value=config.TRACECAT__MAX_SKILL_FILES_COUNT,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_FILES_COUNT,
         )
 
     manifest = next((file for file in files if file.path == "SKILL.md"), None)
     if (
         manifest is not None
-        and manifest.size_bytes > config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES
+        and manifest.size_bytes > config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES
     ):
         return SkillFileLimitViolation(
             code="skill_manifest_size_limit_exceeded",
@@ -71,14 +71,14 @@ def skill_file_limit_violation(
             actual_field="size_bytes",
             actual_value=manifest.size_bytes,
             limit_field="max_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES,
         )
 
     oversized_file = max(
         (
             file
             for file in files
-            if file.size_bytes > config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES
+            if file.size_bytes > config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES
         ),
         key=lambda file: (file.size_bytes, file.path or ""),
         default=None,
@@ -91,12 +91,12 @@ def skill_file_limit_violation(
             actual_field="size_bytes",
             actual_value=oversized_file.size_bytes,
             limit_field="max_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES,
         )
 
     total_size_bytes = sum(file.size_bytes for file in files)
 
-    if total_size_bytes > config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES:
+    if total_size_bytes > config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES:
         return SkillFileLimitViolation(
             code="skill_total_size_limit_exceeded",
             message="Skill draft exceeds the aggregate size limit",
@@ -104,7 +104,7 @@ def skill_file_limit_violation(
             actual_field="total_size_bytes",
             actual_value=total_size_bytes,
             limit_field="max_total_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES,
         )
     return None
 

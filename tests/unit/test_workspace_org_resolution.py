@@ -25,7 +25,7 @@ from autosecops.workspaces.activities import get_workspace_organization_id_activ
 def test_dsl_workflow_sets_role_during_workflow_initialization():
     role = Role(
         type="service",
-        service_id="tracecat-schedule-runner",
+        service_id="autosecops-schedule-runner",
         workspace_id=uuid.uuid4(),
     )
     args = DSLRunArgs(role=role, wf_id=WorkflowUUID.new_uuid4())
@@ -128,7 +128,7 @@ async def test_dsl_workflow_auto_heals_missing_organization_id():
     organization_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-schedule-runner",
+        service_id="autosecops-schedule-runner",
         workspace_id=workspace_id,
     )
     args = DSLRunArgs(role=role, wf_id=WorkflowUUID.new_uuid4())
@@ -160,7 +160,7 @@ async def test_dsl_workflow_auto_heals_missing_organization_id():
 
 @pytest.mark.anyio
 async def test_dsl_workflow_classifies_missing_workspace_during_run_initialization():
-    role = Role(type="service", service_id="tracecat-schedule-runner")
+    role = Role(type="service", service_id="autosecops-schedule-runner")
     args = DSLRunArgs(role=role, wf_id=WorkflowUUID.new_uuid4())
 
     fake_wf_info = SimpleNamespace(

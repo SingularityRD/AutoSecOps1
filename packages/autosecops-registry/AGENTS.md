@@ -434,7 +434,7 @@ SDK-backed or not.
   generated response model. Read the pinned SDK's real stream shape and encode
   bytes using the registry's explicit `{"content_base64": "..."}` convention;
   never let bytes, file-like objects, or SDK streams escape the wrapper unchanged.
-  Enforce `TRACECAT__MAX_FILE_SIZE_BYTES` before base64 encoding: read streams
+  Enforce `AUTOSECOPS__MAX_FILE_SIZE_BYTES` before base64 encoding: read streams
   with `limit + 1`, reject an over-limit result, and never call an unbounded
   `read()`. Cover both a direct stream and a generated response containing a
   stream when the SDK supports both shapes.

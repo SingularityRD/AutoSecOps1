@@ -163,7 +163,7 @@ async def dataset(session: AsyncSession, svc_workspace: Workspace) -> SortDatase
 @pytest.fixture(autouse=True)
 def signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__SIGNING_SECRET", "synthetic-sort-signing-secret"
+        config, "AUTOSECOPS__SIGNING_SECRET", "synthetic-sort-signing-secret"
     )
 
 

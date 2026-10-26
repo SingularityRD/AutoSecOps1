@@ -1,13 +1,13 @@
 # Required secrets in AWS Secrets Manager (all services):
-# 1. TRACECAT__DB_ENCRYPTION_KEY
-# 2. TRACECAT__SERVICE_KEY
-# 3. TRACECAT__SIGNING_SECRET
+# 1. AUTOSECOPS__DB_ENCRYPTION_KEY
+# 2. AUTOSECOPS__SERVICE_KEY
+# 3. AUTOSECOPS__SIGNING_SECRET
 #
 # Required secrets (API and MCP):
 # 4. USER_AUTH_SECRET  — used by the API service (password reset, email
 #    verification, OAuth state signing) and the MCP service (internal OIDC
 #    client-secret derivation). Required for ALL auth types.
-#    Do NOT add to required_tracecat_base_secrets; it must stay out of
+#    Do NOT add to required_autosecops_base_secrets; it must stay out of
 #    executor and worker services to limit blast radius.
 #
 # Optional secrets:
@@ -15,16 +15,16 @@
 # 2. OAUTH_CLIENT_SECRET (legacy OIDC alias)
 
 ### Required secrets
-data "aws_secretsmanager_secret" "tracecat_db_encryption_key" {
-  arn = var.tracecat_db_encryption_key_arn
+data "aws_secretsmanager_secret" "autosecops_db_encryption_key" {
+  arn = var.autosecops_db_encryption_key_arn
 }
 
-data "aws_secretsmanager_secret" "tracecat_service_key" {
-  arn = var.tracecat_service_key_arn
+data "aws_secretsmanager_secret" "autosecops_service_key" {
+  arn = var.autosecops_service_key_arn
 }
 
-data "aws_secretsmanager_secret" "tracecat_signing_secret" {
-  arn = var.tracecat_signing_secret_arn
+data "aws_secretsmanager_secret" "autosecops_signing_secret" {
+  arn = var.autosecops_signing_secret_arn
 }
 
 data "aws_secretsmanager_secret" "user_auth_secret" {
@@ -86,16 +86,16 @@ data "aws_secretsmanager_secret" "temporal_api_key" {
 
 # AutoSecOps secrets
 
-data "aws_secretsmanager_secret_version" "tracecat_db_encryption_key" {
-  secret_id = data.aws_secretsmanager_secret.tracecat_db_encryption_key.id
+data "aws_secretsmanager_secret_version" "autosecops_db_encryption_key" {
+  secret_id = data.aws_secretsmanager_secret.autosecops_db_encryption_key.id
 }
 
-data "aws_secretsmanager_secret_version" "tracecat_service_key" {
-  secret_id = data.aws_secretsmanager_secret.tracecat_service_key.id
+data "aws_secretsmanager_secret_version" "autosecops_service_key" {
+  secret_id = data.aws_secretsmanager_secret.autosecops_service_key.id
 }
 
-data "aws_secretsmanager_secret_version" "tracecat_signing_secret" {
-  secret_id = data.aws_secretsmanager_secret.tracecat_signing_secret.id
+data "aws_secretsmanager_secret_version" "autosecops_signing_secret" {
+  secret_id = data.aws_secretsmanager_secret.autosecops_signing_secret.id
 }
 
 data "aws_secretsmanager_secret_version" "oauth_client_id" {
@@ -147,7 +147,7 @@ data "aws_secretsmanager_secret_version" "temporal_api_key" {
 
 ### Database secrets
 
-data "aws_secretsmanager_secret" "tracecat_db_password" {
+data "aws_secretsmanager_secret" "autosecops_db_password" {
   arn        = aws_db_instance.core_database.master_user_secret[0].secret_arn
   depends_on = [aws_db_instance.core_database]
 }
@@ -158,8 +158,8 @@ data "aws_secretsmanager_secret" "temporal_db_password" {
   depends_on = [aws_db_instance.temporal_database]
 }
 
-data "aws_secretsmanager_secret_version" "tracecat_db_password" {
-  secret_id = data.aws_secretsmanager_secret.tracecat_db_password.id
+data "aws_secretsmanager_secret_version" "autosecops_db_password" {
+  secret_id = data.aws_secretsmanager_secret.autosecops_db_password.id
 }
 
 data "aws_secretsmanager_secret_version" "temporal_db_password" {
@@ -191,18 +191,18 @@ resource "aws_secretsmanager_secret_version" "sentry_dsn" {
 }
 
 locals {
-  required_tracecat_base_secrets = [
+  required_autosecops_base_secrets = [
     {
-      name      = "TRACECAT__SERVICE_KEY"
-      valueFrom = data.aws_secretsmanager_secret_version.tracecat_service_key.arn
+      name      = "AUTOSECOPS__SERVICE_KEY"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_service_key.arn
     },
     {
-      name      = "TRACECAT__SIGNING_SECRET"
-      valueFrom = data.aws_secretsmanager_secret_version.tracecat_signing_secret.arn
+      name      = "AUTOSECOPS__SIGNING_SECRET"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_signing_secret.arn
     },
     {
-      name      = "TRACECAT__DB_ENCRYPTION_KEY"
-      valueFrom = data.aws_secretsmanager_secret_version.tracecat_db_encryption_key.arn
+      name      = "AUTOSECOPS__DB_ENCRYPTION_KEY"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_db_encryption_key.arn
     },
     {
       name      = "REDIS_URL"
@@ -226,10 +226,10 @@ locals {
     }
   ] : []
 
-  tracecat_base_secrets = local.required_tracecat_base_secrets
+  autosecops_base_secrets = local.required_autosecops_base_secrets
 
-  tracecat_temporal_secrets = concat(
-    local.tracecat_base_secrets,
+  autosecops_temporal_secrets = concat(
+    local.autosecops_base_secrets,
     local.temporal_api_key_secret,
   )
 
@@ -264,7 +264,7 @@ locals {
   # USER_AUTH_SECRET is needed by the API service (password reset, email
   # verification, OAuth state signing) and the MCP service (internal OIDC
   # client-secret derivation). Required for ALL auth types.
-  # It must NOT be in required_tracecat_base_secrets to avoid leaking to
+  # It must NOT be in required_autosecops_base_secrets to avoid leaking to
   # executor and worker services.
   user_auth_secret_secret = [
     {
@@ -283,7 +283,7 @@ locals {
   # Secret ARN only; reading the version would copy the password into state.
   smtp_password_secret = var.smtp_password_arn != null ? [
     {
-      name      = "TRACECAT__SMTP_PASSWORD"
+      name      = "AUTOSECOPS__SMTP_PASSWORD"
       valueFrom = data.aws_secretsmanager_secret.smtp_password[0].arn
     }
   ] : []
@@ -302,8 +302,8 @@ locals {
     }
   ] : []
 
-  tracecat_api_secrets = concat(
-    local.tracecat_temporal_secrets,
+  autosecops_api_secrets = concat(
+    local.autosecops_temporal_secrets,
     local.sentry_dsn_secret,
     local.oauth_client_id_secret,
     local.oauth_client_secret_secret,
@@ -314,10 +314,10 @@ locals {
     local.smtp_password_secret
   )
 
-  tracecat_ui_secrets = [
+  autosecops_ui_secrets = [
     {
-      name      = "TRACECAT__SERVICE_KEY"
-      valueFrom = data.aws_secretsmanager_secret_version.tracecat_service_key.arn
+      name      = "AUTOSECOPS__SERVICE_KEY"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_service_key.arn
     }
   ]
 
@@ -333,14 +333,14 @@ locals {
     local.temporal_auth_client_secret_secret,
   )
 
-  worker_secrets       = concat(local.tracecat_temporal_secrets, local.sentry_dsn_secret)
-  agent_worker_secrets = concat(local.tracecat_temporal_secrets, local.sentry_dsn_secret)
-  executor_secrets     = concat(local.tracecat_temporal_secrets, local.sentry_dsn_secret)
+  worker_secrets       = concat(local.autosecops_temporal_secrets, local.sentry_dsn_secret)
+  agent_worker_secrets = concat(local.autosecops_temporal_secrets, local.sentry_dsn_secret)
+  executor_secrets     = concat(local.autosecops_temporal_secrets, local.sentry_dsn_secret)
 
-  litellm_secrets = local.tracecat_base_secrets
+  litellm_secrets = local.autosecops_base_secrets
 
   mcp_secrets = concat(
-    local.tracecat_temporal_secrets,
+    local.autosecops_temporal_secrets,
     local.user_auth_secret_secret,
   )
 }

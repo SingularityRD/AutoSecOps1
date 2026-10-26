@@ -76,9 +76,9 @@ async def list_tunnels(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[TunnelRead]:

@@ -112,8 +112,8 @@ async def test_service_initialization_requires_workspace(session: AsyncSession) 
         type="service",
         user_id=uuid.uuid4(),
         workspace_id=None,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
     # Attempt to create service without workspace should raise error
@@ -558,8 +558,8 @@ class TestCasesService:
             type="service",
             workspace_id=workspace_id,
             organization_id=organization_id,
-            service_id="tracecat-service",
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            service_id="autosecops-service",
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
         concurrent_engine = create_async_engine(
             TEST_DB_CONFIG.test_url,

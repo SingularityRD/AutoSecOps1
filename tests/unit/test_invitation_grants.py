@@ -219,7 +219,7 @@ def _admin_role(organization_id: uuid.UUID, user_id: uuid.UUID) -> Role:
         type="user",
         user_id=user_id,
         organization_id=organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=False,
         scopes=ORG_ADMIN_SCOPES,
     )
@@ -407,7 +407,7 @@ class TestCreateInvitationGrants:
             type="user",
             user_id=admin.id,
             organization_id=org.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=True,
             scopes=ORG_ADMIN_SCOPES,
         )
@@ -490,7 +490,7 @@ class TestCreateInvitationGroups:
             type="user",
             user_id=admin.id,
             organization_id=org.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({"org:member:read"}),
         )
 
@@ -517,7 +517,7 @@ class TestCreateInvitationGroups:
         service_account_role = Role(
             type="service_account",
             organization_id=org.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             service_account_id=uuid.uuid4(),
             scopes=frozenset({"org:member:read"}),
         )
@@ -609,7 +609,7 @@ class TestCreateInvitationGroups:
             type="user",
             user_id=inviter.id,
             organization_id=org.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({"org:member:invite"}),
         )
 
@@ -1153,7 +1153,7 @@ class TestSamlEnforcedAcceptance:
             )
         )
         monkeypatch.setattr(
-            config, "TRACECAT__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML}
+            config, "AUTOSECOPS__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML}
         )
 
         async def enforced(key: str, **kwargs: object) -> bool:

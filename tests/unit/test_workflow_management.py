@@ -110,7 +110,7 @@ async def test_restore_workflow_definition_serializes_expected_fields(
     workflow_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
         scopes=frozenset({"*"}),
@@ -261,7 +261,7 @@ def _service(role: Role) -> WorkflowsManagementService:
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         scopes=frozenset({"*"}),

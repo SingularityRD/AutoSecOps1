@@ -667,7 +667,7 @@ async def test_get_workflow_execution_compact_accepts_slash_id(
     mock_execution.close_time = None
     mock_execution.status = WorkflowExecutionStatus.RUNNING
     mock_execution.workflow_type = "DSLWorkflow"
-    mock_execution.task_queue = "tracecat-task-queue"
+    mock_execution.task_queue = "autosecops-task-queue"
     mock_execution.history_length = 0
     mock_execution.typed_search_attributes = {}
 

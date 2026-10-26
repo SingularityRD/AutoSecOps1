@@ -15,7 +15,7 @@ description: "Authenticate into AutoSecOps with SAML SSO: configure your identit
 In your `.env` file, make sure you have the following values set.
 
 ```bash
-TRACECAT__AUTH_TYPES=saml
+AUTOSECOPS__AUTH_TYPES=saml
 SAML_IDP_METADATA_URL=https://<your-idp-metadata-url>
 ```
 
@@ -33,7 +33,7 @@ AutoSecOps only auto-provisions SAML user accounts for:
 - Pending organization invitations.
 - First-user superadmin bootstrap (default organization only).
 
-If this is a new deployment, make sure `TRACECAT__AUTH_SUPERADMIN_EMAIL` exactly matches the email claim sent by your IdP for the owner account.
+If this is a new deployment, make sure `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` exactly matches the email claim sent by your IdP for the owner account.
 
 ## Instructions
 
@@ -53,8 +53,8 @@ AutoSecOps always requires signed assertions and signed responses.
         Select **SAML 2.0** and click on **Create**.
     </Step>
     <Step title="Configure SAML settings">
-        - Set the **Single sign-on URL**, **Recipient URL**, and **Destination URL** to `https://<your-tracecat-instance>/auth/saml/acs`.
-        - Set the **Audience Restriction** (SP Entity ID) to `https://<your-tracecat-instance>/api`.
+        - Set the **Single sign-on URL**, **Recipient URL**, and **Destination URL** to `https://<your-autosecops-instance>/auth/saml/acs`.
+        - Set the **Audience Restriction** (SP Entity ID) to `https://<your-autosecops-instance>/api`.
 
         ![Okta SAML](/img/self-hosting/okta-saml.png)
     </Step>
@@ -90,9 +90,9 @@ AutoSecOps always requires signed assertions and signed responses.
         Find and select the **Microsoft Entra SAML toolkit** app.
     </Step>
     <Step title="Configure SAML settings">
-        - Set the **Reply URL** and **Sign on URL** to `https://<your-tracecat-instance>/auth/saml/acs`.
-        - Set **Identifier** to `https://<your-tracecat-instance>/api`.
-        - Set **Relay State** to `https://<your-tracecat-instance>`.
+        - Set the **Reply URL** and **Sign on URL** to `https://<your-autosecops-instance>/auth/saml/acs`.
+        - Set **Identifier** to `https://<your-autosecops-instance>/api`.
+        - Set **Relay State** to `https://<your-autosecops-instance>`.
         - Make sure that **Sign SAML response and assertion** is enabled.
 
         ![Microsoft Entra SAML](/img/self-hosting/entra-saml.png)
@@ -111,8 +111,8 @@ AutoSecOps always requires signed assertions and signed responses.
     </Step>
     <Step title="Configure the provider">
         - Enter a name and choose an authorization flow
-        - Set the **ACS URL** to `https://<your-tracecat-instance>/auth/saml/acs`.
-        - Set the **Audience** to `https://<your-tracecat-instance>/api`.
+        - Set the **ACS URL** to `https://<your-autosecops-instance>/auth/saml/acs`.
+        - Set the **Audience** to `https://<your-autosecops-instance>/api`.
 
         ![Authentik Provider](/img/self-hosting/authentik-provider.png)
     </Step>
@@ -157,13 +157,13 @@ AutoSecOps always requires signed assertions and signed responses.
     <Step title="Create a client">
         - Go to **Clients** and select the **Create client** button.
         - Set the **Client type** to **SAML**.
-        - Set the **Client ID** to `https://<your-tracecat-instance>/api` and select the **Next** button.
+        - Set the **Client ID** to `https://<your-autosecops-instance>/api` and select the **Next** button.
 
         ![Keycloak Client General Settings](/img/self-hosting/keycloak-client-general.png)
     </Step>
     <Step title="Configure a client">
-        - Set the **Valid redirect URIs** to `https://<your-tracecat-instance>/auth/saml/acs`.
-        - Set the **Master SAML Processing URL** to `https://<your-tracecat-instance>/auth/saml/acs` and select the **Save** button.
+        - Set the **Valid redirect URIs** to `https://<your-autosecops-instance>/auth/saml/acs`.
+        - Set the **Master SAML Processing URL** to `https://<your-autosecops-instance>/auth/saml/acs` and select the **Save** button.
 
         ![Keycloak Client Login Settings](/img/self-hosting/keycloak-client-login.png)
     </Step>
@@ -180,7 +180,7 @@ AutoSecOps always requires signed assertions and signed responses.
         ![Keycloak Client Signing](/img/self-hosting/keycloak-client-signing.png)
     </Step>
     <Step title="Configure property mapping">
-        - Open **Client scopes** tab and click on client scope `https://<your-tracecat-instance>/api-dedicated`.
+        - Open **Client scopes** tab and click on client scope `https://<your-autosecops-instance>/api-dedicated`.
         - Create new **User Property** mapper for **email** attribute and click **Save**.
 
         ![Keycloak Property Mapping](/img/self-hosting/keycloak-email-mapper.png)

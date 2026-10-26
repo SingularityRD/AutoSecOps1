@@ -3,10 +3,10 @@ terraform {
 }
 
 locals {
-  tracecat_db_instance_class    = coalesce(var.tracecat_db_instance_class, var.db_instance_class, "db.t4g.medium")
-  temporal_db_instance_class    = coalesce(var.temporal_db_instance_class, var.db_instance_class, "db.t4g.2xlarge")
-  tracecat_db_allocated_storage = coalesce(var.tracecat_db_allocated_storage, var.db_allocated_storage, 20)
-  temporal_db_allocated_storage = coalesce(var.temporal_db_allocated_storage, var.db_allocated_storage, 50)
+  autosecops_db_instance_class    = coalesce(var.autosecops_db_instance_class, var.db_instance_class, "db.t4g.medium")
+  temporal_db_instance_class      = coalesce(var.temporal_db_instance_class, var.db_instance_class, "db.t4g.2xlarge")
+  autosecops_db_allocated_storage = coalesce(var.autosecops_db_allocated_storage, var.db_allocated_storage, 20)
+  temporal_db_allocated_storage   = coalesce(var.temporal_db_allocated_storage, var.db_allocated_storage, 50)
 }
 
 module "network" {
@@ -51,16 +51,16 @@ module "ecs" {
   hosted_zone_id = var.hosted_zone_id
 
   # AutoSecOps version
-  tracecat_image                = var.tracecat_image
-  tracecat_ui_image             = var.tracecat_ui_image
-  tracecat_image_tag            = var.tracecat_image_tag
-  tracecat_migrations_image     = var.tracecat_migrations_image
-  tracecat_migrations_image_tag = var.tracecat_migrations_image_tag
-  temporal_server_image         = var.temporal_server_image
-  temporal_server_image_tag     = var.temporal_server_image_tag
-  temporal_ui_image             = var.temporal_ui_image
-  temporal_ui_image_tag         = var.temporal_ui_image_tag
-  force_new_deployment          = var.force_new_deployment
+  autosecops_image                = var.autosecops_image
+  autosecops_ui_image             = var.autosecops_ui_image
+  autosecops_image_tag            = var.autosecops_image_tag
+  autosecops_migrations_image     = var.autosecops_migrations_image
+  autosecops_migrations_image_tag = var.autosecops_migrations_image_tag
+  temporal_server_image           = var.temporal_server_image
+  temporal_server_image_tag       = var.temporal_server_image_tag
+  temporal_ui_image               = var.temporal_ui_image
+  temporal_ui_image_tag           = var.temporal_ui_image_tag
+  force_new_deployment            = var.force_new_deployment
 
   # Temporal configuration
   disable_temporal_ui        = var.disable_temporal_ui
@@ -70,7 +70,7 @@ module "ecs" {
   temporal_namespace         = var.temporal_namespace
 
   # Container environment variables
-  tracecat_app_env                              = var.tracecat_app_env
+  autosecops_app_env                            = var.autosecops_app_env
   outbound_allowed_private_cidrs                = var.outbound_allowed_private_cidrs
   outbound_proxy_url                            = var.outbound_proxy_url
   outbound_no_proxy                             = var.outbound_no_proxy
@@ -112,9 +112,9 @@ module "ecs" {
   temporal_db_snapshot_name        = var.temporal_db_snapshot_name
 
   # Secrets from AWS Secrets Manager
-  tracecat_db_encryption_key_arn          = var.tracecat_db_encryption_key_arn
-  tracecat_service_key_arn                = var.tracecat_service_key_arn
-  tracecat_signing_secret_arn             = var.tracecat_signing_secret_arn
+  autosecops_db_encryption_key_arn        = var.autosecops_db_encryption_key_arn
+  autosecops_service_key_arn              = var.autosecops_service_key_arn
+  autosecops_signing_secret_arn           = var.autosecops_signing_secret_arn
   temporal_payload_encryption_keyring_arn = var.temporal_payload_encryption_keyring_arn
 
   # Authentication
@@ -205,9 +205,9 @@ module "ecs" {
   temporal_db_force_ssl                    = var.temporal_db_force_ssl
   caddy_cpu                                = var.caddy_cpu
   caddy_memory                             = var.caddy_memory
-  tracecat_db_instance_class               = local.tracecat_db_instance_class
+  autosecops_db_instance_class             = local.autosecops_db_instance_class
   temporal_db_instance_class               = local.temporal_db_instance_class
-  tracecat_db_allocated_storage            = local.tracecat_db_allocated_storage
+  autosecops_db_allocated_storage          = local.autosecops_db_allocated_storage
   temporal_db_allocated_storage            = local.temporal_db_allocated_storage
   db_engine_version                        = var.db_engine_version
   redis_node_type                          = var.redis_node_type

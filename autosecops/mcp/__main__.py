@@ -12,10 +12,10 @@ import time
 
 from autosecops.logger import logger
 from autosecops.mcp.config import (
-    TRACECAT_MCP__HOST,
-    TRACECAT_MCP__PORT,
-    TRACECAT_MCP__STARTUP_MAX_ATTEMPTS,
-    TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS,
+    AUTOSECOPS_MCP__HOST,
+    AUTOSECOPS_MCP__PORT,
+    AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS,
+    AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS,
 )
 
 
@@ -28,15 +28,15 @@ def _run_mcp_server() -> None:
         module = importlib.import_module(server_module_name)
     module.mcp.run(
         transport="streamable-http",
-        host=TRACECAT_MCP__HOST,
-        port=TRACECAT_MCP__PORT,
+        host=AUTOSECOPS_MCP__HOST,
+        port=AUTOSECOPS_MCP__PORT,
         stateless_http=True,
     )
 
 
 def main() -> None:
     """Start the MCP server with bounded startup retries."""
-    max_attempts = max(TRACECAT_MCP__STARTUP_MAX_ATTEMPTS, 1)
+    max_attempts = max(AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS, 1)
     for attempt in range(1, max_attempts + 1):
         try:
             _run_mcp_server()
@@ -58,10 +58,10 @@ def main() -> None:
                 "MCP server startup failed; retrying",
                 attempt=attempt,
                 max_attempts=max_attempts,
-                retry_delay_seconds=TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS,
+                retry_delay_seconds=AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS,
                 error=error,
             )
-            time.sleep(max(TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS, 0.0))
+            time.sleep(max(AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS, 0.0))
 
 
 if __name__ == "__main__":

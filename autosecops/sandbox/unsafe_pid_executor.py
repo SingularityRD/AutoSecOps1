@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from autosecops.config import (
-    TRACECAT__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
-    TRACECAT__SANDBOX_CACHE_DIR,
-    TRACECAT__SANDBOX_DEFAULT_TIMEOUT,
-    TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS,
-    TRACECAT__SANDBOX_PYPI_INDEX_URL,
+    AUTOSECOPS__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
+    AUTOSECOPS__SANDBOX_CACHE_DIR,
+    AUTOSECOPS__SANDBOX_DEFAULT_TIMEOUT,
+    AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS,
+    AUTOSECOPS__SANDBOX_PYPI_INDEX_URL,
 )
 from autosecops.logger import logger
 from autosecops.sandbox.exceptions import (
@@ -58,7 +58,7 @@ import uuid
 from pathlib import Path
 
 def _install_action_gateway_sdk_transport():
-    socket_path = os.environ.get("TRACECAT__ACTION_GATEWAY_SOCKET")
+    socket_path = os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET")
     if not socket_path:
         return
 
@@ -69,14 +69,14 @@ def _install_action_gateway_sdk_transport():
     except ImportError:
         return
 
-    tracecat_client_cls = getattr(sdk_client, "TracecatClient", None)
-    if tracecat_client_cls is None:
+    autosecops_client_cls = getattr(sdk_client, "TracecatClient", None)
+    if autosecops_client_cls is None:
         return
 
-    if hasattr(tracecat_client_cls, "_request_url_and_transport"):
+    if hasattr(autosecops_client_cls, "_request_url_and_transport"):
         return
 
-    if getattr(tracecat_client_cls, "_tracecat_action_gateway_transport", False):
+    if getattr(autosecops_client_cls, "_autosecops_action_gateway_transport", False):
         return
 
     async def request(
@@ -98,7 +98,7 @@ def _install_action_gateway_sdk_transport():
         ) as client:
             response = await client.request(
                 method,
-                "http://tracecat-action-gateway/internal" + path,
+                "http://autosecops-action-gateway/internal" + path,
                 params=params,
                 json=json,
                 headers=request_headers,
@@ -112,10 +112,10 @@ def _install_action_gateway_sdk_transport():
 
         return response.json()
 
-    tracecat_client_cls.request = request
-    tracecat_client_cls._tracecat_action_gateway_transport = True
+    autosecops_client_cls.request = request
+    autosecops_client_cls._autosecops_action_gateway_transport = True
 
-def _init_tracecat_context():
+def _init_autosecops_context():
     _install_action_gateway_sdk_transport()
     try:
         from autosecops_registry.context import init_context_from_env
@@ -193,7 +193,7 @@ def main():
         # Read and execute the user script
         script_path = Path(work_dir) / "script.py"
         script_code = script_path.read_text()
-        _init_tracecat_context()
+        _init_autosecops_context()
         script_globals = {{"__name__": "__main__", "__file__": str(script_path)}}
         exec(script_code, script_globals)
 
@@ -258,7 +258,7 @@ class UnsafePidExecutor:
 
     def __init__(
         self,
-        cache_dir: str = TRACECAT__SANDBOX_CACHE_DIR,
+        cache_dir: str = AUTOSECOPS__SANDBOX_CACHE_DIR,
     ):
         self.cache_dir = Path(cache_dir)
         self.package_cache = self.cache_dir / "unsafe-pid-packages"
@@ -378,9 +378,9 @@ class UnsafePidExecutor:
             str(venv_path / "bin" / "python"),
         ]
 
-        if TRACECAT__SANDBOX_PYPI_INDEX_URL:
-            pip_cmd.extend(["--index-url", TRACECAT__SANDBOX_PYPI_INDEX_URL])
-        for extra_url in TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS:
+        if AUTOSECOPS__SANDBOX_PYPI_INDEX_URL:
+            pip_cmd.extend(["--index-url", AUTOSECOPS__SANDBOX_PYPI_INDEX_URL])
+        for extra_url in AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS:
             pip_cmd.extend(["--extra-index-url", extra_url])
         pip_cmd.extend(dependencies)
 
@@ -421,7 +421,7 @@ class UnsafePidExecutor:
         workspace_id: str | None = None,
     ) -> SandboxResult:
         if timeout_seconds is None:
-            timeout_seconds = TRACECAT__SANDBOX_DEFAULT_TIMEOUT
+            timeout_seconds = AUTOSECOPS__SANDBOX_DEFAULT_TIMEOUT
 
         start_time = time.time()
         if not allow_network and not self._network_isolation_warning_emitted:
@@ -527,7 +527,7 @@ class UnsafePidExecutor:
                 log_label="PID executor",
                 exit_code=process.returncode,
                 execution_time_ms=execution_time_ms,
-                max_bytes=TRACECAT__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
+                max_bytes=AUTOSECOPS__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
                 stream_source="envelope",
                 include_error_code=True,
             )

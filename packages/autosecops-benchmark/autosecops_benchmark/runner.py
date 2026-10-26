@@ -89,7 +89,7 @@ from .models import (
 )
 from .repository import resolve_repository_root
 
-DEFAULT_ARTIFACT_ROOT: Final = "/tmp/tracecat-load-test"
+DEFAULT_ARTIFACT_ROOT: Final = "/tmp/autosecops-load-test"
 # Defaults match the synthetic users seeded by `scripts/cluster up -d`.
 DEFAULT_EMAIL: Final = "dev@autosecops.example"
 DEFAULT_PASSWORD: Final = "password1234"
@@ -130,7 +130,7 @@ def _git_commit(repo_root: Path) -> str:
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
-def _tracecat_commit_for_target(
+def _autosecops_commit_for_target(
     repo_root: Path,
     *,
     existing_deployment: bool,
@@ -991,16 +991,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--email",
-        default=os.environ.get("TRACECAT_LOADTEST_EMAIL", DEFAULT_EMAIL),
+        default=os.environ.get("AUTOSECOPS_LOADTEST_EMAIL", DEFAULT_EMAIL),
     )
     parser.add_argument(
         "--password-env",
-        default="TRACECAT_LOADTEST_PASSWORD",
+        default="AUTOSECOPS_LOADTEST_PASSWORD",
         help="Env var holding the synthetic user's password.",
     )
     parser.add_argument(
         "--api-key-env",
-        default="TRACECAT_LOADTEST_API_KEY",
+        default="AUTOSECOPS_LOADTEST_API_KEY",
         help=(
             "Env var holding a service-account API key. "
             "Takes precedence over --password-env."
@@ -1384,7 +1384,7 @@ async def amain(argv: list[str]) -> int:
                 submit_concurrency=args.workflow_count,
                 max_connections=args.max_connections,
                 artifact_dir=str(artifact_dir),
-                tracecat_commit=_tracecat_commit_for_target(
+                autosecops_commit=_autosecops_commit_for_target(
                     repo_root,
                     existing_deployment=args.existing_deployment,
                     deployed_commit=args.deployed_commit,

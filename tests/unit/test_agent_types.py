@@ -43,7 +43,7 @@ def test_clamp_agent_timeout_seconds_clamps_to_ceiling() -> None:
 def test_clamp_agent_timeout_seconds_honors_raised_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 21600)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 21600)
 
     assert clamp_agent_timeout_seconds(None) == 7200
     assert clamp_agent_timeout_seconds(15000) == 15000
@@ -53,7 +53,7 @@ def test_clamp_agent_timeout_seconds_honors_raised_ceiling(
 def test_clamp_agent_timeout_seconds_ceiling_below_default_caps_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 3600)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 3600)
 
     assert clamp_agent_timeout_seconds(None) == 3600
     assert clamp_agent_timeout_seconds(900) == 1800
@@ -63,7 +63,7 @@ def test_clamp_agent_timeout_seconds_ceiling_below_default_caps_default(
 def test_clamp_agent_timeout_seconds_lowered_ceiling_wins_over_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(agent_types, "TRACECAT__AGENT_SANDBOX_TIMEOUT", 900)
+    monkeypatch.setattr(agent_types, "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", 900)
 
     assert clamp_agent_timeout_seconds(None) == 900
     assert clamp_agent_timeout_seconds(60) == 900

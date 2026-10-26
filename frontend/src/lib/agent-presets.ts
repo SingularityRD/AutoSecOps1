@@ -41,7 +41,7 @@ export function getAgentPresetErrorMessage(
 /**
  * Backend preset fields whose change makes the API cut a new preset version.
  * Mirrors `AgentPresetService.EXECUTION_FIELDS` in
- * `tracecat/agent/preset/service.py`. Keep both sides in sync.
+ * `autosecops/agent/preset/service.py`. Keep both sides in sync.
  */
 export const AGENT_PRESET_PUBLISHING_FIELDS: ReadonlySet<string> = new Set([
   "instructions",

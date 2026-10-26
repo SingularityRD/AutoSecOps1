@@ -9,11 +9,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from autosecops.auth.secrets import get_user_auth_secret
-from autosecops.config import TRACECAT__PUBLIC_API_URL
+from autosecops.config import AUTOSECOPS__PUBLIC_API_URL
 
 # --- Fixed internal client ---
 
-INTERNAL_CLIENT_ID = "tracecat-mcp-oidc-internal"
+INTERNAL_CLIENT_ID = "autosecops-mcp-oidc-internal"
 """The single confidential OAuth client ID used by the FastMCP proxy."""
 
 
@@ -26,7 +26,7 @@ def get_internal_client_secret() -> str:
     secret_bytes = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=b"tracecat-mcp-oidc-client-secret-v1",
+        salt=b"autosecops-mcp-oidc-client-secret-v1",
         info=b"client-secret",
     ).derive(get_user_auth_secret().encode("utf-8"))
     return base64.urlsafe_b64encode(secret_bytes).decode("ascii")
@@ -44,17 +44,17 @@ def get_issuer_url() -> str:
     This URL appears in discovery documents and JWT ``iss`` claims.
     It is built from the public API URL so browsers can reach it.
     """
-    return f"{TRACECAT__PUBLIC_API_URL.rstrip('/')}{ISSUER_PATH_PREFIX}"
+    return f"{AUTOSECOPS__PUBLIC_API_URL.rstrip('/')}{ISSUER_PATH_PREFIX}"
 
 
 def get_internal_discovery_url() -> str:
     """Return the OIDC discovery URL reachable from the MCP server.
 
-    Uses ``TRACECAT__API_URL`` for server-to-server communication
+    Uses ``AUTOSECOPS__API_URL`` for server-to-server communication
     (avoids hairpin NAT), falling back to the public API URL.
     """
     internal_api = (
-        os.environ.get("TRACECAT__API_URL") or TRACECAT__PUBLIC_API_URL
+        os.environ.get("AUTOSECOPS__API_URL") or AUTOSECOPS__PUBLIC_API_URL
     ).rstrip("/")
     return f"{internal_api}{ISSUER_PATH_PREFIX}/.well-known/openid-configuration"
 

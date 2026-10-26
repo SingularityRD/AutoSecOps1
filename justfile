@@ -43,16 +43,16 @@ test-frontend-smoke-report *args:
 # Run backend benchmarks inside Docker (required for nsjail on macOS)
 bench *args:
 	docker run --rm \
-		--network tracecat_default \
+		--network autosecops_default \
 		--cap-add SYS_ADMIN \
 		--security-opt seccomp=unconfined \
 		--env-file .env \
 		-e REDIS_URL=redis://redis:6379 \
-		-e TRACECAT__BLOB_STORAGE_ENDPOINT=http://minio:9000 \
-		-e TRACECAT__DB_URI=postgresql+psycopg://postgres:postgres@postgres_db:5432/postgres \
+		-e AUTOSECOPS__BLOB_STORAGE_ENDPOINT=http://minio:9000 \
+		-e AUTOSECOPS__DB_URI=postgresql+psycopg://postgres:postgres@postgres_db:5432/postgres \
 		-v "$(pwd)/tests:/app/tests:ro" \
 		--entrypoint sh \
-		tracecat-executor \
+		autosecops-executor \
 		-c "pip install pytest pytest-anyio anyio -q && python -m pytest tests/backends/test_backend_benchmarks.py -v -s {{args}}"
 
 down:
@@ -60,7 +60,7 @@ down:
 clean:
 	docker volume ls -q | xargs -r -n 1 docker volume rm || true
 clean-images:
-	docker images --filter "reference=tracecat*" | awk 'NR>1 && $1 != "<none>" && $2 != "<none>" {print $1 ":" $2}' | xargs -r -n 1 docker rmi || true
+	docker images --filter "reference=autosecops*" | awk 'NR>1 && $1 != "<none>" && $2 != "<none>" {print $1 ":" $2}' | xargs -r -n 1 docker rmi || true
 clean-dangling:
 	docker image prune -f
 dev:
@@ -70,7 +70,7 @@ dev-ui:
 build-dev *services:
 	docker compose -f docker-compose.dev.yml build --no-cache {{services}}
 local:
-	NODE_ENV=production NEXT_PUBLIC_APP_ENV=production TRACECAT__APP_ENV=production docker compose -f docker-compose.local.yml up
+	NODE_ENV=production NEXT_PUBLIC_APP_ENV=production AUTOSECOPS__APP_ENV=production docker compose -f docker-compose.local.yml up
 build-local *services:
 	docker compose -f docker-compose.local.yml build {{services}}
 rebuild-local *services:

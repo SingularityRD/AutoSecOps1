@@ -14,7 +14,7 @@ resource "aws_ecs_task_definition" "caddy_task_definition" {
 
   container_definitions = jsonencode([
     {
-      name  = "TracecatCaddyContainer"
+      name  = "AutoSecOpsCaddyContainer"
       image = "caddy:2.10.2-alpine"
       portMappings = [
         {
@@ -102,7 +102,7 @@ EOT
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "caddy"
       }
@@ -111,9 +111,9 @@ EOT
 ])
 }
 
-resource "aws_ecs_service" "tracecat_caddy" {
-  name            = "tracecat-caddy"
-  cluster         = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_caddy" {
+  name            = "autosecops-caddy"
+  cluster         = aws_ecs_cluster.autosecops_cluster.id
   task_definition = aws_ecs_task_definition.caddy_task_definition.arn
   launch_type     = "FARGATE"
   desired_count   = 1
@@ -145,7 +145,7 @@ resource "aws_ecs_service" "tracecat_caddy" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-caddy"
       }
@@ -154,14 +154,14 @@ resource "aws_ecs_service" "tracecat_caddy" {
 
   load_balancer {
     target_group_arn = aws_alb_target_group.caddy.id
-    container_name   = "TracecatCaddyContainer"
+    container_name   = "AutoSecOpsCaddyContainer"
     container_port   = 80
   }
 
   depends_on = [
-    aws_ecs_service.tracecat_api,
-    aws_ecs_service.tracecat_ui,
-    aws_ecs_service.tracecat_worker,
-    aws_ecs_service.tracecat_mcp,
+    aws_ecs_service.autosecops_api,
+    aws_ecs_service.autosecops_ui,
+    aws_ecs_service.autosecops_worker,
+    aws_ecs_service.autosecops_mcp,
   ]
 }

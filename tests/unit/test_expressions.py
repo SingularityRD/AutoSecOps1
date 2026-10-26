@@ -47,7 +47,7 @@ def evaluator() -> ExprEvaluator:
     [
         (["hello", "world"], (1,), "world"),
         ((1, 2, 3), (0,), 1),
-        ("tracecat", (-1,), "t"),
+        ("autosecops", (-1,), "s"),
         (([["nested"]], 1), (0, 0, 0), "nested"),
         ({"foo": {"bar": 42}}, ("foo", "bar"), 42),
     ],
@@ -512,9 +512,9 @@ def test_eval_templated_object_inline_fails_if_not_str():
         ("ACTIONS.test_list[-1]", "bar"),
         ("ACTIONS.test_list[-2]", "foo"),
         ## String indexing
-        ("ACTIONS.test_string[0]", "t"),
-        ("ACTIONS.test_string[-1]", "t"),
-        ("ACTIONS.test_string[5]", "c"),
+        ("ACTIONS.test_string[0]", "a"),
+        ("ACTIONS.test_string[-1]", "s"),
+        ("ACTIONS.test_string[5]", "e"),
         ## Tuple indexing
         ("ACTIONS.test_tuple[0]", 10),
         ("ACTIONS.test_tuple[1]", 20),
@@ -613,7 +613,7 @@ def test_expression_parser(expr, expected):
                 "baz": 2,
             },
             "test_list": ["hello", "world", "foo", "bar"],
-            "test_string": "tracecat",
+            "test_string": "autosecops",
             "test_tuple": (10, 20, 30),
             "nested_structure": {
                 "level1": {"level2": [{"name": "nested_item", "value": 99}]}

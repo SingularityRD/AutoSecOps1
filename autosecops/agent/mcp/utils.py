@@ -30,11 +30,11 @@ if TYPE_CHECKING:
     from autosecops.identifiers import OrganizationID
     from autosecops.registry.lock.types import RegistryLock
 
-REGISTRY_MCP_SERVER_NAME = "tracecat-registry"
-LEGACY_REGISTRY_MCP_SERVER_NAME = "tracecat_registry"
+REGISTRY_MCP_SERVER_NAME = "autosecops-registry"
+LEGACY_REGISTRY_MCP_SERVER_NAME = "autosecops_registry"
 
 
-def is_tracecat_registry_server_name(server_name: str) -> bool:
+def is_autosecops_registry_server_name(server_name: str) -> bool:
     """Return whether a server name routes to the built-in registry."""
     return (
         server_name in {REGISTRY_MCP_SERVER_NAME, LEGACY_REGISTRY_MCP_SERVER_NAME}
@@ -43,18 +43,18 @@ def is_tracecat_registry_server_name(server_name: str) -> bool:
     )
 
 
-def strip_tracecat_registry_server_prefix(tool_name: str) -> str:
+def strip_autosecops_registry_server_prefix(tool_name: str) -> str:
     """Drop a leading built-in registry server segment from a tool name.
 
-    Example: mcp__tracecat-registry__core__http_request -> core__http_request
+    Example: mcp__autosecops-registry__core__http_request -> core__http_request
     """
     if tool_name.startswith("mcp__"):
         parts = tool_name.split("__", 2)
-        if len(parts) == 3 and is_tracecat_registry_server_name(parts[1]):
+        if len(parts) == 3 and is_autosecops_registry_server_name(parts[1]):
             return parts[2]
     if tool_name.startswith("mcp."):
         parts = tool_name.split(".", 2)
-        if len(parts) == 3 and is_tracecat_registry_server_name(parts[1]):
+        if len(parts) == 3 and is_autosecops_registry_server_name(parts[1]):
             return parts[2]
     return tool_name
 
@@ -131,16 +131,16 @@ def normalize_mcp_tool_name(mcp_tool_name: str) -> str:
     MCP tool naming convention: mcp__{server_name}__{tool_name}
 
     Handles AutoSecOps registry tools:
-    - mcp__tracecat-registry__core__http_request -> core.http_request
-    - mcp__tracecat_registry__core__script__run_python -> core.script.run_python
-    - mcp.tracecat-registry.core.http_request -> core.http_request
-    - mcp.tracecat_registry.core.script.run_python -> core.script.run_python
+    - mcp__autosecops-registry__core__http_request -> core.http_request
+    - mcp__autosecops_registry__core__script__run_python -> core.script.run_python
+    - mcp.autosecops-registry.core.http_request -> core.http_request
+    - mcp.autosecops_registry.core.script.run_python -> core.script.run_python
 
     Handles user MCP servers routed through the proxy:
-    - mcp__tracecat-registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
-    - mcp__tracecat_registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
-    - mcp.tracecat-registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
-    - mcp.tracecat_registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
+    - mcp__autosecops-registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
+    - mcp__autosecops_registry__mcp__Linear__list_issues -> mcp.Linear.list_issues
+    - mcp.autosecops-registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
+    - mcp.autosecops_registry.mcp.Linear.list_issues -> mcp.Linear.list_issues
 
     Other MCP tool names are returned as-is.
 
@@ -151,7 +151,7 @@ def normalize_mcp_tool_name(mcp_tool_name: str) -> str:
         Human-readable action/tool name
     """
     # Handle user MCP tools routed through proxy (dot-separated, persisted)
-    # Pattern: mcp.tracecat-registry.mcp.{server}.{tool}
+    # Pattern: mcp.autosecops-registry.mcp.{server}.{tool}
     if mcp_tool_name.startswith(
         f"mcp.{REGISTRY_MCP_SERVER_NAME}.mcp."
     ) or mcp_tool_name.startswith(f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}.mcp."):
@@ -161,7 +161,7 @@ def normalize_mcp_tool_name(mcp_tool_name: str) -> str:
         )
 
     # Handle user MCP tools routed through proxy (underscore-separated, runtime)
-    # Pattern: mcp__tracecat-registry__mcp__{server}__{tool}
+    # Pattern: mcp__autosecops-registry__mcp__{server}__{tool}
     if mcp_tool_name.startswith(
         f"mcp__{REGISTRY_MCP_SERVER_NAME}__mcp__"
     ) or mcp_tool_name.startswith(f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__mcp__"):
@@ -215,14 +215,14 @@ def canonical_mcp_tool_name(tool_name: str) -> str:
     dotted action names. Every accepted spelling of one tool therefore maps
     to the same name.
 
-    Example: mcp__tracecat-registry__core__http_request -> core.http_request
+    Example: mcp__autosecops-registry__core__http_request -> core.http_request
 
     Raises:
         ValueError: If the name uses the dotted user MCP spelling
             ``mcp.{server}.{tool}``. That spelling replaces ``__`` with
             ``.``, so ``mcp.example.a.b`` could be tool ``a__b`` or ``a.b``.
     """
-    routed = strip_tracecat_registry_server_prefix(tool_name)
+    routed = strip_autosecops_registry_server_prefix(tool_name)
     if _is_user_mcp_name(routed.split("__", 2)):
         return routed
     if _is_user_mcp_name(routed.split(".", 2)):
@@ -236,7 +236,7 @@ def _is_user_mcp_name(parts: list[str]) -> bool:
     return (
         len(parts) == 3
         and parts[0] == "mcp"
-        and not is_tracecat_registry_server_name(parts[1])
+        and not is_autosecops_registry_server_name(parts[1])
     )
 
 

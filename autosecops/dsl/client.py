@@ -80,7 +80,7 @@ async def connect_to_temporal(plugins: list[Plugin] | None = None) -> Client:
         api_key=api_key,
         tls=tls_config,
         data_converter=get_data_converter(
-            compression_enabled=config.TRACECAT__CONTEXT_COMPRESSION_ENABLED
+            compression_enabled=config.AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED
         ),
         runtime=runtime,
         plugins=plugins or [],

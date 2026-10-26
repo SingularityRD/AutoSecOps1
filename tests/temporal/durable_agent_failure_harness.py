@@ -311,7 +311,7 @@ async def _gateway_failure(
         raise AssertionError(f"Unhandled gateway failure mode: {injection.mode}")
 
     proxy = LLMSocketProxy(
-        socket_path=Path(f"/tmp/tracecat-gateway-probe-{uuid.uuid4()}.sock"),
+        socket_path=Path(f"/tmp/autosecops-gateway-probe-{uuid.uuid4()}.sock"),
         routing_plan=routing_plan,
         on_error=errors.append,
     )
@@ -376,7 +376,7 @@ async def env() -> AsyncGenerator[WorkflowEnvironment, None]:
 def worker_factory(monkeypatch: pytest.MonkeyPatch) -> Iterator[WorkerFactory]:
     """Create Workers with the same runner and interceptor as production."""
     monkeypatch.setattr(
-        config, "TRACECAT__SERVICE_KEY", "synthetic-signing-key-for-tests-only"
+        config, "AUTOSECOPS__SERVICE_KEY", "synthetic-signing-key-for-tests-only"
     )
     with ThreadPoolExecutor(max_workers=4) as activity_executor:
 
@@ -403,7 +403,7 @@ def worker_factory(monkeypatch: pytest.MonkeyPatch) -> Iterator[WorkerFactory]:
 def _workflow_args(injection: FailureInjection) -> AgentWorkflowArgs:
     role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=(
             None
             if injection.point is FaultPoint.WORKSPACE_CONTEXT_MISSING
@@ -549,7 +549,7 @@ async def run_failure_scenario(
     args = _workflow_args(injection)
     task_queue = f"durable-agent-failure-{uuid.uuid4()}"
 
-    monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", task_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", task_queue)
     monkeypatch.setattr(durable_workflow_module, "mint_mcp_token", lambda **_: "mcp")
     monkeypatch.setattr(
         durable_workflow_module, "mint_agent_otel_token", lambda **_: "otel"

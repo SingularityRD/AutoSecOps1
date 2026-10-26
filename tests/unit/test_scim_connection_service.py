@@ -54,7 +54,7 @@ def admin_role(org: Organization, admin_user: User) -> Role:
         type="user",
         user_id=admin_user.id,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:scim:manage"}),
     )
 
@@ -154,7 +154,7 @@ async def test_issue_token_requires_scope(
         type="user",
         user_id=uuid.uuid4(),
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:member:read"}),
     )
     service = ScimConnectionService(session, role=unprivileged)
@@ -171,7 +171,7 @@ async def test_connection_management_requires_explicit_scim_permission(
         type="user",
         user_id=uuid.uuid4(),
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:rbac:*", "org:member:*"}),
     )
     service = ScimConnectionService(session, role=partial)

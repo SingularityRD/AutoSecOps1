@@ -327,7 +327,7 @@ describe("GitSyncView connected", () => {
         pr_url: prUrl,
         message: "Export workspace config",
       },
-      files: ["tracecat.json"],
+      files: ["autosecops.json"],
     })
     renderWithTooltips(
       <GitSyncView workspace={setup()} canSync canManageConnection />
@@ -380,7 +380,7 @@ describe("GitSyncView connected", () => {
         pr_url: null,
         message: "Export workspace config",
       },
-      files: ["tracecat.json"],
+      files: ["autosecops.json"],
     })
     renderWithTooltips(
       <GitSyncView workspace={setup()} canSync canManageConnection />
@@ -639,7 +639,7 @@ describe("GitSyncView connected", () => {
         pr_url: null,
         message: "Export workspace config",
       },
-      files: ["tracecat.json"],
+      files: ["autosecops.json"],
     })
     renderWithTooltips(
       <GitSyncView

@@ -669,12 +669,12 @@ async def test_the_run_executes_as_the_runner_on_behalf_of_the_requester(
     run_role = temporal.run_role
     start = temporal.start_kwargs
 
-    assert (run_role.type, run_role.service_id) == ("service", "tracecat-runner")
+    assert (run_role.type, run_role.service_id) == ("service", "autosecops-runner")
     assert (run_role.workspace_id, run_role.organization_id) == (
         intake_role.workspace_id,
         intake_role.organization_id,
     )
-    assert run_role.scopes == SERVICE_PRINCIPAL_SCOPES["tracecat-runner"]
+    assert run_role.scopes == SERVICE_PRINCIPAL_SCOPES["autosecops-runner"]
     # The executor checks action scopes against the run role. The requester's
     # own role fails that check for every action; the run role passes it.
     for role, allowed in ((intake_role, False), (run_role, True)):
@@ -871,10 +871,10 @@ async def test_a_run_reads_and_deletes_its_submission_by_id_alone(
     receipt = await _submit(service, form, VALID)
     executor = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
     other_workspace = Workspace(
         name="other-workspace", organization_id=svc_workspace.organization_id

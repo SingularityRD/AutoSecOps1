@@ -8,7 +8,7 @@ Updates and data migrations can be tricky business. Follow the steps below caref
 <Warning>
   If you want to migrate secrets, please make sure to save your database
   encryption / decryption Fernet key. You can find this key in your `.env` file
-  assigned to the environment variable: `TRACECAT__DB_ENCRYPTION_KEY`.
+  assigned to the environment variable: `AUTOSECOPS__DB_ENCRYPTION_KEY`.
 </Warning>
 
 ## Docker Compose
@@ -73,14 +73,14 @@ Updates and data migrations can be tricky business. Follow the steps below caref
 ## Update Integrations
 
 Integrations are not automatically updated when you update the AutoSecOps version.
-You will need to manually sync the `tracecat_registry` repository from the **Registry** page:
+You will need to manually sync the `autosecops_registry` repository from the **Registry** page:
 
 ![Sync registry](/img/custom-actions/sync-from-remote.png)
 
 ## Terraform Deployments
 
 AWS Fargate deployments of AutoSecOps are configured using Terraform.
-To update AutoSecOps, extract the Terraform stack from the new image version, update the Terraform variable `tracecat_image_tag` to that version, and run `terraform apply`.
+To update AutoSecOps, extract the Terraform stack from the new image version, update the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`.
 See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
 
 ## Data Migration

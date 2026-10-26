@@ -1,5 +1,5 @@
 ---
-name: tracecat-slackbot-best-practices
+name: autosecops-slackbot-best-practices
 description: Use when building, editing, validating, or debugging AutoSecOps Slack bots and Slack-facing automations through AutoSecOps MCP, including Slack app mentions, interactive messages, event subscriptions, webhooks, thread replies, Slack tools, ai.agent or ai.preset_agent bots, Slack tone, and Slack smoke tests.
 ---
 
@@ -9,7 +9,7 @@ description: Use when building, editing, validating, or debugging AutoSecOps Sla
 
 Use this skill only for Slack-facing AutoSecOps automations: Slack bots, app mentions, Slack interactivity, button callbacks, thread replies, message reads, Slack event subscriptions, or Slack smoke tests.
 
-For generic AutoSecOps workflow, table, run-python, or agent-preset guidance, use `$tracecat-automation-best-practices` instead.
+For generic AutoSecOps workflow, table, run-python, or agent-preset guidance, use `$autosecops-automation-best-practices` instead.
 
 ## Bot Architecture
 
@@ -38,7 +38,7 @@ formatting and posting into the agent.
 The same rule holds for Microsoft Teams, any other chatops surface, and for opening or
 commenting on a case: give the agent the tool and let the side effect be the output. The
 general form is in
-[agent-outputs](../tracecat-automation-best-practices/references/agent-outputs.md).
+[agent-outputs](../autosecops-automation-best-practices/references/agent-outputs.md).
 
 Prefer the `model` object for `ai.agent`; top-level `model_name` and `model_provider` are deprecated unless the user explicitly asks for the legacy shape.
 

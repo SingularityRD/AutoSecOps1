@@ -141,7 +141,7 @@ def test_convert_chat_messages_to_ui_tags_denied_call_result() -> None:
     part = cast(ToolUIPartOutputError, messages[0].parts[0])
     assert part["state"] == "output-error"
     assert part.get("callProviderMetadata") == {
-        "tracecat": {"approval": "rejected", "reason": "not today"}
+        "autosecops": {"approval": "rejected", "reason": "not today"}
     }
 
 
@@ -190,7 +190,7 @@ def test_convert_chat_messages_to_ui_records_when_a_call_completed() -> None:
     assert messages[0].metadata == {"created_at": called_at.isoformat()}
     part = cast(ToolUIPartOutputError, messages[0].parts[0])
     assert part.get("callProviderMetadata") == {
-        "tracecat": {
+        "autosecops": {
             "approval": "rejected",
             "reason": "no",
             "completed_at": completed_at.isoformat(),

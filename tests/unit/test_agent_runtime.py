@@ -278,12 +278,12 @@ class TestClaudeAgentRuntimeRun:
         configs: list[MCPServerConfig] = [
             {
                 "type": "stdio",
-                "name": "tracecat-registry",
+                "name": "autosecops-registry",
                 "command": "canonical-server",
             },
             {
                 "type": "stdio",
-                "name": "tracecat_registry",
+                "name": "autosecops_registry",
                 "command": "legacy-server",
             },
         ]
@@ -291,8 +291,8 @@ class TestClaudeAgentRuntimeRun:
         spec = ClaudeAgentRuntime._stdio_mcp_server_spec(source_configs=configs)
 
         assert set(spec.servers) == {
-            "tracecat-registry-2",
-            "tracecat_registry-2",
+            "autosecops-registry-2",
+            "autosecops_registry-2",
         }
 
     def test_system_prompt_prefers_attached_subagent_aliases(
@@ -870,8 +870,8 @@ class TestClaudeAgentRuntimeRun:
         assert captured_options
         mcp_servers = captured_options[0].mcp_servers
         assert isinstance(mcp_servers, dict)
-        assert set(mcp_servers) == {"tracecat-registry"}
-        assert mcp_servers["tracecat-registry"] == {
+        assert set(mcp_servers) == {"autosecops-registry"}
+        assert mcp_servers["autosecops-registry"] == {
             "type": "http",
             "url": TRUSTED_MCP_BRIDGE_URL,
             "headers": {
@@ -879,7 +879,7 @@ class TestClaudeAgentRuntimeRun:
                 "Accept-Encoding": "identity",
             },
         }
-        assert "tracecat_registry" not in mcp_servers
+        assert "autosecops_registry" not in mcp_servers
 
     @pytest.mark.anyio
     async def test_root_agent_preserves_attached_stdio_mcp_servers(
@@ -924,7 +924,7 @@ class TestClaudeAgentRuntimeRun:
         assert captured_options
         options = captured_options[0]
         assert options.mcp_servers == {
-            "tracecat-registry": {
+            "autosecops-registry": {
                 "type": "http",
                 "url": TRUSTED_MCP_BRIDGE_URL,
                 "headers": {
@@ -941,7 +941,7 @@ class TestClaudeAgentRuntimeRun:
             },
         }
         assert set(options.allowed_tools) == {
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             "mcp__local-tools__*",
             "Agent",
             "Task",
@@ -1050,7 +1050,7 @@ class TestClaudeAgentRuntimeRun:
             "args": ["sentinelone-mcp"],
         }
         assert set(options.allowed_tools) == {
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             "mcp__sentinel-one__list_alerts",
             "Agent",
             "Task",
@@ -1110,7 +1110,7 @@ class TestClaudeAgentRuntimeRun:
         assert captured_options
         options = captured_options[0]
         assert set(options.allowed_tools) == {
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             "mcp__sentinel-one__quarantine_host",
             "Agent",
             "Task",
@@ -1236,7 +1236,7 @@ class TestClaudeAgentRuntimeRun:
         options = captured_options[0]
         assert options.model == "anthropic/claude-3-5-sonnet-20241022"
         assert set(options.allowed_tools) == {
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             "Agent",
             "Task",
         }
@@ -1303,12 +1303,12 @@ class TestClaudeAgentRuntimeRun:
                     "mcp_servers": [
                         {
                             "type": "stdio",
-                            "name": "tracecat-registry-analyst",
+                            "name": "autosecops-registry-analyst",
                             "command": "canonical-collision",
                         },
                         {
                             "type": "stdio",
-                            "name": "tracecat_registry-analyst",
+                            "name": "autosecops_registry-analyst",
                             "command": "legacy-collision",
                         },
                     ],
@@ -1326,7 +1326,7 @@ class TestClaudeAgentRuntimeRun:
         options = captured_options[0]
         assert options.agents is not None
         assert options.mcp_servers == {
-            "tracecat-registry": {
+            "autosecops-registry": {
                 "type": "http",
                 "url": TRUSTED_MCP_BRIDGE_URL,
                 "headers": {
@@ -1334,11 +1334,11 @@ class TestClaudeAgentRuntimeRun:
                     "Accept-Encoding": "identity",
                 },
             },
-            "tracecat-registry-analyst-2": {
+            "autosecops-registry-analyst-2": {
                 "type": "stdio",
                 "command": "canonical-collision",
             },
-            "tracecat_registry-analyst-2": {
+            "autosecops_registry-analyst-2": {
                 "type": "stdio",
                 "command": "legacy-collision",
             },
@@ -1347,7 +1347,7 @@ class TestClaudeAgentRuntimeRun:
         assert agent_def.model == "openai/gpt-5-mini"
         assert agent_def.mcpServers == [
             {
-                "tracecat-registry-analyst": {
+                "autosecops-registry-analyst": {
                     "type": "http",
                     "url": TRUSTED_MCP_BRIDGE_URL,
                     "headers": {
@@ -1365,8 +1365,8 @@ class TestClaudeAgentRuntimeRun:
             },
         ]
         assert agent_def.tools == [
+            "mcp__autosecops-registry-analyst__core__lookup_ip",
             "mcp__subagent-analyst-local-tools__*",
-            "mcp__tracecat-registry-analyst__core__lookup_ip",
         ]
         internet_tools = set(runtime_module.INTERNET_TOOLS)
         assert internet_tools.isdisjoint(options.disallowed_tools)
@@ -1463,7 +1463,7 @@ class TestClaudeAgentRuntimeRun:
 
         assert definitions is not None
         agent_def = definitions["analyst"]
-        assert agent_def.skills == ["tracecat:phishing-triage"]
+        assert agent_def.skills == ["autosecops:phishing-triage"]
         assert agent_def.tools == []
         assert "Skill" not in (agent_def.tools or [])
 
@@ -1521,7 +1521,7 @@ class TestClaudeAgentRuntimeRun:
         root_result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
                 tool_name="WebSearch",
-                tool_input={"query": "tracecat"},
+                tool_input={"query": "autosecops"},
                 tool_use_id="call-root-web-search",
             ),
             tool_use_id="call-root-web-search",
@@ -1533,7 +1533,7 @@ class TestClaudeAgentRuntimeRun:
         child_result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
                 tool_name="WebSearch",
-                tool_input={"query": "tracecat"},
+                tool_input={"query": "autosecops"},
                 tool_use_id="call-child-web-search",
                 agent_id="agent-123",
                 agent_type="web",
@@ -1596,7 +1596,7 @@ class TestClaudeAgentRuntimeRun:
             prompt="Analyze enrichment data.",
             config=sample_init_payload.config,
             mcp_auth_token="child-mcp-token",
-            model_route="openai/gpt-4o-mini::tracecat-subagent::analyst",
+            model_route="openai/gpt-4o-mini::autosecops-subagent::analyst",
         )
         payload = replace(sample_init_payload, subagents=[child])
         runtime = ClaudeAgentRuntime(
@@ -1609,7 +1609,7 @@ class TestClaudeAgentRuntimeRun:
         assert definitions is not None
         assert (
             definitions["analyst"].model
-            == "openai/gpt-4o-mini::tracecat-subagent::analyst"
+            == "openai/gpt-4o-mini::autosecops-subagent::analyst"
         )
 
     @pytest.mark.parametrize(
@@ -1630,7 +1630,7 @@ class TestClaudeAgentRuntimeRun:
         """A mocked SDK turn should still drive runtime approval interrupts."""
         monkeypatch.setattr(
             runtime_module,
-            "TRACECAT__EXECUTOR_BACKEND",
+            "AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT
             if disable_nsjail
             else ExecutorBackendType.NSJAIL,
@@ -1661,7 +1661,7 @@ class TestClaudeAgentRuntimeRun:
                 [hook] = matcher.hooks
                 await hook(
                     input_data=make_hook_input(
-                        tool_name="mcp__tracecat-registry__core__http_request",
+                        tool_name="mcp__autosecops-registry__core__http_request",
                         tool_input={"url": "https://example.com", "method": "GET"},
                         tool_use_id="call-approval",
                     ),
@@ -1739,7 +1739,7 @@ class TestClaudeAgentRuntimeRun:
         """Approval continuations send a hidden tick after tool_result is seeded."""
         monkeypatch.setattr(
             runtime_module,
-            "TRACECAT__EXECUTOR_BACKEND",
+            "AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT
             if disable_nsjail
             else ExecutorBackendType.NSJAIL,
@@ -1902,7 +1902,7 @@ class TestClaudeAgentRuntimeRun:
         """Forked sessions should pass fork_session=True and not re-emit parent JSONL."""
         monkeypatch.setattr(
             runtime_module,
-            "TRACECAT__EXECUTOR_BACKEND",
+            "AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT
             if disable_nsjail
             else ExecutorBackendType.NSJAIL,
@@ -2079,12 +2079,12 @@ class TestClaudeAgentRuntimeRun:
         sdk_session_id = "eed8297f-26fb-4e00-905f-a10f0cf20704"
         runtime._cwd = (
             Path(tempfile.gettempdir())
-            / "tracecat-agent-test-canonicalize-registry-mcp-alias"
+            / "autosecops-agent-test-canonicalize-registry-mcp-alias"
         )
         sdk_session_data = (
             '{"type":"assistant","message":{"content":[{"type":"tool_use",'
-            '"name":"mcp__tracecat_registry__execute_tool","input":{"tool_name":'
-            '"mcp__tracecat_registry__core__http_request"}}]}}\n'
+            '"name":"mcp__autosecops_registry__execute_tool","input":{"tool_name":'
+            '"mcp__autosecops_registry__core__http_request"}}]}}\n'
         )
 
         session_file = await runtime._write_session_file(
@@ -2093,16 +2093,16 @@ class TestClaudeAgentRuntimeRun:
         )
 
         session_text = session_file.read_text()
-        assert "mcp__tracecat-registry__execute_tool" in session_text
-        assert "mcp__tracecat-registry__core__http_request" in session_text
-        assert "mcp__tracecat_registry__" not in session_text
+        assert "mcp__autosecops-registry__execute_tool" in session_text
+        assert "mcp__autosecops-registry__core__http_request" in session_text
+        assert "mcp__autosecops_registry__" not in session_text
 
 
 class TestClaudeAgentRuntimePreToolUseHook:
     """Tests for ClaudeAgentRuntime._pre_tool_use_hook().
 
     The hook uses these rules:
-    1. Auto-approve if it's a user MCP tool (starts with mcp__ but not mcp__tracecat-registry__)
+    1. Auto-approve if it's a user MCP tool (starts with mcp__ but not mcp__autosecops-registry__)
     2. Auto-approve if action is in registry_tools AND doesn't require approval
     3. Deny with reason if requires_approval is True
     4. Deny without reason otherwise (tool not allowed)
@@ -2113,13 +2113,13 @@ class TestClaudeAgentRuntimePreToolUseHook:
         ("tool_name", "tool_input", "updated_input"),
         [
             pytest.param(
-                "mcp__tracecat-registry__mcp__some_tool",
+                "mcp__autosecops-registry__mcp__some_tool",
                 {"arg": "value"},
                 None,
                 id="user-mcp-via-registry",
             ),
             pytest.param(
-                "mcp__tracecat-registry__core__http_request",
+                "mcp__autosecops-registry__core__http_request",
                 {"url": "https://example.com", "method": "GET"},
                 {
                     "url": "https://example.com",
@@ -2129,7 +2129,7 @@ class TestClaudeAgentRuntimePreToolUseHook:
                 id="registry-tool-without-approval",
             ),
             pytest.param(
-                "mcp__tracecat-registry__internal__builder__list_sessions",
+                "mcp__autosecops-registry__internal__builder__list_sessions",
                 {"query": "abc"},
                 None,
                 id="internal-tool",
@@ -2197,7 +2197,7 @@ class TestClaudeAgentRuntimePreToolUseHook:
 
         result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
-                tool_name="mcp__tracecat-registry__core__http_request",
+                tool_name="mcp__autosecops-registry__core__http_request",
                 tool_input={"url": "https://example.com"},
                 tool_use_id="call-3",
             ),
@@ -2229,7 +2229,7 @@ class TestClaudeAgentRuntimePreToolUseHook:
 
         result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
-                tool_name="mcp__tracecat-registry__mcp__Jira__getIssue",
+                tool_name="mcp__autosecops-registry__mcp__Jira__getIssue",
                 tool_input={"issue_key": "ISSUE-1"},
                 tool_use_id="call-user-mcp",
             ),
@@ -2536,8 +2536,8 @@ class TestClaudeAgentRuntimePreToolUseHook:
         )
         runtime._explicit_subagent_aliases = {"analyst"}
         runtime._registry_mcp_server_names = {
-            "tracecat-registry",
-            "tracecat-registry-analyst",
+            "autosecops-registry",
+            "autosecops-registry-analyst",
         }
         runtime.tool_approvals = {"core.http_request": True}
         runtime.client = MagicMock()
@@ -2545,7 +2545,7 @@ class TestClaudeAgentRuntimePreToolUseHook:
 
         result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
-                tool_name="mcp__tracecat-registry-analyst__core__http_request",
+                tool_name="mcp__autosecops-registry-analyst__core__http_request",
                 tool_input={"url": "https://example.com"},
                 tool_use_id="call-child-approval",
                 agent_id="agent-123",
@@ -2603,7 +2603,7 @@ class TestClaudeAgentRuntimeParallelApprovals:
             content=[
                 ToolUseBlock(
                     id=tool_use_id,
-                    name="mcp__tracecat-registry__core__http_request",
+                    name="mcp__autosecops-registry__core__http_request",
                     input={"url": url},
                 )
             ],
@@ -2652,7 +2652,7 @@ class TestClaudeAgentRuntimeParallelApprovals:
         for tool_use_id in ("call-1", "call-2"):
             result = await runtime._pre_tool_use_hook(
                 input_data=make_hook_input(
-                    tool_name="mcp__tracecat-registry__core__http_request",
+                    tool_name="mcp__autosecops-registry__core__http_request",
                     tool_input={"url": "https://example.com"},
                     tool_use_id=tool_use_id,
                 ),
@@ -2677,7 +2677,7 @@ class TestClaudeAgentRuntimeParallelApprovals:
         hook = asyncio.create_task(
             runtime._pre_tool_use_hook(
                 input_data=make_hook_input(
-                    tool_name="mcp__tracecat-registry__core__http_request",
+                    tool_name="mcp__autosecops-registry__core__http_request",
                     tool_input={"url": "https://example.com"},
                     tool_use_id="call-1",
                 ),
@@ -2738,7 +2738,7 @@ class TestClaudeAgentRuntimeParallelApprovals:
 
         result = await runtime._pre_tool_use_hook(
             input_data=make_hook_input(
-                tool_name="mcp__tracecat-registry__core__http_request",
+                tool_name="mcp__autosecops-registry__core__http_request",
                 tool_input={"url": "https://example.com"},
                 tool_use_id="call-unseen",
             ),
@@ -3207,18 +3207,20 @@ class TestClaudeAgentRuntimeSessionLineFlushing:
     @pytest.mark.parametrize(
         "cwd",
         [
-            Path("/tmp/tracecat-agent-session/claude-project"),
-            Path("/home/apiuser/.cache/tmp/tracecat-agent-session/claude-project"),
+            Path("/tmp/autosecops-agent-session/claude-project"),
+            Path("/home/apiuser/.cache/tmp/autosecops-agent-session/claude-project"),
             Path("/work/claude-project"),
-            Path("/tmp/tracecat agent_session/claude.project"),
-            Path("/tmp/tracecat_agent.session+prod@2026/claude project"),
+            Path("/tmp/autosecops agent_session/claude.project"),
+            Path("/tmp/autosecops_agent.session+prod@2026/claude project"),
             Path("/tmp/AutoSecOps Agent (prod)/claude.project#session"),
-            Path("/tmp/\u7528\u6237/tracecat/claude-project"),
-            Path("/tmp/tracecat/emoji-\U0001f680/claude-project"),
-            Path("/tmp/tracecat/combining-e\u0301/claude-project"),
-            Path("C:/Users/apiuser/AppData/Local/Temp/tracecat-agent/claude-project"),
-            Path(r"C:\Users\apiuser\AppData\Local\Temp\tracecat-agent\claude-project"),
-            Path("/var/folders/zz/abc.def_ghi-jkl/T/tracecat-agent/claude-project"),
+            Path("/tmp/\u7528\u6237/autosecops/claude-project"),
+            Path("/tmp/autosecops/emoji-\U0001f680/claude-project"),
+            Path("/tmp/autosecops/combining-e\u0301/claude-project"),
+            Path("C:/Users/apiuser/AppData/Local/Temp/autosecops-agent/claude-project"),
+            Path(
+                r"C:\Users\apiuser\AppData\Local\Temp\autosecops-agent\claude-project"
+            ),
+            Path("/var/folders/zz/abc.def_ghi-jkl/T/autosecops-agent/claude-project"),
         ],
     )
     def test_claude_project_dir_name_matches_sdk_sanitizer(self, cwd: Path) -> None:
@@ -3273,7 +3275,12 @@ class TestClaudeAgentRuntimeSessionLineFlushing:
         from claude_agent_sdk._internal.sessions import _sanitize_path
 
         session_root = (
-            tmp_path / "home" / "apiuser" / ".cache" / "tmp" / "tracecat-agent-session"
+            tmp_path
+            / "home"
+            / "apiuser"
+            / ".cache"
+            / "tmp"
+            / "autosecops-agent-session"
         )
         session_home_dir = session_root / "claude-home"
         cwd = session_root / "claude-project"
@@ -3454,7 +3461,7 @@ class TestClaudeAgentRuntimeSessionLineFlushing:
         sdk_session_id = "eed8297f-26fb-4e00-905f-a10f0cf20704"
         sdk_session_data = (
             '{"type":"assistant","message":{"content":[{"type":"tool_use",'
-            '"name":"mcp__tracecat_registry__execute_tool"}]}}'
+            '"name":"mcp__autosecops_registry__execute_tool"}]}}'
         )
         runtime = ClaudeAgentRuntime(
             mock_socket_writer,
@@ -3578,7 +3585,7 @@ async def test_run_rebuilds_sandbox_process_exit_from_transport_exit_code(
     Attribution requires a jail, so nsjail is enabled explicitly here.
     """
     monkeypatch.setattr(
-        runtime_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        runtime_module, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     mock_claude_sdk_client.query = AsyncMock(
         side_effect=Exception("Sandbox shim failed with exit code 134")
@@ -3633,7 +3640,7 @@ async def test_run_does_not_attribute_process_exit_when_nsjail_is_disabled(
     blaming the caller for a cap this deployment never enforced.
     """
     monkeypatch.setattr(
-        runtime_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        runtime_module, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
     )
     mock_claude_sdk_client.query = AsyncMock(side_effect=ValueError("Test error"))
     transport = MagicMock(spec=SandboxedCLITransport)
@@ -3672,7 +3679,7 @@ async def test_run_keeps_original_error_for_non_resource_limit_exit_code(
     a process exit and lose it.
     """
     monkeypatch.setattr(
-        runtime_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        runtime_module, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     mock_claude_sdk_client.query = AsyncMock(
         side_effect=AgentSandboxValidationError("Bad agent config")

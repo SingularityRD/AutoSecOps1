@@ -58,10 +58,10 @@ async def test_cancellation_before_worker_start_prevents_tool_execution(
         calls.append(run_input)
         return InlineObject(data="unexpected execution")
 
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", task_queue)
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", task_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", task_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", task_queue)
     workflow_input = ExecuteRegistryToolWorkflowInput(
-        role=Role(type="service", service_id="tracecat-mcp"),
+        role=Role(type="service", service_id="autosecops-mcp"),
         run_input=executor.build_run_input(
             "core.http_request",
             {"url": "https://example.com"},
@@ -173,10 +173,10 @@ async def test_cancellation_during_tool_execution_preserves_cancelled_status(
     monkeypatch.setattr(
         interceptor_module, "capture_platform_failure", capture_platform_failure
     )
-    monkeypatch.setattr(config, "TRACECAT__AGENT_QUEUE", task_queue)
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", task_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__AGENT_QUEUE", task_queue)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", task_queue)
     workflow_input = ExecuteRegistryToolWorkflowInput(
-        role=Role(type="service", service_id="tracecat-mcp"),
+        role=Role(type="service", service_id="autosecops-mcp"),
         run_input=executor.build_run_input(
             "core.http_request",
             {"url": "https://example.com"},

@@ -44,7 +44,7 @@ def clear_bundled_fingerprint_cache() -> Iterator[None]:
 def test_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -183,7 +183,7 @@ async def test_get_registry_artifact_uris_reads_bundled_manifest_once(
         return load_prebuilt_builtin_registry_manifest(**kwargs)
 
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "autosecops.config.AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
     monkeypatch.setattr(

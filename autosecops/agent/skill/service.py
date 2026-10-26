@@ -407,7 +407,7 @@ class SkillService(SkillBindingService):
     def _validate_skill_transfer_file_count(file_count: int) -> None:
         """Bound synchronous staged transfers before object-store work begins."""
 
-        if file_count <= config.TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT:
+        if file_count <= config.AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT:
             return
         violation = SkillFileLimitViolation(
             code="skill_transfer_file_count_limit_exceeded",
@@ -416,7 +416,7 @@ class SkillService(SkillBindingService):
             actual_field="file_count",
             actual_value=file_count,
             limit_field="max_file_count",
-            limit_value=config.TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT,
         )
         raise TracecatValidationError(
             violation.message,
@@ -689,7 +689,7 @@ class SkillService(SkillBindingService):
             The deduplicated blob rows, in the order of ``contents``.
         """
 
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         digests = [self._compute_sha256(content) for content in contents]
         rows_by_sha256: dict[str, SkillBlob] = {}
         uploads: list[tuple[SkillBlob, bytes]] = []
@@ -1230,8 +1230,8 @@ class SkillService(SkillBindingService):
                 )
             )
             if skill_md_blob is not None and skill_md_blob.size_bytes > min(
-                config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES,
-                config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES,
+                config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES,
+                config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES,
             ):
                 return result
 
@@ -2802,7 +2802,7 @@ class SkillService(SkillBindingService):
                 sha256=normalized_sha256,
                 size_bytes=upload_params.size_bytes,
                 content_type=normalized_content_type,
-                bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                 key=storage_key,
                 expires_at=expires_at,
                 created_by=self.role.user_id if self.role.type == "user" else None,

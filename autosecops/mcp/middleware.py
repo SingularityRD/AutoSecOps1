@@ -18,8 +18,8 @@ from autosecops.contexts import ctx_request_audit
 from autosecops.logger import logger
 from autosecops.mcp.auth import MCPTokenIdentity, get_email_claim, get_token_identity
 from autosecops.mcp.config import (
-    TRACECAT_MCP__MAX_INPUT_SIZE_BYTES,
-    TRACECAT_MCP__TOOL_TIMEOUT_SECONDS,
+    AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES,
+    AUTOSECOPS_MCP__TOOL_TIMEOUT_SECONDS,
 )
 from autosecops.middleware.request import build_request_audit_context
 
@@ -47,7 +47,7 @@ class MCPInputSizeLimitMiddleware(Middleware):
     Prevents abuse via oversized YAML/JSON payloads sent as tool arguments.
     """
 
-    def __init__(self, max_bytes: int = TRACECAT_MCP__MAX_INPUT_SIZE_BYTES) -> None:
+    def __init__(self, max_bytes: int = AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES) -> None:
         self.max_bytes = max_bytes
 
     async def on_call_tool(
@@ -102,7 +102,7 @@ class MCPTimeoutMiddleware(Middleware):
     """
 
     def __init__(
-        self, timeout_seconds: int = TRACECAT_MCP__TOOL_TIMEOUT_SECONDS
+        self, timeout_seconds: int = AUTOSECOPS_MCP__TOOL_TIMEOUT_SECONDS
     ) -> None:
         self.timeout_seconds = timeout_seconds
 

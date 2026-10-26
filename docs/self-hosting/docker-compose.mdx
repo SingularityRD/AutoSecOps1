@@ -58,7 +58,7 @@ After running `env.sh`, you'll be prompted to input the following:
 
 <Warning>
   Docker Compose defaults to the `direct` executor backend, which does not sandbox ordinary workflow actions.
-  For supported action isolation, set `TRACECAT__EXECUTOR_BACKEND=nsjail`, then start with the sandbox overlay described in [Security](/self-hosting/security#nsjail-sandbox-recommended-for-production).
+  For supported action isolation, set `AUTOSECOPS__EXECUTOR_BACKEND=nsjail`, then start with the sandbox overlay described in [Security](/self-hosting/security#nsjail-sandbox-recommended-for-production).
   The legacy `ephemeral` value remains a compatibility alias for `nsjail`.
 </Warning>
 
@@ -74,7 +74,7 @@ docker compose up
 For nsjail, use the `docker-compose.sandbox.yml` you extracted beside `docker-compose.yml`; it comes from the same AutoSecOps release as your image. Start with both files so the overlay supplies the container permissions and cgroup bootstrap:
 
 ```bash
-TRACECAT__EXECUTOR_BACKEND=nsjail docker compose \
+AUTOSECOPS__EXECUTOR_BACKEND=nsjail docker compose \
   -f docker-compose.yml -f docker-compose.sandbox.yml up -d
 ```
 
@@ -101,7 +101,7 @@ Once deployed, access your instance at:
 
 <Warning>
   Be careful when updating AutoSecOps.
-  Do not accidentally overwrite or lose your existing `TRACECAT__SERVICE_KEY`, `TRACECAT__SIGNING_SECRET`, `TRACECAT__DB_ENCRYPTION_KEY`, and `USER_AUTH_SECRET` secrets.
+  Do not accidentally overwrite or lose your existing `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, `AUTOSECOPS__DB_ENCRYPTION_KEY`, and `USER_AUTH_SECRET` secrets.
   Losing these secrets will break your credentials and webhooks.
 </Warning>
 
@@ -131,7 +131,7 @@ cp autosecops-<version>/Caddyfile .
 docker compose up -d
 ```
 
-If you pinned `TRACECAT__IMAGE_TAG` in `.env`, set it to the new version before step 5.
+If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to the new version before step 5.
 
 The migration script creates a backup of your existing `.env` before rewriting it.
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.
@@ -218,13 +218,13 @@ services:
 3. Deploy the stack:
 
 ```bash
-docker stack deploy -c docker-compose.yml tracecat
+docker stack deploy -c docker-compose.yml autosecops
 ```
 
 4. Verify services are running:
 
 ```bash
-docker stack services tracecat
+docker stack services autosecops
 ```
 
 ## FAQ
@@ -243,7 +243,7 @@ For an overview of all services and networking, see [Architecture](/self-hosting
 
   <Accordion title="Connecting LiteLLM, vLLM, or Ollama fails with 'Host is not allowed'">
     AutoSecOps rejects LLM provider and MCP endpoints that resolve to private addresses unless you allow them.
-    Set `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` in your `.env` file to the gateway's IP or CIDR, e.g. `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32`, then run `docker compose up -d` to restart the services.
+    Set `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` in your `.env` file to the gateway's IP or CIDR, e.g. `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32`, then run `docker compose up -d` to restart the services.
     See [Private endpoints](/agents/llm-providers#private-endpoints).
   </Accordion>
 
@@ -271,10 +271,10 @@ For an overview of all services and networking, see [Architecture](/self-hosting
     - View container logs: `docker compose logs api` and `docker compose logs temporal`.
     - Check firewall and port forwarding if using a reverse proxy.
 
-    For example, if you've deployed AutoSecOps into a VM and exposed it to your browser as `https://my-tracecat-instance.com`,
+    For example, if you've deployed AutoSecOps into a VM and exposed it to your browser as `https://my-autosecops-instance.com`,
     you must set:
-    - `PUBLIC_APP_URL` to `https://my-tracecat-instance.com`
-    - `PUBLIC_API_URL` to `https://my-tracecat-instance.com/api`
+    - `PUBLIC_APP_URL` to `https://my-autosecops-instance.com`
+    - `PUBLIC_API_URL` to `https://my-autosecops-instance.com/api`
   </Accordion>
 
   <Accordion title="What should PUBLIC_APP_URL and PUBLIC_API_URL be, and how do I fix login or CORS issues?">
@@ -284,8 +284,8 @@ For an overview of all services and networking, see [Architecture](/self-hosting
       - `PUBLIC_APP_URL=http://localhost:8000`
       - `PUBLIC_API_URL=http://localhost:8000/api`
     - Reverse proxy or public domain example:
-      - `PUBLIC_APP_URL=https://tracecat.example.com`
-      - `PUBLIC_API_URL=https://tracecat.example.com/api`
+      - `PUBLIC_APP_URL=https://autosecops.example.com`
+      - `PUBLIC_API_URL=https://autosecops.example.com/api`
 
     Use full URLs once.
     Do not prepend `http://` or `https://` twice, and do not use addresses that only work inside Docker such as `0.0.0.0` or internal container hostnames.

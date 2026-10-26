@@ -28,7 +28,7 @@ Run benchmarks:
     pytest-benchmark compare results.json --columns=min,max,mean,stddev
 
     # With sandboxed backend (requires nsjail on Linux)
-    TRACECAT__EXECUTOR_BACKEND=ephemeral \
+    AUTOSECOPS__EXECUTOR_BACKEND=ephemeral \
         uv run pytest tests/backends/test_backend_benchmarks.py -v
 
 Note: The sandboxed backend (ephemeral) requires Linux with nsjail.

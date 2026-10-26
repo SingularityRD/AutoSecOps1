@@ -3,15 +3,15 @@ import os
 
 from psycopg import connect
 
-u = os.environ["TRACECAT__DB_USER"]
-p = os.environ["TRACECAT__DB_PASS"]
-h = os.environ["TRACECAT__DB_ENDPOINT"]
-pt = int(os.getenv("TRACECAT__DB_PORT", "5432"))
+u = os.environ["AUTOSECOPS__DB_USER"]
+p = os.environ["AUTOSECOPS__DB_PASS"]
+h = os.environ["AUTOSECOPS__DB_ENDPOINT"]
+pt = int(os.getenv("AUTOSECOPS__DB_PORT", "5432"))
 
 with connect(
     host=h,
     port=pt,
-    dbname=os.getenv("TRACECAT__DB_NAME", "postgres"),
+    dbname=os.getenv("AUTOSECOPS__DB_NAME", "postgres"),
     user=u,
     password=p,
 ) as c:

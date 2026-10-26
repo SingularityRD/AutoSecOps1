@@ -491,11 +491,11 @@ def _platform_resource(parent: PlatformTraceParent) -> Resource:
         attributes=[
             KeyValue(
                 key="service.name",
-                value=AnyValue(string_value="tracecat-agent-native"),
+                value=AnyValue(string_value="autosecops-agent-native"),
             ),
             KeyValue(
                 key="service.namespace",
-                value=AnyValue(string_value="tracecat"),
+                value=AnyValue(string_value="autosecops"),
             ),
         ]
     )
@@ -592,7 +592,7 @@ def project_platform_trace_body(
     projected_resource_spans = projected.resource_spans.add()
     projected_resource_spans.resource.CopyFrom(_platform_resource(parent))
     projected_scope = projected_resource_spans.scope_spans.add()
-    projected_scope.scope.name = "tracecat.agent.native"
+    projected_scope.scope.name = "autosecops.agent.native"
     for span in retained.values():
         ancestor_id = _nearest_retained_ancestor(span, span_by_id, retained.keys())
         projected_scope.spans.append(

@@ -42,7 +42,7 @@ interface StoredDraft {
 }
 
 const draftStorageKey = (formId: string) =>
-  `tracecat:form-config-draft:${formId}`
+  `autosecops:form-config-draft:${formId}`
 
 // Storage can be unavailable (private mode, blocked site data, quota). The
 // editor works without it; only the restore after navigation is lost.

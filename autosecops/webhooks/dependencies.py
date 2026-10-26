@@ -36,7 +36,7 @@ from autosecops.workflow.management.management import WorkflowsManagementService
 if TYPE_CHECKING:
     from autosecops.dsl.common import DSLInput
 
-API_KEY_HEADER = "x-tracecat-api-key"
+API_KEY_HEADER = "x-autosecops-api-key"
 
 
 def _ip_allowed(client_ip: str, cidr_list: Sequence[str]) -> bool:
@@ -196,8 +196,8 @@ async def validate_incoming_webhook(
                 type="service",
                 workspace_id=webhook.workspace_id,
                 organization_id=workspace.organization_id,
-                service_id="tracecat-runner",
-                scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+                service_id="autosecops-runner",
+                scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
             )
         )
 

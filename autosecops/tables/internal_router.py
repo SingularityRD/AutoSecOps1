@@ -58,8 +58,8 @@ class TableLookupRequest(BaseModel):
     values: list[Any]
     limit: int | None = Field(
         default=None,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     )
 
 
@@ -77,9 +77,9 @@ class TableSearchRequest(BaseModel):
     cursor: str | None = None
     reverse: bool = False
     limit: int = Field(
-        default=config.TRACECAT__LIMIT_TABLE_SEARCH_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_TABLE_SEARCH_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     )
 
 
@@ -365,11 +365,11 @@ async def lookup_rows(
     params: TableLookupRequest,
 ) -> list[dict[str, Any]]:
     """Lookup rows matching column/value pairs."""
-    if params.limit is not None and params.limit > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if params.limit is not None and params.limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+                f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
             ),
         )
     service = TablesService(session, role=role)
@@ -660,9 +660,9 @@ async def download_table(
     table_name: str,
     format: TableDownloadFormat | None = Query(default=None),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_TABLE_DOWNLOAD_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX,
+        default=config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX,
     ),
 ) -> list[dict[str, Any]] | str:
     """Download table data as JSON, NDJSON, CSV, or Markdown."""
@@ -684,7 +684,7 @@ async def download_table(
     rows: list[dict[str, Any]] = []
     cursor: str | None = None
     while len(rows) < limit:
-        page_size = min(limit - len(rows), config.TRACECAT__LIMIT_CURSOR_MAX)
+        page_size = min(limit - len(rows), config.AUTOSECOPS__LIMIT_CURSOR_MAX)
         rows_page = await service.list_rows(
             table=table,
             params=CursorPaginationParams(

@@ -67,9 +67,9 @@ from autosecops.sandbox.types import (
     SandboxNetworkRequest,
 )
 
-_DOCKER_CHILD_ENV = "TRACECAT__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD"
+_DOCKER_CHILD_ENV = "AUTOSECOPS__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD"
 _SKIP_SENTINEL = "TRACE_CAT_EXECUTOR_ACTION_SMOKE_SKIP:"
-_SMOKE_URI = "s3://tracecat-test-registry/smoke/site-packages.tar.gz"
+_SMOKE_URI = "s3://autosecops-test-registry/smoke/site-packages.tar.gz"
 _NSTUN_UDP_SOCKET_BUDGET = 2048
 _NSTUN_UDP_SOCKET_PROBE_OVERFLOW = 16
 _NSTUN_PARENT_NOFILE_LIMIT = 4096
@@ -117,8 +117,8 @@ class CancelledNsjailOperation(StrEnum):
 
 def _executor_nsjail_available() -> bool:
     return (
-        Path(config.TRACECAT__SANDBOX_NSJAIL_PATH).is_file()
-        and Path(config.TRACECAT__SANDBOX_ROOTFS_PATH).is_dir()
+        Path(config.AUTOSECOPS__SANDBOX_NSJAIL_PATH).is_file()
+        and Path(config.AUTOSECOPS__SANDBOX_ROOTFS_PATH).is_dir()
     )
 
 
@@ -187,18 +187,18 @@ def _run_executor_action_smoke_in_docker_or_skip(smoke_case: SmokeCase) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     compose_env = os.environ.copy()
     compose_env.setdefault(
-        "TRACECAT__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
         str(repo_root / "packages"),
     )
-    compose_env.setdefault("TRACECAT__LOCAL_REPOSITORY_ENABLED", "false")
+    compose_env.setdefault("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "false")
     compose_env.setdefault("PUBLIC_APP_PORT", "80")
     compose_env.setdefault("BASE_DOMAIN", ":80")
     compose_env.setdefault("ADDRESS", "0.0.0.0")
     compose_env.setdefault("LOG_LEVEL", "INFO")
-    compose_env.setdefault("TRACECAT__APP_ENV", "development")
-    compose_env.setdefault("TRACECAT__SERVICE_KEY", "test-service-key")
+    compose_env.setdefault("AUTOSECOPS__APP_ENV", "development")
+    compose_env.setdefault("AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
-    sandbox_image = os.environ.get("TRACECAT_TEST_SANDBOX_IMAGE")
+    sandbox_image = os.environ.get("AUTOSECOPS_TEST_SANDBOX_IMAGE")
     tests_mount = f"{repo_root / 'tests'}:/app/tests:ro"
     device_lines = (
         [
@@ -219,7 +219,7 @@ def _run_executor_action_smoke_in_docker_or_skip(smoke_case: SmokeCase) -> None:
         else []
     )
     override_path = Path(
-        tempfile.mkstemp(prefix="tracecat-executor-action-smoke-", suffix=".yml")[1]
+        tempfile.mkstemp(prefix="autosecops-executor-action-smoke-", suffix=".yml")[1]
     )
     override_path.write_text(
         "\n".join(
@@ -246,13 +246,13 @@ def _run_executor_action_smoke_in_docker_or_skip(smoke_case: SmokeCase) -> None:
                 f"      - {json.dumps(tests_mount)}",
                 # Replace the shared dev cache with a per-container anonymous
                 # volume. Parallel Docker volume population otherwise races.
-                "      - /var/lib/tracecat/sandbox-cache",
+                "      - /var/lib/autosecops/sandbox-cache",
                 "    environment:",
                 f'      {_DOCKER_CHILD_ENV}: "1"',
-                '      TRACECAT__EXECUTOR_BACKEND: "nsjail"',
-                '      TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED: "true"',
-                '      TRACECAT__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
-                '      TRACECAT__SANDBOX_ROOTFS_PATH: "/var/lib/tracecat/sandbox-rootfs"',
+                '      AUTOSECOPS__EXECUTOR_BACKEND: "nsjail"',
+                '      AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED: "true"',
+                '      AUTOSECOPS__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
+                '      AUTOSECOPS__SANDBOX_ROOTFS_PATH: "/var/lib/autosecops/sandbox-rootfs"',
                 '      PYTHONDONTWRITEBYTECODE: "1"',
                 "",
             ]
@@ -307,11 +307,11 @@ def _run_executor_action_smoke_in_docker_or_skip(smoke_case: SmokeCase) -> None:
 def _make_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -443,14 +443,14 @@ def _write_gateway_artifact_source(source_dir: Path) -> None:
                 "",
                 "",
                 "def _gateway_health() -> dict:",
-                '    socket_path = os.environ["TRACECAT__ACTION_GATEWAY_SOCKET"]',
+                '    socket_path = os.environ["AUTOSECOPS__ACTION_GATEWAY_SOCKET"]',
                 "    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)",
                 "    client.settimeout(5)",
                 "    try:",
                 "        client.connect(socket_path)",
                 "        request = (",
                 '            b"GET /internal/health HTTP/1.1\\r\\n"',
-                '            b"Host: tracecat-action-gateway\\r\\n"',
+                '            b"Host: autosecops-action-gateway\\r\\n"',
                 '            b"Connection: close\\r\\n\\r\\n"',
                 "        )",
                 "        client.sendall(request)",
@@ -674,16 +674,16 @@ async def _run_executor_action_smoke_case(
         _skip_smoke(reason)
 
     action_gateway_socket = Path("/tmp") / f"tc-action-gateway-{uuid.uuid4().hex}.sock"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
-    monkeypatch.setattr(config, "TRACECAT__API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__API_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED", True)
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 30.0)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 30.0)
     monkeypatch.setattr(
         config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
 
@@ -810,12 +810,12 @@ async def _run_executor_action_smoke_case(
                 assert isinstance(listener_address, IPv4Address)
                 monkeypatch.setattr(
                     config,
-                    "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
+                    "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
                     (ip_network(f"{listener_address}/32"),),
                 )
                 monkeypatch.setattr(
                     config,
-                    "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
+                    "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
                     (network_listener.getsockname()[1],),
                 )
                 allowed_result = await runner.execute_action(
@@ -893,25 +893,25 @@ async def _run_current_builtin_smoke_case(
         _skip_smoke(reason)
 
     action_gateway_socket = Path("/tmp") / f"tc-action-gateway-{uuid.uuid4().hex}.sock"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
-    monkeypatch.setattr(config, "TRACECAT__API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__API_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(
         config,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.NSJAIL
         if smoke_case.use_sandbox
         else ExecutorBackendType.DIRECT,
     )
-    monkeypatch.setattr(config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 30.0)
+    monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 30.0)
     monkeypatch.setattr(
         config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
     # EphemeralBackend executes in a child process, so export the socket path in
     # addition to patching this process's config module.
     monkeypatch.setenv(
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
 
@@ -1112,7 +1112,7 @@ async def test_cancelled_nsjail_operation_kills_process_group(
     )
     sandbox_config = ActionSandboxConfig(
         registry_paths=[],
-        tracecat_app_dir=tmp_path,
+        autosecops_app_dir=tmp_path,
         timeout_seconds=30,
     )
     real_create_subprocess_exec = asyncio.create_subprocess_exec
@@ -1267,7 +1267,7 @@ async def test_action_runner_executes_registry_action_smoke(
 def _run_smoke_from_cli(smoke_case: SmokeCase) -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-executor-nsjail-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-executor-nsjail-"))
         try:
             if smoke_case is SmokeCase.NSJAIL_SOCKET_BUDGET:
                 await _run_nstun_socket_budget_smoke_case(tmp_path)

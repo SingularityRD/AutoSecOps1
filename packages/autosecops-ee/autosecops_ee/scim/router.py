@@ -94,9 +94,9 @@ async def list_external_groups(
     role: OrgActorRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None, max_length=8192),
 ) -> Page[ExternalGroupRead]:
@@ -195,9 +195,9 @@ async def list_scim_mappings(
     role: OrgActorRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None, max_length=8192),
 ) -> Page[ExternalGroupMappingRead]:

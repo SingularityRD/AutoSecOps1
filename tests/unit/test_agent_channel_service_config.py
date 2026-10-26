@@ -16,7 +16,7 @@ def test_serialize_and_parse_stored_slack_config_round_trip(
 ) -> None:
     monkeypatch.setattr(
         channel_service_module.config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
     config = SlackChannelTokenConfig(

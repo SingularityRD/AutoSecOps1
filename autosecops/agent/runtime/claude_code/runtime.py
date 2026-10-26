@@ -52,8 +52,8 @@ from claude_agent_sdk.types import (
 
 from autosecops.agent.common.config import (
     AGENT_RUNTIME_PROTECTED_ENV_VARS,
-    TRACECAT__AGENT_MCP_BRIDGE_PORT,
-    TRACECAT__EXECUTOR_BACKEND,
+    AUTOSECOPS__AGENT_MCP_BRIDGE_PORT,
+    AUTOSECOPS__EXECUTOR_BACKEND,
 )
 from autosecops.agent.common.exceptions import (
     AgentPreparationError,
@@ -199,7 +199,7 @@ def _sandbox_process_exit_error(
     ``AgentSandboxValidationError``, say -- would reach the activity as a
     process exit and lose its own attribution.
     """
-    if not TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+    if not AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
         # Without a jail no rlimit was installed, so the exit code carries no
         # resource-limit meaning. A direct process that aborts or that the host
         # OOM-kills is a platform failure, and attributing it to the caller
@@ -313,11 +313,11 @@ REGISTRY_MCP_TOOL_PREFIX = f"mcp__{REGISTRY_MCP_SERVER_NAME}__"
 REGISTRY_MCP_DOT_PREFIX = f"mcp.{REGISTRY_MCP_SERVER_NAME}."
 LEGACY_REGISTRY_MCP_TOOL_PREFIX = f"mcp__{LEGACY_REGISTRY_MCP_SERVER_NAME}__"
 LEGACY_REGISTRY_MCP_DOT_PREFIX = f"mcp.{LEGACY_REGISTRY_MCP_SERVER_NAME}."
-SUBAGENT_REGISTRY_MCP_SERVER_PREFIX = "tracecat-registry-"
+SUBAGENT_REGISTRY_MCP_SERVER_PREFIX = "autosecops-registry-"
 RESERVED_MCP_SERVER_NAMES = frozenset(
     {REGISTRY_MCP_SERVER_NAME, LEGACY_REGISTRY_MCP_SERVER_NAME}
 )
-TRUSTED_MCP_BRIDGE_URL = f"http://127.0.0.1:{TRACECAT__AGENT_MCP_BRIDGE_PORT}/mcp"
+TRUSTED_MCP_BRIDGE_URL = f"http://127.0.0.1:{AUTOSECOPS__AGENT_MCP_BRIDGE_PORT}/mcp"
 
 # Increase the SDK's stdout/stderr capture buffer above its default 1 MiB so
 # larger tool responses do not truncate during agent execution.
@@ -1541,7 +1541,7 @@ class ClaudeAgentRuntime:
     def _ensure_working_directory(self, session_id: uuid.UUID) -> None:
         """Create the stable Claude cwd used for session resume."""
         if self._cwd is None:
-            self._cwd = Path(tempfile.gettempdir()) / f"tracecat-agent-{session_id}"
+            self._cwd = Path(tempfile.gettempdir()) / f"autosecops-agent-{session_id}"
         _ensure_supported_claude_project_dir_name(self._cwd)
         cwd_setup_path = self._cwd_setup_path or self._cwd
         cwd_setup_path.mkdir(parents=True, exist_ok=True)
@@ -1607,9 +1607,9 @@ class ClaudeAgentRuntime:
     def _sandbox_settings() -> SandboxSettings:
         """Build Claude SDK sandbox settings for direct mode."""
         sandbox_settings = SandboxSettings(
-            enabled=not TRACECAT__EXECUTOR_BACKEND.uses_nsjail
+            enabled=not AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail
         )
-        if not TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+        if not AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
             sandbox_settings["enableWeakerNestedSandbox"] = True
             sandbox_settings["allowUnsandboxedCommands"] = False
         return sandbox_settings

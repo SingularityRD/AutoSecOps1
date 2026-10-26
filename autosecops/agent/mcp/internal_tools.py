@@ -213,11 +213,11 @@ def _build_role(claims: MCPTokenClaims) -> Role:
     """Build a Role from MCP token claims."""
     return Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=claims.workspace_id,
         organization_id=claims.organization_id,
         user_id=claims.user_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-mcp"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-mcp"],
     )
 
 
@@ -514,10 +514,10 @@ class _ListSessionsParams(BaseModel):
     """Parameters for list_sessions."""
 
     limit: int = Field(
-        default=config.TRACECAT__LIMIT_AGENT_SESSIONS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_AGENT_SESSIONS_DEFAULT,
         description="Maximum number of sessions to return.",
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     )
     created_by: uuid.UUID | None = Field(
         default=None,

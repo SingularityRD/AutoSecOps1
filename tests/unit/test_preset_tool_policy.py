@@ -228,12 +228,12 @@ async def test_runtime_loads_direct_mcp_metadata_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     workspace_id, integration_id = uuid.uuid4(), uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
     )
@@ -281,12 +281,12 @@ async def test_preview_loads_direct_mcp_metadata_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     integration_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -320,11 +320,11 @@ async def test_preview_rejects_invalid_direct_selections(
     selection: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )

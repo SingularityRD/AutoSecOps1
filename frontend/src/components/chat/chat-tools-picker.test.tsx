@@ -51,7 +51,7 @@ function registryAction(
     description: `${action} description`,
     namespace: action.split(".").slice(0, -1).join("."),
     type: "udf",
-    origin: "tracecat",
+    origin: "autosecops",
     action,
     ...overrides,
   }
@@ -60,7 +60,7 @@ function registryAction(
 describe("DEFAULT_CAPABILITY_GROUPS", () => {
   /**
    * This must mirror `WORKSPACE_CHAT_DEFAULT_TOOLS` in
-   * `tracecat/chat/tools.py`. The two lists are hand-maintained in different
+   * `autosecops/chat/tools.py`. The two lists are hand-maintained in different
    * languages, so this test pins the exact set to force a deliberate edit here
    * whenever the backend defaults change (the prior drift showed only
    * `create_workflow` under Workflows while the backend had eight tools).

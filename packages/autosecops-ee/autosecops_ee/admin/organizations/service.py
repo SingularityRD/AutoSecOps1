@@ -802,9 +802,9 @@ class AdminOrgService(BasePlatformService):
         # Create a role for the org
         org_role = Role(
             type="service",
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=org_id,
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
 
         # Get repository
@@ -882,7 +882,7 @@ class AdminOrgService(BasePlatformService):
             allowed_domains = allowed_domains_setting or {"github.com"}
             git_url = parse_git_url(repo.origin, allowed_domains=allowed_domains)
 
-            if config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED:
+            if config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
                 sync_outcome = await actions_service.sync_actions_from_repository(
                     repo,
                     git_repo_package_name=git_repo_package_name,

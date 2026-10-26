@@ -2,23 +2,23 @@
 
 Run with:
 
-    TRACECAT_RUN_CASE_DURATION_BENCHMARKS=1 \
+    AUTOSECOPS_RUN_CASE_DURATION_BENCHMARKS=1 \
     uv run pytest tests/integration/test_case_duration_benchmarks.py -s
 
 Tune the synthetic load with:
 
-    TRACECAT_CASE_DURATION_BENCHMARK_CASES
-    TRACECAT_CASE_DURATION_BENCHMARK_DEFINITIONS
-    TRACECAT_CASE_DURATION_BENCHMARK_HISTORY_EVENTS
-    TRACECAT_CASE_DURATION_BENCHMARK_UPDATES_PER_CASE
-    TRACECAT_CASE_DURATION_BENCHMARK_HEALTH_INTERVAL_MS
-    TRACECAT_CASE_DURATION_BENCHMARK_HEALTH_TIMEOUT_MS
-    TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATORS
-    TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATIONS
-    TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_LOADS
-    TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_BASELINE_LOADS
-    TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_LOAD_INTERVAL_MS
-    TRACECAT_CASE_DURATION_BENCHMARK_OUTPUT
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_CASES
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_DEFINITIONS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HISTORY_EVENTS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_UPDATES_PER_CASE
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HEALTH_INTERVAL_MS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HEALTH_TIMEOUT_MS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATORS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATIONS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_LOADS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_BASELINE_LOADS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_LOAD_INTERVAL_MS
+    AUTOSECOPS_CASE_DURATION_BENCHMARK_OUTPUT
 """
 
 from __future__ import annotations
@@ -63,8 +63,8 @@ from autosecops.db.models import CaseEvent, Organization, Workspace
 from autosecops.redis.client import get_redis_client
 from tests.database import TEST_DB_CONFIG
 
-RUN_BENCHMARKS = os.environ.get("TRACECAT_RUN_CASE_DURATION_BENCHMARKS") == "1"
-BENCHMARK_OUTPUT_PATH = os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_OUTPUT")
+RUN_BENCHMARKS = os.environ.get("AUTOSECOPS_RUN_CASE_DURATION_BENCHMARKS") == "1"
+BENCHMARK_OUTPUT_PATH = os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_OUTPUT")
 
 pytestmark = [
     pytest.mark.integration,
@@ -72,7 +72,7 @@ pytestmark = [
     pytest.mark.usefixtures("db"),
     pytest.mark.skipif(
         not RUN_BENCHMARKS,
-        reason="Set TRACECAT_RUN_CASE_DURATION_BENCHMARKS=1 to run benchmarks",
+        reason="Set AUTOSECOPS_RUN_CASE_DURATION_BENCHMARKS=1 to run benchmarks",
     ),
 ]
 
@@ -82,42 +82,49 @@ class CaseDurationBurstBenchmarkConfig:
     """Config for the synthetic duration benchmark."""
 
     case_count: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_CASES") or 20
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_CASES") or 20
     )
     definition_count: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_DEFINITIONS") or 80
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_DEFINITIONS") or 80
     )
     history_events_per_case: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HISTORY_EVENTS") or 600
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HISTORY_EVENTS") or 600
     )
     updates_per_case: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_UPDATES_PER_CASE") or 1
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_UPDATES_PER_CASE") or 1
     )
     health_interval_s: float = (
-        int(os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HEALTH_INTERVAL_MS") or 50)
+        int(
+            os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HEALTH_INTERVAL_MS")
+            or 50
+        )
         / 1000
     )
     health_timeout_s: float = (
         int(
-            os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HEALTH_TIMEOUT_MS") or 1000
+            os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HEALTH_TIMEOUT_MS")
+            or 1000
         )
         / 1000
     )
     hot_case_mutators: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATORS") or 4
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATORS") or 4
     )
     hot_case_mutations: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATIONS") or 8
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_MUTATIONS") or 8
     )
     hot_case_loads: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_LOADS") or 12
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_LOADS") or 12
     )
     hot_case_baseline_loads: int = int(
-        os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_BASELINE_LOADS") or 3
+        os.environ.get("AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_BASELINE_LOADS")
+        or 3
     )
     hot_case_load_interval_s: float = (
         int(
-            os.environ.get("TRACECAT_CASE_DURATION_BENCHMARK_HOT_CASE_LOAD_INTERVAL_MS")
+            os.environ.get(
+                "AUTOSECOPS_CASE_DURATION_BENCHMARK_HOT_CASE_LOAD_INTERVAL_MS"
+            )
             or 10
         )
         / 1000
@@ -272,7 +279,7 @@ async def _seed_benchmark_role(async_engine) -> Role:
         workspace_id=workspace_id,
         organization_id=organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
 
@@ -403,7 +410,7 @@ async def test_case_duration_update_burst_health_latency(
     """Measure health latency during a burst of case updates with duration sync."""
 
     cfg = CaseDurationBurstBenchmarkConfig()
-    monkeypatch.setattr(config, "TRACECAT__CASE_TRIGGERS_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_TRIGGERS_ENABLED", False)
 
     async_engine = create_async_engine(
         TEST_DB_CONFIG.test_url,
@@ -538,15 +545,15 @@ async def test_hot_case_load_latency_during_async_duration_mutation_burst(
 
     cfg = CaseDurationBurstBenchmarkConfig(case_count=1)
     stream_suffix = uuid.uuid4().hex[:8]
-    monkeypatch.setattr(config, "TRACECAT__CASE_TRIGGERS_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_TRIGGERS_ENABLED", False)
     monkeypatch.setattr(
         config,
-        "TRACECAT__CASE_DURATION_SYNC_STREAM_KEY",
+        "AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY",
         f"case-duration-sync-benchmark-{stream_suffix}",
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__CASE_DURATION_SYNC_GROUP",
+        "AUTOSECOPS__CASE_DURATION_SYNC_GROUP",
         f"case-duration-sync-benchmark-{stream_suffix}",
     )
 

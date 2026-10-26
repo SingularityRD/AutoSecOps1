@@ -1,5 +1,5 @@
 ---
-name: tracecat-qa
+name: autosecops-qa
 description: QA AutoSecOps product features in a real local cluster. Use for QA, browser tests, smoke tests, or manual verification of AutoSecOps UI flows and PR changes with `just cluster`. In Codex desktop app sessions, use `browser:control-in-app-browser` first; use Chrome DevTools only after the in-app browser path concretely fails or when the user asks for Chrome.
 ---
 

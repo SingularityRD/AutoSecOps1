@@ -14,9 +14,9 @@ from typing import Any
 import httpx
 
 # Get service key from environment
-SERVICE_KEY = os.environ.get("TRACECAT__SERVICE_KEY")
+SERVICE_KEY = os.environ.get("AUTOSECOPS__SERVICE_KEY")
 if not SERVICE_KEY:
-    print("Error: TRACECAT__SERVICE_KEY not set in environment")
+    print("Error: AUTOSECOPS__SERVICE_KEY not set in environment")
     exit(1)
 
 # Executor API configuration
@@ -26,10 +26,10 @@ DB_POOL_ENDPOINT = f"{EXECUTOR_URL}/health/db-pool"
 
 # Headers for service authentication
 SERVICE_HEADERS = {
-    "x-tracecat-service-key": SERVICE_KEY,
-    "x-tracecat-role-service-id": "tracecat-runner",
-    "x-tracecat-role-access-level": "ADMIN",
-    "x-tracecat-role-workspace-id": "7724372b-4bc9-44de-b3e0-1a7275396bfb",
+    "x-autosecops-service-key": SERVICE_KEY,
+    "x-autosecops-role-service-id": "autosecops-runner",
+    "x-autosecops-role-access-level": "ADMIN",
+    "x-autosecops-role-workspace-id": "7724372b-4bc9-44de-b3e0-1a7275396bfb",
 }
 
 
@@ -115,7 +115,7 @@ async def get_postgres_connections() -> dict[str, Any]:
         cmd = [
             "docker",
             "exec",
-            "tracecat-postgres_db-1",
+            "autosecops-postgres_db-1",
             "psql",
             "-U",
             "postgres",
@@ -159,7 +159,7 @@ async def get_postgres_connections() -> dict[str, Any]:
             total_cmd = [
                 "docker",
                 "exec",
-                "tracecat-postgres_db-1",
+                "autosecops-postgres_db-1",
                 "psql",
                 "-U",
                 "postgres",

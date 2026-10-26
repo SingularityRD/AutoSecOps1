@@ -57,7 +57,7 @@ from autosecops.temporal.errors import (
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -189,11 +189,12 @@ async def test_preset_preparation_enforces_serialized_role_scopes(
 ) -> None:
     """Exercise the real catalog/provider credential guard across the wire."""
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        "autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY",
+        Fernet.generate_key().decode(),
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=scopes,

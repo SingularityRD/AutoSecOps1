@@ -24,7 +24,7 @@ from scripts.benchmark.agent_session_first_token_benchmark import (
 def make_config() -> BenchmarkConfig:
     return BenchmarkConfig(
         base_url="http://localhost:80",
-        cookie_header="tracecat_auth=test; tracecat-org-id=org",
+        cookie_header="autosecops_auth=test; autosecops-org-id=org",
         workspace_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
         entity_type="agent_preset",
         entity_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
@@ -67,7 +67,7 @@ def test_resolve_cookie_header_uses_explicit_env(
 def test_build_headers_sets_cookie_and_sse_accept() -> None:
     headers = build_headers(make_config())
 
-    assert headers["Cookie"] == "tracecat_auth=test; tracecat-org-id=org"
+    assert headers["Cookie"] == "autosecops_auth=test; autosecops-org-id=org"
     assert headers["Accept"] == "text/event-stream"
 
 

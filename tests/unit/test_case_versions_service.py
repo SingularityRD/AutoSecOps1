@@ -19,7 +19,7 @@ def _role_with_scopes(*scopes: str) -> Role:
         type="user",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(scopes),
     )
 

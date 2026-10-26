@@ -102,7 +102,7 @@ async def test_list_mappings_returns_joined_detail(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("limit", [0, config.TRACECAT__LIMIT_CURSOR_MAX + 1])
+@pytest.mark.parametrize("limit", [0, config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1])
 async def test_mapping_page_limit_is_validated(
     client: TestClient, test_admin_role: Role, limit: int
 ) -> None:

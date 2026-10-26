@@ -118,7 +118,7 @@ _STORAGE_CLIENT_CONFIG = AioConfig(
     retries={
         # botocore's "max_attempts" means retries-after-initial; use
         # "total_max_attempts" so the knob is the total request count.
-        "total_max_attempts": config.TRACECAT__BLOB_STORAGE_MAX_ATTEMPTS,
+        "total_max_attempts": config.AUTOSECOPS__BLOB_STORAGE_MAX_ATTEMPTS,
         "mode": "standard",
     },
 )
@@ -165,13 +165,13 @@ def _create_storage_client_context() -> AbstractAsyncContextManager[S3Client]:
     # verify=True would bypass botocore's default CA-bundle resolution
     # (AWS_CA_BUNDLE / the ca_bundle config), so leave it as None in the default
     # case to preserve that behavior.
-    verify = None if config.TRACECAT__BLOB_STORAGE_SSL_VERIFY else False
+    verify = None if config.AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY else False
     # Configure client based on protocol
-    if config.TRACECAT__BLOB_STORAGE_ENDPOINT:
+    if config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT:
         # MinIO configuration - use AWS_* or MINIO_ROOT_* credentials
         return session.client(
             "s3",
-            endpoint_url=config.TRACECAT__BLOB_STORAGE_ENDPOINT,
+            endpoint_url=config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT,
             config=_STORAGE_CLIENT_CONFIG,
             verify=verify,
             # Defaults to minio default credentials. MUST REPLACE WITH PRODUCTION CREDENTIALS.
@@ -442,8 +442,8 @@ async def configure_bucket_lifecycle(
 
 def _rewrite_presigned_endpoint(url: str) -> str:
     """Swap the internal storage endpoint prefix for the browser-reachable one."""
-    internal = config.TRACECAT__BLOB_STORAGE_ENDPOINT
-    public = config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
+    internal = config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT
+    public = config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
     if not internal or not public or not url.startswith(internal):
         return url
     return f"{public}{url[len(internal) :]}"
@@ -494,7 +494,7 @@ async def generate_presigned_download_url(
         ClientError: If an unredacted URL generation fails.
         StoragePresignError: If a redacted URL generation fails.
     """
-    expiry = expiry or config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
+    expiry = expiry or config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
     log_key, log_bucket = _storage_log_identifiers(
         key,
         bucket,
@@ -587,7 +587,7 @@ async def generate_presigned_upload_url(
         ClientError: If an unredacted URL generation fails.
         StoragePresignError: If a redacted URL generation fails.
     """
-    expiry = expiry or config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
+    expiry = expiry or config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
     log_key, log_bucket = _storage_log_identifiers(
         key,
         bucket,

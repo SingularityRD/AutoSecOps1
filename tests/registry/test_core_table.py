@@ -134,13 +134,13 @@ class TestCoreLookupMany:
         """lookup_many should reject limits above table row cap."""
         with pytest.raises(
             ValueError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
             await lookup_many(
                 table="test_table",
                 column="name",
                 value="John Doe",
-                limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1,
+                limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1,
             )
         mock_tables_client.lookup_many.assert_not_called()
 
@@ -348,11 +348,11 @@ class TestCoreSearchRecords:
         """search_rows should reject limits above cursor pagination cap."""
         with pytest.raises(
             ValueError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
             await search_rows(
                 table="test_table",
-                limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1,
+                limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1,
             )
         mock_tables_client.search_rows.assert_not_called()
 
@@ -531,12 +531,12 @@ class TestCoreDownloadTable:
         with pytest.raises(
             ValueError,
             match=(
-                f"Cannot return more than {config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX} rows"
+                f"Cannot return more than {config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX} rows"
             ),
         ):
             await download(
                 name="test_table",
-                limit=config.TRACECAT__LIMIT_TABLE_DOWNLOAD_MAX + 1,
+                limit=config.AUTOSECOPS__LIMIT_TABLE_DOWNLOAD_MAX + 1,
             )
         mock_tables_client.download.assert_not_called()
 

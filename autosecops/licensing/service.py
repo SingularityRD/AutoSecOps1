@@ -107,12 +107,12 @@ def _decode_cached(token: str, pem: bytes) -> LicenseClaims | LicenseErrorCode:
 
 
 def get_license_state(now: datetime | None = None, *, log: bool = True) -> LicenseState:
-    """Evaluate ``TRACECAT__LICENSE_KEY`` against the embedded public key.
+    """Evaluate ``AUTOSECOPS__LICENSE_KEY`` against the embedded public key.
 
     With ``log``, logs the state when it changes and re-logs grace, expired,
     and invalid states at most once per hour.
     """
-    token = config.TRACECAT__LICENSE_KEY
+    token = config.AUTOSECOPS__LICENSE_KEY
     if not token:
         state = LicenseState(status=LicenseStatus.MISSING)
     else:

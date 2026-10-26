@@ -15,8 +15,8 @@ import jwt
 from jwt import PyJWTError
 from pydantic import BaseModel, ValidationError
 
-TUNNEL_TOKEN_ISSUER = "tracecat-executor"
-TUNNEL_TOKEN_AUDIENCE = "tracecat-tunnel-gateway"
+TUNNEL_TOKEN_ISSUER = "autosecops-executor"
+TUNNEL_TOKEN_AUDIENCE = "autosecops-tunnel-gateway"
 TUNNEL_TOKEN_DEFAULT_TTL_SECONDS = 300
 TUNNEL_TOKEN_MAX_TTL_SECONDS = 900
 # Only claims the gateway authorizes on are required. Log-only claims such as
@@ -24,8 +24,8 @@ TUNNEL_TOKEN_MAX_TTL_SECONDS = 900
 # breaking gateways and executors on adjacent versions.
 _REQUIRED_CLAIMS = ("iss", "aud", "sub", "iat", "exp", "workspace_id")
 
-GATEWAY_POLICY_TOKEN_ISSUER = "tracecat-tunnel-gateway"
-GATEWAY_POLICY_TOKEN_AUDIENCE = "tracecat-tunnel-policy"
+GATEWAY_POLICY_TOKEN_ISSUER = "autosecops-tunnel-gateway"
+GATEWAY_POLICY_TOKEN_AUDIENCE = "autosecops-tunnel-policy"
 GATEWAY_POLICY_TOKEN_TTL_SECONDS = 60
 _POLICY_REQUIRED_CLAIMS = ("iss", "aud", "sub", "iat", "exp")
 

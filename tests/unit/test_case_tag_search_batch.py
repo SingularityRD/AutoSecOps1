@@ -61,7 +61,7 @@ async def tag_search_service(
         session,
         Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             workspace_id=workspace.id,
             organization_id=workspace.organization_id,
             scopes=frozenset({"case:read"}),

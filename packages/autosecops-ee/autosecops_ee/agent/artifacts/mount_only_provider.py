@@ -43,7 +43,7 @@ class MountOnlyArtifactWorkingSetProvider:
     ) -> ArtifactWorkingSetResult:
         """Prepare scratch artifact files for a Workspace Chat turn."""
         host_root = _prepare_host_artifact_root(ctx.host_work_dir)
-        runtime_root = ctx.runtime_work_dir / ".tracecat" / "artifacts"
+        runtime_root = ctx.runtime_work_dir / ".autosecops" / "artifacts"
 
         logger.info(
             "Preparing Workspace Chat artifact working set",
@@ -185,9 +185,9 @@ def _safe_path_segment(value: str) -> str:
 
 
 def _prepare_host_artifact_root(host_work_dir: Path) -> Path:
-    tracecat_root = host_work_dir / ".tracecat"
-    _ensure_real_directory(tracecat_root)
-    artifact_root = tracecat_root / "artifacts"
+    autosecops_root = host_work_dir / ".autosecops"
+    _ensure_real_directory(autosecops_root)
+    artifact_root = autosecops_root / "artifacts"
     _remove_path_without_following_symlink(artifact_root)
     artifact_root.mkdir(parents=True, exist_ok=True)
     return artifact_root
@@ -228,7 +228,7 @@ def _build_prompt_fragment(manifest: ArtifactWorkingSetManifest) -> str:
         for entry in manifest.artifacts
     )
     return (
-        "<TracecatArtifacts>\n"
+        "<AutoSecOpsArtifacts>\n"
         "Workspace Chat artifacts are mounted for local inspection at "
         f"`{manifest.root}`. Read `{manifest.root}/manifest.json` for the full "
         "manifest. Each artifact entry points at hydrated content when available; "
@@ -237,7 +237,7 @@ def _build_prompt_fragment(manifest: ArtifactWorkingSetManifest) -> str:
         "AutoSecOps, and `commit_available` is false. To persist a small semantic "
         "change, use the existing AutoSecOps domain tools.\n\n"
         f"{artifacts}\n"
-        "</TracecatArtifacts>"
+        "</AutoSecOpsArtifacts>"
     )
 
 

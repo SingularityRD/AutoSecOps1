@@ -238,7 +238,7 @@ An organization administrator can restrict the organization to named IP allowlis
 - Sign-in from a denied address after the credential is verified, for password, OIDC, and SAML.
 - Every REST API request scoped to the organization from a denied address, whether it carries a session cookie, a service account API key, or a SCIM token, after its credential is verified and before the endpoint runs.
 
-AutoSecOps resolves the client address from `X-Forwarded-For` and trusts only the hops in `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS`, so a client cannot forge its address past the proxy chain. Each API replica caches the compiled allowlist for 30 seconds and matches in memory, so the check adds no database round trip to the request path. AutoSecOps refuses to enable an allowlist that excludes the administrator's own address, and platform superusers bypass the allowlist as the break-glass path. The AutoSecOps MCP server authenticates with its own OAuth tokens and is outside the allowlist.
+AutoSecOps resolves the client address from `X-Forwarded-For` and trusts only the hops in `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`, so a client cannot forge its address past the proxy chain. Each API replica caches the compiled allowlist for 30 seconds and matches in memory, so the check adds no database round trip to the request path. AutoSecOps refuses to enable an allowlist that excludes the administrator's own address, and platform superusers bypass the allowlist as the break-glass path. The AutoSecOps MCP server authenticates with its own OAuth tokens and is outside the allowlist.
 
 ### Session visibility
 
@@ -258,7 +258,7 @@ AutoSecOps enforces tenant scope in the application layer, and PostgreSQL row-le
 
 AutoSecOps presents stored credentials to external systems at execution time, so credential storage has to be reversible. Where AutoSecOps never replays a value, it hashes instead.
 
-Reversible encryption uses Fernet — AES-128-CBC with an HMAC-SHA256 authentication tag — keyed by `TRACECAT__DB_ENCRYPTION_KEY`. The tag authenticates the ciphertext, so tampering fails the decrypt instead of yielding altered plaintext. It covers:
+Reversible encryption uses Fernet — AES-128-CBC with an HMAC-SHA256 authentication tag — keyed by `AUTOSECOPS__DB_ENCRYPTION_KEY`. The tag authenticates the ciphertext, so tampering fails the decrypt instead of yielding altered plaintext. It covers:
 
 - Workspace, organization, and platform secrets.
 - OAuth and integration credentials, including access tokens, refresh tokens, and client secrets.
@@ -294,7 +294,7 @@ Two limits apply. Masking is literal substring replacement, so it misses an enco
 
 ### Encryption keys
 
-AutoSecOps generates no key material of its own. You provision two things and supply them to the deployment: `TRACECAT__DB_ENCRYPTION_KEY`, the Fernet key behind credential encryption, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING`, the keyring behind workflow history encryption.
+AutoSecOps generates no key material of its own. You provision two things and supply them to the deployment: `AUTOSECOPS__DB_ENCRYPTION_KEY`, the Fernet key behind credential encryption, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING`, the keyring behind workflow history encryption.
 
 Store both in the secret manager your platform already provides, and keep them out of application configuration and version control. On Kubernetes, the recommended production deployment, use a Kubernetes Secret synced from your own secret manager by External Secrets Operator rather than one created by hand.
 
@@ -303,7 +303,7 @@ On AWS Fargate, use AWS Secrets Manager: ECS injects the core secrets into the c
 On Docker Compose, treat the `.env` file as the sensitive artifact: restrict it to the service account that runs AutoSecOps and keep it out of version control. Move to Kubernetes for a managed secret store and the full sandbox boundary.
 
 <Warning>
-  **`TRACECAT__DB_ENCRYPTION_KEY` cannot be rotated**
+  **`AUTOSECOPS__DB_ENCRYPTION_KEY` cannot be rotated**
 
   AutoSecOps encrypts under a single Fernet key and has no re-encryption path.
   Changing or losing the key makes every stored credential unrecoverable. Back

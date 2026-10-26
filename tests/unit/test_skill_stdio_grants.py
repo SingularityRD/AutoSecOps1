@@ -32,11 +32,11 @@ class GrantContext:
 @pytest.fixture
 def grant_context(monkeypatch: pytest.MonkeyPatch) -> GrantContext:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )

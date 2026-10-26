@@ -83,7 +83,7 @@ async def test_agent_worker_initializes_tracing_before_temporal_client(
     events: list[str] = []
 
     def initialize_tracing(service_name: str) -> None:
-        assert service_name == "tracecat-agent-worker"
+        assert service_name == "autosecops-agent-worker"
         events.append("initialize_tracing")
 
     async def get_temporal_client() -> None:
@@ -121,7 +121,7 @@ async def test_agent_executor_initializes_tracing_before_runtime_services(
     events: list[str] = []
 
     def initialize_tracing(service_name: str) -> None:
-        assert service_name == "tracecat-agent-executor"
+        assert service_name == "autosecops-agent-executor"
         events.append("initialize_tracing")
 
     async def start_runtime_services() -> None:
@@ -468,7 +468,7 @@ async def test_agent_executor_worker_treats_empty_numeric_env_vars_as_defaults(
         ) -> None:
             del exc_type, exc, tb
 
-    monkeypatch.setenv("TRACECAT__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES", "")
+    monkeypatch.setenv("AUTOSECOPS__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES", "")
     monkeypatch.setenv("TEMPORAL__THREADPOOL_MAX_WORKERS", "")
     monkeypatch.setattr(
         executor_worker, "_start_runtime_services", AsyncMock(return_value=object())
@@ -478,12 +478,12 @@ async def test_agent_executor_worker_treats_empty_numeric_env_vars_as_defaults(
     monkeypatch.setattr(executor_worker, "new_sandbox_runner", lambda: object())
     monkeypatch.setattr(
         executor_worker.config,
-        "TRACECAT__AGENT_EXECUTOR_QUEUE",
+        "AUTOSECOPS__AGENT_EXECUTOR_QUEUE",
         "test-agent-executor-queue",
     )
     monkeypatch.setattr(
         executor_worker.config,
-        "TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT",
+        "AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT",
         3660,
     )
     await executor_worker.main(shutdown_event=shutdown_event)

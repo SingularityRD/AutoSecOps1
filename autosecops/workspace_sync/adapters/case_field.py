@@ -309,7 +309,7 @@ def _unique_temporary_case_field_name(
 ) -> str:
     """Return a temporary case field name that does not collide."""
     field_token = uuid.uuid5(definition_id, field_id).hex[:16]
-    base = f"tracecat_sync_tmp_{field_token}"
+    base = f"autosecops_sync_tmp_{field_token}"
     candidate = base
     suffix = 1
     while candidate in reserved_names:

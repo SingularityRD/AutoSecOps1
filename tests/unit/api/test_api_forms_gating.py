@@ -93,7 +93,7 @@ async def test_every_forms_route_needs_the_flag_and_the_entitlement(
     status_code: int,
 ) -> None:
     client: TestClient = request.getfixturevalue(client_name)
-    monkeypatch.setattr(config, "TRACECAT__FEATURE_FLAGS", flags)
+    monkeypatch.setattr(config, "AUTOSECOPS__FEATURE_FLAGS", flags)
     path = route.path.replace("{workspace_id}", str(test_admin_role.workspace_id))
     path = re.sub(r"\{[a-z_]+\}", str(uuid.uuid4()), path)
     [method] = route.methods
@@ -124,9 +124,9 @@ async def test_single_tenant_forms_need_the_flag_and_a_licensed_entitlement(
     The flag still gates the feature, but the ``forms`` entitlement now comes
     only from a signed license key, never from the flag.
     """
-    role = Role(type="user", organization_id=uuid.uuid4(), service_id="tracecat-api")
-    monkeypatch.setattr(config, "TRACECAT__FEATURE_FLAGS", {FeatureFlag.FORMS})
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    role = Role(type="user", organization_id=uuid.uuid4(), service_id="autosecops-api")
+    monkeypatch.setattr(config, "AUTOSECOPS__FEATURE_FLAGS", {FeatureFlag.FORMS})
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -152,12 +152,12 @@ async def test_single_tenant_forms_need_the_flag_and_a_licensed_entitlement(
     )
 
     try:
-        monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", None)
+        monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", None)
         with pytest.raises(EntitlementRequired):
             await check_forms_enabled(AsyncMock(), role)
 
         token = encode_license(licensed, private_key)
-        monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", token)
+        monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", token)
         await check_forms_enabled(AsyncMock(), role)
     finally:
         license_service._decode_cached.cache_clear()

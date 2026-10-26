@@ -20,10 +20,10 @@ diagnosis, run it alongside the load runner with the same artifact directory:
         --compose-file packages/autosecops-benchmark/docker-compose.loadtest.yml \\
         --temporal-target localhost:7333 \\
         --temporal-namespace default \\
-        --temporal-workflow-task-queue tracecat-task-queue \\
-        --temporal-activity-task-queue tracecat-task-queue \\
+        --temporal-workflow-task-queue autosecops-task-queue \\
+        --temporal-activity-task-queue autosecops-task-queue \\
         --temporal-activity-task-queue shared-action-queue \\
-        --dsn-env TRACECAT_LOADTEST_MONITOR_DSN
+        --dsn-env AUTOSECOPS_LOADTEST_MONITOR_DSN
 
 The collector stops automatically after the runner completes plus the requested
 recovery window. SIGINT remains available for a runner that exits before it can
@@ -60,7 +60,7 @@ from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest
 from temporalio.client import Client as TemporalClient
 from temporalio.service import RPCError
 
-from autosecops import config as tracecat_config
+from autosecops import config as autosecops_config
 from autosecops.dsl._converter import get_data_converter
 from autosecops.identifiers.workflow import WorkspaceUUID
 
@@ -103,8 +103,8 @@ from .models import (
 )
 from .repository import resolve_repository_root
 
-DEFAULT_ARTIFACT_ROOT: Final = "/tmp/tracecat-load-test"
-DEFAULT_DSN_ENV: Final = "TRACECAT_LOADTEST_MONITOR_DSN"
+DEFAULT_ARTIFACT_ROOT: Final = "/tmp/autosecops-load-test"
+DEFAULT_DSN_ENV: Final = "AUTOSECOPS_LOADTEST_MONITOR_DSN"
 DEFAULT_LOG_SERVICES: Final = ("api", "worker", "executor", "postgres_db")
 # Long-running services used by the current table-backed load types. Migrations
 # is an expected successful one-shot; future types may extend this set.
@@ -138,7 +138,7 @@ SANDBOX_COMPOSE_FILE: Final = "docker-compose.sandbox.yml"
 REDACTED_ENV_VALUE: Final = "[REDACTED]"
 REDACTED_PATH_VALUE: Final = "[REDACTED_PATH]"
 RUN_CLAIM_FILENAME: Final = "collector_claim.json"
-_TRACECAT_APPLICATION_NAMES: Final = frozenset(
+_AUTOSECOPS_APPLICATION_NAMES: Final = frozenset(
     {
         "api",
         "worker",
@@ -155,8 +155,8 @@ KNOWN_APPLICATION_NAMES: Final = frozenset(
         "load-test-collector",
         "load-test-monitor-provisioner",
         "load-test-probe",
-        *_TRACECAT_APPLICATION_NAMES,
-        *(f"{name}-auth" for name in _TRACECAT_APPLICATION_NAMES),
+        *_AUTOSECOPS_APPLICATION_NAMES,
+        *(f"{name}-auth" for name in _AUTOSECOPS_APPLICATION_NAMES),
     }
 )
 # A real ``docker stats --no-stream`` snapshot routinely takes just over two
@@ -1218,7 +1218,7 @@ class TemporalSampler:
             identity="load-test-collector",
             data_converter=get_data_converter(
                 compression_enabled=(
-                    tracecat_config.TRACECAT__CONTEXT_COMPRESSION_ENABLED
+                    autosecops_config.AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED
                 )
             ),
         )
@@ -1410,7 +1410,7 @@ class DockerResourceSampler:
 
 
 def _parse_db_pool_metrics_payload(payload: object) -> DbPoolMetricsPayload:
-    """Validate the versioned shape served by ``tracecat.db.pool_metrics``."""
+    """Validate the versioned shape served by ``autosecops.db.pool_metrics``."""
     if not isinstance(payload, dict):
         raise DbPoolMetricsCaptureError("DB pool metrics response is not an object")
     document = cast(dict[str, object], payload)
@@ -1666,8 +1666,8 @@ def _deployed_compose_public_urls(
     container_environments: list[dict[str, str]],
 ) -> ComposePublicUrls:
     """Resolve one consistent app/API URL pair without retaining other env."""
-    app_keys = {"TRACECAT__PUBLIC_APP_URL", "NEXT_PUBLIC_APP_URL"}
-    api_keys = {"TRACECAT__PUBLIC_API_URL", "NEXT_PUBLIC_API_URL"}
+    app_keys = {"AUTOSECOPS__PUBLIC_APP_URL", "NEXT_PUBLIC_APP_URL"}
+    api_keys = {"AUTOSECOPS__PUBLIC_API_URL", "NEXT_PUBLIC_API_URL"}
     app_urls = {
         value
         for environment in container_environments
@@ -2275,7 +2275,7 @@ def validate_temporal_context(
     )
     expected_workflow_queue = worker_environment.get("TEMPORAL__CLUSTER_QUEUE")
     expected_executor_activity_queue = executor_environment.get(
-        "TRACECAT__EXECUTOR_QUEUE"
+        "AUTOSECOPS__EXECUTOR_QUEUE"
     )
     if (
         expected_namespace is None
@@ -3336,8 +3336,8 @@ class MetricCollector:
             sample_count=self._sample_count,
             temporal_sample_count=self._temporal_sample_count,
             resource_sample_count=self._resource_sample_count,
-            tracecat_commit=commit,
-            tracecat_commit_dirty=dirty,
+            autosecops_commit=commit,
+            autosecops_commit_dirty=dirty,
             cluster_num=self._config.cluster_num,
             public_api_url=self._config.public_api_url,
             workspace_fingerprint=workspace_fingerprint(
@@ -3404,8 +3404,8 @@ def _write_preflight_failure_manifest(
         sample_count=0,
         temporal_sample_count=0,
         resource_sample_count=0,
-        tracecat_commit="unknown",
-        tracecat_commit_dirty=False,
+        autosecops_commit="unknown",
+        autosecops_commit_dirty=False,
         cluster_num=cluster_num,
         # Startup can fail before this caller-supplied endpoint is validated.
         public_api_url=REDACTED_ENV_VALUE,

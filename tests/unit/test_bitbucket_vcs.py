@@ -47,7 +47,7 @@ def role(*scopes: str) -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(scopes) if scopes else ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
 

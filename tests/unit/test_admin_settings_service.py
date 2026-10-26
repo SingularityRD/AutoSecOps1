@@ -30,7 +30,7 @@ def platform_role() -> PlatformRole:
     return PlatformRole(
         type="user",
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -88,7 +88,7 @@ async def test_platform_audit_settings_encrypt_sensitive_values(
         clear_audit_cache,
     )
     custom_headers = {"Authorization": "Bearer secret"}
-    custom_payload = {"source": "tracecat-platform"}
+    custom_payload = {"source": "autosecops-platform"}
 
     settings = await service.update_audit_settings(
         PlatformAuditSettingsUpdate(

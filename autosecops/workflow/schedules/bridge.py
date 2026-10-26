@@ -156,8 +156,8 @@ async def update_schedule(schedule_id: AnyScheduleID, params: ScheduleUpdate) ->
                 )
                 role = Role(
                     type="service",
-                    service_id="tracecat-schedule-runner",
-                    scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-schedule-runner"],
+                    service_id="autosecops-schedule-runner",
+                    scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-schedule-runner"],
                 )
             action.typed_search_attributes = build_schedule_search_attributes(role)
             if "inputs" in set_fields:

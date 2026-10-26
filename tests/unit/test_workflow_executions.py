@@ -80,8 +80,8 @@ def mock_role() -> Role:
         type="service",
         workspace_id=uuid.uuid4(),
         user_id=None,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
 
@@ -530,7 +530,7 @@ class TestWorkflowExecutionEvents:
         )
         unreadable = UnreadableTemporalPayload(
             error_type="TemporalPayloadCodecError",
-            encoding="binary/tracecat-aes256gcm",
+            encoding="binary/autosecops-aes256gcm",
             payload_size_bytes=42,
         )
 
@@ -2079,8 +2079,8 @@ class TestTimeoutResolution:
             type="service",
             workspace_id=workspace.id if workspace else None,
             user_id=None,
-            service_id="tracecat-service",
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+            service_id="autosecops-service",
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
         )
         service = WorkflowExecutionsService(client=mock_client, role=role)
 

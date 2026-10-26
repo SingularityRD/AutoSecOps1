@@ -22,9 +22,9 @@ COPY --from=builder /out/ /
 
 # Package startup provisioning with the extension; no host files or downloads
 # are needed when a container is created or restarted.
-COPY scripts/postgres/compose-entrypoint.sh /usr/local/bin/tracecat-postgres-entrypoint.sh
-COPY scripts/postgres/pgvector.sql /usr/local/share/tracecat/pgvector.sql
+COPY scripts/postgres/compose-entrypoint.sh /usr/local/bin/autosecops-postgres-entrypoint.sh
+COPY scripts/postgres/pgvector.sql /usr/local/share/autosecops/pgvector.sql
 COPY scripts/postgres/initdb-pgvector.sql /docker-entrypoint-initdb.d/pgvector.sql
 LABEL org.opencontainers.image.source="https://github.com/SingularityRD/AutoSecOps1"
-ENTRYPOINT ["bash", "/usr/local/bin/tracecat-postgres-entrypoint.sh"]
+ENTRYPOINT ["bash", "/usr/local/bin/autosecops-postgres-entrypoint.sh"]
 CMD ["postgres"]

@@ -142,7 +142,7 @@ def test_query_rejects_incompatible_hierarchy_constraints() -> None:
         CaseQuery(parent_id=CASE_ID, hierarchy="top_level")
 
 
-@pytest.mark.parametrize("limit", [0, config.TRACECAT__LIMIT_CURSOR_MAX + 1])
+@pytest.mark.parametrize("limit", [0, config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1])
 def test_request_retains_cursor_pagination_limits(limit: int) -> None:
     with pytest.raises(ValidationError):
         CaseSearchRequest(limit=limit)
@@ -252,7 +252,7 @@ def test_metadata_walk_visits_negated_conditions() -> None:
 async def test_legacy_filters_do_not_add_a_level_to_the_explicit_tree() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=WORKSPACE_ID,
         organization_id=UUID("00000000-0000-4000-8000-000000000003"),
     )

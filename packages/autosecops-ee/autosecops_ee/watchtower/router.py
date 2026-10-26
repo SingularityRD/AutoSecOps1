@@ -51,9 +51,9 @@ async def list_watchtower_agents(
     role: OrgUserRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     agent_type: WatchtowerAgentType | None = Query(default=None),
@@ -86,9 +86,9 @@ async def list_watchtower_agent_sessions(
     session: AsyncDBSession,
     agent_id: uuid.UUID,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     workspace_id: uuid.UUID | None = Query(default=None),
@@ -127,9 +127,9 @@ async def list_watchtower_session_tool_calls(
     session: AsyncDBSession,
     session_id: uuid.UUID,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     status_filter: WatchtowerToolCallStatus | None = Query(

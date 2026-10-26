@@ -33,9 +33,9 @@ async def list_case_versions(
     session: AsyncDBSession,
     case_id: uuid.UUID,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum items per page",
     ),
     cursor: str | None = Query(

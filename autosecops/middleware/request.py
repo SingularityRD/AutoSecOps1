@@ -24,7 +24,7 @@ def _normalize_client_ip(value: str | None) -> str | None:
 def _is_trusted_proxy(value: str) -> bool:
     addr = ip_address(value)
     return any(
-        addr in network for network in config.TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS
+        addr in network for network in config.AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS
     )
 
 
@@ -33,7 +33,7 @@ def resolve_client_ip(request: Request) -> str | None:
 
     Each proxy appends its peer, so the chain is trustworthy only from the
     right; the leftmost entries are client-controlled. Walk right to left,
-    skipping TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS hops; the first address not
+    skipping AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS hops; the first address not
     on that list is the client. A fully trusted chain (internal service
     traffic) attributes to its leftmost hop.
     """
@@ -55,7 +55,7 @@ def resolve_client_ip(request: Request) -> str | None:
 # === User-agent normalization === #
 
 _AUDIT_CLIENT_USER_AGENT_PATTERN = re.compile(
-    r"^(?P<product>TracecatClient|curl|python-httpx|Claude-Code|Codex)"
+    r"^(?P<product>AutoSecOpsClient|curl|python-httpx|Claude-Code|Codex)"
     r"/(?P<version>\d{1,4}(?:\.\d{1,4}){0,3})\b",
     re.IGNORECASE,
 )
@@ -64,7 +64,7 @@ _AUDIT_CLIENT_USER_AGENT_FAMILIES = {
     "codex": "codex",
     "curl": "curl",
     "python-httpx": "httpx",
-    "tracecatclient": "tracecat",
+    "autosecopsclient": "autosecops",
 }
 # Browser UAs hide their identity mid-string; most-specific token first
 # (Edge UAs contain Chrome/, Chrome UAs contain Safari/).

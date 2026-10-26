@@ -63,7 +63,7 @@ workflow_bucket = lifecycle.workflow_bucket
 
 @pytest.fixture(autouse=True)
 def scoped_database(monkeypatch: pytest.MonkeyPatch, env_sandbox):
-    monkeypatch.setattr(config, "TRACECAT__DB_URI", TEST_DB_CONFIG.test_url_sync)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", TEST_DB_CONFIG.test_url_sync)
     reset_async_engine()
     yield
     reset_async_engine()

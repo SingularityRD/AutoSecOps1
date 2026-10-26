@@ -656,13 +656,13 @@ class RegistrySyncSandbox:
         timeout_seconds: int,
     ) -> RegistryArtifactBuildResult:
         """Package installed files in a fresh no-network jail."""
-        if not config.TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED:
+        if not config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED:
             raise RegistryArtifactBuildError(
                 "Cannot build registry artifact because SquashFS is disabled"
             )
         _validate_installed_site_packages(site_packages)
         if not _SQUASHFS_MEMORY_PATTERN.fullmatch(
-            config.TRACECAT__REGISTRY_SYNC_SQUASHFS_MEM
+            config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_MEM
         ):
             raise RegistryArtifactBuildError("Invalid SquashFS memory configuration")
 
@@ -673,8 +673,8 @@ class RegistrySyncSandbox:
         (job_dir / "inputs.json").write_text(
             json.dumps(
                 {
-                    "processors": config.TRACECAT__REGISTRY_SYNC_SQUASHFS_PROCESSORS,
-                    "memory": config.TRACECAT__REGISTRY_SYNC_SQUASHFS_MEM,
+                    "processors": config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_PROCESSORS,
+                    "memory": config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_MEM,
                 }
             ),
             encoding="utf-8",
@@ -745,7 +745,7 @@ class RegistrySyncSandbox:
         # discovery scripts in a fresh host-created directory that was never
         # exposed to the untrusted installer, preventing pre-planted symlinks.
         with tempfile.TemporaryDirectory(
-            prefix="tracecat_registry_discovery_"
+            prefix="autosecops_registry_discovery_"
         ) as temp_dir:
             discovery_root = Path(temp_dir)
             job_dir = discovery_root / "work"
@@ -763,9 +763,9 @@ class RegistrySyncSandbox:
                 )
                 trusted_package_roots.append(package_root)
 
-            trusted_tracecat_root, *other_trusted_roots = trusted_package_roots
+            trusted_autosecops_root, *other_trusted_roots = trusted_package_roots
             python_path_dirs = [
-                trusted_tracecat_root,
+                trusted_autosecops_root,
                 site_packages,
                 *_host_site_packages_paths(),
                 *other_trusted_roots,

@@ -51,7 +51,7 @@ async def test_semantic_route_registered_on_both_internal_surfaces():
     url, _ = client._request_url_and_transport("/tables/synthetic/rows/semantic-search")
     assert (
         url
-        == "http://tracecat-action-gateway/internal/tables/synthetic/rows/semantic-search"
+        == "http://autosecops-action-gateway/internal/tables/synthetic/rows/semantic-search"
     )
 
 

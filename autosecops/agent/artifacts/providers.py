@@ -17,7 +17,7 @@ from autosecops.agent.artifacts.working_set import (
 from autosecops.agent.common.types import MCPToolDefinition
 
 ARTIFACT_PROVIDER_ENTRY_POINT_GROUP = "autosecops.agent_artifact_provider"
-ARTIFACT_PROVIDER_ENV = "TRACECAT__AGENT_ARTIFACT_PROVIDER"
+ARTIFACT_PROVIDER_ENV = "AUTOSECOPS__AGENT_ARTIFACT_PROVIDER"
 
 
 class NoopArtifactWorkingSetProvider:
@@ -28,7 +28,7 @@ class NoopArtifactWorkingSetProvider:
         ctx: ArtifactWorkingSetContext,
     ) -> ArtifactWorkingSetResult:
         """Return an empty manifest without writing files."""
-        root = str(ctx.runtime_work_dir / ".tracecat" / "artifacts")
+        root = str(ctx.runtime_work_dir / ".autosecops" / "artifacts")
         return ArtifactWorkingSetResult(
             manifest=ArtifactWorkingSetManifest(root=root),
             prompt_fragment=None,

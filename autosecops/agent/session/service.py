@@ -166,7 +166,7 @@ if TYPE_CHECKING:
 
     from autosecops.agent.executor.schemas import ToolExecutionResult
 
-AUTO_TITLE_SERVICE_ID = "tracecat-api"
+AUTO_TITLE_SERVICE_ID = "autosecops-api"
 AGENT_SESSION_EXECUTION_SCOPES: frozenset[str] = frozenset(
     {
         "action:*:execute",

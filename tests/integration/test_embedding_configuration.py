@@ -243,10 +243,10 @@ class ConfigurationCase:
 
 @pytest.fixture
 async def case(monkeypatch, provider_server) -> AsyncIterator[ConfigurationCase]:
-    monkeypatch.setattr(config, "TRACECAT__DB_URI", TEST_DB_CONFIG.test_url)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", TEST_DB_CONFIG.test_url)
     monkeypatch.setattr(
         config,
-        "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+        "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
         [ipaddress.ip_network("127.0.0.0/8")],
     )
     await get_async_engine().dispose()
@@ -256,7 +256,7 @@ async def case(monkeypatch, provider_server) -> AsyncIterator[ConfigurationCase]
     roles = tuple(
         Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
             user_id=uuid.uuid4(),
@@ -699,7 +699,7 @@ async def test_self_hosted_discovery_selection_embedding_and_removal(
     assert not case.server.calls  # Selection/status never probes the provider.
     request = await case.request()
     with monkeypatch.context() as policy:
-        policy.setattr(config, "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS", [])
+        policy.setattr(config, "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS", [])
         with pytest.raises(EmbeddingError) as caught:
             await embed_current(request, case.client)
         assert caught.value.code == EmbeddingErrorCode.CONFIGURATION_INVALID

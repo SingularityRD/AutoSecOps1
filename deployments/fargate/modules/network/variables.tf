@@ -8,7 +8,7 @@ variable "aws_region" {
 variable "name_prefix" {
   type        = string
   description = "Prefix for network resource names"
-  default     = "tracecat"
+  default     = "autosecops"
 
   validation {
     condition     = length(var.name_prefix) <= 23 && can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.name_prefix))

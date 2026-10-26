@@ -88,9 +88,9 @@ async def test_get_aws_assume_role_access_hides_internal_config_errors(
 ) -> None:
     with patch.object(
         secrets_router,
-        "get_tracecat_aws_account_id",
+        "get_autosecops_aws_account_id",
         side_effect=ValueError(
-            "TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID is not configured"
+            "AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID is not configured"
         ),
     ):
         response = client.get(

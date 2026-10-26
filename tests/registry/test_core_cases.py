@@ -722,9 +722,9 @@ class TestCoreListCases:
 
         with pytest.raises(
             TracecatValidationError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
-            await list_cases(limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1)
+            await list_cases(limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1)
 
 
 @pytest.mark.anyio
@@ -883,9 +883,9 @@ class TestCoreSearchCases:
 
         with pytest.raises(
             TracecatValidationError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
-            await search_cases(limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1)
+            await search_cases(limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1)
 
 
 @pytest.mark.anyio

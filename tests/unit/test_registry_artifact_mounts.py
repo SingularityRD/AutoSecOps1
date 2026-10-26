@@ -224,7 +224,7 @@ async def test_mount_squashfs_stops_after_bounded_retries(tmp_path: Path) -> Non
     """Persistent mount failure performs exactly the configured attempt count."""
     processes = [
         _process(returncode=1)
-        for _ in range(config.TRACECAT__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS)
+        for _ in range(config.AUTOSECOPS__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS)
     ]
     sync_result = registry_artifact_mounts.LoopDeviceSyncResult(1, 0, 1)
 
@@ -264,12 +264,12 @@ async def test_mount_squashfs_stops_after_bounded_retries(tmp_path: Path) -> Non
 
     assert (
         create_subprocess_exec.await_count
-        == config.TRACECAT__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS
+        == config.AUTOSECOPS__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS
     )
     assert (
         sync_nodes.await_count
-        == config.TRACECAT__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS - 1
+        == config.AUTOSECOPS__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS - 1
     )
     assert (
-        sleep.await_count == config.TRACECAT__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS - 1
+        sleep.await_count == config.AUTOSECOPS__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS - 1
     )

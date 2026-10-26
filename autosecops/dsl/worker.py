@@ -131,10 +131,10 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
     _logger._is_worker_process = True
 
-    initialize_platform_tracing("tracecat-worker")
+    initialize_platform_tracing("autosecops-worker")
 
     client = await get_temporal_client()
-    task_queue = os.environ.get("TEMPORAL__CLUSTER_QUEUE", "tracecat-task-queue")
+    task_queue = os.environ.get("TEMPORAL__CLUSTER_QUEUE", "autosecops-task-queue")
 
     initialize_worker_sentry_from_environment()
     interceptors = [RuntimeErrorAttributionInterceptor()]

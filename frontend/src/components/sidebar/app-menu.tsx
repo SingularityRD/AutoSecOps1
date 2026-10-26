@@ -113,7 +113,7 @@ export function AppMenu({ workspaceId }: { workspaceId: string }) {
       return
     }
 
-    Cookies.set("tracecat:active-org-id", organizationId, {
+    Cookies.set("autosecops:active-org-id", organizationId, {
       sameSite: "lax",
       secure:
         typeof window !== "undefined" && window.location.protocol === "https:",

@@ -48,7 +48,7 @@ from autosecops.sandbox.types import SandboxNetworkPolicy
 
 TUNNEL_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 SETTINGS = GatewaySettings(
-    namespace="tracecat-tunnels",
+    namespace="autosecops-tunnels",
     image="ghcr.io/singularityrd/autosecops-tunnel-gateway:test",
     api_url="http://api:8000",
 )
@@ -72,7 +72,7 @@ class TestGatewayManifests:
         container = pod["containers"][0]
 
         assert deployment["metadata"]["name"] == f"tunnel-{TUNNEL_ID}"
-        assert deployment["metadata"]["labels"][k8s.MANAGED_BY_LABEL] == "tracecat"
+        assert deployment["metadata"]["labels"][k8s.MANAGED_BY_LABEL] == "autosecops"
         assert deployment["spec"]["replicas"] == 1
         assert deployment["spec"]["strategy"] == {"type": "Recreate"}
         assert pod["automountServiceAccountToken"] is False
@@ -106,9 +106,9 @@ class TestGatewayManifests:
             for key, value in secret["data"].items()
         }
         assert data == {
-            "TRACECAT_TUNNEL_ID": str(TUNNEL_ID),
-            "TRACECAT_TUNNEL_GATEWAY_KEY": "gateway-key",
-            "TRACECAT_TUNNEL_API_URL": "http://api:8000",
+            "AUTOSECOPS_TUNNEL_ID": str(TUNNEL_ID),
+            "AUTOSECOPS_TUNNEL_GATEWAY_KEY": "gateway-key",
+            "AUTOSECOPS_TUNNEL_API_URL": "http://api:8000",
             "PANGOLIN_ENDPOINT": "https://pangolin.example.com",
             "PANGOLIN_CLIENT_ID": "client-id",
             "PANGOLIN_CLIENT_SECRET": "client-secret",
@@ -126,7 +126,7 @@ class TestGatewayManifests:
     def test_backend_rejects_unknown_value(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "docker")
+        monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "docker")
         with pytest.raises(ValueError, match="kubernetes"):
             k8s.gateway_backend()
 
@@ -141,7 +141,7 @@ async def test_reconcile_deletes_orphans_and_applies_desired() -> None:
         requests.append((request.method, request.url.path, body))
         if request.method == "GET":
             selector = request.url.params["labelSelector"]
-            assert "app.kubernetes.io/managed-by=tracecat" in selector
+            assert "app.kubernetes.io/managed-by=autosecops" in selector
             return httpx.Response(
                 200,
                 json={
@@ -152,7 +152,7 @@ async def test_reconcile_deletes_orphans_and_applies_desired() -> None:
                 },
             )
         if request.method == "PATCH":
-            assert request.url.params["fieldManager"] == "tracecat"
+            assert request.url.params["fieldManager"] == "autosecops"
             assert request.headers["content-type"] == "application/apply-patch+yaml"
         return httpx.Response(200, json={})
 
@@ -233,11 +233,11 @@ class TestRouting:
         assert effective_tunnel(_input("a", "b", "core.workflow.execute")) == "a"
 
     def test_proxy_env_has_no_bypass(self) -> None:
-        env = tunnel_proxy_env("http://tracecat:t@10.0.0.1:8080")
+        env = tunnel_proxy_env("http://autosecops:t@10.0.0.1:8080")
         for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
-            assert env[key] == "http://tracecat:t@10.0.0.1:8080"
+            assert env[key] == "http://autosecops:t@10.0.0.1:8080"
         assert env["NO_PROXY"] == env["no_proxy"] == ""
-        assert env[TUNNEL_PROXY_ENV] == "http://tracecat:t@10.0.0.1:8080"
+        assert env[TUNNEL_PROXY_ENV] == "http://autosecops:t@10.0.0.1:8080"
 
     def test_unresolved_route_fails_closed(self) -> None:
         context = cast(
@@ -264,7 +264,7 @@ class TestOutboundTunnelProxy:
     def test_tunneled_client_uses_gateway(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv(TUNNEL_PROXY_ENV, "http://tracecat:t@10.0.0.1:8080")
+        monkeypatch.setenv(TUNNEL_PROXY_ENV, "http://autosecops:t@10.0.0.1:8080")
         client = create_outbound_http_client()
         pool = cast(Any, client._transport)._pool
         assert isinstance(pool, httpcore.AsyncHTTPProxy)
@@ -273,7 +273,7 @@ class TestOutboundTunnelProxy:
     def test_proxy_overrides_still_rejected(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv(TUNNEL_PROXY_ENV, "http://tracecat:t@10.0.0.1:8080")
+        monkeypatch.setenv(TUNNEL_PROXY_ENV, "http://autosecops:t@10.0.0.1:8080")
         with pytest.raises(ValueError):
             create_outbound_http_client(proxy="http://evil:1")
 
@@ -284,11 +284,11 @@ async def test_pangolin_api_key_arn_is_read_once_and_wins(
 ) -> None:
     from autosecops_ee.tunnels import pangolin
 
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", "https://p.test/v1")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", "https://p.test")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ORG_ID", "org-test")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY", "env-key")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY__ARN", "arn:test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_URL", "https://p.test/v1")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ENDPOINT", "https://p.test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ORG_ID", "org-test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY", "env-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY__ARN", "arn:test")
     monkeypatch.setattr(pangolin, "_api_key_from_arn", None)
     retrieve = AsyncMock(return_value="arn-key")
     monkeypatch.setattr(pangolin, "_retrieve_api_key", retrieve)
@@ -308,11 +308,11 @@ async def test_pangolin_api_key_without_arn_uses_env(
 ) -> None:
     from autosecops_ee.tunnels import pangolin
 
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", "https://p.test/v1")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", "https://p.test")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ORG_ID", "org-test")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY", "env-key")
-    monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY__ARN", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_URL", "https://p.test/v1")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ENDPOINT", "https://p.test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ORG_ID", "org-test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY", "env-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY__ARN", None)
     retrieve = AsyncMock()
     monkeypatch.setattr(pangolin, "_retrieve_api_key", retrieve)
 

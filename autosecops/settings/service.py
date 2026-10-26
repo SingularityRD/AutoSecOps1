@@ -570,4 +570,4 @@ def get_setting_override(key: str) -> Any | None:
         logger.debug(f"Setting override not supported: {key}")
         return None
 
-    return os.environ.get(f"TRACECAT__SETTING_OVERRIDE_{key.upper()}")
+    return os.environ.get(f"AUTOSECOPS__SETTING_OVERRIDE_{key.upper()}")

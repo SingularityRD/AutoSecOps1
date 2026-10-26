@@ -207,7 +207,9 @@ def _guarded_source(field: sa.SQLColumnExpression[str]) -> ColumnElement[str]:
 
 
 def _vector(field: sa.SQLColumnExpression[str]) -> ColumnElement[str]:
-    return sa.func.public.tracecat_case_safe_vector_v1(_source(field), type_=TSVECTOR())
+    return sa.func.public.autosecops_case_safe_vector_v1(
+        _source(field), type_=TSVECTOR()
+    )
 
 
 def _normalized(field: sa.SQLColumnExpression[str]) -> ColumnElement[str]:
@@ -221,7 +223,7 @@ def _full_normalized(field: sa.SQLColumnExpression[str]) -> ColumnElement[str]:
 def _native_match(
     field: sa.SQLColumnExpression[str], clause: SearchClause
 ) -> ColumnElement[bool]:
-    return sa.func.public.tracecat_case_text_matches_v1(
+    return sa.func.public.autosecops_case_text_matches_v1(
         _source(field), clause.value, clause.kind == "phrase", type_=sa.Boolean()
     )
 
@@ -481,14 +483,14 @@ WITH page_sources AS MATERIALIZED (
 ), matched AS MATERIALIZED (
     SELECT s.*, q.*, CASE q.kind
         WHEN 'literal' THEN lower(s.source) LIKE lower(q.pattern) ESCAPE '\\'
-        WHEN 'phrase' THEN CASE WHEN public.tracecat_case_safe_vector_v1(s.source) IS NULL THEN
+        WHEN 'phrase' THEN CASE WHEN public.autosecops_case_safe_vector_v1(s.source) IS NULL THEN
             public.{CASE_TEXT_MATCH_FUNCTION}(s.source, q.value, true)
-            ELSE (public.tracecat_case_safe_vector_v1(s.source) @@ phraseto_tsquery('pg_catalog.simple', q.value))
-                OR ((public.tracecat_case_safe_vector_v1(s.source) @@ plainto_tsquery('pg_catalog.simple', q.value))
+            ELSE (public.autosecops_case_safe_vector_v1(s.source) @@ phraseto_tsquery('pg_catalog.simple', q.value))
+                OR ((public.autosecops_case_safe_vector_v1(s.source) @@ plainto_tsquery('pg_catalog.simple', q.value))
                     AND public.{CASE_TEXT_MATCH_FUNCTION}(s.source, q.value, true)) END
-        ELSE CASE WHEN public.tracecat_case_safe_vector_v1(s.source) IS NULL THEN
+        ELSE CASE WHEN public.autosecops_case_safe_vector_v1(s.source) IS NULL THEN
             public.{CASE_TEXT_MATCH_FUNCTION}(s.source, q.value, false)
-            ELSE public.tracecat_case_safe_vector_v1(s.source) @@ plainto_tsquery('pg_catalog.simple', q.value) END
+            ELSE public.autosecops_case_safe_vector_v1(s.source) @@ plainto_tsquery('pg_catalog.simple', q.value) END
     END AS exact
     FROM page_sources s CROSS JOIN clauses q
 ), exact_context AS (
@@ -497,7 +499,7 @@ WITH page_sources AS MATERIALIZED (
             overlay(substring(source FROM greatest(1, strpos(lower(source), lower(value)) - 60) FOR 480)
                 PLACING :start_marker FROM least(61, strpos(lower(source), lower(value))) FOR 0)
         ELSE ts_headline('pg_catalog.simple', source,
-            CASE WHEN kind = 'phrase' AND (public.tracecat_case_safe_vector_v1(source) @@ phraseto_tsquery('pg_catalog.simple', value))
+            CASE WHEN kind = 'phrase' AND (public.autosecops_case_safe_vector_v1(source) @@ phraseto_tsquery('pg_catalog.simple', value))
                 THEN phraseto_tsquery('pg_catalog.simple', value)
                 ELSE plainto_tsquery('pg_catalog.simple', value) END,
             :headline_options)
@@ -549,7 +551,7 @@ async def get_case_search_excerpts(
     IDs after pagination, excluding lookahead rows. Reference queries can also
     match textual mentions. Fields that no longer match have no excerpt.
     """
-    if len(case_ids) > config.TRACECAT__LIMIT_CURSOR_MAX:
+    if len(case_ids) > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
         raise ValueError("Excerpt IDs must fit one returned case page")
     if not case_ids or not query.clauses:
         return {}

@@ -157,12 +157,12 @@ def _activity_error_from_cancellation() -> ActivityError:
 
 @pytest.fixture
 def sentry_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Event]]:
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", "worker")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", "worker")
     transport = _InMemoryTransport()
     initialize_worker_sentry(
         dsn="https://public@example.com/1",
         environment="test-eu",
-        release="tracecat@test",
+        release="autosecops@test",
         transport=transport,
     )
     yield transport.events
@@ -176,12 +176,12 @@ def sentry_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Event]]:
 
 @pytest.fixture
 def api_sentry_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Event]]:
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", "api")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", "api")
     transport = _InMemoryTransport()
     initialize_api_sentry(
         dsn="https://public@example.com/1",
         environment="test-eu",
-        release="tracecat@test",
+        release="autosecops@test",
         transport=transport,
     )
     yield transport.events
@@ -195,12 +195,12 @@ def api_sentry_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Event]]:
 
 @pytest.fixture
 def executor_sentry_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[Event]]:
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", "executor")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", "executor")
     transport = _InMemoryTransport()
     initialize_executor_sentry(
         dsn="https://public@example.com/1",
         environment="test-eu",
-        release="tracecat@test",
+        release="autosecops@test",
         transport=transport,
     )
     yield transport.events
@@ -269,7 +269,7 @@ def test_sentry_environment_bootstrap_initializes_shared_worker_configuration(
 ) -> None:
     monkeypatch.setenv("SENTRY_DSN", "https://public@example.com/1")
     monkeypatch.setattr(sentry_module, "APP_VERSION", "1.2.3")
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__APP_ENV", "production")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__APP_ENV", "production")
     monkeypatch.setattr(
         sentry_module.config,
         "TEMPORAL__CLUSTER_NAMESPACE",
@@ -280,7 +280,7 @@ def test_sentry_environment_bootstrap_initializes_shared_worker_configuration(
         "SENTRY_ENVIRONMENT_OVERRIDE",
         None,
     )
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", "worker")
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", "worker")
     initializer = Mock()
     monkeypatch.setattr(sentry_module, "initialize_worker_sentry", initializer)
 
@@ -288,7 +288,7 @@ def test_sentry_environment_bootstrap_initializes_shared_worker_configuration(
     initializer.assert_called_once_with(
         dsn="https://public@example.com/1",
         environment="production-eu-cloud",
-        release="tracecat@1.2.3",
+        release="autosecops@1.2.3",
     )
 
 
@@ -320,7 +320,7 @@ def test_sentry_contexts_are_filtered_by_context_and_field() -> None:
                     "version": "3.12.8",
                     "build": _SENSITIVE_VALUE,
                 },
-                "tracecat_workflow": {
+                "autosecops_workflow": {
                     "run_id": "00000000-0000-4000-8000-000000000001",
                     "type": "DSLWorkflow",
                     "attempt": 1,
@@ -338,7 +338,7 @@ def test_sentry_contexts_are_filtered_by_context_and_field() -> None:
     assert "contexts" in sanitized
     assert sanitized["contexts"] == {
         "runtime": {"name": "CPython", "version": "3.12.8"},
-        "tracecat_workflow": {
+        "autosecops_workflow": {
             "run_id": "00000000-0000-4000-8000-000000000001",
             "type": "DSLWorkflow",
             "attempt": 1,
@@ -352,7 +352,7 @@ def test_sentry_event_allowlist_drops_unknown_payload_fields() -> None:
     event = cast(
         Event,
         {
-            "fingerprint": ["tracecat-runtime-v1"],
+            "fingerprint": ["autosecops-runtime-v1"],
             "message": _SENSITIVE_VALUE,
             "logentry": {"message": _SENSITIVE_VALUE},
             "threads": {
@@ -478,7 +478,7 @@ async def test_unclassified_platform_failure_is_attributed_then_captured_once(
     assert exception["values"][-1]["type"] == "RuntimeError"
     assert "fingerprint" in event
     assert event["fingerprint"] == [
-        "tracecat-runtime-v1",
+        "autosecops-runtime-v1",
         RuntimeErrorKind.RUNTIME_UNCLASSIFIED.value,
         "{{ default }}",
     ]
@@ -495,13 +495,13 @@ async def test_unclassified_platform_failure_is_attributed_then_captured_once(
         SentryTag.TRIGGER_TYPE.value: "manual",
     }
     assert "contexts" in event
-    assert event["contexts"]["tracecat_workflow"] == {
+    assert event["contexts"]["autosecops_workflow"] == {
         "attempt": 1,
         "run_id": "00000000-0000-4000-8000-000000000001",
         "trigger_type": "manual",
         "type": "DSLWorkflow",
     }
-    assert set(event["contexts"]) <= {"runtime", "tracecat_workflow"}
+    assert set(event["contexts"]) <= {"runtime", "autosecops_workflow"}
     assert not {"breadcrumbs", "extra", "request", "user"} & event.keys()
     assert _SENSITIVE_VALUE not in json.dumps(event)
 
@@ -525,7 +525,7 @@ def test_handled_api_capture_keeps_priority_independent_of_severity(
     assert event.get("level") == level
     assert event.get("tags", {}).get(SentryTag.ALERT_PRIORITY) == priority
     if priority is AlertPriority.LOW:
-        assert event.get("fingerprint") == ["tracecat-api-triage-v1", "{{ default }}"]
+        assert event.get("fingerprint") == ["autosecops-api-triage-v1", "{{ default }}"]
     else:
         assert "fingerprint" not in event
     assert _SENSITIVE_VALUE not in json.dumps(event)
@@ -620,11 +620,11 @@ def test_fastapi_integration_captures_sanitized_unhandled_request_failure(
     }
     assert "contexts" in event
     contexts = event["contexts"]
-    assert contexts["tracecat_api_request"] == {
+    assert contexts["autosecops_api_request"] == {
         "method": "GET",
         "route": "/items/{item_id}",
     }
-    assert set(contexts) <= {"runtime", "tracecat_api_request"}
+    assert set(contexts) <= {"runtime", "autosecops_api_request"}
     assert event.get("transaction") == "/items/{item_id}"
     assert "transaction_info" not in event
     assert "fingerprint" not in event
@@ -720,7 +720,7 @@ def test_service_task_failure_emits_only_stable_task_name(
         "platform_registry_sync"
     )
     assert "contexts" in event
-    assert event["contexts"]["tracecat_service_task"] == {
+    assert event["contexts"]["autosecops_service_task"] == {
         "name": "platform_registry_sync"
     }
     assert set(event["tags"]) == {
@@ -1025,7 +1025,7 @@ def test_api_capture_preserves_only_active_otel_identifiers(
     assert len(api_sentry_events) == 1
     event = api_sentry_events[0]
     assert "contexts" in event
-    assert event["contexts"]["tracecat_otel"] == {
+    assert event["contexts"]["autosecops_otel"] == {
         "trace_id": "00000000000000000000000000000001",
         "span_id": "0000000000000002",
     }
@@ -1238,9 +1238,9 @@ def test_request_trace_survives_span_unwind(
     # Register cleanup before initialization so setup failures restore it too.
     request.addfinalizer(lambda: set_global_textmap(previous_propagator))
     shutdown_platform_tracing()
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
-    service = "tracecat-api" if component == "api" else "tracecat-executor"
-    monkeypatch.setattr(sentry_module.config, "TRACECAT__SERVICE_NAME", service)
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
+    service = "autosecops-api" if component == "api" else "autosecops-executor"
+    monkeypatch.setattr(sentry_module.config, "AUTOSECOPS__SERVICE_NAME", service)
     exporter = InMemorySpanExporter()
     initialize_platform_tracing(service, exporter=exporter)
     transport = _InMemoryTransport()
@@ -1250,7 +1250,7 @@ def test_request_trace_survives_span_unwind(
     initializer(
         dsn="https://public@example.com/1",
         environment="test-eu",
-        release="tracecat@test",
+        release="autosecops@test",
         transport=transport,
     )
     try:
@@ -1283,11 +1283,11 @@ def test_request_trace_survives_span_unwind(
             assert "contexts" in event
             span_context = span.get_span_context()
             assert span_context is not None
-            assert event["contexts"]["tracecat_otel"] == {
+            assert event["contexts"]["autosecops_otel"] == {
                 "trace_id": f"{span_context.trace_id:032x}",
                 "span_id": f"{span_context.span_id:016x}",
             }
-            captured_id = event["contexts"]["tracecat_otel"]["trace_id"]
+            captured_id = event["contexts"]["autosecops_otel"]["trace_id"]
             assert isinstance(captured_id, str)
             captured_ids.append(captured_id)
             assert _SENSITIVE_VALUE not in json.dumps(event)
@@ -1424,13 +1424,13 @@ async def test_activity_capture_preserves_source_stack_across_temporal_transport
     terminal_event = sentry_events[1]
     assert "contexts" in terminal_event
     assert (
-        terminal_event["contexts"]["tracecat_workflow"]["source_event_id"]
+        terminal_event["contexts"]["autosecops_workflow"]["source_event_id"]
         == capture.event_id
     )
     event = sentry_events[0]
     assert "tags" in event
     assert "exception" in event
-    assert event["tags"]["tracecat.capture.boundary"] == "activity"
+    assert event["tags"]["autosecops.capture.boundary"] == "activity"
     assert event["tags"][SentryTag.ACTIVITY_ATTEMPT.value] == "2"
     assert _SENSITIVE_VALUE not in json.dumps(event)
     assert any(
@@ -1652,11 +1652,11 @@ async def test_proxy_source_capture_keeps_safe_origin_and_receipt(
     assert error.classification.cause_type == expected_type
     assert "contexts" in event
     assert "exception" in event
-    assert event["contexts"]["tracecat_proxy"]["route"] == "managed"
+    assert event["contexts"]["autosecops_proxy"]["route"] == "managed"
     assert "tags" in event
     assert event["tags"][SentryTag.LLM_ROUTE.value] == "managed"
     if not transport_failure:
-        assert event["contexts"]["tracecat_proxy"]["status_code"] == 401
+        assert event["contexts"]["autosecops_proxy"]["status_code"] == 401
     frames = [
         frame
         for value in event["exception"]["values"]

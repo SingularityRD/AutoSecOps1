@@ -29,7 +29,7 @@ from autosecops.secrets.encryption import decrypt_value
 SETTINGS = PangolinSettings(
     api_url="https://pangolin-api.example.com/v1",
     endpoint="https://pangolin.example.com",
-    org_id="tracecat",
+    org_id="autosecops",
     api_key="org-api-key",
 )
 
@@ -113,21 +113,21 @@ class TestPangolinAPI:
     async def test_provisioning_requests(self) -> None:
         requests: list[httpx.Request] = []
         responses = {
-            ("GET", "/v1/org/tracecat/pick-site-defaults"): {
+            ("GET", "/v1/org/autosecops/pick-site-defaults"): {
                 "newtId": "n1",
                 "newtSecret": "s1",
                 "subnet": "100.89.128.8/30",
                 "exitNodeId": 1,
                 "clientAddress": "100.90.128.2",
             },
-            ("PUT", "/v1/org/tracecat/site"): {"siteId": 2},
-            ("GET", "/v1/org/tracecat/pick-client-defaults"): {
+            ("PUT", "/v1/org/autosecops/site"): {"siteId": 2},
+            ("GET", "/v1/org/autosecops/pick-client-defaults"): {
                 "olmId": "o1",
                 "olmSecret": "s2",
                 "subnet": "100.90.128.3",
             },
-            ("PUT", "/v1/org/tracecat/client"): {"clientId": 3},
-            ("PUT", "/v1/org/tracecat/private-resource"): {"siteResourceId": 4},
+            ("PUT", "/v1/org/autosecops/client"): {"clientId": 3},
+            ("PUT", "/v1/org/autosecops/private-resource"): {"siteResourceId": 4},
             ("GET", "/v1/private-resource/4/clients"): {"clients": [{"clientId": 3}]},
         }
 
@@ -191,12 +191,12 @@ class TestPangolinAPI:
     def test_settings_require_all_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from autosecops import config
 
-        monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_URL", SETTINGS.api_url)
-        monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ENDPOINT", SETTINGS.endpoint)
-        monkeypatch.setattr(config, "TRACECAT__PANGOLIN_ORG_ID", SETTINGS.org_id)
-        monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY", None)
+        monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_URL", SETTINGS.api_url)
+        monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ENDPOINT", SETTINGS.endpoint)
+        monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_ORG_ID", SETTINGS.org_id)
+        monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY", None)
         assert PangolinSettings.from_config() is None
-        monkeypatch.setattr(config, "TRACECAT__PANGOLIN_API_KEY", SETTINGS.api_key)
+        monkeypatch.setattr(config, "AUTOSECOPS__PANGOLIN_API_KEY", SETTINGS.api_key)
         assert PangolinSettings.from_config() == SETTINGS
 
 
@@ -205,7 +205,7 @@ class TestPangolinAPI:
 class TestManagedTunnels:
     @pytest.fixture(autouse=True)
     def fake_pangolin(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "kubernetes")
+        monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "kubernetes")
         monkeypatch.setattr(service_module, "sync_gateway", AsyncMock())
         monkeypatch.setattr(
             TunnelsService, "has_entitlement", AsyncMock(return_value=True)

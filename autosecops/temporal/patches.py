@@ -47,8 +47,8 @@ class DurableAgentWorkflowPatch(StrEnum):
         "autosecops_ee.agent.workflows.durable.persist_session_error"
     )
     AGENT_REQUEST_CANCEL = "durable-agent-request-cancel-v1"
-    UPSERT_TRACECAT_SEARCH_ATTRIBUTES = (
-        "durable-agent-upsert-tracecat-search-attributes-v1"
+    UPSERT_AUTOSECOPS_SEARCH_ATTRIBUTES = (
+        "durable-agent-upsert-autosecops-search-attributes-v1"
     )
     LOAD_TERMINAL_MESSAGE_HISTORY = "durable-agent-load-terminal-message-history-v1"
     PRESERVE_RESUMED_AGENT_BINDINGS = "durable-agent-preserve-resumed-agent-bindings-v1"

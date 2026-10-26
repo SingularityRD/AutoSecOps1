@@ -136,8 +136,8 @@ def _build_role(workspace_id: uuid.UUID) -> Role:
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         user_id=None,
-        service_id="tracecat-case-triggers",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-case-triggers"],
+        service_id="autosecops-case-triggers",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-case-triggers"],
     )
 
 
@@ -788,7 +788,7 @@ async def test_dispatch_selected_workflow_start_outcomes(
             "text": "Run this workflow",
             "triggered_by_type": "user",
             "triggered_by_user_id": str(svc_role.user_id),
-            "triggered_by_service_id": "tracecat-api",
+            "triggered_by_service_id": "autosecops-api",
         },
         comment_id=comment.id,
     )

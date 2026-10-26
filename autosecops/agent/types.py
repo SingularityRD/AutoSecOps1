@@ -21,8 +21,8 @@ from autosecops.agent.constants import (
 from autosecops.agent.skill.types import ResolvedSkillRef
 from autosecops.agent.subagents import AgentSubagentsConfig
 from autosecops.config import (
-    TRACECAT__AGENT_MAX_RETRIES,
-    TRACECAT__AGENT_SANDBOX_TIMEOUT,
+    AUTOSECOPS__AGENT_MAX_RETRIES,
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT,
 )
 
 CustomToolList = list[Any]
@@ -34,7 +34,7 @@ def clamp_agent_timeout_seconds(timeout_seconds: int | None) -> int:
     ``None`` inherits the hardcoded default; explicit values clamp to
     [floor, ceiling]. A lower ceiling caps both. Never rejects.
     """
-    ceiling = TRACECAT__AGENT_SANDBOX_TIMEOUT
+    ceiling = AUTOSECOPS__AGENT_SANDBOX_TIMEOUT
     if timeout_seconds is None:
         return min(AGENT_TIMEOUT_SECONDS_DEFAULT, ceiling)
     floor = min(AGENT_TIMEOUT_SECONDS_FLOOR, ceiling)
@@ -117,7 +117,7 @@ class AgentConfig:
     mcp_servers: list[MCPServerConfig] | None = None
     # Subagents
     agents: AgentSubagentsConfig = field(default_factory=AgentSubagentsConfig)
-    retries: int = TRACECAT__AGENT_MAX_RETRIES
+    retries: int = AUTOSECOPS__AGENT_MAX_RETRIES
     deps_type: type[Any] | None = None
     custom_tools: CustomToolList | None = None
     # Sandbox

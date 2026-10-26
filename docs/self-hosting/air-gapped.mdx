@@ -23,15 +23,15 @@ flowchart TB
   subgraph runtime["Disconnected runtime · zero internet routes"]
     direction TB
     registry["Internal OCI registry<br/>and model store"]
-    tracecat["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
+    autosecops["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
     dependencies["Internal dependencies<br/>state · identity · integrations · telemetry"]
     litellm["Bundled LiteLLM"]
     inference["vLLM or Ollama<br/>in-cluster or adjacent DGX Spark"]
 
-    registry --> tracecat
-    tracecat <--> dependencies
-    tracecat -->|direct passthrough| inference
-    tracecat -->|bundled route| litellm --> inference
+    registry --> autosecops
+    autosecops <--> dependencies
+    autosecops -->|direct passthrough| inference
+    autosecops -->|bundled route| litellm --> inference
   end
 
   artifacts -. mirror before cutover .-> registry

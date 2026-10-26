@@ -20,7 +20,7 @@ definition:
     location:
       type: str
       description: "Log location (e.g. `/var/log/auth.log`)."
-      default: "tracecat"
+      default: "autosecops"
     base_url:
       type: str | None
       description: "Wazuh server API URL (e.g. https://wazuh-manager:55000). Defaults to the `wazuh.base_url` variable."

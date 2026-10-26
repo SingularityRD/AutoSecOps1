@@ -48,13 +48,13 @@ class CaseTriggerConsumer:
         stop_event: asyncio.Event | None = None,
     ) -> None:
         self.client = client
-        self.stream_key = config.TRACECAT__CASE_TRIGGERS_STREAM_KEY
-        self.group = config.TRACECAT__CASE_TRIGGERS_GROUP
-        self.block_ms = config.TRACECAT__CASE_TRIGGERS_BLOCK_MS
-        self.batch = config.TRACECAT__CASE_TRIGGERS_BATCH
-        self.claim_idle_ms = config.TRACECAT__CASE_TRIGGERS_CLAIM_IDLE_MS
-        self.dedup_ttl = config.TRACECAT__CASE_TRIGGERS_DEDUP_TTL_SECONDS
-        self.lock_ttl = config.TRACECAT__CASE_TRIGGERS_LOCK_TTL_SECONDS
+        self.stream_key = config.AUTOSECOPS__CASE_TRIGGERS_STREAM_KEY
+        self.group = config.AUTOSECOPS__CASE_TRIGGERS_GROUP
+        self.block_ms = config.AUTOSECOPS__CASE_TRIGGERS_BLOCK_MS
+        self.batch = config.AUTOSECOPS__CASE_TRIGGERS_BATCH
+        self.claim_idle_ms = config.AUTOSECOPS__CASE_TRIGGERS_CLAIM_IDLE_MS
+        self.dedup_ttl = config.AUTOSECOPS__CASE_TRIGGERS_DEDUP_TTL_SECONDS
+        self.lock_ttl = config.AUTOSECOPS__CASE_TRIGGERS_LOCK_TTL_SECONDS
         self.consumer_name = consumer_name or f"{socket.gethostname()}:{os.getpid()}"
         self._workspace_role_cache: dict[uuid.UUID, Role] = {}
         self._pending_check_interval = max(self.claim_idle_ms / 1000.0, 30.0)
@@ -65,7 +65,7 @@ class CaseTriggerConsumer:
         return self._stop_event is not None and self._stop_event.is_set()
 
     async def run(self) -> None:
-        if not config.TRACECAT__CASE_TRIGGERS_ENABLED:
+        if not config.AUTOSECOPS__CASE_TRIGGERS_ENABLED:
             logger.info("Case triggers disabled; skipping consumer")
             return
 
@@ -414,8 +414,8 @@ class CaseTriggerConsumer:
             workspace_id=workspace_id,
             organization_id=workspace.organization_id,
             user_id=None,
-            service_id="tracecat-case-triggers",
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-case-triggers"],
+            service_id="autosecops-case-triggers",
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-case-triggers"],
         )
         self._workspace_role_cache[workspace_id] = role
         return role

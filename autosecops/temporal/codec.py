@@ -31,15 +31,15 @@ from autosecops import config
 from autosecops.concurrency import cooperative
 from autosecops.contexts import ctx_role
 
-TRACECAT_TEMPORAL_ENCODING: Final[bytes] = b"binary/tracecat-aes256gcm"
-TRACECAT_TEMPORAL_GLOBAL_SCOPE: Final[str] = "__global__"
+AUTOSECOPS_TEMPORAL_ENCODING: Final[bytes] = b"binary/autosecops-aes256gcm"
+AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE: Final[str] = "__global__"
 _COMPRESSION_ALGORITHMS: Final[frozenset[str]] = frozenset({"zstd", "gzip", "brotli"})
-_TRACECAT_TEMPORAL_ENCRYPTION_METADATA_KEYS: Final[frozenset[str]] = frozenset(
+_AUTOSECOPS_TEMPORAL_ENCRYPTION_METADATA_KEYS: Final[frozenset[str]] = frozenset(
     {
-        "tracecat_original_encoding",
-        "tracecat_workspace_id",
-        "tracecat_key_id",
-        "tracecat_nonce",
+        "autosecops_original_encoding",
+        "autosecops_workspace_id",
+        "autosecops_key_id",
+        "autosecops_nonce",
     }
 )
 
@@ -126,14 +126,14 @@ class CompressionPayloadCodec(PayloadCodec):
         self.enabled = (
             enabled
             if enabled is not None
-            else config.TRACECAT__CONTEXT_COMPRESSION_ENABLED
+            else config.AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED
         )
         self.threshold = (
             threshold_bytes
             if threshold_bytes is not None
-            else config.TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB * 1024
+            else config.AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB * 1024
         )
-        self.algorithm = algorithm or config.TRACECAT__CONTEXT_COMPRESSION_ALGORITHM
+        self.algorithm = algorithm or config.AUTOSECOPS__CONTEXT_COMPRESSION_ALGORITHM
 
         logger.debug(
             "Compression codec initialized",
@@ -359,7 +359,7 @@ class TemporalEncryptionKeyring:
         workspace_id: str, key_id: str, keyring: TemporalPayloadKeyring
     ) -> bytes:
         root_secret = keyring.root_secret_for_key_id(key_id)
-        salt = f"tracecat-temporal-payload:{key_id}".encode()
+        salt = f"autosecops-temporal-payload:{key_id}".encode()
         info = workspace_id.encode("utf-8")
         hkdf = HKDF(
             algorithm=hashes.SHA256(),
@@ -443,12 +443,12 @@ class EncryptionPayloadCodec(PayloadCodec):
         """Resolve the workspace scope for payload encryption.
 
         Uses ctx_role.workspace_id when set; falls back to
-        TRACECAT_TEMPORAL_GLOBAL_SCOPE for platform-scoped operations
+        AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE for platform-scoped operations
         (e.g. registry sync) where the role has no workspace.
         """
         if (role := ctx_role.get()) and role.workspace_id is not None:
             return str(role.workspace_id)
-        return TRACECAT_TEMPORAL_GLOBAL_SCOPE
+        return AUTOSECOPS_TEMPORAL_GLOBAL_SCOPE
 
     @staticmethod
     def _build_aad(
@@ -461,7 +461,7 @@ class EncryptionPayloadCodec(PayloadCodec):
         parts = (
             workspace_id.encode("utf-8"),
             key_id.encode("utf-8"),
-            TRACECAT_TEMPORAL_ENCODING,
+            AUTOSECOPS_TEMPORAL_ENCODING,
             original_encoding,
         )
         return b"".join(len(part).to_bytes(4, "big") + part for part in parts)
@@ -471,7 +471,7 @@ class EncryptionPayloadCodec(PayloadCodec):
         """Return whether payload metadata looks like AutoSecOps encrypted metadata."""
         return any(
             key in payload.metadata
-            for key in _TRACECAT_TEMPORAL_ENCRYPTION_METADATA_KEYS
+            for key in _AUTOSECOPS_TEMPORAL_ENCRYPTION_METADATA_KEYS
         )
 
     async def encode(self, payloads: Iterable[Payload]) -> list[Payload]:
@@ -501,11 +501,11 @@ class EncryptionPayloadCodec(PayloadCodec):
                 metadata = dict(payload.metadata)
                 metadata.update(
                     {
-                        "encoding": TRACECAT_TEMPORAL_ENCODING,
-                        "tracecat_original_encoding": encoding,
-                        "tracecat_workspace_id": workspace_id.encode("utf-8"),
-                        "tracecat_key_id": key_id.encode("utf-8"),
-                        "tracecat_nonce": base64.urlsafe_b64encode(nonce),
+                        "encoding": AUTOSECOPS_TEMPORAL_ENCODING,
+                        "autosecops_original_encoding": encoding,
+                        "autosecops_workspace_id": workspace_id.encode("utf-8"),
+                        "autosecops_key_id": key_id.encode("utf-8"),
+                        "autosecops_nonce": base64.urlsafe_b64encode(nonce),
                     }
                 )
                 result.append(Payload(metadata=metadata, data=ciphertext))
@@ -525,7 +525,7 @@ class EncryptionPayloadCodec(PayloadCodec):
         """Decrypt payloads."""
         result: list[Payload] = []
         async for payload in cooperative(payloads):
-            if payload.metadata.get("encoding", b"") != TRACECAT_TEMPORAL_ENCODING:
+            if payload.metadata.get("encoding", b"") != AUTOSECOPS_TEMPORAL_ENCODING:
                 if self._has_encryption_metadata(payload):
                     raise TemporalPayloadCodecError(
                         "Encrypted Temporal payload has an invalid encoding marker"
@@ -535,23 +535,23 @@ class EncryptionPayloadCodec(PayloadCodec):
 
             try:
                 workspace_id = payload.metadata.get(
-                    "tracecat_workspace_id", b""
+                    "autosecops_workspace_id", b""
                 ).decode("utf-8")
                 if not workspace_id:
                     raise TemporalPayloadCodecError(
                         "Encrypted Temporal payload is missing its workspace scope"
                     )
-                key_id = payload.metadata.get("tracecat_key_id", b"").decode("utf-8")
+                key_id = payload.metadata.get("autosecops_key_id", b"").decode("utf-8")
                 if not key_id:
                     raise TemporalPayloadCodecError(
                         "Encrypted Temporal payload is missing its key id"
                     )
-                nonce_b64 = payload.metadata.get("tracecat_nonce")
+                nonce_b64 = payload.metadata.get("autosecops_nonce")
                 if nonce_b64 is None:
                     raise TemporalPayloadCodecError(
                         "Encrypted Temporal payload is missing its nonce"
                     )
-                original_encoding = payload.metadata.get("tracecat_original_encoding")
+                original_encoding = payload.metadata.get("autosecops_original_encoding")
                 if original_encoding is None:
                     raise TemporalPayloadCodecError(
                         "Encrypted Temporal payload is missing its original encoding"
@@ -572,7 +572,7 @@ class EncryptionPayloadCodec(PayloadCodec):
                 metadata = {
                     key: value
                     for key, value in payload.metadata.items()
-                    if key not in _TRACECAT_TEMPORAL_ENCRYPTION_METADATA_KEYS
+                    if key not in _AUTOSECOPS_TEMPORAL_ENCRYPTION_METADATA_KEYS
                     and key != "encoding"
                 }
                 if original_encoding:

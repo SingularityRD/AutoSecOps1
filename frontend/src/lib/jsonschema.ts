@@ -2,7 +2,7 @@ import type { JSONSchema7 } from "json-schema"
 import { z } from "zod"
 
 import {
-  TRACECAT_COMPONENT_KEY,
+  AUTOSECOPS_COMPONENT_KEY,
   type TracecatJsonSchema,
   type TracecatJsonSchemaDefinition,
   type TracecatJsonSchemaType,
@@ -38,7 +38,7 @@ export function jsonSchemaToParams(
         required: required.includes(key),
         deprecated: jsonSchemaValue.deprecated === true,
         deprecationMessage:
-          jsonSchemaValue["x-tracecat-deprecation-message"] ?? "",
+          jsonSchemaValue["x-autosecops-deprecation-message"] ?? "",
       }
     }
   )
@@ -96,8 +96,8 @@ export function getConstraints(value: TracecatJsonSchema): string {
     "title",
     "anyOf",
     "deprecated",
-    "x-tracecat-deprecation-message",
-    TRACECAT_COMPONENT_KEY,
+    "x-autosecops-deprecation-message",
+    AUTOSECOPS_COMPONENT_KEY,
   ]
 
   // Iterate through the keys of the value object

@@ -52,26 +52,26 @@ class WorkflowFailureEventContext:
 class SentryTag(StrEnum):
     """Stable, privacy-reviewed Sentry tag keys."""
 
-    SERVICE_NAME = "tracecat.service.name"
-    LLM_ROUTE = "tracecat.llm.route"
-    LLM_PROVIDER_CONFIGURATION = "tracecat.llm.provider_configuration"
-    ERROR_OWNER = "tracecat.error.owner"
-    ERROR_KIND = "tracecat.error.kind"
-    ALERT_PRIORITY = "tracecat.alert.priority"
-    ERROR_RETRY_DISPOSITION = "tracecat.error.retry_disposition"
-    ERROR_CAUSE_TYPE = "tracecat.error.cause_type"
+    SERVICE_NAME = "autosecops.service.name"
+    LLM_ROUTE = "autosecops.llm.route"
+    LLM_PROVIDER_CONFIGURATION = "autosecops.llm.provider_configuration"
+    ERROR_OWNER = "autosecops.error.owner"
+    ERROR_KIND = "autosecops.error.kind"
+    ALERT_PRIORITY = "autosecops.alert.priority"
+    ERROR_RETRY_DISPOSITION = "autosecops.error.retry_disposition"
+    ERROR_CAUSE_TYPE = "autosecops.error.cause_type"
     WORKFLOW_TYPE = "temporal.workflow.type"
     WORKFLOW_ATTEMPT = "temporal.workflow.attempt"
-    TRIGGER_TYPE = "tracecat.trigger_type"
+    TRIGGER_TYPE = "autosecops.trigger_type"
     API_METHOD = "http.request.method"
     API_ROUTE = "http.route"
-    SERVICE_TASK_NAME = "tracecat.service.task.name"
-    COMPONENT = "tracecat.component"
+    SERVICE_TASK_NAME = "autosecops.service.task.name"
+    COMPONENT = "autosecops.component"
     ACTIVITY_TIMEOUT_TYPE = "temporal.activity.timeout_type"
-    CAPTURE_BOUNDARY = "tracecat.capture.boundary"
+    CAPTURE_BOUNDARY = "autosecops.capture.boundary"
     ACTIVITY_TYPE = "temporal.activity.type"
     ACTIVITY_ATTEMPT = "temporal.activity.attempt"
-    ROOT_CAUSE_TYPE = "tracecat.error.root_cause_type"
+    ROOT_CAUSE_TYPE = "autosecops.error.root_cause_type"
 
 
 _WORKER_ALLOWED_TAGS = frozenset(
@@ -107,17 +107,17 @@ _API_ALLOWED_TAGS = frozenset(
 )
 _WORKER_ALLOWED_CONTEXT_FIELDS = {
     "runtime": frozenset({"name", "version"}),
-    "tracecat_workflow": frozenset(
+    "autosecops_workflow": frozenset(
         {"run_id", "type", "attempt", "trigger_type", "source_event_id"}
     ),
-    "tracecat_proxy": frozenset({"route", "status_code"}),
-    "tracecat_otel": frozenset({"trace_id", "span_id"}),
+    "autosecops_proxy": frozenset({"route", "status_code"}),
+    "autosecops_otel": frozenset({"trace_id", "span_id"}),
 }
 _API_ALLOWED_CONTEXT_FIELDS = {
     "runtime": frozenset({"name", "version"}),
-    "tracecat_api_request": frozenset({"method", "route"}),
-    "tracecat_service_task": frozenset({"name"}),
-    "tracecat_otel": frozenset({"trace_id", "span_id"}),
+    "autosecops_api_request": frozenset({"method", "route"}),
+    "autosecops_service_task": frozenset({"name"}),
+    "autosecops_otel": frozenset({"trace_id", "span_id"}),
 }
 _SAFE_HTTP_METHODS = frozenset(
     {"CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE"}
@@ -199,7 +199,7 @@ def capture_activity_failure(
     """Capture a platform failure before its activity stack is serialized.
 
     Activity-attempt events are diagnostic, including attempts that recover.
-    Alert rules must exclude ``tracecat.capture.boundary=activity``. A receipt
+    Alert rules must exclude ``autosecops.capture.boundary=activity``. A receipt
     is returned only when the SDK accepts the event, so disabled/dropped
     captures never affect terminal workflow reporting. Terminal events remain
     separate so their paging signal does not depend on attempt diagnostics.
@@ -223,13 +223,13 @@ def capture_activity_failure(
             root = cause
         with sentry_sdk.isolation_scope() as scope:
             scope.fingerprint = [
-                "tracecat-activity-v1",
+                "autosecops-activity-v1",
                 classification.kind.value,
                 info.activity_type,
                 type(root).__name__,
                 "{{ default }}",
             ]
-            scope.set_tag(SentryTag.SERVICE_NAME.value, config.TRACECAT__SERVICE_NAME)
+            scope.set_tag(SentryTag.SERVICE_NAME.value, config.AUTOSECOPS__SERVICE_NAME)
             scope.set_tag(SentryTag.CAPTURE_BOUNDARY.value, "activity")
             scope.set_tag(SentryTag.ACTIVITY_TYPE.value, info.activity_type)
             scope.set_tag(SentryTag.ACTIVITY_ATTEMPT.value, str(info.attempt))
@@ -252,7 +252,7 @@ def capture_activity_failure(
             span_context = trace.get_current_span().get_span_context()
             if span_context.is_valid:
                 scope.set_context(
-                    "tracecat_otel",
+                    "autosecops_otel",
                     {
                         "trace_id": f"{span_context.trace_id:032x}",
                         "span_id": f"{span_context.span_id:016x}",
@@ -260,7 +260,7 @@ def capture_activity_failure(
                 )
             if proxy_context is not None:
                 scope.set_context(
-                    "tracecat_proxy",
+                    "autosecops_proxy",
                     {
                         "route": proxy_context.route,
                         "status_code": proxy_context.status_code,
@@ -310,13 +310,13 @@ def capture_platform_failure(
                     SentryTag.ACTIVITY_TIMEOUT_TYPE.value, timeout_type.name.lower()
                 )
             scope.fingerprint = [
-                "tracecat-runtime-v1",
+                "autosecops-runtime-v1",
                 classification.kind.value,
                 "{{ default }}",
             ]
             scope.set_tag(
                 SentryTag.SERVICE_NAME.value,
-                config.TRACECAT__SERVICE_NAME,
+                config.AUTOSECOPS__SERVICE_NAME,
             )
             _set_diagnostic_tags(scope, diagnostics)
             scope.set_tag(SentryTag.ERROR_OWNER.value, classification.owner.value)
@@ -336,7 +336,7 @@ def capture_platform_failure(
             scope.set_tag(SentryTag.WORKFLOW_ATTEMPT.value, str(context.attempt))
             scope.set_tag(SentryTag.TRIGGER_TYPE.value, context.trigger_type)
             scope.set_context(
-                "tracecat_workflow",
+                "autosecops_workflow",
                 {
                     "source_event_id": context.source_event_id,
                     "run_id": context.run_id,
@@ -368,10 +368,10 @@ def capture_api_background_task_failure(
         with sentry_sdk.isolation_scope() as scope:
             scope.set_tag(
                 SentryTag.SERVICE_NAME.value,
-                config.TRACECAT__SERVICE_NAME,
+                config.AUTOSECOPS__SERVICE_NAME,
             )
             scope.set_tag(SentryTag.SERVICE_TASK_NAME.value, task_name)
-            scope.set_context("tracecat_service_task", {"name": task_name})
+            scope.set_context("autosecops_service_task", {"name": task_name})
             sentry_sdk.capture_exception(error)
     except Exception as reporting_error:
         logger.warning(
@@ -448,7 +448,7 @@ def _enrich_api_request_event(
     tags[SentryTag.API_METHOD.value] = method
     tags[SentryTag.API_ROUTE.value] = route
     contexts = cast(MutableMapping[str, Any], event.get("contexts") or {})
-    contexts["tracecat_api_request"] = {"method": method, "route": route}
+    contexts["autosecops_api_request"] = {"method": method, "route": route}
     event["contexts"] = dict(contexts)
 
 
@@ -614,8 +614,8 @@ def _sanitize_api_event(
     tags[SentryTag.COMPONENT.value] = component
     span_context = trace.get_current_span().get_span_context()
     contexts = event.setdefault("contexts", {})
-    if span_context.is_valid and "tracecat_otel" not in contexts:
-        contexts["tracecat_otel"] = {
+    if span_context.is_valid and "autosecops_otel" not in contexts:
+        contexts["autosecops_otel"] = {
             "trace_id": f"{span_context.trace_id:032x}",
             "span_id": f"{span_context.span_id:016x}",
         }
@@ -631,7 +631,7 @@ def _sanitize_api_event(
     if sanitized.get("tags", {}).get(SentryTag.ALERT_PRIORITY) == AlertPriority.LOW:
         # Separate triage issues from historical urgent issues, preserving
         # Sentry's grouping within each priority. Never retain raw fingerprints.
-        sanitized["fingerprint"] = ["tracecat-api-triage-v1", "{{ default }}"]
+        sanitized["fingerprint"] = ["autosecops-api-triage-v1", "{{ default }}"]
     return sanitized
 
 
@@ -675,7 +675,7 @@ def initialize_worker_sentry(
         dsn=dsn,
         environment=environment,
         release=release,
-        service_name=config.TRACECAT__SERVICE_NAME,
+        service_name=config.AUTOSECOPS__SERVICE_NAME,
         integrations=[AtexitIntegration()],
         before_send=_sanitize_platform_event,
         transport=transport,
@@ -706,7 +706,7 @@ def _sanitize_executor_event(event: Event, hint: Hint) -> Event | None:
         return _sanitize_api_event(
             event,
             hint,
-            service_name=config.TRACECAT__SERVICE_NAME,
+            service_name=config.AUTOSECOPS__SERVICE_NAME,
             component="action_gateway",
         )
     if any(
@@ -717,7 +717,7 @@ def _sanitize_executor_event(event: Event, hint: Hint) -> Event | None:
         return _sanitize_api_event(
             event,
             hint,
-            service_name=config.TRACECAT__SERVICE_NAME,
+            service_name=config.AUTOSECOPS__SERVICE_NAME,
             component="action_gateway",
         )
     return _sanitize_platform_event(event, hint)
@@ -735,7 +735,7 @@ def initialize_executor_sentry(
         dsn=dsn,
         environment=environment,
         release=release,
-        service_name=config.TRACECAT__SERVICE_NAME,
+        service_name=config.AUTOSECOPS__SERVICE_NAME,
         integrations=_http_integrations(),
         before_send=_sanitize_executor_event,
         transport=transport,
@@ -750,7 +750,7 @@ def initialize_api_sentry(
     transport: Transport | None = None,
 ) -> None:
     """Initialize privacy-bounded automatic capture for the API process."""
-    service_name = config.TRACECAT__SERVICE_NAME
+    service_name = config.AUTOSECOPS__SERVICE_NAME
     _initialize_sentry(
         dsn=dsn,
         environment=environment,
@@ -767,7 +767,7 @@ def _initialize_sentry_from_environment(initializer: _SentryInitializer) -> None
     if not (dsn := os.environ.get("SENTRY_DSN")):
         return
 
-    app_env = config.TRACECAT__APP_ENV
+    app_env = config.AUTOSECOPS__APP_ENV
     temporal_namespace = config.TEMPORAL__CLUSTER_NAMESPACE
     environment = (
         config.SENTRY_ENVIRONMENT_OVERRIDE or f"{app_env}-{temporal_namespace}"
@@ -782,7 +782,7 @@ def _initialize_sentry_from_environment(initializer: _SentryInitializer) -> None
         initializer(
             dsn=dsn,
             environment=environment,
-            release=f"tracecat@{APP_VERSION}",
+            release=f"autosecops@{APP_VERSION}",
         )
     except Exception as error:
         logger.warning(

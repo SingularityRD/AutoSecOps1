@@ -4,7 +4,7 @@ Resolve and validate at the socket boundary, then dial the validated numeric IP.
 HTTPcore retains the original origin for connection pooling, Host and TLS SNI.
 These clients must not be used for trusted internal API or gateway traffic.
 
-With ``TRACECAT__OUTBOUND_PROXY_URL`` set, requests go through that operator
+With ``AUTOSECOPS__OUTBOUND_PROXY_URL`` set, requests go through that operator
 forward proxy instead. The target is still validated and resolved locally first,
 but the proxy resolves it again, so a DNS answer that changes between the two
 lookups is not covered. Configure the proxy's own egress policy accordingly.
@@ -165,7 +165,7 @@ async def resolve_outbound_addresses(
         )
         allowed = any(
             effective in network
-            for network in config.TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS
+            for network in config.AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS
         )
         if is_disallowed_address(effective) and not allowed:
             raise OutboundRequestDenied("Host is not allowed")
@@ -185,7 +185,7 @@ def _origin(url: httpx.URL) -> tuple[str, str, int]:
     return url.scheme, url.host, url.port or (443 if url.scheme == "https" else 80)
 
 
-TUNNEL_PROXY_ENV = "TRACECAT__TUNNEL_PROXY_URL"
+TUNNEL_PROXY_ENV = "AUTOSECOPS__TUNNEL_PROXY_URL"
 """Set by the executor only for tunneled actions; never read from user input."""
 
 
@@ -195,13 +195,13 @@ def tunnel_proxy_url() -> str | None:
 
 
 def _bypasses_egress_proxy(host: str) -> bool:
-    """Return whether TRACECAT__OUTBOUND_NO_PROXY sends this host direct."""
+    """Return whether AUTOSECOPS__OUTBOUND_NO_PROXY sends this host direct."""
     host = host.lower().rstrip(".")
     try:
         address = ipaddress.ip_address(host)
     except ValueError:
         address = None
-    for entry in config.TRACECAT__OUTBOUND_NO_PROXY:
+    for entry in config.AUTOSECOPS__OUTBOUND_NO_PROXY:
         if isinstance(entry, str):
             if address is None and (host == entry or host.endswith(f".{entry}")):
                 return True
@@ -237,7 +237,7 @@ class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
     the local address check is skipped; URL and origin checks still apply.
 
     Otherwise, when an operator egress proxy is configured, requests to hosts
-    outside TRACECAT__OUTBOUND_NO_PROXY go through it after the target host
+    outside AUTOSECOPS__OUTBOUND_NO_PROXY go through it after the target host
     passes the same local DNS and address policy as a direct connection.
     """
 
@@ -256,9 +256,9 @@ class OutboundHTTPTransport(httpx.AsyncHTTPTransport):
             kwargs["verify"] = httpx.create_ssl_context(verify=True, trust_env=True)
         # The tunnel gateway takes precedence over the operator egress proxy.
         self._egress_proxy: httpx.AsyncHTTPTransport | None = None
-        if tunnel_proxy is None and config.TRACECAT__OUTBOUND_PROXY_URL is not None:
+        if tunnel_proxy is None and config.AUTOSECOPS__OUTBOUND_PROXY_URL is not None:
             self._egress_proxy = _create_egress_proxy_transport(
-                config.TRACECAT__OUTBOUND_PROXY_URL, **kwargs
+                config.AUTOSECOPS__OUTBOUND_PROXY_URL, **kwargs
             )
         if tunnel_proxy is not None:
             kwargs["proxy"] = httpx.Proxy(tunnel_proxy)
@@ -353,7 +353,7 @@ def create_outbound_http_client(
     ``tunnel_proxy`` sends every request through a tunnel gateway. Shared
     services (api, agent-executor) must pass it per client; otherwise the
     executor's per-action tunnel environment applies.
-    Without a tunnel, ``TRACECAT__OUTBOUND_PROXY_URL`` applies; it never comes
+    Without a tunnel, ``AUTOSECOPS__OUTBOUND_PROXY_URL`` applies; it never comes
     from callers.
     Extra HTTPX options use Any because HTTPX exposes no public constructor
     options type; transport/proxy overrides are deliberately rejected.

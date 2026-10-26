@@ -333,7 +333,7 @@ class BaseRegistrySyncService[
             )
 
         use_temporal = (
-            config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED and not bypass_temporal
+            config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED and not bypass_temporal
         )
 
         self.logger.info(
@@ -341,7 +341,7 @@ class BaseRegistrySyncService[
             repository=origin,
             target_version=target_version,
             target_commit_sha=target_commit_sha,
-            sandbox_enabled=config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED,
+            sandbox_enabled=config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED,
             bypass_temporal=bypass_temporal,
             use_temporal=use_temporal,
             defer_artifact_build=defer_artifact_build,
@@ -534,7 +534,7 @@ class BaseRegistrySyncService[
 
     def _artifact_uri_for_version(self, *, origin: str, version_string: str) -> str:
         """Return the deterministic SquashFS artifact URI for a registry version."""
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY
         key = get_artifact_s3_key(
             organization_id=self._get_storage_namespace(),
             repository_origin=origin,
@@ -551,7 +551,7 @@ class BaseRegistrySyncService[
         ssh_env: SshEnv | None = None,
     ) -> ArtifactsBuildResult:
         storage_namespace = self._get_storage_namespace()
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY
         await blob.ensure_bucket_exists(bucket)
         artifact_key = get_artifact_s3_key(
             organization_id=storage_namespace,
@@ -567,7 +567,7 @@ class BaseRegistrySyncService[
             return ArtifactsBuildResult(artifact_uri=artifact_uri)
 
         async with aiofiles.tempfile.TemporaryDirectory(
-            prefix="tracecat_registry_artifact_"
+            prefix="autosecops_registry_artifact_"
         ) as temp_dir:
             output_dir = Path(temp_dir)
             artifact_result: RegistryArtifactBuildResult
@@ -576,7 +576,7 @@ class BaseRegistrySyncService[
                 artifact_result = await build_builtin_registry_artifact(output_dir)
 
             elif origin == DEFAULT_LOCAL_REGISTRY_ORIGIN:
-                local_path = Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH)
+                local_path = Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH)
                 artifact_result = await build_artifact_from_path(local_path, output_dir)
 
             elif origin.startswith("git+ssh://"):
@@ -634,10 +634,10 @@ class BaseRegistrySyncService[
         if origin == DEFAULT_REGISTRY_ORIGIN:
             return "builtin"
         if origin == DEFAULT_LOCAL_REGISTRY_ORIGIN:
-            if not config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+            if not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
                 raise self._sync_error_cls()(
                     "Local repository is not enabled on this instance. "
-                    "Please set TRACECAT__LOCAL_REPOSITORY_ENABLED=true."
+                    "Please set AUTOSECOPS__LOCAL_REPOSITORY_ENABLED=true."
                 )
             return "local"
         if origin.startswith("git+ssh://"):
@@ -730,7 +730,7 @@ class BaseRegistrySyncService[
                 RegistrySyncWorkflow.run,
                 request,
                 id=workflow_id,
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
                 execution_timeout=REGISTRY_SYNC_WORKFLOW_EXECUTION_TIMEOUT,
             )
         except WorkflowFailureError as exc:

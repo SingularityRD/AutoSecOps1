@@ -1034,7 +1034,7 @@ class WorkflowExecutionsService:
             source,
             started_at,
             now=datetime.datetime.now(datetime.UTC),
-            retention_days=config.TRACECAT__WORKFLOW_ARTIFACT_RETENTION_DAYS,
+            retention_days=config.AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS,
         )
         return source
 
@@ -1524,7 +1524,7 @@ class WorkflowExecutionsService:
         Args:
             memo: Optional memo dict to store with the workflow execution.
                   Useful for correlation (e.g., parent_wf_exec_id).
-            correlation_id: Optional `TracecatCorrelationId` search attribute value.
+            correlation_id: Optional `AutoSecOpsCorrelationId` search attribute value.
         """
         wf_exec_id = generate_exec_id(wf_id)
         coro = self._start_workflow(
@@ -2219,7 +2219,7 @@ class WorkflowExecutionsService:
                 workflow_task_finish_event_id=workflow_task_finish_event_id,
                 request_id=str(uuid.uuid4()),
                 reset_reapply_type=self._to_temporal_reset_reapply_type(reapply_type),
-                identity="tracecat-api",
+                identity="autosecops-api",
             )
         )
         return response.run_id

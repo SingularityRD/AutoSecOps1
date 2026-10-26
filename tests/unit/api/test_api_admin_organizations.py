@@ -126,7 +126,7 @@ async def test_admin_org_errors_map_to_http_status(
     error: Exception,
     status_code: int,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -143,7 +143,7 @@ async def test_delete_organization_bad_confirmation_returns_400(
     client: TestClient, test_admin_role: Role, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     org_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -161,7 +161,7 @@ async def test_delete_organization_bad_confirmation_returns_400(
 async def test_create_organization_blocked_without_multi_tenant(
     client: TestClient, test_admin_role: Role, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     response = client.post(
         "/admin/organizations",
@@ -176,7 +176,7 @@ async def test_delete_organization_blocked_without_multi_tenant(
     client: TestClient, test_admin_role: Role, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     org_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     response = client.delete(f"/admin/organizations/{org_id}")
 
@@ -191,7 +191,7 @@ async def test_create_organization_invitation_allowed_without_multi_tenant(
 ) -> None:
     org_id = uuid.uuid4()
     invitation = _org_invitation_read(org_id, token="raw-token")
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -214,7 +214,7 @@ async def test_create_organization_invitation_rejects_invalid_role_slug(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     org_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     response = client.post(
         f"/admin/organizations/{org_id}/invitations",
@@ -232,7 +232,7 @@ async def test_list_organization_invitations_allowed_without_multi_tenant(
 ) -> None:
     org_id = uuid.uuid4()
     invitation = _org_invitation_read(org_id)
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -254,7 +254,7 @@ async def test_list_organization_invitations_invalid_cursor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     org_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -278,7 +278,7 @@ async def test_get_organization_invitation_token_allowed_without_multi_tenant(
 ) -> None:
     org_id = uuid.uuid4()
     invitation_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()
@@ -303,7 +303,7 @@ async def test_revoke_organization_invitation_allowed_without_multi_tenant(
 ) -> None:
     org_id = uuid.uuid4()
     invitation_id = uuid.uuid4()
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     with patch.object(organizations_router, "AdminOrgService") as MockService:
         mock_svc = AsyncMock()

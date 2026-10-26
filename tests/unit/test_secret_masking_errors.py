@@ -442,7 +442,7 @@ async def _run_template(
         type="service",
         organization_id=UUID(int=1),
         workspace_id=UUID(int=2),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
     run_input = mock.Mock(
         registry_lock=mock.sentinel.lock,

@@ -401,13 +401,13 @@ class TestS3Operations:
 
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             "http://localhost:9002",
             raising=False,
         )
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_SSL_VERIFY",
+            "AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY",
             True,
             raising=False,
         )
@@ -435,13 +435,13 @@ class TestS3Operations:
         """get_storage_client for S3 uses default session client without endpoint."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_SSL_VERIFY",
+            "AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY",
             True,
             raising=False,
         )
@@ -462,13 +462,13 @@ class TestS3Operations:
         """SSL verification can be disabled for self-signed MinIO/S3 endpoints."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             "https://minio.internal:9000",
             raising=False,
         )
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_SSL_VERIFY",
+            "AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY",
             False,
             raising=False,
         )
@@ -489,13 +489,13 @@ class TestS3Operations:
         """SSL verification flag is honored on the default AWS S3 path too."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_SSL_VERIFY",
+            "AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY",
             False,
             raising=False,
         )
@@ -516,7 +516,7 @@ class TestS3Operations:
         """get_storage_client reuses the entered aiobotocore client in a loop."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
@@ -544,7 +544,7 @@ class TestS3Operations:
         """Concurrent first use shares a single entered aiobotocore client."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
@@ -578,7 +578,7 @@ class TestS3Operations:
         """close_storage_client_cache exits cached aiobotocore client contexts."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
@@ -603,7 +603,7 @@ class TestS3Operations:
         """get_storage_client does not reuse aioboto3 sessions across event loops."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
@@ -627,7 +627,7 @@ class TestS3Operations:
         """Temporary asyncio.run loops close their cached aiobotocore clients."""
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
             None,
             raising=False,
         )
@@ -662,14 +662,14 @@ class TestS3Operations:
         await upload_file_from_path(
             path=path,
             key="registry/site-packages.tar.gz",
-            bucket="tracecat-registry",
+            bucket="autosecops-registry",
             content_type="application/gzip",
         )
 
         mock_s3.upload_file.assert_called_once()
         kwargs = mock_s3.upload_file.call_args.kwargs
         assert kwargs["Filename"] == str(path)
-        assert kwargs["Bucket"] == "tracecat-registry"
+        assert kwargs["Bucket"] == "autosecops-registry"
         assert kwargs["Key"] == "registry/site-packages.tar.gz"
         assert kwargs["ExtraArgs"] == {"ContentType": "application/gzip"}
         transfer_config = kwargs["Config"]
@@ -733,9 +733,9 @@ class TestS3Operations:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """AWS presigning must produce the regional host the deployment CSP allows."""
-        monkeypatch.setattr(blob_module.config, "TRACECAT__BLOB_STORAGE_ENDPOINT", "")
+        monkeypatch.setattr(blob_module.config, "AUTOSECOPS__BLOB_STORAGE_ENDPOINT", "")
         monkeypatch.setattr(
-            blob_module.config, "TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT", None
+            blob_module.config, "AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT", None
         )
         monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
         monkeypatch.setenv("AWS_REGION", "us-west-2")
@@ -820,26 +820,26 @@ class TestS3Operations:
     ):
         """Test that presigned URLs correctly include /s3 path prefix."""
         # Setup configuration
-        mock_config.TRACECAT__PUBLIC_APP_URL = "http://localhost"
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = (
+        mock_config.AUTOSECOPS__PUBLIC_APP_URL = "http://localhost"
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = (
             "http://localhost/s3"
         )
-        mock_config.TRACECAT__BLOB_STORAGE_ENDPOINT = "http://minio:9000"
+        mock_config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT = "http://minio:9000"
 
         # Setup mock client
 
         # Mock the original presigned URL from MinIO
-        original_url = "http://minio:9000/tracecat/attachments/test.txt?AWSAccessKeyId=minio&Signature=abc123&Expires=1234567890"
+        original_url = "http://minio:9000/autosecops/attachments/test.txt?AWSAccessKeyId=minio&Signature=abc123&Expires=1234567890"
         mock_s3.generate_presigned_url.return_value = original_url
 
         # Generate presigned URL
         result = await generate_presigned_download_url(
-            "attachments/test.txt", "tracecat", 30
+            "attachments/test.txt", "autosecops", 30
         )
 
         # Verify URL transformation
-        expected_url = "http://localhost/s3/tracecat/attachments/test.txt?AWSAccessKeyId=minio&Signature=abc123&Expires=1234567890"
+        expected_url = "http://localhost/s3/autosecops/attachments/test.txt?AWSAccessKeyId=minio&Signature=abc123&Expires=1234567890"
         assert result == expected_url
         assert "/s3/" in result
         assert "localhost" in result
@@ -851,10 +851,10 @@ class TestS3Operations:
     ):
         """Test that URLs are not modified when not from internal MinIO."""
         # Mock config
-        mock_config.TRACECAT__PUBLIC_APP_URL = "http://localhost"
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
-        mock_config.TRACECAT__BLOB_STORAGE_ENDPOINT = "http://minio:9000"
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = None
+        mock_config.AUTOSECOPS__PUBLIC_APP_URL = "http://localhost"
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
+        mock_config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT = "http://minio:9000"
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = None
 
         # Setup mock client
 
@@ -864,7 +864,7 @@ class TestS3Operations:
 
         # Generate presigned URL
         result = await generate_presigned_download_url(
-            "attachments/test.txt", "tracecat", 30
+            "attachments/test.txt", "autosecops", 30
         )
 
         # URL should remain unchanged since it's not from MinIO
@@ -878,15 +878,15 @@ class TestS3Operations:
         self, mock_config, mock_s3: AsyncMock
     ):
         """Skip presigned URL rewriting when blob endpoint is unset."""
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
-        mock_config.TRACECAT__BLOB_STORAGE_ENDPOINT = None
-        mock_config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = "http://public/s3"
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY = 10
+        mock_config.AUTOSECOPS__BLOB_STORAGE_ENDPOINT = None
+        mock_config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT = "http://public/s3"
 
         original_url = "https://s3.amazonaws.com/bucket/test.txt?AWSAccessKeyId=key&Signature=abc123&Expires=1234567890"
         mock_s3.generate_presigned_url.return_value = original_url
 
         result = await generate_presigned_download_url(
-            "attachments/test.txt", "tracecat", 30
+            "attachments/test.txt", "autosecops", 30
         )
 
         assert result == original_url
@@ -937,11 +937,11 @@ class TestRewritePresignedEndpoint:
         expected: str,
     ) -> None:
         monkeypatch.setattr(
-            blob_module.config, "TRACECAT__BLOB_STORAGE_ENDPOINT", internal
+            blob_module.config, "AUTOSECOPS__BLOB_STORAGE_ENDPOINT", internal
         )
         monkeypatch.setattr(
             blob_module.config,
-            "TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
             public,
         )
 

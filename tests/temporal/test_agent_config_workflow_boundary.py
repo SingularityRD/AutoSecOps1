@@ -58,8 +58,8 @@ def _build_agent_config() -> TracecatAgentConfig:
     )
 
 
-@activity.defn(name="return_tracecat_agent_config")
-async def return_tracecat_agent_config() -> TracecatAgentConfig:
+@activity.defn(name="return_autosecops_agent_config")
+async def return_autosecops_agent_config() -> TracecatAgentConfig:
     """Mock activity that returns the full runtime AgentConfig."""
     return _build_agent_config()
 
@@ -106,7 +106,7 @@ class LegacyAgentConfigPayloadDecodeWorkflow:
         # This simulates replaying an activity result recorded before
         # resolve_agent_preset_config_activity switched to AgentConfigPayload.
         payload = await workflow.execute_activity(
-            "return_tracecat_agent_config",
+            "return_autosecops_agent_config",
             start_to_close_timeout=timedelta(seconds=10),
             result_type=AgentConfigPayload,
         )
@@ -146,7 +146,7 @@ async def test_legacy_agent_config_payload_replays_as_agent_config_payload(
     async with Worker(
         env.client,
         task_queue=task_queue,
-        activities=[return_tracecat_agent_config],
+        activities=[return_autosecops_agent_config],
         workflows=[LegacyAgentConfigPayloadDecodeWorkflow],
         workflow_runner=new_sandbox_runner(),
     ):

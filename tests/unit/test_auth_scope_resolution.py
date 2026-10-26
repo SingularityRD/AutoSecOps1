@@ -23,7 +23,7 @@ async def test_compute_effective_scopes_uses_user_rbac_path(
 
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=user_id,
         organization_id=organization_id,
         workspace_id=workspace_id,
@@ -39,7 +39,7 @@ async def test_compute_effective_scopes_uses_user_rbac_path(
 async def test_compute_effective_scopes_uses_service_allowlist_path() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-schedule-runner",
+        service_id="autosecops-schedule-runner",
     )
 
     scopes = await credentials.compute_effective_scopes(role)
@@ -66,7 +66,7 @@ async def test_compute_effective_scopes_uses_service_allowlist_path() -> None:
 async def test_compute_effective_scopes_service_with_user_id_uses_allowlist() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-schedule-runner",
+        service_id="autosecops-schedule-runner",
         user_id=uuid.uuid4(),
     )
 
@@ -84,7 +84,7 @@ async def test_compute_effective_scopes_unknown_service_principal_gets_empty_sco
 
     role = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
 
     scopes = await credentials.compute_effective_scopes(role)
@@ -105,7 +105,7 @@ async def test_compute_effective_scopes_returns_empty_when_no_assignments(
 
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=user_id,
         organization_id=organization_id,
     )

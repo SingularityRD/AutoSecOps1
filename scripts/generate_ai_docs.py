@@ -193,7 +193,7 @@ PAGES: list[dict[str, Any]] = [
 
             ## Timeouts
 
-            `timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
+            `timeout` caps active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. See [Actions](/automations/actions#timeout) for the clamp rule and the `retry_policy` shape. A lower ceiling caps both the default and the minimum.
 
             ## Reference
             """
@@ -253,7 +253,7 @@ PAGES: list[dict[str, Any]] = [
 
             ## Timeouts
 
-            The action's `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. A lower ceiling caps both the default and the minimum.
+            The action's `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours), and AutoSecOps clamps explicit values between 1800 seconds and `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds. A lower ceiling caps both the default and the minimum.
 
             A pause for a tool approval does not count toward the timeout, and the resumed run gets the full timeout again. With the default timeout, a run that reaches it fails with `Agent execution timed out after 7200s`.
 

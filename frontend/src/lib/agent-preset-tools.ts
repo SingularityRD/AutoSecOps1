@@ -33,7 +33,7 @@ export interface ToolEntry {
   defaultAsk: boolean
   locked: boolean
   namespace: string
-  section: "mcp" | "tracecat" | "custom"
+  section: "mcp" | "autosecops" | "custom"
   preparedTitle: Fuzzysort.Prepared
   preparedKey: Fuzzysort.Prepared
   integration?: MCPIntegrationRead
@@ -89,7 +89,7 @@ export function createToolIndex(
     }
     group.entries.push(entry)
   }
-  const sectionOrder = { mcp: 0, tracecat: 1, custom: 2 }
+  const sectionOrder = { mcp: 0, autosecops: 1, custom: 2 }
   const displayGroups = [...groups.values()].sort(
     (a, b) =>
       sectionOrder[a.section] - sectionOrder[b.section] ||
@@ -126,7 +126,9 @@ export function buildToolIndex(
         defaultAsk: action.requires_approval ?? false,
         locked: action.availability?.locked ?? false,
         namespace: action.namespace,
-        section: isCustomRegistryOrigin(action.origin) ? "custom" : "tracecat",
+        section: isCustomRegistryOrigin(action.origin)
+          ? "custom"
+          : "autosecops",
         preparedTitle: fuzzysort.prepare(title),
         preparedKey: fuzzysort.prepare(action.action),
       },

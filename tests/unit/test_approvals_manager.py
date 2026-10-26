@@ -415,7 +415,7 @@ class TestRecordApprovalRequestsActivity:
                 tool_name="test_tool",
                 args={
                     "url": "https://example.com",
-                    "__tracecat": {"tool_call_id": "call_123"},
+                    "__autosecops": {"tool_call_id": "call_123"},
                 },
             ),
         ]

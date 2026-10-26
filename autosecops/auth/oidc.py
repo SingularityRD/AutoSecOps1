@@ -32,7 +32,7 @@ class OIDCProviderConfig:
 
 def oidc_auth_type_enabled() -> bool:
     """Whether platform auth policy allows OIDC-style login."""
-    return AuthType.OIDC in config.TRACECAT__AUTH_TYPES
+    return AuthType.OIDC in config.AUTOSECOPS__AUTH_TYPES
 
 
 def get_platform_oidc_config() -> OIDCProviderConfig:

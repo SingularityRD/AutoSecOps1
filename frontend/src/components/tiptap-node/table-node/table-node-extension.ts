@@ -9,7 +9,7 @@ import { moveTableColumn, selectedRect } from "@tiptap/pm/tables"
 // `Commands` interface the `Editor` type reads.
 declare module "@tiptap/react" {
   interface Commands<ReturnType> {
-    tracecatTable: {
+    autosecopsTable: {
       /**
        * Swap the column holding the selection with the one to its left.
        * @returns True when the column moved, false at the leftmost column.

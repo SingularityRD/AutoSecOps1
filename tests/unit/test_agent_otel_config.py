@@ -167,7 +167,7 @@ def test_agent_otel_config_serializes_typed_fields_to_env() -> None:
         log_user_prompts=True,
         log_tool_details=False,
         log_tool_content=True,
-        resource_attributes={"service.name": "tracecat agent", "key,1": "value=1"},
+        resource_attributes={"service.name": "autosecops agent", "key,1": "value=1"},
     )
 
     assert otel_config.to_env() == {
@@ -184,7 +184,7 @@ def test_agent_otel_config_serializes_typed_fields_to_env() -> None:
         "OTEL_LOG_USER_PROMPTS": "1",
         "OTEL_LOG_TOOL_DETAILS": "0",
         "OTEL_LOG_TOOL_CONTENT": "1",
-        "OTEL_RESOURCE_ATTRIBUTES": "key%2C1=value%3D1,service.name=tracecat%20agent",
+        "OTEL_RESOURCE_ATTRIBUTES": "key%2C1=value%3D1,service.name=autosecops%20agent",
     }
 
 

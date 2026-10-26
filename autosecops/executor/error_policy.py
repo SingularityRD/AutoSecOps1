@@ -93,8 +93,8 @@ def chained_error_classification(
                 return RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.SANDBOX_RESOURCE_LIMIT_EXCEEDED,
                     message=sandbox_resource_limit_message(
-                        memory_mb=config.TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                        memory_env_var="TRACECAT__SANDBOX_DEFAULT_MEMORY_MB",
+                        memory_mb=config.AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                        memory_env_var="AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB",
                     ),
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                     cause=cause,

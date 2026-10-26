@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Final
 
-REPOSITORY_ROOT_ENV: Final = "TRACECAT_LOADTEST_REPO_ROOT"
+REPOSITORY_ROOT_ENV: Final = "AUTOSECOPS_LOADTEST_REPO_ROOT"
 
 
 class RepositoryRootError(RuntimeError):

@@ -5,8 +5,8 @@ Boundary note:
   enforcement only (workflow permits, action permits, and per-workflow action
   execution budget).
 - Engine backpressure controls are independent and always on:
-  ``TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW`` and
-  ``TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS``.
+  ``AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW`` and
+  ``AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS``.
 """
 
 from enum import StrEnum

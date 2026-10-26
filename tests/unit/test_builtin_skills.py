@@ -22,7 +22,7 @@ from autosecops.agent.skill.frontmatter import parse_skill_markdown
 from autosecops.agent.skill.schemas import SkillCreate
 from autosecops.agent.skill.types import SkillOrigin
 
-IMAGE_SKILLS_ROOT = Path(config.TRACECAT__COPILOT_SKILLS_DIR)
+IMAGE_SKILLS_ROOT = Path(config.AUTOSECOPS__COPILOT_SKILLS_DIR)
 
 
 def _has_all_skills(root: Path) -> bool:
@@ -43,14 +43,14 @@ def require_vendored_skills() -> Path:
 
 class TestSkillOrigin:
     def test_workspace_names_do_not_reserve_platform_prefix(self):
-        assert SkillCreate(name="tracecat-triage").name == "tracecat-triage"
+        assert SkillCreate(name="autosecops-triage").name == "autosecops-triage"
 
     def test_platform_origin_is_explicit(self):
         assert all(skill.origin is SkillOrigin.PLATFORM for skill in PLATFORM_SKILLS)
         workspace_chat = next(
             skill for skill in PLATFORM_SKILLS if skill.skill_name == "workspace-chat"
         )
-        assert workspace_chat.qualified_name == "tracecat:workspace-chat"
+        assert workspace_chat.qualified_name == "autosecops:workspace-chat"
 
 
 class TestBuiltinSkillsConstant:
@@ -115,18 +115,18 @@ class TestVendoredSkillContent:
                 if document.suffix not in {".md", ".yaml"}:
                     continue
                 content = document.read_text(encoding="utf-8")
-                # Lowercase ``tracecat`` forms are identifiers and stay.
+                # Lowercase ``autosecops`` forms are identifiers and stay.
                 assert re.search(r"\bTracecat\b", content) is None, document
                 assert "tracecat.com" not in content, document
                 assert "github.com/TracecatHQ" not in content, document
 
     def test_workspace_chat_adapter_contains_local_docs(self):
         root = require_vendored_skills()
-        docs_root = root / "tracecat-workspace-chat" / "references" / "docs"
+        docs_root = root / "autosecops-workspace-chat" / "references" / "docs"
         if not docs_root.is_dir():
             pytest.skip(
                 "Docs are injected by the `plugin-skills` Dockerfile stage; set "
-                "TRACECAT__COPILOT_SKILLS_DIR to an image-built tree to check them."
+                "AUTOSECOPS__COPILOT_SKILLS_DIR to an image-built tree to check them."
             )
 
         assert (docs_root / "docs.json").is_file()
@@ -154,10 +154,10 @@ class TestBuiltinSkillsPayloadThreading:
         config = AgentConfig(
             model_name="claude",
             model_provider="anthropic",
-            builtin_skills=["tracecat-automation-best-practices"],
+            builtin_skills=["autosecops-automation-best-practices"],
         )
         restored = agent_config_from_payload(agent_config_to_payload(config))
-        assert restored.builtin_skills == ["tracecat-automation-best-practices"]
+        assert restored.builtin_skills == ["autosecops-automation-best-practices"]
 
     def test_round_trip_defaults_to_none(self):
         from autosecops.agent.types import AgentConfig
@@ -206,8 +206,8 @@ class TestResolveBuiltinWorkspaceChatSkills:
         )
         result = await resolve()
         assert result == list(BUILTIN_WORKSPACE_CHAT_SKILLS)
-        assert result[0] == "tracecat-workspace-chat"
-        assert "tracecat-automation-best-practices" in result
+        assert result[0] == "autosecops-workspace-chat"
+        assert "autosecops-automation-best-practices" in result
 
     @pytest.mark.anyio
     async def test_returns_none_when_not_entitled(self, monkeypatch):
@@ -246,21 +246,21 @@ class TestStageBuiltinSkills:
         from autosecops.agent.executor import activity as activity_mod
 
         vendored_root = tmp_path / "vendored"
-        vendored_skill = vendored_root / "tracecat-automation-best-practices"
+        vendored_skill = vendored_root / "autosecops-automation-best-practices"
         vendored_skill.mkdir(parents=True)
         (vendored_skill / "SKILL.md").write_text(
-            "---\nname: tracecat-automation-best-practices\n---\nvendored content"
+            "---\nname: autosecops-automation-best-practices\n---\nvendored content"
         )
         monkeypatch.setattr(
             activity_mod.app_config,
-            "TRACECAT__COPILOT_SKILLS_DIR",
+            "AUTOSECOPS__COPILOT_SKILLS_DIR",
             str(vendored_root),
         )
 
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
         await _executor_with_builtin_skills(
-            ["tracecat-automation-best-practices"]
+            ["autosecops-automation-best-practices"]
         ).stage(skills_dir)
         staged_markdown = (
             skills_dir / "skills" / "automation-best-practices" / "SKILL.md"
@@ -279,7 +279,7 @@ class TestStageBuiltinSkills:
 
         monkeypatch.setattr(
             activity_mod.app_config,
-            "TRACECAT__COPILOT_SKILLS_DIR",
+            "AUTOSECOPS__COPILOT_SKILLS_DIR",
             str(tmp_path / "does-not-exist"),
         )
 
@@ -287,7 +287,7 @@ class TestStageBuiltinSkills:
         skills_dir.mkdir()
         with pytest.raises(FileNotFoundError, match="Vendored copilot skills"):
             await _executor_with_builtin_skills(
-                ["tracecat-automation-best-practices"]
+                ["autosecops-automation-best-practices"]
             ).stage(skills_dir)
 
     @pytest.mark.anyio
@@ -295,7 +295,7 @@ class TestStageBuiltinSkills:
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
         await _executor_with_builtin_skills(
-            ["not-prefixed", "tracecat-does-not-exist"]
+            ["not-prefixed", "autosecops-does-not-exist"]
         ).stage(skills_dir)
         assert list(skills_dir.iterdir()) == []
 
@@ -311,7 +311,7 @@ class TestWorkspaceChatPrompt:
         platform_section = platform_section.split("</platform-guidance>", maxsplit=1)[0]
         normalized_section = " ".join(platform_section.split())
 
-        assert "tracecat:workspace-chat" in normalized_section
+        assert "autosecops:workspace-chat" in normalized_section
         assert "any AutoSecOps platform tool" in normalized_section
 
     def test_workflow_skill_order_is_adapter_then_generic(self):
@@ -321,8 +321,8 @@ class TestWorkspaceChatPrompt:
         workflow_section = instructions.split("<workflows>", maxsplit=1)[1]
         workflow_section = workflow_section.split("</workflows>", maxsplit=1)[0]
 
-        assert workflow_section.index("tracecat:workspace-chat") < (
-            workflow_section.index("tracecat:automation-best-practices")
+        assert workflow_section.index("autosecops:workspace-chat") < (
+            workflow_section.index("autosecops:automation-best-practices")
         )
 
 
@@ -336,12 +336,12 @@ class TestWorkflowActionDescriptions:
 
         action_descriptions: dict[str, str] = {}
         for candidate in vars(workflow).values():
-            key = getattr(candidate, "__tracecat_udf_key", None)
+            key = getattr(candidate, "__autosecops_udf_key", None)
             if not isinstance(key, str) or not key.startswith("core.workflow."):
                 continue
             metadata = cast(
                 Mapping[str, object],
-                getattr(candidate, "__tracecat_udf_kwargs", {}),
+                getattr(candidate, "__autosecops_udf_kwargs", {}),
             )
             description = metadata.get("description")
             assert isinstance(description, str)
@@ -349,5 +349,5 @@ class TestWorkflowActionDescriptions:
 
         assert action_descriptions
         for key, description in action_descriptions.items():
-            assert "`tracecat:workspace-chat`" in description, key
-            assert "`tracecat:automation-best-practices`" in description, key
+            assert "`autosecops:workspace-chat`" in description, key
+            assert "`autosecops:automation-best-practices`" in description, key

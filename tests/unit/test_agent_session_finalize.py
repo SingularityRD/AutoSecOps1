@@ -16,7 +16,7 @@ def _build_service(
 ) -> tuple[AgentSessionService, SimpleNamespace, Role]:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),

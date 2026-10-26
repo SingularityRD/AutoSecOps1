@@ -62,7 +62,7 @@ resource "aws_ecs_task_definition" "temporal_ui_task_definition" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "temporal-ui"
         }
@@ -74,7 +74,7 @@ resource "aws_ecs_task_definition" "temporal_ui_task_definition" {
 resource "aws_ecs_service" "temporal_ui_service" {
   count                = var.disable_temporal_ui ? 0 : 1
   name                 = "temporal-ui"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.temporal_ui_task_definition[count.index].arn
   launch_type          = "FARGATE"
   desired_count        = 1
@@ -103,7 +103,7 @@ resource "aws_ecs_service" "temporal_ui_service" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-temporal-ui"
       }

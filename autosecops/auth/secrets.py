@@ -15,21 +15,21 @@ def get_user_auth_secret() -> str:
 
 
 def get_db_encryption_key() -> str:
-    """Get TRACECAT__DB_ENCRYPTION_KEY. Raises ValueError if not set."""
-    if not config.TRACECAT__DB_ENCRYPTION_KEY:
-        raise ValueError("TRACECAT__DB_ENCRYPTION_KEY is not set")
-    return config.TRACECAT__DB_ENCRYPTION_KEY
+    """Get AUTOSECOPS__DB_ENCRYPTION_KEY. Raises ValueError if not set."""
+    if not config.AUTOSECOPS__DB_ENCRYPTION_KEY:
+        raise ValueError("AUTOSECOPS__DB_ENCRYPTION_KEY is not set")
+    return config.AUTOSECOPS__DB_ENCRYPTION_KEY
 
 
 def get_signing_secret() -> str:
-    """Get TRACECAT__SIGNING_SECRET. Raises ValueError if not set."""
-    if not config.TRACECAT__SIGNING_SECRET:
-        raise ValueError("TRACECAT__SIGNING_SECRET is not set")
-    return config.TRACECAT__SIGNING_SECRET
+    """Get AUTOSECOPS__SIGNING_SECRET. Raises ValueError if not set."""
+    if not config.AUTOSECOPS__SIGNING_SECRET:
+        raise ValueError("AUTOSECOPS__SIGNING_SECRET is not set")
+    return config.AUTOSECOPS__SIGNING_SECRET
 
 
 def get_service_key() -> str:
-    """Get TRACECAT__SERVICE_KEY. Raises ValueError if not set."""
-    if not config.TRACECAT__SERVICE_KEY:
-        raise ValueError("TRACECAT__SERVICE_KEY is not set")
-    return config.TRACECAT__SERVICE_KEY
+    """Get AUTOSECOPS__SERVICE_KEY. Raises ValueError if not set."""
+    if not config.AUTOSECOPS__SERVICE_KEY:
+        raise ValueError("AUTOSECOPS__SERVICE_KEY is not set")
+    return config.AUTOSECOPS__SERVICE_KEY

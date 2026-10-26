@@ -155,7 +155,7 @@ _STDIO_MCP_BURST_AGENT_NPROC_LIMIT = 1024
 # Reserve virtual address space for Bun without raising the cgroup budget.
 _STDIO_MCP_BURST_AGENT_ADDRESS_SPACE_MB = 8192
 _STDIO_MCP_BURST_PARENT_NOFILE_LIMIT = 4096
-_STDIO_MCP_BASH_TOOL_USE_ID = "toolu_tracecat_bash_network_probe"
+_STDIO_MCP_BASH_TOOL_USE_ID = "toolu_autosecops_bash_network_probe"
 _STDIO_MCP_BASH_RESULT_MARKER = "TRACE_CAT_BASH_NETWORK_PROBE_OK"
 _RFC1918_NETWORKS = (
     IPv4Network("10.0.0.0/8"),
@@ -206,7 +206,7 @@ def main():
                     "protocolVersion": protocol_version,
                     "capabilities": {"tools": {}},
                     "serverInfo": {
-                        "name": f"tracecat-burst-{server_id}",
+                        "name": f"autosecops-burst-{server_id}",
                         "version": "1.0.0",
                     },
                 },
@@ -284,7 +284,7 @@ def _make_executor_input(*, enable_internet_access: bool) -> AgentExecutorInput:
             model_provider="openai",
             enable_internet_access=enable_internet_access,
         ),
-        role=Role(type="service", service_id="tracecat-agent-executor"),
+        role=Role(type="service", service_id="autosecops-agent-executor"),
         mcp_auth_token="mcp-token",
         llm_gateway_auth_token="llm-token",
         agent_otel_auth_token="otel-token",
@@ -330,7 +330,7 @@ def _make_passthrough_executor_input(
             passthrough=True,
             enable_internet_access=enable_internet_access,
         ),
-        role=Role(type="service", service_id="tracecat-agent-executor"),
+        role=Role(type="service", service_id="autosecops-agent-executor"),
         mcp_auth_token="mcp-token",
         llm_gateway_auth_token="llm-token",
         agent_otel_auth_token="otel-token",
@@ -338,11 +338,11 @@ def _make_passthrough_executor_input(
 
 
 def _agent_nsjail_available() -> bool:
-    nsjail_path = Path(app_config.TRACECAT__SANDBOX_NSJAIL_PATH)
-    rootfs_path = Path(app_config.TRACECAT__SANDBOX_ROOTFS_PATH)
+    nsjail_path = Path(app_config.AUTOSECOPS__SANDBOX_NSJAIL_PATH)
+    rootfs_path = Path(app_config.AUTOSECOPS__SANDBOX_ROOTFS_PATH)
     return (
         platform.system() == "Linux"
-        and bool(os.environ.get("TRACECAT__AGENT_SANDBOX_CGROUP_PATH"))
+        and bool(os.environ.get("AUTOSECOPS__AGENT_SANDBOX_CGROUP_PATH"))
         and nsjail_path.is_file()
         and os.access(nsjail_path, os.X_OK)
         and rootfs_path.is_dir()
@@ -355,29 +355,29 @@ def _set_disable_nsjail_mode(
 ) -> None:
     monkeypatch.setattr(
         executor_activity,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.DIRECT if disable_nsjail else ExecutorBackendType.NSJAIL,
     )
     monkeypatch.setattr(
         broker_module,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.DIRECT if disable_nsjail else ExecutorBackendType.NSJAIL,
     )
     monkeypatch.setattr(
         nsjail_module,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.DIRECT if disable_nsjail else ExecutorBackendType.NSJAIL,
     )
     monkeypatch.setattr(
         runtime_module,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.DIRECT if disable_nsjail else ExecutorBackendType.NSJAIL,
     )
 
 
 def _docker_nsjail_fallback_enabled() -> bool:
     return (
-        os.environ.get("TRACECAT__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD") != "1"
+        os.environ.get("AUTOSECOPS__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD") != "1"
         and shutil.which("docker") is not None
     )
 
@@ -416,8 +416,8 @@ def _write_stdio_mcp_burst_wheel(
     server_index: int,
 ) -> tuple[Path, str]:
     """Build a dependency-free local wheel for one cold uvx MCP process."""
-    module_name = f"tracecat_mcp_burst_{server_index}"
-    package_name = f"tracecat-mcp-burst-{server_index}"
+    module_name = f"autosecops_mcp_burst_{server_index}"
+    package_name = f"autosecops-mcp-burst-{server_index}"
     command_name = package_name
     dist_info = f"{module_name}-1.0.0.dist-info"
     wheel_path = job_dir / f"{module_name}-1.0.0-py3-none-any.whl"
@@ -428,7 +428,7 @@ def _write_stdio_mcp_burst_wheel(
         ),
         f"{dist_info}/WHEEL": (
             "Wheel-Version: 1.0\n"
-            "Generator: tracecat-test\n"
+            "Generator: autosecops-test\n"
             "Root-Is-Purelib: true\n"
             "Tag: py3-none-any\n"
         ),
@@ -484,7 +484,7 @@ def _build_stdio_mcp_burst_servers(
             "id": str(
                 uuid.uuid5(
                     uuid.NAMESPACE_URL,
-                    f"https://tracecat.invalid/mcp-startup-burst/{server_index}",
+                    f"https://autosecops.invalid/mcp-startup-burst/{server_index}",
                 )
             ),
         }
@@ -942,7 +942,7 @@ class _FakeCompressedMCPUnixSocketProxy:
                     "protocolVersion": "2025-11-25",
                     "capabilities": {"tools": {}},
                     "serverInfo": {
-                        "name": "tracecat-test-mcp",
+                        "name": "autosecops-test-mcp",
                         "version": "1.0.0",
                     },
                 },
@@ -1209,7 +1209,7 @@ async def _run_full_claude_harness_runtime_case(
     monkeypatch.setattr(executor_activity, "LLMSocketProxy", _FakeLLMSocketProxy)
     monkeypatch.setattr(
         nsjail_module,
-        "TRACECAT__AGENT_MCP_SOCKET_PATH",
+        "AUTOSECOPS__AGENT_MCP_SOCKET_PATH",
         job_dir / "sockets" / "mcp.sock",
     )
     monkeypatch.setattr(
@@ -1476,7 +1476,7 @@ async def _run_mcp_compression_initialize_case(
         await mcp_proxy.start()
         monkeypatch.setattr(
             nsjail_module,
-            "TRACECAT__AGENT_MCP_SOCKET_PATH",
+            "AUTOSECOPS__AGENT_MCP_SOCKET_PATH",
             mcp_proxy.socket_path,
         )
         return job_dir
@@ -1499,7 +1499,7 @@ async def _run_mcp_compression_initialize_case(
         mcp_servers = self._options.mcp_servers
         if not isinstance(mcp_servers, dict):
             raise AssertionError("expected trusted MCP server config")
-        server_config = mcp_servers["tracecat-registry"]
+        server_config = mcp_servers["autosecops-registry"]
         if not isinstance(server_config, dict):
             raise AssertionError("expected trusted MCP server dict config")
         http_server_config = cast(dict[str, object], server_config)
@@ -1524,7 +1524,7 @@ async def _run_mcp_compression_initialize_case(
                 "        'params': {",
                 "            'protocolVersion': '2025-11-25',",
                 "            'capabilities': {},",
-                "            'clientInfo': {'name': 'tracecat-test', 'version': '1.0.0'},",
+                "            'clientInfo': {'name': 'autosecops-test', 'version': '1.0.0'},",
                 "        },",
                 "    }).encode()",
                 "    request = urllib.request.Request(",
@@ -1722,7 +1722,7 @@ def _run_nsjail_harness_in_docker_or_skip(
     requires_tun: bool = False,
     parent_nofile_limit: int | None = None,
 ) -> None:
-    if os.environ.get("TRACECAT__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD") == "1":
+    if os.environ.get("AUTOSECOPS__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD") == "1":
         pytest.skip("nsjail unavailable inside Docker fallback child")
     if shutil.which("docker") is None:
         pytest.skip("Docker CLI unavailable for nsjail fallback")
@@ -1740,16 +1740,16 @@ def _run_nsjail_harness_in_docker_or_skip(
     repo_root = Path(__file__).resolve().parents[2]
     compose_env = os.environ.copy()
     compose_env.setdefault(
-        "TRACECAT__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
         str(repo_root / "packages"),
     )
-    compose_env.setdefault("TRACECAT__LOCAL_REPOSITORY_ENABLED", "false")
+    compose_env.setdefault("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "false")
     compose_env.setdefault("PUBLIC_APP_PORT", "80")
     compose_env.setdefault("BASE_DOMAIN", ":80")
     compose_env.setdefault("ADDRESS", "0.0.0.0")
     compose_env.setdefault("LOG_LEVEL", "INFO")
-    compose_env.setdefault("TRACECAT__APP_ENV", "development")
-    sandbox_image = os.environ.get("TRACECAT_TEST_SANDBOX_IMAGE")
+    compose_env.setdefault("AUTOSECOPS__APP_ENV", "development")
+    sandbox_image = os.environ.get("AUTOSECOPS_TEST_SANDBOX_IMAGE")
     tests_mount = f"{repo_root / 'tests'}:/app/tests:ro"
     device_lines = (
         [
@@ -1771,7 +1771,7 @@ def _run_nsjail_harness_in_docker_or_skip(
         else []
     )
     override_path = Path(
-        tempfile.mkstemp(prefix="tracecat-agent-nsjail-test-", suffix=".yml")[1]
+        tempfile.mkstemp(prefix="autosecops-agent-nsjail-test-", suffix=".yml")[1]
     )
     override_path.write_text(
         "\n".join(
@@ -1800,10 +1800,10 @@ def _run_nsjail_harness_in_docker_or_skip(
                 "    volumes:",
                 f"      - {json.dumps(tests_mount)}",
                 "    environment:",
-                '      TRACECAT__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD: "1"',
-                '      TRACECAT__EXECUTOR_BACKEND: "nsjail"',
-                '      TRACECAT__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
-                '      TRACECAT__SANDBOX_ROOTFS_PATH: "/var/lib/tracecat/sandbox-rootfs"',
+                '      AUTOSECOPS__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD: "1"',
+                '      AUTOSECOPS__EXECUTOR_BACKEND: "nsjail"',
+                '      AUTOSECOPS__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
+                '      AUTOSECOPS__SANDBOX_ROOTFS_PATH: "/var/lib/autosecops/sandbox-rootfs"',
                 '      PYTHONDONTWRITEBYTECODE: "1"',
                 "",
             ]
@@ -1879,7 +1879,7 @@ def _run_nsjail_cgroup_smoke_from_cli() -> None:
             Path(p) for p in sys.path if "site-packages" in p and Path(p).is_dir()
         )
         text = build_agent_nsjail_config(
-            rootfs=Path(app_config.TRACECAT__SANDBOX_ROOTFS_PATH),
+            rootfs=Path(app_config.AUTOSECOPS__SANDBOX_ROOTFS_PATH),
             job_dir=job,
             socket_dir=job,
             config=AgentSandboxConfig(
@@ -1897,7 +1897,7 @@ def _run_nsjail_cgroup_smoke_from_cli() -> None:
         config_path = job / "nsjail.cfg"
         config_path.write_text(text)
         result = subprocess.run(
-            [app_config.TRACECAT__SANDBOX_NSJAIL_PATH, "--config", str(config_path)],
+            [app_config.AUTOSECOPS__SANDBOX_NSJAIL_PATH, "--config", str(config_path)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -1912,7 +1912,7 @@ def _run_nsjail_cgroup_smoke_from_cli() -> None:
 def _run_nsjail_harness_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-smoke-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-smoke-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_full_claude_harness_runtime_case(
@@ -1930,7 +1930,7 @@ def _run_nsjail_harness_smoke_from_cli() -> None:
 def _run_nsjail_nstun_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-nstun-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-nstun-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_full_claude_harness_runtime_case(
@@ -1949,7 +1949,7 @@ def _run_nsjail_nstun_smoke_from_cli() -> None:
 def _run_nsjail_stdio_mcp_burst_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-stdio-mcp-burst-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-stdio-mcp-burst-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_stdio_mcp_startup_burst_case(
@@ -1966,7 +1966,7 @@ def _run_nsjail_stdio_mcp_burst_smoke_from_cli() -> None:
 def _run_nsjail_skills_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-skills-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-skills-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_attached_skills_visible_case(
@@ -1983,7 +1983,7 @@ def _run_nsjail_skills_smoke_from_cli() -> None:
 
 def _run_nsjail_mcp_compression_smoke_from_cli() -> None:
     async def run() -> None:
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-mcp-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-mcp-"))
         try:
             await _run_mcp_compression_initialize_repro_case(
                 disable_nsjail_mode=False,
@@ -1998,7 +1998,7 @@ def _run_nsjail_mcp_compression_smoke_from_cli() -> None:
 def _run_nsjail_duckdb_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-duckdb-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-duckdb-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_duckdb_cli_available_case(
@@ -2109,7 +2109,7 @@ async def _run_nproc_cap_case(
 def _run_nsjail_nproc_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-agent-nsjail-nproc-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-agent-nsjail-nproc-"))
         try:
             _set_disable_nsjail_mode(monkeypatch, False)
             await _run_nproc_cap_case(
@@ -2620,7 +2620,7 @@ async def test_run_agent_activity_with_fake_litellm_provider_spawns_runtime_in_e
     assert proxy.stopped is True
     assert (
         proxy.routing_plan.managed_route.base_url
-        == app_config.TRACECAT__LITELLM_BASE_URL
+        == app_config.AUTOSECOPS__LITELLM_BASE_URL
     )
     # The executor now passes a routing plan: managed LiteLLM is the fallback,
     # and the root passthrough model is a direct route inside that plan.
@@ -2704,7 +2704,7 @@ async def _run_attached_skills_visible_case(
         mcp_socket_path.touch()
         monkeypatch.setattr(
             nsjail_module,
-            "TRACECAT__AGENT_MCP_SOCKET_PATH",
+            "AUTOSECOPS__AGENT_MCP_SOCKET_PATH",
             mcp_socket_path,
         )
         return job_dir
@@ -2860,7 +2860,7 @@ async def _run_duckdb_cli_available_case(
         mcp_socket_path.touch()
         monkeypatch.setattr(
             nsjail_module,
-            "TRACECAT__AGENT_MCP_SOCKET_PATH",
+            "AUTOSECOPS__AGENT_MCP_SOCKET_PATH",
             mcp_socket_path,
         )
         return job_dir
@@ -3303,7 +3303,7 @@ async def test_executor_keeps_direct_passthrough_available_for_root_with_subagen
     proxy = await executor._create_llm_socket_proxy(tmp_path / LLM_SOCKET_NAME)
 
     assert proxy.routing_plan.managed_route.base_url == (
-        app_config.TRACECAT__LITELLM_BASE_URL.rstrip("/")
+        app_config.AUTOSECOPS__LITELLM_BASE_URL.rstrip("/")
     )
     assert proxy.routing_plan.managed_route.local_provider_cleanup is False
     # Root passthrough remains direct even when the run also has subagents.
@@ -3333,7 +3333,7 @@ async def test_executor_routes_passthrough_subagent_by_its_own_model_config(
             passthrough=True,
         ),
         mcp_auth_token="child-mcp-token",
-        model_route="child-alias::tracecat-subagent::analyst",
+        model_route="child-alias::autosecops-subagent::analyst",
     )
     executor_input = _make_passthrough_executor_input(
         enable_internet_access=False
@@ -3351,7 +3351,7 @@ async def test_executor_routes_passthrough_subagent_by_its_own_model_config(
             model_provider="custom-model-provider",
             authorization="Bearer sk-test",
         ),
-        "child-alias::tracecat-subagent::analyst": LLMRoute(
+        "child-alias::autosecops-subagent::analyst": LLMRoute(
             base_url="https://child-litellm.example",
             model_provider="custom-model-provider",
             upstream_model_name="child-alias",
@@ -3531,7 +3531,7 @@ async def test_sandbox_shim_starts_bridge_and_sets_child_base_url(
     # The shim merges os.environ into child_env, so clear these to keep the
     # "not in child_env" assertions independent of the host environment.
     monkeypatch.delenv("agent_otel_auth_token", raising=False)
-    monkeypatch.delenv("TRACECAT__AGENT_OTEL_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("AUTOSECOPS__AGENT_OTEL_AUTH_TOKEN", raising=False)
 
     await shim_entrypoint.run_sandboxed_claude_shim()
 
@@ -3551,11 +3551,11 @@ async def test_sandbox_shim_starts_bridge_and_sets_child_base_url(
     child_env = kwargs["env"]
     assert isinstance(child_env, dict)
     assert child_env["ANTHROPIC_AUTH_TOKEN"] == "llm-token"
-    assert child_env["TRACECAT__LLM_BRIDGE_PORT"] == "4312"
-    assert child_env["TRACECAT__MCP_BRIDGE_PORT"] == "4313"
+    assert child_env["AUTOSECOPS__LLM_BRIDGE_PORT"] == "4312"
+    assert child_env["AUTOSECOPS__MCP_BRIDGE_PORT"] == "4313"
     assert child_env["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:4312"
     assert "agent_otel_auth_token" not in child_env
-    assert "TRACECAT__AGENT_OTEL_AUTH_TOKEN" not in child_env
+    assert "AUTOSECOPS__AGENT_OTEL_AUTH_TOKEN" not in child_env
 
 
 if __name__ == "__main__":

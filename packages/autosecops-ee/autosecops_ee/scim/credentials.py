@@ -104,7 +104,7 @@ async def authenticate_scim_connection(
 
     role = Role(
         type="scim",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         scim_connection_id=connection_id,
         scopes=SCIM_ROLE_SCOPES,

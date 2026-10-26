@@ -64,7 +64,7 @@ Use Chrome DevTools or the available browser DevTools MCP to navigate the local 
 For AutoSecOps-style local work:
 
 ```bash
-docker compose ls --filter name=tracecat
+docker compose ls --filter name=autosecops
 just cluster up -d
 just cluster ps
 ```

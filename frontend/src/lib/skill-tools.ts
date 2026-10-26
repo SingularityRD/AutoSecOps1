@@ -21,10 +21,10 @@ import { isAgentToolSelectable } from "@/lib/agent-tools"
 /** Maximum number of tool declarations accepted by skill frontmatter. */
 export const MAX_SKILL_TOOLS = 64
 
-// Keep in sync with ToolId in tracecat/agent/skill/frontmatter.py.
+// Keep in sync with ToolId in autosecops/agent/skill/frontmatter.py.
 const MCP_TOOL_ID_RE = /^mcp\.[a-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?$/
 const REGISTRY_TOOL_ID_RE = /^[a-z0-9_]+(?:\.[a-z0-9_]+)+$/
-// Keep in sync with MCP_TOOL_NAME_RE in tracecat/agent/mcp/utils.py.
+// Keep in sync with MCP_TOOL_NAME_RE in autosecops/agent/mcp/utils.py.
 const MCP_TOOL_NAME_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 function isCanonicalToolId(value: string): boolean {

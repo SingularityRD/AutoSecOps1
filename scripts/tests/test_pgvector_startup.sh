@@ -15,17 +15,17 @@ fi
 docker image inspect "$source_image" >/dev/null 2>&1 || docker pull "$source_image"
 scenario=${2:-existing}
 admin_user=${3:-postgres}
-unset COMPOSE_FILE TRACECAT__PGVECTOR_IMAGE
+unset COMPOSE_FILE AUTOSECOPS__PGVECTOR_IMAGE
 export COMPOSE_PROJECT_NAME="$project"
-export TRACECAT__POSTGRES_USER="$admin_user" TRACECAT__POSTGRES_PASSWORD=synthetic-test-password
+export AUTOSECOPS__POSTGRES_USER="$admin_user" AUTOSECOPS__POSTGRES_PASSWORD=synthetic-test-password
 cp "$repo_root/docker-compose.yml" "$work_dir/compose.yaml"
 mkdir -p "$work_dir/scripts/postgres"
 cp "$repo_root/scripts/postgres/"{compose-entrypoint.sh,initdb-pgvector.sql,pgvector.sql} "$work_dir/scripts/postgres/"
 cat > "$work_dir/.env" <<ENV
-TRACECAT__LOCAL_REPOSITORY_PATH=/tmp/synthetic-registry
+AUTOSECOPS__LOCAL_REPOSITORY_PATH=/tmp/synthetic-registry
 PUBLIC_APP_PORT=8080
 TEMPORAL__UI_VERSION=latest
-TRACECAT__DB_URI=postgresql+psycopg://$admin_user:synthetic-test-password@postgres_db:5432/postgres
+AUTOSECOPS__DB_URI=postgresql+psycopg://$admin_user:synthetic-test-password@postgres_db:5432/postgres
 ENV
 cd "$work_dir"
 cleanup() {
@@ -51,7 +51,7 @@ postgres = config['services']['postgres_db']
 assert postgres['image'] == json.loads(Path(sys.argv[4]).read_text())['trixie']['image']
 postgres['image'] = sys.argv[3]  # Exercise the matching Bookworm image when requested.
 # Test-only SQL injection makes the socket-only interval observable.
-postgres['volumes'].append({'type': 'bind', 'source': str(Path('scripts/postgres/pgvector.sql').resolve()), 'target': '/usr/local/share/tracecat/pgvector.sql', 'read_only': True})
+postgres['volumes'].append({'type': 'bind', 'source': str(Path('scripts/postgres/pgvector.sql').resolve()), 'target': '/usr/local/share/autosecops/pgvector.sql', 'read_only': True})
 postgres.pop('ports', None)
 postgres.pop('container_name', None)
 config['services']['migrations'] = {
@@ -142,7 +142,7 @@ import json
 from pathlib import Path
 config = json.loads(Path('compose.yaml').read_text())
 for volume in config['services']['postgres_db']['volumes']:
-    if volume['target'] == '/usr/local/share/tracecat/pgvector.sql':
+    if volume['target'] == '/usr/local/share/autosecops/pgvector.sql':
         volume['source'] = str(Path('scripts/postgres/repair-pgvector.sql').resolve())
 Path('compose.yaml').write_text(json.dumps(config))
 PYREPAIR

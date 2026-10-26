@@ -70,7 +70,7 @@ async def ensure_organization_defaults(
     """
     org_role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=org_id,
         is_platform_superuser=True,
         scopes=frozenset({"*"}),
@@ -214,7 +214,7 @@ async def delete_organization_with_cleanup(
         bootstrap_role = Role(
             type="service",
             user_id=operator_user_id,
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=organization.id,
             workspace_id=workspace.id,
         )
@@ -362,7 +362,7 @@ async def ensure_single_tenant_user_defaults(
     paths. Self-service callers keep the default, so registration leaves
     membership to provisioning or invitation acceptance.
     """
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return None
 
     organization_id = await ensure_default_organization()
@@ -395,7 +395,7 @@ async def ensure_single_tenant_user_defaults_for_session(
     paths. Under the default, existing members are repaired without granting
     new memberships.
     """
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return SingleTenantUserDefaultsResult(organization_id=None, changed=False)
 
     if organization_id is None:

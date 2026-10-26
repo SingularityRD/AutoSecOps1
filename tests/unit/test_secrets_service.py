@@ -67,7 +67,7 @@ def tls_keypair() -> tuple[str, str]:
     """Generate a PEM-encoded TLS private key and certificate without trailing newlines."""
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "tracecat.test")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, "autosecops.test")]
     )
     cert = (
         x509.CertificateBuilder()

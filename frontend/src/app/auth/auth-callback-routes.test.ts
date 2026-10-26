@@ -4,7 +4,7 @@ import { NextRequest } from "next/server"
 import { GET as oauthCallback } from "@/app/auth/oauth/callback/route"
 import { POST as samlCallback } from "@/app/auth/saml/acs/route"
 
-const ORIGINAL_SERVICE_KEY = process.env.TRACECAT__SERVICE_KEY
+const ORIGINAL_SERVICE_KEY = process.env.AUTOSECOPS__SERVICE_KEY
 const ATTRIBUTION_HEADERS = {
   "user-agent": "SyntheticBrowser/1.0",
   "x-forwarded-for": "198.51.100.20",
@@ -23,9 +23,9 @@ function authResponse(): Response {
 afterEach(() => {
   jest.restoreAllMocks()
   if (ORIGINAL_SERVICE_KEY === undefined) {
-    delete process.env.TRACECAT__SERVICE_KEY
+    delete process.env.AUTOSECOPS__SERVICE_KEY
   } else {
-    process.env.TRACECAT__SERVICE_KEY = ORIGINAL_SERVICE_KEY
+    process.env.AUTOSECOPS__SERVICE_KEY = ORIGINAL_SERVICE_KEY
   }
 })
 
@@ -54,7 +54,7 @@ describe("authentication callback attribution", () => {
   })
 
   it("forwards SAML attribution with service headers", async () => {
-    process.env.TRACECAT__SERVICE_KEY = "synthetic-service-key"
+    process.env.AUTOSECOPS__SERVICE_KEY = "synthetic-service-key"
     const fetchMock = jest
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(infoResponse())
@@ -72,9 +72,11 @@ describe("authentication callback attribution", () => {
     const headers = new Headers(fetchMock.mock.calls[1][1]?.headers)
     expect(headers.get("user-agent")).toBe("SyntheticBrowser/1.0")
     expect(headers.get("x-forwarded-for")).toBe("198.51.100.20")
-    expect(headers.get("x-tracecat-role-type")).toBe("service")
-    expect(headers.get("x-tracecat-role-service-id")).toBe("tracecat-ui")
-    expect(headers.get("x-tracecat-service-key")).toBe("synthetic-service-key")
+    expect(headers.get("x-autosecops-role-type")).toBe("service")
+    expect(headers.get("x-autosecops-role-service-id")).toBe("autosecops-ui")
+    expect(headers.get("x-autosecops-service-key")).toBe(
+      "synthetic-service-key"
+    )
   })
 })
 

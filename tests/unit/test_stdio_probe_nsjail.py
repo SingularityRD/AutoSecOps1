@@ -12,7 +12,7 @@ from tests.conftest import IN_DOCKER
 
 NSJAIL_AVAILABLE = shutil.which("nsjail") is not None
 ROOTFS_PATH = os.environ.get(
-    "TRACECAT__SANDBOX_ROOTFS_PATH", "/var/lib/tracecat/sandbox-rootfs"
+    "AUTOSECOPS__SANDBOX_ROOTFS_PATH", "/var/lib/autosecops/sandbox-rootfs"
 )
 ROOTFS_AVAILABLE = os.path.isdir(ROOTFS_PATH)
 SERVER_ENV = {"PYTHONPATH": "/pythonpath/0"}

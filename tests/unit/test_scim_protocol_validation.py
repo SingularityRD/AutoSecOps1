@@ -68,7 +68,7 @@ def test_locations_use_configured_public_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__PUBLIC_API_URL", "https://example.com/nested/api/"
+        config, "AUTOSECOPS__PUBLIC_API_URL", "https://example.com/nested/api/"
     )
     assert (
         _resource_location("Users", UUID(int=1))

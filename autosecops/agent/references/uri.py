@@ -48,7 +48,7 @@ def is_reference_uri(value: str) -> bool:
     # Classification may recognize malformed padding; parsing must retain it.
     return bool(
         re.match(
-            r"^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*tracecat-ref:",
+            r"^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*autosecops-ref:",
             value.lower(),
         )
     )
@@ -99,11 +99,11 @@ def parse_reference_uri(value: str) -> ReferenceTarget:
     Reject URL normalization (authority case, dot segments, queries, fragments),
     encoded separators, controls and double encoding before identity validation.
     """
-    if not value.startswith("tracecat-ref://") or re.search(
+    if not value.startswith("autosecops-ref://") or re.search(
         r"[\s\x00-\x1f\x7f?#\\]", value
     ):
         raise ReferenceURIError(ReferenceDiagnosticCode.INVALID_URI)
-    parts = value[len("tracecat-ref://") :].split("/")
+    parts = value[len("autosecops-ref://") :].split("/")
     if not parts[0]:
         raise ReferenceURIError(ReferenceDiagnosticCode.INVALID_URI)
     if parts[0] != "v1":
@@ -136,6 +136,6 @@ def serialize_reference_uri(target: ReferenceTarget) -> str:
     parts = [target.identity]
     if target.tool_name is not None:
         parts.append(target.tool_name)
-    return f"tracecat-ref://v1/{target.kind}/" + "/".join(
+    return f"autosecops-ref://v1/{target.kind}/" + "/".join(
         quote(p, safe="-._~") for p in parts
     )

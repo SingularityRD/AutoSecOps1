@@ -8,7 +8,7 @@ from typing import Any
 
 from autosecops.logger import logger
 
-PROXY_TOOL_METADATA_KEY = "__tracecat"
+PROXY_TOOL_METADATA_KEY = "__autosecops"
 PROXY_TOOL_CALL_ID_KEY = "tool_call_id"
 
 # Mirrors the case arms in claude_agent_sdk._internal.message_parser.

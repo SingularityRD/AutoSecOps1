@@ -59,7 +59,7 @@ async def _assume_role_via_irsa(
     else:
         ws_short = workspace_id.replace("-", "")[:8]
         run_short = run_id.replace("-", "")[:8]
-        session_name = f"tracecat-ws-{ws_short}-run-{run_short}"[:64]
+        session_name = f"autosecops-ws-{ws_short}-run-{run_short}"[:64]
 
     try:
         session = (

@@ -45,7 +45,7 @@ RLS_BYPASS_ON = "on"
 RLS_BYPASS_OFF = "off"
 RLS_UNSET_VALUE = ""
 
-_RLS_CONTEXT_INFO_KEY = "tracecat_rls_context"
+_RLS_CONTEXT_INFO_KEY = "autosecops_rls_context"
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,24 +61,24 @@ class _RLSContext:
 def is_rls_enabled() -> bool:
     """Check if RLS checks should be treated as enabled in application logic.
 
-    Primary source of truth is TRACECAT__RLS_MODE.
+    Primary source of truth is AUTOSECOPS__RLS_MODE.
     """
-    return config.TRACECAT__RLS_MODE != config.RLSMode.OFF
+    return config.AUTOSECOPS__RLS_MODE != config.RLSMode.OFF
 
 
 def is_rls_mode_off() -> bool:
     """Check whether runtime RLS mode is OFF."""
-    return config.TRACECAT__RLS_MODE == config.RLSMode.OFF
+    return config.AUTOSECOPS__RLS_MODE == config.RLSMode.OFF
 
 
 def is_rls_mode_shadow() -> bool:
     """Check whether runtime RLS mode is SHADOW."""
-    return config.TRACECAT__RLS_MODE == config.RLSMode.SHADOW
+    return config.AUTOSECOPS__RLS_MODE == config.RLSMode.SHADOW
 
 
 def is_rls_mode_enforce() -> bool:
     """Check whether runtime RLS mode is ENFORCE."""
-    return config.TRACECAT__RLS_MODE == config.RLSMode.ENFORCE
+    return config.AUTOSECOPS__RLS_MODE == config.RLSMode.ENFORCE
 
 
 def _normalize_rls_context(

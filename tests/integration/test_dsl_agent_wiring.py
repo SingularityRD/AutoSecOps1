@@ -68,10 +68,10 @@ def workflow_bucket() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def disable_result_externalization(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", False)
     monkeypatch.setattr(
         config,
-        "TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES",
+        "AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES",
         1024 * 1024,
     )
     yield
@@ -207,8 +207,8 @@ def agent_worker_factory(
         task_queue: str,
         activities: Sequence[Callable[..., Any]],
     ) -> Worker:
-        monkeypatch.setattr(config, "TRACECAT__AGENT_EXECUTOR_QUEUE", task_queue)
-        monkeypatch.setattr(config, "TRACECAT__EXECUTOR_QUEUE", task_queue)
+        monkeypatch.setattr(config, "AUTOSECOPS__AGENT_EXECUTOR_QUEUE", task_queue)
+        monkeypatch.setattr(config, "AUTOSECOPS__EXECUTOR_QUEUE", task_queue)
         return Worker(
             client=client,
             task_queue=task_queue,
@@ -268,7 +268,7 @@ class TestDSLAgentWiring:
         ):
             async with agent_worker_factory(
                 temporal_client,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 activities=agent_activities,
             ):
                 result = await temporal_client.execute_workflow(
@@ -347,7 +347,7 @@ class TestDSLAgentWiring:
         ):
             async with agent_worker_factory(
                 temporal_client,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 activities=agent_activities,
             ):
                 result = await temporal_client.execute_workflow(
@@ -415,7 +415,7 @@ class TestDSLAgentWiring:
         ):
             async with agent_worker_factory(
                 temporal_client,
-                task_queue=config.TRACECAT__AGENT_QUEUE,
+                task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 activities=agent_activities,
             ):
                 result = await temporal_client.execute_workflow(

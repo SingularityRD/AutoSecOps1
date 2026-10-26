@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { useChatVerbosityPreference } from "@/hooks/use-chat-verbosity"
 
-const KEY = "tracecat_agent-verbosity"
+const KEY = "autosecops_agent-verbosity"
 
 describe("useChatVerbosityPreference", () => {
   afterEach(() => window.localStorage.clear())

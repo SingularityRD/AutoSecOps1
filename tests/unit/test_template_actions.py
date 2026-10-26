@@ -200,7 +200,7 @@ async def test_template_action_fetches_nested_secrets(
     1. Template action with secrets executes successfully
     """
 
-    monkeypatch.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     # Arrange
     # 1. Register test udfs

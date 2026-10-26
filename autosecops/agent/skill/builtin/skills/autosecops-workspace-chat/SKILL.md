@@ -1,5 +1,5 @@
 ---
-name: tracecat-workspace-chat
+name: autosecops-workspace-chat
 description: Use whenever AutoSecOps Workspace Chat answers platform questions or operates workflows, forms, cases, tables, agent presets, integrations, secrets, variables, or other workspace features. Adapts generic AutoSecOps MCP guidance to the tools actually exposed in Workspace Chat and routes platform facts to bundled local docs. Do not use for external AutoSecOps MCP connections or AutoSecOps source-code development.
 ---
 
@@ -22,9 +22,9 @@ external AutoSecOps MCP surface one-for-one.
    AutoSecOps application image injects this directory at build time, so it can be absent when the
    source plugin is inspected outside Workspace Chat.
 3. For workflow, table, expression, or agent-preset authoring practices, also use
-   `$tracecat-automation-best-practices` after applying this adapter's tool map. Use that skill's
+   `$autosecops-automation-best-practices` after applying this adapter's tool map. Use that skill's
    domain practices, but ignore its external-MCP control-plane tool names.
-4. For Slack-facing automations, also use `$tracecat-slackbot-best-practices`.
+4. For Slack-facing automations, also use `$autosecops-slackbot-best-practices`.
 5. For forms, read [Forms](references/forms.md) before reading or changing a form config.
 
 ## Operating rules

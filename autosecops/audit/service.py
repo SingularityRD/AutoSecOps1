@@ -269,7 +269,7 @@ async def _get_audit_setting_cached(
     role = Role(
         type="service",
         organization_id=organization_id,
-        service_id="tracecat-service",
+        service_id="autosecops-service",
     )
     return await get_setting(key, role=role, session=None, default=default)
 
@@ -281,7 +281,7 @@ def clear_audit_setting_cache() -> None:
 
 _AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS = 5.0
 
-_TEST_HEADER = "X-Tracecat-Test"
+_TEST_HEADER = "X-AutoSecOps-Test"
 
 
 class AuditWebhookNotConfiguredError(Exception):

@@ -45,11 +45,11 @@ const integration = mcpIntegration()
 const agentProperties = {
   actions: {
     type: ["array", "null"],
-    "x-tracecat-component": [{ component_id: "action-type", multiple: true }],
+    "x-autosecops-component": [{ component_id: "action-type", multiple: true }],
   },
   mcp_integrations: {
     type: ["array", "null"],
-    "x-tracecat-component": [{ component_id: "mcp-integration" }],
+    "x-autosecops-component": [{ component_id: "mcp-integration" }],
   },
   tool_approvals: { type: ["object", "null"] },
 }

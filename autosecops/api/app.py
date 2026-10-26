@@ -75,6 +75,7 @@ from autosecops.agent.tags.router import router as agent_preset_tags_router
 from autosecops.api.common import (
     add_temporal_search_attributes,
     auth_pool_exhausted_exception_handler,
+    autosecops_exception_handler,
     bootstrap_role,
     custom_generate_unique_id,
     generic_exception_handler,
@@ -82,7 +83,6 @@ from autosecops.api.common import (
     query_overflow_exception_handler,
     query_timeout_exception_handler,
     table_row_exception_handler,
-    tracecat_exception_handler,
     without_inputs,
 )
 from autosecops.api.docs import install_api_docs
@@ -248,18 +248,18 @@ async def lifespan(app: FastAPI):
     assert_soft_delete_listener_registered()
 
     # Storage
-    await ensure_bucket_exists(config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS)
-    await ensure_bucket_exists(config.TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY)
-    await ensure_bucket_exists(config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS)
+    await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS)
+    await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY)
+    await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS)
     if is_feature_enabled(FeatureFlag.AGENT_FS_PERSISTENCE):
-        await ensure_bucket_exists(config.TRACECAT__BLOB_STORAGE_BUCKET_AGENT)
+        await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT)
 
     # Workflow bucket with lifecycle expiration
-    await ensure_bucket_exists(config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW)
-    if config.TRACECAT__WORKFLOW_ARTIFACT_RETENTION_DAYS > 0:
+    await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW)
+    if config.AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS > 0:
         await configure_bucket_lifecycle(
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW,
-            expiration_days=config.TRACECAT__WORKFLOW_ARTIFACT_RETENTION_DAYS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW,
+            expiration_days=config.AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS,
         )
 
     await ensure_default_organization()
@@ -273,7 +273,7 @@ async def lifespan(app: FastAPI):
     # period so they are not silently dropped or garbage collected at
     # shutdown. Critical work must still checkpoint to durable storage.
     supervisor = LifespanTaskSupervisor(
-        drain_timeout=config.TRACECAT__API_TASK_DRAIN_TIMEOUT
+        drain_timeout=config.AUTOSECOPS__API_TASK_DRAIN_TIMEOUT
     )
 
     # Temporal Cloud runtime credentials may not have operator-service access
@@ -299,7 +299,7 @@ async def lifespan(app: FastAPI):
         kind="finite",
     )
 
-    if config.TRACECAT__CASE_TRIGGERS_ENABLED:
+    if config.AUTOSECOPS__CASE_TRIGGERS_ENABLED:
         supervisor.spawn_stoppable(
             start_case_trigger_consumer,
             name="case_trigger_consumer",
@@ -325,9 +325,10 @@ async def lifespan(app: FastAPI):
         )
 
     logger.info(
-        "Feature flags", feature_flags=[f.value for f in config.TRACECAT__FEATURE_FLAGS]
+        "Feature flags",
+        feature_flags=[f.value for f in config.AUTOSECOPS__FEATURE_FLAGS],
     )
-    logger.info("RLS mode", rls_mode=config.TRACECAT__RLS_MODE.value)
+    logger.info("RLS mode", rls_mode=config.AUTOSECOPS__RLS_MODE.value)
     log_license_startup()
     logger.info("API startup complete")
 
@@ -392,7 +393,7 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
                 return scim_error_response(
                     status_code=status_code, detail=str(exc), scim_type=scim_type
                 )
-            return tracecat_exception_handler(request, exc)
+            return autosecops_exception_handler(request, exc)
 
         return handler
 
@@ -590,8 +591,8 @@ def _users_router() -> APIRouter:
 
 
 def create_app(**kwargs) -> FastAPI:
-    if config.TRACECAT__ALLOW_ORIGINS is not None:
-        allow_origins = config.TRACECAT__ALLOW_ORIGINS.split(",")
+    if config.AUTOSECOPS__ALLOW_ORIGINS is not None:
+        allow_origins = config.AUTOSECOPS__ALLOW_ORIGINS.split(",")
     else:
         allow_origins = ["*"]
     app = FastAPI(
@@ -621,11 +622,11 @@ def create_app(**kwargs) -> FastAPI:
                 "description": "Workspace variable management",
             },
         ],
-        servers=[{"url": config.TRACECAT__API_ROOT_PATH}],
+        servers=[{"url": config.AUTOSECOPS__API_ROOT_PATH}],
         generate_unique_id_function=custom_generate_unique_id,
         lifespan=lifespan,
         default_response_class=ORJSONResponse,
-        root_path=config.TRACECAT__API_ROOT_PATH,
+        root_path=config.AUTOSECOPS__API_ROOT_PATH,
         # Registered by install_api_docs() with CSP-allowed asset URLs.
         docs_url=None,
         redoc_url=None,
@@ -749,7 +750,7 @@ def create_app(**kwargs) -> FastAPI:
         tags=["users"],
         dependencies=[Depends(authenticated_user_only)],
     )
-    if AuthType.BASIC in config.TRACECAT__AUTH_TYPES:
+    if AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES:
         app.include_router(
             fastapi_users.get_auth_router(auth_backend),
             prefix="/auth",
@@ -774,7 +775,7 @@ def create_app(**kwargs) -> FastAPI:
     if oidc_auth_type_enabled():
         oauth_client = create_platform_oauth_client()
         # This is the frontend URL that the user will be redirected to after authenticating
-        redirect_url = f"{config.TRACECAT__PUBLIC_APP_URL}/auth/oauth/callback"
+        redirect_url = f"{config.AUTOSECOPS__PUBLIC_APP_URL}/auth/oauth/callback"
         logger.info("OAuth redirect URL", url=redirect_url)
         app.include_router(
             fastapi_users.get_oauth_router(
@@ -797,7 +798,7 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(saml_router)
     app.include_router(auth_discovery_router)
 
-    if AuthType.BASIC not in config.TRACECAT__AUTH_TYPES:
+    if AuthType.BASIC not in config.AUTOSECOPS__AUTH_TYPES:
         # Need basic auth router for `logout` endpoint
         app.include_router(
             fastapi_users.get_logout_router(auth_backend),
@@ -811,7 +812,7 @@ def create_app(**kwargs) -> FastAPI:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
-    app.add_exception_handler(TracecatException, tracecat_exception_handler)
+    app.add_exception_handler(TracecatException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
     app.add_exception_handler(
@@ -841,7 +842,7 @@ def create_app(**kwargs) -> FastAPI:
 
     # Middleware
     app.add_middleware(RequestLoggingMiddleware)
-    if config.TRACECAT__APP_ENV != "development":
+    if config.AUTOSECOPS__APP_ENV != "development":
         app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -851,13 +852,13 @@ def create_app(**kwargs) -> FastAPI:
         allow_headers=["*"],
         expose_headers=[TRACE_ID_HEADER, TRACE_SAMPLED_HEADER],
     )
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     logger.info(
         "App started",
-        env=config.TRACECAT__APP_ENV,
+        env=config.AUTOSECOPS__APP_ENV,
         origins=allow_origins,
-        auth_types=config.TRACECAT__AUTH_TYPES,
+        auth_types=config.AUTOSECOPS__AUTH_TYPES,
     )
     return app
 
@@ -906,11 +907,11 @@ async def info(session: AsyncDBSessionBypass) -> AppInfo:
             keyvalues[key] = keyvalues.get(key, False)
     return AppInfo(
         version=APP_VERSION,
-        public_app_url=config.TRACECAT__PUBLIC_APP_URL,
-        auth_allowed_types=list(config.TRACECAT__AUTH_TYPES),
+        public_app_url=config.AUTOSECOPS__PUBLIC_APP_URL,
+        auth_allowed_types=list(config.AUTOSECOPS__AUTH_TYPES),
         saml_enabled=keyvalues["saml_enabled"],
         saml_enforced=keyvalues["saml_enforced"],
-        ee_multi_tenant=config.TRACECAT__EE_MULTI_TENANT,
+        ee_multi_tenant=config.AUTOSECOPS__EE_MULTI_TENANT,
     )
 
 

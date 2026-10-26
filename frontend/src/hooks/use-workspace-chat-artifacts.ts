@@ -44,7 +44,7 @@ const EMPTY_ARTIFACTS: WorkspaceChatArtifact[] = []
 
 /**
  * Maximum artifact tabs kept open; the oldest tabs are evicted first.
- * Must match MAX_OPEN_ARTIFACTS in tracecat/artifacts/projection.py so the
+ * Must match MAX_OPEN_ARTIFACTS in autosecops/artifacts/projection.py so the
  * live panel and the persisted session projection agree after a reload.
  */
 export const MAX_OPEN_ARTIFACT_TABS = 5

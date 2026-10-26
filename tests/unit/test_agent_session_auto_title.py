@@ -18,7 +18,7 @@ from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
 def role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -29,7 +29,7 @@ def role() -> Role:
 def user_role() -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -97,10 +97,10 @@ async def test_auto_title_uses_service_role_for_generation(user_role: Role) -> N
     assert await_args is not None
     auto_title_role = await_args.kwargs["role"]
     assert auto_title_role.type == "service"
-    assert auto_title_role.service_id == "tracecat-api"
+    assert auto_title_role.service_id == "autosecops-api"
     assert auto_title_role.workspace_id == user_role.workspace_id
     assert auto_title_role.organization_id == user_role.organization_id
-    assert auto_title_role.scopes == SERVICE_PRINCIPAL_SCOPES["tracecat-api"]
+    assert auto_title_role.scopes == SERVICE_PRINCIPAL_SCOPES["autosecops-api"]
 
 
 @pytest.mark.anyio

@@ -59,7 +59,7 @@ async def test_organization_list_uses_filtered_total_count() -> None:
         role=Role(
             type="user",
             user_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=organization_id,
             scopes=frozenset({"org:service_account:read"}),
         ),

@@ -169,7 +169,7 @@ def test_onepassword_serializes_binary_responses() -> None:
 def test_onepassword_bounds_binary_responses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(onepassword_sdk, "TRACECAT__MAX_FILE_SIZE_BYTES", 4)
+    monkeypatch.setattr(onepassword_sdk, "AUTOSECOPS__MAX_FILE_SIZE_BYTES", 4)
 
     with pytest.raises(ValueError, match="binary response exceeds maximum size"):
         _serialize(b"12345")

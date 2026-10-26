@@ -101,7 +101,7 @@ from autosecops.tiers.enums import Entitlement
 if TYPE_CHECKING:
     from types_boto3_bedrock.client import BedrockClient
 
-_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
+_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
 _BEDROCK_ROLE_WORKSPACE_LIMIT = 25
 _VERTEX_BEARER_TOKEN_KEY = "VERTEX_AI_BEARER_TOKEN"
 _GOOGLE_CLOUD_SCOPE = "https://www.googleapis.com/auth/cloud-platform"

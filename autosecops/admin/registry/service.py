@@ -234,7 +234,7 @@ class AdminRegistryService(BasePlatformService):
             self.session.add(PlatformRegistryRepository(origin=DEFAULT_REGISTRY_ORIGIN))
             created = True
 
-        if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
             if DEFAULT_LOCAL_REGISTRY_ORIGIN not in origins:
                 self.session.add(
                     PlatformRegistryRepository(origin=DEFAULT_LOCAL_REGISTRY_ORIGIN)
@@ -294,7 +294,7 @@ class AdminRegistryService(BasePlatformService):
         try:
             if repo.origin.startswith("git+ssh://"):
                 # NOTE: Platform git+ssh sync is not yet supported.
-                # Platform registry only supports origin=tracecat-registry.
+                # Platform registry only supports origin=autosecops-registry.
                 raise ValueError(
                     f"git+ssh origins are not supported for platform registry sync. "
                     f"Origin: {repo.origin}"
@@ -640,7 +640,7 @@ class AdminRegistryService(BasePlatformService):
             RegistryArtifactsBackfillWorkflow.run,
             request,
             id=workflow_id,
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             execution_timeout=execution_timeout,
         )
         return RegistryArtifactsBackfillStartResponse(

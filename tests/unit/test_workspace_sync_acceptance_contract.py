@@ -172,10 +172,10 @@ def workspace_sync_service() -> WorkspaceSyncService:
     session = AsyncMock()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-api"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-api"],
     )
     return WorkspaceSyncService(session=session, role=role)
 
@@ -1097,7 +1097,7 @@ async def test_large_agent_preset_workspace_preview_matches_export(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
     repo_url = "git+ssh://git@github.com/TracecatHQ/large-workspace-sync-test.git"
@@ -7112,7 +7112,7 @@ async def test_variable_import_temporary_name_avoids_existing_variables(
     )
     session.add(variable)
     await session.flush()
-    colliding_name = f"__tracecat_sync_tmp_{variable.id.hex}"
+    colliding_name = f"__autosecops_sync_tmp_{variable.id.hex}"
     unrelated = WorkspaceVariable(
         workspace_id=svc_role.workspace_id,
         name=colliding_name,

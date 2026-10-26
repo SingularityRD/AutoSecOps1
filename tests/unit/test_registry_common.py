@@ -17,9 +17,11 @@ async def test_ensure_org_repositories_skips_when_custom_registry_not_entitled(
 
     with (
         patch.object(
-            registry_common.config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True
+            registry_common.config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True
         ),
-        patch.object(registry_common.config, "TRACECAT__LOCAL_REPOSITORY_PATH", "/tmp"),
+        patch.object(
+            registry_common.config, "AUTOSECOPS__LOCAL_REPOSITORY_PATH", "/tmp"
+        ),
         patch.object(
             registry_common,
             "get_setting",
@@ -47,9 +49,11 @@ async def test_ensure_org_repositories_creates_local_and_remote_when_entitled(
 
     with (
         patch.object(
-            registry_common.config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True
+            registry_common.config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True
         ),
-        patch.object(registry_common.config, "TRACECAT__LOCAL_REPOSITORY_PATH", "/tmp"),
+        patch.object(
+            registry_common.config, "AUTOSECOPS__LOCAL_REPOSITORY_PATH", "/tmp"
+        ),
         patch.object(
             registry_common,
             "get_setting",

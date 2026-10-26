@@ -50,7 +50,7 @@ Tests patch this attribute to simulate a different baseline; production code
 reads entitlements through ``get_single_tenant_entitlements()``.
 """
 
-# Legacy TRACECAT__FEATURE_FLAGS tokens that used to grant paid entitlements on
+# Legacy AUTOSECOPS__FEATURE_FLAGS tokens that used to grant paid entitlements on
 # single-tenant installs. They no longer do; they only trigger an upgrade warning.
 _LEGACY_ENTITLEMENT_FLAGS: dict[str, Entitlement] = {
     "git-sync": Entitlement.GIT_SYNC,
@@ -70,7 +70,7 @@ def get_single_tenant_entitlements() -> EffectiveEntitlements:
     """Resolve entitlements for a single-tenant install.
 
     The result is the free baseline plus whatever a valid (or in-grace) signed
-    license grants. ``TRACECAT__FEATURE_FLAGS`` never grants entitlements.
+    license grants. ``AUTOSECOPS__FEATURE_FLAGS`` never grants entitlements.
     """
     baseline = DEFAULT_ENTITLEMENTS
     granted = get_license_state().granted
@@ -106,23 +106,23 @@ def warn_on_legacy_entitlement_flags() -> None:
     ``git-sync`` to paid entitlements. Upgraded installs that still set them
     see this warning instead of silently losing access.
     """
-    requested = legacy_flag_entitlements(os.environ.get("TRACECAT__FEATURE_FLAGS"))
+    requested = legacy_flag_entitlements(os.environ.get("AUTOSECOPS__FEATURE_FLAGS"))
     missing = requested - get_license_state().granted
     if not missing:
         return
     logger.warning(
-        "TRACECAT__FEATURE_FLAGS no longer grants paid entitlements; install a"
-        " license key with TRACECAT__LICENSE_KEY to enable them",
+        "AUTOSECOPS__FEATURE_FLAGS no longer grants paid entitlements; install a"
+        " license key with AUTOSECOPS__LICENSE_KEY to enable them",
         entitlements=sorted(e.value for e in missing),
     )
 
 
 def log_license_startup() -> None:
     """Log license status and legacy-flag warnings once at API startup."""
-    if config.TRACECAT__EE_MULTI_TENANT:
-        if config.TRACECAT__LICENSE_KEY:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
+        if config.AUTOSECOPS__LICENSE_KEY:
             logger.info(
-                "TRACECAT__LICENSE_KEY is ignored in multi-tenant mode;"
+                "AUTOSECOPS__LICENSE_KEY is ignored in multi-tenant mode;"
                 " entitlements come from database tiers"
             )
         return

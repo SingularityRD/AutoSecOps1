@@ -6,13 +6,13 @@
 # changing the API admission path in the same experiment.
 
 x-pgdog-worker-environment: &pgdog-worker-environment
-  TRACECAT__DB_URI: postgresql+psycopg://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@pgdog:6432/tracecat_worker
+  AUTOSECOPS__DB_URI: postgresql+psycopg://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@pgdog:6432/autosecops_worker
 
 x-pgdog-executor-environment: &pgdog-executor-environment
-  TRACECAT__DB_URI: postgresql+psycopg://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@pgdog:6432/tracecat_executor
+  AUTOSECOPS__DB_URI: postgresql+psycopg://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@pgdog:6432/autosecops_executor
 
 x-pgdog-aux-environment: &pgdog-aux-environment
-  TRACECAT__DB_URI: postgresql+psycopg://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@pgdog:6432/tracecat_aux
+  AUTOSECOPS__DB_URI: postgresql+psycopg://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@pgdog:6432/autosecops_aux
 
 x-pgdog-dependency: &pgdog-dependency
   pgdog:
@@ -22,28 +22,28 @@ services:
   pgdog:
     image: ghcr.io/pgdogdev/pgdog:v0.1.51@sha256:f1787473b62d0a5cfd18a67477dda24a549eeca9a81f5fa7ee670a1699299419
     restart: unless-stopped
-    cpus: "${TRACECAT__LOADTEST_PGDOG_CPUS:-1}"
-    mem_limit: ${TRACECAT__LOADTEST_PGDOG_MEMORY:-512m}
-    memswap_limit: ${TRACECAT__LOADTEST_PGDOG_MEMORY:-512m}
+    cpus: "${AUTOSECOPS__LOADTEST_PGDOG_CPUS:-1}"
+    mem_limit: ${AUTOSECOPS__LOADTEST_PGDOG_MEMORY:-512m}
+    memswap_limit: ${AUTOSECOPS__LOADTEST_PGDOG_MEMORY:-512m}
     ports:
       - "127.0.0.1:${PGDOG_METRICS_PORT:-9492}:9090"
     command:
       - /usr/local/bin/pgdog
       - run
       - --pool-size
-      - ${TRACECAT__LOADTEST_PGDOG_POOL_SIZE:-16}
+      - ${AUTOSECOPS__LOADTEST_PGDOG_POOL_SIZE:-16}
       - --min-pool-size
-      - ${TRACECAT__LOADTEST_PGDOG_MIN_POOL_SIZE:-1}
+      - ${AUTOSECOPS__LOADTEST_PGDOG_MIN_POOL_SIZE:-1}
       - --session-mode
       - "false"
     environment:
       # PgDog pools by user/database pair. Three logical database names provide
       # service-class bulkheads while database_name keeps every connection on
       # the same physical PostgreSQL database and reuses its runtime password.
-      PGDOG_DATABASE_URL_1: "postgresql://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@postgres_db:5432/tracecat_worker?database_name=postgres&pool_size=${TRACECAT__LOADTEST_PGDOG_WORKER_POOL_SIZE:-6}&min_pool_size=1"
-      PGDOG_DATABASE_URL_2: "postgresql://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@postgres_db:5432/tracecat_executor?database_name=postgres&pool_size=${TRACECAT__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE:-16}&min_pool_size=1"
-      PGDOG_DATABASE_URL_3: "postgresql://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@postgres_db:5432/tracecat_aux?database_name=postgres&pool_size=${TRACECAT__LOADTEST_PGDOG_AUX_POOL_SIZE:-2}&min_pool_size=1"
-      RUST_LOG: ${TRACECAT__LOADTEST_PGDOG_LOG_LEVEL:-info}
+      PGDOG_DATABASE_URL_1: "postgresql://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@postgres_db:5432/autosecops_worker?database_name=postgres&pool_size=${AUTOSECOPS__LOADTEST_PGDOG_WORKER_POOL_SIZE:-6}&min_pool_size=1"
+      PGDOG_DATABASE_URL_2: "postgresql://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@postgres_db:5432/autosecops_executor?database_name=postgres&pool_size=${AUTOSECOPS__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE:-16}&min_pool_size=1"
+      PGDOG_DATABASE_URL_3: "postgresql://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@postgres_db:5432/autosecops_aux?database_name=postgres&pool_size=${AUTOSECOPS__LOADTEST_PGDOG_AUX_POOL_SIZE:-2}&min_pool_size=1"
+      RUST_LOG: ${AUTOSECOPS__LOADTEST_PGDOG_LOG_LEVEL:-info}
     volumes:
       - ./packages/autosecops-benchmark/autosecops_benchmark/pgdog/pgdog.toml:/pgdog/pgdog.toml:ro
       - ./packages/autosecops-benchmark/autosecops_benchmark/pgdog/users.toml:/pgdog/users.toml:ro

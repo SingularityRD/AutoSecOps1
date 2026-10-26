@@ -56,7 +56,7 @@ async def test_separate_runtime_role_needs_explicit_helper_grants(
         with operator.begin() as conn:
             conn.execute(
                 sa.text(
-                    f'GRANT EXECUTE ON FUNCTION public.tracecat_case_safe_vector_v1(text) TO "{role}"'
+                    f'GRANT EXECUTE ON FUNCTION public.autosecops_case_safe_vector_v1(text) TO "{role}"'
                 )
             )
         async with AsyncSession(runtime) as session:
@@ -67,20 +67,20 @@ async def test_separate_runtime_role_needs_explicit_helper_grants(
         with operator.begin() as conn:
             conn.execute(
                 sa.text(
-                    f'GRANT EXECUTE ON FUNCTION public.tracecat_case_text_matches_v1(text,text,boolean) TO "{role}"'
+                    f'GRANT EXECUTE ON FUNCTION public.autosecops_case_text_matches_v1(text,text,boolean) TO "{role}"'
                 )
             )
         async with AsyncSession(runtime) as session:
             await ensure_case_text_indexes(session)
             assert await session.scalar(
                 sa.text(
-                    "SELECT public.tracecat_case_text_matches_v1('synthetic text', 'synthetic', false)"
+                    "SELECT public.autosecops_case_text_matches_v1('synthetic text', 'synthetic', false)"
                 )
             )
             assert (
                 await session.scalar(
                     sa.text(
-                        "SELECT public.tracecat_case_safe_vector_v1('synthetic text')"
+                        "SELECT public.autosecops_case_safe_vector_v1('synthetic text')"
                     )
                 )
                 is not None

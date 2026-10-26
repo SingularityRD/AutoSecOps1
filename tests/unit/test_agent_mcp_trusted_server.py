@@ -1094,7 +1094,7 @@ async def test_discovery_skips_servers_without_allowed_tools(
             id="registry-with-metadata",
         ),
         pytest.param(
-            "mcp__tracecat-registry-analyst__core__cases__list_cases",
+            "mcp__autosecops-registry-analyst__core__cases__list_cases",
             {"limit": 10},
             _build_claims(allowed_actions=["core.cases.list_cases"]),
             '{"ok": true}',
@@ -1104,7 +1104,7 @@ async def test_discovery_skips_servers_without_allowed_tools(
             id="subagent-registry",
         ),
         pytest.param(
-            "mcp__tracecat-registry-analyst__mcp__Jira__getIssue",
+            "mcp__autosecops-registry-analyst__mcp__Jira__getIssue",
             {"issueKey": "ISSUE-1"},
             _build_claims(allowed_actions=["mcp__Jira__getIssue"]),
             '"ISSUE-1"',
@@ -1279,7 +1279,7 @@ async def test_execute_user_mcp_refuses_deferred_tool_in_registry_spelling(
     """A deferred user MCP tool is refused under its registry-prefixed spelling."""
     server_name = "Jira"
     tool_name = "deleteIssue"
-    deferred_name = "mcp__tracecat-registry__mcp__Jira__deleteIssue"
+    deferred_name = "mcp__autosecops-registry__mcp__Jira__deleteIssue"
     monkeypatch.setattr(
         trusted_server,
         "UserMCPClient",
@@ -1314,7 +1314,7 @@ async def test_token_scoped_mcp_rejects_signed_dotted_user_mcp_deferred_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A token deferring the dotted spelling fails verification, so nothing runs."""
-    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1364,7 +1364,7 @@ async def test_token_scoped_mcp_refuses_cold_deferred_user_mcp_call_over_http(
     resolved and no remote discovery runs. The ambiguous dotted spelling is
     refused at the same point.
     """
-    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1420,7 +1420,7 @@ async def test_token_scoped_mcp_lists_but_refuses_deferred_action(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A deferred action is visible to the token holder but never executes."""
-    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__SERVICE_KEY", "test-service-key")
     lock = RegistryLock(
         origins={"autosecops_registry": "test-version"},
         actions={
@@ -1483,7 +1483,7 @@ async def test_token_scoped_mcp_refuses_deferred_internal_tool_also_allowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Deferral wins even in a signed token that also allows the internal tool."""
-    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1534,7 +1534,7 @@ async def test_token_scoped_mcp_refuses_deferred_action_in_another_spelling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A deferred name matches every spelling of the tool it names."""
-    monkeypatch.setattr("autosecops.config.TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr("autosecops.config.AUTOSECOPS__SERVICE_KEY", "test-service-key")
     token = mint_mcp_token(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -1547,7 +1547,7 @@ async def test_token_scoped_mcp_refuses_deferred_action_in_another_spelling(
     )
     # Minting rejects this overlap, so sign the claims directly.
     payload = jwt.decode(token, options={"verify_signature": False})
-    payload["deferred_actions"] = ["mcp__tracecat-registry__core__http_request"]
+    payload["deferred_actions"] = ["mcp__autosecops-registry__core__http_request"]
     token = jwt.encode(payload, get_service_key(), algorithm="HS256")
 
     async def fake_fetch_tool_definitions_for_lock(
@@ -1585,7 +1585,7 @@ async def test_token_scoped_mcp_refuses_deferred_action_in_another_spelling(
     # Approved-call execution routes unlisted spellings straight to the executor.
     with pytest.raises(ToolError, match="requires approval"):
         await trusted_server.call_token_scoped_tool(
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             {},
             verify_mcp_token(token),
         )

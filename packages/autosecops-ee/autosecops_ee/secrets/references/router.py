@@ -56,9 +56,9 @@ async def list_authorized_secret_stores(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[WorkspaceSecretStoreRead]:
@@ -152,7 +152,7 @@ async def check_aws_secret_reference(
             SecretReferenceCheckWorkflow.run,
             SecretReferenceCheckRequest(role=role, secret_id=secret_id),
             id=f"secret-reference-check-{uuid4()}",
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             execution_timeout=timedelta(seconds=60),
         )
     except WorkflowFailureError as exc:

@@ -330,7 +330,7 @@ async def test_slack_stream_sink_emits_approval_cards(
         "autosecops.agent.channels.sinks.slack.get_redis_client",
         _get_redis,
     )
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
     sink = _sink("session-8")
 
     await sink.append(

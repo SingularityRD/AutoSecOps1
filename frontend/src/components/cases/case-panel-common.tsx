@@ -17,7 +17,8 @@ import {
 import type { User } from "@/lib/auth"
 import { cn, shortTimeAgo } from "@/lib/utils"
 
-export const CASE_WORKFLOW_TRIGGER_EVENT = "tracecat:open-case-workflow-trigger"
+export const CASE_WORKFLOW_TRIGGER_EVENT =
+  "autosecops:open-case-workflow-trigger"
 
 /**
  * Class for the "Properties" / "Fields" section labels in the case details

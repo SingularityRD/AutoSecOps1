@@ -34,10 +34,10 @@ export function useAuthActions() {
   const logout = useCallback(
     async (redirectUrl?: string) => {
       const logoutResponse = await authAuthDatabaseLogout()
-      Cookies.remove("tracecat:active-org-id")
+      Cookies.remove("autosecops:active-org-id")
       // Clear the legacy literal name as well as js-cookie's encoded name.
       document.cookie =
-        "tracecat:active-org-id=; Path=/; Max-Age=0; SameSite=Lax"
+        "autosecops:active-org-id=; Path=/; Max-Age=0; SameSite=Lax"
       await queryClient.invalidateQueries({
         queryKey: ["auth"],
       })

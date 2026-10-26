@@ -9,7 +9,7 @@ from autosecops.query.lexical_types import LexicalSearchError, LexicalSearchErro
 
 CASE_SEARCH_GENERATION = "case-text-v2"
 CASE_TEXT_DOCUMENT_BYTES = 8192
-CASE_TEXT_MATCH_FUNCTION = "tracecat_case_text_matches_v1"
+CASE_TEXT_MATCH_FUNCTION = "autosecops_case_text_matches_v1"
 # Matches the immutable body carried by the additive Alembic revision. A
 # changed same-name helper must never silently change an issued continuation.
 CASE_TEXT_MATCH_BODY_HASH = "c7f46017f2472f11cd81a697c54328f2"
@@ -53,7 +53,7 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
         sa.text("""
         SELECT EXISTS (
             SELECT 1 FROM pg_proc p JOIN pg_language l ON l.oid = p.prolang
-            WHERE p.oid = to_regprocedure('public.tracecat_case_text_matches_v1(text,text,boolean)')
+            WHERE p.oid = to_regprocedure('public.autosecops_case_text_matches_v1(text,text,boolean)')
               AND p.prorettype = 'bool'::regtype AND l.lanname = 'sql'
               AND p.provolatile = 's' AND p.proparallel = 's' AND p.proisstrict
               AND NOT p.prosecdef AND p.prokind = 'f'
@@ -71,7 +71,7 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
         sa.text("""
         SELECT EXISTS (
             SELECT 1 FROM pg_proc p JOIN pg_language l ON l.oid = p.prolang
-            WHERE p.oid = to_regprocedure('public.tracecat_case_safe_vector_v1(text)')
+            WHERE p.oid = to_regprocedure('public.autosecops_case_safe_vector_v1(text)')
               AND p.prorettype = 'tsvector'::regtype AND l.lanname = 'plpgsql'
               AND p.provolatile = 'i' AND p.proparallel = 'u' AND p.proisstrict
               AND NOT p.prosecdef AND p.prokind = 'f'
@@ -115,7 +115,7 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
             AND (c.relname NOT LIKE '%_fts' OR EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.classid='pg_class'::regclass AND d.objid=c.oid
                     AND d.refclassid='pg_proc'::regclass
-                    AND d.refobjid=to_regprocedure('public.tracecat_case_safe_vector_v1(text)')
+                    AND d.refobjid=to_regprocedure('public.autosecops_case_safe_vector_v1(text)')
             )) AS compatible,
             pg_get_expr(i.indexprs, i.indrelid) AS expression
         FROM pg_class c JOIN pg_namespace s ON s.oid = c.relnamespace
@@ -147,8 +147,8 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
         ):
             if name.endswith("_fts"):
                 for helper in (
-                    "tracecat_case_safe_vector_v1",
-                    "public.tracecat_case_safe_vector_v1",
+                    "autosecops_case_safe_vector_v1",
+                    "public.autosecops_case_safe_vector_v1",
                 ):
                     expected.add(f"{helper}({source})")
             else:
@@ -183,7 +183,7 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
             AND EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.classid='pg_class'::regclass AND d.objid=c.oid
                     AND d.refclassid='pg_proc'::regclass
-                    AND d.refobjid=to_regprocedure('public.tracecat_case_safe_vector_v1(text)')
+                    AND d.refobjid=to_regprocedure('public.autosecops_case_safe_vector_v1(text)')
             ) AS compatible,
             pg_get_expr(i.indpred,i.indrelid)
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -210,8 +210,8 @@ async def ensure_case_text_indexes(session: AsyncSession) -> None:
                 f"COALESCE({field}, ''::text)",
             )
             for helper in (
-                "tracecat_case_safe_vector_v1",
-                "public.tracecat_case_safe_vector_v1",
+                "autosecops_case_safe_vector_v1",
+                "public.autosecops_case_safe_vector_v1",
             )
         }
         if compatible is not True or predicate not in expected:

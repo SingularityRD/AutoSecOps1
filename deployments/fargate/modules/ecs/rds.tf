@@ -43,14 +43,14 @@ data "aws_db_snapshot" "temporal_snapshots" {
   }
 }
 
-resource "aws_db_subnet_group" "tracecat_db_subnet" {
+resource "aws_db_subnet_group" "autosecops_db_subnet" {
   name       = "${var.name_prefix}-db-subnet"
   subnet_ids = var.private_subnet_ids
 }
 
 resource "time_sleep" "wait_for_rds_dependencies" {
   depends_on = [
-    aws_db_subnet_group.tracecat_db_subnet,
+    aws_db_subnet_group.autosecops_db_subnet,
     aws_security_group.core,
     aws_security_group.core_db,
     aws_security_group.temporal,
@@ -78,14 +78,14 @@ resource "aws_db_instance" "core_database" {
   identifier                  = var.core_db_identifier
   engine                      = "postgres"
   engine_version              = var.db_engine_version
-  instance_class              = var.tracecat_db_instance_class
-  allocated_storage           = var.tracecat_db_allocated_storage
+  instance_class              = var.autosecops_db_instance_class
+  allocated_storage           = var.autosecops_db_allocated_storage
   storage_encrypted           = true
   storage_type                = "gp3"
   username                    = "postgres"
   multi_az                    = var.rds_multi_az
   manage_master_user_password = true
-  db_subnet_group_name        = aws_db_subnet_group.tracecat_db_subnet.name
+  db_subnet_group_name        = aws_db_subnet_group.autosecops_db_subnet.name
   vpc_security_group_ids      = [aws_security_group.core_db.id]
   skip_final_snapshot         = var.rds_skip_final_snapshot
   final_snapshot_identifier   = "final-${var.name_prefix}-core-db-${local.snapshot_timestamp}-${random_string.core_snapshot_suffix.result}"
@@ -123,7 +123,7 @@ resource "aws_db_instance" "temporal_database" {
   username                    = "postgres"
   manage_master_user_password = true
   multi_az                    = var.rds_multi_az
-  db_subnet_group_name        = aws_db_subnet_group.tracecat_db_subnet.name
+  db_subnet_group_name        = aws_db_subnet_group.autosecops_db_subnet.name
   vpc_security_group_ids      = [aws_security_group.temporal_db.id]
   parameter_group_name = var.temporal_db_force_ssl ? (
     "default.postgres${split(".", var.db_engine_version)[0]}"

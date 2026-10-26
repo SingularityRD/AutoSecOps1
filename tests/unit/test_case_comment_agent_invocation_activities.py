@@ -27,7 +27,7 @@ async def test_prepare_comment_invocation_uses_session_execution_role() -> None:
     workspace_id = uuid.uuid4()
     actor_role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),

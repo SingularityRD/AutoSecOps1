@@ -10,7 +10,7 @@ _BASE_OIDC_SCOPES: tuple[str, ...] = ("openid", "profile", "email")
 
 def refresh_tokens_enabled() -> bool:
     """Return whether refresh-token support is enabled for this deployment."""
-    return bool(config.TRACECAT__DB_ENCRYPTION_KEY)
+    return bool(config.AUTOSECOPS__DB_ENCRYPTION_KEY)
 
 
 def get_supported_scopes() -> list[str]:

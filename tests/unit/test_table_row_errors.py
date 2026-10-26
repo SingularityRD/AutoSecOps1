@@ -22,7 +22,7 @@ def tables_service() -> BaseTablesService:
         session=AsyncMock(spec=AsyncSession),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             workspace_id=uuid4(),
         ),

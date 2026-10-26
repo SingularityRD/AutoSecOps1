@@ -224,7 +224,7 @@ int main(int argc, char*[]) {
     // A zero-argument interface keeps the capability-bearing helper
     // fixed-purpose: callers cannot ask it to create an arbitrary device node.
     if (argc != 1) {
-        std::cerr << "tracecat-loop-device-sync does not accept arguments\n";
+        std::cerr << "autosecops-loop-device-sync does not accept arguments\n";
         return EXIT_FAILURE;
     }
 

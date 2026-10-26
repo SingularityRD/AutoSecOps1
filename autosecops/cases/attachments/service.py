@@ -58,7 +58,7 @@ class CaseAttachmentService(BaseWorkspaceService):
     @property
     def attachments_bucket(self) -> str:
         """Centralized accessor for the attachments blob bucket."""
-        return config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
+        return config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS
 
     @staticmethod
     def _storage_key_for(sha256: str) -> str:
@@ -121,25 +121,25 @@ class CaseAttachmentService(BaseWorkspaceService):
         )
         count_result = await self.session.execute(count_stmt)
         current_attachment_count = int(count_result.scalar_one() or 0)
-        if current_attachment_count >= config.TRACECAT__MAX_ATTACHMENTS_PER_CASE:
+        if current_attachment_count >= config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE:
             raise MaxAttachmentsExceededError(
                 f"Case already has {current_attachment_count} attachments. "
-                f"Maximum allowed is {config.TRACECAT__MAX_ATTACHMENTS_PER_CASE}",
+                f"Maximum allowed is {config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE}",
                 current_count=current_attachment_count,
-                max_count=config.TRACECAT__MAX_ATTACHMENTS_PER_CASE,
+                max_count=config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE,
             )
 
         current_storage = await self.get_total_storage_used(case)
-        if current_storage + new_size > config.TRACECAT__MAX_CASE_STORAGE_BYTES:
+        if current_storage + new_size > config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES:
             current_mb = current_storage / 1024 / 1024
             new_mb = new_size / 1024 / 1024
-            max_mb = config.TRACECAT__MAX_CASE_STORAGE_BYTES / 1024 / 1024
+            max_mb = config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES / 1024 / 1024
             raise StorageLimitExceededError(
                 f"Adding this file ({new_mb:.1f}MB) would exceed the case storage limit. "
                 f"Current usage: {current_mb:.1f}MB, Maximum allowed: {max_mb:.1f}MB",
                 current_size=current_storage,
                 new_file_size=new_size,
-                max_size=config.TRACECAT__MAX_CASE_STORAGE_BYTES,
+                max_size=config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES,
             )
 
     @staticmethod
@@ -236,10 +236,10 @@ class CaseAttachmentService(BaseWorkspaceService):
             # Use actual size for all validations to prevent bypass
 
         # Validate file size limits using actual content size
-        if actual_size > config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES:
+        if actual_size > config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES:
             raise FileSizeError(
                 f"File size ({actual_size / 1024 / 1024:.1f}MB) exceeds maximum allowed size "
-                f"({config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB)"
+                f"({config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB)"
             )
 
         # Serialize concurrent uploads for the same case: the limit checks below

@@ -84,33 +84,33 @@ if TYPE_CHECKING:
 type ExecutionResult = Any | ExecutorActionErrorInfo
 
 
-def _get_tracecat_app_dir() -> Path:
+def _get_autosecops_app_dir() -> Path:
     """Get the autosecops package directory for sandbox mounting.
 
     Returns the directory containing the autosecops package, which will be
     mounted read-only in the sandbox at /app.
     """
     # Check if explicitly configured
-    if config.TRACECAT__EXECUTOR_TRACECAT_APP_DIR:
-        return Path(config.TRACECAT__EXECUTOR_TRACECAT_APP_DIR)
+    if config.AUTOSECOPS__EXECUTOR_AUTOSECOPS_APP_DIR:
+        return Path(config.AUTOSECOPS__EXECUTOR_AUTOSECOPS_APP_DIR)
 
     # Auto-detect from installed package location
     import autosecops
 
-    tracecat_path = Path(autosecops.__file__).parent
+    autosecops_path = Path(autosecops.__file__).parent
     # Return parent (site-packages) so sandbox can import autosecops
-    return tracecat_path.parent
+    return autosecops_path.parent
 
 
 def _get_site_packages_dir() -> Path | None:
     """Get the site-packages directory containing Python dependencies.
 
-    Returns the site-packages directory where tracecat's dependencies
+    Returns the site-packages directory where autosecops's dependencies
     (orjson, pydantic, sqlalchemy, etc.) are installed.
     """
     # Check if explicitly configured
-    if config.TRACECAT__EXECUTOR_SITE_PACKAGES_DIR:
-        return Path(config.TRACECAT__EXECUTOR_SITE_PACKAGES_DIR)
+    if config.AUTOSECOPS__EXECUTOR_SITE_PACKAGES_DIR:
+        return Path(config.AUTOSECOPS__EXECUTOR_SITE_PACKAGES_DIR)
 
     # Auto-detect using sysconfig
     import sysconfig
@@ -143,8 +143,8 @@ def _sandbox_failure_message(
             return "Action sandbox infrastructure failed before producing a result"
         case SandboxErrorCode.RESOURCE_LIMIT_EXCEEDED:
             return sandbox_resource_limit_message(
-                memory_mb=config.TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                memory_env_var="TRACECAT__SANDBOX_DEFAULT_MEMORY_MB",
+                memory_mb=config.AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                memory_env_var="AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB",
             )
         case _:
             message = "Action sandbox workload stopped before producing a result"
@@ -188,7 +188,9 @@ class ActionRunner:
     """
 
     def __init__(self, cache_dir: Path | None = None):
-        self.cache_dir = cache_dir or Path(config.TRACECAT__EXECUTOR_REGISTRY_CACHE_DIR)
+        self.cache_dir = cache_dir or Path(
+            config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_DIR
+        )
         self.registry_artifacts = RegistryArtifactCache(self.cache_dir)
         logger.info("ActionRunner initialized", cache_dir=str(self.cache_dir))
 
@@ -220,11 +222,11 @@ class ActionRunner:
         Returns:
             The action result, or ExecutorActionErrorInfo on error
         """
-        timeout = timeout or config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT
+        timeout = timeout or config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
         # Both execution modes treat registry artifacts as shared import inputs.
         if use_sandbox is None:
-            use_sandbox = config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail
+            use_sandbox = config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail
 
         # Materialize each registry artifact, collect paths in deterministic order.
         # The lease is held for the whole subprocess execution so cache eviction
@@ -286,10 +288,10 @@ class ActionRunner:
             env_vars: Additional environment variables for the subprocess
             timeout: Execution timeout in seconds
         """
-        timeout = timeout or config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT
+        timeout = timeout or config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
         # Create temporary directory for file-based IPC
-        job_dir = Path(tempfile.mkdtemp(prefix="tracecat_action_"))
+        job_dir = Path(tempfile.mkdtemp(prefix="autosecops_action_"))
 
         try:
             # Build payload with resolved_context
@@ -305,7 +307,9 @@ class ActionRunner:
             }
             # The runner times the function call; the jail only backstops
             # startup and serialization around it.
-            hard_timeout = timeout + config.TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+            hard_timeout = (
+                timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+            )
 
             # Write input JSON to job directory
             input_json = to_json(payload)
@@ -328,21 +332,21 @@ class ActionRunner:
             sandbox_env.pop(TUNNEL_PROXY_ENV, None)
 
             # SDK context for any registry SDK operations
-            sandbox_env["TRACECAT__API_URL"] = config.TRACECAT__API_URL
-            sandbox_env["TRACECAT__WORKSPACE_ID"] = (
+            sandbox_env["AUTOSECOPS__API_URL"] = config.AUTOSECOPS__API_URL
+            sandbox_env["AUTOSECOPS__WORKSPACE_ID"] = (
                 str(role.workspace_id) if role.workspace_id else ""
             )
-            sandbox_env["TRACECAT__WORKFLOW_ID"] = str(input.run_context.wf_id)
-            sandbox_env["TRACECAT__RUN_ID"] = str(input.run_context.wf_run_id)
-            sandbox_env["TRACECAT__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
-            sandbox_env["TRACECAT__ENVIRONMENT"] = input.run_context.environment
+            sandbox_env["AUTOSECOPS__WORKFLOW_ID"] = str(input.run_context.wf_id)
+            sandbox_env["AUTOSECOPS__RUN_ID"] = str(input.run_context.wf_run_id)
+            sandbox_env["AUTOSECOPS__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
+            sandbox_env["AUTOSECOPS__ENVIRONMENT"] = input.run_context.environment
             action_gateway_socket = action_gateway_socket_path()
-            sandbox_env["TRACECAT__ACTION_GATEWAY_SOCKET"] = str(
+            sandbox_env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"] = str(
                 ACTION_GATEWAY_SANDBOX_SOCKET
             )
 
             # Preserve the signed execution provenance from the service boundary.
-            sandbox_env["TRACECAT__EXECUTOR_TOKEN"] = resolved_context.executor_token
+            sandbox_env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
 
             network = SandboxNetworkRequest(SandboxNetworkPurpose.ACTION)
             if route := _tunnel_route(input, resolved_context):
@@ -361,15 +365,15 @@ class ActionRunner:
             # Configure sandbox
             sandbox_config = ActionSandboxConfig(
                 registry_paths=registry_paths,
-                tracecat_app_dir=_get_tracecat_app_dir(),
+                autosecops_app_dir=_get_autosecops_app_dir(),
                 site_packages_dir=_get_site_packages_dir(),
                 env_vars=sandbox_env,
                 network=network,
                 action_gateway_socket=action_gateway_socket,
                 action_gateway_socket_mount_path=ACTION_GATEWAY_SANDBOX_SOCKET,
                 resources=ResourceLimits(
-                    memory_mb=config.TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                    address_space_mb=config.TRACECAT__SANDBOX_ADDRESS_SPACE_MB,
+                    memory_mb=config.AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                    address_space_mb=config.AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB,
                     timeout_seconds=math.ceil(hard_timeout),
                 ),
                 timeout_seconds=hard_timeout,
@@ -451,7 +455,7 @@ class ActionRunner:
         Every exit kills lingering descendants before the registry-path lease
         protecting their imports can unwind.
         """
-        timeout = timeout or config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT
+        timeout = timeout or config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
         # Prepare input JSON for subprocess
         payload: dict[str, Any] = {"input": input, "role": role}
@@ -464,7 +468,7 @@ class ActionRunner:
         input_json = to_json(payload)
         # The runner times the function call; this only backstops startup and
         # serialization around it.
-        hard_timeout = timeout + config.TRACECAT__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+        hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
 
         # Build environment with registry paths in PYTHONPATH
         env = os.environ.copy()
@@ -476,14 +480,14 @@ class ActionRunner:
 
         # Ensure SDK context is available for registry actions executed by minimal_runner.
         if resolved_context is not None:
-            env["TRACECAT__API_URL"] = config.TRACECAT__API_URL
-            env["TRACECAT__WORKSPACE_ID"] = resolved_context.workspace_id
-            env["TRACECAT__WORKFLOW_ID"] = resolved_context.workflow_id
-            env["TRACECAT__RUN_ID"] = resolved_context.run_id
-            env["TRACECAT__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
-            env["TRACECAT__ENVIRONMENT"] = input.run_context.environment
-            env["TRACECAT__EXECUTOR_TOKEN"] = resolved_context.executor_token
-            env["TRACECAT__ACTION_GATEWAY_SOCKET"] = str(action_gateway_socket_path())
+            env["AUTOSECOPS__API_URL"] = config.AUTOSECOPS__API_URL
+            env["AUTOSECOPS__WORKSPACE_ID"] = resolved_context.workspace_id
+            env["AUTOSECOPS__WORKFLOW_ID"] = resolved_context.workflow_id
+            env["AUTOSECOPS__RUN_ID"] = resolved_context.run_id
+            env["AUTOSECOPS__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
+            env["AUTOSECOPS__ENVIRONMENT"] = input.run_context.environment
+            env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
+            env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"] = str(action_gateway_socket_path())
             if route := _tunnel_route(input, resolved_context):
                 env.update(tunnel_proxy_env(route[0]))
         elif effective_tunnel(input):

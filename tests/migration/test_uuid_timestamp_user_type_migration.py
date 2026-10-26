@@ -25,7 +25,7 @@ def _workspace_schema(prefix: str, workspace_id: uuid.UUID) -> str:
 
 def _run_alembic(db_url: str, command: str, revision: str) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", command, revision],
         env=env,

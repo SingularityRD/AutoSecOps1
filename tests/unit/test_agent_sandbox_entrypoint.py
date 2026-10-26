@@ -41,7 +41,7 @@ from autosecops.agent.sandbox.shim_entrypoint import (
 def test_resolve_init_payload_path_direct_mode_uses_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    init_path = "/tmp/tracecat-agent/init.json"
+    init_path = "/tmp/autosecops-agent/init.json"
     monkeypatch.setenv(INIT_PAYLOAD_ENV_VAR, init_path)
 
     assert _resolve_init_payload_path() == Path(init_path)
@@ -244,7 +244,7 @@ async def test_pump_stdin_forwards_streamed_initialize_agent_mcp_urls(
 ) -> None:
     chunks = iter(
         [
-            b'{"type":"control_request","agents":{"analyst":{"mcpServers":[{"tracecat-registry-analyst":{"type":"http","url":"http://127.0.0.1:4101',
+            b'{"type":"control_request","agents":{"analyst":{"mcpServers":[{"autosecops-registry-analyst":{"type":"http","url":"http://127.0.0.1:4101',
             b'/mcp","headers":{"Authorization":"Bearer token"}}}]}}}\n',
             b"",
         ]

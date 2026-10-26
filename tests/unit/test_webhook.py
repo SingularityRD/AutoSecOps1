@@ -183,7 +183,7 @@ class TestValidateIncomingWebhook:
             assert role is not None
             assert role.workspace_id == workspace_id
             assert role.organization_id == organization_id
-            assert role.service_id == "tracecat-runner"
+            assert role.service_id == "autosecops-runner"
         finally:
             ctx_role.reset(token)
 
@@ -405,7 +405,7 @@ class TestWebhookSecret:
         webhook.id = webhook_id
         secret_getter = Webhook.secret.fget
         assert secret_getter is not None
-        with patch.object(config, "TRACECAT__SIGNING_SECRET", signing_secret):
+        with patch.object(config, "AUTOSECOPS__SIGNING_SECRET", signing_secret):
             actual_secret = secret_getter(webhook)
 
         assert actual_secret == expected_secret, (

@@ -357,7 +357,7 @@ def test_harness_identifier_accepts_maximum_length():
 def context() -> SessionTurnContext:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid4(),
         workspace_id=uuid4(),
     )
@@ -1678,7 +1678,7 @@ async def test_default_backend_caps_sessions_at_agent_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.agent.types.TRACECAT__AGENT_SANDBOX_TIMEOUT",
+        "autosecops.agent.types.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT",
         21600,
     )
     workspace_id = uuid4()
@@ -1698,7 +1698,7 @@ async def test_default_backend_caps_sessions_at_agent_default(
                 workspace_id=workspace_id,
                 organization_id=uuid4(),
                 user_id=uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
             ),
             config=AgentConfig(
                 model_name="claude-sonnet-4-5", model_provider="anthropic"

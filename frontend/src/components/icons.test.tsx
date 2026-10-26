@@ -20,8 +20,8 @@ const DATABRICKS_RED = "#FF3621"
 const SNOWFLAKE_BLUE = "#29B5E8"
 
 /** Fragment ids declared by the official Microsoft marks. */
-const GRAPH_CLIP_ID = "tracecat-microsoft-graph-clip"
-const OUTLOOK_GRADIENT_ID = "tracecat-microsoft-outlook-gradient"
+const GRAPH_CLIP_ID = "autosecops-microsoft-graph-clip"
+const OUTLOOK_GRADIENT_ID = "autosecops-microsoft-outlook-gradient"
 
 /** Ids of every `<clipPath>`/gradient the rendered markup declares. */
 function renderedFragmentIds(node: ReactElement): string[] {

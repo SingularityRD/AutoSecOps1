@@ -621,7 +621,7 @@ async def test_scoped_session_factory_preserves_caller_transaction(
             == SearchState.PAUSED
         )
     # Route the standard session factory to this test's isolated database.
-    monkeypatch.setattr(config, "TRACECAT__DB_URI", TEST_DB_CONFIG.test_url_sync)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", TEST_DB_CONFIG.test_url_sync)
     reset_async_engine()
     try:
         async with SearchStorage.with_session(scope=case.scope) as store:
@@ -878,8 +878,8 @@ async def test_owned_session_applies_trusted_scope_under_rls(
             for statement in policy.split(";"):
                 if statement.strip():
                     await session.execute(text(statement))
-    monkeypatch.setattr(config, "TRACECAT__DB_URI", TEST_DB_CONFIG.test_url_sync)
-    monkeypatch.setattr(config, "TRACECAT__RLS_MODE", config.RLSMode.ENFORCE)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", TEST_DB_CONFIG.test_url_sync)
+    monkeypatch.setattr(config, "AUTOSECOPS__RLS_MODE", config.RLSMode.ENFORCE)
     reset_async_engine()
     token = ctx_role.set(None)
     try:

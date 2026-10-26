@@ -158,7 +158,7 @@ async def test_resolve_artifact_side_effects_resolves_table_identity(
         session=cast(AsyncSession, object()),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),
@@ -209,7 +209,7 @@ async def test_resolve_artifact_side_effects_skips_invalid_table_name_ref(
         session=cast(AsyncSession, object()),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),

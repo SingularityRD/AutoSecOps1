@@ -13,7 +13,7 @@ from autosecops.integrations.router import _oauth_callback_redirect_url
 def test_oauth_callback_redirect_url_uses_integrations_for_oauth_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://tracecat.test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_APP_URL", "https://autosecops.test")
     workspace_id = uuid.uuid4()
 
     redirect_url = _oauth_callback_redirect_url(
@@ -22,14 +22,15 @@ def test_oauth_callback_redirect_url_uses_integrations_for_oauth_provider(
     )
 
     assert (
-        redirect_url == f"https://tracecat.test/workspaces/{workspace_id}/integrations"
+        redirect_url
+        == f"https://autosecops.test/workspaces/{workspace_id}/integrations"
     )
 
 
 def test_oauth_callback_redirect_url_uses_mcp_servers_for_mcp_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://tracecat.test")
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_APP_URL", "https://autosecops.test")
     workspace_id = uuid.uuid4()
 
     redirect_url = _oauth_callback_redirect_url(
@@ -38,5 +39,5 @@ def test_oauth_callback_redirect_url_uses_mcp_servers_for_mcp_provider(
     )
 
     assert (
-        redirect_url == f"https://tracecat.test/workspaces/{workspace_id}/mcp-servers"
+        redirect_url == f"https://autosecops.test/workspaces/{workspace_id}/mcp-servers"
     )

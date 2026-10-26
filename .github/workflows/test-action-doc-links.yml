@@ -43,5 +43,5 @@ jobs:
 
       - name: Check action documentation links
         env:
-          TRACECAT_TEST_ACTION_DOC_LINKS: "1"
+          AUTOSECOPS_TEST_ACTION_DOC_LINKS: "1"
         run: uv run --no-sync pytest scripts/tests/test_action_doc_links.py -ra

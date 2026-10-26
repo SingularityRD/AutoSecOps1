@@ -179,14 +179,14 @@ jobs:
           context: .
           target: production
           load: true
-          tags: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          tags: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
           # Reuse the amd64 layers the nightly image publish caches on main.
           cache-from: type=gha,scope=api-linux-amd64
 
       - name: Test production image sandboxes on native AMD64
         timeout-minutes: 5
         env:
-          CI_IMAGE: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          CI_IMAGE: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
           test "$(uname -m)" = x86_64
@@ -197,13 +197,13 @@ jobs:
             --security-opt systempaths=unconfined \
             --device /dev/net/tun \
             --mount "type=bind,source=$PWD/tests,target=/app/tests,readonly" \
-            -e TRACECAT__EXECUTOR_BACKEND=nsjail \
-            -e TRACECAT__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD=1 \
-            -e TRACECAT__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD=1 \
+            -e AUTOSECOPS__EXECUTOR_BACKEND=nsjail \
+            -e AUTOSECOPS__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD=1 \
+            -e AUTOSECOPS__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD=1 \
             -e PYTHONDONTWRITEBYTECODE=1 \
-            -e PYTHONPATH=/tmp/tracecat-smoke-deps:/app \
+            -e PYTHONPATH=/tmp/autosecops-smoke-deps:/app \
             "$CI_IMAGE" python -m autosecops.agent.sandbox.cgroup /bin/sh -ec '
-              uv pip install --target /tmp/tracecat-smoke-deps pytest==8.3.2
+              uv pip install --target /tmp/autosecops-smoke-deps pytest==8.3.2
               exec /app/.venv/bin/python /app/tests/smoke_app_image.py
             '
 
@@ -212,12 +212,12 @@ jobs:
 
       - name: Start core Docker services
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
-          TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
-          TRACECAT__FEATURE_FLAGS: ""
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING: "true"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__FEATURE_FLAGS: ""
           # Keep executor-hosted registry sync enabled (run via Temporal)
-          TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
+          AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
         run: |
           set -euo pipefail
 
@@ -280,12 +280,12 @@ jobs:
           # Expect a base64 encoded key
           CUSTOM_REPO_SSH_PRIVATE_KEY: ${{ secrets.CUSTOM_REPO_SSH_PRIVATE_KEY }}
           # Keep executor-hosted registry sync enabled (run via Temporal)
-          TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
+          AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
           # Tests run on the host, so Temporal must be reachable via localhost
           TEMPORAL__CLUSTER_URL: "localhost:7233"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
           # Privileged loop-device regression reuses the exact image built above.
-          TRACECAT__REGISTRY_LOOP_HOTPLUG_IMAGE: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__REGISTRY_LOOP_HOTPLUG_IMAGE: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           # Skip pool integration tests for now.
           # Worker-specific task queues in conftest.py ensure isolation
@@ -294,17 +294,17 @@ jobs:
 
       - name: Run API-backed temporal tests against compose
         env:
-          TRACECAT_TEST_API_MODE: "external"
-          TRACECAT_TEST_EXTERNAL_API_URL: "http://localhost/api"
+          AUTOSECOPS_TEST_API_MODE: "external"
+          AUTOSECOPS_TEST_EXTERNAL_API_URL: "http://localhost/api"
           TEMPORAL__CLUSTER_URL: "localhost:7233"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
         run: |
           uv run --no-sync pytest tests/temporal -m "requires_api and not live_secret" -n auto -ra -v -o faulthandler_timeout=300
 
       - name: Show Docker logs on failure
         if: failure()
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           echo "=== Docker Service Status ==="
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml ps
@@ -336,7 +336,7 @@ jobs:
       - name: Clean up
         if: always()
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml down -v
 

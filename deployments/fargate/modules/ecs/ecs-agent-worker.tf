@@ -15,13 +15,13 @@ resource "aws_ecs_task_definition" "agent_worker_task_definition" {
 
   container_definitions = jsonencode([
     {
-      name    = "TracecatAgentWorkerContainer"
-      image   = "${var.tracecat_image}:${local.tracecat_image_tag}"
+      name    = "AutoSecOpsAgentWorkerContainer"
+      image   = "${var.autosecops_image}:${local.autosecops_image_tag}"
       command = ["python", "-m", "autosecops.agent.worker"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "agent-worker"
         }
@@ -32,9 +32,9 @@ resource "aws_ecs_task_definition" "agent_worker_task_definition" {
   ])
 }
 
-resource "aws_ecs_service" "tracecat_agent_worker" {
-  name                 = "tracecat-agent-worker"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_agent_worker" {
+  name                 = "autosecops-agent-worker"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.agent_worker_task_definition.arn
   desired_count        = var.agent_worker_desired_count
   force_new_deployment = var.force_new_deployment
@@ -55,7 +55,7 @@ resource "aws_ecs_service" "tracecat_agent_worker" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-agent-worker"
       }
@@ -76,6 +76,6 @@ resource "aws_ecs_service" "tracecat_agent_worker" {
 
   depends_on = [
     aws_ecs_service.temporal_service,
-    aws_ecs_service.tracecat_api
+    aws_ecs_service.autosecops_api
   ]
 }

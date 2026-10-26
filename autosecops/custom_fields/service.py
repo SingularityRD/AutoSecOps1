@@ -117,7 +117,7 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
         """Create the workspace schema and base table if absent."""
 
         lock_key = derive_lock_key_from_parts(
-            "tracecat.custom_fields.initialize_workspace_schema",
+            "autosecops.custom_fields.initialize_workspace_schema",
             self.service_name,
             self._table,
         )

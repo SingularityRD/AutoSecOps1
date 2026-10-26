@@ -255,7 +255,7 @@ async def test_bedrock_resolves_assumed_role_credentials(
         {
             "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role",
             "AWS_ROLE_SESSION_NAME": "custom-audit-session",
-            "TRACECAT_AWS_EXTERNAL_ID": "ws-external-id",
+            "AUTOSECOPS_AWS_EXTERNAL_ID": "ws-external-id",
             "AWS_REGION": "us-west-2",
             "AWS_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
             "AWS_BEARER_TOKEN_BEDROCK": "ignored-bearer-token",
@@ -401,7 +401,7 @@ async def test_user_api_key_auth_rejects_invalid_token(
             api_key="bad-token",
         )
     assert exc_info.value.message == "Invalid or expired token"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_token_invalid"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_token_invalid"
     assert exc_info.value.code == "401"
 
 
@@ -423,7 +423,7 @@ def test_missing_provider_credentials_have_distinct_wire_code(provider: str) -> 
         _inject_provider_credentials({"model": "synthetic-model"}, provider, {})
 
     assert exc_info.value.code == "401"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_provider_auth_failed"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_provider_auth_failed"
     classification = _http_error_classification(
         int(exc_info.value.code),
         route_is_direct=False,
@@ -469,7 +469,7 @@ async def test_disabled_catalog_model_has_distinct_wire_code(
         )
 
     assert exc_info.value.code == "403"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_model_not_enabled"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_model_not_enabled"
     classification = _http_error_classification(
         int(exc_info.value.code),
         route_is_direct=False,
@@ -881,7 +881,7 @@ async def test_provider_auth_signal_survives_litellm_serialization(
 
     assert exc_info.value.code == str(status_code)
     wire_error = exc_info.value.to_dict()
-    assert wire_error["type"] == "tracecat_llm_provider_auth_failed"
+    assert wire_error["type"] == "autosecops_llm_provider_auth_failed"
     assert "synthetic-sensitive-detail" not in json.dumps(wire_error)
 
 
@@ -894,17 +894,17 @@ async def test_provider_auth_signal_survives_litellm_serialization(
             "BedrockException - not authorized to perform the required AWS "
             "Marketplace actions (aws-marketplace:ViewSubscriptions, "
             "aws-marketplace:Subscribe) synthetic-sensitive-detail",
-            "tracecat_llm_provider_subscription_required",
+            "autosecops_llm_provider_subscription_required",
         ),
         (
             "bedrock",
             "BedrockException - AccessDenied synthetic-sensitive-detail",
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
         ),
         (
             "openai",
             "aws-marketplace:Subscribe synthetic-sensitive-detail",
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
         ),
     ],
 )

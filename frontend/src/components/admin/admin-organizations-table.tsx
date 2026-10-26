@@ -176,12 +176,16 @@ export function AdminOrganizationsTable() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onSelect={() => {
-                        Cookies.set("tracecat:active-org-id", row.original.id, {
-                          sameSite: "lax",
-                          secure:
-                            typeof window !== "undefined" &&
-                            window.location.protocol === "https:",
-                        })
+                        Cookies.set(
+                          "autosecops:active-org-id",
+                          row.original.id,
+                          {
+                            sameSite: "lax",
+                            secure:
+                              typeof window !== "undefined" &&
+                              window.location.protocol === "https:",
+                          }
+                        )
                         window.location.assign("/workspaces")
                       }}
                     >

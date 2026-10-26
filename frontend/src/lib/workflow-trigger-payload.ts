@@ -1,5 +1,5 @@
 export const DEFAULT_TRIGGER_PAYLOAD = "{}"
-const TRIGGER_PAYLOAD_STORAGE_PREFIX = "tracecat:builder:trigger-payload"
+const TRIGGER_PAYLOAD_STORAGE_PREFIX = "autosecops:builder:trigger-payload"
 
 interface TriggerPayloadStorageScope {
   userId: string | null

@@ -26,8 +26,8 @@ from autosecops.identifiers import UserID, WorkflowID
 from autosecops.workflow.executions.common import build_query
 from autosecops.workflow.executions.correlation import (
     build_agent_session_correlation_id,
+    build_autosecops_correlation_id,
     build_case_task_correlation_id,
-    build_tracecat_correlation_id,
 )
 from autosecops.workflow.executions.enums import (
     ExecutionType,
@@ -54,8 +54,8 @@ def mock_role_with_workspace(svc_workspace: Workspace, mock_user_id: UserID) -> 
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
         user_id=mock_user_id,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
 
@@ -66,8 +66,8 @@ def mock_role_without_workspace() -> Role:
         type="service",
         workspace_id=None,
         user_id=None,
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
 
@@ -118,7 +118,7 @@ class TestWorkflowExecutionSearchAttributes:
         method_name: str,
         temporal_method: str,
     ) -> None:
-        """Every blocking workflow creation entrypoint must set TracecatWorkspaceId."""
+        """Every blocking workflow creation entrypoint must set AutoSecOpsWorkspaceId."""
         service = WorkflowExecutionsService(
             client=mock_client, role=mock_role_with_workspace
         )
@@ -146,7 +146,7 @@ class TestWorkflowExecutionSearchAttributes:
         workspace_pairs = [
             pair for pair in search_attrs.search_attributes if pair.key == ws_key
         ]
-        assert workspace_pairs, "TracecatWorkspaceId search attribute missing"
+        assert workspace_pairs, "AutoSecOpsWorkspaceId search attribute missing"
         assert workspace_pairs[0].value == str(mock_role_with_workspace.workspace_id)
 
     @pytest.mark.parametrize(
@@ -164,7 +164,7 @@ class TestWorkflowExecutionSearchAttributes:
         test_workflow_id: WorkflowID,
         method_name: str,
     ) -> None:
-        """Every nowait workflow creation entrypoint must set TracecatWorkspaceId."""
+        """Every nowait workflow creation entrypoint must set AutoSecOpsWorkspaceId."""
         service = WorkflowExecutionsService(
             client=mock_client, role=mock_role_with_workspace
         )
@@ -201,7 +201,7 @@ class TestWorkflowExecutionSearchAttributes:
         workspace_pairs = [
             pair for pair in search_attrs.search_attributes if pair.key == ws_key
         ]
-        assert workspace_pairs, "TracecatWorkspaceId search attribute missing"
+        assert workspace_pairs, "AutoSecOpsWorkspaceId search attribute missing"
         assert workspace_pairs[0].value == str(mock_role_with_workspace.workspace_id)
 
     @pytest.mark.parametrize(
@@ -421,11 +421,11 @@ class TestSearchAttributeQueries:
 
 @pytest.mark.anyio
 class TestSearchAttributeEnumMethods:
-    async def test_tracecat_correlation_id_helpers(self) -> None:
+    async def test_autosecops_correlation_id_helpers(self) -> None:
         session_id = uuid.UUID("00000000-0000-0000-0000-000000000123")
 
         assert (
-            build_tracecat_correlation_id("agent-session", session_id)
+            build_autosecops_correlation_id("agent-session", session_id)
             == "agent-session:00000000-0000-0000-0000-000000000123"
         )
         assert (
@@ -509,7 +509,7 @@ class TestCaseTaskCorrelation:
             workspace_id=mock_role_with_workspace.workspace_id,
             correlation_id=correlation_id,
         )
-        assert f"TracecatCorrelationId = '{correlation_id}'" in query
+        assert f"AutoSecOpsCorrelationId = '{correlation_id}'" in query
         assert str(mock_role_with_workspace.workspace_id) in query
 
     async def test_build_query_rejects_quoted_correlation_id(

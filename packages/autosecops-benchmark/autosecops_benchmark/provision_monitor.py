@@ -7,8 +7,8 @@ or assume that the role is a PostgreSQL superuser.
 
 Normally invoked by ``just cluster loadtest``. Direct diagnostic usage:
 
-    export TRACECAT_LOADTEST_PROVISION_DSN=postgresql://.../postgres
-    export TRACECAT_LOADTEST_MONITOR_DSN="$(
+    export AUTOSECOPS_LOADTEST_PROVISION_DSN=postgresql://.../postgres
+    export AUTOSECOPS_LOADTEST_MONITOR_DSN="$(
         uv run --all-packages python -m autosecops_benchmark.provision_monitor \\
             --workspace-id 00000000-0000-4000-8000-000000000000
     )"
@@ -32,8 +32,8 @@ import asyncpg
 
 from .collector import _workspace_schema_name
 
-DEFAULT_PROVISION_DSN_ENV: Final = "TRACECAT_LOADTEST_PROVISION_DSN"
-DEFAULT_MONITOR_PASSWORD_ENV: Final = "TRACECAT_LOADTEST_MONITOR_PASSWORD"
+DEFAULT_PROVISION_DSN_ENV: Final = "AUTOSECOPS_LOADTEST_PROVISION_DSN"
+DEFAULT_MONITOR_PASSWORD_ENV: Final = "AUTOSECOPS_LOADTEST_MONITOR_PASSWORD"
 DEFAULT_MONITOR_ROLE: Final = "scatter_load_monitor"
 IDENTIFIER_RE: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 DSN_CREDENTIAL_QUERY_KEYS: Final = frozenset(

@@ -66,7 +66,7 @@ async def test_role_dependency_rebinds_rls_context_on_session(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Role resolution should re-apply RLS context on the request session."""
-    monkeypatch.setattr(config, "TRACECAT__RLS_MODE", config.RLSMode.ENFORCE)
+    monkeypatch.setattr(config, "AUTOSECOPS__RLS_MODE", config.RLSMode.ENFORCE)
 
     workspace_id = uuid.uuid4()
     org_id = uuid.uuid4()
@@ -81,7 +81,7 @@ async def test_role_dependency_rebinds_rls_context_on_session(
         workspace_id=workspace_id,
         organization_id=org_id,
         user_id=user_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     validated_role = role.model_copy(update={"scopes": frozenset({"tests:read"})})
 
@@ -124,7 +124,7 @@ async def test_user_role_dependency_clears_agent_session_context() -> None:
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     context_token = ctx_agent_session_id.set(uuid.uuid4())
     try:
@@ -206,11 +206,11 @@ async def test_role_dependency_resolves_multi_tenant_superuser_as_regular_org_us
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A superuser flag alone must not grant platform privileges in tenant context."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
-    request.cookies = {"tracecat-org-id": str(uuid.uuid4())}
+    request.cookies = {"autosecops-org-id": str(uuid.uuid4())}
     session = AsyncMock()
     user = MagicMock(spec=User)
     user.id = uuid.uuid4()
@@ -347,7 +347,7 @@ async def test_role_dependency_resolves_superuser_workspace_membership_without_p
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Workspace access for superuser accounts still depends on membership/RBAC."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -411,11 +411,11 @@ async def test_resolve_auth_organization_id_ignores_org_cookie_in_multi_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pre-auth multi-tenant org resolution requires explicit org links."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     request = MagicMock(spec=Request)
     request.query_params = {}
-    request.cookies = {"tracecat-org-id": str(uuid.uuid4())}
+    request.cookies = {"autosecops-org-id": str(uuid.uuid4())}
     session = AsyncMock(spec=AsyncSession)
 
     with pytest.raises(HTTPException) as excinfo:
@@ -431,7 +431,7 @@ async def test_resolve_auth_organization_id_ignores_org_cookie_in_multi_tenant(
 async def test_role_dependency_infers_org_from_single_membership(
     session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     org_id = uuid.uuid4()
     org = Organization(
@@ -495,7 +495,7 @@ async def test_role_dependency_uses_stable_org_for_multi_org_without_workspace(
     monkeypatch: pytest.MonkeyPatch,
     require_workspace: Literal["no", "optional"],
 ):
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     base_time = datetime(2024, 1, 1, tzinfo=UTC)
     org_a_id = uuid.uuid4()

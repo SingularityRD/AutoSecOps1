@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 
-from autosecops import config as tracecat_config
+from autosecops import config as autosecops_config
 from autosecops.agent.sandbox.config import (
     AgentSandboxConfig,
     build_agent_nsjail_config,
@@ -221,8 +221,8 @@ def test_resolve_network_plan_reads_dns_networks_from_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS",
         (ip_network("10.129.0.0/16"),),
     )
     host_resolv = tmp_path / "host-resolv.conf"
@@ -331,7 +331,7 @@ def test_configured_network_policy_reads_public_ipv6_flag(
 ) -> None:
     for flag in (True, False):
         monkeypatch.setattr(
-            tracecat_config, "TRACECAT__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS", flag
+            autosecops_config, "AUTOSECOPS__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS", flag
         )
 
         policy = configured_sandbox_network_policy(SandboxNetworkPurpose.SCRIPT)
@@ -438,39 +438,39 @@ def test_configured_network_policies_are_scoped_by_purpose(
 ) -> None:
     purpose_config = {
         SandboxNetworkPurpose.INSTALL: (
-            "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
-            "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
+            "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
+            "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
             IPv4Network("10.1.0.0/16"),
             8001,
         ),
         SandboxNetworkPurpose.REGISTRY: (
-            "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
-            "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
+            "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
+            "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
             IPv4Network("10.5.0.0/16"),
             8005,
         ),
         SandboxNetworkPurpose.SCRIPT: (
-            "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
-            "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
+            "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
+            "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
             IPv4Network("10.2.0.0/16"),
             8002,
         ),
         SandboxNetworkPurpose.ACTION: (
-            "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
-            "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
+            "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
+            "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
             IPv4Network("10.3.0.0/16"),
             8003,
         ),
         SandboxNetworkPurpose.AGENT: (
-            "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
-            "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
+            "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
+            "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
             IPv4Network("10.4.0.0/16"),
             8004,
         ),
     }
     for _, (cidr_name, ports_name, network, port) in purpose_config.items():
-        monkeypatch.setattr(tracecat_config, cidr_name, (network,))
-        monkeypatch.setattr(tracecat_config, ports_name, (port,))
+        monkeypatch.setattr(autosecops_config, cidr_name, (network,))
+        monkeypatch.setattr(autosecops_config, ports_name, (port,))
 
     for purpose, (_, _, network, port) in purpose_config.items():
         policy = configured_sandbox_network_policy(purpose)
@@ -612,23 +612,23 @@ def test_python_sandbox_scopes_install_and_script_private_egress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
         (IPv4Network("10.10.0.0/16"),),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
         (8080,),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
         (IPv4Network("10.20.0.0/16"),),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
         (8443,),
     )
     executor = NsjailExecutor(rootfs_path=str(tmp_path / "rootfs"))
@@ -663,7 +663,7 @@ def test_action_sandbox_config_enables_filtered_nstun(tmp_path: Path) -> None:
         job_dir=tmp_path / "job",
         config=ActionSandboxConfig(
             registry_paths=[tmp_path / "registry"],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
         ),
     )
 
@@ -680,23 +680,23 @@ def test_action_and_agent_sandboxes_use_separate_private_egress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
         (IPv4Network("10.30.0.0/16"),),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
         (9443,),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
         (IPv4Network("10.40.0.0/16"),),
     )
     monkeypatch.setattr(
-        tracecat_config,
-        "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
+        autosecops_config,
+        "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
         (10443,),
     )
     executor = NsjailExecutor(rootfs_path=str(tmp_path / "rootfs"))
@@ -705,7 +705,7 @@ def test_action_and_agent_sandboxes_use_separate_private_egress(
         job_dir=tmp_path / "action-job",
         config=ActionSandboxConfig(
             registry_paths=[tmp_path / "registry"],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
         ),
     )
     agent_config = build_agent_nsjail_config(
@@ -733,7 +733,7 @@ def test_action_sandbox_can_explicitly_disable_networking(tmp_path: Path) -> Non
         job_dir=tmp_path / "job",
         config=ActionSandboxConfig(
             registry_paths=[tmp_path / "registry"],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
             network=None,
         ),
     )
@@ -751,15 +751,15 @@ def test_action_sandbox_config_mounts_action_gateway_socket(tmp_path: Path) -> N
         job_dir=tmp_path / "job",
         config=ActionSandboxConfig(
             registry_paths=[tmp_path / "registry"],
-            tracecat_app_dir=tmp_path / "app",
+            autosecops_app_dir=tmp_path / "app",
             action_gateway_socket=action_gateway_socket,
             action_gateway_socket_mount_path=Path(
-                "/var/run/tracecat/action-gateway.sock"
+                "/var/run/autosecops/action-gateway.sock"
             ),
         ),
     )
 
     assert (
-        f'mount {{ src: "{action_gateway_socket}" dst: "/var/run/tracecat/action-gateway.sock" '
+        f'mount {{ src: "{action_gateway_socket}" dst: "/var/run/autosecops/action-gateway.sock" '
         "is_bind: true rw: false }"
     ) in config_text

@@ -86,19 +86,19 @@ TableRowID = uuid.UUID
 InvitationID = uuid.UUID
 
 InternalServiceID = Literal[
-    "tracecat-api",
-    "tracecat-bootstrap",
-    "tracecat-cli",
-    "tracecat-executor",
-    "tracecat-agent-executor",
-    "tracecat-case-duration-sync",
-    "tracecat-case-triggers",
-    "tracecat-llm-gateway",
-    "tracecat-mcp",
-    "tracecat-runner",
-    "tracecat-schedule-runner",
-    "tracecat-service",
-    "tracecat-ui",
+    "autosecops-api",
+    "autosecops-bootstrap",
+    "autosecops-cli",
+    "autosecops-executor",
+    "autosecops-agent-executor",
+    "autosecops-case-duration-sync",
+    "autosecops-case-triggers",
+    "autosecops-llm-gateway",
+    "autosecops-mcp",
+    "autosecops-runner",
+    "autosecops-schedule-runner",
+    "autosecops-service",
+    "autosecops-ui",
 ]
 
 __all__ = [

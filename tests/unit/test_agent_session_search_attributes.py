@@ -50,7 +50,7 @@ def _build_db_session() -> AsyncSession:
 def role_with_user() -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -62,7 +62,7 @@ def role_with_user() -> Role:
 def role_without_user() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=None,
@@ -96,7 +96,7 @@ async def _mock_agent_config_context(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("role_fixture", ["role_with_user", "role_without_user"])
-async def test_run_turn_stamps_tracecat_search_attributes(
+async def test_run_turn_stamps_autosecops_search_attributes(
     role_fixture: str,
     request: pytest.FixtureRequest,
     temporal_start_client: tuple[Client, AsyncMock],

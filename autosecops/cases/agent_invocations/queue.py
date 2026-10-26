@@ -71,7 +71,7 @@ def invoke_comment_agent_turns_after_commit(
                         invocation_id=invocation_id,
                     ),
                     id=comment_agent_invocation_workflow_id(invocation_id),
-                    task_queue=config.TRACECAT__AGENT_QUEUE,
+                    task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                     retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                     id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
                 )

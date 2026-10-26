@@ -31,7 +31,7 @@ def test_admin_role(mock_org_id: uuid.UUID) -> Iterator[Role]:
         type="user",
         user_id=mock_org_id,
         organization_id=mock_org_id,
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         scopes=ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
     token = ctx_role.set(role)
@@ -43,7 +43,7 @@ def test_admin_role(mock_org_id: uuid.UUID) -> Iterator[Role]:
 
 @pytest.fixture(autouse=True)
 def enable_multi_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
 
 def _tier(*, is_default: bool) -> Tier:
@@ -150,7 +150,7 @@ async def test_update_org_tier_completes_in_single_tenant_mode(
     seeded_org: tuple[uuid.UUID, AdminTierService],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     org_id, service = seeded_org
 
     with patch(
@@ -469,7 +469,7 @@ async def test_case_addons_entitled_org_ids_uses_single_tenant_defaults(
     test_admin_role: Role,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",

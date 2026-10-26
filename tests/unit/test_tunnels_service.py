@@ -30,7 +30,7 @@ SECRET = "machine-client-secret"
 
 @pytest.fixture(autouse=True)
 def kubernetes_gateways(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "kubernetes")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "kubernetes")
     monkeypatch.setattr(service_module, "sync_gateway", AsyncMock())
     monkeypatch.setattr(service_module, "delete_gateway", AsyncMock())
 
@@ -384,7 +384,7 @@ async def test_tunnels_require_kubernetes_gateway_backend(
     service: TunnelsService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tunnel = await service.create_tunnel(_params())
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "none")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "none")
 
     with pytest.raises(TunnelGatewayUnavailableError, match="Kubernetes"):
         await service.create_tunnel(_params("another"))

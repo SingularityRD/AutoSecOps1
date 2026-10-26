@@ -126,7 +126,7 @@ def _mint_identity(organization_id: uuid.UUID | None = None) -> _ReceiverIdentit
 
 @pytest.fixture
 def receiver_identity(monkeypatch: pytest.MonkeyPatch) -> _ReceiverIdentity:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     return _mint_identity()
 
 
@@ -295,7 +295,7 @@ def test_platform_native_trace_is_sanitized_and_joined_under_trusted_parent() ->
     resource_spans = request.resource_spans.add()
     resource_spans.resource.attributes.append(
         KeyValue(
-            key="tracecat.workflow.execution.id",
+            key="autosecops.workflow.execution.id",
             value=AnyValue(string_value="sandbox-spoofed"),
         )
     )
@@ -340,8 +340,8 @@ def test_platform_native_trace_is_sanitized_and_joined_under_trusted_parent() ->
         span_id=b"\xbb" * 8,
         trace_flags=1,
         resource_attributes={
-            "tracecat.workflow.execution.id": "wf_synthetic/exec_synthetic",
-            "tracecat.agent.run.id": "00000000-0000-4000-8000-000000000001",
+            "autosecops.workflow.execution.id": "wf_synthetic/exec_synthetic",
+            "autosecops.agent.run.id": "00000000-0000-4000-8000-000000000001",
         },
     )
 
@@ -370,8 +370,8 @@ def test_platform_native_trace_is_sanitized_and_joined_under_trusted_parent() ->
         for attribute in parsed_resource_spans.resource.attributes
     }
     assert attributes == {
-        "service.name": "tracecat-agent-native",
-        "service.namespace": "tracecat",
+        "service.name": "autosecops-agent-native",
+        "service.namespace": "autosecops",
         **parent.resource_attributes,
     }
 
@@ -381,8 +381,8 @@ def test_tenant_trace_keeps_topology_and_deduplicates_trusted_attributes() -> No
     resource_spans = request.resource_spans.add()
     resource_spans.resource.attributes.extend(
         [
-            KeyValue(key="tracecat.agent.run.id", value=AnyValue(string_value="one")),
-            KeyValue(key="tracecat.agent.run.id", value=AnyValue(string_value="two")),
+            KeyValue(key="autosecops.agent.run.id", value=AnyValue(string_value="one")),
+            KeyValue(key="autosecops.agent.run.id", value=AnyValue(string_value="two")),
         ]
     )
     span = resource_spans.scope_spans.add().spans.add(
@@ -394,7 +394,7 @@ def test_tenant_trace_keeps_topology_and_deduplicates_trusted_attributes() -> No
     rewritten = canonicalize_tenant_trace_body(
         request.SerializeToString(),
         content_type="application/x-protobuf",
-        trusted_attributes={"tracecat.agent.run.id": "trusted"},
+        trusted_attributes={"autosecops.agent.run.id": "trusted"},
     )
 
     parsed = ExportTraceServiceRequest.FromString(rewritten)
@@ -403,7 +403,7 @@ def test_tenant_trace_keeps_topology_and_deduplicates_trusted_attributes() -> No
     run_attributes = [
         attribute.value.string_value
         for attribute in parsed_resource.resource.attributes
-        if attribute.key == "tracecat.agent.run.id"
+        if attribute.key == "autosecops.agent.run.id"
     ]
     assert run_attributes == ["trusted"]
 
@@ -470,7 +470,7 @@ async def test_trace_batch_fans_out_original_and_sanitized_copies(
         trace_id=b"\xaa" * 16,
         span_id=b"\xbb" * 8,
         trace_flags=1,
-        resource_attributes={"tracecat.agent.run.id": str(uuid.uuid4())},
+        resource_attributes={"autosecops.agent.run.id": str(uuid.uuid4())},
     )
     receiver = OtelSocketReceiver(
         socket_path=short_socket_dir / "fanout.sock",
@@ -554,7 +554,7 @@ async def test_tenant_trace_opt_out_skips_tenant_delivery_but_keeps_platform(
         trace_id=b"\xaa" * 16,
         span_id=b"\xbb" * 8,
         trace_flags=1,
-        resource_attributes={"tracecat.agent.run.id": str(uuid.uuid4())},
+        resource_attributes={"autosecops.agent.run.id": str(uuid.uuid4())},
     )
     receiver = OtelSocketReceiver(
         socket_path=short_socket_dir / "optout.sock",
@@ -667,7 +667,7 @@ async def test_receiver_forwards_post_with_injected_headers(
     assert request.content == body
     assert request.headers["authorization"] == "Bearer secret"
     assert request.headers["content-type"] == "application/x-protobuf"
-    assert request.headers["user-agent"].startswith("tracecat-agent-otel-relay/")
+    assert request.headers["user-agent"].startswith("autosecops-agent-otel-relay/")
 
 
 @pytest.mark.anyio

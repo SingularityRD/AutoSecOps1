@@ -26,7 +26,7 @@ ACCEPT = [
     "feat(api)!: drop the v1 webhook payload",
     "feat(ui+api): case comment replies",
     "[codex] chore(deps): bump orjson",
-    "revert(agents): stopgap resolution of tracecat registry alias",
+    "revert(agents): stopgap resolution of autosecops registry alias",
     "release: 1.0.0-beta.49",
     "deprecation(integrations): tools.x.list_signals in favour of tools.x.search_alerts",
     "build(deps): patch dependabot alerts",
@@ -62,7 +62,7 @@ REJECT: list[tuple[str, str]] = [
     ("feat(core-actions): add a table lookup action", "unknown-scope"),
     ("  feat(ui): x", "leading-whitespace"),
     (
-        'Revert "fix(agents): stopgap resolution of tracecat registry alias"',
+        'Revert "fix(agents): stopgap resolution of autosecops registry alias"',
         "revert-wrapper",
     ),
 ]
@@ -236,8 +236,8 @@ def test_revert_wrapper_is_rejected_on_its_own_terms() -> None:
     ("title", "suggestion"),
     [
         (
-            'Revert "fix(agents): stopgap resolution of tracecat registry alias"',
-            "`revert(agents): stopgap resolution of tracecat registry alias`",
+            'Revert "fix(agents): stopgap resolution of autosecops registry alias"',
+            "`revert(agents): stopgap resolution of autosecops registry alias`",
         ),
         (
             'Revert "fix: return 404 for missing workspaces"',

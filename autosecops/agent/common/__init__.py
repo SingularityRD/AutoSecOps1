@@ -12,11 +12,11 @@ Key design principles:
 
 from autosecops.agent.common.adapter_base import BaseHarnessAdapter
 from autosecops.agent.common.config import (
+    AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB,
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT,
+    AUTOSECOPS__EXECUTOR_BACKEND,
     JAILED_CONTROL_SOCKET_PATH,
     JAILED_LLM_SOCKET_PATH,
-    TRACECAT__AGENT_SANDBOX_MEMORY_MB,
-    TRACECAT__AGENT_SANDBOX_TIMEOUT,
-    TRACECAT__EXECUTOR_BACKEND,
 )
 from autosecops.agent.common.exceptions import (
     AgentSandboxError,
@@ -55,9 +55,9 @@ __all__ = [
     # Config
     "JAILED_CONTROL_SOCKET_PATH",
     "JAILED_LLM_SOCKET_PATH",
-    "TRACECAT__AGENT_SANDBOX_MEMORY_MB",
-    "TRACECAT__AGENT_SANDBOX_TIMEOUT",
-    "TRACECAT__EXECUTOR_BACKEND",
+    "AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB",
+    "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT",
+    "AUTOSECOPS__EXECUTOR_BACKEND",
     # Exceptions
     "AgentSandboxError",
     "AgentSandboxExecutionError",

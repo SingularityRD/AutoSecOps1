@@ -225,13 +225,13 @@ class ExecutorBackend(ABC):
         self,
     ) -> list[Path] | ExecutorActionErrorInfo:
         """Resolve run_python import roots when no registry artifact is available."""
-        if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
             if local_registry_paths := self._get_run_python_local_registry_paths():
                 return local_registry_paths
             message = (
                 "No local registry paths available for run_python execution. "
-                "Check TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH, "
-                "TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH, and PYTHONUSERBASE."
+                "Check AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH, "
+                "AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH, and PYTHONUSERBASE."
             )
         else:
             message = (
@@ -250,7 +250,7 @@ class ExecutorBackend(ABC):
     def _get_run_python_local_registry_paths(self) -> list[Path]:
         """Return local registry import roots for run_python local-repository mode."""
         repo_root = Path(__file__).resolve().parents[3]
-        builtin_source_path = Path(config.TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH)
+        builtin_source_path = Path(config.AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH)
         candidates = [builtin_source_path]
         if not builtin_source_path.exists():
             candidates.append(repo_root / "packages" / "autosecops-registry")
@@ -259,7 +259,7 @@ class ExecutorBackend(ABC):
         )
         candidates.extend(
             [
-                Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH),
+                Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH),
                 custom_registry_target,
             ]
         )
@@ -297,13 +297,13 @@ class ExecutorBackend(ABC):
         env_vars = dict(user_env_vars or {})
         env_vars.update(
             {
-                "TRACECAT__API_URL": config.TRACECAT__API_URL,
-                "TRACECAT__WORKSPACE_ID": resolved_context.workspace_id,
-                "TRACECAT__WORKFLOW_ID": resolved_context.workflow_id,
-                "TRACECAT__RUN_ID": resolved_context.run_id,
-                "TRACECAT__WF_EXEC_ID": str(input.run_context.wf_exec_id),
-                "TRACECAT__ENVIRONMENT": input.run_context.environment,
-                "TRACECAT__EXECUTOR_TOKEN": resolved_context.executor_token,
+                "AUTOSECOPS__API_URL": config.AUTOSECOPS__API_URL,
+                "AUTOSECOPS__WORKSPACE_ID": resolved_context.workspace_id,
+                "AUTOSECOPS__WORKFLOW_ID": resolved_context.workflow_id,
+                "AUTOSECOPS__RUN_ID": resolved_context.run_id,
+                "AUTOSECOPS__WF_EXEC_ID": str(input.run_context.wf_exec_id),
+                "AUTOSECOPS__ENVIRONMENT": input.run_context.environment,
+                "AUTOSECOPS__EXECUTOR_TOKEN": resolved_context.executor_token,
             }
         )
         return env_vars

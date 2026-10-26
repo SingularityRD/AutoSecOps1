@@ -57,7 +57,7 @@ async def publish_case_duration_sync(
     # Ack + XDEL cleanup bounds the stream; a hard cap would silently drop
     # unconsumed jobs during consumer outages.
     message_id = await client.xadd(
-        stream_key=config.TRACECAT__CASE_DURATION_SYNC_STREAM_KEY,
+        stream_key=config.AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY,
         fields=fields,
         expire_seconds=None,
     )

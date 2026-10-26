@@ -23,7 +23,7 @@ from autosecops_registry.core.transform import (
 @pytest.fixture(autouse=True)
 def deduplicate_workspace_scope(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure deduplication tests have an explicit workspace scope by default."""
-    monkeypatch.setenv("TRACECAT__WORKSPACE_ID", "test-workspace")
+    monkeypatch.setenv("AUTOSECOPS__WORKSPACE_ID", "test-workspace")
 
 
 class _RedisDedupClient:
@@ -57,7 +57,7 @@ async def dedup_registry_context(deduplicate_workspace_scope: None) -> Any:
     The Redis connection is made lazily when create_digests is called,
     so non-dedup tests don't require a running Redis instance.
     """
-    workspace_id = os.environ.get("TRACECAT__WORKSPACE_ID", "test-workspace")
+    workspace_id = os.environ.get("AUTOSECOPS__WORKSPACE_ID", "test-workspace")
     ctx = MagicMock()
     ctx.workspace_id = workspace_id
     ctx.deduplicate = _RedisDedupClient(workspace_id)
@@ -221,7 +221,7 @@ def test_drop_nulls(items: list[Any], expected: list[Any]) -> None:
 
 
 def test_drop_nulls_action_key() -> None:
-    assert getattr(drop_nulls, "__tracecat_udf_key") == "core.transform.drop_nulls"
+    assert getattr(drop_nulls, "__autosecops_udf_key") == "core.transform.drop_nulls"
 
 
 @pytest.mark.parametrize(

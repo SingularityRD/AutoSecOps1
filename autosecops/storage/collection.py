@@ -56,7 +56,7 @@ class CollectionManifestV1(BaseModel):
     Contains references to all chunk blobs and collection metadata.
     """
 
-    kind: Literal["tracecat.collection_manifest"] = "tracecat.collection_manifest"
+    kind: Literal["autosecops.collection_manifest"] = "autosecops.collection_manifest"
     """Type identifier for manifest blobs."""
 
     version: int = 1
@@ -81,7 +81,7 @@ class CollectionChunkV1(BaseModel):
     Contains a slice of items from the collection.
     """
 
-    kind: Literal["tracecat.collection_chunk"] = "tracecat.collection_chunk"
+    kind: Literal["autosecops.collection_chunk"] = "autosecops.collection_chunk"
     """Type identifier for chunk blobs."""
 
     version: int = 1
@@ -120,8 +120,8 @@ async def store_collection(
         CollectionObject handle suitable for workflow history.
     """
 
-    chunk_size = chunk_size or config.TRACECAT__COLLECTION_CHUNK_SIZE
-    bucket = bucket or config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW
+    chunk_size = chunk_size or config.AUTOSECOPS__COLLECTION_CHUNK_SIZE
+    bucket = bucket or config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW
 
     count = len(items)
     num_chunks = math.ceil(count / chunk_size) if count > 0 else 1

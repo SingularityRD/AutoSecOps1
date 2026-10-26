@@ -1,7 +1,7 @@
 ---
 title: License key
 description: "Install a signed AutoSecOps license key on a self-hosted deployment to unlock paid features, check its status, and see what happens when it expires."
-keywords: ["license", "license key", "entitlements", "enterprise", "TRACECAT__LICENSE_KEY"]
+keywords: ["license", "license key", "entitlements", "enterprise", "AUTOSECOPS__LICENSE_KEY"]
 ---
 
 A self-hosted AutoSecOps deployment runs the free feature set until you install a license key.
@@ -19,14 +19,14 @@ A license key is a single line of two base64url segments separated by a dot:
 eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
 ```
 
-Set it as `TRACECAT__LICENSE_KEY` on every backend service: `api`, `worker`, `executor`, `agent-worker`, `agent-executor`, and `mcp`.
+Set it as `AUTOSECOPS__LICENSE_KEY` on every backend service: `api`, `worker`, `executor`, `agent-worker`, `agent-executor`, and `mcp`.
 
 <Tabs>
   <Tab title="Docker Compose">
     Add the key to your `.env` file, then recreate the services.
 
     ```bash
-    TRACECAT__LICENSE_KEY=eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
+    AUTOSECOPS__LICENSE_KEY=eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
     ```
 
     ```bash
@@ -42,7 +42,7 @@ Set it as `TRACECAT__LICENSE_KEY` on every backend service: `api`, `worker`, `ex
     ```
   </Tab>
   <Tab title="Kubernetes">
-    Add `TRACECAT__LICENSE_KEY` to the environment of the backend deployments, then roll them out.
+    Add `AUTOSECOPS__LICENSE_KEY` to the environment of the backend deployments, then roll them out.
   </Tab>
 </Tabs>
 
@@ -55,14 +55,14 @@ The same data is available from the API:
 
 ```bash
 curl -H "Authorization: Bearer <superuser-token>" \
-  https://tracecat.yourdomain.com/api/admin/license
+  https://autosecops.yourdomain.com/api/admin/license
 ```
 
 The `api` service also logs the license status at startup.
 
 | Status | Meaning | Paid entitlements |
 | :----- | :------ | :---------------- |
-| `missing` | No `TRACECAT__LICENSE_KEY` is set. | Off |
+| `missing` | No `AUTOSECOPS__LICENSE_KEY` is set. | Off |
 | `valid` | The signature verifies and the license has not expired. | On |
 | `grace` | The license expired less than 14 days ago. | On |
 | `expired` | The license expired 14 or more days ago. | Off |
@@ -79,7 +79,7 @@ Turning paid features off keeps your data. Workflows, cases, and other records c
 
 ## Feature flags
 
-`TRACECAT__FEATURE_FLAGS` no longer turns on paid entitlements.
+`AUTOSECOPS__FEATURE_FLAGS` no longer turns on paid entitlements.
 If you previously enabled paid features with flags such as `git-sync`, `case-tasks`, `rbac`, `agent-channels`, or `forms`, install a license key that grants them.
 The `api` service logs a warning at startup that lists flags whose entitlements your license does not grant.
 
@@ -88,7 +88,7 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 
 ## Multi-tenant deployments
 
-With `TRACECAT__EE_MULTI_TENANT=true`, AutoSecOps ignores the license key and resolves entitlements from the tiers that platform admins assign to organizations.
+With `AUTOSECOPS__EE_MULTI_TENANT=true`, AutoSecOps ignores the license key and resolves entitlements from the tiers that platform admins assign to organizations.
 
 ## Third-party notices
 

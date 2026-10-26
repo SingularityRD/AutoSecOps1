@@ -106,7 +106,7 @@ def test_malformed_stored_order_is_ignored(order: Any) -> None:
 def _temporal_payload(dsl: DSLInput) -> bytes:
     args = DSLRunArgs(
         role=Role(
-            type="service", service_id="tracecat-runner", workspace_id=uuid.uuid4()
+            type="service", service_id="autosecops-runner", workspace_id=uuid.uuid4()
         ),
         dsl=dsl,
         wf_id=WorkflowUUID.new_uuid4(),

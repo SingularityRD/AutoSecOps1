@@ -80,7 +80,7 @@ def _role() -> Role:
         type="service",
         workspace_id=_WORKSPACE_ID,
         user_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
 
 
@@ -579,7 +579,7 @@ class TestWebhookRouterExecutionPath:
             type="external",
             ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return.json",
                 size_bytes=42,
                 sha256="abc123",
@@ -624,7 +624,7 @@ class TestWebhookRouterExecutionPath:
             type="collection",
             manifest_ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return/manifest.json",
                 size_bytes=128,
                 sha256="manifest-sha",
@@ -687,7 +687,7 @@ class TestWebhookRouterExecutionPath:
             type="collection",
             manifest_ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return/manifest.json",
                 size_bytes=128,
                 sha256="manifest-sha",
@@ -751,7 +751,7 @@ class TestWebhookRouterExecutionPath:
             type="external",
             ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/chunks/0.json",
                 size_bytes=len(external_payload),
                 sha256=sha256(external_payload).hexdigest(),
@@ -763,7 +763,7 @@ class TestWebhookRouterExecutionPath:
             type="collection",
             manifest_ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return/manifest.json",
                 size_bytes=128,
                 sha256="manifest-sha",
@@ -864,7 +864,7 @@ class TestWebhookRouterExecutionPath:
             type="external",
             ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return.json",
                 size_bytes=42,
                 sha256="abc123",
@@ -913,7 +913,7 @@ class TestWebhookRouterExecutionPath:
             type="collection",
             manifest_ref=ObjectRef(
                 backend="s3",
-                bucket="tracecat-workflow",
+                bucket="autosecops-workflow",
                 key="wf/test/return/manifest.json",
                 size_bytes=128,
                 sha256="manifest-sha",
@@ -1130,12 +1130,12 @@ class TestWrappedPayloadDependency:
             include_headers=True,
             headers={
                 "content-type": "application/json",
-                "x-tracecat-api-key": "super-secret",
+                "x-autosecops-api-key": "super-secret",
             },
         )
         result = await _wrapped_payload(request=request, payload={"a": 1})
         assert result is not None
-        assert "x-tracecat-api-key" not in result["headers"]
+        assert "x-autosecops-api-key" not in result["headers"]
         assert result["headers"] == {"content-type": "application/json"}
 
 

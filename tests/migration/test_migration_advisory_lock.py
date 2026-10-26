@@ -71,7 +71,7 @@ def isolated_migration_db_url() -> Iterator[str]:
 
 def _run_alembic_command(db_url: str, *args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     return subprocess.run(
         ["uv", "run", "alembic", *args],
         env=env,
@@ -174,7 +174,7 @@ def test_alembic_upgrade_waits_for_lock_release(
 
     engine = create_engine(isolated_migration_db_url, poolclass=NullPool)
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = isolated_migration_db_url
+    env["AUTOSECOPS__DB_URI"] = isolated_migration_db_url
 
     with engine.connect() as holder:
         acquired_by_holder = acquire_migration_advisory_lock(holder)

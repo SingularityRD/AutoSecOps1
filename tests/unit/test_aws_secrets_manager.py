@@ -34,10 +34,10 @@ from autosecops.secrets.types import CheckResult, ExternalSecretReference
 
 pytestmark = pytest.mark.anyio
 
-ROLE_ARN = "arn:aws:iam::123456789012:role/tracecat-secrets-reader"
+ROLE_ARN = "arn:aws:iam::123456789012:role/autosecops-secrets-reader"
 REGION = "us-east-1"
 SECRET_ARN = f"arn:aws:secretsmanager:{REGION}:123456789012:secret:app/api-AbCdEf"
-EXTERNAL_ID = "tracecat-external-id"
+EXTERNAL_ID = "autosecops-external-id"
 STORE_ID = uuid.uuid4()
 
 
@@ -408,7 +408,7 @@ async def test_stores_use_their_own_region_and_external_id(
         store_config=AwsSecretsManagerStoreConfig(
             role_arn=ROLE_ARN,
             region="eu-west-1",
-            external_id="tracecat-other-external-id",
+            external_id="autosecops-other-external-id",
         ),
     )
 

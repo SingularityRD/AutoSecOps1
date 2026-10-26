@@ -5,18 +5,18 @@ from uuid import UUID
 from autosecops import config
 
 
-def get_tracecat_aws_account_id() -> str:
+def get_autosecops_aws_account_id() -> str:
     """Return the AWS account ID used by AutoSecOps workloads."""
-    if account_id := config.TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID:
+    if account_id := config.AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID:
         return account_id
-    raise ValueError("TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID is not configured")
+    raise ValueError("AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID is not configured")
 
 
-def get_tracecat_aws_principal_arn() -> str:
+def get_autosecops_aws_principal_arn() -> str:
     """Return the dedicated AWS principal ARN used for customer AssumeRole."""
-    if principal_arn := config.TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN:
+    if principal_arn := config.AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN:
         return principal_arn
-    raise ValueError("TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN is not configured")
+    raise ValueError("AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN is not configured")
 
 
 def build_workspace_external_id(workspace_id: UUID | str) -> str:

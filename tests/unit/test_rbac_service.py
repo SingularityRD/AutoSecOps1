@@ -231,7 +231,7 @@ async def role(
         type="user",
         user_id=admin_user.id,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ORG_ADMIN_SCOPES,
     )
 

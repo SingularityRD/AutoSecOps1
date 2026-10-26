@@ -15,9 +15,9 @@ Find the error your run failed with in [Timeout errors](#timeout-errors), then r
 | Agent action runtime (`ai.agent`, `ai.action`, `ai.preset_agent`) | `7200` seconds (2 hours) | The action's `Timeout` |
 | Chat turn | `7200` seconds (2 hours) | Fixed. Only a lower deployment ceiling changes it |
 | Shortest explicit agent timeout | `1800` seconds (30 minutes) | Fixed. A ceiling below `1800` lowers it |
-| Agent timeout ceiling | `10800` seconds (3 hours) | `TRACECAT__AGENT_SANDBOX_TIMEOUT` |
-| Model response read timeout | `600` seconds (`300` in the Helm chart) | `TRACECAT__LLM_PROXY_READ_TIMEOUT` |
-| Registry tool call | `300` seconds | Fixed. `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` can lower it |
+| Agent timeout ceiling | `10800` seconds (3 hours) | `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT` |
+| Model response read timeout | `600` seconds (`300` in the Helm chart) | `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` |
+| Registry tool call | `300` seconds | Fixed. `AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT` can lower it |
 | MCP integration response | `30` seconds, up to `300` | The MCP integration's `Timeout (seconds)` |
 | MCP tool discovery | `20` seconds per server, `60` seconds total | Fixed |
 | Workflow run | Unlimited | The workflow's `Timeout`, or the workspace's `Default workflow timeout` |
@@ -61,7 +61,7 @@ Values above the ceiling run at the ceiling. To let agents run longer than `1080
 
 ## Raise the agent timeout ceiling
 
-`TRACECAT__AGENT_SANDBOX_TIMEOUT` caps every agent action and chat turn.
+`AUTOSECOPS__AGENT_SANDBOX_TIMEOUT` caps every agent action and chat turn.
 A ceiling below `1800` seconds also lowers the default and the shortest explicit timeout to the ceiling.
 
 <Tabs>
@@ -69,7 +69,7 @@ A ceiling below `1800` seconds also lowers the default and the shortest explicit
     Set the variable in `.env`, then recreate the services:
 
     ```bash
-    TRACECAT__AGENT_SANDBOX_TIMEOUT=14400
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT=14400
     ```
 
     ```bash
@@ -106,7 +106,7 @@ A ceiling below `1800` seconds also lowers the default and the shortest explicit
   </Tab>
 </Tabs>
 
-On Docker Compose and Fargate, the agent executor's drain timeout `TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT` also defaults to the ceiling plus `60` seconds.
+On Docker Compose and Fargate, the agent executor's drain timeout `AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT` also defaults to the ceiling plus `60` seconds.
 
 ## Chat turns
 
@@ -115,12 +115,12 @@ You can't set a per-chat timeout. A ceiling below `7200` shortens chat turns to 
 
 ## Model response timeout
 
-`TRACECAT__LLM_PROXY_READ_TIMEOUT` sets how long the agent's LLM proxy waits for the next byte from the model provider or gateway.
+`AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` sets how long the agent's LLM proxy waits for the next byte from the model provider or gateway.
 It applies to each model request, not to the whole run, so raise it for slow reasoning models or self-hosted gateways that stream slowly.
 
 | Deployment | Setting | Default |
 | --- | --- | --- |
-| Docker Compose | `TRACECAT__LLM_PROXY_READ_TIMEOUT` in `.env` | `600` |
+| Docker Compose | `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` in `.env` | `600` |
 | Helm | `agentExecutor.llmProxyReadTimeout` | `300` |
 | AWS Fargate | `llm_proxy_read_timeout` | `600` |
 
@@ -129,7 +129,7 @@ See [Custom LLM providers](/agents/custom-llm-providers#troubleshooting) for gat
 ## Tool call timeouts
 
 Each registry action an agent calls as a tool runs with the default action timeout of `300` seconds.
-`TRACECAT__EXECUTOR_CLIENT_TIMEOUT` caps each call and can only shorten it.
+`AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT` caps each call and can only shorten it.
 To run longer work from an agent, call a [workflow](/automations/triggers/workflows-as-apis) or a custom action that starts the work and returns.
 
 MCP integrations have their own `Timeout (seconds)`, between `1` and `300`, default `30`.
@@ -163,8 +163,8 @@ Open `Settings` from the sidebar, then select `Workflows` under `Workspace`.
 | Error | Limit | Fix |
 | --- | --- | --- |
 | `Agent execution timed out after <n>s` | Agent action runtime or chat turn | Raise the action's `Timeout`, then the ceiling if needed |
-| `Model response timed out after <duration> without receiving data` | Model response read timeout | Raise `TRACECAT__LLM_PROXY_READ_TIMEOUT` |
-| `Gateway timeout` | Model response read timeout on a non-streaming request | Raise `TRACECAT__LLM_PROXY_READ_TIMEOUT` |
+| `Model response timed out after <duration> without receiving data` | Model response read timeout | Raise `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` |
+| `Gateway timeout` | Model response read timeout on a non-streaming request | Raise `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` |
 | `Action execution timed out after 300s` | Registry tool call | Move the long-running work into a workflow |
 | Workflow run status is timed out | Workflow timeout | Raise the workflow or workspace timeout |
 

@@ -162,7 +162,7 @@ class RegistryReposService(BaseOrgService):
             allowed_domains = allowed_domains_setting or {"github.com"}
             git_url = parse_git_url(repository.origin, allowed_domains=allowed_domains)
 
-            if config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED:
+            if config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
                 # The ExecutorWorker fetches the organization key and acquires
                 # host keys inside the registry-sync activity. Avoid creating a
                 # redundant API-side agent or running an API-side keyscan.

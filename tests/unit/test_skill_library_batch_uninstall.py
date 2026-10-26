@@ -37,7 +37,7 @@ def batch_session() -> AsyncMock:
 def service(batch_session: AsyncMock) -> SkillLibraryService:
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         scopes=frozenset({"agent:delete"}),

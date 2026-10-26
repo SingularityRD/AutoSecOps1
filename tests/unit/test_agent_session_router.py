@@ -119,7 +119,7 @@ def _agent_session_stub(**overrides: Any) -> SimpleNamespace:
 def _read_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -129,7 +129,7 @@ def _read_role(workspace_id: uuid.UUID) -> Role:
 def _service_account_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -259,7 +259,7 @@ async def test_list_sessions_user_defaults_to_workspace_sessions() -> None:
     workspace_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -305,7 +305,7 @@ async def test_update_session_rejects_teammate_session() -> None:
     workspace_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -491,7 +491,7 @@ async def test_remove_session_artifact_removes_and_returns_artifacts() -> None:
 def _execute_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -732,7 +732,7 @@ async def test_send_message_new_turn_preserves_only_uncertain_dispatch(
     agent_session = _agent_session_stub(id=session_id, workspace_id=workspace_id)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -815,7 +815,7 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
     session_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -871,7 +871,7 @@ async def test_send_message_rejects_teammate_session() -> None:
     session_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -933,7 +933,7 @@ async def test_send_message_does_not_reset_stream_when_validation_fails(
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1013,7 +1013,7 @@ async def test_send_message_requires_entitlement_for_workspace_chat_parent(
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1076,7 +1076,7 @@ async def test_fork_session_requires_entitlement_for_workspace_chat_parent() -> 
     parent_session = _agent_session_stub(entity_type=AgentSessionEntity.WORKSPACE_CHAT)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=parent_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1115,7 +1115,7 @@ async def test_fork_session_maps_backend_rejection_to_bad_request() -> None:
     source_session = _agent_session_stub(entity_type=AgentSessionEntity.CASE)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=source_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1158,7 +1158,7 @@ async def test_cancel_session_requires_entitlement_for_workspace_chat_parent() -
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=agent_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1193,7 +1193,7 @@ async def test_cancel_session_requires_entitlement_for_workspace_chat_parent() -
 def _make_stream_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -1486,7 +1486,7 @@ async def test_create_session_applies_configured_chat_backend(
             AsyncMock(),
         ),
         patch(
-            "autosecops.agent.session.router.config.TRACECAT__AGENT_CHAT_BACKEND",
+            "autosecops.agent.session.router.config.AUTOSECOPS__AGENT_CHAT_BACKEND",
             "external",
         ),
     ):
@@ -1552,7 +1552,7 @@ async def test_session_responses_derive_readonly_from_backend_state(
     session_stub.spawned_by_session_id = uuid.uuid4() if is_child else None
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=session_stub.created_by,
         workspace_id=session_stub.workspace_id,
         organization_id=uuid.uuid4(),
@@ -1613,7 +1613,7 @@ async def test_session_responses_derive_readonly_from_backend_state(
 def _control_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),

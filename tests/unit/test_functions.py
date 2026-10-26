@@ -879,8 +879,8 @@ def test_unset_timezone(dt: datetime) -> None:
 @pytest.mark.parametrize(
     "input_str,expected",
     [
-        ("admin+tracecat1@gmail.com", "admin%2Btracecat1%40gmail.com"),
-        ("admin+tracecat1-org@gmail.com", "admin%2Btracecat1-org%40gmail.com"),
+        ("admin+autosecops1@gmail.com", "admin%2Bautosecops1%40gmail.com"),
+        ("admin+autosecops1-org@gmail.com", "admin%2Bautosecops1-org%40gmail.com"),
         ("path/segment with space", "path%2Fsegment%20with%20space"),
         (123, "123"),
     ],
@@ -898,8 +898,8 @@ def test_url_encode_accepts_explicit_safe_characters() -> None:
 @pytest.mark.parametrize(
     "input_str,expected",
     [
-        ("admin%2Btracecat1%40gmail.com", "admin+tracecat1@gmail.com"),
-        ("admin%2Btracecat1-org%40gmail.com", "admin+tracecat1-org@gmail.com"),
+        ("admin%2Bautosecops1%40gmail.com", "admin+autosecops1@gmail.com"),
+        ("admin%2Bautosecops1-org%40gmail.com", "admin+autosecops1-org@gmail.com"),
     ],
 )
 def test_url_decode(input_str: str, expected: str) -> None:

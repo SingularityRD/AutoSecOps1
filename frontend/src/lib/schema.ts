@@ -20,12 +20,12 @@ export type TracecatJsonSchema = JSONSchema7 & TcJsonSchemaExtra
 export type TracecatJsonSchemaDefinition = JSONSchema7Definition &
   TcJsonSchemaExtra
 export type TracecatJsonSchemaType = JSONSchema7Type & TcJsonSchemaExtra
-export const TRACECAT_COMPONENT_KEY = "x-tracecat-component" as const
+export const AUTOSECOPS_COMPONENT_KEY = "x-autosecops-component" as const
 
 export type TcJsonSchemaExtra = {
-  [TRACECAT_COMPONENT_KEY]?: TracecatEditorComponent[]
+  [AUTOSECOPS_COMPONENT_KEY]?: TracecatEditorComponent[]
   deprecated?: boolean
-  "x-tracecat-deprecation-message"?: string
+  "x-autosecops-deprecation-message"?: string
 }
 
 export function isTracecatJsonSchema(
@@ -34,7 +34,7 @@ export function isTracecatJsonSchema(
   return (
     typeof schema === "object" &&
     schema !== null &&
-    TRACECAT_COMPONENT_KEY in schema
+    AUTOSECOPS_COMPONENT_KEY in schema
   )
 }
 
@@ -76,7 +76,7 @@ export function isTracecatComponent(
 export function getTracecatComponents(
   schema: TracecatJsonSchema
 ): TracecatEditorComponent[] {
-  const component = schema[TRACECAT_COMPONENT_KEY]
+  const component = schema[AUTOSECOPS_COMPONENT_KEY]
   if (Array.isArray(component)) {
     // Use the type guard to filter valid components
     return component.filter(isTracecatComponent)
@@ -86,6 +86,6 @@ export function getTracecatComponents(
 
 // Helper function to check if schema has multiple components
 export function hasMultipleComponents(schema: TracecatJsonSchema): boolean {
-  const component = schema[TRACECAT_COMPONENT_KEY]
+  const component = schema[AUTOSECOPS_COMPONENT_KEY]
   return Array.isArray(component) && component.length > 1
 }

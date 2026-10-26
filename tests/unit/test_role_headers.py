@@ -19,7 +19,7 @@ class TestRoleToHeaders:
     def test_role_repr_omits_scopes_without_affecting_serialization(self) -> None:
         role = Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             scopes=frozenset({"workflow:read", "cases:write"}),
         )
 
@@ -28,7 +28,7 @@ class TestRoleToHeaders:
         assert role.model_dump()["scopes"] == frozenset(
             {"workflow:read", "cases:write"}
         )
-        assert role.to_headers()["x-tracecat-role-scopes"] == (
+        assert role.to_headers()["x-autosecops-role-scopes"] == (
             "cases:write,workflow:read"
         )
 
@@ -38,7 +38,7 @@ class TestRoleToHeaders:
         user_id = uuid4()
         role = Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=workspace_id,
             organization_id=organization_id,
             user_id=user_id,
@@ -46,34 +46,34 @@ class TestRoleToHeaders:
         )
         headers = role.to_headers()
 
-        assert headers["x-tracecat-role-type"] == "service"
-        assert headers["x-tracecat-role-service-id"] == "tracecat-runner"
-        assert headers["x-tracecat-role-user-id"] == str(user_id)
-        assert headers["x-tracecat-role-workspace-id"] == str(workspace_id)
-        assert headers["x-tracecat-role-organization-id"] == str(organization_id)
-        assert headers["x-tracecat-role-scopes"] == "cases:write,workflow:read"
+        assert headers["x-autosecops-role-type"] == "service"
+        assert headers["x-autosecops-role-service-id"] == "autosecops-runner"
+        assert headers["x-autosecops-role-user-id"] == str(user_id)
+        assert headers["x-autosecops-role-workspace-id"] == str(workspace_id)
+        assert headers["x-autosecops-role-organization-id"] == str(organization_id)
+        assert headers["x-autosecops-role-scopes"] == "cases:write,workflow:read"
 
     def test_to_headers_omits_none_fields(self) -> None:
         role = Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
         )
         headers = role.to_headers()
 
-        assert headers["x-tracecat-role-type"] == "service"
-        assert headers["x-tracecat-role-service-id"] == "tracecat-runner"
-        assert "x-tracecat-role-user-id" not in headers
-        assert "x-tracecat-role-workspace-id" not in headers
-        assert "x-tracecat-role-bound-workspace-id" not in headers
-        assert "x-tracecat-role-organization-id" not in headers
-        assert "x-tracecat-role-scopes" not in headers
+        assert headers["x-autosecops-role-type"] == "service"
+        assert headers["x-autosecops-role-service-id"] == "autosecops-runner"
+        assert "x-autosecops-role-user-id" not in headers
+        assert "x-autosecops-role-workspace-id" not in headers
+        assert "x-autosecops-role-bound-workspace-id" not in headers
+        assert "x-autosecops-role-organization-id" not in headers
+        assert "x-autosecops-role-scopes" not in headers
 
     def test_to_headers_includes_service_account_metadata(self) -> None:
         service_account_id = uuid4()
         workspace_id = uuid4()
         role = Role(
             type="service_account",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             workspace_id=workspace_id,
             bound_workspace_id=workspace_id,
@@ -83,16 +83,18 @@ class TestRoleToHeaders:
 
         headers = role.to_headers()
 
-        assert headers["x-tracecat-role-type"] == "service_account"
-        assert headers["x-tracecat-role-service-id"] == "tracecat-api"
-        assert headers["x-tracecat-role-service-account-id"] == str(service_account_id)
-        assert headers["x-tracecat-role-bound-workspace-id"] == str(workspace_id)
+        assert headers["x-autosecops-role-type"] == "service_account"
+        assert headers["x-autosecops-role-service-id"] == "autosecops-api"
+        assert headers["x-autosecops-role-service-account-id"] == str(
+            service_account_id
+        )
+        assert headers["x-autosecops-role-bound-workspace-id"] == str(workspace_id)
 
     def test_service_account_role_requires_organization_id(self) -> None:
         with pytest.raises(ValidationError, match="organization_id"):
             Role(
                 type="service_account",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 service_account_id=uuid4(),
             )
 
@@ -100,7 +102,7 @@ class TestRoleToHeaders:
         with pytest.raises(ValidationError, match="service_account_id"):
             Role(
                 type="service_account",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 organization_id=uuid4(),
             )
 
@@ -108,7 +110,7 @@ class TestRoleToHeaders:
         with pytest.raises(ValidationError, match="must not set user_id"):
             Role(
                 type="service_account",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 organization_id=uuid4(),
                 service_account_id=uuid4(),
                 user_id=uuid4(),
@@ -118,7 +120,7 @@ class TestRoleToHeaders:
         with pytest.raises(ValidationError, match="bound_workspace_id"):
             Role(
                 type="service_account",
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 organization_id=uuid4(),
                 workspace_id=uuid4(),
                 bound_workspace_id=uuid4(),
@@ -132,11 +134,11 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-runner"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-runner"],
         )
 
         workspace_id = uuid4()
@@ -144,7 +146,7 @@ class TestAuthenticateServiceRoundtrip:
         user_id = uuid4()
         original_role = Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=workspace_id,
             organization_id=organization_id,
             user_id=user_id,
@@ -159,7 +161,7 @@ class TestAuthenticateServiceRoundtrip:
 
         assert reconstructed is not None
         assert reconstructed.type == "service"
-        assert reconstructed.service_id == "tracecat-runner"
+        assert reconstructed.service_id == "autosecops-runner"
         assert reconstructed.user_id == user_id
         assert reconstructed.workspace_id == workspace_id
         assert reconstructed.organization_id == organization_id
@@ -169,18 +171,18 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-runner"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-runner"],
         )
 
         request = MagicMock()
         request.headers = MockHeaders(
             {
-                "x-tracecat-role-service-id": "tracecat-runner",
-                "x-tracecat-role-scopes": "workflow:read,cases:write",
+                "x-autosecops-role-service-id": "autosecops-runner",
+                "x-autosecops-role-scopes": "workflow:read,cases:write",
             }
         )
 
@@ -193,11 +195,11 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-runner"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-runner"],
         )
         derived_org_id = uuid4()
         monkeypatch.setattr(
@@ -208,9 +210,9 @@ class TestAuthenticateServiceRoundtrip:
         request = MagicMock()
         request.headers = MockHeaders(
             {
-                "x-tracecat-role-service-id": "tracecat-runner",
-                "x-tracecat-role-scopes": "workflow:read",
-                "x-tracecat-role-workspace-id": str(uuid4()),
+                "x-autosecops-role-service-id": "autosecops-runner",
+                "x-autosecops-role-scopes": "workflow:read",
+                "x-autosecops-role-workspace-id": str(uuid4()),
             }
         )
 
@@ -223,11 +225,11 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-runner"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-runner"],
         )
 
         workspace_id = uuid4()
@@ -235,10 +237,10 @@ class TestAuthenticateServiceRoundtrip:
         request = MagicMock()
         request.headers = MockHeaders(
             {
-                "x-tracecat-role-service-id": "tracecat-runner",
-                "x-tracecat-role-workspace-id": str(workspace_id),
-                "x-tracecat-role-organization-id": str(organization_id),
-                "x-tracecat-role-bound-workspace-id": str(workspace_id),
+                "x-autosecops-role-service-id": "autosecops-runner",
+                "x-autosecops-role-workspace-id": str(workspace_id),
+                "x-autosecops-role-organization-id": str(organization_id),
+                "x-autosecops-role-bound-workspace-id": str(workspace_id),
             }
         )
 
@@ -253,18 +255,18 @@ class TestAuthenticateServiceRoundtrip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-api"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-api"],
         )
 
         workspace_id = uuid4()
         service_account_id = uuid4()
         original_role = Role(
             type="service_account",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             workspace_id=workspace_id,
             bound_workspace_id=workspace_id,
@@ -290,15 +292,15 @@ class TestAuthenticateServiceRoundtrip:
     ) -> None:
         """A SCIM role never crosses a service hop, not even as a plain service."""
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_KEY", "test-key"
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_KEY", "test-key"
         )
         monkeypatch.setattr(
-            "autosecops.auth.credentials.config.TRACECAT__SERVICE_ROLES_WHITELIST",
-            ["tracecat-api"],
+            "autosecops.auth.credentials.config.AUTOSECOPS__SERVICE_ROLES_WHITELIST",
+            ["autosecops-api"],
         )
         scim_role = Role(
             type="scim",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             scim_connection_id=uuid4(),
             scopes=frozenset({"org:member:remove"}),
