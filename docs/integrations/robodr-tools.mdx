@@ -165,6 +165,10 @@ Create a secret named `robodr_control_plane` with these keys:
 | `ROBODR_SOC_CLIENT_KEY_PEM` | The client certificate's private key as unencrypted PEM (`-----BEGIN PRIVATE KEY-----`) |
 
 Install the signing key's `.pub` file on the robot under `control_plane.soc_keys`, and the SOC CA under `tls.client_ca` (plus the client SPKI pin in `tls.client_spki_sha256` if you pin it).
+With RoboDR's executor enabled, also list the same `.pub` file in the executor's `soc.keys` (`/etc/robodr/executor.json`): the executor verifies the SOC's signature itself and refuses every order until it holds the key (`soc_signature_invalid`).
+
+To rotate the signing key, add the new `.pub` file to both `control_plane.soc_keys` and the executor's `soc.keys` next to the old one, switch the secret to the new key, and remove the old key only after every action it approved has expired.
+After a robot reboot, the executor does not re-arm an action whose approving key is no longer listed: the action turns `reverted` (`approval_key_removed`).
 
 Pass these action inputs. They are not secrets, so keep them in [workspace variables](/automations/core-concepts/variables):
 
@@ -182,24 +186,41 @@ JSON answers larger than 256 KiB are refused while they are read.
 
 ### Results
 
-Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `held`, `executor_state`, `terminal`, `duplicate`, `refusal`, `refusal_explanation`, `error`, `error_explanation`, and a `report` sentence.
+Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `held`, `executor_state`, `terminal`, `duplicate`, `refusal`, `refusal_explanation`, `refusal_hint`, `new_request_id_required`, `revert_pending`, `error`, `error_explanation`, and a `report` sentence.
 
 `in_force` is the robot's own top-level `in_force` answer, never inferred from the status: it is `true` only for a `verified` (or `applied`) action that the robot's executor does not hold. After a robot reboot the executor holds an action in force until it re-validated it; the answer then keeps `status: verified` with `in_force: false` and `state.executor_state: "held"`, and AutoSecOps reports it as held, not enforced (`held: true`). Keep polling `get_action_status` until it is re-armed (`in_force: true`) or `reverted`.
 
 | `status` | Meaning | Terminal |
 | --- | --- | --- |
 | `recorded_not_executed` | Accepted and recorded as a plan; the robot executed nothing. Reported as not applied | Yes |
-| `refused` | Judged unsafe or not allowed now, by the robot or its executor. Show `refusal.code`, `refusal.reason`, and `refusal.safety_state`; do not retry | Yes |
+| `refused` | Judged unsafe or not allowed now, by the robot or its executor. Show `refusal.code`, `refusal.reason`, and `refusal.safety_state`; do not resend the same `request_id` | Yes |
 | `failed` | Not taken (`error.code`); nothing is in force. A new request is judged anew | Yes |
 | `pending` | Handed to RoboDR's executor; not in force yet. Poll `get_action_status` | No |
-| `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot | No |
+| `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot; `revert_pending` while a revert has not lifted it | No |
 | `reverted` | No longer in force | Yes |
 | `not_applied` | Revert of a request that never took effect | Yes |
 
 Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
 A revert of a `pending` or `verified` request answers `pending`; the action may stay in force until `get_action_status` shows `reverted`.
+The executor lifts an action the SOC approved only with the SOC's signed revert, which `revert_action` always sends. If the executor refuses the revert, the request keeps reading `verified` with `state.revert.result: "pending"` until its TTL expires. AutoSecOps reports that as revert pending (`revert_pending: true`), never as reverted.
 
-`refusal_explanation` says what the refusal code means. Besides the robot's judgment codes, the executor's own checks refuse with codes such as `locators_required` (the robot has not seen the DDS participant's locators yet), `operator_disabled` (an operator disabled the executor; nothing runs until it is re-armed on the robot), `config_unavailable`, `soc_signature_invalid`, `soc_nonce_replayed`, `order_mismatch`, and `approval_missing`. A code AutoSecOps does not know is shown as an unknown refusal code; every refusal is final.
+`refusal_explanation` says what the refusal code means, and `refusal_hint` says what to do next where that is not obvious. Besides the robot's judgment codes, the executor's own checks refuse with codes such as `locators_required` (the robot has not seen the DDS participant's locators yet), `operator_disabled` (an operator disabled the executor; nothing runs until it is re-armed on the robot), and `config_unavailable`.
+The executor verifies the SOC's signed request itself and refuses with these codes:
+
+| Code | What to do |
+| --- | --- |
+| `soc_signature_invalid` | List this SOC's public key in the executor's `soc.keys`, then prepare a new request |
+| `soc_request_stale` | Prepare a new request (new `request_id`), get it signed off, and send it. Check NTP if it persists |
+| `soc_nonce_replayed` | Prepare a new request (new `request_id`), get it signed off, and send it |
+| `soc_replay_store_unavailable` | An operator fixes the executor's replay store on the robot |
+| `order_mismatch` | Check the robot's agentd: the order it forwarded differs from what the SOC signed |
+| `approval_missing` | The signed request lacks the required approval fields |
+| `soc_keys_unavailable` | An operator fixes `soc.keys` on the robot; the executor refuses every order until then |
+| `approval_key_removed` | Keep old and new SOC keys listed during a rotation until the old key's actions expire |
+| `locator_out_of_scope` | Set `network.quarantine.cidrs` in the executor's configuration; every quarantine is refused until then |
+
+The executor can refuse `soc_request_stale` or `soc_nonce_replayed` after agentd accepted the request. Sending the same `request_id` again only returns the stored refusal, so AutoSecOps never resends it and sets `new_request_id_required`.
+AutoSecOps reports a refusal code it does not know as not applied, with an unknown refusal code. Every other refusal is final.
 
 ### Errors and retries
 

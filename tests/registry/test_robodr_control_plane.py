@@ -1652,6 +1652,12 @@ def test_every_documented_refusal_code_is_explained() -> None:
         "soc_nonce_replayed",
         "order_mismatch",
         "approval_missing",
+        # §6a trust boundary (executor M1, §14 revision)
+        "soc_request_stale",
+        "soc_replay_store_unavailable",
+        "soc_keys_unavailable",
+        "approval_key_removed",
+        "locator_out_of_scope",
     ]
     for code in codes:
         outcome = cp._outcome(
@@ -1837,6 +1843,226 @@ async def test_a_pending_revert_is_not_reported_as_lifted(stub, platform) -> Non
         )
     assert (result["status"], result["in_force"]) == ("pending", False)
     assert "Revert pending" in result["report"]
+    assert result["revert_pending"] is True
+
+
+def test_a_pending_request_with_a_pending_revert_reads_revert_pending() -> None:
+    # GET after reverting a `pending` request: still `pending`, with
+    # `state.revert.result: "pending"` (§6a): a revert pending, not applied.
+    outcome = cp._outcome(
+        {
+            "status": "pending",
+            "executed": False,
+            "in_force": False,
+            "state": {"revert": {"result": "pending"}},
+        }
+    )
+    assert outcome["revert_pending"] is True
+    assert outcome["report"].startswith("Revert pending")
+    assert outcome["in_force"] is False and outcome["terminal"] is False
+    plain = cp._outcome({"status": "pending", "in_force": False, "state": {}})
+    assert plain["revert_pending"] is False
+    assert plain["report"].startswith("Pending")
+
+
+# --------------------------------------------------------------------------- #
+# Executor trust boundary (§6a, §14 "Revision: executor trust boundary")
+# --------------------------------------------------------------------------- #
+
+TRUST_BOUNDARY_CODES: dict[str, str] = {
+    # code -> a phrase the operator hint must carry
+    "soc_signature_invalid": "soc.keys",
+    "soc_request_stale": "new request_id",
+    "soc_nonce_replayed": "new request_id",
+    "soc_replay_store_unavailable": "replay store",
+    "order_mismatch": "tampering",
+    "approval_missing": "approval evidence",
+    "soc_keys_unavailable": "soc.keys",
+    "approval_key_removed": "keep the old and the new SOC key listed",
+    "locator_out_of_scope": "network.quarantine.cidrs",
+}
+
+
+@pytest.mark.parametrize("code", sorted(TRUST_BOUNDARY_CODES))
+def test_trust_boundary_refusals_are_not_applied_with_a_hint(code: str) -> None:
+    # A contradictory answer (executed / in_force true) still never reads as
+    # applied: a refusal is not applied, whatever else it says.
+    outcome = cp._outcome(
+        {
+            "status": "refused",
+            "executed": True,
+            "in_force": True,
+            "refusal": {"code": code, "reason": "r"},
+            "state": {"decision": "refused"},
+        }
+    )
+    assert (outcome["in_force"], outcome["applied"], outcome["terminal"]) == (
+        False,
+        False,
+        True,
+    )
+    assert outcome["report"].startswith("Not applied")
+    assert code in outcome["report"]
+    assert outcome["refusal_explanation"] == cp.REFUSAL_EXPLANATIONS[code]
+    hint = outcome["refusal_hint"]
+    assert isinstance(hint, str) and TRUST_BOUNDARY_CODES[code] in hint
+    assert hint in outcome["report"]
+    assert outcome["new_request_id_required"] is (
+        code in ("soc_request_stale", "soc_nonce_replayed")
+    )
+
+
+@pytest.mark.parametrize("code", ["soc_request_stale", "soc_nonce_replayed"])
+def test_a_stale_or_replayed_refusal_never_suggests_the_same_request_id(
+    code: str,
+) -> None:
+    outcome = cp._outcome(
+        {"status": "refused", "duplicate": True, "refusal": {"code": code}}
+    )
+    report = outcome["report"]
+    # The same request_id only answers the stored refusal (§5): the hint says
+    # so and asks for a new prepared, signed-off request instead.
+    assert "returns this stored refusal" in report
+    assert "prepare_action_request" in report
+    assert "Refusals are final" not in report
+
+
+@pytest.mark.parametrize(
+    "code", ["brand_new_code", "executor_refused", "", None, 7, ["x"]]
+)
+def test_an_unknown_refusal_code_fails_closed(code: object) -> None:
+    outcome = cp._outcome(
+        {
+            "status": "refused",
+            "executed": True,
+            "in_force": True,
+            "refusal": {"code": code, "reason": "r"},
+        }
+    )
+    assert (outcome["in_force"], outcome["applied"], outcome["held"]) == (
+        False,
+        False,
+        False,
+    )
+    assert outcome["report"].startswith("Not applied")
+    assert "In force" not in outcome["report"]
+    assert "Reverted" not in outcome["report"]
+    assert outcome["new_request_id_required"] is False
+    if code != "executor_refused":
+        assert outcome["refusal_explanation"] == "unknown refusal code"
+
+
+@pytest.mark.anyio
+async def test_an_executor_stale_refusal_is_not_resent(stub, platform) -> None:
+    robot, base_url = stub
+    robot.answer_for = lambda r: {
+        "request_id": "x",
+        "status": "refused",
+        "executed": False,
+        "in_force": False,
+        "refusal": {"code": "soc_request_stale", "reason": "outside the window"},
+        "state": {"decision": "refused", "executor": "robodr-executor"},
+    }
+    with soc_secrets():
+        sent = await _send(base_url, platform, "robot_isolate_network")
+    posts = [r for r in robot.requests if r["method"] == "POST"]
+    assert len(posts) == 1  # never resent: the same id answers the same refusal
+    assert sent["status"] == "refused" and sent["applied"] is False
+    assert sent["new_request_id_required"] is True
+    assert "new request_id" in sent["report"]
+
+
+@pytest.mark.parametrize(
+    ("extra", "in_force", "word"),
+    [
+        ({"in_force": True}, True, "still in force"),
+        ({"in_force": False}, False, "not reported in force"),
+        (
+            {"in_force": False, "state_extra": {"executor_state": "held"}},
+            False,
+            "held after a reboot",
+        ),
+    ],
+)
+def test_a_verified_action_with_a_pending_revert_is_not_reverted(
+    extra: dict[str, Any], in_force: bool, word: str
+) -> None:
+    state: dict[str, Any] = {
+        "action": "isolate_network",
+        "revert": {"result": "pending"},
+        "expires_at_ms": 1792357924051,
+    }
+    state |= extra.pop("state_extra", {})
+    data = {"status": "verified", "executed": True, "state": state, **extra}
+    for revert in (False, True):
+        outcome = cp._outcome(copy.deepcopy(data), revert=revert)
+        assert outcome["revert_pending"] is True
+        assert outcome["in_force"] is in_force
+        assert outcome["terminal"] is False
+        report = outcome["report"]
+        assert report.startswith("Revert pending")
+        assert word in report
+        assert "TTL" in report
+        assert not report.startswith("Reverted")
+
+
+def test_revert_pending_only_for_a_pending_revert_result() -> None:
+    for result in ("reverted", "not_applied", None):
+        outcome = cp._outcome(
+            {
+                "status": "verified",
+                "in_force": True,
+                "state": {"revert": {"result": result}},
+            }
+        )
+        assert outcome["revert_pending"] is False
+        assert outcome["report"].startswith("In force")
+    reverted = cp._outcome(
+        {"status": "reverted", "state": {"revert": {"result": "reverted"}}}
+    )
+    assert reverted["revert_pending"] is False
+    assert reverted["report"].startswith("Reverted")
+
+
+@pytest.mark.anyio
+async def test_get_action_status_reports_a_refused_revert_as_pending(stub) -> None:
+    robot, base_url = stub
+    robot.answer_for = lambda r: {
+        "request_id": "x",
+        "status": "verified",
+        "executed": True,
+        "in_force": True,
+        "state": {
+            "executor": "robodr-executor",
+            "revert": {"result": "pending"},
+        },
+    }
+    with soc_secrets():
+        status = await cp.get_action_status(**_conn(base_url), request_id="r1")
+    assert status["revert_pending"] is True
+    assert status["in_force"] is True
+    assert status["report"].startswith("Revert pending")
+
+
+def test_an_action_reverted_for_a_removed_approval_key_says_why() -> None:
+    outcome = cp._outcome(
+        {
+            "status": "reverted",
+            "executed": True,
+            "in_force": False,
+            "refusal": {"code": "approval_key_removed", "reason": "r"},
+        }
+    )
+    assert outcome["terminal"] is True and outcome["in_force"] is False
+    assert outcome["report"].startswith("Reverted")
+    assert "approval_key_removed" in outcome["report"]
+    assert (
+        outcome["refusal_explanation"]
+        == cp.REFUSAL_EXPLANATIONS["approval_key_removed"]
+    )
+    plain = cp._outcome({"status": "reverted", "executed": True})
+    assert plain["report"] == "Reverted: the action is no longer in force."
+    assert plain["refusal_explanation"] is None
 
 
 # --------------------------------------------------------------------------- #

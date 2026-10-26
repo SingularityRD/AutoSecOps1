@@ -9,7 +9,13 @@ executor v1 a request may answer `pending`, then `verified` or `reverted`;
 `refused` and `failed` are never applied. "In force" is taken only from the
 answer's own `in_force` (true for a `verified` action the executor does not
 hold): a `verified` action held after a robot reboot
-(`state.executor_state: "held"`) is reported as held, not enforced.
+(`state.executor_state: "held"`) is reported as held, not enforced, and a
+`verified` action whose revert is still pending (`state.revert.result:
+"pending"`, e.g. a revert the executor refused) as revert pending, never as
+reverted. A refusal code this module does not know is reported as not
+applied. The executor's own `soc_request_stale` / `soc_nonce_replayed`
+refusals are never resent: the same `request_id` only answers the stored
+refusal, so trying again takes a new prepared, signed-off request.
 
 A call the robot answers `busy` (503) or rate limited (429), or refuses
 right after it created its replay store (401 `stale_timestamp`, the replay
@@ -1458,13 +1464,83 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "invalid_order": "the executor received an invalid order",
     "id_conflict": "the executor holds another order under this id",
     "evidence_elsewhere": "the evidence is recorded elsewhere",
+    # The executor's trust boundary (§6a, executor M1).
     "soc_signature_invalid": "the executor did not accept the SOC signature of the order",
+    "soc_request_stale": (
+        "the executor found the SOC request's timestamp outside its window or "
+        "inside its replay fence"
+    ),
     "soc_nonce_replayed": "the executor already saw the SOC nonce of the order",
-    "order_mismatch": "the order does not match the request the robot recorded",
+    "soc_replay_store_unavailable": (
+        "the executor's SOC replay store is full or could not record the request"
+    ),
+    "order_mismatch": "the order does not match the request the SOC signed",
     "approval_missing": "the executor found no SOC approval for the order",
+    "soc_keys_unavailable": (
+        "the executor's SOC key configuration cannot be trusted; it refuses "
+        "every control-plane order until it is fixed"
+    ),
+    "approval_key_removed": (
+        "the SOC key that approved the action is no longer configured on the "
+        "robot's executor, so it was not re-armed after a reboot"
+    ),
+    "locator_out_of_scope": (
+        "the participant's network locators lie outside the executor's quarantine scope"
+    ),
     "executor_refused": "the executor refused it for a reason this agent does not know",
 }
 """What each refusal code means (§4.1, §6a); refusals are final."""
+
+NEW_REQUEST_ID_CODES = frozenset({"soc_request_stale", "soc_nonce_replayed"})
+"""Executor refusals of a request agentd accepted that a fresh signature can
+pass (§14, executor M1). The same `request_id` only answers the stored
+refusal (§5), so trying again takes a new request, never a resend."""
+
+REFUSAL_HINTS: dict[str, str] = {
+    "soc_signature_invalid": (
+        "The robot's executor.json must list this SOC's public key in "
+        "soc.keys (the same file as agentd's control_plane.soc_keys); fix "
+        "that on the robot, then prepare a new request."
+    ),
+    "soc_request_stale": (
+        "Resending this request_id returns this stored refusal: prepare a new "
+        "request with prepare_action_request (a new request_id), have it signed "
+        "off again and send that. Check NTP on the SOC and the robot if it "
+        "persists."
+    ),
+    "soc_nonce_replayed": (
+        "Resending this request_id returns this stored refusal: prepare a new "
+        "request with prepare_action_request (a new request_id), have it signed "
+        "off again and send that."
+    ),
+    "soc_replay_store_unavailable": (
+        "The executor's SOC replay store needs an operator on the robot "
+        "(executor state directory); then prepare a new request."
+    ),
+    "order_mismatch": (
+        "The order agentd forwarded differs from what the SOC signed: check "
+        "the robot's agentd for tampering."
+    ),
+    "approval_missing": (
+        "The signed request lacks the approval evidence the contract "
+        "requires (authority, requested_by, source, reason)."
+    ),
+    "soc_keys_unavailable": (
+        "An operator fixes soc.keys in the robot's executor.json (an "
+        "unreadable or refused key file, or a SOC key equal to one of the "
+        "robot's own keys)."
+    ),
+    "approval_key_removed": (
+        "When rotating the SOC control-plane key, keep the old and the new SOC "
+        "key listed (agentd's soc_keys and the executor's soc.keys) until the "
+        "actions the old key approved have expired."
+    ),
+    "locator_out_of_scope": (
+        "Every quarantine is refused until the robot's executor.json names "
+        "network.quarantine.cidrs covering the participant's locators."
+    ),
+}
+"""What the operator does next for a refusal code, where it is not obvious."""
 
 FAILURE_EXPLANATIONS: dict[str, str] = {
     "evidence_unavailable": (
@@ -1502,10 +1578,30 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
     in_force = (
         reported_in_force is True and status in ("verified", "applied") and not held
     )
+    raw_revert = state.get("revert")
+    revert_state: dict[str, Any] = raw_revert if isinstance(raw_revert, dict) else {}
+    # A revert the executor has not carried out (or refused: an unsigned or
+    # bad revert of a SOC-approved action, §6a) leaves the request `pending`
+    # or `verified` with `state.revert.result: "pending"`: never reverted.
+    revert_pending = status in ("pending", "verified") and (
+        revert_state.get("result") == "pending" or (revert and status == "pending")
+    )
+    refusal_code = refusal.get("code")
+    explained_refusal = status == "refused" or (status == "reverted" and bool(refusal))
     refusal_explanation = (
-        _explain(REFUSAL_EXPLANATIONS, refusal.get("code"), "unknown refusal code")
-        if status == "refused"
+        _explain(REFUSAL_EXPLANATIONS, refusal_code, "unknown refusal code")
+        if explained_refusal
         else None
+    )
+    refusal_hint = (
+        (_explain(REFUSAL_HINTS, refusal_code, "") or None)
+        if explained_refusal
+        else None
+    )
+    new_request_id_required = (
+        status == "refused"
+        and isinstance(refusal_code, str)
+        and refusal_code in NEW_REQUEST_ID_CODES
     )
     error_explanation = (
         _explain(
@@ -1525,11 +1621,16 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
             )
         case "refused":
             report = (
-                f"Not applied: refused by the robot ({_shown(refusal.get('code'))}: "
+                f"Not applied: refused by the robot ({_shown(refusal_code)}: "
                 f"{refusal_explanation}; safety state "
                 f"{_shown(refusal.get('safety_state'))}): {refusal.get('reason')}. "
-                "Refusals are final; do not retry."
+            ) + (
+                "This request_id stays refused."
+                if new_request_id_required
+                else "Refusals are final; do not retry."
             )
+            if refusal_hint:
+                report += f" {refusal_hint}"
         case "failed":
             report = (
                 f"Not applied: failed ({_shown(error.get('code'))}: "
@@ -1538,7 +1639,7 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
             )
         case "not_applied":
             report = "Not applied: the request never took effect, so there was nothing to revert."
-        case "pending" if revert:
+        case "pending" if revert_pending:
             report = (
                 "Revert pending: the robot recorded the revert and handed it to its "
                 "executor; the action may stay in force until get_action_status "
@@ -1548,6 +1649,22 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
             report = (
                 "Pending: accepted, recorded and handed to the robot's executor; "
                 "not in force yet. Poll get_action_status."
+            )
+        case "verified" if revert_pending:
+            enforcement = (
+                "still in force"
+                if in_force
+                else "held after a reboot, not enforced"
+                if held
+                else "not reported in force"
+            )
+            report = (
+                f"Revert pending, not reverted: the action is {enforcement}. The "
+                "robot recorded the revert but its executor has not lifted the "
+                "action; if it stays verified, the executor refused the revert "
+                "(a revert of a SOC-approved action must carry the SOC's valid "
+                "signature) and the action stays until its TTL expires "
+                "(state.expires_at_ms). Keep polling get_action_status."
             )
         case "verified" if held:
             report = (
@@ -1568,6 +1685,10 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
             )
         case "reverted":
             report = "Reverted: the action is no longer in force."
+            if refusal:
+                report += f" ({_shown(refusal_code)}: {refusal_explanation}.)" + (
+                    f" {refusal_hint}" if refusal_hint else ""
+                )
         case "applied" if in_force:
             report = "In force: applied and executed by the robot."
         case _:
@@ -1583,6 +1704,9 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
         "duplicate": data.get("duplicate") is True,
         "refusal": data.get("refusal"),
         "refusal_explanation": refusal_explanation,
+        "refusal_hint": refusal_hint,
+        "new_request_id_required": new_request_id_required,
+        "revert_pending": revert_pending,
         "error": state.get("error"),
         "error_explanation": error_explanation,
         "report": report,
