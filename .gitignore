@@ -43,6 +43,8 @@ _private_key.pem
 # Sensitive files
 *.pem
 *.key
+# Fixed-seed test keys of the RoboDR fleet contract vectors (never used for real)
+!tests/data/robot_edr/fleet_vectors/keys/*.key
 *.crt
 *.env
 *.zip
