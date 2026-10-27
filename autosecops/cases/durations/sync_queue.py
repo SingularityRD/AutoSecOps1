@@ -33,15 +33,15 @@ type InlineDurationSyncFallback = Callable[[], Awaitable[bool | None]]
 INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS: tuple[float, ...] = (0.0, 0.5, 2.0, 5.0)
 
 
-async def publish_case_duration_sync(
+def case_duration_sync_fields(
     *,
     workspace_id: uuid.UUID,
     reason: CaseDurationSyncReason,
     case_id: uuid.UUID | None = None,
     event_type: str | None = None,
     cursor: int | None = None,
-) -> str:
-    """Publish a case duration sync job to Redis."""
+) -> dict[str, str]:
+    """The stream entry of a case duration sync job."""
     fields = {
         "workspace_id": str(workspace_id),
         "reason": reason,
@@ -52,6 +52,25 @@ async def publish_case_duration_sync(
         fields["event_type"] = event_type
     if cursor is not None:
         fields["cursor"] = str(cursor)
+    return fields
+
+
+async def publish_case_duration_sync(
+    *,
+    workspace_id: uuid.UUID,
+    reason: CaseDurationSyncReason,
+    case_id: uuid.UUID | None = None,
+    event_type: str | None = None,
+    cursor: int | None = None,
+) -> str:
+    """Publish a case duration sync job to Redis."""
+    fields = case_duration_sync_fields(
+        workspace_id=workspace_id,
+        reason=reason,
+        case_id=case_id,
+        event_type=event_type,
+        cursor=cursor,
+    )
 
     client = await get_redis_client()
     # Ack + XDEL cleanup bounds the stream; a hard cap would silently drop
@@ -298,6 +317,86 @@ async def enqueue_rollout_backfill_once() -> bool:
     return True
 
 
+async def deliver_case_duration_sync(
+    *,
+    workspace_id: uuid.UUID,
+    reason: CaseDurationSyncReason,
+    case_id: uuid.UUID | None = None,
+    event_type: str | None = None,
+    cursor: int | None = None,
+    inline_fallback: InlineDurationSyncFallback,
+) -> None:
+    """Publish a duration sync job; sync inline if Redis is unavailable."""
+    try:
+        await publish_case_duration_sync(
+            workspace_id=workspace_id,
+            case_id=case_id,
+            event_type=event_type,
+            reason=reason,
+            cursor=cursor,
+        )
+        return
+    except Exception as e:
+        logger.warning(
+            "Failed to publish case duration sync; falling back inline",
+            workspace_id=str(workspace_id),
+            case_id=str(case_id) if case_id is not None else None,
+            reason=reason,
+            error=str(e),
+        )
+
+    # Preserve duration materialization durability when Redis is unavailable.
+    # Retry briefly when another transaction holds the case's sync lock: the
+    # lock holder may have computed before this commit became visible, and
+    # with Redis down there is no queued job to redo the work.
+    attempts = len(INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS)
+    for attempt, delay_seconds in enumerate(
+        INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS, start=1
+    ):
+        if delay_seconds:
+            await asyncio.sleep(delay_seconds)
+        try:
+            synced = await inline_fallback()
+        except Exception:
+            # Transient failures (e.g. a pool timeout) get the same
+            # bounded retries as lock contention: with Redis down there
+            # is no queued job left to redo this work.
+            if attempt == attempts:
+                logger.exception(
+                    "Inline case duration sync fallback failed; giving up",
+                    workspace_id=str(workspace_id),
+                    case_id=str(case_id) if case_id is not None else None,
+                    reason=reason,
+                    attempts=attempts,
+                )
+                return
+            logger.warning(
+                "Inline case duration sync fallback errored; retrying",
+                workspace_id=str(workspace_id),
+                case_id=str(case_id) if case_id is not None else None,
+                reason=reason,
+                attempt=attempt,
+            )
+            continue
+        if synced is not False:
+            return
+        logger.debug(
+            "Inline case duration sync fallback lock busy; retrying",
+            workspace_id=str(workspace_id),
+            case_id=str(case_id) if case_id is not None else None,
+            reason=reason,
+            attempt=attempt,
+        )
+
+    logger.warning(
+        "Inline case duration sync fallback skipped; sync lock stayed busy",
+        workspace_id=str(workspace_id),
+        case_id=str(case_id) if case_id is not None else None,
+        reason=reason,
+        attempts=attempts,
+    )
+
+
 def enqueue_case_duration_sync_after_commit(
     session: AsyncSession,
     *,
@@ -311,73 +410,13 @@ def enqueue_case_duration_sync_after_commit(
     """Register a duration sync publish after the current transaction commits."""
 
     async def _publish() -> None:
-        try:
-            await publish_case_duration_sync(
-                workspace_id=workspace_id,
-                case_id=case_id,
-                event_type=event_type,
-                reason=reason,
-                cursor=cursor,
-            )
-            return
-        except Exception as e:
-            logger.warning(
-                "Failed to publish case duration sync; falling back inline",
-                workspace_id=str(workspace_id),
-                case_id=str(case_id) if case_id is not None else None,
-                reason=reason,
-                error=str(e),
-            )
-
-        # Preserve duration materialization durability when Redis is unavailable.
-        # Retry briefly when another transaction holds the case's sync lock: the
-        # lock holder may have computed before this commit became visible, and
-        # with Redis down there is no queued job to redo the work.
-        attempts = len(INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS)
-        for attempt, delay_seconds in enumerate(
-            INLINE_FALLBACK_ATTEMPT_DELAYS_SECONDS, start=1
-        ):
-            if delay_seconds:
-                await asyncio.sleep(delay_seconds)
-            try:
-                synced = await inline_fallback()
-            except Exception:
-                # Transient failures (e.g. a pool timeout) get the same
-                # bounded retries as lock contention: with Redis down there
-                # is no queued job left to redo this work.
-                if attempt == attempts:
-                    logger.exception(
-                        "Inline case duration sync fallback failed; giving up",
-                        workspace_id=str(workspace_id),
-                        case_id=str(case_id) if case_id is not None else None,
-                        reason=reason,
-                        attempts=attempts,
-                    )
-                    return
-                logger.warning(
-                    "Inline case duration sync fallback errored; retrying",
-                    workspace_id=str(workspace_id),
-                    case_id=str(case_id) if case_id is not None else None,
-                    reason=reason,
-                    attempt=attempt,
-                )
-                continue
-            if synced is not False:
-                return
-            logger.debug(
-                "Inline case duration sync fallback lock busy; retrying",
-                workspace_id=str(workspace_id),
-                case_id=str(case_id) if case_id is not None else None,
-                reason=reason,
-                attempt=attempt,
-            )
-
-        logger.warning(
-            "Inline case duration sync fallback skipped; sync lock stayed busy",
-            workspace_id=str(workspace_id),
-            case_id=str(case_id) if case_id is not None else None,
+        await deliver_case_duration_sync(
+            workspace_id=workspace_id,
             reason=reason,
-            attempts=attempts,
+            case_id=case_id,
+            event_type=event_type,
+            cursor=cursor,
+            inline_fallback=inline_fallback,
         )
 
     AfterCommitQueue.of(session).add(_publish)

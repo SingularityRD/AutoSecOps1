@@ -416,9 +416,14 @@ def test_real_audited_rewrites_are_exact_whole_line_pairs() -> None:
         "8c0e18190001",
         "d9107f689ccf",
     }
-    for rewrites in AUDITED_REWRITES.values():
-        assert len(rewrites) == 2
+    # 9680c861644a also carries the rebrand of its two pgvector hint URLs.
+    expected_pairs = {"9680c861644a": 4}
+    for revision, rewrites in AUDITED_REWRITES.items():
+        assert len(rewrites) == expected_pairs.get(revision, 2)
         assert all(old.endswith(b"\n") and new.endswith(b"\n") for old, new in rewrites)
+    hint_rewrites = AUDITED_REWRITES["9680c861644a"][2:]
+    for old, new in hint_rewrites:
+        assert old.replace(b"docs.tracecat.com", b"docs.singularityrd.com") == new
 
 
 @pytest.mark.parametrize("child,parent", [("left", "root"), ("deployed", "baseline")])

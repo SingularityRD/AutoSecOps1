@@ -1,6 +1,9 @@
 // Import jest-dom extensions
 require("@testing-library/jest-dom")
 
+// Match the app's global Zod configuration (Zod 3 compatible messages).
+require("./src/lib/zod-config")
+
 // Add TextEncoder/TextDecoder polyfills for jsdom
 global.TextEncoder = require("util").TextEncoder
 global.TextDecoder = require("util").TextDecoder

@@ -62,6 +62,7 @@ async def list_attachments(
             updated_at=attachment.updated_at,
             creator_id=attachment.file.creator_id,
             is_deleted=attachment.file.is_deleted,
+            robodr_evidence=attachment.file.robodr_evidence,
         )
         for attachment in attachments
     ]
@@ -201,6 +202,7 @@ async def create_attachment(
             updated_at=attachment.updated_at,
             creator_id=attachment.file.creator_id,
             is_deleted=attachment.file.is_deleted,
+            robodr_evidence=attachment.file.robodr_evidence,
         )
     except FileExtensionError as e:
         logger.error(

@@ -1882,3 +1882,44 @@ AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH = os.environ.get(
 In Docker, packages are copied to /app/packages/autosecops-registry.
 In development with editable install, falls back to checking relative to the installed package.
 """
+
+# === Robot EDR (RoboDR ingest) === #
+AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES = int(
+    os.environ.get("AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES") or 64 * 1024 * 1024
+)
+"""Largest verified RoboDR evidence bundle stored for a case (bytes).
+
+Defaults to 64 MiB, robodr-agentd's default `max_export_bytes`. Bundles are
+stored in the attachments bucket, outside the per-case attachment limits; the
+case gets a small verification report attachment that names them.
+"""
+
+AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES = int(
+    os.environ.get("AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES") or 10 * 1024**3
+)
+"""Total verified RoboDR evidence bundle bytes one workspace may store.
+
+Defaults to 10 GiB. Counted over the bundles of every stored export
+(`robot_evidence_export`); deleting a case releases its share.
+"""
+
+AUTOSECOPS__ROBOT_EDR_FLEET_MAX_DRAFTS = int(
+    os.environ.get("AUTOSECOPS__ROBOT_EDR_FLEET_MAX_DRAFTS") or 16
+)
+"""Draft profiles kept per robot (`robodr.fleet` §6.1, each up to 8 MiB).
+
+A new draft beyond the limit removes that robot's oldest draft, so a robot
+cannot fill the database with drafts; review drafts before the robot
+publishes more.
+"""
+
+AUTOSECOPS__ROBOT_EDR_REQUIRE_TLS = env_bool(
+    "AUTOSECOPS__ROBOT_EDR_REQUIRE_TLS", default=True
+)
+"""Refuse RoboDR ingest requests that did not arrive over TLS.
+
+A request counts as TLS when the API itself serves HTTPS, or when a proxy in
+AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS forwards `X-Forwarded-Proto: https` (the
+stock Caddy front end does). Plain HTTP from a loopback client is always
+accepted. Turn this off only for a closed lab network.
+"""

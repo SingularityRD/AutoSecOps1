@@ -35,7 +35,16 @@ RUN g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wformat=2 \
 # ====================
 # Stage 2: Create minimal sandbox rootfs
 # ====================
-FROM node:22.23.4-slim AS node-bin
+# Node.js 22 images bundle npm 10, whose dependencies carry fixed HIGH
+# advisories that no npm 10 release picks up. Replace it with a pinned npm 11
+# (supports Node.js ^20.17 || >=22.9) before the runtime stages copy
+# /usr/local/lib/node_modules. Accepted findings: SECURITY.md and
+# .trivyignore.yaml.
+FROM node:22.23.4-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS node-bin
+RUN npm install --global --no-fund --no-audit npm@11.21.1 && \
+    npm --version && \
+    npm cache clean --force
+
 FROM python:3.12-slim-bookworm AS sandbox-rootfs
 
 ARG TARGETARCH

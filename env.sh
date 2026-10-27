@@ -33,6 +33,82 @@ dotenv_replace() {
     eval sed $sed_option "s$delimiter^${env_var_name}=.*$delimiter${env_var_name}=${new_value}$delimiter" $file_path
 }
 
+# Placeholder values shipped in .env.example. A .env that still contains one of
+# these must never be deployed. `your-*` values are placeholders from older
+# releases of .env.example.
+PLACEHOLDER_PATTERN='^[A-Za-z_][A-Za-z0-9_]*=["'"'"']?(change-me-|your-autosecops-|your-tracecat-|your-auth-secret)'
+
+# Well-known credentials that older releases and developer setups use. They are
+# acceptable for local development only.
+WEAK_DEFAULTS=(
+    "AUTOSECOPS__POSTGRES_PASSWORD=postgres"
+    "TEMPORAL__POSTGRES_PASSWORD=temporal"
+    "MINIO_ROOT_PASSWORD=password"
+    "MINIO_ROOT_PASSWORD=minioadmin"
+)
+
+dotenv_get() {
+    local env_var_name=$1
+    local file_path=$2
+    grep -E "^${env_var_name}=" "$file_path" | tail -n 1 | cut -d '=' -f 2- | sed -E 's/^["'"'"'](.*)["'"'"']$/\1/'
+}
+
+# Validate an env file. Exits non-zero when placeholders remain; warns about
+# weak development credentials when the file is configured for production.
+check_env_file() {
+    local file_path=$1
+    local status=0
+
+    if [ ! -f "$file_path" ]; then
+        echo -e "${RED}No env file found at ${file_path}. Run ./env.sh to create one.${NC}"
+        return 1
+    fi
+
+    local placeholders
+    placeholders=$(grep -nE "$PLACEHOLDER_PATTERN" "$file_path" | cut -d '=' -f 1)
+    if [ -n "$placeholders" ]; then
+        echo -e "${RED}${file_path} still contains placeholder secrets. Refusing to continue.${NC}"
+        echo -e "${RED}Generate real values with ./env.sh (or set them manually) for:${NC}"
+        echo "$placeholders" | awk -F ':' '{ print "  line " $1 ": " $2 }'
+        status=1
+    fi
+
+    local app_env
+    app_env=$(dotenv_get "AUTOSECOPS__APP_ENV" "$file_path")
+    if [ "$app_env" = "production" ]; then
+        local weak
+        for weak in "${WEAK_DEFAULTS[@]}"; do
+            if grep -qxE "${weak}" "$file_path"; then
+                echo -e "${YELLOW}Warning: ${weak%%=*} uses a well-known development value in production mode.${NC}"
+                echo -e "${YELLOW}Rotate it: https://docs.singularityrd.com/self-hosting/security#infrastructure-credentials${NC}"
+            fi
+        done
+        if [ "$(dotenv_get "TEMPORAL__UI_VERSION" "$file_path")" = "latest" ]; then
+            echo -e "${YELLOW}Warning: TEMPORAL__UI_VERSION=latest is not pinned. Set it to a specific Temporal UI release.${NC}"
+        fi
+        if [ -z "$(dotenv_get "AUTOSECOPS__AUTH_ALLOWED_DOMAINS" "$file_path")" ]; then
+            echo -e "${YELLOW}Note: AUTOSECOPS__AUTH_ALLOWED_DOMAINS is blank, so any email domain can sign up. Set it to your organization's domains.${NC}"
+        fi
+    fi
+
+    if [ "$status" -eq 0 ]; then
+        echo -e "${GREEN}${file_path} has no placeholder secrets.${NC}"
+    fi
+    return $status
+}
+
+if [ "${1:-}" = "--check" ]; then
+    check_env_file "${2:-.env}"
+    exit $?
+fi
+
+if [ -n "${1:-}" ]; then
+    echo -e "${RED}Unknown argument: $1${NC}"
+    echo "Usage: ./env.sh            Create .env from .env.example"
+    echo "       ./env.sh --check [file]  Refuse an env file that still has placeholder secrets"
+    exit 2
+fi
+
 echo -e "${YELLOW}Creating .env...${NC}"
 
 # If .env exists, ask user if they want to overwrite it
@@ -40,8 +116,9 @@ if [ -f .env ]; then
     read -p "A .env file already exists. Do you want to overwrite it? (y/n) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Exiting...${NC}"
-        exit 0
+        echo -e "${YELLOW}Keeping the existing .env. Checking it for placeholder secrets...${NC}"
+        check_env_file ".env"
+        exit $?
     fi
 fi
 
@@ -95,6 +172,31 @@ while true; do
         * ) echo -e "${RED}Please answer y or n.${NC}";;
     esac
 done
+
+# Infrastructure credentials for the bundled PostgreSQL, Temporal PostgreSQL,
+# and MinIO containers. Production mode always generates strong values.
+# Development mode keeps the well-known DEV-ONLY values that local tooling and
+# tests expect (postgres/postgres, temporal/temporal, minio/password).
+# AUTOSECOPS_DEV_CREDENTIALS=true forces the DEV-ONLY values in either mode,
+# for CI jobs that need production mode against throwaway local services.
+use_dev_credentials="false"
+if [ "$env_mode" = "development" ] || [ "${AUTOSECOPS_DEV_CREDENTIALS:-false}" = "true" ]; then
+    use_dev_credentials="true"
+fi
+if [ "$use_dev_credentials" = "true" ]; then
+    echo -e "${YELLOW}Using DEV-ONLY infrastructure credentials. Do not expose this deployment.${NC}"
+    postgres_password="postgres"
+    temporal_postgres_password="temporal"
+    minio_root_password="password"
+else
+    echo -e "${YELLOW}Generating PostgreSQL, Temporal PostgreSQL, and MinIO passwords...${NC}"
+    postgres_password=$(openssl rand -hex 24)
+    temporal_postgres_password=$(openssl rand -hex 24)
+    minio_root_password=$(openssl rand -hex 24)
+fi
+dotenv_replace "AUTOSECOPS__POSTGRES_PASSWORD" "$postgres_password" "$env_file"
+dotenv_replace "TEMPORAL__POSTGRES_PASSWORD" "$temporal_postgres_password" "$env_file"
+dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 
 # Prompt user for new IP address and strip http:// or https://
 
@@ -186,6 +288,11 @@ new_origins="http://localhost:3000,${public_app_url}"
 # Remove duplicate entries and leading/trailing commas
 new_origins=$(echo "$new_origins" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/^,//;s/,$//')
 dotenv_replace "AUTOSECOPS__ALLOW_ORIGINS" "$new_origins" "$env_file"
+
+if ! check_env_file "$env_file"; then
+    echo -e "${RED}Environment file is incomplete. Fix the values above before starting AutoSecOps.${NC}"
+    exit 1
+fi
 
 echo -e "${GREEN}Environment file created successfully.${NC}"
 echo -e "${GREEN}First user (superadmin) email set to: ${superadmin_email}${NC}"

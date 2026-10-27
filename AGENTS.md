@@ -91,7 +91,8 @@ changes.
   before changing any workflow.
 - Read `deployments/AGENTS.md` before changing any root `docker-compose*.yml`
   file. Infrastructure changes are reviewed across Compose, Fargate, and the
-  Helm chart in `deployments/helm/autosecops`.
+  Helm chart in `deployments/helm/autosecops` (run `helm lint` and the
+  `lint-helm` workflow).
 - Ask clarifying questions when the task lacks enough context to make a safe
   change.
 

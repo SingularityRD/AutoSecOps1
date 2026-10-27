@@ -50,21 +50,26 @@ import { useWorkspaceId } from "@/providers/workspace-id"
 const BYTES_PER_MB = 1024 * 1024
 const FILE_SIZE_LIMIT_MB = 5
 
+/** Returns whether the file is a CSV within the upload size limit. */
+function isAcceptedCsvFile(file: File): boolean {
+  // Check file size (5MB limit)
+  if (file.size > FILE_SIZE_LIMIT_MB * BYTES_PER_MB) {
+    return false
+  }
+  // Check file type
+  return file.type === "text/csv" || file.name.endsWith(".csv")
+}
+
 // Form schema for Csv import
 const csvImportSchema = z.object({
-  file: z.instanceof(File).refine(
-    (file) => {
-      // Check file size (5MB limit)
-      if (file.size > FILE_SIZE_LIMIT_MB * BYTES_PER_MB) {
-        return false
-      }
-      // Check file type
-      return file.type === "text/csv" || file.name.endsWith(".csv")
-    },
-    (file) => ({
-      message: `Please upload a CSV file under 5MB. Current file size: ${(file.size / BYTES_PER_MB).toFixed(2)}MB`,
-    })
-  ),
+  file: z.instanceof(File).superRefine((file, ctx) => {
+    if (!isAcceptedCsvFile(file)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Please upload a CSV file under 5MB. Current file size: ${(file.size / BYTES_PER_MB).toFixed(2)}MB`,
+      })
+    }
+  }),
   columnMapping: z
     .record(z.string(), z.string())
     .refine(
@@ -100,7 +105,11 @@ export function TableImportCsvDialog({
   const [csvPreview, setCsvPreview] = useState<CsvPreviewData | null>(null)
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
 
-  const form = useForm<CsvImportFormValues>({
+  const form = useForm<
+    z.input<typeof csvImportSchema>,
+    unknown,
+    CsvImportFormValues
+  >({
     resolver: zodResolver(csvImportSchema),
     defaultValues: {
       columnMapping: {},

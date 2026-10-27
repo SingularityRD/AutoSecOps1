@@ -52,9 +52,18 @@ chmod +x env.sh && ./env.sh
 
 After running `env.sh`, you'll be prompted to input the following:
 
+- Use production mode? Defaults to `y`. Production mode generates random PostgreSQL, Temporal PostgreSQL, and MinIO passwords. Answer `n` only on a local development machine, which keeps the well-known development passwords.
 - Set `PUBLIC_APP_URL`. Defaults to `localhost`.
-- Require PostgreSQL SSL mode? Defaults to `n`.
+- Require PostgreSQL SSL mode? Defaults to `n`, because the bundled `postgres_db` container is reachable only on the internal Compose network. Use `require` or `verify-full` in `AUTOSECOPS__DB_SSLMODE` when you point `AUTOSECOPS__DB_URI` at an external database.
 - Required field: Enter email address for the first user (superadmin).
+
+Then set `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` in `.env` to your organization's email domains, e.g. `example.com`. While it is blank, anyone who can reach the login page can sign up.
+
+Verify the file before you start AutoSecOps. The check exits non-zero while any `change-me-` placeholder remains:
+
+```bash
+./env.sh --check
+```
 
 <Warning>
   Docker Compose defaults to the `direct` executor backend, which does not sandbox ordinary workflow actions.

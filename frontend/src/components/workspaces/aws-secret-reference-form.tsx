@@ -169,7 +169,11 @@ export function AwsSecretReferenceForm({
     useAwsSecretReferences(workspaceId)
   const mapping = secret?.remote_key_mapping
 
-  const methods = useForm<AwsReferenceForm>({
+  const methods = useForm<
+    z.input<typeof awsReferenceSchema>,
+    unknown,
+    AwsReferenceForm
+  >({
     resolver: zodResolver(awsReferenceSchema),
     defaultValues: {
       name: secret?.name ?? initialName,

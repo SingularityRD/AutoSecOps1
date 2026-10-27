@@ -36,6 +36,12 @@ AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES = int(
     os.environ.get("AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES", 100 * 1024 * 1024)
 )
 
+# RoboDR evidence: largest verified bundle downloaded and stored (mirrors
+# autosecops/config.py, which enforces it again when the bundle is stored).
+AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES = int(
+    os.environ.get("AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES") or 64 * 1024 * 1024
+)
+
 # S3 concurrency limit
 AUTOSECOPS__S3_CONCURRENCY_LIMIT = int(
     os.environ.get("AUTOSECOPS__S3_CONCURRENCY_LIMIT", 10)

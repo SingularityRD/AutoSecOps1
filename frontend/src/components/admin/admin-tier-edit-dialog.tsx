@@ -40,29 +40,39 @@ const formSchema = z.object({
     .min(1, "Name is required")
     .max(50, "Name is too long"),
   max_concurrent_workflows: z.coerce
-    .number()
+    .number<number>()
     .int()
     .positive()
     .optional()
     .nullable(),
   max_action_executions_per_workflow: z.coerce
-    .number()
+    .number<number>()
     .int()
     .positive()
     .optional()
     .nullable(),
   max_concurrent_actions: z.coerce
-    .number()
+    .number<number>()
     .int()
     .positive()
     .optional()
     .nullable(),
-  api_rate_limit: z.coerce.number().int().positive().optional().nullable(),
-  api_burst_capacity: z.coerce.number().int().positive().optional().nullable(),
+  api_rate_limit: z.coerce
+    .number<number>()
+    .int()
+    .positive()
+    .optional()
+    .nullable(),
+  api_burst_capacity: z.coerce
+    .number<number>()
+    .int()
+    .positive()
+    .optional()
+    .nullable(),
   entitlements: tierEntitlementsSchema,
   is_default: z.boolean(),
   is_active: z.boolean(),
-  sort_order: z.coerce.number().int().min(0),
+  sort_order: z.coerce.number<number>().int().min(0),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -91,7 +101,7 @@ export function AdminTierEditDialog({
   }
   const { tier, isLoading, updateTier, updatePending } = useAdminTier(tierId)
 
-  const form = useForm<FormValues>({
+  const form = useForm<z.input<typeof formSchema>, unknown, FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       display_name: "",

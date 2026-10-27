@@ -45,6 +45,10 @@ flowchart TB
 
 No runtime workflow, integration, telemetry exporter, identity provider, or package dependency may require a public endpoint.
 
+The UI ships MCP catalog icons inside its bundle, so browsing the MCP catalog makes no third-party requests.
+
+The API serves the Swagger UI (`/api/docs`) and ReDoc (`/api/redoc`) pages from assets bundled in the API image, so the interactive API reference also works without internet access.
+
 ## Choose the model route
 
 Configure the route per agent, including subagents.

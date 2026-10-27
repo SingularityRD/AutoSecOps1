@@ -30,11 +30,24 @@ from autosecops.logger import logger
 from autosecops.service import BaseWorkspaceService
 from autosecops.storage import blob
 from autosecops.storage.exceptions import (
+    FileContentMismatchError,
+    FileNameError,
     FileSizeError,
     MaxAttachmentsExceededError,
     StorageLimitExceededError,
 )
 from autosecops.storage.validation import FileSecurityValidator, mime_equivalence_key
+
+ROBODR_EVIDENCE_PREFIX = "robodr-evidence-"
+"""Attachment names reserved for verified RoboDR evidence reports.
+
+Only the RoboDR evidence service creates attachments with this prefix (after
+it has checked the export), and every other upload path refuses it, so a look-
+alike name cannot be planted. The name is a courtesy: what marks a verified
+report is `File.robodr_evidence`, set only by the evidence service on a File
+row of its own that ordinary uploads never deduplicate into (and whose bytes
+they may not re-upload), so copying a report to another case does not carry
+the mark."""
 
 # Image MIME types that are safe to preview inline in the browser.
 IMAGE_PREVIEW_MIME_TYPES = frozenset(
@@ -202,13 +215,21 @@ class CaseAttachmentService(BaseWorkspaceService):
         return attachment
 
     async def create_attachment(
-        self, case: Case, params: CaseAttachmentCreate
+        self,
+        case: Case,
+        params: CaseAttachmentCreate,
+        *,
+        robodr_evidence: bool = False,
     ) -> CaseAttachment:
         """Create a new attachment for a case with security validations.
 
         Args:
             case: The case to attach the file to
             params: The attachment parameters
+            robodr_evidence: Only the RoboDR evidence service passes True: the
+                report gets a new File marked `robodr_evidence` (never shared
+                with another upload) and may use the reserved
+                `robodr-evidence-` name (see ROBODR_EVIDENCE_PREFIX).
 
         Returns:
             The created attachment
@@ -217,6 +238,14 @@ class CaseAttachmentService(BaseWorkspaceService):
             ValueError: If validation fails
             AutoSecOpsException: If storage operation fails
         """
+
+        if not robodr_evidence and (
+            params.file_name.strip().lower().startswith(ROBODR_EVIDENCE_PREFIX)
+        ):
+            raise FileNameError(
+                f"Attachment names starting with {ROBODR_EVIDENCE_PREFIX!r} are "
+                "reserved for verified RoboDR evidence"
+            )
 
         # Calculate actual size from content to prevent client-controlled size bypass
         actual_size = len(params.content)
@@ -300,14 +329,30 @@ class CaseAttachmentService(BaseWorkspaceService):
             self.role.user_id if self.role.type == "user" else None
         )
 
-        # Check if file already exists (deduplication)
-        existing_file = await self.session.execute(
-            select(File).where(
-                File.sha256 == sha256,
-                File.workspace_id == self.workspace_id,
+        # Check if file already exists (deduplication). A verified RoboDR
+        # evidence report is never deduplicated in either direction: reusing
+        # its File would carry the evidence mark to another case, and sharing
+        # its blob would let an ordinary delete remove the report.
+        existing_files = (
+            (
+                await self.session.execute(
+                    select(File).where(
+                        File.sha256 == sha256,
+                        File.workspace_id == self.workspace_id,
+                    )
+                )
             )
+            .scalars()
+            .all()
         )
-        file = existing_file.scalars().first()
+        if any(f.robodr_evidence for f in existing_files) or (
+            robodr_evidence and existing_files
+        ):
+            raise FileContentMismatchError(
+                "This content is a verified RoboDR evidence report; it cannot "
+                "be uploaded again as an attachment"
+            )
+        file = None if robodr_evidence else next(iter(existing_files), None)
 
         restored = False
         if not file:
@@ -319,6 +364,7 @@ class CaseAttachmentService(BaseWorkspaceService):
                 content_type=validation_result.content_type,
                 size=actual_size,
                 creator_id=creator_id,
+                robodr_evidence=robodr_evidence,
             )
             self.session.add(file)
             await self.session.flush()

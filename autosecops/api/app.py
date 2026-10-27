@@ -86,7 +86,11 @@ from autosecops.api.common import (
     without_inputs,
 )
 from autosecops.api.docs import install_api_docs
-from autosecops.api.lifespan import LifespanTaskSupervisor
+from autosecops.api.lifespan import (
+    LifespanTaskSupervisor,
+    freeze_startup_heap_after,
+    unfreeze_startup_heap,
+)
 from autosecops.auth.credentials import authenticated_user_only, require_superuser
 from autosecops.auth.dependencies import (
     require_any_auth_type_enabled,
@@ -195,6 +199,12 @@ from autosecops.query.errors import (
 from autosecops.registry.actions.router import router as registry_actions_router
 from autosecops.registry.repositories.router import router as registry_repos_router
 from autosecops.registry.sync.jobs import sync_platform_registry_on_startup
+from autosecops.robot_edr.fleet_admin_router import (
+    router as robot_edr_fleet_admin_router,
+)
+from autosecops.robot_edr.fleet_router import router as robot_edr_fleet_router
+from autosecops.robot_edr.ingest_router import router as robot_edr_ingest_router
+from autosecops.robot_edr.router import router as robot_edr_router
 from autosecops.search.embeddings.router import router as embedding_configuration_router
 from autosecops.secrets.router import org_router as org_secrets_router
 from autosecops.secrets.router import router as secrets_router
@@ -288,12 +298,12 @@ async def lifespan(app: FastAPI):
 
     # Spawn platform registry sync as background task (non-blocking)
     # Uses leader election to prevent race conditions across multiple API processes
-    supervisor.spawn(
+    registry_sync = supervisor.spawn(
         sync_platform_registry_on_startup(),
         name="platform_registry_sync",
         kind="finite",
     )
-    supervisor.spawn(
+    catalog_load = supervisor.spawn(
         load_platform_catalog_on_startup(),
         name="platform_catalog_load",
         kind="finite",
@@ -330,11 +340,20 @@ async def lifespan(app: FastAPI):
     )
     logger.info("RLS mode", rls_mode=config.AUTOSECOPS__RLS_MODE.value)
     log_license_startup()
+    # Last start-up step: once the start-up registry sync and catalog load
+    # finish, everything alive lives for the process, so take it out of full
+    # garbage collections (see freeze_startup_heap_after).
+    supervisor.spawn(
+        freeze_startup_heap_after(supervisor, [registry_sync, catalog_load]),
+        name="startup_heap_freeze",
+        kind="finite",
+    )
     logger.info("API startup complete")
 
     yield
 
     await supervisor.drain()
+    unfreeze_startup_heap()
     await close_storage_client_cache()
     shutdown_platform_tracing()
 
@@ -637,6 +656,8 @@ def create_app(**kwargs) -> FastAPI:
 
     # Routers
     app.include_router(webhook_router)
+    app.include_router(robot_edr_ingest_router)
+    app.include_router(robot_edr_fleet_router)
     app.include_router(agent_channels_router)
     app.include_router(workspaces_router)
     app.include_router(embedding_configuration_router)
@@ -658,6 +679,8 @@ def create_app(**kwargs) -> FastAPI:
     app.include_router(tunnel_gateway_router)
     _include_workspace_scoped_router(app, schedules_router)
     _include_workspace_scoped_router(app, tags_router)
+    _include_workspace_scoped_router(app, robot_edr_router)
+    _include_workspace_scoped_router(app, robot_edr_fleet_admin_router)
     app.include_router(users_router)
     app.include_router(org_router)
     app.include_router(invitations_router)

@@ -55,7 +55,8 @@ import { cn, linearStyles } from "@/lib/utils"
 
 const customFieldFormSchema = z.object({
   id: z.string(),
-  value: z.unknown(),
+  // Optional so a missing value is accepted, as it was with Zod 3.
+  value: z.unknown().optional(),
 })
 
 type CustomFieldFormSchema = z.infer<typeof customFieldFormSchema>

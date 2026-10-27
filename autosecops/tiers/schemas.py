@@ -108,6 +108,11 @@ class EffectiveEntitlements(Schema):
         description="Whether workspaces may route actions through private"
         " network tunnels such as Pangolin",
     )
+    robot_edr: bool = Field(
+        default=False,
+        title="Robot EDR",
+        description="Whether workspaces may register robots and ingest RoboDR findings",
+    )
 
 
 class TierRead(Schema):

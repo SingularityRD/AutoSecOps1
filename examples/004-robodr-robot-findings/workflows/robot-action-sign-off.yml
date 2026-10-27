@@ -1,0 +1,56 @@
+# Robot action sign-off.
+#
+# The form people use to sign off a RoboDR robot action request or revert.
+# Turn on this workflow's form (Forms) for the people who may request or
+# approve robot actions. Each submission is a platform record of who
+# submitted it; `tools.robodr.request_action` and `tools.robodr.revert_action`
+# read the submissions back and send nothing unless they prove:
+#
+# - one submission with `robodr_decision: request` (the requester), and
+# - one submission with `robodr_decision: approve` per approver (two
+#   different people for robot_safe_pause, robot_request_safe_state,
+#   robot_rollback_config and their reverts), none of them the requester,
+#
+# all for the same `robodr_request_id` and `robodr_request_digest` (from
+# `tools.robodr.prepare_action_request` or `prepare_revert_request`), from
+# this form, by platform users, within 24 hours. Workflows and agents cannot
+# submit a form, so only people can sign off.
+#
+# The run itself only records the sign-off; it never contacts a robot.
+definition:
+  title: Robot action sign-off
+  description: Sign off a RoboDR robot action request or revert (one person per submission).
+  config:
+    environment: default
+    timeout: 60
+  entrypoint:
+    expects:
+      robodr_request_id:
+        type: str
+        description: The request_id shown in the sign-off request comment.
+      robodr_request_digest:
+        type: str
+        description: The request_digest shown in the sign-off request comment.
+      robodr_decision:
+        type: str
+        enum:
+          - request
+          - approve
+        description: >-
+          `request` if you are the requester; `approve` if you approve someone
+          else's request. Approving your own request does not count.
+      note:
+        type: str
+        description: Optional note for the record.
+        default: ""
+  actions:
+    - ref: signoff
+      action: core.transform.reshape
+      args:
+        value:
+          request_id: ${{ TRIGGER.robodr_request_id }}
+          request_digest: ${{ TRIGGER.robodr_request_digest }}
+          decision: ${{ TRIGGER.robodr_decision }}
+  returns:
+    request_id: ${{ ACTIONS.signoff.result.request_id }}
+    decision: ${{ ACTIONS.signoff.result.decision }}

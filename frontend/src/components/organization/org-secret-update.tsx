@@ -6,7 +6,7 @@ import { PlusCircle, SaveIcon, Trash2Icon } from "lucide-react"
 import React, { type PropsWithChildren, useCallback } from "react"
 import { useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
-import type { SecretReadMinimal, SecretUpdate } from "@/client"
+import type { SecretReadMinimal } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -51,6 +51,8 @@ const updateOrgSecretSchema = z.object({
   ),
 })
 
+type UpdateOrgSecretFormValues = z.infer<typeof updateOrgSecretSchema>
+
 export function UpdateOrgSecretDialog({
   selectedSecret,
   setSelectedSecret,
@@ -61,7 +63,7 @@ export function UpdateOrgSecretDialog({
   const { updateSecretById } = useOrgSecrets()
   const isSshKey = selectedSecret?.type === "ssh_key"
 
-  const methods = useForm<SecretUpdate>({
+  const methods = useForm<UpdateOrgSecretFormValues>({
     resolver: zodResolver(updateOrgSecretSchema),
     defaultValues: {
       name: "",
@@ -91,7 +93,7 @@ export function UpdateOrgSecretDialog({
   }, [selectedSecret, reset])
 
   const onSubmit = useCallback(
-    async (values: SecretUpdate) => {
+    async (values: UpdateOrgSecretFormValues) => {
       if (!selectedSecret) {
         console.error("No secret selected")
         return
@@ -127,7 +129,7 @@ export function UpdateOrgSecretDialog({
     })
   }
 
-  const { fields, append, remove } = useFieldArray<SecretUpdate>({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: "keys",
   })

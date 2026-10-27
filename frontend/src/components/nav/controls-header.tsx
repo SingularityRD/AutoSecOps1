@@ -85,6 +85,7 @@ import { CreateFormDialog } from "@/components/forms/forms-dashboard"
 import { CreateCustomProviderDialog } from "@/components/integrations/create-custom-provider-dialog"
 import { Spinner } from "@/components/loading/spinner"
 import { FolderPathBreadcrumb } from "@/components/nav/folder-path-breadcrumb"
+import { RegisterRobotButton } from "@/components/robot-edr/robots-fleet"
 import { CreateSkillButton } from "@/components/skills/create-skill-button"
 import { SkillLibrarySkillActions } from "@/components/skills/skill-library-skill-view"
 import {
@@ -2657,6 +2658,19 @@ function getPageConfig(
     return {
       title: "MCP access",
       actions: <McpAccessActions />,
+    }
+  }
+
+  if (pagePath === "/robots") {
+    return {
+      title: "Robots",
+      actions: <RegisterRobotButton />,
+    }
+  }
+
+  if (pagePath.startsWith("/robots/")) {
+    return {
+      title: "Robots",
     }
   }
 

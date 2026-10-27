@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "rust": "intact",
+    "python_intact": true
+  },
+  "segment_dropped_exported": {
+    "rust": "intact",
+    "python_intact": true
+  },
+  "segment_dropped_missing": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "segment_dropped_unparseable": {
+    "rust": "intact",
+    "python_intact": false
+  },
+  "recovery_crash_plausible": {
+    "rust": "intact",
+    "python_intact": true
+  },
+  "recovery_not_crash_plausible": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "recovery_quarantined_segment": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "recovery_duplicate_keys": {
+    "rust": "intact",
+    "python_intact": false
+  },
+  "genesis_nonzero_seq": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "genesis_identity_mismatch": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "truncation_detected": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "key_rotation": {
+    "rust": "intact",
+    "python_intact": true
+  },
+  "key_rotation_without_reason": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "segment_start_key_switch": {
+    "rust": "tamper",
+    "python_intact": false
+  },
+  "identity_utf16": {
+    "rust": "error",
+    "python_intact": false
+  },
+  "identity_duplicate_keys": {
+    "rust": "error",
+    "python_intact": false
+  },
+  "empty": {
+    "rust": "intact",
+    "python_intact": false
+  }
+}

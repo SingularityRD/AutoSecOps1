@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { PlayIcon, Plus, RotateCcw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
+import type { z } from "zod"
 import { CodeEditor } from "@/components/editor/codemirror/code-editor"
 import { JsonViewWithControls } from "@/components/json-viewer"
 import {
@@ -200,7 +201,12 @@ export function WorkflowTriggerForm({
 }: WorkflowTriggerFormProps) {
   const zodSchema = useMemo(() => {
     try {
-      return jsonSchemaToZod(schema)
+      // Trigger schemas are JSON objects, so the converted schema validates
+      // the form's record of field values.
+      return jsonSchemaToZod(schema) as z.ZodType<
+        TriggerFormValues,
+        TriggerFormValues
+      >
     } catch (error) {
       console.warn("Failed to convert workflow trigger schema", error)
       return null

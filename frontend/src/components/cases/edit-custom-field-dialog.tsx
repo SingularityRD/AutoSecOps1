@@ -190,7 +190,11 @@ export function EditCustomFieldDialog({
   const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<CaseFieldFormValues>({
+  const form = useForm<
+    z.input<typeof caseFieldFormSchema>,
+    unknown,
+    CaseFieldFormValues
+  >({
     resolver: zodResolver(caseFieldFormSchema),
     defaultValues: emptyDefaults,
   })
@@ -563,7 +567,7 @@ function DefaultValueInput({
   options,
 }: {
   type: SqlTypeCreatable | undefined
-  field: ControllerRenderProps<CaseFieldFormValues, "default">
+  field: ControllerRenderProps<z.input<typeof caseFieldFormSchema>, "default">
   options?: string[]
 }) {
   const resolvedType: SqlTypeCreatable = type ?? "TEXT"

@@ -49,6 +49,13 @@ class CaseAttachmentRead(BaseModel):
     updated_at: datetime
     creator_id: uuid.UUID | None = None
     is_deleted: bool = False
+    robodr_evidence: bool = Field(
+        default=False,
+        description=(
+            "A verified RoboDR evidence report stored by the evidence service "
+            "(server-side mark; the file name alone proves nothing)"
+        ),
+    )
 
 
 class CaseAttachmentDownloadResponse(BaseModel):

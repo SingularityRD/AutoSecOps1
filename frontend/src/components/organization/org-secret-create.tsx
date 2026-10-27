@@ -4,14 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import type { DialogProps } from "@radix-ui/react-dialog"
 import { KeyRoundIcon, PlusCircle, Trash2Icon } from "lucide-react"
 import React, { type PropsWithChildren } from "react"
-import {
-  type ArrayPath,
-  type FieldPath,
-  useFieldArray,
-  useForm,
-} from "react-hook-form"
+import { type FieldPath, useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
-import type { SecretCreate } from "@/client"
 import { CreateSecretTooltip } from "@/components/secrets/create-secret-tooltip"
 import { Button } from "@/components/ui/button"
 import {
@@ -57,6 +51,9 @@ const createOrgSecretSchema = z.object({
   ),
 })
 
+type CreateOrgSecretFormInput = z.input<typeof createOrgSecretSchema>
+type CreateOrgSecretFormValues = z.output<typeof createOrgSecretSchema>
+
 export function CreateOrgSecretDialog({
   children,
   className,
@@ -64,19 +61,22 @@ export function CreateOrgSecretDialog({
   const [showDialog, setShowDialog] = React.useState(false)
   const { createSecret } = useOrgSecrets()
 
-  const methods = useForm<SecretCreate>({
+  const methods = useForm<
+    CreateOrgSecretFormInput,
+    unknown,
+    CreateOrgSecretFormValues
+  >({
     resolver: zodResolver(createOrgSecretSchema),
     defaultValues: {
       name: "",
       description: "",
       environment: "",
-      type: "custom",
       keys: [{ key: "", value: "" }],
     },
   })
   const { control, register } = methods
 
-  const onSubmit = async (values: SecretCreate) => {
+  const onSubmit = async (values: CreateOrgSecretFormValues) => {
     console.log("Submitting new secret", values)
     try {
       await createSecret(values)
@@ -93,10 +93,10 @@ export function CreateOrgSecretDialog({
     })
   }
   const inputKey = "keys"
-  const typedKey = inputKey as FieldPath<SecretCreate>
-  const { fields, append, remove } = useFieldArray<SecretCreate>({
+  const typedKey = inputKey as FieldPath<CreateOrgSecretFormInput>
+  const { fields, append, remove } = useFieldArray({
     control,
-    name: inputKey as ArrayPath<SecretCreate>,
+    name: inputKey,
   })
 
   return (

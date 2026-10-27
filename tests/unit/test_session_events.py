@@ -73,3 +73,40 @@ async def test_nested_rollback_preserves_callbacks_for_outer_commit() -> None:
         await asyncio.wait_for(called.wait(), timeout=1)
     finally:
         await session.close()
+
+
+@pytest.mark.anyio
+async def test_callbacks_of_one_commit_run_in_registration_order() -> None:
+    """A slow callback finishes before the next one starts.
+
+    Case events of one transaction are delivered by separate callbacks (the
+    bulk path's ``case_created`` entries, then ``tag_added``); consumers rely
+    on the stream order matching the event order.
+    """
+    session = AsyncSession()
+    order: list[str] = []
+    done = asyncio.Event()
+
+    async def slow_first() -> None:
+        await asyncio.sleep(0.05)
+        order.append("first")
+
+    async def failing_second() -> None:
+        order.append("second")
+        raise RuntimeError("delivery failed")
+
+    async def fast_third() -> None:
+        order.append("third")
+        done.set()
+
+    try:
+        await session.begin()
+        queue = AfterCommitQueue.of(session)
+        queue.add(slow_first)
+        queue.add(failing_second)
+        queue.add(fast_third)
+        await session.commit()
+        await asyncio.wait_for(done.wait(), timeout=1)
+        assert order == ["first", "second", "third"]
+    finally:
+        await session.close()

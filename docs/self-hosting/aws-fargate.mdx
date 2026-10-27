@@ -151,6 +151,19 @@ This setting applies only to the bundled Temporal RDS instance. It requires a DB
 
 If you are using Temporal Cloud or another external Temporal cluster, set `disable_temporal_autosetup=true` and point `temporal_cluster_url` at your external cluster. In that setup, `temporal_db_force_ssl` is typically unused because the bundled Temporal RDS instance is not created. If you run your own external Temporal PostgreSQL and want SSL-only enforcement there, set `TF_VAR_temporal_db_force_ssl=true`.
 
+## Resource name prefixes
+
+The stack names AWS resources with two prefixes:
+
+| Variable | Default | Applies to |
+| --- | --- | --- |
+| `name_prefix` | `autosecops` | VPC, ALB, ECS cluster, RDS snapshots, ElastiCache, S3 buckets, CloudWatch log groups, and the Sentry DSN secret. |
+| `iam_name_prefix` | `AutoSecOps` | IAM roles and policies, and ECS task definition families. |
+
+Stacks created before the AutoSecOps rename used `tracecat` and `Tracecat`. Set `TF_VAR_name_prefix=tracecat` and `TF_VAR_iam_name_prefix=Tracecat` to keep them on such a stack.
+
+AWS cannot rename these resources in place, so changing a prefix makes Terraform destroy and recreate them, including the S3 buckets and Redis cluster. To move an existing deployment to new prefixes, deploy a second stack with the new prefixes and the same platform secret ARNs, restore the core database from an RDS snapshot with `restore_from_snapshot`, copy the S3 buckets with `aws s3 sync`, verify the new stack, then switch DNS and destroy the old stack.
+
 ## Temporal search attributes
 
 <TemporalSearchAttributes />

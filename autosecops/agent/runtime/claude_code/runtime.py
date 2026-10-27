@@ -50,6 +50,7 @@ from claude_agent_sdk.types import (
     UserMessage,
 )
 
+from autosecops.agent.approvals.mandatory import requires_mandatory_approval
 from autosecops.agent.common.config import (
     AGENT_RUNTIME_PROTECTED_ENV_VARS,
     AUTOSECOPS__AGENT_MCP_BRIDGE_PORT,
@@ -680,11 +681,16 @@ class ClaudeAgentRuntime:
         tool_name: str,
     ) -> bool:
         """Whether a tool call requires manual approval."""
+        action_name = normalize_mcp_tool_name(tool_name)
+        # Robot actions pause even when the run config omits or disables them,
+        # and also inside subagents, which otherwise skip root approvals.
+        if requires_mandatory_approval(action_name):
+            return True
         if self._explicit_subagent_alias_for_tool(input_data, tool_name) is not None:
             return False
         if self.tool_approvals is None:
             return False
-        return self.tool_approvals.get(normalize_mcp_tool_name(tool_name)) is True
+        return self.tool_approvals.get(action_name) is True
 
     @staticmethod
     def _agent_tool_target(tool_input: dict[str, Any]) -> str | None:

@@ -78,20 +78,31 @@ class AfterCommitQueue:
         if self.loop is None:
             logger.error("Expected event loop not found in session info")
             return
-        for cb in callbacks:
-            try:
-                result = cb()
-                if asyncio.iscoroutine(result):
-                    logger.debug("Running after_commit callback", callback=result)
-                    asyncio.run_coroutine_threadsafe(result, self.loop)
-                else:
-                    logger.warning("Callback did not return a coroutine", callback=cb)
-            except Exception as e:
-                logger.error("after_commit callback failed", error=str(e))
+        asyncio.run_coroutine_threadsafe(_run_in_order(callbacks), self.loop)
 
     def discard_on_rollback(self) -> None:
         """Discard side effects registered by a rolled-back transaction."""
         self.callbacks.clear()
+
+
+async def _run_in_order(callbacks: list[AsyncCallback]) -> None:
+    """Run one commit's callbacks one after another, in registration order.
+
+    Side effects of one transaction keep their order (case events published
+    to Redis streams in event order, for example): a callback starts only
+    after the previous one finished. A failing callback is logged and does
+    not stop the ones after it.
+    """
+    for cb in callbacks:
+        try:
+            result = cb()
+            if asyncio.iscoroutine(result):
+                logger.debug("Running after_commit callback", callback=result)
+                await result
+            else:
+                logger.warning("Callback did not return a coroutine", callback=cb)
+        except Exception as e:
+            logger.error("after_commit callback failed", error=str(e))
 
 
 @event.listens_for(sqlalchemy.orm.Session, "after_commit")

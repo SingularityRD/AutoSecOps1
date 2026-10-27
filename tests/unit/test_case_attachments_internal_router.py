@@ -229,6 +229,7 @@ def test_valid_attachment_keeps_created_response(
             sha256="a" * 64,
             creator_id=None,
             is_deleted=False,
+            robodr_evidence=False,
         ),
         created_at=timestamp,
         updated_at=timestamp,
@@ -249,6 +250,7 @@ def test_valid_attachment_keeps_created_response(
         "updated_at": "2026-01-01T00:00:00Z",
         "creator_id": None,
         "is_deleted": False,
+        "robodr_evidence": False,
     }
     params = service.attachments.create_attachment.await_args.args[1]
     assert params.file_name == "notes.txt"

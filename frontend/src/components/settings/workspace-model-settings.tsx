@@ -120,7 +120,11 @@ export function WorkspaceModelSettings({
   const queryClient = useQueryClient()
   const [modelQuery, setModelQuery] = useState("")
   const lastSyncedFormValuesRef = useRef<string | null>(null)
-  const form = useForm<WorkspaceModelSettingsForm>({
+  const form = useForm<
+    z.input<typeof workspaceModelSettingsSchema>,
+    unknown,
+    WorkspaceModelSettingsForm
+  >({
     resolver: zodResolver(workspaceModelSettingsSchema),
     mode: "onChange",
     defaultValues: {

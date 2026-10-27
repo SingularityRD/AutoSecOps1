@@ -40,6 +40,10 @@ Each tool in a preset's `Tools` tab has a toggle:
 - `Ask`: The agent pauses before the call and waits for a decision in the inbox.
 
 Click the toggle to switch a tool, then click `Publish version` in the top right.
+
+`tools.robodr.request_action` and `tools.robodr.revert_action` always stay on `Ask`.
+AutoSecOps refuses to save a preset that sets either to `Auto`, and every agent run, including `ai.agent` runs and subagents, pauses before either call whatever `tool_approvals` says.
+See [Robot SOC agent](/integrations/robodr-soc-agent).
 To change a whole group, right-click it and choose `Require approval for all` or `Run all automatically`.
 
 ![Set a tool to Ask on a preset](/img/agents/tool-approval-toggle.gif)

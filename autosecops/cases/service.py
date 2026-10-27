@@ -164,6 +164,10 @@ from autosecops.query.execution import query_execution_context
 from autosecops.query.filters import Filter
 from autosecops.query.lexical_types import SearchMode
 from autosecops.query.resolver import ResolvedAggregationField
+from autosecops.robot_edr.evidence_storage import (
+    case_evidence_prefixes,
+    delete_evidence_objects_after_commit,
+)
 from autosecops.service import BaseWorkspaceService, requires_entitlement
 from autosecops.tables.common import (
     coerce_integer_value,
@@ -620,7 +624,18 @@ class CasesService(BaseWorkspaceService):
 
     @require_scope("case:create")
     @audit_log(resource_type="case", action="create")
-    async def create_case(self, params: CaseCreate) -> Case:
+    async def create_case(self, params: CaseCreate, *, commit: bool = True) -> Case:
+        """Create a case with its fields, initial versions, and created event.
+
+        Args:
+            params: The case to create.
+            commit: Commit the transaction. Pass ``False`` to keep the case in
+                the caller's open transaction (the caller then commits or rolls
+                back, atomically with its own writes).
+
+        Returns:
+            The created case.
+        """
         try:
             # Ensure the workspace-scoped `case_fields` schema/table exists before we
             # take locks on the `case` table (e.g. via INSERT/UPDATE). This avoids
@@ -697,7 +712,10 @@ class CasesService(BaseWorkspaceService):
             )
 
             # Commit once to persist case, fields, and event atomically
-            await self.session.commit()
+            if commit:
+                await self.session.commit()
+            else:
+                await self.session.flush()
             # Make sure to refresh the case to get the fields relationship loaded
             await self.session.refresh(case)
             return case
@@ -1290,6 +1308,9 @@ class CasesService(BaseWorkspaceService):
         """Delete multiple cases atomically with isolated per-case failures."""
 
         async def apply(case: Case) -> None:
+            evidence = await case_evidence_prefixes(
+                self.session, self.workspace_id, [case.id]
+            )
             # Rely on database ON DELETE CASCADE instead of ORM cascades, which
             # lazy-load every child collection per case. Reply comments must be
             # unlinked first: the (case_id, parent_id) self-FK is ON DELETE
@@ -1307,6 +1328,7 @@ class CasesService(BaseWorkspaceService):
                     Case.id == case.id, Case.workspace_id == self.workspace_id
                 )
             )
+            delete_evidence_objects_after_commit(self.session, evidence)
 
         async def process(
             ids: list[uuid.UUID], locked: dict[uuid.UUID, Case]
@@ -1331,7 +1353,11 @@ class CasesService(BaseWorkspaceService):
         # However, this activity could be useful in an audit log elsewhere
         # if system-wide activities are implemented separately.
 
+        evidence = await case_evidence_prefixes(
+            self.session, self.workspace_id, [case.id]
+        )
         await self.session.delete(case)
+        delete_evidence_objects_after_commit(self.session, evidence)
         await self.session.commit()
 
 
@@ -1433,7 +1459,26 @@ class CaseFieldsService(CustomFieldsService):
         """Normalize case field values to their storage types."""
         if not fields:
             return {}
+        schema, reflected_types = await self._field_types()
+        return self._normalize_with(schema, reflected_types, fields)
 
+    async def normalize_field_values_many(
+        self, values: Sequence[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Normalize several cases' field values with one schema lookup.
+
+        Each result equals ``normalize_field_values`` of the same input.
+        """
+        if not any(values):
+            return [{} for _ in values]
+        schema, reflected_types = await self._field_types()
+        return [
+            self._normalize_with(schema, reflected_types, fields) if fields else {}
+            for fields in values
+        ]
+
+    async def _field_types(self) -> tuple[dict[str, Any], dict[str, SqlType]]:
+        """The field schema and the reflected storage type of each field."""
         schema = await self.get_field_schema()
         reflected_types: dict[str, SqlType] = {}
         for column in await self.editor.get_columns():
@@ -1445,6 +1490,14 @@ class CaseFieldsService(CustomFieldsService):
                 reflected_types[column_name] = SqlType(
                     _normalize_case_field_read_type(column["type"]).value
                 )
+        return schema, reflected_types
+
+    @staticmethod
+    def _normalize_with(
+        schema: dict[str, Any],
+        reflected_types: dict[str, SqlType],
+        fields: dict[str, Any],
+    ) -> dict[str, Any]:
         normalized: dict[str, Any] = {}
 
         for field_name, value in fields.items():

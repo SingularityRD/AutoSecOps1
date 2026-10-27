@@ -1,4 +1,5 @@
 import "@/styles/globals.scss"
+import "@/lib/zod-config"
 
 import type { Metadata } from "next"
 import dynamic from "next/dynamic"
@@ -8,6 +9,7 @@ import { SettingsModalProvider } from "@/components/settings/settings-modal-cont
 import { SettingsModalHost } from "@/components/settings/settings-modal-host"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ZodConfigInit } from "@/components/zod-config-init"
 import { siteConfig } from "@/config/site"
 import { fontSans } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
@@ -58,6 +60,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             fontSans.variable
           )}
         >
+          <ZodConfigInit />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

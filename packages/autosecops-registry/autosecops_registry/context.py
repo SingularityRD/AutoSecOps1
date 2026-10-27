@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from autosecops_registry.sdk.client import AutoSecOpsClient
     from autosecops_registry.sdk.deduplicate import DeduplicateClient
     from autosecops_registry.sdk.forms import FormsClient
+    from autosecops_registry.sdk.robot_edr import RobotEdrClient
     from autosecops_registry.sdk.tables import TablesClient
     from autosecops_registry.sdk.variables import VariablesClient
     from autosecops_registry.sdk.workflows import WorkflowsClient
@@ -133,6 +134,11 @@ class RegistryContext:
     def forms(self) -> "FormsClient":
         """Get the Forms API client."""
         return self.client.forms
+
+    @property
+    def robot_edr(self) -> "RobotEdrClient":
+        """Get the RoboDR (Robot EDR) API client."""
+        return self.client.robot_edr
 
     @property
     def tables(self) -> "TablesClient":

@@ -3,6 +3,7 @@
 import type { JSONSchema7 } from "json-schema"
 import { AlertTriangleIcon } from "lucide-react"
 import { useMemo } from "react"
+import type { z } from "zod"
 import { type ApprovalDecision, approvalsSubmitApprovals } from "@/client"
 import { ApprovalRequestPart } from "@/components/chat/approval-request-part"
 import {
@@ -61,7 +62,11 @@ const APPROVAL_VALUE_SCHEMA: JSONSchema7 = {
   ],
 }
 
-const approvalValueValidator = jsonSchemaToZod(APPROVAL_VALUE_SCHEMA)
+// The JSON schema above describes `AgentApprovalDecisionPayload`, so parsed
+// values are narrowed to that type.
+const approvalValueValidator = jsonSchemaToZod(
+  APPROVAL_VALUE_SCHEMA
+) as z.ZodType<AgentApprovalDecisionPayload>
 
 type AgentApprovalsDialogProps = {
   session: AgentSessionWithStatus | null

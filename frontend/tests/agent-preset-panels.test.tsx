@@ -1,4 +1,3 @@
-import { zodResolver } from "@hookform/resolvers/zod"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect, useState } from "react"
@@ -25,6 +24,7 @@ import { Form } from "@/components/ui/form"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSkills } from "@/hooks/use-skills"
 import { QueryClient, QueryClientProvider } from "@/lib/query"
+import { zodOutputResolver } from "@/lib/zod-form"
 import { mcpIntegration, registryTool } from "./fixtures/agent-preset-tools"
 
 jest.mock("@/client", () => ({
@@ -112,8 +112,8 @@ function TestForm({
   openIndex?: number | null
 }) {
   const [openIndex, setOpenIndex] = useState(initialOpenIndex)
-  const form = useForm<AgentPresetFormValues>({
-    resolver: zodResolver(agentPresetSchema),
+  const form = useForm<AgentPresetFormValues, unknown, AgentPresetFormValues>({
+    resolver: zodOutputResolver(agentPresetSchema),
     defaultValues: {
       name: "Parent",
       slug: "parent",

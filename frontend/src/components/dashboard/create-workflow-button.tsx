@@ -71,7 +71,11 @@ function ImportWorkflowDialog({
     listEnabled: false,
   })
 
-  const form = useForm<ImportFormValues>({
+  const form = useForm<
+    z.input<typeof importFormSchema>,
+    unknown,
+    ImportFormValues
+  >({
     resolver: zodResolver(importFormSchema),
     defaultValues: {
       use_workflow_id: false,
@@ -221,7 +225,11 @@ function CreateFolderDialog({
 }) {
   const { createFolder } = useFolders(workspaceId, { enabled: open })
 
-  const form = useForm<FolderFormValues>({
+  const form = useForm<
+    z.input<typeof folderFormSchema>,
+    unknown,
+    FolderFormValues
+  >({
     resolver: zodResolver(folderFormSchema),
     defaultValues: {
       name: "",

@@ -183,4 +183,5 @@ class TierService(BaseService):
             semantic_search=resolve_entitlement("semantic_search"),
             forms=resolve_entitlement("forms"),
             tunnels=resolve_entitlement("tunnels"),
+            robot_edr=resolve_entitlement("robot_edr"),
         )

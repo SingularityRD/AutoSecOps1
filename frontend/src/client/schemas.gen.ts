@@ -8063,6 +8063,13 @@ export const $CaseAttachmentRead = {
       title: "Is Deleted",
       default: false,
     },
+    robodr_evidence: {
+      type: "boolean",
+      title: "Robodr Evidence",
+      description:
+        "A verified RoboDR evidence report stored by the evidence service (server-side mark; the file name alone proves nothing)",
+      default: false,
+    },
   },
   type: "object",
   required: [
@@ -16714,6 +16721,13 @@ export const $EffectiveEntitlements = {
         "Whether workspaces may route actions through private network tunnels such as Pangolin",
       default: false,
     },
+    robot_edr: {
+      type: "boolean",
+      title: "Robot EDR",
+      description:
+        "Whether workspaces may register robots and ingest RoboDR findings",
+      default: false,
+    },
   },
   type: "object",
   title: "EffectiveEntitlements",
@@ -16892,6 +16906,7 @@ export const $Entitlement = {
     "semantic_search",
     "forms",
     "tunnels",
+    "robot_edr",
   ],
   title: "Entitlement",
   description: "Available feature entitlements.",
@@ -16976,6 +16991,12 @@ export const $EntitlementsDict = {
       title: "Tunnels",
       description:
         "Whether workspaces may route actions through private network tunnels such as Pangolin",
+    },
+    robot_edr: {
+      type: "boolean",
+      title: "Robot EDR",
+      description:
+        "Whether workspaces may register robots and ingest RoboDR findings",
     },
   },
   type: "object",
@@ -17820,6 +17841,1178 @@ export const $FixedActionResult = {
   required: ["result", "source_execution_id", "source_event_id"],
   title: "FixedActionResult",
   description: "An action result reused from a previous run of the workflow.",
+} as const
+
+export const $FleetApprovalCreate = {
+  properties: {
+    profile_digest: {
+      type: "string",
+      pattern: "^sha256:[0-9a-f]{64}$",
+      title: "Profile Digest",
+    },
+    validity_hours: {
+      type: "integer",
+      maximum: 168,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 24,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["profile_digest"],
+  title: "FleetApprovalCreate",
+  description: "Request an observe -> enforce approval of the offered profile.",
+} as const
+
+export const $FleetApprovalRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    approval_id: {
+      type: "string",
+      title: "Approval Id",
+    },
+    profile_digest: {
+      type: "string",
+      title: "Profile Digest",
+    },
+    profile_version: {
+      type: "integer",
+      title: "Profile Version",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetApprovalStatus",
+    },
+    requested_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Requested By",
+    },
+    approved_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Approved By",
+    },
+    validity_hours: {
+      type: "integer",
+      title: "Validity Hours",
+    },
+    issued_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Issued At",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    signer_key_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signer Key Id",
+    },
+    signing_payload: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signing Payload",
+      description:
+        "Prepared approvals: the profile-approval payload (base64url, no padding) the offline approval key signs",
+    },
+    signing_message_hex: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Signing Message Hex",
+      description:
+        "Prepared approvals: the exact bytes to sign with Ed25519 (contract §2.3 message for type profile-approval and signer_key_id), as hex",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "approval_id",
+    "profile_digest",
+    "profile_version",
+    "platform",
+    "status",
+    "requested_by",
+    "approved_by",
+    "validity_hours",
+    "issued_at",
+    "expires_at",
+    "signer_key_id",
+    "created_at",
+  ],
+  title: "FleetApprovalRead",
+  description:
+    "An approval request and, once two people signed it off, its signature.",
+} as const
+
+export const $FleetApprovalSignature = {
+  properties: {
+    signature: {
+      type: "string",
+      pattern: "^[0-9a-f]{128}$",
+      title: "Signature",
+      description:
+        "Ed25519 signature of signing_message_hex, 128 lower-case hex",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["signature"],
+  title: "FleetApprovalSignature",
+  description:
+    "The offline approval key's detached signature of a prepared approval.",
+} as const
+
+export const $FleetApprovalStatus = {
+  type: "string",
+  enum: ["pending", "prepared", "signed", "cancelled"],
+  title: "FleetApprovalStatus",
+  description: "State of a profile approval (contract §6.3).",
+} as const
+
+export const $FleetDraftContent = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    size: {
+      type: "integer",
+      title: "Size",
+    },
+    received_at: {
+      type: "string",
+      format: "date-time",
+      title: "Received At",
+    },
+    profile: {
+      type: "string",
+      title: "Profile",
+    },
+  },
+  type: "object",
+  required: ["id", "digest", "size", "received_at", "profile"],
+  title: "FleetDraftContent",
+  description: "A draft profile with its file text.",
+} as const
+
+export const $FleetDraftRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    size: {
+      type: "integer",
+      title: "Size",
+    },
+    received_at: {
+      type: "string",
+      format: "date-time",
+      title: "Received At",
+    },
+  },
+  type: "object",
+  required: ["id", "digest", "size", "received_at"],
+  title: "FleetDraftRead",
+  description: "A draft profile the robot published for review.",
+} as const
+
+export const $FleetDraftReceipt = {
+  properties: {
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    status: {
+      type: "string",
+      const: "received",
+      title: "Status",
+    },
+  },
+  type: "object",
+  required: ["digest", "status"],
+  title: "FleetDraftReceipt",
+  description: `\`200\` body of \`POST /robot-edr/v2/fleet/profiles/drafts\`.`,
+} as const
+
+export const $FleetErrorResponse = {
+  properties: {
+    code: {
+      type: "string",
+      title: "Code",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["code", "detail"],
+  title: "FleetErrorResponse",
+  description:
+    "Error body of the robot-facing fleet endpoints (contract §2.6).",
+} as const
+
+export const $FleetOfferRead = {
+  properties: {
+    digest: {
+      type: "string",
+      title: "Digest",
+    },
+    profile_version: {
+      type: "integer",
+      title: "Profile Version",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: ["digest", "profile_version", "platform", "updated_at"],
+  title: "FleetOfferRead",
+  description: "The profile currently offered to the robot.",
+} as const
+
+export const $FleetOfferUpdate = {
+  properties: {
+    profile: {
+      type: "string",
+      maxLength: 1048576,
+      minLength: 1,
+      title: "Profile",
+      description:
+        "The locked profile file, exactly as robodr-commission wrote it",
+    },
+    signature: {
+      type: "string",
+      maxLength: 65536,
+      minLength: 1,
+      title: "Signature",
+      description: "The profile's .sig file, exactly as written",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["profile", "signature"],
+  title: "FleetOfferUpdate",
+  description: "Offer a locked, signed profile to the robot (contract §6.2).",
+} as const
+
+export const $FleetRevocationCreate = {
+  properties: {
+    revocation_list: {
+      type: "string",
+      maxLength: 1048576,
+      minLength: 1,
+      title: "Revocation List",
+      description:
+        "The list, signed by one of the workspace's trust roots (it is refused otherwise)",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["revocation_list"],
+  title: "FleetRevocationCreate",
+  description:
+    "Publish a root-signed revocation list for a platform (contract §4.1).",
+} as const
+
+export const $FleetRevocationRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    platform: {
+      type: "string",
+      title: "Platform",
+    },
+    serial: {
+      type: "integer",
+      title: "Serial",
+    },
+    list_digest: {
+      type: "string",
+      title: "List Digest",
+    },
+    signer_key_id: {
+      type: "string",
+      title: "Signer Key Id",
+    },
+    signature_checked: {
+      type: "boolean",
+      title: "Signature Checked",
+    },
+    trust_root_key_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Trust Root Key Id",
+    },
+    withdrawal_reason: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Reason",
+    },
+    withdrawal_requested_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Requested By",
+    },
+    withdrawal_requested_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawal Requested At",
+    },
+    withdrawn_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawn By",
+    },
+    withdrawn_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Withdrawn At",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "platform",
+    "serial",
+    "list_digest",
+    "signer_key_id",
+    "signature_checked",
+    "trust_root_key_id",
+    "withdrawal_reason",
+    "withdrawal_requested_by",
+    "withdrawal_requested_at",
+    "withdrawn_by",
+    "withdrawn_at",
+    "created_at",
+  ],
+  title: "FleetRevocationRead",
+  description: "A published revocation list.",
+} as const
+
+export const $FleetRevocationWithdraw = {
+  properties: {
+    reason: {
+      type: "string",
+      maxLength: 512,
+      minLength: 1,
+      pattern: "^[ -;=?-_a-~]*$",
+      title: "Reason",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["reason"],
+  title: "FleetRevocationWithdraw",
+  description: "Request the withdrawal of a published revocation list.",
+} as const
+
+export const $FleetRingRead = {
+  properties: {
+    serial: {
+      type: "integer",
+      title: "Serial",
+    },
+    ring: {
+      type: "integer",
+      title: "Ring",
+    },
+    target_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Target Version",
+    },
+    bundle_sha256: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Bundle Sha256",
+    },
+    min_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Min Version",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+  },
+  type: "object",
+  required: [
+    "serial",
+    "ring",
+    "target_version",
+    "bundle_sha256",
+    "min_version",
+    "issued_at",
+    "expires_at",
+  ],
+  title: "FleetRingRead",
+  description: "The latest update-ring document of the robot.",
+} as const
+
+export const $FleetRingUpdate = {
+  properties: {
+    ring: {
+      type: "integer",
+      maximum: 2,
+      minimum: 0,
+      title: "Ring",
+      description: "0 canary, 1 early, 2 broad",
+    },
+    target_version: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9][0-9A-Za-z.+~-]{0,63}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Target Version",
+    },
+    bundle_sha256: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Bundle Sha256",
+    },
+    min_version: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[0-9][0-9A-Za-z.+~-]{0,63}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Min Version",
+      description: "Security floor: the lowest release the robot may run",
+    },
+    validity_hours: {
+      type: "integer",
+      maximum: 2160,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 168,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["ring"],
+  title: "FleetRingUpdate",
+  description: "Publish update-ring information for the robot (contract §7).",
+} as const
+
+export const $FleetRotationRead = {
+  properties: {
+    rotation_id: {
+      type: "string",
+      title: "Rotation Id",
+    },
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    old_key_id: {
+      type: "string",
+      title: "Old Key Id",
+    },
+    new_key_id: {
+      type: "string",
+      title: "New Key Id",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetRotationStatus",
+    },
+    received: {
+      type: "boolean",
+      title: "Received",
+      description: "False for a cancel of a rotation the SOC never received",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    closed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Closed At",
+    },
+  },
+  type: "object",
+  required: [
+    "rotation_id",
+    "role",
+    "old_key_id",
+    "new_key_id",
+    "status",
+    "received",
+    "created_at",
+    "closed_at",
+  ],
+  title: "FleetRotationRead",
+  description: "A key rotation of the robot (contract §5).",
+} as const
+
+export const $FleetRotationStatus = {
+  type: "string",
+  enum: ["open", "retired", "cancelled"],
+  title: "FleetRotationStatus",
+  description: "State of a key rotation (contract §5).",
+} as const
+
+export const $FleetSocKeyCreate = {
+  properties: {
+    kind: {
+      $ref: "#/components/schemas/FleetSocKeyKind",
+    },
+    custody: {
+      $ref: "#/components/schemas/FleetSocKeyCustody",
+      description:
+        "online: the server holds the secret and signs; offline (approval keys only): register public_key_file and upload detached signatures",
+      default: "online",
+    },
+    secret_key_file: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 4096,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Secret Key File",
+      description:
+        "Fleet keys only: a robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server",
+    },
+    public_key_file: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 4096,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Public Key File",
+      description:
+        "Offline approval keys: the robodr-blackbox-key/v2 public key file (or 64 hex digits) of the operator-held approval key",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["kind"],
+  title: "FleetSocKeyCreate",
+  description: `Create a SOC key.
+
+Fleet keys are online: generated on the server, or imported from a secret
+key file. Approval keys are \`\`offline\`\` (recommended: only the public key
+file is registered and approvals are signed by the operator who holds the
+secret) or \`\`online\`\` (generated on the server; lower assurance). An
+approval key's secret is never imported.`,
+} as const
+
+export const $FleetSocKeyCustody = {
+  type: "string",
+  enum: ["online", "offline"],
+  title: "FleetSocKeyCustody",
+  description: "Where a SOC key's secret lives (contract §2.7).",
+} as const
+
+export const $FleetSocKeyKind = {
+  type: "string",
+  enum: ["fleet", "approval"],
+  title: "FleetSocKeyKind",
+  description: "The two kinds of SOC Ed25519 keys (contract §2.7).",
+} as const
+
+export const $FleetSocKeyRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    kind: {
+      $ref: "#/components/schemas/FleetSocKeyKind",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    fingerprint: {
+      type: "string",
+      title: "Fingerprint",
+    },
+    custody: {
+      $ref: "#/components/schemas/FleetSocKeyCustody",
+    },
+    status: {
+      $ref: "#/components/schemas/FleetSocKeyStatus",
+    },
+    public_key_file: {
+      type: "string",
+      title: "Public Key File",
+      description: "The robodr-blackbox-key/v2 public file robots install",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    activated_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Activated By",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    activated_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Activated At",
+    },
+    retired_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Retired At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "kind",
+    "key_id",
+    "fingerprint",
+    "custody",
+    "status",
+    "public_key_file",
+    "created_by",
+    "activated_by",
+    "created_at",
+    "activated_at",
+    "retired_at",
+  ],
+  title: "FleetSocKeyRead",
+  description: "A SOC key (public material only).",
+} as const
+
+export const $FleetSocKeyStatus = {
+  type: "string",
+  enum: ["pending", "active", "retired"],
+  title: "FleetSocKeyStatus",
+  description: "Lifecycle of a SOC key (contract §2.7 rotation).",
+} as const
+
+export const $FleetTokenCreate = {
+  properties: {
+    validity_hours: {
+      type: "integer",
+      maximum: 168,
+      minimum: 1,
+      title: "Validity Hours",
+      default: 24,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  title: "FleetTokenCreate",
+  description: "Issue a single-use enrollment token for a robot.",
+} as const
+
+export const $FleetTokenIssued = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    token_id: {
+      type: "string",
+      title: "Token Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    workspace: {
+      type: "string",
+      title: "Workspace",
+    },
+    soc_key_id: {
+      type: "string",
+      title: "Soc Key Id",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+    consumed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Consumed At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    status: {
+      type: "string",
+      enum: ["active", "consumed", "expired", "revoked"],
+      title: "Status",
+    },
+    token: {
+      type: "string",
+      title: "Token",
+      description:
+        "The compact token (rdet1.…). A bearer credential until consumed: it is shown once and never stored",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "token_id",
+    "robot_id",
+    "site",
+    "workspace",
+    "soc_key_id",
+    "issued_at",
+    "expires_at",
+    "consumed_at",
+    "revoked_at",
+    "status",
+    "token",
+  ],
+  title: "FleetTokenIssued",
+  description:
+    "A newly issued token: the only response that carries the token.",
+} as const
+
+export const $FleetTokenRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    token_id: {
+      type: "string",
+      title: "Token Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    workspace: {
+      type: "string",
+      title: "Workspace",
+    },
+    soc_key_id: {
+      type: "string",
+      title: "Soc Key Id",
+    },
+    issued_at: {
+      type: "string",
+      format: "date-time",
+      title: "Issued At",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      title: "Expires At",
+    },
+    consumed_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Consumed At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    status: {
+      type: "string",
+      enum: ["active", "consumed", "expired", "revoked"],
+      title: "Status",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "token_id",
+    "robot_id",
+    "site",
+    "workspace",
+    "soc_key_id",
+    "issued_at",
+    "expires_at",
+    "consumed_at",
+    "revoked_at",
+    "status",
+  ],
+  title: "FleetTokenRead",
+  description: "An enrollment token (never the token itself).",
+} as const
+
+export const $FleetTrustRootCreate = {
+  properties: {
+    public_key: {
+      type: "string",
+      maxLength: 4096,
+      minLength: 64,
+      title: "Public Key",
+      description: "robodr-blackbox-key/v2 public key file, or 64 hex digits",
+    },
+    label: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Label",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["public_key"],
+  title: "FleetTrustRootCreate",
+  description:
+    "Trust a robodr-commission trust root for revocation lists (§4.1).",
+} as const
+
+export const $FleetTrustRootRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    fingerprint: {
+      type: "string",
+      title: "Fingerprint",
+    },
+    label: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Label",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "key_id",
+    "fingerprint",
+    "label",
+    "created_by",
+    "created_at",
+    "revoked_at",
+  ],
+  title: "FleetTrustRootRead",
+  description: "A trust root of the workspace.",
 } as const
 
 export const $Float = {
@@ -21120,6 +22313,93 @@ export const $InferredColumn = {
   description: "Inferred column mapping between CSV headers and table columns.",
 } as const
 
+export const $IngestErrorResponse = {
+  properties: {
+    code: {
+      type: "string",
+      title: "Code",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["code", "detail"],
+  title: "IngestErrorResponse",
+  description: "Error body of `POST /robot-edr/v2/ingest`.",
+} as const
+
+export const $IngestLineRejection = {
+  properties: {
+    line: {
+      type: "integer",
+      minimum: 1,
+      title: "Line",
+      description: "1-based line number",
+    },
+    code: {
+      $ref: "#/components/schemas/LineErrorCode",
+    },
+    detail: {
+      type: "string",
+      title: "Detail",
+    },
+  },
+  type: "object",
+  required: ["line", "code", "detail"],
+  title: "IngestLineRejection",
+  description: "One rejected NDJSON line.",
+} as const
+
+export const $IngestResponse = {
+  properties: {
+    batch_id: {
+      type: "string",
+      title: "Batch Id",
+    },
+    replayed: {
+      type: "boolean",
+      title: "Replayed",
+    },
+    accepted: {
+      type: "integer",
+      title: "Accepted",
+    },
+    created: {
+      type: "integer",
+      title: "Created",
+    },
+    updated: {
+      type: "integer",
+      title: "Updated",
+    },
+    duplicates: {
+      type: "integer",
+      title: "Duplicates",
+    },
+    rejected: {
+      items: {
+        $ref: "#/components/schemas/IngestLineRejection",
+      },
+      type: "array",
+      title: "Rejected",
+    },
+  },
+  type: "object",
+  required: [
+    "batch_id",
+    "replayed",
+    "accepted",
+    "created",
+    "updated",
+    "duplicates",
+    "rejected",
+  ],
+  title: "IngestResponse",
+  description: `\`200\` body of \`POST /robot-edr/v2/ingest\` (ingest contract §6).`,
+} as const
+
 export const $InlineObject = {
   properties: {
     typename: {
@@ -22407,6 +23687,23 @@ export const $LicenseStatus = {
   enum: ["missing", "valid", "grace", "expired", "invalid"],
   title: "LicenseStatus",
   description: "Lifecycle state of the configured license key.",
+} as const
+
+export const $LineErrorCode = {
+  type: "string",
+  enum: [
+    "invalid_line",
+    "invalid_finding",
+    "unsupported_contract",
+    "too_large",
+    "robot_mismatch",
+    "unknown_robot",
+    "site_mismatch",
+    "bad_finding_signature",
+    "missing_finding_signature",
+  ],
+  title: "LineErrorCode",
+  description: "Per-line rejection codes (ingest contract §4 step 5).",
 } as const
 
 export const $MCPAuthType = {
@@ -26159,6 +27456,123 @@ export const $Page_ExternalGroupRead_ = {
   title: "Page[ExternalGroupRead]",
 } as const
 
+export const $Page_FleetRevocationRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/FleetRevocationRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[FleetRevocationRead]",
+} as const
+
+export const $Page_RobotKeyRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotKeyRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotKeyRead]",
+} as const
+
+export const $Page_RobotRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotRead]",
+} as const
+
 export const $Page_SecretStoreRead_ = {
   properties: {
     items: {
@@ -29218,6 +30632,600 @@ export const $ResultMessage = {
     "session_id",
   ],
   title: "ResultMessage",
+} as const
+
+export const $RobotCreate = {
+  properties: {
+    robot_id: {
+      type: "string",
+      pattern: "^[A-Za-z0-9._-]{1,64}$",
+      title: "Robot Id",
+      description: "RoboDR robot id (`entity_context.robot.id`)",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 64,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      type: "boolean",
+      title: "Require Finding Signature",
+      description:
+        "Refuse findings for this robot that carry no per-finding signature",
+      default: false,
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["robot_id"],
+  title: "RobotCreate",
+  description: "Register a robot in the workspace.",
+} as const
+
+export const $RobotFleetStatus = {
+  properties: {
+    enrolled: {
+      type: "boolean",
+      title: "Enrolled",
+    },
+    workspace: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Workspace",
+    },
+    enrolled_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Enrolled At",
+    },
+    agentd_version: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Agentd Version",
+    },
+    profile_digest: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Profile Digest",
+    },
+    tokens: {
+      items: {
+        $ref: "#/components/schemas/FleetTokenRead",
+      },
+      type: "array",
+      title: "Tokens",
+    },
+    rotations: {
+      items: {
+        $ref: "#/components/schemas/FleetRotationRead",
+      },
+      type: "array",
+      title: "Rotations",
+    },
+    drafts: {
+      items: {
+        $ref: "#/components/schemas/FleetDraftRead",
+      },
+      type: "array",
+      title: "Drafts",
+    },
+    offer: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/FleetOfferRead",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    approvals: {
+      items: {
+        $ref: "#/components/schemas/FleetApprovalRead",
+      },
+      type: "array",
+      title: "Approvals",
+    },
+    ring: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/FleetRingRead",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+  },
+  type: "object",
+  required: [
+    "enrolled",
+    "workspace",
+    "enrolled_at",
+    "agentd_version",
+    "profile_digest",
+    "tokens",
+    "rotations",
+    "drafts",
+    "offer",
+    "approvals",
+    "ring",
+  ],
+  title: "RobotFleetStatus",
+  description:
+    "The fleet lifecycle of one robot (latest 20 items of each kind).",
+} as const
+
+export const $RobotKeyCreate = {
+  properties: {
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    robot_id: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[A-Za-z0-9._-]{1,64}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Robot Id",
+    },
+    public_key: {
+      type: "string",
+      pattern: "^[0-9a-f]{64}$",
+      title: "Public Key",
+      description: "Ed25519 public key, 64 lower-case hex digits",
+    },
+    key_id: {
+      anyOf: [
+        {
+          type: "string",
+          pattern: "^[!-~]{1,128}$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Key Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+      description:
+        "Relay keys only: report only robots registered with this site",
+    },
+    vouches_origin: {
+      type: "boolean",
+      title: "Vouches Origin",
+      description:
+        "Relay keys only, for the SOC-side diode importer: findings it relays satisfy require_finding_signature without a per-finding signature",
+      default: false,
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  required: ["role", "public_key"],
+  title: "RobotKeyCreate",
+  description: `Register an Ed25519 public key.
+
+\`\`uplink\`\` and \`\`finding\`\` keys name a robot; \`\`relay\`\` keys do not. A
+sender key's id is always derived from its public key
+(\`\`ed25519:<16 hex>\`\`); a \`\`finding\`\` key may carry the producer's own key
+id (printable ASCII, 1-128 characters) and defaults to the derived id.`,
+} as const
+
+export const $RobotKeyProvenance = {
+  type: "string",
+  enum: ["manual", "enrollment", "rotation"],
+  title: "RobotKeyProvenance",
+  description: "How a robot key was registered.",
+} as const
+
+export const $RobotKeyRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    key_id: {
+      type: "string",
+      title: "Key Id",
+    },
+    role: {
+      $ref: "#/components/schemas/RobotKeyRole",
+    },
+    robot_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Robot Id",
+    },
+    public_key: {
+      type: "string",
+      title: "Public Key",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    vouches_origin: {
+      type: "boolean",
+      title: "Vouches Origin",
+    },
+    revoked_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Revoked At",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    provenance: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/RobotKeyProvenance",
+        },
+        {
+          type: "null",
+        },
+      ],
+      description:
+        "How the key was registered (null: before this was recorded)",
+    },
+    created_by: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Created By",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "key_id",
+    "role",
+    "robot_id",
+    "public_key",
+    "site",
+    "vouches_origin",
+    "revoked_at",
+    "expires_at",
+    "created_by",
+    "created_at",
+    "updated_at",
+  ],
+  title: "RobotKeyRead",
+  description: "A registered key (public material only).",
+} as const
+
+export const $RobotKeyRole = {
+  type: "string",
+  enum: ["uplink", "relay", "finding", "blackbox"],
+  title: "RobotKeyRole",
+  description:
+    "What a registered Ed25519 key may authenticate (ingest contract §3).",
+} as const
+
+export const $RobotRead = {
+  properties: {
+    id: {
+      type: "string",
+      format: "uuid",
+      title: "Id",
+    },
+    robot_id: {
+      type: "string",
+      title: "Robot Id",
+    },
+    site: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      type: "boolean",
+      title: "Require Finding Signature",
+    },
+    fleet_enrolled_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Fleet Enrolled At",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      title: "Created At",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      title: "Updated At",
+    },
+  },
+  type: "object",
+  required: [
+    "id",
+    "robot_id",
+    "site",
+    "model",
+    "morphology",
+    "require_finding_signature",
+    "created_at",
+    "updated_at",
+  ],
+  title: "RobotRead",
+  description: "A registered robot.",
+} as const
+
+export const $RobotSocPresetInstall = {
+  properties: {
+    model_name: {
+      type: "string",
+      maxLength: 120,
+      minLength: 1,
+      title: "Model Name",
+    },
+    model_provider: {
+      type: "string",
+      maxLength: 120,
+      minLength: 1,
+      title: "Model Provider",
+    },
+    catalog_id: {
+      anyOf: [
+        {
+          type: "string",
+          format: "uuid",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Catalog Id",
+    },
+  },
+  type: "object",
+  required: ["model_name", "model_provider"],
+  title: "RobotSocPresetInstall",
+  description: "Model selection for installing the Robot SOC preset.",
+} as const
+
+export const $RobotSocPresetInstallRead = {
+  properties: {
+    created: {
+      type: "boolean",
+      title: "Created",
+    },
+    preset: {
+      $ref: "#/components/schemas/AgentPresetRead",
+    },
+  },
+  type: "object",
+  required: ["created", "preset"],
+  title: "RobotSocPresetInstallRead",
+  description: "Result of installing the Robot SOC preset.",
+} as const
+
+export const $RobotUpdate = {
+  properties: {
+    site: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Site",
+    },
+    model: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 128,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Model",
+    },
+    morphology: {
+      anyOf: [
+        {
+          type: "string",
+          maxLength: 64,
+          pattern: "^[ -;=?-_a-~]*$",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Morphology",
+    },
+    require_finding_signature: {
+      anyOf: [
+        {
+          type: "boolean",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Require Finding Signature",
+    },
+  },
+  additionalProperties: false,
+  type: "object",
+  title: "RobotUpdate",
+  description: "Update a robot's descriptive fields or signature policy.",
 } as const
 
 export const $Role = {

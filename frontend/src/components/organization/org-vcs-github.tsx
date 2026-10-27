@@ -255,7 +255,11 @@ function GitHubConnectionDialog({
 }) {
   const { toast } = useToast()
 
-  const form = useForm<GitHubAppFormData>({
+  const form = useForm<
+    z.input<typeof gitHubAppFormSchema>,
+    unknown,
+    GitHubAppFormData
+  >({
     resolver: zodResolver(gitHubAppFormSchema),
     defaultValues: {
       organizationName: "My Organization",

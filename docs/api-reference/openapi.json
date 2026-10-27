@@ -39785,6 +39785,3278 @@
           }
         }
       }
+    },
+    "/robot-edr/v2/ingest": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Ingest Robodr Findings",
+        "description": "Ingest a signed NDJSON batch of `robodr.findings` 2.x values.\n\nAuthentication is the Ed25519 batch signature in the `X-RoboDR-*` headers\n(ingest contract \u00a72.2); the sender key determines the workspace.",
+        "operationId": "public-ingest_robodr_findings",
+        "requestBody": {
+          "content": {
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/enroll": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Enroll",
+        "description": "Enroll a robot with a single-use token (`enroll-request` envelope).",
+        "operationId": "public-fleet_enroll",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/keys/rotate": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Rotate Key",
+        "description": "Register a robot's next key (overlap with the current one).",
+        "operationId": "public-fleet_rotate_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/keys/retire": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Retire Key",
+        "description": "Retire the old key of a rotation.",
+        "operationId": "public-fleet_retire_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/keys/cancel": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Cancel Rotation",
+        "description": "Cancel a rotation the robot will not complete.",
+        "operationId": "public-fleet_cancel_rotation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/revocations/{platform}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Get Revocations",
+        "description": "The root-signed revocation list of a platform, verbatim.",
+        "operationId": "public-fleet_get_revocations",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Platform"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/profiles/drafts": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Publish Draft",
+        "description": "Queue a draft profile for review.",
+        "operationId": "public-fleet_publish_draft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetDraftReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/profiles/current": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Get Profile Offer",
+        "description": "The locked profile offered to the robot (unsigned wrapper).",
+        "operationId": "public-fleet_get_profile_offer",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/profiles/approvals/{digest_hex}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Get Approval",
+        "description": "The approval-key-signed approval of a profile digest.",
+        "operationId": "public-fleet_get_approval",
+        "parameters": [
+          {
+            "name": "digest_hex",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Digest Hex"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/robot-edr/v2/fleet/ring": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fleet Get Ring",
+        "description": "The fleet-key-signed update-ring information.",
+        "operationId": "public-fleet_get_ring",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "List Robots",
+        "description": "List the robots registered in the workspace.",
+        "operationId": "robot-edr-list_robots",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RobotRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Create Robot",
+        "description": "Register a robot.",
+        "operationId": "robot-edr-create_robot",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Get Robot",
+        "description": "Get a robot.",
+        "operationId": "robot-edr-get_robot",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Update Robot",
+        "description": "Update a robot.",
+        "operationId": "robot-edr-update_robot",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Delete Robot",
+        "description": "Delete a robot and its keys. Findings and cases are kept.",
+        "operationId": "robot-edr-delete_robot",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/keys": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "List Robot Keys",
+        "description": "List registered keys.",
+        "operationId": "robot-edr-list_robot_keys",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "robot_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this robot's keys",
+              "title": "Robot Id"
+            },
+            "description": "Only this robot's keys"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RobotKeyRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Create Robot Key",
+        "description": "Register an Ed25519 public key for a robot (uplink, finding) or the workspace (relay).",
+        "operationId": "robot-edr-create_robot_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotKeyCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotKeyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/keys/{key_id}": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Get Robot Key",
+        "description": "Get a key.",
+        "operationId": "robot-edr-get_robot_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotKeyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Delete Robot Key",
+        "description": "Delete a key.",
+        "operationId": "robot-edr-delete_robot_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/keys/{key_id}/revoke": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Revoke Robot Key",
+        "description": "Revoke a key; it authenticates nothing from now on.",
+        "operationId": "robot-edr-revoke_robot_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotKeyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/soc-keys": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "List Fleet Soc Keys",
+        "description": "The workspace's SOC fleet and approval keys (public halves).",
+        "operationId": "robot-edr-list_fleet_soc_keys",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FleetSocKeyRead"
+                  },
+                  "title": "Response Robot-Edr-List Fleet Soc Keys"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Create Fleet Soc Key",
+        "description": "Create a SOC key.\n\nA fleet key (`robot:enroll`) is generated or imported. An approval key\n(`robot:approve`, platform users) is registered offline by its public key\nfile (recommended) or generated online; it is never imported and waits\nfor a second user's activation.",
+        "operationId": "robot-edr-create_fleet_soc_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetSocKeyCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSocKeyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/soc-keys/{key_id}/activate": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Activate Fleet Soc Key",
+        "description": "Sign with a pending key from now on; the previous one is retired.\n\nAn approval key is activated by a platform user other than the one who\nregistered it.",
+        "operationId": "robot-edr-activate_fleet_soc_key",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSocKeyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/revocations": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "List Fleet Revocation Lists",
+        "description": "Published revocation lists, newest first.",
+        "operationId": "robot-edr-list_fleet_revocation_lists",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_FleetRevocationRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Publish Fleet Revocation List",
+        "description": "Publish a root-signed revocation list for its platform.",
+        "operationId": "robot-edr-publish_fleet_revocation_list",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetRevocationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetRevocationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Request Fleet Revocation Withdrawal",
+        "description": "First sign-off of withdrawing a revocation list.",
+        "operationId": "robot-edr-request_fleet_revocation_withdrawal",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "List Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetRevocationWithdraw"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetRevocationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal/confirm": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Confirm Fleet Revocation Withdrawal",
+        "description": "Second sign-off by another user: the list is no longer served.",
+        "operationId": "robot-edr-confirm_fleet_revocation_withdrawal",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "List Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetRevocationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "List Fleet Trust Roots",
+        "description": "The trust roots revocation lists must verify under.",
+        "operationId": "robot-edr-list_fleet_trust_roots",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FleetTrustRootRead"
+                  },
+                  "title": "Response Robot-Edr-List Fleet Trust Roots"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Add Fleet Trust Root",
+        "description": "Trust a robodr-commission trust root for revocation lists.",
+        "operationId": "robot-edr-add_fleet_trust_root",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetTrustRootCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetTrustRootRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots/{root_id}/revoke": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Revoke Fleet Trust Root",
+        "description": "Stop trusting a root for new revocation lists.",
+        "operationId": "robot-edr-revoke_fleet_trust_root",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "root_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Root Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetTrustRootRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Get Robot Fleet Status",
+        "description": "The robot's enrollment, tokens, key rotations, profiles and ring.",
+        "operationId": "robot-edr-get_robot_fleet_status",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotFleetStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/tokens": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Issue Robot Enrollment Token",
+        "description": "Issue a single-use enrollment token. The token is shown only in this response.",
+        "operationId": "robot-edr-issue_robot_enrollment_token",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetTokenCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetTokenIssued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/tokens/{token_id}/revoke": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Revoke Robot Enrollment Token",
+        "description": "Revoke an unused enrollment token.",
+        "operationId": "robot-edr-revoke_robot_enrollment_token",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Token Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetTokenRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/drafts/{draft_id}": {
+      "get": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Get Robot Profile Draft",
+        "description": "A draft profile the robot published, with its text.",
+        "operationId": "robot-edr-get_robot_profile_draft",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetDraftContent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/profile": {
+      "put": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Set Robot Profile Offer",
+        "description": "Offer a locked, signed profile to the robot (staged, never enforced).",
+        "operationId": "robot-edr-set_robot_profile_offer",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetOfferUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetOfferRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Request Robot Profile Approval",
+        "description": "First sign-off: request the observe -> enforce approval of the offered profile.",
+        "operationId": "robot-edr-request_robot_profile_approval",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetApprovalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetApprovalRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/approve": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Approve Robot Profile",
+        "description": "Second sign-off by another user.\n\nWith an online approval key the approval is signed now; with an offline\nkey it is `prepared`: sign `signing_message_hex` with the key and submit\nthe signature.",
+        "operationId": "robot-edr-approve_robot_profile",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetApprovalRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/signature": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Submit Robot Profile Approval Signature",
+        "description": "Attach the offline approval key's signature to a prepared approval.",
+        "operationId": "robot-edr-submit_robot_profile_approval_signature",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetApprovalSignature"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetApprovalRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/cancel": {
+      "post": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Cancel Robot Profile Approval",
+        "description": "Withdraw an approval; a signed one is no longer served.",
+        "operationId": "robot-edr-cancel_robot_profile_approval",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetApprovalRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/ring": {
+      "put": {
+        "tags": [
+          "robot-edr"
+        ],
+        "summary": "Set Robot Ring",
+        "description": "Publish the robot's next update-ring document (information only).",
+        "operationId": "robot-edr-set_robot_ring",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "robot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Robot Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetRingUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetRingRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/agent/presets/robot-soc": {
+      "post": {
+        "tags": [
+          "agent-presets"
+        ],
+        "summary": "Install Robot Soc Preset",
+        "description": "Install the Robot SOC preset in this workspace. Idempotent.\n\nAn existing ``robot-soc`` preset is returned unchanged.",
+        "operationId": "agent-presets-install_robot_soc_preset",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotSocPresetInstall"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotSocPresetInstallRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RoboDR tools or library skills are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPresetValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -47947,6 +51219,12 @@
           "is_deleted": {
             "type": "boolean",
             "title": "Is Deleted",
+            "default": false
+          },
+          "robodr_evidence": {
+            "type": "boolean",
+            "title": "Robodr Evidence",
+            "description": "A verified RoboDR evidence report stored by the evidence service (server-side mark; the file name alone proves nothing)",
             "default": false
           }
         },
@@ -56763,6 +60041,12 @@
             "title": "Tunnels",
             "description": "Whether workspaces may route actions through private network tunnels such as Pangolin",
             "default": false
+          },
+          "robot_edr": {
+            "type": "boolean",
+            "title": "Robot EDR",
+            "description": "Whether workspaces may register robots and ingest RoboDR findings",
+            "default": false
           }
         },
         "type": "object",
@@ -56945,7 +60229,8 @@
           "agent_channels",
           "semantic_search",
           "forms",
-          "tunnels"
+          "tunnels",
+          "robot_edr"
         ],
         "title": "Entitlement",
         "description": "Available feature entitlements."
@@ -57021,6 +60306,11 @@
             "type": "boolean",
             "title": "Tunnels",
             "description": "Whether workspaces may route actions through private network tunnels such as Pangolin"
+          },
+          "robot_edr": {
+            "type": "boolean",
+            "title": "Robot EDR",
+            "description": "Whether workspaces may register robots and ingest RoboDR findings"
           }
         },
         "type": "object",
@@ -86182,6 +89472,2018 @@
           "password"
         ],
         "title": "Body_auth-auth:database.login"
+      },
+      "FleetApprovalCreate": {
+        "properties": {
+          "profile_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Profile Digest"
+          },
+          "validity_hours": {
+            "type": "integer",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Validity Hours",
+            "default": 24
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile_digest"
+        ],
+        "title": "FleetApprovalCreate",
+        "description": "Request an observe -> enforce approval of the offered profile."
+      },
+      "FleetApprovalRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "approval_id": {
+            "type": "string",
+            "title": "Approval Id"
+          },
+          "profile_digest": {
+            "type": "string",
+            "title": "Profile Digest"
+          },
+          "profile_version": {
+            "type": "integer",
+            "title": "Profile Version"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FleetApprovalStatus"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "validity_hours": {
+            "type": "integer",
+            "title": "Validity Hours"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "signer_key_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer Key Id"
+          },
+          "signing_payload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signing Payload",
+            "description": "Prepared approvals: the profile-approval payload (base64url, no padding) the offline approval key signs"
+          },
+          "signing_message_hex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signing Message Hex",
+            "description": "Prepared approvals: the exact bytes to sign with Ed25519 (contract \u00a72.3 message for type profile-approval and signer_key_id), as hex"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "approval_id",
+          "profile_digest",
+          "profile_version",
+          "platform",
+          "status",
+          "requested_by",
+          "approved_by",
+          "validity_hours",
+          "issued_at",
+          "expires_at",
+          "signer_key_id",
+          "created_at"
+        ],
+        "title": "FleetApprovalRead",
+        "description": "An approval request and, once two people signed it off, its signature."
+      },
+      "FleetApprovalSignature": {
+        "properties": {
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$",
+            "title": "Signature",
+            "description": "Ed25519 signature of signing_message_hex, 128 lower-case hex"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "signature"
+        ],
+        "title": "FleetApprovalSignature",
+        "description": "The offline approval key's detached signature of a prepared approval."
+      },
+      "FleetApprovalStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "prepared",
+          "signed",
+          "cancelled"
+        ],
+        "title": "FleetApprovalStatus",
+        "description": "State of a profile approval (contract \u00a76.3)."
+      },
+      "FleetDraftContent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "profile": {
+            "type": "string",
+            "title": "Profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "digest",
+          "size",
+          "received_at",
+          "profile"
+        ],
+        "title": "FleetDraftContent",
+        "description": "A draft profile with its file text."
+      },
+      "FleetDraftRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "digest",
+          "size",
+          "received_at"
+        ],
+        "title": "FleetDraftRead",
+        "description": "A draft profile the robot published for review."
+      },
+      "FleetDraftReceipt": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          },
+          "status": {
+            "type": "string",
+            "const": "received",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "digest",
+          "status"
+        ],
+        "title": "FleetDraftReceipt",
+        "description": "`200` body of `POST /robot-edr/v2/fleet/profiles/drafts`."
+      },
+      "FleetErrorResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "FleetErrorResponse",
+        "description": "Error body of the robot-facing fleet endpoints (contract \u00a72.6)."
+      },
+      "FleetOfferRead": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          },
+          "profile_version": {
+            "type": "integer",
+            "title": "Profile Version"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "digest",
+          "profile_version",
+          "platform",
+          "updated_at"
+        ],
+        "title": "FleetOfferRead",
+        "description": "The profile currently offered to the robot."
+      },
+      "FleetOfferUpdate": {
+        "properties": {
+          "profile": {
+            "type": "string",
+            "maxLength": 1048576,
+            "minLength": 1,
+            "title": "Profile",
+            "description": "The locked profile file, exactly as robodr-commission wrote it"
+          },
+          "signature": {
+            "type": "string",
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Signature",
+            "description": "The profile's .sig file, exactly as written"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile",
+          "signature"
+        ],
+        "title": "FleetOfferUpdate",
+        "description": "Offer a locked, signed profile to the robot (contract \u00a76.2)."
+      },
+      "FleetRevocationCreate": {
+        "properties": {
+          "revocation_list": {
+            "type": "string",
+            "maxLength": 1048576,
+            "minLength": 1,
+            "title": "Revocation List",
+            "description": "The list, signed by one of the workspace's trust roots (it is refused otherwise)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revocation_list"
+        ],
+        "title": "FleetRevocationCreate",
+        "description": "Publish a root-signed revocation list for a platform (contract \u00a74.1)."
+      },
+      "FleetRevocationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          },
+          "serial": {
+            "type": "integer",
+            "title": "Serial"
+          },
+          "list_digest": {
+            "type": "string",
+            "title": "List Digest"
+          },
+          "signer_key_id": {
+            "type": "string",
+            "title": "Signer Key Id"
+          },
+          "signature_checked": {
+            "type": "boolean",
+            "title": "Signature Checked"
+          },
+          "trust_root_key_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Root Key Id"
+          },
+          "withdrawal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Reason"
+          },
+          "withdrawal_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Requested By"
+          },
+          "withdrawal_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Requested At"
+          },
+          "withdrawn_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn By"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "platform",
+          "serial",
+          "list_digest",
+          "signer_key_id",
+          "signature_checked",
+          "trust_root_key_id",
+          "withdrawal_reason",
+          "withdrawal_requested_by",
+          "withdrawal_requested_at",
+          "withdrawn_by",
+          "withdrawn_at",
+          "created_at"
+        ],
+        "title": "FleetRevocationRead",
+        "description": "A published revocation list."
+      },
+      "FleetRevocationWithdraw": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[ -;=?-_a-~]*$",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "FleetRevocationWithdraw",
+        "description": "Request the withdrawal of a published revocation list."
+      },
+      "FleetRingRead": {
+        "properties": {
+          "serial": {
+            "type": "integer",
+            "title": "Serial"
+          },
+          "ring": {
+            "type": "integer",
+            "title": "Ring"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
+          "bundle_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Sha256"
+          },
+          "min_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Version"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "serial",
+          "ring",
+          "target_version",
+          "bundle_sha256",
+          "min_version",
+          "issued_at",
+          "expires_at"
+        ],
+        "title": "FleetRingRead",
+        "description": "The latest update-ring document of the robot."
+      },
+      "FleetRingUpdate": {
+        "properties": {
+          "ring": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Ring",
+            "description": "0 canary, 1 early, 2 broad"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9][0-9A-Za-z.+~-]{0,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
+          "bundle_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Sha256"
+          },
+          "min_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9][0-9A-Za-z.+~-]{0,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Version",
+            "description": "Security floor: the lowest release the robot may run"
+          },
+          "validity_hours": {
+            "type": "integer",
+            "maximum": 2160.0,
+            "minimum": 1.0,
+            "title": "Validity Hours",
+            "default": 168
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ring"
+        ],
+        "title": "FleetRingUpdate",
+        "description": "Publish update-ring information for the robot (contract \u00a77)."
+      },
+      "FleetRotationRead": {
+        "properties": {
+          "rotation_id": {
+            "type": "string",
+            "title": "Rotation Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RobotKeyRole"
+          },
+          "old_key_id": {
+            "type": "string",
+            "title": "Old Key Id"
+          },
+          "new_key_id": {
+            "type": "string",
+            "title": "New Key Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FleetRotationStatus"
+          },
+          "received": {
+            "type": "boolean",
+            "title": "Received",
+            "description": "False for a cancel of a rotation the SOC never received"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rotation_id",
+          "role",
+          "old_key_id",
+          "new_key_id",
+          "status",
+          "received",
+          "created_at",
+          "closed_at"
+        ],
+        "title": "FleetRotationRead",
+        "description": "A key rotation of the robot (contract \u00a75)."
+      },
+      "FleetRotationStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "retired",
+          "cancelled"
+        ],
+        "title": "FleetRotationStatus",
+        "description": "State of a key rotation (contract \u00a75)."
+      },
+      "FleetSocKeyCreate": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/FleetSocKeyKind"
+          },
+          "custody": {
+            "$ref": "#/components/schemas/FleetSocKeyCustody",
+            "description": "online: the server holds the secret and signs; offline (approval keys only): register public_key_file and upload detached signatures",
+            "default": "online"
+          },
+          "secret_key_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret Key File",
+            "description": "Fleet keys only: a robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server"
+          },
+          "public_key_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key File",
+            "description": "Offline approval keys: the robodr-blackbox-key/v2 public key file (or 64 hex digits) of the operator-held approval key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "FleetSocKeyCreate",
+        "description": "Create a SOC key.\n\nFleet keys are online: generated on the server, or imported from a secret\nkey file. Approval keys are ``offline`` (recommended: only the public key\nfile is registered and approvals are signed by the operator who holds the\nsecret) or ``online`` (generated on the server; lower assurance). An\napproval key's secret is never imported."
+      },
+      "FleetSocKeyCustody": {
+        "type": "string",
+        "enum": [
+          "online",
+          "offline"
+        ],
+        "title": "FleetSocKeyCustody",
+        "description": "Where a SOC key's secret lives (contract \u00a72.7)."
+      },
+      "FleetSocKeyKind": {
+        "type": "string",
+        "enum": [
+          "fleet",
+          "approval"
+        ],
+        "title": "FleetSocKeyKind",
+        "description": "The two kinds of SOC Ed25519 keys (contract \u00a72.7)."
+      },
+      "FleetSocKeyRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FleetSocKeyKind"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "custody": {
+            "$ref": "#/components/schemas/FleetSocKeyCustody"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FleetSocKeyStatus"
+          },
+          "public_key_file": {
+            "type": "string",
+            "title": "Public Key File",
+            "description": "The robodr-blackbox-key/v2 public file robots install"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "activated_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "activated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "retired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "key_id",
+          "fingerprint",
+          "custody",
+          "status",
+          "public_key_file",
+          "created_by",
+          "activated_by",
+          "created_at",
+          "activated_at",
+          "retired_at"
+        ],
+        "title": "FleetSocKeyRead",
+        "description": "A SOC key (public material only)."
+      },
+      "FleetSocKeyStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "active",
+          "retired"
+        ],
+        "title": "FleetSocKeyStatus",
+        "description": "Lifecycle of a SOC key (contract \u00a72.7 rotation)."
+      },
+      "FleetTokenCreate": {
+        "properties": {
+          "validity_hours": {
+            "type": "integer",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Validity Hours",
+            "default": 24
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FleetTokenCreate",
+        "description": "Issue a single-use enrollment token for a robot."
+      },
+      "FleetTokenIssued": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "token_id": {
+            "type": "string",
+            "title": "Token Id"
+          },
+          "robot_id": {
+            "type": "string",
+            "title": "Robot Id"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "workspace": {
+            "type": "string",
+            "title": "Workspace"
+          },
+          "soc_key_id": {
+            "type": "string",
+            "title": "Soc Key Id"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "consumed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumed At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "expired",
+              "revoked"
+            ],
+            "title": "Status"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "The compact token (rdet1.\u2026). A bearer credential until consumed: it is shown once and never stored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "token_id",
+          "robot_id",
+          "site",
+          "workspace",
+          "soc_key_id",
+          "issued_at",
+          "expires_at",
+          "consumed_at",
+          "revoked_at",
+          "status",
+          "token"
+        ],
+        "title": "FleetTokenIssued",
+        "description": "A newly issued token: the only response that carries the token."
+      },
+      "FleetTokenRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "token_id": {
+            "type": "string",
+            "title": "Token Id"
+          },
+          "robot_id": {
+            "type": "string",
+            "title": "Robot Id"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "workspace": {
+            "type": "string",
+            "title": "Workspace"
+          },
+          "soc_key_id": {
+            "type": "string",
+            "title": "Soc Key Id"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "consumed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumed At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "expired",
+              "revoked"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "token_id",
+          "robot_id",
+          "site",
+          "workspace",
+          "soc_key_id",
+          "issued_at",
+          "expires_at",
+          "consumed_at",
+          "revoked_at",
+          "status"
+        ],
+        "title": "FleetTokenRead",
+        "description": "An enrollment token (never the token itself)."
+      },
+      "FleetTrustRootCreate": {
+        "properties": {
+          "public_key": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 64,
+            "title": "Public Key",
+            "description": "robodr-blackbox-key/v2 public key file, or 64 hex digits"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "public_key"
+        ],
+        "title": "FleetTrustRootCreate",
+        "description": "Trust a robodr-commission trust root for revocation lists (\u00a74.1)."
+      },
+      "FleetTrustRootRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key_id",
+          "fingerprint",
+          "label",
+          "created_by",
+          "created_at",
+          "revoked_at"
+        ],
+        "title": "FleetTrustRootRead",
+        "description": "A trust root of the workspace."
+      },
+      "IngestErrorResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "IngestErrorResponse",
+        "description": "Error body of `POST /robot-edr/v2/ingest`."
+      },
+      "IngestLineRejection": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Line",
+            "description": "1-based line number"
+          },
+          "code": {
+            "$ref": "#/components/schemas/LineErrorCode"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "code",
+          "detail"
+        ],
+        "title": "IngestLineRejection",
+        "description": "One rejected NDJSON line."
+      },
+      "IngestResponse": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/IngestLineRejection"
+            },
+            "type": "array",
+            "title": "Rejected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "replayed",
+          "accepted",
+          "created",
+          "updated",
+          "duplicates",
+          "rejected"
+        ],
+        "title": "IngestResponse",
+        "description": "`200` body of `POST /robot-edr/v2/ingest` (ingest contract \u00a76)."
+      },
+      "LineErrorCode": {
+        "type": "string",
+        "enum": [
+          "invalid_line",
+          "invalid_finding",
+          "unsupported_contract",
+          "too_large",
+          "robot_mismatch",
+          "unknown_robot",
+          "site_mismatch",
+          "bad_finding_signature",
+          "missing_finding_signature"
+        ],
+        "title": "LineErrorCode",
+        "description": "Per-line rejection codes (ingest contract \u00a74 step 5)."
+      },
+      "Page_FleetRevocationRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FleetRevocationRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Next-page cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor",
+            "description": "Previous-page cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[FleetRevocationRead]"
+      },
+      "Page_RobotKeyRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RobotKeyRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Next-page cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor",
+            "description": "Previous-page cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[RobotKeyRead]"
+      },
+      "Page_RobotRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RobotRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Next-page cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor",
+            "description": "Previous-page cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[RobotRead]"
+      },
+      "RobotCreate": {
+        "properties": {
+          "robot_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+            "title": "Robot Id",
+            "description": "RoboDR robot id (`entity_context.robot.id`)"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "morphology": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morphology"
+          },
+          "require_finding_signature": {
+            "type": "boolean",
+            "title": "Require Finding Signature",
+            "description": "Refuse findings for this robot that carry no per-finding signature",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "robot_id"
+        ],
+        "title": "RobotCreate",
+        "description": "Register a robot in the workspace."
+      },
+      "RobotFleetStatus": {
+        "properties": {
+          "enrolled": {
+            "type": "boolean",
+            "title": "Enrolled"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          },
+          "enrolled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled At"
+          },
+          "agentd_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agentd Version"
+          },
+          "profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Digest"
+          },
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/FleetTokenRead"
+            },
+            "type": "array",
+            "title": "Tokens"
+          },
+          "rotations": {
+            "items": {
+              "$ref": "#/components/schemas/FleetRotationRead"
+            },
+            "type": "array",
+            "title": "Rotations"
+          },
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/FleetDraftRead"
+            },
+            "type": "array",
+            "title": "Drafts"
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetOfferRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/FleetApprovalRead"
+            },
+            "type": "array",
+            "title": "Approvals"
+          },
+          "ring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetRingRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enrolled",
+          "workspace",
+          "enrolled_at",
+          "agentd_version",
+          "profile_digest",
+          "tokens",
+          "rotations",
+          "drafts",
+          "offer",
+          "approvals",
+          "ring"
+        ],
+        "title": "RobotFleetStatus",
+        "description": "The fleet lifecycle of one robot (latest 20 items of each kind)."
+      },
+      "RobotKeyCreate": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/RobotKeyRole"
+          },
+          "robot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._-]{1,64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Robot Id"
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Public Key",
+            "description": "Ed25519 public key, 64 lower-case hex digits"
+          },
+          "key_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[!-~]{1,128}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Id"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site",
+            "description": "Relay keys only: report only robots registered with this site"
+          },
+          "vouches_origin": {
+            "type": "boolean",
+            "title": "Vouches Origin",
+            "description": "Relay keys only, for the SOC-side diode importer: findings it relays satisfy require_finding_signature without a per-finding signature",
+            "default": false
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "public_key"
+        ],
+        "title": "RobotKeyCreate",
+        "description": "Register an Ed25519 public key.\n\n``uplink`` and ``finding`` keys name a robot; ``relay`` keys do not. A\nsender key's id is always derived from its public key\n(``ed25519:<16 hex>``); a ``finding`` key may carry the producer's own key\nid (printable ASCII, 1-128 characters) and defaults to the derived id."
+      },
+      "RobotKeyProvenance": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "enrollment",
+          "rotation"
+        ],
+        "title": "RobotKeyProvenance",
+        "description": "How a robot key was registered."
+      },
+      "RobotKeyRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RobotKeyRole"
+          },
+          "robot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Robot Id"
+          },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "vouches_origin": {
+            "type": "boolean",
+            "title": "Vouches Origin"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RobotKeyProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the key was registered (null: before this was recorded)"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key_id",
+          "role",
+          "robot_id",
+          "public_key",
+          "site",
+          "vouches_origin",
+          "revoked_at",
+          "expires_at",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RobotKeyRead",
+        "description": "A registered key (public material only)."
+      },
+      "RobotKeyRole": {
+        "type": "string",
+        "enum": [
+          "uplink",
+          "relay",
+          "finding",
+          "blackbox"
+        ],
+        "title": "RobotKeyRole",
+        "description": "What a registered Ed25519 key may authenticate (ingest contract \u00a73)."
+      },
+      "RobotRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "robot_id": {
+            "type": "string",
+            "title": "Robot Id"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "morphology": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morphology"
+          },
+          "require_finding_signature": {
+            "type": "boolean",
+            "title": "Require Finding Signature"
+          },
+          "fleet_enrolled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fleet Enrolled At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "robot_id",
+          "site",
+          "model",
+          "morphology",
+          "require_finding_signature",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RobotRead",
+        "description": "A registered robot."
+      },
+      "RobotSocPresetInstall": {
+        "properties": {
+          "model_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Model Name"
+          },
+          "model_provider": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Model Provider"
+          },
+          "catalog_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_name",
+          "model_provider"
+        ],
+        "title": "RobotSocPresetInstall",
+        "description": "Model selection for installing the Robot SOC preset."
+      },
+      "RobotSocPresetInstallRead": {
+        "properties": {
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          },
+          "preset": {
+            "$ref": "#/components/schemas/AgentPresetRead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "preset"
+        ],
+        "title": "RobotSocPresetInstallRead",
+        "description": "Result of installing the Robot SOC preset."
+      },
+      "RobotUpdate": {
+        "properties": {
+          "site": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "morphology": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[ -;=?-_a-~]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morphology"
+          },
+          "require_finding_signature": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Finding Signature"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RobotUpdate",
+        "description": "Update a robot's descriptive fields or signature policy."
       }
     },
     "securitySchemes": {

@@ -48,9 +48,9 @@ const createCaseSchema = z.object({
     .min(1, "Summary is required")
     .max(200, "Summary cannot exceed 200 characters"),
   description: z.string().min(1, "Description is required"),
-  status: z.string() as z.ZodType<CaseStatus>,
-  priority: z.string() as z.ZodType<CasePriority>,
-  severity: z.string() as z.ZodType<CaseSeverity>,
+  status: z.string() as z.ZodType<CaseStatus, CaseStatus>,
+  priority: z.string() as z.ZodType<CasePriority, CasePriority>,
+  severity: z.string() as z.ZodType<CaseSeverity, CaseSeverity>,
   assignee_id: z.string().optional(),
 })
 
@@ -67,7 +67,11 @@ export function CreateCaseDialog({
   const router = useRouter()
   const { createCase, createCaseIsPending } = useCreateCase(workspaceId)
 
-  const form = useForm<CreateCaseSchema>({
+  const form = useForm<
+    z.input<typeof createCaseSchema>,
+    unknown,
+    CreateCaseSchema
+  >({
     resolver: zodResolver(createCaseSchema),
     defaultValues: {
       summary: "",

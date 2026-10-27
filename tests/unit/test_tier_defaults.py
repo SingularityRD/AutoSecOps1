@@ -24,6 +24,7 @@ _FALSE_BY_DEFAULT = {
     "semantic_search": False,
     "forms": False,
     "tunnels": False,
+    "robot_edr": False,
 }
 
 

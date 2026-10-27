@@ -70,6 +70,11 @@ from autosecops.agent.control.schemas import (
 from autosecops.agent.llm import LLMCompletionError
 from autosecops.agent.mcp.metadata import sanitize_message_tool_inputs
 from autosecops.agent.preset.prompts import AgentPresetBuilderPrompt
+from autosecops.agent.preset.robodr_prompt import (
+    RobodrCaseContext,
+    build_robodr_case_prompt,
+    robodr_payload,
+)
 from autosecops.agent.preset.service import AgentPresetService
 from autosecops.agent.runtime.claude_code.session_lines import (
     APPROVAL_INTERRUPT_CONTENT_EXACT,
@@ -2973,6 +2978,20 @@ class AgentSessionService(BaseWorkspaceService):
             )
             if not case:
                 raise AutoSecOpsNotFoundError(f"Case with ID {entity_id} not found")
+            if robodr_payload(case.payload) is not None:
+                # Keep adversary-controlled robot values inside untrusted
+                # blocks instead of dumping the raw payload.
+                return build_robodr_case_prompt(
+                    RobodrCaseContext(
+                        case_id=case.id,
+                        summary=case.summary,
+                        description=case.description,
+                        severity=case.severity.value,
+                        priority=case.priority.value,
+                        status=case.status.value,
+                        payload=case.payload,
+                    )
+                )
             return CaseCopilotPrompts(case=case).instructions
         if entity_type == AgentSessionEntity.AGENT_PRESET_BUILDER:
             agent_preset_service = AgentPresetService(self.session, self.role)

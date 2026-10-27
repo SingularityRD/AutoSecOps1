@@ -7,7 +7,9 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 ## Infrastructure credentials
 
-The default configuration ships with weak, well-known passwords for PostgreSQL, MinIO, and Redis. Replace them with strong, unique values before exposing AutoSecOps to production traffic.
+`.env.example` ships `change-me-` placeholders for the PostgreSQL, Temporal PostgreSQL, and MinIO passwords. When you answer `y` to the production prompt, `env.sh` replaces them with random values. Development mode keeps the well-known values `postgres`, `temporal`, and `password`, which only suit a local machine. Run `./env.sh --check` before `docker compose up`: it exits non-zero while any placeholder remains and warns about well-known passwords in production mode.
+
+Installs created before this change keep the weak defaults in their `.env`. Rotate them as below; change the password inside PostgreSQL (`ALTER ROLE ... PASSWORD`) before you edit `.env`, because the database volume keeps the password it was initialized with. Redis has no password by default.
 
 ```bash
 # PostgreSQL

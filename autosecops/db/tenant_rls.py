@@ -99,6 +99,21 @@ POST_RLS_WORKSPACE_SCOPED_TABLES = (
     "form_view",
     "form_file",
     "workspace_tunnel",
+    "robot_evidence_export",
+    "robot",
+    "robot_key",
+    "robot_finding",
+    "robot_finding_event",
+    "robot_ingest_batch",
+    "robot_fleet_soc_key",
+    "robot_fleet_token",
+    "robot_fleet_rotation",
+    "robot_fleet_revocation_list",
+    "robot_fleet_profile_draft",
+    "robot_fleet_profile_offer",
+    "robot_fleet_approval",
+    "robot_fleet_ring",
+    "robot_fleet_trust_root",
 )
 
 POST_RLS_ORG_SCOPED_TABLES = (

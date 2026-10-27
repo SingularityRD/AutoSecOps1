@@ -480,7 +480,11 @@ function EditDefinitionDialog({
 
   const [isSaving, setIsSaving] = useState(false)
 
-  const methods = useForm<CaseDropdownDefinitionUpdate>({
+  const methods = useForm<
+    z.input<typeof updateDefinitionSchema>,
+    unknown,
+    CaseDropdownDefinitionUpdate
+  >({
     resolver: zodResolver(updateDefinitionSchema),
     defaultValues: {
       name: definition.name,

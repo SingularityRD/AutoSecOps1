@@ -35,7 +35,7 @@ def upgrade() -> None:
             RAISE EXCEPTION USING
                 ERRCODE = SQLSTATE,
                 MESSAGE = SQLERRM,
-                HINT = 'For pgvector installation and permissions, see https://docs.tracecat.com/self-hosting/pgvector';
+                HINT = 'For pgvector installation and permissions, see https://docs.singularityrd.com/self-hosting/pgvector';
         END $$;
     """)
     op.execute("""
@@ -46,7 +46,7 @@ def upgrade() -> None:
                   AND string_to_array(e.extversion, '.')::int[] >= ARRAY[0,8,0]
             ) THEN
                 RAISE EXCEPTION 'Tracecat requires pgvector >= 0.8.0 in the public schema'
-                    USING HINT = 'For pgvector version and schema requirements, see https://docs.tracecat.com/self-hosting/pgvector';
+                    USING HINT = 'For pgvector version and schema requirements, see https://docs.singularityrd.com/self-hosting/pgvector';
             END IF;
         END $$;
     """)

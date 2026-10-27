@@ -775,3 +775,49 @@ class AuditService(BaseService):
         self.logger.debug(
             "Streamed audit event", resource_type=resource_type, action=action
         )
+
+    async def create_robot_event(
+        self,
+        *,
+        actor_id: uuid.UUID,
+        resource_type: AuditResourceType,
+        action: AuditAction,
+        status: AuditEventStatus,
+        data: AuditMetadata | None = None,
+    ) -> None:
+        """Deliver an audit event whose actor is a RoboDR sender key.
+
+        RoboDR ingest requests carry no user or service-account identity; the
+        actor is the sender key (``robot_key.id``), or a stable UUID derived
+        from the presented key id when no registered key matches. The org
+        sink is used when this service's role names an organization, the
+        platform sink otherwise. The request client IP is always included.
+
+        Args:
+            actor_id: The sender key's stable identifier.
+            resource_type: Type of resource affected by the operation.
+            action: Operation performed on the resource.
+            status: Outcome of the operation.
+            data: Explicitly selected operational metadata (see
+                :meth:`create_event`).
+        """
+        webhook_url = await self._get_webhook_url()
+        if not webhook_url:
+            self.logger.debug("Skipping audit log", reason="webhook_unconfigured")
+            return
+        request_audit = ctx_request_audit.get()
+        role = self.role if isinstance(self.role, Role) else None
+        payload = AuditEvent(
+            organization_id=role.organization_id if role is not None else None,
+            workspace_id=role.workspace_id if role is not None else None,
+            actor_type=AuditEventActor.ROBOT,
+            actor_id=actor_id,
+            resource_type=resource_type,
+            resource_id=None,
+            action=action,
+            status=status,
+            ip_address=request_audit.client_ip if request_audit is not None else None,
+            user_agent=request_audit.user_agent if request_audit is not None else None,
+            data=sanitize_audit_metadata(data),
+        )
+        await self._post_event(webhook_url=webhook_url, payload=payload)

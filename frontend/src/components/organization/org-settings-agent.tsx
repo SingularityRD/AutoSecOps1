@@ -118,7 +118,9 @@ const CURSOR_PAGE_SIZE = 100
 const customProviderSchema = z
   .object({
     displayName: z.string().trim().min(1, "Name is required"),
-    baseUrl: z.union([z.string().url(), z.literal(""), z.undefined()]),
+    // Optional so a missing key is accepted (Zod 4 rejects it for a union
+    // with `z.undefined()`).
+    baseUrl: z.union([z.string().url(), z.literal("")]).optional(),
     apiKeyHeader: z.string().trim().optional(),
     apiKey: z.string().optional(),
     customHeadersJson: z.string().optional(),
@@ -954,7 +956,11 @@ function CustomProviderDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const form = useForm<CustomProviderFormValues>({
+  const form = useForm<
+    z.input<typeof customProviderSchema>,
+    unknown,
+    CustomProviderFormValues
+  >({
     resolver: zodResolver(customProviderSchema),
     mode: "onBlur",
     defaultValues: getProviderDialogDefaults(provider),
@@ -1850,7 +1856,11 @@ function CloudCatalogModelDialog({
 }: CloudCatalogModelDialogProps) {
   const queryClient = useQueryClient()
   const activeProvider = provider ?? "bedrock"
-  const form = useForm<CloudCatalogModelFormValues>({
+  const form = useForm<
+    z.input<typeof cloudCatalogModelSchema>,
+    unknown,
+    CloudCatalogModelFormValues
+  >({
     resolver: zodResolver(cloudCatalogModelSchema),
     mode: "onBlur",
     defaultValues: buildCloudCatalogDefaults(activeProvider, entry),

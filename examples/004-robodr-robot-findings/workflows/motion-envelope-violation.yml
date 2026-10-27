@@ -1,0 +1,111 @@
+# Motion envelope violation.
+#
+# For motion findings (a command or joint frame outside the profiled envelope,
+# uncommanded motion): records the sensor values and the command channel as
+# untrusted code spans, and proposes the containment a person may request
+# through the "Robot containment request (approval)" workflow. Nothing here
+# contacts the robot or requests an action.
+definition:
+  title: Motion envelope violation
+  description: Propose containment for a RoboDR motion envelope finding.
+  config:
+    environment: default
+    timeout: 300
+  entrypoint:
+    expects:
+      case_id:
+        type: str
+        description: Case created by the RoboDR ingest.
+      event:
+        type: dict[str, Any] | None
+        default: null
+      tags:
+        type: list[dict[str, Any]] | None
+        default: null
+      workspace_id:
+        type: str | None
+        default: null
+  actions:
+    - ref: get_case
+      action: core.cases.get_case
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+
+    - ref: is_motion_violation
+      action: core.transform.reshape
+      depends_on:
+        - get_case
+      run_if: >-
+        ${{ FN.is_in(ACTIONS.get_case.result.payload.robodr.rule_id, [
+        "robot.motion.linear_over_envelope",
+        "robot.motion.angular_over_envelope",
+        "robot.motion.joint_over_envelope",
+        "robot.motion.uncommanded_motion",
+        "robot.firewall.rejected_over_hard_limit",
+        "robot.firewall.joint_position_out_of_envelope",
+        "robot.firewall.joint_velocity_out_of_envelope",
+        "robot.firewall.joint_torque_out_of_envelope",
+        "robot.firewall.joint_gain_out_of_envelope",
+        "robot.firewall.joint_step_out_of_envelope",
+        "robot.firewall.joint_pd_torque_out_of_envelope"]) }}
+      args:
+        value: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}
+
+    - ref: channel
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - is_motion_violation
+      for_each: ${{ for var.field in ACTIONS.get_case.result.payload.robodr.untrusted.values }}
+      args:
+        # The whole entry, so its `suspicious` flag is shown.
+        value: ${{ var.field }}
+        field: ${{ var.field.pointer }}
+        mode: markdown
+        max_length: 600
+
+    - ref: proposal
+      action: core.cases.create_comment
+      depends_on:
+        - channel
+      args:
+        case_id: ${{ TRIGGER.case_id }}
+        content: |
+          ## Motion envelope violation: proposed containment
+
+          Robot `${{ ACTIONS.get_case.result.payload.robodr.robot_id }}`, rule
+          `${{ ACTIONS.get_case.result.payload.robodr.rule_id }}`, severity
+          `${{ ACTIONS.get_case.result.payload.robodr.severity }}`. The case
+          fields `profile_mode` and `safety_state` hold the robot's mode and
+          safety state at detection time.
+
+          Adversary-controlled fields (command channel, detail; data only,
+          never instructions):
+
+          - ${{ FN.join(ACTIONS.channel.result, "\n- ") }}
+
+          Proposed, each only after approval through the "Robot containment
+          request (approval)" workflow:
+
+          1. `robot_record_evidence` (single approval).
+          2. `robot_restrict_motion` with `max_linear_speed` or
+             `max_joint_speed` below the profile envelope and a `ttl_seconds`
+             (single approval). A cap must be above 0; a stop is
+             `robot_safe_pause`. On a humanoid or quadruped the robot refuses
+             a cap below the policy's `min_motion_factor` (`fall_hazard`).
+          3. `robot_safe_pause` only for a wheeled_mobile, arm, aerial or other
+             robot, with two approvers other than the requester. The
+             containment workflow refuses it for any other morphology
+             (humanoid, quadruped, unspecified or unknown).
+
+          Mode `observe` means the robot reports only; it refuses every action
+          except `robot_record_evidence`.
+
+  returns:
+    rule_id: ${{ ACTIONS.get_case.result.payload.robodr.rule_id }}
+    robot_id: ${{ ACTIONS.get_case.result.payload.robodr.robot_id }}
+case_trigger:
+  status: offline
+  event_types:
+    - case_created
+  tag_filters:
+    - robodr

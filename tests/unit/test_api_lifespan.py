@@ -1,8 +1,14 @@
 import asyncio
+import gc
 
 import pytest
 
-from autosecops.api.lifespan import LifespanTaskSupervisor
+from autosecops.api.lifespan import (
+    LifespanTaskSupervisor,
+    freeze_startup_heap,
+    freeze_startup_heap_after,
+    unfreeze_startup_heap,
+)
 
 
 @pytest.mark.anyio
@@ -290,3 +296,69 @@ async def test_drain_surfaces_completed_task_errors_once(
     captured_error, task_name = captured_failures[0]
     assert captured_error is context["err"]
     assert task_name == "failing_task"
+
+
+def test_freeze_startup_heap_moves_survivors_out_of_full_collections() -> None:
+    before = gc.get_freeze_count()
+    freeze_startup_heap()
+    try:
+        assert gc.get_freeze_count() > before
+        # New objects stay collectable while the start-up heap is frozen.
+        cycle: list[object] = []
+        cycle.append(cycle)
+        del cycle
+        assert gc.collect() >= 1
+    finally:
+        unfreeze_startup_heap()
+    assert gc.get_freeze_count() == 0
+
+
+@pytest.mark.anyio
+async def test_start_up_heap_is_frozen_only_after_the_start_up_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "autosecops.api.lifespan.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", False
+    )
+    supervisor = LifespanTaskSupervisor(drain_timeout=5.0)
+    release = asyncio.Event()
+    frozen_while_syncing: list[int] = []
+
+    async def registry_sync() -> None:
+        await release.wait()
+        frozen_while_syncing.append(gc.get_freeze_count())
+
+    async def failing_load() -> None:
+        raise RuntimeError("catalog unavailable")
+
+    sync = supervisor.spawn(registry_sync(), name="sync")
+    load = supervisor.spawn(failing_load(), name="load")
+    freezer = supervisor.spawn(
+        freeze_startup_heap_after(supervisor, [sync, load]), name="freeze"
+    )
+    try:
+        await asyncio.sleep(0.01)
+        assert gc.get_freeze_count() == 0
+        release.set()
+        await freezer
+        assert frozen_while_syncing == [0]
+        assert gc.get_freeze_count() > 0
+    finally:
+        await supervisor.drain()
+        unfreeze_startup_heap()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("local_repository, draining", [(True, False), (False, True)])
+async def test_start_up_heap_is_not_frozen_for_reloads_or_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch, local_repository: bool, draining: bool
+) -> None:
+    monkeypatch.setattr(
+        "autosecops.api.lifespan.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
+        local_repository,
+    )
+    supervisor = LifespanTaskSupervisor(drain_timeout=5.0)
+    if draining:
+        await supervisor.drain()
+    await freeze_startup_heap_after(supervisor, [])
+    assert gc.get_freeze_count() == 0

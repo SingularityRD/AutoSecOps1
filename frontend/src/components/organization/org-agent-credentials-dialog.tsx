@@ -148,7 +148,13 @@ export function AgentCredentialsDialog({
   const form = useForm<Record<string, string>>({
     resolver:
       provider && providerConfig
-        ? zodResolver(getCredentialsSchema())
+        ? zodResolver(
+            // Optional fields are left empty rather than unset in the form.
+            getCredentialsSchema() as z.ZodType<
+              Record<string, string>,
+              Record<string, string>
+            >
+          )
         : undefined,
   })
 

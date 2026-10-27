@@ -187,7 +187,11 @@ function GitLabConnectionDialog({
 }) {
   const { saveCredentials } = useGitLabTokenCredentials()
   const { toast } = useToast()
-  const form = useForm<GitLabTokenFormData>({
+  const form = useForm<
+    z.input<typeof gitLabTokenFormSchema>,
+    unknown,
+    GitLabTokenFormData
+  >({
     resolver: zodResolver(gitLabTokenFormSchema),
     defaultValues: {
       base_url: existingBaseUrl ?? "https://gitlab.com",

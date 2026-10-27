@@ -3,7 +3,9 @@
 Pipeline: bundled JSON -> ``Raw*`` models (trust boundary) -> runtime entries.
 
 The public catalog (``mcp_catalog.json``) carries display-only rows: slug,
-name, description, category, icon. The EE-private overlay
+name, description, category. Provider icons ship inside the UI bundle
+(``frontend/src/components/mcp-catalog-icons.tsx``) so air-gapped installs never
+fetch them from a third party; rows must not carry remote icon URLs. The EE-private overlay
 (``mcp_catalog_private.json``) merges connect recipes onto those rows by slug:
 connection specs, credentials, OAuth endpoints, docs, and provider ids.
 Without the overlay every row is display-only ("coming soon"); with it, a row

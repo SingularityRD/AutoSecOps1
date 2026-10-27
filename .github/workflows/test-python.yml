@@ -105,6 +105,10 @@ jobs:
           python-version: "3.12"
 
       - name: Run environment setup script
+        env:
+          # CI services are throwaway and tests connect with the well-known
+          # development credentials, so keep them even in production mode.
+          AUTOSECOPS_DEV_CREDENTIALS: "true"
         run: |
           echo "y
           localhost

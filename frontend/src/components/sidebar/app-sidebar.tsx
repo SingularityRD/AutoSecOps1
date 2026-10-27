@@ -16,6 +16,7 @@ import {
   MousePointerClickIcon,
   NetworkIcon,
   Pyramid,
+  RadarIcon,
   SendIcon,
   Sparkles,
   Table2Icon,
@@ -210,6 +211,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const canViewServiceAccounts = useScopeCheck("workspace:service_account:read")
   const canViewMcpAccess = useScopeCheck("workspace:read")
   const canViewCases = useScopeCheck("case:read")
+  const canViewRobots = useScopeCheck("robot:read")
   // The builder pages need one of these on top of `form:read`; a requester
   // who can only fill in forms has no use for the list.
   const canReadForms = useScopeCheck("form:read")
@@ -234,7 +236,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     canExecuteAgents === true ||
     canViewServiceAccounts === true ||
     canViewInbox === true ||
-    canOpenGitSync === true
+    canOpenGitSync === true ||
+    canViewRobots === true
   const {
     hasEntitlement,
     hasEntitlementData,
@@ -246,6 +249,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const workspaceChatEnabled = hasEntitlement("workspace_chat")
   const serviceAccountsEnabled = hasEntitlement("service_accounts")
   const gitSyncEnabled = hasEntitlement("git_sync")
+  // Hidden, not locked, without the entitlement: Robot EDR is an add-on that
+  // most workspaces never see.
+  const robotsVisible =
+    canViewRobots === true && entitlementsKnown && hasEntitlement("robot_edr")
   const { data: pendingApprovalsCount = 0 } = usePendingApprovalsCount(
     workspaceId,
     {
@@ -392,6 +399,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       visible: canViewInbox === true,
       badgeCount: pendingApprovalsCount,
       badgeLabel: `${pendingApprovalsCount} pending approval${pendingApprovalsCount === 1 ? "" : "s"}`,
+    },
+    {
+      title: "Robots",
+      url: `${basePath}/robots`,
+      icon: RadarIcon,
+      isActive: pathname?.startsWith(`${basePath}/robots`),
+      visible: robotsVisible,
     },
   ]
 

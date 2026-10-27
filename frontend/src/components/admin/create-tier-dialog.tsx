@@ -37,7 +37,7 @@ import {
 
 // Preprocessor to convert empty strings to undefined for optional numeric fields
 const emptyToUndefined = z.preprocess(
-  (val) => (val === "" ? undefined : val),
+  (val: number | string | undefined) => (val === "" ? undefined : val),
   z.coerce.number().int().positive().optional()
 )
 
@@ -53,7 +53,7 @@ const formSchema = z.object({
   api_burst_capacity: emptyToUndefined,
   entitlements: tierEntitlementsSchema,
   is_default: z.boolean().default(false),
-  sort_order: z.coerce.number().int().min(0).default(0),
+  sort_order: z.coerce.number<number>().int().min(0).default(0),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -62,7 +62,7 @@ export function CreateTierDialog() {
   const [open, setOpen] = useState(false)
   const { createTier, createPending } = useAdminTiers()
 
-  const form = useForm<FormValues>({
+  const form = useForm<z.input<typeof formSchema>, unknown, FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       display_name: "",

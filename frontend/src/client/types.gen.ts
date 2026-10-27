@@ -2177,6 +2177,10 @@ export type CaseAttachmentRead = {
   updated_at: string
   creator_id?: string | null
   is_deleted?: boolean
+  /**
+   * A verified RoboDR evidence report stored by the evidence service (server-side mark; the file name alone proves nothing)
+   */
+  robodr_evidence?: boolean
 }
 
 /**
@@ -4963,6 +4967,10 @@ export type EffectiveEntitlements = {
    * Whether workspaces may route actions through private network tunnels such as Pangolin
    */
   tunnels?: boolean
+  /**
+   * Whether workspaces may register robots and ingest RoboDR findings
+   */
+  robot_edr?: boolean
 }
 
 /**
@@ -5052,6 +5060,7 @@ export type Entitlement =
   | "semantic_search"
   | "forms"
   | "tunnels"
+  | "robot_edr"
 
 /**
  * TypedDict for tier entitlements stored in JSONB.
@@ -5115,6 +5124,10 @@ export type EntitlementsDict = {
    * Whether workspaces may route actions through private network tunnels such as Pangolin
    */
   tunnels?: boolean
+  /**
+   * Whether workspaces may register robots and ingest RoboDR findings
+   */
+  robot_edr?: boolean
 }
 
 export type ErrorModel = {
@@ -5385,6 +5398,341 @@ export type FixedActionResult = {
   source_execution_id: string
   source_event_id: number
   mask_output?: boolean
+}
+
+/**
+ * Request an observe -> enforce approval of the offered profile.
+ */
+export type FleetApprovalCreate = {
+  profile_digest: string
+  validity_hours?: number
+}
+
+/**
+ * An approval request and, once two people signed it off, its signature.
+ */
+export type FleetApprovalRead = {
+  id: string
+  approval_id: string
+  profile_digest: string
+  profile_version: number
+  platform: string
+  status: FleetApprovalStatus
+  requested_by: string | null
+  approved_by: string | null
+  validity_hours: number
+  issued_at: string | null
+  expires_at: string | null
+  signer_key_id: string | null
+  /**
+   * Prepared approvals: the profile-approval payload (base64url, no padding) the offline approval key signs
+   */
+  signing_payload?: string | null
+  /**
+   * Prepared approvals: the exact bytes to sign with Ed25519 (contract §2.3 message for type profile-approval and signer_key_id), as hex
+   */
+  signing_message_hex?: string | null
+  created_at: string
+}
+
+/**
+ * The offline approval key's detached signature of a prepared approval.
+ */
+export type FleetApprovalSignature = {
+  /**
+   * Ed25519 signature of signing_message_hex, 128 lower-case hex
+   */
+  signature: string
+}
+
+/**
+ * State of a profile approval (contract §6.3).
+ */
+export type FleetApprovalStatus =
+  | "pending"
+  | "prepared"
+  | "signed"
+  | "cancelled"
+
+/**
+ * A draft profile with its file text.
+ */
+export type FleetDraftContent = {
+  id: string
+  digest: string
+  size: number
+  received_at: string
+  profile: string
+}
+
+/**
+ * A draft profile the robot published for review.
+ */
+export type FleetDraftRead = {
+  id: string
+  digest: string
+  size: number
+  received_at: string
+}
+
+/**
+ * `200` body of `POST /robot-edr/v2/fleet/profiles/drafts`.
+ */
+export type FleetDraftReceipt = {
+  digest: string
+  status: "received"
+}
+
+/**
+ * Error body of the robot-facing fleet endpoints (contract §2.6).
+ */
+export type FleetErrorResponse = {
+  code: string
+  detail: string
+}
+
+/**
+ * The profile currently offered to the robot.
+ */
+export type FleetOfferRead = {
+  digest: string
+  profile_version: number
+  platform: string
+  updated_at: string
+}
+
+/**
+ * Offer a locked, signed profile to the robot (contract §6.2).
+ */
+export type FleetOfferUpdate = {
+  /**
+   * The locked profile file, exactly as robodr-commission wrote it
+   */
+  profile: string
+  /**
+   * The profile's .sig file, exactly as written
+   */
+  signature: string
+}
+
+/**
+ * Publish a root-signed revocation list for a platform (contract §4.1).
+ */
+export type FleetRevocationCreate = {
+  /**
+   * The list, signed by one of the workspace's trust roots (it is refused otherwise)
+   */
+  revocation_list: string
+}
+
+/**
+ * A published revocation list.
+ */
+export type FleetRevocationRead = {
+  id: string
+  platform: string
+  serial: number
+  list_digest: string
+  signer_key_id: string
+  signature_checked: boolean
+  trust_root_key_id: string | null
+  withdrawal_reason: string | null
+  withdrawal_requested_by: string | null
+  withdrawal_requested_at: string | null
+  withdrawn_by: string | null
+  withdrawn_at: string | null
+  created_at: string
+}
+
+/**
+ * Request the withdrawal of a published revocation list.
+ */
+export type FleetRevocationWithdraw = {
+  reason: string
+}
+
+/**
+ * The latest update-ring document of the robot.
+ */
+export type FleetRingRead = {
+  serial: number
+  ring: number
+  target_version: string | null
+  bundle_sha256: string | null
+  min_version: string | null
+  issued_at: string
+  expires_at: string
+}
+
+/**
+ * Publish update-ring information for the robot (contract §7).
+ */
+export type FleetRingUpdate = {
+  /**
+   * 0 canary, 1 early, 2 broad
+   */
+  ring: number
+  target_version?: string | null
+  bundle_sha256?: string | null
+  /**
+   * Security floor: the lowest release the robot may run
+   */
+  min_version?: string | null
+  validity_hours?: number
+}
+
+/**
+ * A key rotation of the robot (contract §5).
+ */
+export type FleetRotationRead = {
+  rotation_id: string
+  role: RobotKeyRole
+  old_key_id: string
+  new_key_id: string
+  status: FleetRotationStatus
+  /**
+   * False for a cancel of a rotation the SOC never received
+   */
+  received: boolean
+  created_at: string
+  closed_at: string | null
+}
+
+/**
+ * State of a key rotation (contract §5).
+ */
+export type FleetRotationStatus = "open" | "retired" | "cancelled"
+
+/**
+ * Create a SOC key.
+ *
+ * Fleet keys are online: generated on the server, or imported from a secret
+ * key file. Approval keys are ``offline`` (recommended: only the public key
+ * file is registered and approvals are signed by the operator who holds the
+ * secret) or ``online`` (generated on the server; lower assurance). An
+ * approval key's secret is never imported.
+ */
+export type FleetSocKeyCreate = {
+  kind: FleetSocKeyKind
+  /**
+   * online: the server holds the secret and signs; offline (approval keys only): register public_key_file and upload detached signatures
+   */
+  custody?: FleetSocKeyCustody
+  /**
+   * Fleet keys only: a robodr-blackbox-key/v2 secret key file to import instead of generating a key on the server
+   */
+  secret_key_file?: string | null
+  /**
+   * Offline approval keys: the robodr-blackbox-key/v2 public key file (or 64 hex digits) of the operator-held approval key
+   */
+  public_key_file?: string | null
+}
+
+/**
+ * Where a SOC key's secret lives (contract §2.7).
+ */
+export type FleetSocKeyCustody = "online" | "offline"
+
+/**
+ * The two kinds of SOC Ed25519 keys (contract §2.7).
+ */
+export type FleetSocKeyKind = "fleet" | "approval"
+
+/**
+ * A SOC key (public material only).
+ */
+export type FleetSocKeyRead = {
+  id: string
+  kind: FleetSocKeyKind
+  key_id: string
+  fingerprint: string
+  custody: FleetSocKeyCustody
+  status: FleetSocKeyStatus
+  /**
+   * The robodr-blackbox-key/v2 public file robots install
+   */
+  public_key_file: string
+  created_by: string | null
+  activated_by: string | null
+  created_at: string
+  activated_at: string | null
+  retired_at: string | null
+}
+
+/**
+ * Lifecycle of a SOC key (contract §2.7 rotation).
+ */
+export type FleetSocKeyStatus = "pending" | "active" | "retired"
+
+/**
+ * Issue a single-use enrollment token for a robot.
+ */
+export type FleetTokenCreate = {
+  validity_hours?: number
+}
+
+/**
+ * A newly issued token: the only response that carries the token.
+ */
+export type FleetTokenIssued = {
+  id: string
+  token_id: string
+  robot_id: string
+  site: string | null
+  workspace: string
+  soc_key_id: string
+  issued_at: string
+  expires_at: string
+  consumed_at: string | null
+  revoked_at: string | null
+  status: "active" | "consumed" | "expired" | "revoked"
+  /**
+   * The compact token (rdet1.…). A bearer credential until consumed: it is shown once and never stored
+   */
+  token: string
+}
+
+export type status4 = "active" | "consumed" | "expired" | "revoked"
+
+/**
+ * An enrollment token (never the token itself).
+ */
+export type FleetTokenRead = {
+  id: string
+  token_id: string
+  robot_id: string
+  site: string | null
+  workspace: string
+  soc_key_id: string
+  issued_at: string
+  expires_at: string
+  consumed_at: string | null
+  revoked_at: string | null
+  status: "active" | "consumed" | "expired" | "revoked"
+}
+
+/**
+ * Trust a robodr-commission trust root for revocation lists (§4.1).
+ */
+export type FleetTrustRootCreate = {
+  /**
+   * robodr-blackbox-key/v2 public key file, or 64 hex digits
+   */
+  public_key: string
+  label?: string | null
+}
+
+/**
+ * A trust root of the workspace.
+ */
+export type FleetTrustRootRead = {
+  id: string
+  key_id: string
+  fingerprint: string
+  label: string | null
+  created_by: string | null
+  created_at: string
+  revoked_at: string | null
 }
 
 export type Float = {
@@ -6525,6 +6873,39 @@ export type InferredColumn = {
 }
 
 /**
+ * Error body of `POST /robot-edr/v2/ingest`.
+ */
+export type IngestErrorResponse = {
+  code: string
+  detail: string
+}
+
+/**
+ * One rejected NDJSON line.
+ */
+export type IngestLineRejection = {
+  /**
+   * 1-based line number
+   */
+  line: number
+  code: LineErrorCode
+  detail: string
+}
+
+/**
+ * `200` body of `POST /robot-edr/v2/ingest` (ingest contract §6).
+ */
+export type IngestResponse = {
+  batch_id: string
+  replayed: boolean
+  accepted: number
+  created: number
+  updated: number
+  duplicates: number
+  rejected: Array<IngestLineRejection>
+}
+
+/**
  * Data stored inline (not externalized).
  */
 export type InlineObject = {
@@ -6921,6 +7302,20 @@ export type LicenseStatus =
   | "invalid"
 
 /**
+ * Per-line rejection codes (ingest contract §4 step 5).
+ */
+export type LineErrorCode =
+  | "invalid_line"
+  | "invalid_finding"
+  | "unsupported_contract"
+  | "too_large"
+  | "robot_mismatch"
+  | "unknown_robot"
+  | "site_mismatch"
+  | "bad_finding_signature"
+  | "missing_finding_signature"
+
+/**
  * Authentication type for MCP integrations.
  */
 export type MCPAuthType = "OAUTH2" | "CUSTOM" | "NONE"
@@ -6948,7 +7343,7 @@ export type MCPCatalogConnectResponse = {
   provider_id?: string | null
 }
 
-export type status4 = "configured" | "connected" | "oauth_redirect"
+export type status5 = "configured" | "connected" | "oauth_redirect"
 
 /**
  * Typed configure-dialog field declared by a catalog spec.
@@ -7306,7 +7701,7 @@ export type MCPServerToolSummary = {
   status?: "available" | "missing"
 }
 
-export type status5 = "available" | "missing"
+export type status6 = "available" | "missing"
 
 export type MCPServerType = "http" | "stdio"
 
@@ -7444,7 +7839,7 @@ export type MCPVerificationStatusRead = {
   error?: string | null
 }
 
-export type status6 =
+export type status7 =
   | "idle"
   | "verifying"
   | "succeeded"
@@ -7956,6 +8351,42 @@ export type Page_ExternalGroupRead_ = {
   prev_cursor?: string | null
 }
 
+export type Page_FleetRevocationRead_ = {
+  items: Array<FleetRevocationRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
+export type Page_RobotKeyRead_ = {
+  items: Array<RobotKeyRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
+export type Page_RobotRead_ = {
+  items: Array<RobotRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
 export type Page_SecretStoreRead_ = {
   items: Array<SecretStoreRead>
   /**
@@ -8138,7 +8569,7 @@ export type PlatformMCPCatalogRead = {
   last_refreshed_at: string | null
 }
 
-export type status7 = "available" | "coming_soon" | "deprecated" | "hidden"
+export type status8 = "available" | "coming_soon" | "deprecated" | "hidden"
 
 /**
  * Platform registry settings response.
@@ -8449,7 +8880,7 @@ export type RateLimitInfo = {
   }
 }
 
-export type status8 = "allowed" | "allowed_warning" | "rejected"
+export type status9 = "allowed" | "allowed_warning" | "rejected"
 
 /**
  * A reasoning part of a message.
@@ -8917,6 +9348,141 @@ export type ResultMessage = {
 }
 
 /**
+ * Register a robot in the workspace.
+ */
+export type RobotCreate = {
+  /**
+   * RoboDR robot id (`entity_context.robot.id`)
+   */
+  robot_id: string
+  site?: string | null
+  model?: string | null
+  morphology?: string | null
+  /**
+   * Refuse findings for this robot that carry no per-finding signature
+   */
+  require_finding_signature?: boolean
+}
+
+/**
+ * The fleet lifecycle of one robot (latest 20 items of each kind).
+ */
+export type RobotFleetStatus = {
+  enrolled: boolean
+  workspace: string | null
+  enrolled_at: string | null
+  agentd_version: string | null
+  profile_digest: string | null
+  tokens: Array<FleetTokenRead>
+  rotations: Array<FleetRotationRead>
+  drafts: Array<FleetDraftRead>
+  offer: FleetOfferRead | null
+  approvals: Array<FleetApprovalRead>
+  ring: FleetRingRead | null
+}
+
+/**
+ * Register an Ed25519 public key.
+ *
+ * ``uplink`` and ``finding`` keys name a robot; ``relay`` keys do not. A
+ * sender key's id is always derived from its public key
+ * (``ed25519:<16 hex>``); a ``finding`` key may carry the producer's own key
+ * id (printable ASCII, 1-128 characters) and defaults to the derived id.
+ */
+export type RobotKeyCreate = {
+  role: RobotKeyRole
+  robot_id?: string | null
+  /**
+   * Ed25519 public key, 64 lower-case hex digits
+   */
+  public_key: string
+  key_id?: string | null
+  /**
+   * Relay keys only: report only robots registered with this site
+   */
+  site?: string | null
+  /**
+   * Relay keys only, for the SOC-side diode importer: findings it relays satisfy require_finding_signature without a per-finding signature
+   */
+  vouches_origin?: boolean
+  expires_at?: string | null
+}
+
+/**
+ * How a robot key was registered.
+ */
+export type RobotKeyProvenance = "manual" | "enrollment" | "rotation"
+
+/**
+ * A registered key (public material only).
+ */
+export type RobotKeyRead = {
+  id: string
+  key_id: string
+  role: RobotKeyRole
+  robot_id: string | null
+  public_key: string
+  site: string | null
+  vouches_origin: boolean
+  revoked_at: string | null
+  expires_at: string | null
+  /**
+   * How the key was registered (null: before this was recorded)
+   */
+  provenance?: RobotKeyProvenance | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * What a registered Ed25519 key may authenticate (ingest contract §3).
+ */
+export type RobotKeyRole = "uplink" | "relay" | "finding" | "blackbox"
+
+/**
+ * A registered robot.
+ */
+export type RobotRead = {
+  id: string
+  robot_id: string
+  site: string | null
+  model: string | null
+  morphology: string | null
+  require_finding_signature: boolean
+  fleet_enrolled_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Model selection for installing the Robot SOC preset.
+ */
+export type RobotSocPresetInstall = {
+  model_name: string
+  model_provider: string
+  catalog_id?: string | null
+}
+
+/**
+ * Result of installing the Robot SOC preset.
+ */
+export type RobotSocPresetInstallRead = {
+  created: boolean
+  preset: AgentPresetRead
+}
+
+/**
+ * Update a robot's descriptive fields or signature policy.
+ */
+export type RobotUpdate = {
+  site?: string | null
+  model?: string | null
+  morphology?: string | null
+  require_finding_signature?: boolean | null
+}
+
+/**
  * The identity, intrinsic bindings, and resolved authorization context.
  *
  * User roles
@@ -9075,7 +9641,7 @@ export type RunArtifact = {
   startedAt: string
 }
 
-export type status9 = "running" | "success" | "failed" | "cancelled"
+export type status10 = "running" | "success" | "failed" | "cancelled"
 
 /**
  * This is the runtime context model for a workflow run. Passed into activities.
@@ -12277,7 +12843,7 @@ export type WorkflowCommitResponse = {
   } | null
 }
 
-export type status10 = "success" | "failure"
+export type status11 = "success" | "failure"
 
 /**
  * API response model for persisted workflow definitions.
@@ -12365,7 +12931,7 @@ export type WorkflowDslPublishResult = {
   message: string
 }
 
-export type status11 = "committed" | "no_op"
+export type status12 = "committed" | "no_op"
 
 export type WorkflowEditDefinition_Input = {
   entrypoint?: DSLEntrypoint_Input
@@ -12724,7 +13290,7 @@ export type WorkflowExecutionRead = {
   events: Array<WorkflowExecutionEvent>
 }
 
-export type status12 =
+export type status13 =
   | "RUNNING"
   | "COMPLETED"
   | "FAILED"
@@ -13646,6 +14212,68 @@ export type PublicIncomingWebhookDraftData = {
 }
 
 export type PublicIncomingWebhookDraftResponse = unknown
+
+export type PublicIngestRobodrFindingsData = {
+  requestBody: string
+}
+
+export type PublicIngestRobodrFindingsResponse = IngestResponse
+
+export type PublicFleetEnrollData = {
+  requestBody: {
+    [key: string]: unknown
+  }
+}
+
+export type PublicFleetEnrollResponse = unknown
+
+export type PublicFleetRotateKeyData = {
+  requestBody: {
+    [key: string]: unknown
+  }
+}
+
+export type PublicFleetRotateKeyResponse = unknown
+
+export type PublicFleetRetireKeyData = {
+  requestBody: {
+    [key: string]: unknown
+  }
+}
+
+export type PublicFleetRetireKeyResponse = unknown
+
+export type PublicFleetCancelRotationData = {
+  requestBody: {
+    [key: string]: unknown
+  }
+}
+
+export type PublicFleetCancelRotationResponse = unknown
+
+export type PublicFleetGetRevocationsData = {
+  platform: string
+}
+
+export type PublicFleetGetRevocationsResponse = unknown
+
+export type PublicFleetPublishDraftData = {
+  requestBody: {
+    [key: string]: unknown
+  }
+}
+
+export type PublicFleetPublishDraftResponse = FleetDraftReceipt
+
+export type PublicFleetGetProfileOfferResponse = unknown
+
+export type PublicFleetGetApprovalData = {
+  digestHex: string
+}
+
+export type PublicFleetGetApprovalResponse = unknown
+
+export type PublicFleetGetRingResponse = unknown
 
 export type PublicHandleChannelEventData = {
   channelType: ChannelType
@@ -14662,6 +15290,236 @@ export type TagsDeleteTagData = {
 
 export type TagsDeleteTagResponse = unknown
 
+export type RobotEdrListRobotsData = {
+  cursor?: string | null
+  limit?: number
+  workspaceId: string
+}
+
+export type RobotEdrListRobotsResponse = Page_RobotRead_
+
+export type RobotEdrCreateRobotData = {
+  requestBody: RobotCreate
+  workspaceId: string
+}
+
+export type RobotEdrCreateRobotResponse = RobotRead
+
+export type RobotEdrGetRobotData = {
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotResponse = RobotRead
+
+export type RobotEdrUpdateRobotData = {
+  requestBody: RobotUpdate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrUpdateRobotResponse = RobotRead
+
+export type RobotEdrDeleteRobotData = {
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrDeleteRobotResponse = void
+
+export type RobotEdrListRobotKeysData = {
+  cursor?: string | null
+  limit?: number
+  /**
+   * Only this robot's keys
+   */
+  robotId?: string | null
+  workspaceId: string
+}
+
+export type RobotEdrListRobotKeysResponse = Page_RobotKeyRead_
+
+export type RobotEdrCreateRobotKeyData = {
+  requestBody: RobotKeyCreate
+  workspaceId: string
+}
+
+export type RobotEdrCreateRobotKeyResponse = RobotKeyRead
+
+export type RobotEdrGetRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotKeyResponse = RobotKeyRead
+
+export type RobotEdrDeleteRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrDeleteRobotKeyResponse = void
+
+export type RobotEdrRevokeRobotKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrRevokeRobotKeyResponse = RobotKeyRead
+
+export type RobotEdrListFleetSocKeysData = {
+  workspaceId: string
+}
+
+export type RobotEdrListFleetSocKeysResponse = Array<FleetSocKeyRead>
+
+export type RobotEdrCreateFleetSocKeyData = {
+  requestBody: FleetSocKeyCreate
+  workspaceId: string
+}
+
+export type RobotEdrCreateFleetSocKeyResponse = FleetSocKeyRead
+
+export type RobotEdrActivateFleetSocKeyData = {
+  keyId: string
+  workspaceId: string
+}
+
+export type RobotEdrActivateFleetSocKeyResponse = FleetSocKeyRead
+
+export type RobotEdrListFleetRevocationListsData = {
+  cursor?: string | null
+  limit?: number
+  workspaceId: string
+}
+
+export type RobotEdrListFleetRevocationListsResponse = Page_FleetRevocationRead_
+
+export type RobotEdrPublishFleetRevocationListData = {
+  requestBody: FleetRevocationCreate
+  workspaceId: string
+}
+
+export type RobotEdrPublishFleetRevocationListResponse = FleetRevocationRead
+
+export type RobotEdrRequestFleetRevocationWithdrawalData = {
+  listId: string
+  requestBody: FleetRevocationWithdraw
+  workspaceId: string
+}
+
+export type RobotEdrRequestFleetRevocationWithdrawalResponse =
+  FleetRevocationRead
+
+export type RobotEdrConfirmFleetRevocationWithdrawalData = {
+  listId: string
+  workspaceId: string
+}
+
+export type RobotEdrConfirmFleetRevocationWithdrawalResponse =
+  FleetRevocationRead
+
+export type RobotEdrListFleetTrustRootsData = {
+  workspaceId: string
+}
+
+export type RobotEdrListFleetTrustRootsResponse = Array<FleetTrustRootRead>
+
+export type RobotEdrAddFleetTrustRootData = {
+  requestBody: FleetTrustRootCreate
+  workspaceId: string
+}
+
+export type RobotEdrAddFleetTrustRootResponse = FleetTrustRootRead
+
+export type RobotEdrRevokeFleetTrustRootData = {
+  rootId: string
+  workspaceId: string
+}
+
+export type RobotEdrRevokeFleetTrustRootResponse = FleetTrustRootRead
+
+export type RobotEdrGetRobotFleetStatusData = {
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotFleetStatusResponse = RobotFleetStatus
+
+export type RobotEdrIssueRobotEnrollmentTokenData = {
+  requestBody: FleetTokenCreate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrIssueRobotEnrollmentTokenResponse = FleetTokenIssued
+
+export type RobotEdrRevokeRobotEnrollmentTokenData = {
+  robotId: string
+  tokenId: string
+  workspaceId: string
+}
+
+export type RobotEdrRevokeRobotEnrollmentTokenResponse = FleetTokenRead
+
+export type RobotEdrGetRobotProfileDraftData = {
+  draftId: string
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrGetRobotProfileDraftResponse = FleetDraftContent
+
+export type RobotEdrSetRobotProfileOfferData = {
+  requestBody: FleetOfferUpdate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrSetRobotProfileOfferResponse = FleetOfferRead
+
+export type RobotEdrRequestRobotProfileApprovalData = {
+  requestBody: FleetApprovalCreate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrRequestRobotProfileApprovalResponse = FleetApprovalRead
+
+export type RobotEdrApproveRobotProfileData = {
+  approvalId: string
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrApproveRobotProfileResponse = FleetApprovalRead
+
+export type RobotEdrSubmitRobotProfileApprovalSignatureData = {
+  approvalId: string
+  requestBody: FleetApprovalSignature
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrSubmitRobotProfileApprovalSignatureResponse =
+  FleetApprovalRead
+
+export type RobotEdrCancelRobotProfileApprovalData = {
+  approvalId: string
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrCancelRobotProfileApprovalResponse = FleetApprovalRead
+
+export type RobotEdrSetRobotRingData = {
+  requestBody: FleetRingUpdate
+  robotId: string
+  workspaceId: string
+}
+
+export type RobotEdrSetRobotRingResponse = FleetRingRead
+
 export type UsersSearchUserData = {
   email?: string | null
   workspaceId?: string | null
@@ -15122,6 +15980,14 @@ export type AgentPresetsPreviewToolPolicyData = {
 }
 
 export type AgentPresetsPreviewToolPolicyResponse = AgentPresetToolPolicyRead
+
+export type AgentPresetsInstallRobotSocPresetData = {
+  requestBody: RobotSocPresetInstall
+  workspaceId: string
+}
+
+export type AgentPresetsInstallRobotSocPresetResponse =
+  RobotSocPresetInstallRead
 
 export type AgentPresetsGetAgentPresetData = {
   presetId: string
@@ -18558,6 +19424,474 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/robot-edr/v2/ingest": {
+    post: {
+      req: PublicIngestRobodrFindingsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: IngestResponse
+        /**
+         * Bad Request
+         */
+        400: IngestErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: IngestErrorResponse
+        /**
+         * Forbidden
+         */
+        403: IngestErrorResponse
+        /**
+         * Conflict
+         */
+        409: IngestErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: IngestErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: IngestErrorResponse
+        /**
+         * Too Many Requests
+         */
+        429: IngestErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/enroll": {
+    post: {
+      req: PublicFleetEnrollData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/keys/rotate": {
+    post: {
+      req: PublicFleetRotateKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/keys/retire": {
+    post: {
+      req: PublicFleetRetireKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/keys/cancel": {
+    post: {
+      req: PublicFleetCancelRotationData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/revocations/{platform}": {
+    get: {
+      req: PublicFleetGetRevocationsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/profiles/drafts": {
+    post: {
+      req: PublicFleetPublishDraftData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetDraftReceipt
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/profiles/current": {
+    get: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/profiles/approvals/{digest_hex}": {
+    get: {
+      req: PublicFleetGetApprovalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
+  "/robot-edr/v2/fleet/ring": {
+    get: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: unknown
+        /**
+         * Bad Request
+         */
+        400: FleetErrorResponse
+        /**
+         * Unauthorized
+         */
+        401: FleetErrorResponse
+        /**
+         * Forbidden
+         */
+        403: FleetErrorResponse
+        /**
+         * Not Found
+         */
+        404: FleetErrorResponse
+        /**
+         * Conflict
+         */
+        409: FleetErrorResponse
+        /**
+         * Gone
+         */
+        410: FleetErrorResponse
+        /**
+         * Request Entity Too Large
+         */
+        413: FleetErrorResponse
+        /**
+         * Unsupported Media Type
+         */
+        415: FleetErrorResponse
+        /**
+         * Service Unavailable
+         */
+        503: FleetErrorResponse
+      }
+    }
+  }
   "/agent/channels/{channel_type}/{token}": {
     post: {
       req: PublicHandleChannelEventData
@@ -20371,6 +21705,440 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/workspaces/{workspace_id}/robot-edr/robots": {
+    get: {
+      req: RobotEdrListRobotsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_RobotRead_
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrCreateRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}": {
+    get: {
+      req: RobotEdrGetRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    patch: {
+      req: RobotEdrUpdateRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    delete: {
+      req: RobotEdrDeleteRobotData
+      res: {
+        /**
+         * Successful Response
+         */
+        204: void
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys": {
+    get: {
+      req: RobotEdrListRobotKeysData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_RobotKeyRead_
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrCreateRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: RobotKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys/{key_id}": {
+    get: {
+      req: RobotEdrGetRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    delete: {
+      req: RobotEdrDeleteRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        204: void
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/keys/{key_id}/revoke": {
+    post: {
+      req: RobotEdrRevokeRobotKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/soc-keys": {
+    get: {
+      req: RobotEdrListFleetSocKeysData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Array<FleetSocKeyRead>
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrCreateFleetSocKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetSocKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/soc-keys/{key_id}/activate": {
+    post: {
+      req: RobotEdrActivateFleetSocKeyData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetSocKeyRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/revocations": {
+    get: {
+      req: RobotEdrListFleetRevocationListsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_FleetRevocationRead_
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrPublishFleetRevocationListData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetRevocationRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal": {
+    post: {
+      req: RobotEdrRequestFleetRevocationWithdrawalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetRevocationRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/revocations/{list_id}/withdrawal/confirm": {
+    post: {
+      req: RobotEdrConfirmFleetRevocationWithdrawalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetRevocationRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots": {
+    get: {
+      req: RobotEdrListFleetTrustRootsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Array<FleetTrustRootRead>
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+    post: {
+      req: RobotEdrAddFleetTrustRootData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetTrustRootRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/fleet/trust-roots/{root_id}/revoke": {
+    post: {
+      req: RobotEdrRevokeFleetTrustRootData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetTrustRootRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet": {
+    get: {
+      req: RobotEdrGetRobotFleetStatusData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotFleetStatus
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/tokens": {
+    post: {
+      req: RobotEdrIssueRobotEnrollmentTokenData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetTokenIssued
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/tokens/{token_id}/revoke": {
+    post: {
+      req: RobotEdrRevokeRobotEnrollmentTokenData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetTokenRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/drafts/{draft_id}": {
+    get: {
+      req: RobotEdrGetRobotProfileDraftData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetDraftContent
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/profile": {
+    put: {
+      req: RobotEdrSetRobotProfileOfferData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetOfferRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals": {
+    post: {
+      req: RobotEdrRequestRobotProfileApprovalData
+      res: {
+        /**
+         * Successful Response
+         */
+        201: FleetApprovalRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/approve": {
+    post: {
+      req: RobotEdrApproveRobotProfileData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetApprovalRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/signature": {
+    post: {
+      req: RobotEdrSubmitRobotProfileApprovalSignatureData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetApprovalRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/approvals/{approval_id}/cancel": {
+    post: {
+      req: RobotEdrCancelRobotProfileApprovalData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetApprovalRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/robot-edr/robots/{robot_id}/fleet/ring": {
+    put: {
+      req: RobotEdrSetRobotRingData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: FleetRingRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
   "/users/search": {
     get: {
       req: UsersSearchUserData
@@ -21378,6 +23146,25 @@ export type $OpenApiTs = {
         200: AgentPresetToolPolicyRead
         /**
          * Invalid tool policy selections
+         */
+        400: AgentPresetValidationErrorResponse
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/agent/presets/robot-soc": {
+    post: {
+      req: AgentPresetsInstallRobotSocPresetData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: RobotSocPresetInstallRead
+        /**
+         * RoboDR tools or library skills are unavailable
          */
         400: AgentPresetValidationErrorResponse
         /**

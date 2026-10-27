@@ -87,7 +87,11 @@ export function CreateSSHKeyDialog({
   const showDialog = open ?? internalOpen
   const setShowDialog = onOpenChange ?? setInternalOpen
 
-  const methods = useForm<CreateSSHKeyForm>({
+  const methods = useForm<
+    z.input<typeof createSSHKeySchema>,
+    unknown,
+    CreateSSHKeyForm
+  >({
     mode: "onChange",
     resolver: zodResolver(createSSHKeySchema),
     defaultValues: {

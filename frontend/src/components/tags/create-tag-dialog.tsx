@@ -62,7 +62,7 @@ export function CreateTagDialog({
   title,
   description,
 }: CreateTagDialogProps) {
-  const methods = useForm<TagCreate>({
+  const methods = useForm<z.input<typeof createTagSchema>, unknown, TagCreate>({
     resolver: zodResolver(createTagSchema),
     defaultValues: {
       name: "",

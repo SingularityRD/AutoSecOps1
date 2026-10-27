@@ -24,6 +24,16 @@ The following security features are available in AutoSecOps:
 > The legacy `ephemeral` value remains a compatibility alias for `nsjail`.
 > See the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security#nsjail-sandbox-recommended-for-production) for deployment requirements.
 
+## Accepted image scan findings
+
+The image scan workflow (`.github/workflows/image-scan.yml`) fails on any HIGH or CRITICAL vulnerability with a published fix in the API or UI image.
+A finding is ignored only when no release we can ship contains the fix yet.
+Each ignore lives in `.trivyignore.yaml`, is scoped to the affected advisory and file paths, and expires so the scan fails again for re-review.
+
+| Advisory | Package and location | Why the risk is accepted | Review by |
+| --- | --- | --- | --- |
+| CVE-2026-109869 | `undici` 6.29.0 bundled in npm 11.21.1, API image only (`/usr/local/lib/node_modules/npm` and the sandbox rootfs copy) | Fixed in `undici` 6.29.1, which no npm release bundles yet. Within npm, only `node-gyp` header downloads use it, and the impact is a crash of that npm process when it talks to a malicious server. The API process never loads npm's `undici`. | 2026-12-31 |
+
 ## Reporting Vulnerabilities
 
 > [!NOTE]

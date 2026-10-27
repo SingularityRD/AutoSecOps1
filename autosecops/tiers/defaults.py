@@ -37,6 +37,7 @@ BASELINE_ENTITLEMENTS = EffectiveEntitlements(
     semantic_search=False,
     forms=False,
     tunnels=False,
+    robot_edr=False,
 )
 """Free entitlements every single-tenant install gets without a license.
 

@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import inspect
 from collections.abc import Awaitable, Sequence
 from typing import Any, TypedDict
 
@@ -625,6 +626,23 @@ class RedisClient:
             return await client.delete(key)
         except (RedisError, RuntimeError) as e:
             logger.error("Failed to delete Redis key", key=key, error=str(e))
+            await self._reset_connection()
+            raise
+
+    async def eval_script(
+        self, script: str, keys: Sequence[str], args: Sequence[str | int | float]
+    ) -> Any:
+        """Run a Lua script atomically (``EVAL``), without retries.
+
+        Not retried because a script may not be idempotent; callers decide
+        how to handle a transport error.
+        """
+        try:
+            client = await self._get_client()
+            result = client.eval(script, len(keys), *keys, *args)
+            # redis-py types EVAL for both its sync and async clients.
+            return await result if inspect.isawaitable(result) else result
+        except (RedisError, RuntimeError):
             await self._reset_connection()
             raise
 

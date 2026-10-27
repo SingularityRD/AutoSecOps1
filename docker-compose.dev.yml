@@ -737,7 +737,7 @@ services:
     attach: false
 
   temporal_ui:
-    image: temporalio/ui:${TEMPORAL__UI_VERSION:-latest}
+    image: temporalio/ui:${TEMPORAL__UI_VERSION:-2.43.3}
     ports:
       - ${TEMPORAL_UI_PORT:-8081}:8080
     environment:
