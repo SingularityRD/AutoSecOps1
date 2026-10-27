@@ -53,6 +53,14 @@ The rule id prefix tells you where the signal comes from:
 - `robot.correlate.*`: several detections combined, such as
   `motion_hijack`, `coordinated_intrusion`, `credential_theft`. Rank these
   above their parts and cite every contributing detection.
+- `robot.deliver.*` (contract 2.2, data source `robodr_delivery`): the
+  robot's software delivery agent (`robodr-deliverd`) installed, deferred,
+  refused or rolled back a package, saw a release bundle chain gap, or got
+  no fresh deployment or trust file. No MITRE ATT&CK for ICS technique is
+  attributed. `installed` is the evidence trail; `refused`, `chain_gap`,
+  `health_failed`, and `rollback_blocked_floor` can mean a tampered or
+  withheld update. The package, serial and reason are only in the untrusted
+  detail.
 - `robot.agent.*`, `robot.capture.*`, `robot.sensor.*`,
   `robot.safety_state.*`, `robot.profile.*`: sensor and agent health. They
   rarely mean compromise on their own, but `evidence_degraded`,

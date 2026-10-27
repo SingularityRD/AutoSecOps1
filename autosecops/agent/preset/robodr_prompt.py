@@ -27,6 +27,7 @@ from autosecops_registry.integrations.robodr import (
 )
 from autosecops_registry.integrations.robodr_catalog import (
     CATALOG_2_1,
+    CATALOG_2_2,
     CATALOG_BASE,
 )
 
@@ -113,7 +114,11 @@ def _trusted_or_block(
 
 def _rule_lines(lines: list[str], rule_id: object) -> None:
     info = (
-        (CATALOG_BASE.get(rule_id) or CATALOG_2_1.get(rule_id))
+        (
+            CATALOG_BASE.get(rule_id)
+            or CATALOG_2_1.get(rule_id)
+            or CATALOG_2_2.get(rule_id)
+        )
         if isinstance(rule_id, str)
         else None
     )
@@ -123,6 +128,7 @@ def _rule_lines(lines: list[str], rule_id: object) -> None:
     lines.append(f"- rule_id: {rule_id}")
     lines.append(f"- rule_title: {info.title}")
     lines.append(f"- rule_description: {info.desc}")
+    lines.append(f"- rule_data_source: {info.data_source}")
     if info.techniques:
         catalog = ", ".join(f"{tid} {name}" for tid, name in info.techniques)
         lines.append(f"- catalog_mitre_ics: {catalog}")

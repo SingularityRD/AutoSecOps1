@@ -187,6 +187,8 @@ SKILL_RULES: dict[str, tuple[str, ...]] = {
         "rule id",
         "humanoid",
         "robot.correlate.",
+        "robot.deliver.",
+        "robodr_delivery",
         "never request a robot action from triage",
     ),
     "robodr-containment": (
@@ -525,3 +527,25 @@ async def test_case_chat_context_uses_untrusted_blocks(injection: str) -> None:
     assert prompt == build_robodr_case_prompt(hostile)
     outside, _blocks = _split(prompt)
     assert not _leak_words(injection) & _words("\n".join(outside))
+
+
+def test_a_delivery_finding_keeps_its_2_2_catalog_fields() -> None:
+    # robodr.findings 2.2 (§3a): robot.deliver.* ids, data source
+    # robodr_delivery, no techniques.
+    robodr = dict(_BENIGN_ROBODR) | {
+        "rule_id": "robot.deliver.refused",
+        "contract_version": "2.2.0",
+        "mitre_ics": [],
+    }
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    text = "\n".join(outside)
+    assert "- rule_id: robot.deliver.refused" in text
+    assert "- rule_title: Delivery refused" in text
+    assert "- rule_data_source: robodr_delivery" in text
+    assert "- catalog_mitre_ics:" not in text
+    assert "- rule_id: (failed validation" not in text
+
+
+def test_clean_finding_names_its_catalog_data_source() -> None:
+    outside, _blocks = _split(build_robodr_case_prompt(_case(dict(_BENIGN_ROBODR))))
+    assert "- rule_data_source: ros2_dds_discovery" in outside
