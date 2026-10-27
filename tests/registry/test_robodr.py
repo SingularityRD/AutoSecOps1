@@ -677,6 +677,92 @@ def test_the_discovery_flood_aggregate_has_its_2_1_entry() -> None:
         robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.0.0", entry)))
 
 
+DELIVERY_IDS = (
+    "robot.deliver.installed",
+    "robot.deliver.deferred_safety",
+    "robot.deliver.health_failed",
+    "robot.deliver.rollback_blocked_floor",
+    "robot.deliver.refused",
+    "robot.deliver.stale",
+    "robot.deliver.chain_gap",
+)
+"""robodr.findings 2.2 (§3a): the secure-delivery findings of robodr-deliverd."""
+
+
+def test_the_2_2_catalog_is_the_secure_delivery_set() -> None:
+    assert tuple(catalog.CATALOG_2_2) == DELIVERY_IDS
+    assert catalog.CATALOG_2_2_MINOR == 2
+    for rule_id, entry in catalog.CATALOG_2_2.items():
+        # §3a: data source robodr_delivery, no techniques.
+        assert entry.data_source == "robodr_delivery", rule_id
+        assert entry.techniques == (), rule_id
+        assert rule_id not in catalog.CATALOG_BASE
+        assert rule_id not in catalog.CATALOG_2_1
+    assert catalog.CATALOG_2_2["robot.deliver.installed"] == catalog.RuleInfo(
+        "Delivered package installed",
+        "The unit's delivery agent installed a release-signed package that a "
+        "depot and operator quorum assigned to it, and the package passed its "
+        "health gate. Informational: the evidence trail of what runs on the unit.",
+        "robodr_delivery",
+        (),
+    )
+    assert (
+        catalog.CATALOG_2_2["robot.deliver.chain_gap"].title
+        == "Release bundle chain gap or equivocation"
+    )
+
+
+@pytest.mark.parametrize("rule_id", DELIVERY_IDS)
+def test_a_2_2_delivery_finding_carries_its_2_2_entry(rule_id: str) -> None:
+    entry = catalog.CATALOG_2_2[rule_id]
+    for version in ("2.2.0", "2.2.7", "2.3.0", "02.2.0"):
+        parsed = robodr.parse_finding(_dump(_retarget(_doc(), rule_id, version, entry)))
+        assert parsed["title"] == entry.title
+        assert parsed["catalog_description"] == entry.desc
+        assert parsed["mitre_ids"] == []
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, "2.2.0", catalog.GENERIC))
+        )
+    # A 2.1 or 2.0 message never had the entry: the generic one applies.
+    for version in ("2.1.0", "2.0.0"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, version, catalog.GENERIC))
+        )
+        with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+            robodr.parse_finding(_dump(_retarget(_doc(), rule_id, version, entry)))
+
+
+def test_a_2_2_delivery_finding_lists_no_technique() -> None:
+    # §3a: a message that lists any technique for these ids is rejected.
+    rule_id = "robot.deliver.refused"
+    entry = catalog.CATALOG_2_2[rule_id]
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(
+                _retarget(
+                    _doc(),
+                    rule_id,
+                    "2.2.0",
+                    entry._replace(techniques=(("T0848", "Rogue Master"),)),
+                )
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "rule_id", ["robot.ros2.discovery_flood", "robot.motion.api_id_out_of_range"]
+)
+def test_a_2_2_message_keeps_the_2_1_entries(rule_id: str) -> None:
+    entry = catalog.CATALOG_2_1[rule_id]
+    parsed = robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.2.0", entry)))
+    assert parsed["title"] == entry.title
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, "2.2.0", catalog.GENERIC))
+        )
+
+
 def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
     """Parse the catalog arms of builder.rs, per catalog function."""
     strings = r'"((?:[^"\\]|\\.)*)"'
@@ -693,7 +779,15 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
         rf"\s*(?:data_source:\s*)?(\w+|{strings}),\s*(?:techniques:\s*)?&\[([^\]]*)\]"
     )
     out: dict[str, dict[str, catalog.RuleInfo]] = {}
-    for fn in ("catalog_1_0", "catalog_1_3", "catalog_1_3_wave7", "catalog_2_1"):
+    for fn in (
+        "catalog_1_0",
+        "catalog_1_3",
+        "catalog_1_3_wave7",
+        "catalog_2_1",
+        "catalog_2_2",
+    ):
+        if f"fn {fn}(" not in source:
+            continue
         start = source.index(f"fn {fn}(")
         end = source.find("\nfn ", start + 1)
         body = source[start : end if end != -1 else len(source)]
@@ -735,6 +829,20 @@ def test_python_catalog_matches_rust_source() -> None:
     assert rust["catalog_2_1"] == catalog.CATALOG_2_1
     assert rust["generic"]["*"] == catalog.GENERIC
     assert "pub const CATALOG_2_1_MINOR: u64 = 1;" in source
+
+
+@pytest.mark.skipif(
+    not BUILDER_RS.is_file(), reason="RoboDR source not available (ROBODR_SOURCE_DIR)"
+)
+def test_python_2_2_catalog_matches_rust_source() -> None:
+    # Kept apart from the 2.0 / 2.1 check: robodr.findings 2.2 (§3a) comes
+    # from a RoboDR branch that may predate later 2.1 entries of RoboDR main.
+    source = BUILDER_RS.read_text(encoding="utf-8")
+    rust = _rust_catalog(source)
+    if "catalog_2_2" not in rust:
+        pytest.skip("RoboDR source predates robodr.findings 2.2 (no catalog_2_2)")
+    assert rust["catalog_2_2"] == catalog.CATALOG_2_2
+    assert "pub const CATALOG_2_2_MINOR: u64 = 2;" in source
 
 
 # --------------------------------------------------------------------------- #

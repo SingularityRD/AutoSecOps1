@@ -545,11 +545,17 @@ def _catalog() -> dict[str, Any]:
 
 
 def rule_info_for_contract(rule_id: str, contract_version: str) -> RuleInfo:
-    """Port of ``robodr_ocsf::rule_info_for_contract`` for contract 2.x."""
+    """Port of ``robodr_ocsf::rule_info_for_contract`` for contract 2.x.
+
+    The catalog of the message's own minor: 2.0 the base, 2.1 adds
+    ``catalog_2_1``, 2.2 and later add ``catalog_2_2``. A malformed version
+    gets the current catalog (and is rejected anyway).
+    """
     catalog = _catalog()
     parts = contract_version.split(".")
     minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
     with_2_1 = minor is None or minor >= 1
+    with_2_2 = minor is None or minor >= 2
     if (entry := catalog["catalog_1_0"].get(rule_id)) is not None:
         return _rule_info(entry)
     if (entry := catalog["catalog_1_3"].get(rule_id)) is not None:
@@ -557,6 +563,8 @@ def rule_info_for_contract(rule_id: str, contract_version: str) -> RuleInfo:
     if rule_id.startswith("robot.correlate."):
         return _rule_info(catalog["correlate_generic"])
     if with_2_1 and (entry := catalog["catalog_2_1"].get(rule_id)) is not None:
+        return _rule_info(entry)
+    if with_2_2 and (entry := catalog["catalog_2_2"].get(rule_id)) is not None:
         return _rule_info(entry)
     return _rule_info(catalog["generic"])
 

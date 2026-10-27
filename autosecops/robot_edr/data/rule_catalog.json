@@ -1,5 +1,5 @@
 {
- "_origin": "Extracted from SingularityRD robodr crates/robodr-ocsf/src/builder.rs (rule_info_for_contract), findings contract 2.1.0. Regenerate when the producer catalog changes.",
+ "_origin": "Extracted from SingularityRD robodr crates/robodr-ocsf/src/builder.rs (rule_info_for_contract), findings contract 2.2.0. Regenerate when the producer catalog changes.",
  "catalog_1_0": {
   "robot.motion.angular_over_envelope": {
    "data_source": "ros2_motion_commands",
@@ -994,6 +994,50 @@
     ]
    ],
    "title": "Unitree legacy UDP frame from an unknown host"
+  }
+ },
+ "catalog_2_2": {
+  "robot.deliver.chain_gap": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's delivery agent saw a release bundle that skips bundles it never received, or two different bundles with the same sequence number, or one that does not follow the accepted bundle.",
+   "techniques": [],
+   "title": "Release bundle chain gap or equivocation"
+  },
+  "robot.deliver.deferred_safety": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's delivery agent deferred an install or rollback because the robot's live safety state was not idle or safe-state (moving, human nearby, e-stop or unknown); downloading and staging continue and the install waits for a safe window. Repeated deferrals mean the unit never reaches one.",
+   "techniques": [],
+   "title": "Delivery deferred by the robot's safety state"
+  },
+  "robot.deliver.health_failed": {
+   "data_source": "robodr_delivery",
+   "desc": "A package installed by the unit's delivery agent failed its health checks; the agent rolled back automatically to the previous version at or above the anti-rollback floor.",
+   "techniques": [],
+   "title": "Delivered package failed its health gate; rolled back"
+  },
+  "robot.deliver.installed": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's delivery agent installed a release-signed package that a depot and operator quorum assigned to it, and the package passed its health gate. Informational: the evidence trail of what runs on the unit.",
+   "techniques": [],
+   "title": "Delivered package installed"
+  },
+  "robot.deliver.refused": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's delivery agent refused a media pack, deployment or package: a signature, quorum, revocation, floor, scope (unit, ring, site), platform or hash check failed, or its state had to be restored. Nothing was installed from it.",
+   "techniques": [],
+   "title": "Delivery refused"
+  },
+  "robot.deliver.rollback_blocked_floor": {
+   "data_source": "robodr_delivery",
+   "desc": "A package installed by the unit's delivery agent failed its health checks and there is no earlier version at or above the anti-rollback floor (or the rollback itself failed); the unit stays on the failing version until an operator acts.",
+   "techniques": [],
+   "title": "Failed package cannot be rolled back"
+  },
+  "robot.deliver.stale": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's newest deployment or its site trust file expired without a fresh one arriving: updates or revocations may be withheld from the unit.",
+   "techniques": [],
+   "title": "No fresh deployment or trust file"
   }
  },
  "correlate_generic": {

@@ -401,10 +401,16 @@ def test_the_validator_catalog_matches_the_registry_catalog() -> None:
     rules = (
         set(registry_catalog.CATALOG_BASE)
         | set(registry_catalog.CATALOG_2_1)
+        | set(registry_catalog.CATALOG_2_2)
         | {"robot.correlate.site_specific", "robot.unknown.rule"}
     )
     for rule_id in sorted(rules):
-        for version, minor in (("2.0.0", 0), ("2.1.0", 1)):
+        for version, minor in (
+            ("2.0.0", 0),
+            ("2.1.0", 1),
+            ("2.2.0", 2),
+            ("2.3.1", 3),
+        ):
             expected = registry_catalog.rule_info_for_contract(rule_id, 2, minor)
             assert validator.rule_info_for_contract(rule_id, version) == _registry_info(
                 expected
@@ -419,3 +425,17 @@ def test_the_validator_knows_the_discovery_flood_aggregate() -> None:
     # 2.0 producers report the generic entry for it.
     generic = validator.rule_info_for_contract("robot.ros2.discovery_flood", "2.0.0")
     assert generic == _registry_info(registry_catalog.GENERIC)
+
+
+def test_the_validator_selects_the_2_2_delivery_catalog_by_minor() -> None:
+    info = validator.rule_info_for_contract("robot.deliver.refused", "2.2.0")
+    assert info.title == "Delivery refused"
+    assert info.data_source == "robodr_delivery"
+    assert info.techniques == ()
+    # 2.0 and 2.1 producers report the generic entry for it.
+    for version in ("2.0.0", "2.1.0"):
+        generic = validator.rule_info_for_contract("robot.deliver.refused", version)
+        assert generic == _registry_info(registry_catalog.GENERIC)
+    # A 2.2 message keeps the 2.1 entries.
+    flood = validator.rule_info_for_contract("robot.ros2.discovery_flood", "2.2.0")
+    assert flood.data_source == "ros2_dds_discovery"

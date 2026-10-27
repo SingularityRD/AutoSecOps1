@@ -36,8 +36,9 @@ Pass the value verbatim: re-serialising, pretty-printing, or reordering keys bre
 Set `robot_id` to require that the finding names the robot the key belongs to.
 
 `parse_finding` applies the contract's consumer parsing rules for catalog constants.
-`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0 or 2.1), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
+`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0, 2.1, or 2.2 and later), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
 A finding that carries anything else is refused with `catalog_mismatch`, so these fields carry only catalog text.
+Contract 2.2 adds the secure-delivery rules `robot.deliver.*` (data source `robodr_delivery`, no ATT&CK techniques); a 2.0 or 2.1 finding for those rule ids carries the generic entry.
 The case summary and the first line of the case description come from that catalog text. The robot model, site, and other trusted labels appear only as escaped table cells.
 
 Severity maps one-to-one: `low`, `medium`, `high`, and `critical` become the case severity and priority of the same name and OCSF `severity_id` 2 to 5.

@@ -1,7 +1,7 @@
 """RoboDR trusted rule catalog (`robodr_ocsf::builder`), as data.
 
 Generated from `crates/robodr-ocsf/src/builder.rs` through
-`rule_info_for_contract` for contract 2.0.0 and 2.1.0. Do not edit by hand:
+`rule_info_for_contract` for contract 2.0.0, 2.1.0 and 2.2.0. Do not edit by hand:
 `tests/registry/test_robodr.py::test_python_catalog_matches_rust_source`
 compares it with the Rust source when that source is available
 (`ROBODR_SOURCE_DIR`).
@@ -754,9 +754,63 @@ CATALOG_2_1: dict[str, RuleInfo] = {
 
 CATALOG_2_1_MINOR = 1
 
+CATALOG_2_2: dict[str, RuleInfo] = {
+    "robot.deliver.installed": RuleInfo(
+        "Delivered package installed",
+        "The unit's delivery agent installed a release-signed package that a depot and operator quorum assigned to it, and the package passed its health gate. Informational: the evidence trail of what runs on the unit.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.deferred_safety": RuleInfo(
+        "Delivery deferred by the robot's safety state",
+        "The unit's delivery agent deferred an install or rollback because the robot's live safety state was not idle or safe-state (moving, human nearby, e-stop or unknown); downloading and staging continue and the install waits for a safe window. Repeated deferrals mean the unit never reaches one.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.health_failed": RuleInfo(
+        "Delivered package failed its health gate; rolled back",
+        "A package installed by the unit's delivery agent failed its health checks; the agent rolled back automatically to the previous version at or above the anti-rollback floor.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.rollback_blocked_floor": RuleInfo(
+        "Failed package cannot be rolled back",
+        "A package installed by the unit's delivery agent failed its health checks and there is no earlier version at or above the anti-rollback floor (or the rollback itself failed); the unit stays on the failing version until an operator acts.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.refused": RuleInfo(
+        "Delivery refused",
+        "The unit's delivery agent refused a media pack, deployment or package: a signature, quorum, revocation, floor, scope (unit, ring, site), platform or hash check failed, or its state had to be restored. Nothing was installed from it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.stale": RuleInfo(
+        "No fresh deployment or trust file",
+        "The unit's newest deployment or its site trust file expired without a fresh one arriving: updates or revocations may be withheld from the unit.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.deliver.chain_gap": RuleInfo(
+        "Release bundle chain gap or equivocation",
+        "The unit's delivery agent saw a release bundle that skips bundles it never received, or two different bundles with the same sequence number, or one that does not follow the accepted bundle.",
+        "robodr_delivery",
+        (),
+    ),
+}
+"""Entries added in contract 2.2 (`catalog_2_2`): the secure-delivery
+findings of `robodr-deliverd`, data source `robodr_delivery`, no techniques."""
+
+CATALOG_2_2_MINOR = 2
+
 
 def rule_info_for_contract(rule_id: str, major: int, minor: int) -> RuleInfo:
-    """The catalog entry a 2.x message of this minor must carry for `rule_id`."""
+    """The catalog entry a 2.x message of this minor must carry for `rule_id`.
+
+    2.0 is the base catalog, 2.1 adds `CATALOG_2_1`, 2.2 (and later 2.x)
+    adds `CATALOG_2_2`; an entry of a later minor than the message's is not
+    used (its producer reported the generic entry).
+    """
     if major != 2:
         raise ValueError("only robodr.findings 2.x is supported")
     if (info := CATALOG_BASE.get(rule_id)) is not None:
@@ -764,5 +818,7 @@ def rule_info_for_contract(rule_id: str, major: int, minor: int) -> RuleInfo:
     if rule_id.startswith("robot.correlate."):
         return CORRELATE_GENERIC
     if minor >= CATALOG_2_1_MINOR and (info := CATALOG_2_1.get(rule_id)) is not None:
+        return info
+    if minor >= CATALOG_2_2_MINOR and (info := CATALOG_2_2.get(rule_id)) is not None:
         return info
     return GENERIC
