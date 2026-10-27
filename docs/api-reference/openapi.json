@@ -35566,7 +35566,7 @@
           "organization"
         ],
         "summary": "Github Webhook",
-        "description": "Handle GitHub webhook events.",
+        "description": "Handle GitHub webhook events.\n\nDeliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the\nwebhook secret stored in the GitHub App credentials.",
         "operationId": "vcs-github_webhook",
         "requestBody": {
           "content": {
@@ -62485,10 +62485,19 @@
         "enum": [
           "malformed",
           "bad_signature",
-          "invalid_claims"
+          "invalid_claims",
+          "not_yet_valid"
         ],
         "title": "LicenseErrorCode",
         "description": "Why a license key failed verification."
+      },
+      "LicenseGrant": {
+        "type": "string",
+        "enum": [
+          "multi_tenant"
+        ],
+        "title": "LicenseGrant",
+        "description": "Deployment-wide capabilities a license can grant.\n\nThese are not organization entitlements: they never appear in tiers or in\n``EffectiveEntitlements``. A license lists them in ``entitlements`` next to\norganization entitlement keys."
       },
       "LicenseRead": {
         "properties": {
@@ -62565,6 +62574,14 @@
             "type": "array",
             "title": "Entitlements",
             "description": "Paid entitlements the license grants right now"
+          },
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/LicenseGrant"
+            },
+            "type": "array",
+            "title": "Grants",
+            "description": "Deployment-wide grants the license applies right now, such as multi_tenant"
           },
           "included_entitlements": {
             "items": {
@@ -69667,6 +69684,7 @@
           "service_id": {
             "type": "string",
             "enum": [
+              "autosecops-admin-cli",
               "autosecops-api",
               "autosecops-bootstrap",
               "autosecops-cli",
