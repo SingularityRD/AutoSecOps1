@@ -50,7 +50,10 @@ jobs:
             --disable-pip --require-hashes --progress-spinner off \
             --desc on --format markdown --output "$RUNNER_TEMP/pip-audit.md" \
             || status=$?
-          cat "$RUNNER_TEMP/pip-audit.md" >> "$GITHUB_STEP_SUMMARY"
+          # pip-audit writes no report file when it finds nothing.
+          if [ -f "$RUNNER_TEMP/pip-audit.md" ]; then
+            cat "$RUNNER_TEMP/pip-audit.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit "${status:-0}"
 
   node-dependencies:
