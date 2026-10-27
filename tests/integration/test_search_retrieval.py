@@ -18,7 +18,7 @@ from autosecops.db.models import (
     SearchCollection,
     Workspace,
 )
-from autosecops.exceptions import ScopeDeniedError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, ScopeDeniedError
 from autosecops.redis.client import RedisClient
 from autosecops.search.cursors import SearchWindow, WindowStore
 from autosecops.search.embeddings.client import EmbeddingClient
@@ -118,7 +118,7 @@ class RetrievalCase:
 @pytest.fixture(autouse=True)
 def encryption_key(monkeypatch):
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
 
 
@@ -298,7 +298,7 @@ async def test_missing_provider_even_partial_and_authorization_first(retrieval):
     )
     with pytest.raises(ScopeDeniedError):
         await denied.search(case.name, SearchRequest(query="synthetic"))
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await case.service.search("absent_synthetic", SearchRequest(query="synthetic"))
     await case.tables.session.execute(
         sa.delete(OrganizationSecret).where(
@@ -441,7 +441,7 @@ async def test_invalid_missing_and_legacy_table_names(retrieval):
         await retrieval.service.search("missing-table", SearchRequest(query="query"))
     assert invalid.value.code == SearchErrorCode.INVALID_TABLE_NAME
     assert invalid.value.__context__ is None
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await retrieval.service.search("missing_table", SearchRequest(query="query"))
     # Historical display names can contain punctuation. Exact metadata lookup
     # remains valid even though new identifiers cannot contain it.

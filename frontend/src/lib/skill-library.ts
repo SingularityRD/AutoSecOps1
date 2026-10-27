@@ -89,7 +89,7 @@ export function librarySkillCategory(
   return SKILL_CATEGORIES[slug] ?? null
 }
 
-export type LibraryMaintainer = "official" | "tracecat" | "community"
+export type LibraryMaintainer = "official" | "autosecops" | "community"
 
 /**
  * Classify who maintains a library skill relative to its group.
@@ -101,7 +101,7 @@ export function libraryMaintainer(
   provider: string | null | undefined
 ): LibraryMaintainer {
   if (!provider) return "official"
-  return provider === UNSOURCED_PROVIDER ? "tracecat" : "community"
+  return provider === UNSOURCED_PROVIDER ? "autosecops" : "community"
 }
 
 /**

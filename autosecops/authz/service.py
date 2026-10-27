@@ -38,10 +38,10 @@ from autosecops.db.models import (
 )
 from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import OrganizationID, UserID, WorkspaceID
 from autosecops.service import BaseService
@@ -249,8 +249,8 @@ async def resolve_grantable_role(
     exceeding the granter's own scopes.
 
     Raises:
-        TracecatNotFoundError: If the role is missing or owned by another org.
-        TracecatAuthorizationError: If the role carries scopes the granter lacks.
+        AutoSecOpsNotFoundError: If the role is missing or owned by another org.
+        AutoSecOpsAuthorizationError: If the role carries scopes the granter lacks.
     """
     return await _resolve_grantable(
         session, granter, organization_id, DBRole.id == role_id, "Role not found"
@@ -267,12 +267,12 @@ def ensure_role_fits_scope(role: DBRole, workspace_id: WorkspaceID | None) -> No
         workspace_id: Target workspace, or None for an org-wide grant.
 
     Raises:
-        TracecatValidationError: If an org-level role targets a workspace.
+        AutoSecOpsValidationError: If an org-level role targets a workspace.
     """
     if workspace_id is not None and is_org_level_role(
         scope.name for scope in role.scopes
     ):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"{role.name} is an organization role and can only be assigned organization-wide"
         )
 
@@ -308,9 +308,9 @@ async def _resolve_grantable(
     )
     role = (await session.execute(stmt)).scalar_one_or_none()
     if role is None:
-        raise TracecatNotFoundError(not_found_message)
+        raise AutoSecOpsNotFoundError(not_found_message)
     if role.slug == ORG_MEMBER_ROLE_SLUG:
-        raise TracecatValidationError("organization-member is granted implicitly")
+        raise AutoSecOpsValidationError("organization-member is granted implicitly")
 
     if not granter.is_platform_superuser:
         granter_scopes = await resolve_granter_scopes(session, granter)
@@ -387,12 +387,12 @@ class MembershipService(BaseService):
         org_stmt = select(Workspace.organization_id).where(Workspace.id == workspace_id)
         organization_id = (await self.session.execute(org_stmt)).scalar_one_or_none()
         if organization_id is None:
-            raise TracecatValidationError("Workspace or default role not found")
+            raise AutoSecOpsValidationError("Workspace or default role not found")
 
         # Membership grants the editor role, so it is a role grant: apply the
         # same scope ceiling as invitations rather than assigning unconditionally.
         if self.role is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Operator context is required to grant workspace membership"
             )
         await lock_role_changes(self.session, organization_id)
@@ -400,8 +400,10 @@ class MembershipService(BaseService):
             granted_role = await resolve_grantable_role_by_slug(
                 self.session, self.role, organization_id, "workspace-editor"
             )
-        except TracecatNotFoundError as e:
-            raise TracecatValidationError("Workspace or default role not found") from e
+        except AutoSecOpsNotFoundError as e:
+            raise AutoSecOpsValidationError(
+                "Workspace or default role not found"
+            ) from e
         role_id = granted_role.id
 
         existing_member_stmt = select(Membership.user_id).where(
@@ -411,7 +413,7 @@ class MembershipService(BaseService):
         if (
             await self.session.execute(existing_member_stmt)
         ).scalar_one_or_none() is not None:
-            raise TracecatConflictError("User is already a member of workspace.")
+            raise AutoSecOpsConflictError("User is already a member of workspace.")
 
         # Workspace add must not admit outsiders: org membership is a
         # precondition, not a side effect.
@@ -420,7 +422,7 @@ class MembershipService(BaseService):
             OrganizationMembership.organization_id == organization_id,
         )
         if (await self.session.execute(org_member_stmt)).scalar_one_or_none() is None:
-            raise TracecatNotFoundError("User not found in organization")
+            raise AutoSecOpsNotFoundError("User not found in organization")
 
         # Legacy workspace table is still written for app versions that read it.
         await mirror_workspace_membership(
@@ -444,12 +446,12 @@ class MembershipService(BaseService):
         """Delete a workspace membership.
 
         Raises:
-            TracecatConflictError: If a group grant or an org-wide workspace role
+            AutoSecOpsConflictError: If a group grant or an org-wide workspace role
                 would keep the user in the workspace after the direct assignment
                 is gone.
         """
         if self.role is None:
-            raise TracecatAuthorizationError("Operator context is required")
+            raise AutoSecOpsAuthorizationError("Operator context is required")
         organization_id = (
             await self.session.execute(
                 select(Workspace.organization_id).where(Workspace.id == workspace_id)
@@ -477,16 +479,16 @@ class MembershipService(BaseService):
         if retained is not None:
             org_wide, group_name, role_name = retained
             if group_name is not None and not org_wide:
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     f"User remains a member through group '{group_name}'. "
                     "Remove them from the group first."
                 )
             if group_name is not None:
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     f"User has {role_name} in every workspace through group "
                     f"'{group_name}'. Change the group in organization settings."
                 )
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 f"User has {role_name} in every workspace. "
                 "Change their organization-wide role in organization settings."
             )

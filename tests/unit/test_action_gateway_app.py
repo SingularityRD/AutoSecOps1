@@ -138,7 +138,7 @@ def test_agent_script_cannot_reach_gateway(
     method: str,
     path: str,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     app = FastAPI(dependencies=[Depends(enforce_agent_script_gateway_access)])
 
     async def operation() -> dict[str, bool]:
@@ -179,7 +179,7 @@ def test_agent_script_denied_despite_header_whitespace(
     authorization_format: str,
 ) -> None:
     """Whitespace route authentication tolerates must not bypass the deny."""
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     app = FastAPI(dependencies=[Depends(enforce_agent_script_gateway_access)])
 
     async def operation() -> dict[str, bool]:
@@ -225,7 +225,7 @@ def test_other_executions_keep_normal_gateway_access(
     execution_origin: ExecutionOrigin | None,
     root_action: str | None,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     app = FastAPI(dependencies=[Depends(enforce_agent_script_gateway_access)])
 
     async def operation() -> dict[str, bool]:
@@ -253,7 +253,7 @@ def test_other_executions_keep_normal_gateway_access(
 def test_agent_script_can_reach_gateway_health(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     app = FastAPI(dependencies=[Depends(enforce_agent_script_gateway_access)])
 
     async def health() -> dict[str, str]:

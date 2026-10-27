@@ -152,10 +152,10 @@ from autosecops.db.models import (
     Workflow,
 )
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatServiceError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsServiceError,
+    AutoSecOpsValidationError,
 )
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.identifiers import UserID
@@ -171,7 +171,7 @@ if TYPE_CHECKING:
 
     from autosecops.agent.executor.schemas import ToolExecutionResult
 
-AUTO_TITLE_SERVICE_ID = "tracecat-api"
+AUTO_TITLE_SERVICE_ID = "autosecops-api"
 AGENT_SESSION_EXECUTION_SCOPES: frozenset[str] = frozenset(
     {
         "action:*:execute",
@@ -549,7 +549,7 @@ class AgentSessionService(BaseWorkspaceService):
         backend = get_agent_backend(args.backend_id, harness_type=args.harness_type)
         if args.spawned_by_session_id is not None:
             if await self.get_session(args.spawned_by_session_id) is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     "Parent session not found in this workspace"
                 )
         # Apply default tools based on entity type if tools not provided.
@@ -643,14 +643,14 @@ class AgentSessionService(BaseWorkspaceService):
         )
         if logical_preset_id is None:
             if agent_preset_version_id is not None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     "Cannot assign a preset version without a preset"
                 )
             return None
 
         preset_service = AgentPresetService(self.session, self.role)
         if not await preset_service.get_preset(logical_preset_id):
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Agent preset with ID '{logical_preset_id}' not found"
             )
 
@@ -807,7 +807,7 @@ class AgentSessionService(BaseWorkspaceService):
         if not effects:
             agent_session = await self.get_session(session_id)
             if agent_session is None:
-                raise TracecatNotFoundError(f"Session {session_id} not found")
+                raise AutoSecOpsNotFoundError(f"Session {session_id} not found")
             return self.list_artifacts(agent_session)
 
         stmt = (
@@ -821,7 +821,7 @@ class AgentSessionService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         agent_session = result.scalar_one_or_none()
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session {session_id} not found")
 
         current_artifacts = self.list_artifacts(agent_session)
         next_artifacts = artifact_projection.apply_artifact_side_effects(
@@ -854,7 +854,7 @@ class AgentSessionService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         agent_session = result.scalar_one_or_none()
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session {session_id} not found")
 
         current_artifacts = self.list_artifacts(agent_session)
         next_artifacts = artifact_projection.remove_artifact(
@@ -1023,12 +1023,12 @@ class AgentSessionService(BaseWorkspaceService):
             "backend_id" in params.model_fields_set
             and params.backend_id != agent_session.backend_id
         ):
-            raise TracecatValidationError("Start a new chat to change its backend")
+            raise AutoSecOpsValidationError("Start a new chat to change its backend")
         if (
             "harness_type" in params.model_fields_set
             and params.harness_type != agent_session.harness_type
         ):
-            raise TracecatValidationError("Start a new chat to change its backend")
+            raise AutoSecOpsValidationError("Start a new chat to change its backend")
         set_fields = params.model_dump(exclude_unset=True)
         preset_id_updated = "agent_preset_id" in set_fields
         version_id_updated = "agent_preset_version_id" in set_fields
@@ -1047,7 +1047,7 @@ class AgentSessionService(BaseWorkspaceService):
             try:
                 entity_type = AgentSessionEntity(agent_session.entity_type)
             except (TypeError, ValueError) as e:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Cannot update preset assignment for a session with an invalid entity type"
                 ) from e
             logical_preset_id = self._resolve_logical_preset_id(
@@ -1221,7 +1221,7 @@ class AgentSessionService(BaseWorkspaceService):
         """
         agent_session = await self.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
 
         content: dict[str, Any] = {
             "type": "cancelled",
@@ -1768,7 +1768,7 @@ class AgentSessionService(BaseWorkspaceService):
             submission_key=submission_key,
         ):
             return attempt
-        raise TracecatConflictError(
+        raise AutoSecOpsConflictError(
             "Approval continuation changed while decisions were being submitted"
         )
 
@@ -1887,8 +1887,8 @@ class AgentSessionService(BaseWorkspaceService):
         except (
             LLMCompletionError,
             SecretNotFoundError,
-            TracecatNotFoundError,
-            TracecatValidationError,
+            AutoSecOpsNotFoundError,
+            AutoSecOpsValidationError,
             ValueError,
         ) as e:
             logger.warning(
@@ -1996,12 +1996,12 @@ class AgentSessionService(BaseWorkspaceService):
             messages: Ordered raw text shown in the user bubbles.
 
         Raises:
-            TracecatNotFoundError: If the session is unavailable in this workspace.
+            AutoSecOpsNotFoundError: If the session is unavailable in this workspace.
         """
         if not messages:
             return
         if await self.get_session(session_id) is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
 
         # Derive stable row and message IDs from their session-relative order so
         # activity retries reuse the same display history instead of duplicating it.
@@ -2050,7 +2050,7 @@ class AgentSessionService(BaseWorkspaceService):
         # This caller constructs the built-in workflow's arguments directly.
         # Keep that integration restriction explicit until it uses the contract.
         if agent_session.backend_id != "oss":
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "This backend does not support caller-owned workflows"
             )
         get_agent_backend(
@@ -2124,7 +2124,7 @@ class AgentSessionService(BaseWorkspaceService):
             resolved.
 
         Raises:
-            TracecatNotFoundError: If the session is not found.
+            AutoSecOpsNotFoundError: If the session is not found.
             ValueError: If the request/entity type is unsupported.
         """
         workspace_id = self.role.workspace_id
@@ -2303,7 +2303,7 @@ class AgentSessionService(BaseWorkspaceService):
         """Assert a turn can start before mutating session or stream state."""
         agent_session = await self.get_session(session_id)
         if not agent_session:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
         # Only the parent's runtime executes a spawned child; a direct turn would
         # target a harness binding it does not own.
         if agent_session.spawned_by_session_id is not None:
@@ -2317,7 +2317,7 @@ class AgentSessionService(BaseWorkspaceService):
         match request:
             case ContinueRunRequest():
                 if agent_session.curr_run_id is None:
-                    raise TracecatNotFoundError(
+                    raise AutoSecOpsNotFoundError(
                         f"No active workflow run for session {session_id}"
                     )
                 return agent_session
@@ -2347,7 +2347,7 @@ class AgentSessionService(BaseWorkspaceService):
         Raises:
             ValueError: On duplicate submitted IDs, or IDs that are neither
                 pending nor already decided.
-            TracecatConflictError: If a decision contradicts a settled one.
+            AutoSecOpsConflictError: If a decision contradicts a settled one.
         """
 
         source = request.source
@@ -2399,7 +2399,7 @@ class AgentSessionService(BaseWorkspaceService):
                 if not _decision_matches_persisted(
                     approval_result, settled_decisions[decision.tool_call_id]
                 ):
-                    raise TracecatConflictError(
+                    raise AutoSecOpsConflictError(
                         "Approval decision conflicts with a decision already"
                         f" recorded for tool call {decision.tool_call_id}"
                     )
@@ -2457,17 +2457,17 @@ class AgentSessionService(BaseWorkspaceService):
         concurrent submissions and retries.
 
         Raises:
-            TracecatNotFoundError: If no active session exists.
+            AutoSecOpsNotFoundError: If no active session exists.
         """
 
         agent_session = await self.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"No active agent session found with ID {session_id}"
             )
         curr_run_id = agent_session.curr_run_id
         if curr_run_id is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"No active workflow run for session {session_id}"
             )
 
@@ -2609,12 +2609,12 @@ class AgentSessionService(BaseWorkspaceService):
         """Request graceful cancellation for the active agent workflow turn.
 
         Raises:
-            TracecatNotFoundError: If no session exists with this ID.
-            TracecatConflictError: If the session has no active (RUNNING) turn.
+            AutoSecOpsNotFoundError: If no session exists with this ID.
+            AutoSecOpsConflictError: If the session has no active (RUNNING) turn.
         """
         agent_session = await self.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
 
         if (
             AgentSessionEntity(agent_session.entity_type)
@@ -2624,7 +2624,7 @@ class AgentSessionService(BaseWorkspaceService):
 
         lifecycle, curr_run_id = await self.get_turn_lifecycle(agent_session)
         if lifecycle is not TurnLifecycle.RUNNING or curr_run_id is None:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Agent session does not have an active turn",
                 detail={"lifecycle": lifecycle.value},
             )
@@ -2645,8 +2645,8 @@ class AgentSessionService(BaseWorkspaceService):
         """Dispatch a control request to the session's running turn.
 
         Raises:
-            TracecatNotFoundError: If no session exists with this ID.
-            TracecatConflictError: If the session has no running turn or its
+            AutoSecOpsNotFoundError: If no session exists with this ID.
+            AutoSecOpsConflictError: If the session has no running turn or its
                 backend is unavailable or does not support the control.
             AgentControlRejected: If the turn refused the control outright.
             AgentControlUncertain: If the outcome is unknown; retry with the same ID.
@@ -2659,9 +2659,9 @@ class AgentSessionService(BaseWorkspaceService):
             case AgentCancelControl():
                 try:
                     cancelled = await self.request_cancel(session_id)
-                except TracecatValidationError as e:
+                except AutoSecOpsValidationError as e:
                     # Unavailable backends are conflicts here, as for steer and withdraw.
-                    raise TracecatConflictError(str(e)) from e
+                    raise AutoSecOpsConflictError(str(e)) from e
                 return AgentControlReceipt(
                     id=request.id,
                     type=request.type,
@@ -2711,13 +2711,13 @@ class AgentSessionService(BaseWorkspaceService):
         """Resolve the backend and running turn a steer or withdraw targets.
 
         Raises:
-            TracecatNotFoundError: If no session exists with this ID.
-            TracecatConflictError: If the backend is unavailable or lacks the
+            AutoSecOpsNotFoundError: If no session exists with this ID.
+            AutoSecOpsConflictError: If the backend is unavailable or lacks the
                 control, or the session has no running turn.
         """
         agent_session = await self.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
 
         if (
             AgentSessionEntity(agent_session.entity_type)
@@ -2729,21 +2729,21 @@ class AgentSessionService(BaseWorkspaceService):
             backend = get_agent_backend(
                 agent_session.backend_id, harness_type=agent_session.harness_type
             )
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             # An unavailable backend controls nothing, like one without the control.
-            raise TracecatConflictError(str(e)) from e
+            raise AutoSecOpsConflictError(str(e)) from e
         match control:
             case "steer":
                 supported, feature = backend.steering, "steering"
             case "withdraw":
                 supported, feature = backend.withdrawing, "withdrawing"
         if not supported:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 f"This agent backend does not support {feature}"
             )
         lifecycle, curr_run_id = await self.get_turn_lifecycle(agent_session)
         if lifecycle is not TurnLifecycle.RUNNING or curr_run_id is None:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Agent session does not have an active turn",
                 detail={"lifecycle": lifecycle.value},
             )
@@ -2763,7 +2763,7 @@ class AgentSessionService(BaseWorkspaceService):
 
         Raises:
             ValueError: If the session entity type is unsupported.
-            TracecatNotFoundError: If required resources are not found.
+            AutoSecOpsNotFoundError: If required resources are not found.
         """
         agent_svc = AgentManagementService(self.session, self.execution_role)
 
@@ -2834,7 +2834,7 @@ class AgentSessionService(BaseWorkspaceService):
                         catalog_id=model_config.catalog_id,
                         actions=None,
                     )
-            except TracecatNotFoundError as exc:
+            except AutoSecOpsNotFoundError as exc:
                 raise ValueError(
                     "Agent preset builder requires a default AI model with valid provider credentials. "
                     "Configure credentials in Workspace settings before chatting."
@@ -2977,7 +2977,7 @@ class AgentSessionService(BaseWorkspaceService):
                 )
             )
             if not case:
-                raise TracecatNotFoundError(f"Case with ID {entity_id} not found")
+                raise AutoSecOpsNotFoundError(f"Case with ID {entity_id} not found")
             if robodr_payload(case.payload) is not None:
                 # Keep adversary-controlled robot values inside untrusted
                 # blocks instead of dumping the raw payload.
@@ -2996,7 +2996,7 @@ class AgentSessionService(BaseWorkspaceService):
         if entity_type == AgentSessionEntity.AGENT_PRESET_BUILDER:
             agent_preset_service = AgentPresetService(self.session, self.role)
             if not (preset := await agent_preset_service.get_preset(entity_id)):
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Agent preset with ID '{entity_id}' not found"
                 )
             prompt = AgentPresetBuilderPrompt(preset=preset)
@@ -3114,14 +3114,14 @@ class AgentSessionService(BaseWorkspaceService):
 
         backend = find_agent_backend(agent_session.backend_id)
         if backend is None:
-            raise TracecatServiceError(
+            raise AutoSecOpsServiceError(
                 "Cannot read session history because its backend is not installed"
             )
 
         session_ids = [session_id]
         if agent_session.forked_from_session_id:
             if await self.get_session(agent_session.forked_from_session_id) is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     "Fork source session not found in this workspace"
                 )
             session_ids.insert(0, agent_session.forked_from_session_id)
@@ -3347,7 +3347,7 @@ class AgentSessionService(BaseWorkspaceService):
 
         session = await self.get_session(session_id)
         if not session:
-            raise TracecatNotFoundError(f"Session {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session {session_id} not found")
         if not session.sdk_session_id:
             raise ValueError(f"Session {session_id} has no sdk_session_id")
 
@@ -3686,7 +3686,7 @@ class AgentSessionService(BaseWorkspaceService):
             The newly created forked AgentSession.
 
         Raises:
-            TracecatNotFoundError: If the parent session is not found.
+            AutoSecOpsNotFoundError: If the parent session is not found.
         """
         history_boundary = (
             select(func.max(AgentSessionHistory.surrogate_id))
@@ -3705,7 +3705,7 @@ class AgentSessionService(BaseWorkspaceService):
         )
         captured = result.tuples().one_or_none()
         if captured is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Source session with ID {source_session_id} not found"
             )
         source, boundary = captured
@@ -3713,7 +3713,7 @@ class AgentSessionService(BaseWorkspaceService):
             spawned_by_session_id is not None
             and await self.get_session(spawned_by_session_id) is None
         ):
-            raise TracecatNotFoundError("Parent session not found in this workspace")
+            raise AutoSecOpsNotFoundError("Parent session not found in this workspace")
 
         backend = get_agent_backend(source.backend_id, harness_type=source.harness_type)
 

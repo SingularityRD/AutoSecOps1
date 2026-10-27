@@ -72,7 +72,7 @@ from autosecops.tiers.enums import Entitlement
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 internal_service_key_header_scheme = APIKeyHeader(
-    name="x-tracecat-service-key", auto_error=False
+    name="x-autosecops-service-key", auto_error=False
 )
 service_account_api_key_bearer_scheme = HTTPBearer(
     scheme_name="ServiceAccountApiKeyBearer",
@@ -228,7 +228,7 @@ def get_role_from_user(
     user: User,
     organization_id: uuid.UUID,
     workspace_id: uuid.UUID | None = None,
-    service_id: InternalServiceID = "tracecat-api",
+    service_id: InternalServiceID = "autosecops-api",
     is_platform_superuser: bool = False,
 ) -> Role:
     return Role(
@@ -275,13 +275,13 @@ async def _authenticate_service(
     if not api_key:
         return None
 
-    service_role_id = request.headers.get("x-tracecat-role-service-id")
+    service_role_id = request.headers.get("x-autosecops-role-service-id")
     if service_role_id is None:
-        msg = "Missing x-tracecat-role-service-id header"
+        msg = "Missing x-autosecops-role-service-id header"
         logger.error(msg)
         raise HTTP_EXC(msg)
-    if service_role_id not in config.TRACECAT__SERVICE_ROLES_WHITELIST:
-        msg = f"x-tracecat-role-service-id {service_role_id!r} invalid or not allowed"
+    if service_role_id not in config.AUTOSECOPS__SERVICE_ROLES_WHITELIST:
+        msg = f"x-autosecops-role-service-id {service_role_id!r} invalid or not allowed"
         logger.error(msg)
         raise HTTP_EXC(msg)
     if not secrets.compare_digest(api_key, get_service_key()):
@@ -289,28 +289,28 @@ async def _authenticate_service(
         raise UNAUTHORIZED_EXCEPTION
     user_id = (
         uuid.UUID(uid)
-        if (uid := request.headers.get("x-tracecat-role-user-id")) is not None
+        if (uid := request.headers.get("x-autosecops-role-user-id")) is not None
         else None
     )
     workspace_id = (
         uuid.UUID(ws_id)
-        if (ws_id := request.headers.get("x-tracecat-role-workspace-id")) is not None
+        if (ws_id := request.headers.get("x-autosecops-role-workspace-id")) is not None
         else None
     )
     bound_workspace_id = (
         uuid.UUID(bound_ws_id)
-        if (bound_ws_id := request.headers.get("x-tracecat-role-bound-workspace-id"))
+        if (bound_ws_id := request.headers.get("x-autosecops-role-bound-workspace-id"))
         is not None
         else None
     )
     organization_id = (
         uuid.UUID(org_id)
-        if (org_id := request.headers.get("x-tracecat-role-organization-id"))
+        if (org_id := request.headers.get("x-autosecops-role-organization-id"))
         is not None
         else None
     )
     # Backward compatibility: derive org from workspace when older callers
-    # don't propagate x-tracecat-role-organization-id yet.
+    # don't propagate x-autosecops-role-organization-id yet.
     if (
         organization_id is None
         and (context_workspace_id := workspace_id or bound_workspace_id) is not None
@@ -318,7 +318,7 @@ async def _authenticate_service(
         organization_id = await _get_workspace_org_id(context_workspace_id)
     # Parse scopes from header if present (for inter-service calls)
     scopes: frozenset[str] = frozenset()
-    if scopes_header := request.headers.get("x-tracecat-role-scopes"):
+    if scopes_header := request.headers.get("x-autosecops-role-scopes"):
         scopes = frozenset(
             stripped for s in scopes_header.split(",") if (stripped := s.strip())
         )
@@ -326,22 +326,22 @@ async def _authenticate_service(
         uuid.UUID(raw_service_account_id)
         if (
             raw_service_account_id := request.headers.get(
-                "x-tracecat-role-service-account-id"
+                "x-autosecops-role-service-account-id"
             )
         )
         is not None
         else None
     )
     role_type: Literal["service", "service_account"] = "service"
-    header_role_type = request.headers.get("x-tracecat-role-type")
+    header_role_type = request.headers.get("x-autosecops-role-type")
     if header_role_type == "scim":
         # A connection's authority is fixed at its bearer token; never forward it.
         raise HTTP_EXC("SCIM roles cannot be forwarded between services")
     if header_role_type == "service_account":
         if service_account_id is None:
-            raise HTTP_EXC("Missing x-tracecat-role-service-account-id header")
+            raise HTTP_EXC("Missing x-autosecops-role-service-account-id header")
         if organization_id is None:
-            raise HTTP_EXC("Missing x-tracecat-role-organization-id header")
+            raise HTTP_EXC("Missing x-autosecops-role-organization-id header")
         if user_id is not None:
             raise HTTP_EXC("Service account role must not include user_id")
         role_type = "service_account"
@@ -438,7 +438,7 @@ async def _authenticate_api_key(
         await session.commit()
         return Role(
             type="service_account",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=service_account.organization_id,
             workspace_id=resolved_workspace_id,
             bound_workspace_id=bound_workspace_id,
@@ -451,7 +451,7 @@ async def _authenticate_api_key(
 def TemporaryRole(
     type: Literal["user", "service", "service_account"] = "service",
     user_id: uuid.UUID | None = None,
-    service_id: InternalServiceID = "tracecat-service",
+    service_id: InternalServiceID = "autosecops-service",
 ):
     """An async context manager to authenticate a user or service."""
     prev_role = ctx_role.get()
@@ -476,7 +476,7 @@ OptionalUserDep = Annotated[User | None, Depends(optional_current_active_user)]
 OptionalInternalServiceKeyDep = Annotated[
     str | None, Security(internal_service_key_header_scheme)
 ]
-OptionalTracecatApiKeyDep = Annotated[
+OptionalAutoSecOpsApiKeyDep = Annotated[
     str | None, Depends(_get_service_account_api_key_from_bearer)
 ]
 
@@ -513,7 +513,7 @@ async def _require_workspace_membership(
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
-ACTIVE_ORG_COOKIE = "tracecat:active-org-id"
+ACTIVE_ORG_COOKIE = "autosecops:active-org-id"
 
 
 async def _resolve_org_for_regular_user(
@@ -523,7 +523,7 @@ async def _resolve_org_for_regular_user(
 ) -> uuid.UUID:
     """Resolve organization context for a regular user from their memberships.
 
-    Honors the ``tracecat:active-org-id`` cookie when the user is a confirmed
+    Honors the ``autosecops:active-org-id`` cookie when the user is a confirmed
     member of the cookie's organization. The cookie is an untrusted hint —
     membership is re-validated here on every request, so a tampered or stale
     value cannot grant access to an org the user does not belong to.
@@ -532,7 +532,7 @@ async def _resolve_org_for_regular_user(
         HTTPException(400): If user has no org memberships.
     """
     if cookie_value := (
-        request.cookies.get("tracecat%3Aactive-org-id")
+        request.cookies.get("autosecops%3Aactive-org-id")
         or request.cookies.get(ACTIVE_ORG_COOKIE)
     ):
         try:
@@ -606,7 +606,7 @@ async def _is_org_admin_via_rbac(
         user_id=user_id,
         organization_id=organization_id,
         workspace_id=workspace_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     return has_scope(
         await compute_effective_scopes(role),
@@ -725,7 +725,7 @@ async def _authenticate_executor(
         organization_id = await _get_workspace_org_id(token_payload.workspace_id)
 
     executor_service_id: InternalServiceID = (
-        token_payload.service_id or "tracecat-executor"
+        token_payload.service_id or "autosecops-executor"
     )
 
     # Construct Role from token payload and organization_id.
@@ -794,7 +794,7 @@ async def _role_dependency(
     user: User | None = None,
     api_key: str | None = None,
     internal_service_key: str | None = None,
-    tracecat_api_key: str | None = None,
+    autosecops_api_key: str | None = None,
     allow_user: bool,
     allow_service: bool,
     allow_api_key: bool = False,
@@ -840,9 +840,9 @@ async def _role_dependency(
             except Exception:
                 logger.warning("Failed to clear RLS context after auth failure")
             raise
-    elif tracecat_api_key and allow_api_key:
+    elif autosecops_api_key and allow_api_key:
         role = await _authenticate_api_key(
-            api_key=tracecat_api_key,
+            api_key=autosecops_api_key,
             workspace_id=workspace_id,
         )
     elif service_key and allow_service:
@@ -879,7 +879,7 @@ async def _role_dependency(
     )
 
     ctx_role.set(role)
-    if config.TRACECAT__RLS_MODE == config.RLSMode.ENFORCE:
+    if config.AUTOSECOPS__RLS_MODE == config.RLSMode.ENFORCE:
         await set_rls_context_from_role(session, role)
     else:
         await set_rls_context(
@@ -992,7 +992,7 @@ def RoleACL(
                 workspace_id=None,  # Comes from JWT
                 user=None,
                 internal_service_key=None,
-                tracecat_api_key=None,
+                autosecops_api_key=None,
                 allow_user=False,
                 allow_service=False,
                 allow_api_key=False,
@@ -1016,7 +1016,7 @@ def RoleACL(
                     ),
                     user: OptionalUserDep = None,
                     internal_service_key: OptionalInternalServiceKeyDep = None,
-                    tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                    autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
                 ) -> Role:
                     workspace_id = _resolve_workspace_id_from_path_or_query(
                         request, workspace_id_query
@@ -1027,7 +1027,7 @@ def RoleACL(
                         workspace_id=workspace_id,
                         user=user,
                         internal_service_key=internal_service_key,
-                        tracecat_api_key=tracecat_api_key,
+                        autosecops_api_key=autosecops_api_key,
                         allow_user=allow_user,
                         allow_service=allow_service,
                         allow_api_key=allow_api_key,
@@ -1059,7 +1059,7 @@ def RoleACL(
                         workspace_id=workspace_id,
                         user=user,
                         internal_service_key=internal_service_key,
-                        tracecat_api_key=None,
+                        autosecops_api_key=None,
                         allow_user=allow_user,
                         allow_service=allow_service,
                         allow_api_key=allow_api_key,
@@ -1080,7 +1080,7 @@ def RoleACL(
                         include_in_schema=False,
                     ),
                     user: OptionalUserDep = None,
-                    tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                    autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
                 ) -> Role:
                     workspace_id = _resolve_workspace_id_from_path_or_query(
                         request, workspace_id_query
@@ -1091,7 +1091,7 @@ def RoleACL(
                         workspace_id=workspace_id,
                         user=user,
                         internal_service_key=None,
-                        tracecat_api_key=tracecat_api_key,
+                        autosecops_api_key=autosecops_api_key,
                         allow_user=allow_user,
                         allow_service=allow_service,
                         allow_api_key=allow_api_key,
@@ -1120,7 +1120,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=None,
-                    tracecat_api_key=None,
+                    autosecops_api_key=None,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1140,7 +1140,7 @@ def RoleACL(
                 workspace_id: uuid.UUID = GetWsDep(...),
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1148,7 +1148,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1173,7 +1173,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=None,
+                    autosecops_api_key=None,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1190,7 +1190,7 @@ def RoleACL(
                 session: AsyncDBSession,
                 workspace_id: uuid.UUID = GetWsDep(...),
                 user: OptionalUserDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1198,7 +1198,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=None,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1220,7 +1220,7 @@ def RoleACL(
                 workspace_id=workspace_id,
                 user=user,
                 internal_service_key=None,
-                tracecat_api_key=None,
+                autosecops_api_key=None,
                 allow_user=allow_user,
                 allow_service=allow_service,
                 allow_api_key=allow_api_key,
@@ -1244,7 +1244,7 @@ def RoleACL(
                 workspace_id: uuid.UUID | None = Query(None),
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1252,7 +1252,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1277,7 +1277,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=None,
+                    autosecops_api_key=None,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1294,7 +1294,7 @@ def RoleACL(
                 session: AsyncDBSession,
                 workspace_id: uuid.UUID | None = Query(None),
                 user: OptionalUserDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
@@ -1302,7 +1302,7 @@ def RoleACL(
                     workspace_id=workspace_id,
                     user=user,
                     internal_service_key=None,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1324,7 +1324,7 @@ def RoleACL(
                 workspace_id=workspace_id,
                 user=user,
                 internal_service_key=None,
-                tracecat_api_key=None,
+                autosecops_api_key=None,
                 allow_user=allow_user,
                 allow_service=allow_service,
                 allow_api_key=allow_api_key,
@@ -1344,14 +1344,14 @@ def RoleACL(
                 session: AsyncDBSession,
                 user: OptionalUserDep = None,
                 internal_service_key: OptionalInternalServiceKeyDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
                     session=session,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1374,7 +1374,7 @@ def RoleACL(
                     session=session,
                     user=user,
                     internal_service_key=internal_service_key,
-                    tracecat_api_key=None,
+                    autosecops_api_key=None,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1390,14 +1390,14 @@ def RoleACL(
                 request: Request,
                 session: AsyncDBSession,
                 user: OptionalUserDep = None,
-                tracecat_api_key: OptionalTracecatApiKeyDep = None,
+                autosecops_api_key: OptionalAutoSecOpsApiKeyDep = None,
             ) -> Role:
                 return await _role_dependency(
                     request=request,
                     session=session,
                     user=user,
                     internal_service_key=None,
-                    tracecat_api_key=tracecat_api_key,
+                    autosecops_api_key=autosecops_api_key,
                     allow_user=allow_user,
                     allow_service=allow_service,
                     allow_api_key=allow_api_key,
@@ -1417,7 +1417,7 @@ def RoleACL(
                 session=session,
                 user=user,
                 internal_service_key=None,
-                tracecat_api_key=None,
+                autosecops_api_key=None,
                 allow_user=allow_user,
                 allow_service=allow_service,
                 allow_api_key=allow_api_key,
@@ -1433,14 +1433,50 @@ def RoleACL(
 # --- Platform-level (Superuser) Authentication ---
 
 
+ADMIN_CLI_SERVICE_ID: InternalServiceID = "autosecops-admin-cli"
+"""Service ID the admin CLI sends when it authenticates with the service key."""
+
+
+async def _admin_cli_service_role(request: Request) -> PlatformRole | None:
+    """Authenticate the admin CLI's service-key fallback for /admin routes.
+
+    The admin CLI sends ``x-autosecops-service-key`` together with
+    ``x-autosecops-role-service-id: autosecops-admin-cli`` when the operator has
+    no login session. Only that service ID is accepted here; other internal
+    services keep using the org-scoped role dependencies. The headers are read
+    from the request so the OpenAPI schema of the admin routes is unchanged.
+    """
+    api_key = request.headers.get("x-autosecops-service-key")
+    if not api_key:
+        return None
+    service_id = request.headers.get("x-autosecops-role-service-id")
+    if service_id != ADMIN_CLI_SERVICE_ID:
+        return None
+    service_key = config.AUTOSECOPS__SERVICE_KEY
+    if not service_key or not secrets.compare_digest(
+        api_key.encode(), service_key.encode()
+    ):
+        logger.warning("Invalid service key for admin CLI request")
+        raise UNAUTHORIZED_EXCEPTION
+    return PlatformRole(
+        type="service",
+        user_id=config.AUTOSECOPS__DEFAULT_USER_ID,
+        service_id=ADMIN_CLI_SERVICE_ID,
+    )
+
+
 async def _require_superuser(
-    user: Annotated[User, Depends(current_active_user)],
+    user: OptionalUserDep = None,
+    service_role: Annotated[
+        PlatformRole | None, Depends(_admin_cli_service_role)
+    ] = None,
 ) -> PlatformRole:
     """Require superuser access for platform admin operations.
 
     This dependency is used for /admin routes that require platform-level access.
     Superusers can manage organizations, platform settings, and platform-level
-    registry sync operations.
+    registry sync operations. The admin CLI may also authenticate with the
+    platform service key (see ``_admin_cli_service_role``).
 
     Returns a PlatformRole (not Role) to enforce type separation between
     platform and org-scoped operations.
@@ -1448,17 +1484,23 @@ async def _require_superuser(
     The platform admin IP allowlist is checked after the superuser check so
     non-superusers never learn whether one is configured.
     """
-    if not user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
+    if user is not None:
+        if not user.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+        role = PlatformRole(
+            type="user",
+            user_id=user.id,
+            service_id="autosecops-api",
         )
+    elif service_role is not None:
+        role = service_role
+    else:
+        raise UNAUTHORIZED_EXCEPTION
     await enforce_platform_admin_ip_allowlist()
-    return PlatformRole(
-        type="user",
-        user_id=user.id,
-        service_id="tracecat-api",
-    )
+    return role
 
 
 require_superuser = _require_superuser
@@ -1491,7 +1533,7 @@ async def authenticated_user_only(
     role = Role(
         type="user",
         user_id=user.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         # organization_id intentionally None - user may not belong to any org
     )
     scopes = await compute_effective_scopes(role)

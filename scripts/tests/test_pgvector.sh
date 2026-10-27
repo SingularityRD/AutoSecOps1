@@ -9,7 +9,7 @@ sql_file="$repo_root/scripts/postgres/pgvector.sql"
 # the regression remains reproducible after the floating tag advances.
 source_image=${1:-postgres:16.14-trixie}
 expect_mismatch=${2:-}
-test_id="tracecat-pgvector-test-$(date +%s)-$$"
+test_id="autosecops-pgvector-test-$(date +%s)-$$"
 volume="$test_id-data"
 container="$test_id"
 failure_log=$(mktemp)

@@ -27,13 +27,13 @@ from autosecops.agent.skill.service import SkillService
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 router = APIRouter(prefix="/agent/skills", tags=["agent-skills"])
 
 
-def _raise_skill_validation_error(exc: TracecatValidationError) -> Never:
+def _raise_skill_validation_error(exc: AutoSecOpsValidationError) -> Never:
     """Convert skill validation failures into the right HTTP error shape."""
 
     status_code = status.HTTP_400_BAD_REQUEST
@@ -56,9 +56,9 @@ async def list_skills(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -84,7 +84,7 @@ async def create_skill(
     service = SkillService(session, role=role)
     try:
         return await service.create_skill(params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
 
 
@@ -101,7 +101,7 @@ async def upload_skill(
     service = SkillService(session, role=role)
     try:
         return await service.upload_skill(params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
 
 
@@ -146,7 +146,7 @@ async def move_skill(
             )
     try:
         await folder_service.move_skill(skill_id, folder)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -187,7 +187,7 @@ async def get_skill_draft_file(
     draft_file: SkillDraftFileRead | None
     try:
         draft_file = await service.get_draft_file(skill_id=skill_id, path=path)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
     if draft_file is None:
         raise HTTPException(
@@ -211,9 +211,9 @@ async def patch_skill_draft(
     service = SkillService(session, role=role)
     try:
         return await service.patch_draft(skill_id=skill_id, params=params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -238,9 +238,9 @@ async def create_skill_draft_upload(
     service = SkillService(session, role=role)
     try:
         return await service.create_draft_upload(skill_id=skill_id, params=params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -260,9 +260,9 @@ async def publish_skill(
     service = SkillService(session, role=role)
     try:
         return await service.publish_skill(skill_id)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -280,9 +280,9 @@ async def list_skill_versions(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -300,7 +300,7 @@ async def list_skill_versions(
             skill_id=skill_id,
             params=CursorPaginationParams(limit=limit, cursor=cursor, reverse=reverse),
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
 
 
@@ -318,7 +318,7 @@ async def get_skill_version(
     service = SkillService(session, role=role)
     try:
         return await service.get_version_read(skill_id=skill_id, version_id=version_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -345,7 +345,7 @@ async def get_skill_version_file(
             version_id=version_id,
             path=path,
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
     if version_file is None:
         raise HTTPException(
@@ -371,7 +371,7 @@ async def restore_skill_version(
     service = SkillService(session, role=role)
     try:
         return await service.restore_version(skill_id=skill_id, version_id=version_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -391,9 +391,9 @@ async def archive_skill(
     service = SkillService(session, role=role)
     try:
         await service.archive_skill(skill_id)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         _raise_skill_validation_error(exc)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

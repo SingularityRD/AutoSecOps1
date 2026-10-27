@@ -22,8 +22,8 @@ from autosecops.cases.durations.service import (
 )
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.logger import logger
 
@@ -58,7 +58,7 @@ async def get_case_duration_definition(
     service = CaseDurationDefinitionService(session=session, role=role)
     try:
         return await service.get_definition(duration_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration definition not found",
             duration_id=str(duration_id),
@@ -86,7 +86,7 @@ async def create_case_duration_definition(
     service = CaseDurationDefinitionService(session=session, role=role)
     try:
         return await service.create_definition(params)
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         logger.warning(
             "Validation error creating case duration definition",
             error=str(err),
@@ -122,7 +122,7 @@ async def update_case_duration_definition(
     service = CaseDurationDefinitionService(session=session, role=role)
     try:
         return await service.update_definition(duration_id, params)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration definition not found for update",
             duration_id=str(duration_id),
@@ -132,7 +132,7 @@ async def update_case_duration_definition(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),
         ) from err
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         logger.warning(
             "Validation error updating case duration definition",
             duration_id=str(duration_id),
@@ -171,7 +171,7 @@ async def delete_case_duration_definition(
     service = CaseDurationDefinitionService(session=session, role=role)
     try:
         await service.delete_definition(duration_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration definition not found for deletion",
             duration_id=str(duration_id),
@@ -195,7 +195,7 @@ async def list_case_durations(
     service = CaseDurationService(session=session, role=role)
     try:
         return await service.list_durations(case_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),
@@ -215,7 +215,7 @@ async def get_case_duration(
     service = CaseDurationService(session=session, role=role)
     try:
         return await service.get_duration(case_id, duration_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration not found",
             case_id=str(case_id),
@@ -243,7 +243,7 @@ async def create_case_duration(
     service = CaseDurationService(session=session, role=role)
     try:
         return await service.create_duration(case_id, params)
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         logger.warning(
             "Validation error creating case duration",
             case_id=str(case_id),
@@ -254,7 +254,7 @@ async def create_case_duration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
         ) from err
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case or definition not found during duration creation",
             case_id=str(case_id),
@@ -281,7 +281,7 @@ async def update_case_duration(
     service = CaseDurationService(session=session, role=role)
     try:
         return await service.update_duration(case_id, duration_id, params)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration not found for update",
             case_id=str(case_id),
@@ -292,7 +292,7 @@ async def update_case_duration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(err),
         ) from err
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         logger.warning(
             "Validation error updating case duration",
             case_id=str(case_id),
@@ -321,7 +321,7 @@ async def delete_case_duration(
     service = CaseDurationService(session=session, role=role)
     try:
         await service.delete_duration(case_id, duration_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         logger.warning(
             "Case duration not found for deletion",
             case_id=str(case_id),

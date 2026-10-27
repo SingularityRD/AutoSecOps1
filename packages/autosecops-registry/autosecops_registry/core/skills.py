@@ -18,10 +18,10 @@ from autosecops_registry.sdk.agents import CursorPage
 SkillId = Annotated[str, Doc("Skill slug (e.g., 'triage-assistant') or skill ID.")]
 
 LEGACY_UPDATE_FIELD_SCHEMA_EXTRA: dict[str, Any] = {
-    "x-tracecat-deprecation-message": "Use `operations` instead."
+    "x-autosecops-deprecation-message": "Use `operations` instead."
 }
 LEGACY_SKILL_UUID_SCHEMA_EXTRA: dict[str, Any] = {
-    "x-tracecat-deprecation-message": "Use `skill_id` instead."
+    "x-autosecops-deprecation-message": "Use `skill_id` instead."
 }
 LegacySkillUuid = Annotated[
     uuid.UUID | None,

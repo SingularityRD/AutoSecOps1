@@ -16,7 +16,7 @@ PREBUILT_MANIFEST_FILENAME = "manifest.json"
 
 
 def _prebuilt_root() -> Path:
-    return Path(config.TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR)
+    return Path(config.AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR)
 
 
 def _builtin_artifact_prefix(

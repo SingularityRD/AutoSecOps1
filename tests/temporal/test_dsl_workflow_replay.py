@@ -177,7 +177,7 @@ def _handler_failure_run_args() -> DSLRunArgs:
     return DSLRunArgs(
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),
@@ -225,7 +225,7 @@ async def _record_handler_failure(
         ),
         Worker(
             client=temporal_client,
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             activities=[_classified_action_failure_activity],
         ),
     ):
@@ -249,7 +249,7 @@ async def test_dsl_workflow_classifies_missing_workspace_inside_run(
     task_queue = f"dsl-workflow-bootstrap-{uuid.uuid4()}"
     wf_id = WorkflowUUID.new_uuid4()
     run_args = DSLRunArgs(
-        role=Role(type="service", service_id="tracecat-runner"),
+        role=Role(type="service", service_id="autosecops-runner"),
         wf_id=wf_id,
     )
 
@@ -289,7 +289,7 @@ async def test_dsl_workflow_replays_legacy_subflow_failure_history(
     run_args = DSLRunArgs(
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),

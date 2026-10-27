@@ -43,23 +43,24 @@ def run_image_guard(
 
 @pytest.mark.parametrize("event", ["push", "workflow_dispatch"])
 @pytest.mark.parametrize(
-    ("tag", "latest"),
+    ("tag", "latest", "release"),
     [
-        ("1.2.0", "true"),
-        ("1.2.1", "true"),
-        ("0.0.0", "true"),
-        ("1.3.0-alpha.1", "false"),
-        ("1.3.0-rc.1", "false"),
-        ("1.0.0-beta.1-rc.2.post1", "false"),
-        ("nightly-20260901", "false"),
+        ("1.2.0", "true", "true"),
+        ("1.2.1", "true", "true"),
+        ("0.0.0", "true", "true"),
+        ("1.3.0-alpha.1", "false", "true"),
+        ("1.3.0-rc.1", "false", "true"),
+        ("1.0.0-beta.1-rc.2.post1", "false", "true"),
+        # Nightlies are not releases, so they skip the release-key check.
+        ("nightly-20260901", "false", "false"),
     ],
 )
 def test_only_stable_tags_promote_latest(
-    tmp_path: Path, event: str, tag: str, latest: str
+    tmp_path: Path, event: str, tag: str, latest: str, release: str
 ) -> None:
     result, output = run_image_guard(tmp_path, event=event, ref=tag, tag=tag)
     assert result.returncode == 0, result.stderr
-    assert output == {"tag": tag, "latest": latest}
+    assert output == {"tag": tag, "latest": latest, "release": release}
 
 
 @pytest.mark.parametrize("event", ["push", "workflow_dispatch"])
@@ -115,7 +116,7 @@ def test_branch_and_scheduled_builds_do_not_promote_latest(
         tmp_path, event=event, ref_type="branch", ref=branch
     )
     assert result.returncode == 0, result.stderr
-    assert output == {"tag": "", "latest": "false"}
+    assert output == {"tag": "", "latest": "false", "release": "false"}
 
 
 def test_only_serialized_promotion_can_publish_latest() -> None:

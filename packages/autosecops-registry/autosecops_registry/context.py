@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from autosecops_registry.sdk.agents import AgentsClient
     from autosecops_registry.sdk.cases import CasesClient
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
     from autosecops_registry.sdk.deduplicate import DeduplicateClient
     from autosecops_registry.sdk.forms import FormsClient
     from autosecops_registry.sdk.robot_edr import RobotEdrClient
@@ -54,21 +54,21 @@ class RegistryContext:
     executor_url: str = "http://executor:8000"
     token: str = ""
     # Lazily initialized SDK client
-    _client: TracecatClient | None = field(default=None, repr=False)
+    _client: AutoSecOpsClient | None = field(default=None, repr=False)
 
     @classmethod
     def from_env(cls) -> RegistryContext:
         """Create a context from environment variables.
 
         Expected environment variables:
-        - TRACECAT__WORKSPACE_ID: Workspace UUID
-        - TRACECAT__WORKFLOW_ID: Workflow UUID
-        - TRACECAT__RUN_ID: Run UUID
-        - TRACECAT__WF_EXEC_ID: Full workflow execution ID (for correlation)
-        - TRACECAT__ENVIRONMENT: Execution environment (default: "default")
-        - TRACECAT__API_URL: API URL (default: "http://api:8000")
-        - TRACECAT__EXECUTOR_URL: Executor URL (default: "http://executor:8000")
-        - TRACECAT__EXECUTOR_TOKEN: JWT token for authentication
+        - AUTOSECOPS__WORKSPACE_ID: Workspace UUID
+        - AUTOSECOPS__WORKFLOW_ID: Workflow UUID
+        - AUTOSECOPS__RUN_ID: Run UUID
+        - AUTOSECOPS__WF_EXEC_ID: Full workflow execution ID (for correlation)
+        - AUTOSECOPS__ENVIRONMENT: Execution environment (default: "default")
+        - AUTOSECOPS__API_URL: API URL (default: "http://api:8000")
+        - AUTOSECOPS__EXECUTOR_URL: Executor URL (default: "http://executor:8000")
+        - AUTOSECOPS__EXECUTOR_TOKEN: JWT token for authentication
 
         Returns:
             RegistryContext populated from environment.
@@ -76,39 +76,41 @@ class RegistryContext:
         Raises:
             ValueError: If required environment variables are missing.
         """
-        workspace_id = os.environ.get("TRACECAT__WORKSPACE_ID")
-        workflow_id = os.environ.get("TRACECAT__WORKFLOW_ID")
-        run_id = os.environ.get("TRACECAT__RUN_ID")
+        workspace_id = os.environ.get("AUTOSECOPS__WORKSPACE_ID")
+        workflow_id = os.environ.get("AUTOSECOPS__WORKFLOW_ID")
+        run_id = os.environ.get("AUTOSECOPS__RUN_ID")
 
         if not workspace_id:
-            raise ValueError("TRACECAT__WORKSPACE_ID environment variable is required")
+            raise ValueError(
+                "AUTOSECOPS__WORKSPACE_ID environment variable is required"
+            )
         if not workflow_id:
-            raise ValueError("TRACECAT__WORKFLOW_ID environment variable is required")
+            raise ValueError("AUTOSECOPS__WORKFLOW_ID environment variable is required")
         if not run_id:
-            raise ValueError("TRACECAT__RUN_ID environment variable is required")
+            raise ValueError("AUTOSECOPS__RUN_ID environment variable is required")
 
         return cls(
             workspace_id=workspace_id,
             workflow_id=workflow_id,
             run_id=run_id,
-            wf_exec_id=os.environ.get("TRACECAT__WF_EXEC_ID"),
-            environment=os.environ.get("TRACECAT__ENVIRONMENT", "default"),
-            api_url=os.environ.get("TRACECAT__API_URL", "http://api:8000"),
+            wf_exec_id=os.environ.get("AUTOSECOPS__WF_EXEC_ID"),
+            environment=os.environ.get("AUTOSECOPS__ENVIRONMENT", "default"),
+            api_url=os.environ.get("AUTOSECOPS__API_URL", "http://api:8000"),
             executor_url=os.environ.get(
-                "TRACECAT__EXECUTOR_URL", "http://executor:8000"
+                "AUTOSECOPS__EXECUTOR_URL", "http://executor:8000"
             ),
-            token=os.environ.get("TRACECAT__EXECUTOR_TOKEN", ""),
+            token=os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", ""),
         )
 
     @cached_property
-    def client(self) -> TracecatClient:
+    def client(self) -> AutoSecOpsClient:
         """Get the SDK client for this context."""
-        from autosecops_registry.sdk.client import TracecatClient
+        from autosecops_registry.sdk.client import AutoSecOpsClient
 
         if self._client is not None:
             return self._client
 
-        return TracecatClient(
+        return AutoSecOpsClient(
             token=self.token,
             workspace_id=self.workspace_id,
         )

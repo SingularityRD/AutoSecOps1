@@ -57,10 +57,10 @@ CONFIG_CASE_IDS = [
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-agent-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-agent-executor"],
     )
 
 

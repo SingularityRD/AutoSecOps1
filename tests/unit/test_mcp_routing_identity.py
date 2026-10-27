@@ -29,7 +29,7 @@ from autosecops.agent.schemas import ToolFilters
 from autosecops.agent.tools import BuildToolsResult
 from autosecops.auth.types import Role
 from autosecops.db.models import MCPIntegration, SkillVersion, SkillVersionMcpTool
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.mcp_validation import MCPConfigurationError
 from autosecops.integrations.service import IntegrationService
@@ -46,13 +46,14 @@ from autosecops.temporal.errors import extract_error_classification
 @pytest.fixture(autouse=True)
 def db_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "slugs", [("alpha", "beta"), ("user-tracecat-registry", "user-tracecat_registry")]
+    "slugs",
+    [("alpha", "beta"), ("user-autosecops-registry", "user-autosecops_registry")],
 )
 @pytest.mark.parametrize("authored_approval", [False, True])
 async def test_duplicate_display_names_keep_subsets_and_endpoints_separate(
@@ -62,7 +63,7 @@ async def test_duplicate_display_names_keep_subsets_and_endpoints_separate(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -210,7 +211,7 @@ async def test_display_name_approval_fails_before_tool_preparation(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -285,13 +286,13 @@ async def test_display_name_approval_fails_before_tool_preparation(
 @pytest.mark.parametrize(
     ("name", "requested_slug", "separator", "expected"),
     [
-        ("Tracecat Registry", None, "-", "user-tracecat-registry"),
-        ("Tracecat Registry Team", None, "-", "user-tracecat-registry-team"),
-        ("Example", "tracecat-registry", "-", "user-tracecat-registry"),
-        ("Example", "tracecat_registry", "_", "user-tracecat_registry"),
-        ("Example", "tracecat_registry_team", "_", "user-tracecat_registry_team"),
-        ("Example", "tracecat-registryish", "-", "tracecat-registryish"),
-        ("Example", "tracecat_registryish", "_", "tracecat_registryish"),
+        ("AutoSecOps Registry", None, "-", "user-autosecops-registry"),
+        ("AutoSecOps Registry Team", None, "-", "user-autosecops-registry-team"),
+        ("Example", "autosecops-registry", "-", "user-autosecops-registry"),
+        ("Example", "autosecops_registry", "_", "user-autosecops_registry"),
+        ("Example", "autosecops_registry_team", "_", "user-autosecops_registry_team"),
+        ("Example", "autosecops-registryish", "-", "autosecops-registryish"),
+        ("Example", "autosecops_registryish", "_", "autosecops_registryish"),
         ("Example Tools", None, "-", "example-tools"),
         ("Example", "custom_route", "_", "custom_route"),
     ],
@@ -305,7 +306,7 @@ async def test_only_reserved_integration_slugs_are_escaped(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -331,7 +332,7 @@ async def test_escaped_integration_slug_remains_unique(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -339,12 +340,12 @@ async def test_escaped_integration_slug_remains_unique(
     slug_taken = AsyncMock(side_effect=[True, False])
     monkeypatch.setattr(service, "_mcp_integration_slug_taken", slug_taken)
     assert (
-        await service._generate_mcp_integration_slug(name="Tracecat Registry")
-        == "user-tracecat-registry-1"
+        await service._generate_mcp_integration_slug(name="AutoSecOps Registry")
+        == "user-autosecops-registry-1"
     )
     assert [call.args[0] for call in slug_taken.await_args_list] == [
-        "user-tracecat-registry",
-        "user-tracecat-registry-1",
+        "user-autosecops-registry",
+        "user-autosecops-registry-1",
     ]
 
 
@@ -352,16 +353,16 @@ async def test_escaped_integration_slug_remains_unique(
 @pytest.mark.parametrize(
     "slug",
     [
-        "tracecat-registry",
-        "tracecat-registry-team",
-        "tracecat_registry",
-        "tracecat_registry_team",
+        "autosecops-registry",
+        "autosecops-registry-team",
+        "autosecops_registry",
+        "autosecops_registry_team",
     ],
 )
 async def test_existing_reserved_slugs_fail_before_routing(slug: str) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-agent-executor",
+        service_id="autosecops-agent-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -376,7 +377,7 @@ async def test_existing_reserved_slugs_fail_before_routing(slug: str) -> None:
         auth_type=MCPAuthType.NONE,
     )
     preset_service = AgentPresetService(session, role=role)
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         preset_service._mcp_integration_refs(
             [str(integration.id)], {integration.id: integration}
         )

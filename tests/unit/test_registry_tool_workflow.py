@@ -67,7 +67,7 @@ async def test_activity_leaves_time_for_sandbox_failure(
     with (
         patch(f"{MODULE}.workflow.patched", return_value=patched),
         patch(f"{MODULE}.workflow.execute_activity", execute),
-        patch(f"{MODULE}.config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT", executor_seconds),
+        patch(f"{MODULE}.config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", executor_seconds),
     ):
         assert (
             await ExecuteRegistryToolWorkflow().run(

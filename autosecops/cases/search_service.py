@@ -66,7 +66,7 @@ from autosecops.db.models import (
     CaseTag,
     CaseTask,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, PageParams, paginate
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import Filter
@@ -179,7 +179,7 @@ class CaseSearchService(BaseWorkspaceService):
             .all()
         )
         if set(tag_ids) - {row[0] for row in rows}:
-            raise TracecatValidationError("Unknown case tag filter")
+            raise AutoSecOpsValidationError("Unknown case tag filter")
         return [row[1] for row in rows]
 
     async def compatibility_filters(self, query: CaseQuery) -> Filter | None:
@@ -190,7 +190,7 @@ class CaseSearchService(BaseWorkspaceService):
         dropdowns: dict[str, list[str]] = {}
         for entry in query.dropdown or []:
             if ":" not in entry:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Invalid dropdown filter format: {entry!r}. Expected 'definition_ref:option_ref'."
                 )
             ref, option = entry.split(":", 1)

@@ -10,7 +10,7 @@ import {
   settingsUpdateSecuritySettings,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 const ORG_SECURITY_SETTINGS_QUERY_KEY = ["org-security-settings"]
@@ -25,7 +25,7 @@ export function useOrgSecuritySettings() {
     data: securitySettings,
     isLoading: securitySettingsIsLoading,
     error: securitySettingsError,
-  } = useQuery<SecuritySettingsRead, TracecatApiError>({
+  } = useQuery<SecuritySettingsRead, AutoSecOpsApiError>({
     queryKey: ORG_SECURITY_SETTINGS_QUERY_KEY,
     queryFn: async () => await settingsGetSecuritySettings(),
   })
@@ -33,7 +33,7 @@ export function useOrgSecuritySettings() {
   const {
     mutateAsync: updateSecuritySettings,
     isPending: updateSecuritySettingsIsPending,
-  } = useMutation<void, TracecatApiError, SecuritySettingsUpdate>({
+  } = useMutation<void, AutoSecOpsApiError, SecuritySettingsUpdate>({
     mutationFn: async (requestBody) =>
       await settingsUpdateSecuritySettings({ requestBody }),
     onSuccess: () => {
@@ -66,7 +66,7 @@ export function useOrgSecuritySettings() {
     isPending: checkIpAllowlistIsPending,
   } = useMutation<
     IPAllowlistCheckResult,
-    TracecatApiError,
+    AutoSecOpsApiError,
     IPAllowlistCheckRequest
   >({
     mutationFn: async (requestBody) =>

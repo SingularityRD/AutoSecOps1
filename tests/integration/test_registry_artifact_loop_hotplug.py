@@ -14,7 +14,7 @@ Build the normal executor image once, resolve its immutable image ID, then run
 without database-backed parent fixtures::
 
     docker compose -f docker-compose.dev.yml build executor
-    TRACECAT__REGISTRY_LOOP_HOTPLUG_IMAGE=$(docker compose \
+    AUTOSECOPS__REGISTRY_LOOP_HOTPLUG_IMAGE=$(docker compose \
         -f docker-compose.dev.yml images -q executor) \
       uv run pytest --confcutdir=tests/integration \
         tests/integration/test_registry_artifact_loop_hotplug.py \
@@ -38,10 +38,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Self, cast
 
-_LOOP_HOTPLUG_CHILD_ENV = "TRACECAT__REGISTRY_LOOP_HOTPLUG_CHILD"
-_LOOP_HOTPLUG_IMAGE_ENV = "TRACECAT__REGISTRY_LOOP_HOTPLUG_IMAGE"
+_LOOP_HOTPLUG_CHILD_ENV = "AUTOSECOPS__REGISTRY_LOOP_HOTPLUG_CHILD"
+_LOOP_HOTPLUG_IMAGE_ENV = "AUTOSECOPS__REGISTRY_LOOP_HOTPLUG_IMAGE"
 _LOOP_HOTPLUG_FLAG = "--run-registry-loop-hotplug"
-_LOOP_HOTPLUG_RESULT = "TRACECAT_REGISTRY_LOOP_HOTPLUG_RESULT:"
+_LOOP_HOTPLUG_RESULT = "AUTOSECOPS_REGISTRY_LOOP_HOTPLUG_RESULT:"
 
 _LOOP_BLOCK_MAJOR = 7
 _LOOP_CTL_GET_FREE = 0x4C82
@@ -177,16 +177,16 @@ def _run_loop_hotplug_in_docker_or_skip() -> LoopHotplugPayload:
 
     child_env = os.environ.copy()
     child_env["LOG_LEVEL"] = "INFO"
-    child_env["TRACECAT__APP_ENV"] = "development"
-    child_env["TRACECAT__SERVICE_KEY"] = "test-service-key"
-    child_env["TRACECAT__LOCAL_REPOSITORY_ENABLED"] = "false"
+    child_env["AUTOSECOPS__APP_ENV"] = "development"
+    child_env["AUTOSECOPS__SERVICE_KEY"] = "test-service-key"
+    child_env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "false"
     child_env[_LOOP_HOTPLUG_CHILD_ENV] = "1"
     child_env["PYTHONDONTWRITEBYTECODE"] = "1"
     forwarded_env = (
         "LOG_LEVEL",
-        "TRACECAT__APP_ENV",
-        "TRACECAT__SERVICE_KEY",
-        "TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "AUTOSECOPS__APP_ENV",
+        "AUTOSECOPS__SERVICE_KEY",
+        "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
         _LOOP_HOTPLUG_CHILD_ENV,
         "PYTHONDONTWRITEBYTECODE",
     )

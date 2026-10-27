@@ -5,7 +5,7 @@ import * as React from "react"
 import { useState } from "react"
 import { Input, type InputProps, inputVariants } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { TracecatComponentId } from "@/lib/schema"
+import type { AutoSecOpsComponentId } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 
 /**
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
  */
 export interface FieldTypeTab {
   /** Unique identifier for the tab */
-  value: TracecatComponentId
+  value: AutoSecOpsComponentId
   /** Display label for the tab */
   label: string
   /** Icon component to display in the tab (optional) */
@@ -29,11 +29,11 @@ export interface PolymorphicFieldProps extends Omit<InputProps, "children"> {
   /** Array of field type tabs to display */
   fieldTypes: FieldTypeTab[]
   /** Currently active field type */
-  activeFieldType?: TracecatComponentId
+  activeFieldType?: AutoSecOpsComponentId
   /** Default field type (used if activeFieldType is not provided) */
-  defaultFieldType?: TracecatComponentId
+  defaultFieldType?: AutoSecOpsComponentId
   /** Callback fired when field type changes */
-  onFieldTypeChange?: (fieldType: TracecatComponentId) => void
+  onFieldTypeChange?: (fieldType: AutoSecOpsComponentId) => void
   /** Child components representing different field types */
   children: React.ReactNode
   /** Additional className for the wrapper */
@@ -88,7 +88,7 @@ export const PolyField = React.forwardRef<
       if (activeFieldType === undefined) {
         setInternalActiveType(fieldType)
       }
-      onFieldTypeChange?.(fieldType as TracecatComponentId)
+      onFieldTypeChange?.(fieldType as AutoSecOpsComponentId)
     }
 
     if (fieldTypes.length === 0) {

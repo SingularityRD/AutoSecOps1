@@ -1,8 +1,13 @@
+# Patterns to ignore when packaging the chart.
 .DS_Store
 .git/
+.gitignore
 *.swp
 *.bak
 *.tmp
 *.orig
+*~
 .idea/
 .vscode/
+# Test values used by CI; not part of the published chart.
+ci/

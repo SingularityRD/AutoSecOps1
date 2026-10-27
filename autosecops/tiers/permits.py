@@ -44,7 +44,7 @@ class TierPermitService:
         redis_client = await get_redis_client()
         client = await redis_client._get_client()
         semaphore = RedisSemaphore(
-            client, ttl_seconds=config.TRACECAT__PERMIT_TTL_SECONDS
+            client, ttl_seconds=config.AUTOSECOPS__PERMIT_TTL_SECONDS
         )
         return cls(semaphore)
 

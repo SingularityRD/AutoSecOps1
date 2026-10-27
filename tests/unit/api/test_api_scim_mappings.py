@@ -14,9 +14,9 @@ from fastapi.testclient import TestClient
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
 )
 from autosecops.pagination import Page, PageParams
 from autosecops.tiers.enums import Entitlement
@@ -102,7 +102,7 @@ async def test_list_mappings_returns_joined_detail(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("limit", [0, config.TRACECAT__LIMIT_CURSOR_MAX + 1])
+@pytest.mark.parametrize("limit", [0, config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1])
 async def test_mapping_page_limit_is_validated(
     client: TestClient, test_admin_role: Role, limit: int
 ) -> None:
@@ -166,7 +166,7 @@ async def test_create_against_a_missing_group_is_404(
         ),
         patch(
             "autosecops_ee.scim.service.SCIMService.create_mapping",
-            new=AsyncMock(side_effect=TracecatNotFoundError("Group not found")),
+            new=AsyncMock(side_effect=AutoSecOpsNotFoundError("Group not found")),
         ),
     ):
         response = client.post(
@@ -212,7 +212,7 @@ async def test_delete_of_a_missing_mapping_is_404(
         ),
         patch(
             "autosecops_ee.scim.service.SCIMService.delete_mapping",
-            new=AsyncMock(side_effect=TracecatNotFoundError("missing")),
+            new=AsyncMock(side_effect=AutoSecOpsNotFoundError("missing")),
         ),
     ):
         response = client.request("DELETE", f"{MAPPINGS}/{uuid.uuid4()}")

@@ -5,7 +5,7 @@ from collections.abc import Iterator
 import pytest
 
 from autosecops.contexts import ctx_secret_masks
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.executor.schemas import ExecutorActionErrorInfo
 from autosecops.executor.service import _sanitize_error_info
 from autosecops.expressions.common import eval_jsonpath, parse_jsonpath
@@ -40,7 +40,7 @@ def masks() -> Iterator[SecretMaskCollector]:
 def test_jsonpath_fragments_are_masked_through_error_transport(
     masks: SecretMaskCollector, context: str, transform: str, fragment: str
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(" + context + ".value." + transform + ") }}",
             operand={
@@ -72,7 +72,7 @@ def test_jsonpath_fragments_are_masked_through_error_transport(
 def test_public_jsonpath_results_keep_diagnostics(
     masks: SecretMaskCollector, path: str
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(" + path + ") }}",
             operand={
@@ -96,7 +96,7 @@ def test_jsonpath_transform_failure_has_no_secret_operand_or_chain(
 ) -> None:
     # JSONPath string substitution expects a string. Protect a sensitive
     # operand even when its transformation fails before returning a value.
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ TRIGGER.value.`sub(/private/, public)` }}",
             operand={

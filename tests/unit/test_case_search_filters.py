@@ -13,7 +13,7 @@ from autosecops.cases.search_schemas import CaseQuery
 from autosecops.cases.search_service import case_identity_predicates
 from autosecops.cases.types import ResolvedCaseTag
 from autosecops.db.models import Case
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def search_role() -> Role:
         type="service",
         organization_id=uuid.UUID("00000000-0000-4000-8000-000000000002"),
         workspace_id=uuid.UUID("00000000-0000-4000-8000-000000000001"),
-        service_id="tracecat-service",
+        service_id="autosecops-service",
     )
 
 
@@ -71,7 +71,7 @@ async def test_unresolved_tag_filters_are_rejected(
     with patch(
         "autosecops.cases.filters.resolve_case_tag_filters", new_callable=AsyncMock
     ) as resolve:
-        resolve.side_effect = TracecatValidationError(
+        resolve.side_effect = AutoSecOpsValidationError(
             "Unknown case tag filter: 'missing-tag'"
         )
         with pytest.raises(HTTPException) as error:

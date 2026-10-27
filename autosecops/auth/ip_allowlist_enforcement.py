@@ -160,7 +160,7 @@ async def enforce_platform_admin_ip_allowlist() -> None:
     Raises:
         HTTPException(403): If the client IP is not in the allowlist.
     """
-    if config.TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS:
+    if config.AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS:
         return
 
     client_ip = current_client_ip()

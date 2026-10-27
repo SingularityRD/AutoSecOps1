@@ -118,8 +118,10 @@ def _patch_storage(
     async def fail_download_file_to_path(*_args: Any, **_kwargs: Any) -> int:
         raise AssertionError("this work dir state should not download a snapshot")
 
-    monkeypatch.setattr(config, "TRACECAT__AGENT_FS_CACHE_DIR", str(tmp_path / "cache"))
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_AGENT", "agent-bucket")
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AGENT_FS_CACHE_DIR", str(tmp_path / "cache")
+    )
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT", "agent-bucket")
     monkeypatch.setattr(
         AgentFilesystemService, "with_session", staticmethod(fake_with_session)
     )

@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.variables.schemas import VariableCreate, VariableSearch, VariableUpdate
 from autosecops.variables.service import VariablesService
 
@@ -63,7 +63,7 @@ class TestVariablesService:
         variable = await service.get_variable(created.id)
         await service.delete_variable(variable)
 
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.get_variable(created.id)
 
     async def test_list_variables_filters_environment(

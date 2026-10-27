@@ -19,7 +19,7 @@ from autosecops.db.locks import (
 )
 from autosecops.db.models import CaseDurationDefinition as CaseDurationDefinitionDB
 from autosecops.db.models import Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.logger import logger
 
 STATUS_CHANGED_ALIASES = frozenset(
@@ -78,7 +78,7 @@ async def sync_case_duration(
             )
             await session.commit()
             return True
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             await session.rollback()
             logger.info(
                 "Skipping case duration sync for deleted case",
@@ -164,8 +164,8 @@ async def _get_service_role(
         workspace_id=workspace_id,
         organization_id=workspace.organization_id,
         user_id=None,
-        service_id="tracecat-case-duration-sync",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-case-duration-sync"],
+        service_id="autosecops-case-duration-sync",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-case-duration-sync"],
     )
     # CaseTriggerConsumer also caches positive workspace roles. Bound this cache
     # so a deleted workspace is rechecked rather than retained for process life.

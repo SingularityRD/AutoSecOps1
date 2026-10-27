@@ -1,0 +1,18 @@
+# Smallest values that render: required values only, with obvious placeholders.
+urls:
+  publicApp: https://autosecops.example.com
+secrets:
+  dbEncryptionKey: placeholder-db-encryption-key
+  serviceKey: placeholder-service-key
+  signingSecret: placeholder-signing-secret
+  userAuthSecret: placeholder-user-auth-secret
+externalPostgres:
+  host: postgres.example.internal
+  auth:
+    username: autosecops
+    password: placeholder-password
+externalRedis:
+  auth:
+    url: redis://redis.example.internal:6379
+externalTemporal:
+  clusterUrl: temporal-frontend.temporal.svc:7233

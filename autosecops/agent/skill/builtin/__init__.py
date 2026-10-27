@@ -11,10 +11,10 @@ from typing import Literal
 
 from autosecops.agent.skill.types import SkillOrigin
 
-PLATFORM_SKILL_PLUGIN_NAME = "tracecat"
+PLATFORM_SKILL_PLUGIN_NAME = "autosecops"
 PLATFORM_SKILL_PLUGIN_DIR = "platform-skills"
 PLATFORM_SKILLS_SOURCE_DIR = Path(__file__).parent / "skills"
-"""Vendored skill sources; the image copies them to ``TRACECAT__COPILOT_SKILLS_DIR``.
+"""Vendored skill sources; the image copies them to ``AUTOSECOPS__COPILOT_SKILLS_DIR``.
 
 The image build also injects ``references/docs`` into the workspace-chat skill,
 so this source tree lacks those generated docs.
@@ -36,9 +36,11 @@ class PlatformSkillRef:
 
 
 PLATFORM_SKILLS: tuple[PlatformSkillRef, ...] = (
-    PlatformSkillRef("tracecat-workspace-chat", "workspace-chat"),
-    PlatformSkillRef("tracecat-automation-best-practices", "automation-best-practices"),
-    PlatformSkillRef("tracecat-slackbot-best-practices", "slackbot-best-practices"),
+    PlatformSkillRef("autosecops-workspace-chat", "workspace-chat"),
+    PlatformSkillRef(
+        "autosecops-automation-best-practices", "automation-best-practices"
+    ),
+    PlatformSkillRef("autosecops-slackbot-best-practices", "slackbot-best-practices"),
 )
 
 # Payloads retain stable image asset keys. Only this server-owned catalog can

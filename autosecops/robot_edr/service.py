@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Robot, RobotKey
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.robot_edr.crypto import derive_key_id, is_strict_public_key
 from autosecops.robot_edr.key_registry import (
@@ -76,7 +76,7 @@ class RobotsService(BaseWorkspaceService):
             )
         )
         if robot is None:
-            raise TracecatNotFoundError("Robot not found")
+            raise AutoSecOpsNotFoundError("Robot not found")
         return robot
 
     async def _robot_by_robodr_id(self, robodr_id: str) -> Robot:
@@ -86,7 +86,7 @@ class RobotsService(BaseWorkspaceService):
             )
         )
         if robot is None:
-            raise TracecatNotFoundError("Robot not found")
+            raise AutoSecOpsNotFoundError("Robot not found")
         return robot
 
     @require_scope("robot:update")
@@ -162,7 +162,7 @@ class RobotsService(BaseWorkspaceService):
             )
         ).first()
         if row is None:
-            raise TracecatNotFoundError("Robot key not found")
+            raise AutoSecOpsNotFoundError("Robot key not found")
         return row[0], row[1]
 
     @require_scope("robot:update")
@@ -175,35 +175,35 @@ class RobotsService(BaseWorkspaceService):
         evidence verification trusts them.
 
         Raises:
-            TracecatValidationError: The key is not a canonical, large-order
+            AutoSecOpsValidationError: The key is not a canonical, large-order
                 Ed25519 key, the role/robot/key id combination is invalid, the
                 role is ``blackbox``.
-            TracecatNotFoundError: The named robot is not registered.
+            AutoSecOpsNotFoundError: The named robot is not registered.
             RobotConflictError: The key id or public key was ever registered
                 anywhere on the SOC (robot or SOC key, in any workspace).
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         if params.role is RobotKeyRole.BLACKBOX:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Black-box keys are registered by fleet enrollment only "
                 "(robodr-enroll proves possession of the key)"
             )
         public_key = bytes.fromhex(params.public_key)
         if not is_strict_public_key(public_key):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "public_key is not a canonical, large-order Ed25519 public key"
             )
         derived = derive_key_id(public_key)
         if params.role in SENDER_KEY_ROLES:
             if params.key_id is not None and params.key_id != derived:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"A {params.role} key's id is derived from its public key: {derived}"
                 )
             key_id = derived
         else:
             key_id = params.key_id or derived
             if key_id != derived and key_id.startswith("ed25519:"):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "A key id of the form ed25519:<hex> is the derived id of "
                     f"its public key: {derived}"
                 )
@@ -211,14 +211,14 @@ class RobotsService(BaseWorkspaceService):
         robot_fk: uuid.UUID | None = None
         if params.role is RobotKeyRole.RELAY:
             if params.robot_id is not None:
-                raise TracecatValidationError("A relay key is not bound to a robot")
+                raise AutoSecOpsValidationError("A relay key is not bound to a robot")
         else:
             if params.site is not None or params.vouches_origin:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "site and vouches_origin apply to relay keys only"
                 )
             if params.robot_id is None:
-                raise TracecatValidationError(f"A {params.role} key needs a robot_id")
+                raise AutoSecOpsValidationError(f"A {params.role} key needs a robot_id")
             robot_fk = (await self._robot_by_robodr_id(params.robot_id)).id
 
         key = RobotKey(

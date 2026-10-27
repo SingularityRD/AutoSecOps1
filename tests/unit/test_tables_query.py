@@ -9,7 +9,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnClause
 
 from autosecops.db.models import TableColumn
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.compiler import compile_filter
 from autosecops.query.filters import Condition, FilterOp
 from autosecops.query.resolver import FieldKind
@@ -144,7 +144,7 @@ def test_resolves_supported_aggregation_column_types(
 def test_rejects_unsupported_column_types(sql_type: SqlType) -> None:
     resolver = TableFieldResolver([_column("tags", sql_type.value)])
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         resolver.resolve("tags")
 
     assert "tags" in str(exc_info.value)
@@ -155,7 +155,7 @@ def test_rejects_unsupported_column_types(sql_type: SqlType) -> None:
 def test_rejects_unsupported_aggregation_column_types(sql_type: SqlType) -> None:
     resolver = TableFieldResolver([_column("payload", sql_type.value)])
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         resolver.resolve_aggregation("payload")
 
     assert "payload" in str(exc_info.value)
@@ -278,14 +278,14 @@ def test_unresolvable_columns_are_not_available_for_aggregation(field: str) -> N
 def test_compiler_rejects_unknown_column_with_field_name() -> None:
     resolver = TableFieldResolver([])
 
-    with pytest.raises(TracecatValidationError, match="missing"):
+    with pytest.raises(AutoSecOpsValidationError, match="missing"):
         compile_filter(Condition(field="missing", op=FilterOp.EQ, value="x"), resolver)
 
 
 def test_rejects_invalid_stored_column_type() -> None:
     resolver = TableFieldResolver([_column("payload", "BLOB")])
 
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         resolver.resolve("payload")
 
     assert "payload" in str(exc_info.value)
@@ -343,7 +343,7 @@ def test_select_values_are_not_validated_against_column_options() -> None:
 def test_compiler_rejects_disallowed_operation() -> None:
     resolver = TableFieldResolver([_column("count", SqlType.INTEGER.value)])
 
-    with pytest.raises(TracecatValidationError, match="count"):
+    with pytest.raises(AutoSecOpsValidationError, match="count"):
         compile_filter(
             Condition(field="count", op=FilterOp.CONTAINS, value="4"), resolver
         )

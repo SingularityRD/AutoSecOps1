@@ -27,13 +27,18 @@ from autosecops.config import TEMPORAL__CLUSTER_NAMESPACE
 from autosecops.contexts import ctx_role
 from autosecops.db.exceptions import AuthPoolExhaustedError
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
+)
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.observability.sentry import capture_auth_pool_exhaustion
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.tables.exceptions import TableRowError
 from autosecops.workflow.executions.enums import TemporalSearchAttr
@@ -136,7 +141,7 @@ def bootstrap_role(organization_id: OrganizationID | None = None) -> Role:
     """
     return Role(
         type="service",
-        service_id="tracecat-bootstrap",
+        service_id="autosecops-bootstrap",
         organization_id=organization_id,
         is_platform_superuser=True,
         scopes=frozenset({"*"}),
@@ -170,28 +175,51 @@ async def get_default_organization_id(session: AsyncSession) -> OrganizationID:
     return org.id
 
 
-def tracecat_exception_handler(request: Request, exc: Exception) -> Response:
+_CLIENT_ERROR_STATUSES: tuple[tuple[type[AutoSecOpsException], int], ...] = (
+    (AutoSecOpsNotFoundError, status.HTTP_404_NOT_FOUND),
+    (AutoSecOpsValidationError, status.HTTP_400_BAD_REQUEST),
+    (AutoSecOpsConflictError, status.HTTP_409_CONFLICT),
+)
+"""Domain errors that describe a problem with the request, not the server.
+
+These match the statuses routers already use when they catch these errors
+explicitly, and the SCIM handlers in ``autosecops.api.app``.
+"""
+
+
+def _autosecops_exception_status(exc: AutoSecOpsException) -> int:
+    for exc_type, status_code in _CLIENT_ERROR_STATUSES:
+        if isinstance(exc, exc_type):
+            return status_code
+    return status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+def autosecops_exception_handler(request: Request, exc: Exception) -> Response:
     """Generic exception handler for AutoSecOps exceptions.
 
-    We can customize exceptions to expose only what should be user facing.
+    Not-found, validation and conflict errors are client errors (404, 400 and
+    409). Every other AutoSecOps exception is a 500. The response body has the
+    same shape either way.
     """
-    tracecat_exc = (
-        exc if isinstance(exc, TracecatException) else TracecatException(str(exc))
+    autosecops_exc = (
+        exc if isinstance(exc, AutoSecOpsException) else AutoSecOpsException(str(exc))
     )
-    msg = str(tracecat_exc)
-    logger.error(
+    msg = str(autosecops_exc)
+    status_code = _autosecops_exception_status(autosecops_exc)
+    log = logger.error if status_code >= 500 else logger.warning
+    log(
         msg,
         role=ctx_role.get(),
         params=request.query_params,
         path=request.url.path,
-        detail=tracecat_exc.detail,
+        detail=autosecops_exc.detail,
     )
     return ORJSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=status_code,
         content={
             "type": type(exc).__name__,
             "message": msg,
-            "detail": tracecat_exc.detail,
+            "detail": autosecops_exc.detail,
         },
     )
 
@@ -212,7 +240,7 @@ async def table_row_exception_handler(request: Request, exc: Exception) -> Respo
 
 def _query_exception_response(
     request: Request,
-    exc: TracecatQueryTimeoutError | TracecatQueryOverflowError,
+    exc: AutoSecOpsQueryTimeoutError | AutoSecOpsQueryOverflowError,
     *,
     status_code: int,
 ) -> Response:
@@ -238,8 +266,8 @@ def query_timeout_exception_handler(request: Request, exc: Exception) -> Respons
     """Return the stable 422 contract for timed-out shared queries."""
     query_exc = (
         exc
-        if isinstance(exc, TracecatQueryTimeoutError)
-        else TracecatQueryTimeoutError(str(exc))
+        if isinstance(exc, AutoSecOpsQueryTimeoutError)
+        else AutoSecOpsQueryTimeoutError(str(exc))
     )
     return _query_exception_response(
         request,
@@ -252,8 +280,8 @@ def query_overflow_exception_handler(request: Request, exc: Exception) -> Respon
     """Return the stable 400 contract for shared-query numeric overflow."""
     query_exc = (
         exc
-        if isinstance(exc, TracecatQueryOverflowError)
-        else TracecatQueryOverflowError(str(exc))
+        if isinstance(exc, AutoSecOpsQueryOverflowError)
+        else AutoSecOpsQueryOverflowError(str(exc))
     )
     return _query_exception_response(
         request,

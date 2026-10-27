@@ -31,9 +31,9 @@ from autosecops.cases.schemas import (
 from autosecops.contexts import ctx_run
 from autosecops.db.models import Case
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.service import BaseWorkspaceService
 from autosecops.tiers.enums import Entitlement
@@ -83,10 +83,10 @@ class CaseHierarchyService(BaseWorkspaceService):
 
         Raises:
             EntitlementRequired: If ``parent_id`` is set without ``case_addons``.
-            TracecatValidationError: If ``parent_id`` is combined with ``top_level``.
+            AutoSecOpsValidationError: If ``parent_id`` is combined with ``top_level``.
         """
         if parent_id is not None and hierarchy == "top_level":
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "parent_id cannot be combined with hierarchy=top_level"
             )
         if not await self.enabled():
@@ -157,13 +157,13 @@ class CaseHierarchyService(BaseWorkspaceService):
         """Check that a prospective parent exists and is top-level.
 
         Raises:
-            TracecatNotFoundError: If the parent case does not exist.
-            TracecatValidationError: If the parent case is itself a sub-case.
+            AutoSecOpsNotFoundError: If the parent case does not exist.
+            AutoSecOpsValidationError: If the parent case is itself a sub-case.
         """
         if parent is None:
-            raise TracecatNotFoundError(f"Parent case {parent_id} not found")
+            raise AutoSecOpsNotFoundError(f"Parent case {parent_id} not found")
         if parent.parent_id is not None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"{parent.short_id} is a sub-case and cannot have sub-cases"
             )
         return parent

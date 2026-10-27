@@ -1,106 +1,37 @@
-{{- $root := . }}
-{{- $name := include "autosecops.componentFullname" (dict "root" . "component" "ui") }}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ $name }}
-  labels:
-    {{- include "autosecops.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ui
-spec:
-  {{- if not .Values.ui.autoscaling.enabled }}
-  replicas: {{ .Values.ui.replicaCount }}
+{{- define "autosecops.ui.container" -}}
+{{- $v := .Values.ui -}}
+ports:
+  - name: http
+    containerPort: 3000
+    protocol: TCP
+env:
+  - name: NODE_ENV
+    value: production
+  - name: NEXT_PUBLIC_APP_ENV
+    value: {{ .Values.autosecops.appEnv | quote }}
+  - name: NEXT_PUBLIC_APP_URL
+    value: {{ include "autosecops.publicAppUrl" . | quote }}
+  - name: NEXT_PUBLIC_API_URL
+    value: {{ include "autosecops.publicApiUrl" . | quote }}
+  - name: NEXT_SERVER_API_URL
+    value: {{ include "autosecops.internalApiUrl" . | quote }}
+  - name: AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS
+    value: {{ $v.cspConnectSrcOrigins | default (include "autosecops.presignedUrlEndpoint" .) | quote }}
+  {{- include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SERVICE_KEY" "secret" (include "autosecops.coreSecretName" .) "key" "serviceKey") | nindent 2 }}
+  {{- with $v.extraEnv }}
+  {{- toYaml . | nindent 2 }}
   {{- end }}
-  revisionHistoryLimit: 5
-  selector:
-    matchLabels:
-      {{- include "autosecops.selectorLabels" (dict "root" . "component" "ui") | nindent 6 }}
-  template:
-    metadata:
-      labels:
-        {{- include "autosecops.selectorLabels" (dict "root" . "component" "ui") | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-    spec:
-      serviceAccountName: {{ include "autosecops.serviceAccountName" . }}
-      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
-      enableServiceLinks: false
-      {{- include "autosecops.podScheduling" . | nindent 6 }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      containers:
-        - name: ui
-          image: {{ include "autosecops.uiImage" . }}
-          imagePullPolicy: {{ .Values.uiImage.pullPolicy }}
-          securityContext:
-            {{- toYaml (mergeOverwrite (deepCopy .Values.containerSecurityContext) .Values.ui.containerSecurityContext) | nindent 12 }}
-          ports:
-            - name: http
-              containerPort: 3000
-              protocol: TCP
-          env:
-            - name: NODE_ENV
-              value: production
-            - name: NEXT_PUBLIC_APP_ENV
-              value: {{ .Values.autosecops.appEnv | quote }}
-            - name: NEXT_PUBLIC_APP_URL
-              value: {{ include "autosecops.publicAppUrl" . | quote }}
-            - name: NEXT_PUBLIC_API_URL
-              value: {{ include "autosecops.publicApiUrl" . | quote }}
-            - name: NEXT_SERVER_API_URL
-              value: {{ include "autosecops.internalApiUrl" . | quote }}
-            - name: NEXT_PUBLIC_AUTH_TYPES
-              value: {{ .Values.autosecops.auth.types | quote }}
-            - name: TRACECAT__CSP_CONNECT_SRC_ORIGINS
-              value: {{ default (include "autosecops.presignedUrlEndpoint" .) .Values.externalS3.cspConnectSrcOrigins | quote }}
-            {{- include "autosecops.secretEnv" (dict "name" "TRACECAT__SERVICE_KEY" "secret" .Values.secrets.existingSecret "key" .Values.secrets.keys.serviceKey) | nindent 12 }}
-            {{- include "autosecops.envMap" .Values.ui.env | nindent 12 }}
-            {{- with .Values.ui.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- with .Values.ui.startupProbe }}
-          startupProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.ui.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.ui.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          resources:
-            {{- toYaml .Values.ui.resources | nindent 12 }}
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-            - name: next-cache
-              mountPath: /app/.next/cache
-      volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: next-cache
-          emptyDir: {}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.ui.enabled }}
+{{- $ctx := dict "root" . "component" "ui" "values" .Values.ui }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.uiImage" .)
+    "pullPolicy" .Values.uiImage.pullPolicy
+    "container" (include "autosecops.ui.container" .)
+  ) $ctx) }}
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ $name }}
-  labels:
-    {{- include "autosecops.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ui
-spec:
-  type: ClusterIP
-  selector:
-    {{- include "autosecops.selectorLabels" (dict "root" . "component" "ui") | nindent 4 }}
-  ports:
-    - name: http
-      port: 3000
-      targetPort: http
-      protocol: TCP
+{{ include "autosecops.service" $ctx }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

@@ -33,7 +33,7 @@ from autosecops.artifacts.resolution import resolve_artifact_side_effects
 from autosecops.artifacts.schemas import ArtifactAdapter
 from autosecops.auth.types import Role
 from autosecops.chat import tokens
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.redis.client import RedisClient
 
 
@@ -120,7 +120,7 @@ async def test_resolve_artifact_side_effects_resolves_table_identity(
         table_name: str,
     ) -> SimpleNamespace:
         if ref_kind == "id":
-            raise TracecatNotFoundError("Table not found")
+            raise AutoSecOpsNotFoundError("Table not found")
         return SimpleNamespace(id=table_id, name=table_name)
 
     async def fake_get_table(
@@ -158,7 +158,7 @@ async def test_resolve_artifact_side_effects_resolves_table_identity(
         session=cast(AsyncSession, object()),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),
@@ -209,7 +209,7 @@ async def test_resolve_artifact_side_effects_skips_invalid_table_name_ref(
         session=cast(AsyncSession, object()),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),

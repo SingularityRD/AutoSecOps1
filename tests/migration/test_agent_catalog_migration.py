@@ -8,7 +8,7 @@ keeps per-test runtime low while still covering the SQL paths.
 The v2 backfill is decrypt-free by design: ``organization_secret.encrypted_keys``
 is copied byte-for-byte into ``encrypted_config`` on the new catalog and
 custom-provider rows. The migration never imports
-``TRACECAT__DB_ENCRYPTION_KEY``, so tests don't need to set one — the
+``AUTOSECOPS__DB_ENCRYPTION_KEY``, so tests don't need to set one — the
 ``encrypt_keyvalues`` helper still needs *some* key when seeding fixtures,
 but that key is never reused by the migration code.
 """

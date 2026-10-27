@@ -5,10 +5,10 @@ based on organization and workspace context.
 
 IMPORTANT: These tests require:
 1. A running PostgreSQL database with the RLS migration applied
-2. RLS mode enabled (TRACECAT__RLS_MODE=enforce or shadow)
+2. RLS mode enabled (AUTOSECOPS__RLS_MODE=enforce or shadow)
 
 Run with:
-    TRACECAT__RLS_MODE=enforce uv run pytest tests/unit/test_rls_policies.py -v
+    AUTOSECOPS__RLS_MODE=enforce uv run pytest tests/unit/test_rls_policies.py -v
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 # Skip all tests if RLS is not enabled
 pytestmark = pytest.mark.skipif(
     not is_rls_enabled(),
-    reason="RLS mode not enabled. Set TRACECAT__RLS_MODE=enforce or shadow",
+    reason="RLS mode not enabled. Set AUTOSECOPS__RLS_MODE=enforce or shadow",
 )
 
 
@@ -84,7 +84,7 @@ def role_workspace_a(org_id_a: uuid.UUID, workspace_id_a: uuid.UUID) -> Role:
         workspace_id=workspace_id_a,
         organization_id=org_id_a,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -96,7 +96,7 @@ def role_workspace_b(org_id_b: uuid.UUID, workspace_id_b: uuid.UUID) -> Role:
         workspace_id=workspace_id_b,
         organization_id=org_id_b,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 

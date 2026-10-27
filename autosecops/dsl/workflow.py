@@ -110,10 +110,10 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.dsl.validation import format_input_schema_validation_error
     from autosecops.dsl.workflow_logging import get_workflow_logger
     from autosecops.exceptions import (
-        TracecatDSLError,
-        TracecatException,
-        TracecatExpressionError,
-        TracecatNotFoundError,
+        AutoSecOpsDSLError,
+        AutoSecOpsException,
+        AutoSecOpsExpressionError,
+        AutoSecOpsNotFoundError,
     )
     from autosecops.expressions.eval import is_template_only
     from autosecops.identifiers.workflow import (
@@ -522,7 +522,7 @@ class DSLWorkflow:
                 trigger_inputs = await self._get_schedule_trigger_inputs(
                     schedule_id=args.schedule_id, worflow_id=args.wf_id
                 )
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ApplicationError(
                     "Failed to fetch trigger inputs as the schedule was not found",
                     non_retryable=True,
@@ -646,7 +646,7 @@ class DSLWorkflow:
                 executor=self.execute_task,
                 dsl=self.dsl,
                 dependency_plan=self.dependency_plan,
-                max_pending_tasks=config.TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS,
+                max_pending_tasks=config.AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS,
                 context=self.context,
                 role=self.role,
                 run_context=self.run_context,
@@ -656,7 +656,7 @@ class DSLWorkflow:
                     for ref, fixed in args.fixed_action_results.items()
                 },
             )
-        except TracecatDSLError as e:
+        except AutoSecOpsDSLError as e:
             raise_application_error_from_classification(
                 RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.WORKFLOW_DEFINITION_INVALID,
@@ -711,7 +711,7 @@ class DSLWorkflow:
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                     cause=e,
                 )
-                if isinstance(e, TracecatExpressionError)
+                if isinstance(e, AutoSecOpsExpressionError)
                 else RuntimeErrorClassification.platform(
                     kind=RuntimeErrorKind.WORKFLOW_RUNTIME_INVARIANT_VIOLATION,
                     message="AutoSecOps could not finalize the workflow return value",
@@ -1121,7 +1121,7 @@ class DSLWorkflow:
                         id=AgentWorkflowID(session_id),
                         retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                         # Route to agent worker queue for session activities
-                        task_queue=config.TRACECAT__AGENT_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                         execution_timeout=wf_info.execution_timeout,
                         task_timeout=wf_info.task_timeout,
                         search_attributes=child_search_attributes,
@@ -1208,7 +1208,7 @@ class DSLWorkflow:
                         id=AgentWorkflowID(session_id),
                         retry_policy=RETRY_POLICIES["workflow:fail_fast"],
                         # Route to agent worker queue for session activities
-                        task_queue=config.TRACECAT__AGENT_QUEUE,
+                        task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                         execution_timeout=wf_info.execution_timeout,
                         task_timeout=wf_info.task_timeout,
                         search_attributes=child_search_attributes,
@@ -1305,7 +1305,7 @@ class DSLWorkflow:
         except PlatformExecutionError:
             raise
 
-        except TracecatExpressionError as e:
+        except AutoSecOpsExpressionError as e:
             err_type = e.__class__.__name__
             detail = e.detail or "Error occurred when handling an expression"
             raise ApplicationError(detail, non_retryable=True, type=err_type) from e
@@ -1677,7 +1677,7 @@ class DSLWorkflow:
     async def _handle_return(self) -> StoredObject:
         self.logger.debug("Handling return", context=self.context)
         if self.dsl.returns is None:
-            match config.TRACECAT__WORKFLOW_RETURN_STRATEGY:
+            match config.AUTOSECOPS__WORKFLOW_RETURN_STRATEGY:
                 case "context":
                     # NOTE: This is used only during testing so we always return it inline
                     self.logger.trace("Returning DSL context")
@@ -1720,7 +1720,7 @@ class DSLWorkflow:
                 self._upsert_terminal_error_owner(error.cause)
                 raise error.cause from error
             raise
-        except TracecatException as error:
+        except AutoSecOpsException as error:
             self.logger.error("Failed to fetch workflow definition")
             raise ApplicationError(
                 "Failed to fetch workflow definition",
@@ -1752,7 +1752,7 @@ class DSLWorkflow:
 
         Raises
         ------
-        TracecatNotFoundError
+        AutoSecOpsNotFoundError
             If the schedule is not found.
         """
         activity_inputs = GetScheduleActivityInputs(
@@ -1898,7 +1898,7 @@ class DSLWorkflow:
             id=AgentWorkflowID(session_id),
             retry_policy=RETRY_POLICIES["workflow:fail_fast"],
             # Route to agent worker queue for session activities
-            task_queue=config.TRACECAT__AGENT_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_QUEUE,
             execution_timeout=wf_info.execution_timeout,
             task_timeout=wf_info.task_timeout,
             search_attributes=child_search_attributes,
@@ -2013,17 +2013,17 @@ class DSLWorkflow:
         return await workflow.execute_activity(
             "execute_action_activity",
             args=(arg, self.role),
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             # The executor enforces the action timeout around the function call.
             # This ceiling also allows for platform work in the activity.
             start_to_close_timeout=timedelta(
                 seconds=task.retry_policy.timeout
-                + config.TRACECAT__EXECUTOR_ACTIVITY_PLATFORM_TIMEOUT
+                + config.AUTOSECOPS__EXECUTOR_ACTIVITY_PLATFORM_TIMEOUT
             ),
             heartbeat_timeout=timedelta(
-                seconds=config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT
+                seconds=config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT
             )
-            if config.TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT > 0
+            if config.AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT > 0
             else None,
             retry_policy=RetryPolicy(
                 maximum_attempts=task.retry_policy.max_attempts,
@@ -2182,8 +2182,8 @@ class DSLWorkflow:
     ) -> WorkflowID | None:
         """Get the error handler workflow ID.
 
-        This is done by checking if the error is a TracecatValidationError or
-        TracecatExpressionError.
+        This is done by checking if the error is a AutoSecOpsValidationError or
+        AutoSecOpsExpressionError.
         """
         return await workflow.execute_activity(
             WorkflowsManagementService.get_error_handler_workflow_id,
@@ -2235,7 +2235,7 @@ class DSLWorkflow:
                     ).short()
                     exec_id = match.group("execution_id")
                     url = (
-                        f"{config.TRACECAT__PUBLIC_APP_URL}/workspaces/{self.role.workspace_id}"
+                        f"{config.AUTOSECOPS__PUBLIC_APP_URL}/workspaces/{self.role.workspace_id}"
                         f"/workflows/{workflow_id}/executions/{exec_id}"
                     )
                 except Exception as e:
@@ -2307,7 +2307,7 @@ class DSLWorkflow:
     ) -> tuple[int, int]:
         """Resolve logical batch size and dispatch window for child loops."""
         logical_batch_size = max(1, min(requested_batch_size, total_count))
-        dispatch_window = config.TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW
+        dispatch_window = config.AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW
         return logical_batch_size, dispatch_window
 
     def _action_permit_id(self, *, task: ActionStatement, stream_id: StreamID) -> str:
@@ -2315,8 +2315,8 @@ class DSLWorkflow:
 
     def _next_permit_backoff_seconds(self, *, attempt: int) -> float:
         """Compute deterministic exponential backoff with jitter."""
-        base = max(config.TRACECAT__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS, 0.1)
-        max_backoff = max(config.TRACECAT__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS, base)
+        base = max(config.AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS, 0.1)
+        max_backoff = max(config.AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS, base)
         exponential = min(base * (2**attempt), max_backoff)
         jitter = workflow.random().uniform(0.8, 1.2)
         return exponential * jitter
@@ -2378,7 +2378,7 @@ class DSLWorkflow:
             await asyncio.shield(cleanup_task)
 
     async def _workflow_permit_heartbeat_loop(self) -> None:
-        heartbeat_interval = config.TRACECAT__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
+        heartbeat_interval = config.AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
         if heartbeat_interval <= 0:
             self.logger.info("Workflow permit heartbeat disabled")
             return
@@ -2413,7 +2413,7 @@ class DSLWorkflow:
                 self.logger.warning("Workflow permit heartbeat failed", error=e)
 
     async def _action_permit_heartbeat_loop(self, *, action_id: str) -> None:
-        heartbeat_interval = config.TRACECAT__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
+        heartbeat_interval = config.AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS
         if heartbeat_interval <= 0:
             return
         org_id = self.organization_id
@@ -2501,7 +2501,7 @@ class DSLWorkflow:
                 return
 
             elapsed_seconds = (workflow.now() - started_at).total_seconds()
-            max_wait_seconds = config.TRACECAT__WORKFLOW_PERMIT_MAX_WAIT_SECONDS
+            max_wait_seconds = config.AUTOSECOPS__WORKFLOW_PERMIT_MAX_WAIT_SECONDS
             if elapsed_seconds >= max_wait_seconds:
                 classification = RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.TENANT_QUOTA_EXHAUSTED,
@@ -2556,7 +2556,7 @@ class DSLWorkflow:
                 return
 
             elapsed_seconds = (workflow.now() - started_at).total_seconds()
-            max_wait_seconds = config.TRACECAT__ACTION_PERMIT_MAX_WAIT_SECONDS
+            max_wait_seconds = config.AUTOSECOPS__ACTION_PERMIT_MAX_WAIT_SECONDS
             if elapsed_seconds >= max_wait_seconds:
                 classification = RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.TENANT_QUOTA_EXHAUSTED,

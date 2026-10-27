@@ -50,9 +50,9 @@ def _create_service_role(organization_id: UUID4 | None) -> Role:
     """Create the restricted service role used while discovering actions."""
     role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
     ctx_role.set(role)
     return role

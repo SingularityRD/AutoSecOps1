@@ -23,8 +23,8 @@ from unittest.mock import patch
 
 import pytest
 
-_MOUNT_LIFECYCLE_CHILD_ENV = "TRACECAT__REGISTRY_MOUNT_LIFECYCLE_CHILD"
-_MOUNT_LIFECYCLE_RESULT = "TRACECAT_REGISTRY_MOUNT_LIFECYCLE_RESULT:"
+_MOUNT_LIFECYCLE_CHILD_ENV = "AUTOSECOPS__REGISTRY_MOUNT_LIFECYCLE_CHILD"
+_MOUNT_LIFECYCLE_RESULT = "AUTOSECOPS_REGISTRY_MOUNT_LIFECYCLE_RESULT:"
 _MOUNT_LIFECYCLE_FLAG = "--run-registry-mount-lifecycle"
 
 
@@ -111,22 +111,24 @@ def _run_mount_lifecycle_in_docker_or_skip() -> _MountLifecycleResult:
 
     compose_env = os.environ.copy()
     compose_env.setdefault(
-        "TRACECAT__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
         str(repo_root / "packages"),
     )
     compose_env.setdefault("PUBLIC_APP_PORT", "80")
     compose_env.setdefault("BASE_DOMAIN", ":80")
     compose_env.setdefault("ADDRESS", "0.0.0.0")
     compose_env["LOG_LEVEL"] = "INFO"
-    compose_env["TRACECAT__APP_ENV"] = "development"
-    compose_env["TRACECAT__SERVICE_KEY"] = "test-service-key"
-    compose_env["TRACECAT__LOCAL_REPOSITORY_ENABLED"] = "false"
-    compose_env["TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"] = "true"
+    compose_env["AUTOSECOPS__APP_ENV"] = "development"
+    compose_env["AUTOSECOPS__SERVICE_KEY"] = "test-service-key"
+    compose_env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "false"
+    compose_env["AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"] = "true"
     compose_env[_MOUNT_LIFECYCLE_CHILD_ENV] = "1"
     compose_env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     override_path = Path(
-        tempfile.mkstemp(prefix="tracecat-registry-mount-lifecycle-", suffix=".yml")[1]
+        tempfile.mkstemp(prefix="autosecops-registry-mount-lifecycle-", suffix=".yml")[
+            1
+        ]
     )
     override_path.write_text(
         "\n".join(
@@ -145,10 +147,10 @@ def _run_mount_lifecycle_in_docker_or_skip() -> _MountLifecycleResult:
                 "      - systempaths=unconfined",
                 "    environment:",
                 f"      - {_MOUNT_LIFECYCLE_CHILD_ENV}",
-                "      - TRACECAT__APP_ENV",
-                "      - TRACECAT__SERVICE_KEY",
-                "      - TRACECAT__LOCAL_REPOSITORY_ENABLED",
-                "      - TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "      - AUTOSECOPS__APP_ENV",
+                "      - AUTOSECOPS__SERVICE_KEY",
+                "      - AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
+                "      - AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
                 "      - PYTHONDONTWRITEBYTECODE",
                 "",
             ]
@@ -390,8 +392,8 @@ async def _run_capacity_contention_scenario(
             f"capacity_module_{index}.py",
         )
 
-    config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 0
-    config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 0
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 0
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 0
     capacity_entered = 0
     all_capacity_holders_entered = asyncio.Event()
     capacity_releases = [asyncio.Event() for _ in range(capacity_holder_count)]
@@ -424,7 +426,7 @@ async def _run_capacity_contention_scenario(
         cold_shell_bytes = (
             capacity_with_cold_shell.total_bytes - capacity_snapshot.total_bytes
         )
-        config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 1
+        config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 1
         probe_admission = capacity_cache._admission_for(
             cold_key, RegistryArtifactByteReservation()
         )
@@ -443,7 +445,7 @@ async def _run_capacity_contention_scenario(
             + cold_shell_bytes
             + cold_download_bytes
         )
-        config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = max_bytes
+        config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = max_bytes
         payload["capacity_allocation_unit"] = allocation_unit
         payload["capacity_expected_max_bytes"] = max_bytes
         payload["capacity_cold_image_bytes"] = cold_image_bytes
@@ -583,9 +585,9 @@ async def _run_mount_lifecycle_child() -> None:
         compute_registry_artifact_cache_key,
     )
 
-    config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED = True
-    config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 8
-    config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 0
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED = True
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 8
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES = 0
 
     payload = cast(_MountLifecyclePayload, {})
     with tempfile.TemporaryDirectory(prefix="registry-mount-lifecycle-") as tmp:
@@ -741,7 +743,7 @@ async def _run_mount_lifecycle_child() -> None:
             converged_device = mounts_before_converge[
                 str(fourth_paths.squashfs_mount_dir)
             ]
-            config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 2
+            config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 2
             # A warm remount writes nothing, so a budget shrunk outside any
             # write must mark the cache dirty itself.
             cache._budget_dirty = True
@@ -772,7 +774,7 @@ async def _run_mount_lifecycle_child() -> None:
             (100.0, 100.0),
         )
 
-        config.TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 1
+        config.AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = 1
         await sweep_cache.ensure_swept()
         evicted_paths = sweep_cache._paths_for(sweep_keys[0])
         retained_paths = sweep_cache._paths_for(sweep_keys[1])

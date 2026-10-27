@@ -66,11 +66,11 @@ from autosecops.chat.schemas import (
 )
 from autosecops.db.engine import get_async_session
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsServiceError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatServiceError,
-    TracecatValidationError,
 )
 
 
@@ -119,7 +119,7 @@ def _agent_session_stub(**overrides: Any) -> SimpleNamespace:
 def _read_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -129,7 +129,7 @@ def _read_role(workspace_id: uuid.UUID) -> Role:
 def _service_account_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -259,7 +259,7 @@ async def test_list_sessions_user_defaults_to_workspace_sessions() -> None:
     workspace_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -305,7 +305,7 @@ async def test_update_session_rejects_teammate_session() -> None:
     workspace_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
@@ -491,7 +491,7 @@ async def test_remove_session_artifact_removes_and_returns_artifacts() -> None:
 def _execute_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -732,7 +732,7 @@ async def test_send_message_new_turn_preserves_only_uncertain_dispatch(
     agent_session = _agent_session_stub(id=session_id, workspace_id=workspace_id)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -815,7 +815,7 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
     session_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -832,7 +832,7 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
             return_value=SimpleNamespace(curr_run_id=None, created_by=None)
         ),
         run_turn=AsyncMock(
-            side_effect=TracecatConflictError(
+            side_effect=AutoSecOpsConflictError(
                 "Approval decision conflicts with a decision already recorded"
                 " for tool call tool_call_123"
             )
@@ -871,7 +871,7 @@ async def test_send_message_rejects_teammate_session() -> None:
     session_id = uuid.uuid4()
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -922,8 +922,8 @@ async def test_send_message_rejects_teammate_session() -> None:
 @pytest.mark.parametrize(
     ("error", "status_code"),
     [
-        (TracecatNotFoundError("No active workflow run"), 404),
-        (TracecatValidationError("Subagent preset uses manual approvals"), 400),
+        (AutoSecOpsNotFoundError("No active workflow run"), 404),
+        (AutoSecOpsValidationError("Subagent preset uses manual approvals"), 400),
     ],
 )
 async def test_send_message_does_not_reset_stream_when_validation_fails(
@@ -933,7 +933,7 @@ async def test_send_message_does_not_reset_stream_when_validation_fails(
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1013,7 +1013,7 @@ async def test_send_message_requires_entitlement_for_workspace_chat_parent(
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1076,7 +1076,7 @@ async def test_fork_session_requires_entitlement_for_workspace_chat_parent() -> 
     parent_session = _agent_session_stub(entity_type=AgentSessionEntity.WORKSPACE_CHAT)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=parent_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1115,7 +1115,7 @@ async def test_fork_session_maps_backend_rejection_to_bad_request() -> None:
     source_session = _agent_session_stub(entity_type=AgentSessionEntity.CASE)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=source_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1123,7 +1123,9 @@ async def test_fork_session_maps_backend_rejection_to_bad_request() -> None:
     fake_svc = SimpleNamespace(
         get_session=AsyncMock(return_value=source_session),
         fork_session=AsyncMock(
-            side_effect=TracecatValidationError("Pi sessions do not support forks yet")
+            side_effect=AutoSecOpsValidationError(
+                "Pi sessions do not support forks yet"
+            )
         ),
     )
 
@@ -1158,7 +1160,7 @@ async def test_cancel_session_requires_entitlement_for_workspace_chat_parent() -
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=agent_session.workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1193,7 +1195,7 @@ async def test_cancel_session_requires_entitlement_for_workspace_chat_parent() -
 def _make_stream_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -1402,7 +1404,7 @@ async def test_session_read_surfaces_history_failure(endpoint) -> None:
     fake_svc = SimpleNamespace(
         get_session=AsyncMock(return_value=session_stub),
         list_messages=AsyncMock(
-            side_effect=TracecatServiceError(
+            side_effect=AutoSecOpsServiceError(
                 "Cannot read session history because its backend is not installed"
             )
         ),
@@ -1412,7 +1414,7 @@ async def test_session_read_surfaces_history_failure(endpoint) -> None:
         patch(
             "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
         ),
-        pytest.raises(TracecatServiceError, match="backend is not installed"),
+        pytest.raises(AutoSecOpsServiceError, match="backend is not installed"),
     ):
         await cast(Any, endpoint).__wrapped__(
             session_id=session_stub.id,
@@ -1486,7 +1488,7 @@ async def test_create_session_applies_configured_chat_backend(
             AsyncMock(),
         ),
         patch(
-            "autosecops.agent.session.router.config.TRACECAT__AGENT_CHAT_BACKEND",
+            "autosecops.agent.session.router.config.AUTOSECOPS__AGENT_CHAT_BACKEND",
             "external",
         ),
     ):
@@ -1552,7 +1554,7 @@ async def test_session_responses_derive_readonly_from_backend_state(
     session_stub.spawned_by_session_id = uuid.uuid4() if is_child else None
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=session_stub.created_by,
         workspace_id=session_stub.workspace_id,
         organization_id=uuid.uuid4(),
@@ -1613,7 +1615,7 @@ async def test_session_responses_derive_readonly_from_backend_state(
 def _control_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),
@@ -1686,7 +1688,7 @@ def test_control_session_dispatches_each_type_to_the_service(
     "error,code,detail",
     [
         (
-            TracecatConflictError(
+            AutoSecOpsConflictError(
                 "Agent session does not have an active turn",
                 detail={"lifecycle": "completed"},
             ),
@@ -1694,7 +1696,7 @@ def test_control_session_dispatches_each_type_to_the_service(
             "Agent session does not have an active turn",
         ),
         (
-            TracecatConflictError("This agent backend does not support withdrawing"),
+            AutoSecOpsConflictError("This agent backend does not support withdrawing"),
             409,
             "This agent backend does not support withdrawing",
         ),

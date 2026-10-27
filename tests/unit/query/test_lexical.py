@@ -1,6 +1,6 @@
 import pytest
 
-from autosecops.query.errors import QueryErrorCode, TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError, QueryErrorCode
 from autosecops.query.lexical import (
     literal_search_pattern,
     parse_full_text_query,
@@ -171,4 +171,4 @@ def test_availability_errors_have_codes_and_reuse_query_timeout() -> None:
         assert error.code == code
         assert error.detail is not None
         assert error.detail["code"] == code.value
-    assert TracecatQueryTimeoutError().code == QueryErrorCode.TIMEOUT
+    assert AutoSecOpsQueryTimeoutError().code == QueryErrorCode.TIMEOUT

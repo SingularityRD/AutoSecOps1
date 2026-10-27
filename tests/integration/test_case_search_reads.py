@@ -263,7 +263,7 @@ async def test_optional_payload_and_duration_hydration_excludes_lookahead_case(
         for item in page.items
     )
     main_query = next(
-        query for query in queries if "_tracecat_page_key_0" in query.statement
+        query for query in queries if "_autosecops_page_key_0" in query.statement
     )
     assert '"case".payload' not in main_query.statement
     payload_queries = [

@@ -13,7 +13,7 @@ from autosecops.auth.dependencies import WorkspaceUserRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.chat.schemas import ApprovalDecision, ContinueRunRequest
 from autosecops.db.engine import get_async_session
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.logger import logger
 from autosecops_ee.agent.approvals.service import ApprovalMap, ApprovalService
 
@@ -120,7 +120,7 @@ async def submit_approvals(
             source="inbox",
         )
         await session_service.run_turn(session_id, continuation)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         logger.warning(
             "Agent session not found while submitting approvals",
             session_id=session_id,
@@ -130,7 +130,7 @@ async def submit_approvals(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except TracecatConflictError as exc:
+    except AutoSecOpsConflictError as exc:
         # Contradicts a decision already recorded: the caller holds stale state.
         logger.warning(
             "Conflicting approval decision submitted",

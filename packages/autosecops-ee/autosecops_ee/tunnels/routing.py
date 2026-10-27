@@ -17,7 +17,7 @@ from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import WorkspaceTunnel
 from autosecops.dsl.enums import PlatformAction
 from autosecops.dsl.schemas import RunActionInput
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.identifiers import OrganizationID, WorkspaceID
 from autosecops.secrets.encryption import decrypt_value
 from autosecops.tiers.access import is_org_entitled
@@ -28,10 +28,10 @@ from autosecops_ee.tunnels.gateways import (
 )
 from autosecops_ee.tunnels.tokens import TUNNEL_TOKEN_MAX_TTL_SECONDS, mint_tunnel_token
 
-PROXY_USERNAME = "tracecat"
+PROXY_USERNAME = "autosecops"
 
 
-class TunnelRouteError(TracecatException):
+class TunnelRouteError(AutoSecOpsException):
     """The action's tunnel cannot be used. The action must not run."""
 
 
@@ -60,7 +60,7 @@ class TunnelRoute:
 
 
 def gateway_host(tunnel_id: uuid.UUID) -> str:
-    return config.TRACECAT__TUNNEL_GATEWAY_HOST_TEMPLATE.format(tunnel_id=tunnel_id)
+    return config.AUTOSECOPS__TUNNEL_GATEWAY_HOST_TEMPLATE.format(tunnel_id=tunnel_id)
 
 
 async def _resolve_gateway_ip(host: str, port: int) -> str:
@@ -137,7 +137,7 @@ async def resolve_tunnel_route(
         action_ref=action_ref,
         ttl_seconds=ttl_seconds,
     )
-    port = config.TRACECAT__TUNNEL_GATEWAY_PORT
+    port = config.AUTOSECOPS__TUNNEL_GATEWAY_PORT
     ip = await _resolve_gateway_ip(gateway_host(tunnel_id), port)
     return TunnelRoute(
         tunnel_id=tunnel_id,
@@ -159,5 +159,5 @@ def tunnel_proxy_env(proxy_url: str) -> dict[str, str]:
         "all_proxy": proxy_url,
         "NO_PROXY": "",
         "no_proxy": "",
-        "TRACECAT__TUNNEL_PROXY_URL": proxy_url,
+        "AUTOSECOPS__TUNNEL_PROXY_URL": proxy_url,
     }

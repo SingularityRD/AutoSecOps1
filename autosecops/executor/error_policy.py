@@ -6,11 +6,11 @@ from temporalio.exceptions import ApplicationError
 
 from autosecops import config
 from autosecops.exceptions import (
+    AutoSecOpsExpressionError,
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
     ScopeDeniedError,
-    TracecatExpressionError,
 )
 from autosecops.executor.registry_artifacts import (
     RegistryArtifactCacheCapacityError,
@@ -93,8 +93,8 @@ def chained_error_classification(
                 return RuntimeErrorClassification.user(
                     kind=RuntimeErrorKind.SANDBOX_RESOURCE_LIMIT_EXCEEDED,
                     message=sandbox_resource_limit_message(
-                        memory_mb=config.TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                        memory_env_var="TRACECAT__SANDBOX_DEFAULT_MEMORY_MB",
+                        memory_mb=config.AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                        memory_env_var="AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB",
                     ),
                     retry_disposition=RetryDisposition.NON_RETRYABLE,
                     cause=cause,
@@ -206,7 +206,7 @@ def classify_execute_action_error(
             retry_disposition=RetryDisposition.NON_RETRYABLE,
             cause=error,
         )
-    if isinstance(error, TracecatExpressionError):
+    if isinstance(error, AutoSecOpsExpressionError):
         return RuntimeErrorClassification.user(
             kind=RuntimeErrorKind.WORKFLOW_EXPRESSION_INVALID,
             message="The workflow expression could not be evaluated",

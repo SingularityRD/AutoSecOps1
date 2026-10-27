@@ -169,7 +169,7 @@ class CaseTagAdapter(FlatManifestAdapter):
         # so renames that swap names between two tags don't transiently collide.
         for _source_id, spec, tag in import_targets:
             if tag is not None and tag.name != spec.name:
-                tag.name = f"__tracecat_sync_tmp_{tag.id}"
+                tag.name = f"__autosecops_sync_tmp_{tag.id}"
                 workspace_service.session.add(tag)
         try:
             await workspace_service.session.flush()

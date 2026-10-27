@@ -50,7 +50,7 @@ def test_database_guard_rejects_application_database_before_catalog_scan() -> No
 def test_database_guard_rejects_existing_user_relations() -> None:
     conn = Mock()
     conn.execute.return_value.fetchone.side_effect = [
-        ("tracecat_search_bench_synthetic",),
+        ("autosecops_search_bench_synthetic",),
         (1,),
     ]
     with pytest.raises(ValueError, match="no user relations"):
@@ -60,7 +60,7 @@ def test_database_guard_rejects_existing_user_relations() -> None:
 def test_database_guard_accepts_empty_isolated_database() -> None:
     conn = Mock()
     conn.execute.return_value.fetchone.side_effect = [
-        ("tracecat_search_bench_synthetic",),
+        ("autosecops_search_bench_synthetic",),
         (0,),
         (0,),
     ]
@@ -70,7 +70,7 @@ def test_database_guard_accepts_empty_isolated_database() -> None:
 def test_database_guard_rejects_user_routines_without_relations() -> None:
     conn = Mock()
     conn.execute.return_value.fetchone.side_effect = [
-        ("tracecat_search_bench_synthetic",),
+        ("autosecops_search_bench_synthetic",),
         (0,),
         (1,),
     ]

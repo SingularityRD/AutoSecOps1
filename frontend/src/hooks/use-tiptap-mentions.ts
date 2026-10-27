@@ -87,8 +87,8 @@ function findMentionMarkdownOffset(
   }
 
   const sentinelId = crypto.randomUUID()
-  const sentinelText = `tracecatworkflow${sentinelId.replaceAll("-", "")}`
-  const sentinelHref = `https://tracecat.invalid/${sentinelId}`
+  const sentinelText = `autosecopsworkflow${sentinelId.replaceAll("-", "")}`
+  const sentinelHref = `https://autosecops.invalid/${sentinelId}`
   const sentinelMarks = mentionNode.marks.map((mark) =>
     mark.type === linkMarkType
       ? linkMarkType.create({ ...mark.attrs, href: sentinelHref })

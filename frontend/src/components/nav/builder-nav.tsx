@@ -82,7 +82,7 @@ import {
 import { useEntitlements } from "@/hooks/use-entitlements"
 import { useWorkspaceDetails } from "@/hooks/use-workspace"
 import { useRepositoryBranches } from "@/hooks/use-workspace-sync"
-import type { TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError } from "@/lib/errors"
 import {
   useActionLockStatuses,
   useCreateDraftWorkflowExecution,
@@ -660,14 +660,14 @@ export function WorkflowManualTrigger({
       onAfterTrigger?.()
     } catch (error) {
       if (error instanceof ApiError) {
-        const tracecatError = error as TracecatApiError<{
+        const autosecopsError = error as AutoSecOpsApiError<{
           type?: string
           message?: string
           detail?: unknown
         }>
-        console.error("Error details", tracecatError.body)
+        console.error("Error details", autosecopsError.body)
         const validationErrors = normalizeRunValidationErrors(
-          tracecatError.body.detail
+          autosecopsError.body.detail
         )
         if (validationErrors && validationErrors.length > 0) {
           setManualTriggerErrors(validationErrors)

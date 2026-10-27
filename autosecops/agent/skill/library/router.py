@@ -17,13 +17,13 @@ from autosecops.agent.skill.schemas import SkillRead
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 router = APIRouter(prefix="/skill-library", tags=["skill-library"])
 
 
-def _validation_http_exception(err: TracecatValidationError) -> HTTPException:
+def _validation_http_exception(err: AutoSecOpsValidationError) -> HTTPException:
     detail = err.detail if isinstance(err.detail, dict) else {}
     status_code = (
         status.HTTP_409_CONFLICT
@@ -45,9 +45,9 @@ async def list_library_skills(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -79,7 +79,7 @@ async def batch_install_library_skills(
     service = SkillLibraryService(session, role=role)
     try:
         return await service.batch_install(params.slugs)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -103,9 +103,9 @@ async def batch_uninstall_library_skills(
     service = SkillLibraryService(session, role=role)
     try:
         await service.uninstall_many(params.slugs)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _validation_http_exception(e) from e
 
 
@@ -124,7 +124,7 @@ async def get_library_skill(
     service = SkillLibraryService(session, role=role)
     try:
         return await service.get_skill(slug)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -143,7 +143,7 @@ async def install_library_skill(
     service = SkillLibraryService(session, role=role)
     try:
         return await service.install(slug)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
@@ -165,9 +165,9 @@ async def uninstall_library_skill(
     service = SkillLibraryService(session, role=role)
     try:
         await service.uninstall(slug)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _validation_http_exception(e) from e
 
 
@@ -190,7 +190,7 @@ async def fork_library_skill(
     service = SkillLibraryService(session, role=role)
     try:
         return await service.fork(slug)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _validation_http_exception(e) from e

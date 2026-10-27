@@ -45,9 +45,9 @@ export async function POST(request: NextRequest) {
 
   // Forward the request to the FastAPI backend
   const headers = new Headers({
-    "x-tracecat-service-key": process.env.TRACECAT__SERVICE_KEY!,
-    "x-tracecat-role-type": "service",
-    "x-tracecat-role-service-id": "tracecat-ui",
+    "x-autosecops-service-key": process.env.AUTOSECOPS__SERVICE_KEY!,
+    "x-autosecops-role-type": "service",
+    "x-autosecops-role-service-id": "autosecops-ui",
   })
   forwardClientAttributionHeaders(request.headers, headers)
   const backendResponse = await fetch(backendUrl.toString(), {

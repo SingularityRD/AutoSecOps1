@@ -1,4 +1,0 @@
-interface:
-  display_name: "AutoSecOps Slackbot Best Practices"
-  short_description: "Build and debug AutoSecOps Slack bots and Slack-facing automations."
-  default_prompt: "Use $tracecat-slackbot-best-practices to build or fix an AutoSecOps Slack bot."

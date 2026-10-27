@@ -18,10 +18,10 @@ python scripts/api_repl.py
 
 The script uses environment variables for configuration:
 
-- `TRACECAT__PUBLIC_API_URL` - API base URL (default: `http://localhost/api`)
-- `TRACECAT__TEST_USER_EMAIL` - Test user email (default: `test@autosecops.example`)
-- `TRACECAT__TEST_USER_PASSWORD` - Test user password (default: `password1234`)
-- `TRACECAT__SERVICE_KEY` - Service key for internal API calls (optional)
+- `AUTOSECOPS__PUBLIC_API_URL` - API base URL (default: `http://localhost/api`)
+- `AUTOSECOPS__TEST_USER_EMAIL` - Test user email (default: `test@autosecops.example`)
+- `AUTOSECOPS__TEST_USER_PASSWORD` - Test user password (default: `password1234`)
+- `AUTOSECOPS__SERVICE_KEY` - Service key for internal API calls (optional)
 
 ## Usage
 
@@ -95,7 +95,7 @@ role = system_role()
 resp = session.post(
     "http://localhost:8001/api/executor/run/core.transform.reshape",
     headers={
-        "x-tracecat-service-key": service_key,
+        "x-autosecops-service-key": service_key,
         **role.to_headers()
     },
     json={...}
@@ -114,14 +114,14 @@ resp = session.post(
 
 ### Authentication fails
 - Make sure the dev environment is running (`just dev`)
-- Check that `TRACECAT__PUBLIC_API_URL` is correct
-- Verify credentials with `TRACECAT__TEST_USER_EMAIL` and `TRACECAT__TEST_USER_PASSWORD`
+- Check that `AUTOSECOPS__PUBLIC_API_URL` is correct
+- Verify credentials with `AUTOSECOPS__TEST_USER_EMAIL` and `AUTOSECOPS__TEST_USER_PASSWORD`
 
 ### Connection refused
 - Ensure the API service is running on the expected port
 - Check `docker-compose ps` to see if containers are healthy
 
 ### Service key not found
-- The `TRACECAT__SERVICE_KEY` must be set in your environment
+- The `AUTOSECOPS__SERVICE_KEY` must be set in your environment
 - This is required for internal service-to-service API calls
 - Check your `.env` file or docker-compose configuration

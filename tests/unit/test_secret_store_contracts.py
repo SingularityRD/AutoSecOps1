@@ -23,7 +23,7 @@ from autosecops.api.app import create_app
 from autosecops.auth import sandbox as auth_sandbox
 from autosecops.auth.types import Role
 from autosecops.db.models import OrganizationSecretStore, Secret
-from autosecops.exceptions import EntitlementRequired, TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError, EntitlementRequired
 from autosecops.expressions.parser.core import parser
 from autosecops.identifiers import SecretUUID
 from autosecops.pagination import PageParams, PaginationError
@@ -52,7 +52,7 @@ def anyio_backend() -> str:
 def role() -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -86,7 +86,7 @@ def test_valid_mapping_keys_parse_in_expressions(key: str) -> None:
 async def test_check_dispatches_to_executor_without_resolving_in_api(
     monkeypatch: pytest.MonkeyPatch, role: Role
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", "synthetic-test-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", "synthetic-test-key")
     secret = Secret(
         id=SecretUUID.new(uuid.uuid4()), source=SecretSource.AWS_SECRETS_MANAGER
     )
@@ -110,7 +110,7 @@ async def test_check_dispatches_to_executor_without_resolving_in_api(
     local_check.assert_not_awaited()
     session.commit.assert_awaited_once()
     call = client.execute_workflow.call_args
-    assert call.kwargs["task_queue"] == config.TRACECAT__EXECUTOR_QUEUE
+    assert call.kwargs["task_queue"] == config.AUTOSECOPS__EXECUTOR_QUEUE
     request = call.args[1]
     assert request.secret_id == secret.id
     assert request.role == role
@@ -156,8 +156,8 @@ async def test_executor_reloads_reference_and_sanitizes_failures(
 async def test_collection_queries_are_bounded_and_cursors_are_scoped(
     monkeypatch: pytest.MonkeyPatch, role: Role, workspace: bool
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "synthetic-signing-key")
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", "synthetic-test-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "synthetic-signing-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", "synthetic-test-key")
     timestamp = datetime.now(UTC)
     stores = [
         OrganizationSecretStore(id=uuid.UUID(int=index), created_at=timestamp)
@@ -315,7 +315,7 @@ async def test_failed_sandbox_entry_clears_fetched_values(
     monkeypatch: pytest.MonkeyPatch, role: Role, entry: str
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     undecryptable = Secret(
         id=uuid.uuid4(),
@@ -357,7 +357,7 @@ async def test_runtime_entitlement_precedes_external_fetch(
     entitled: bool,
 ) -> None:
     key = Fernet.generate_key().decode()
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", key)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key)
     secret = Secret(
         id=uuid.uuid4(),
         name="openai",
@@ -430,6 +430,6 @@ async def test_delete_conflict_rolls_back_without_detaching_references(
     service = SecretStoresService(session, role)
     service.count_references = AsyncMock(return_value={})
     store = OrganizationSecretStore(id=uuid.uuid4())
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await service.delete_store(store)
     session.rollback.assert_awaited_once()

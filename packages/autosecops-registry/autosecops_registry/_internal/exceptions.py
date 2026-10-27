@@ -1,7 +1,7 @@
 from typing import Any
 
 
-class TracecatException(Exception):
+class AutoSecOpsException(Exception):
     """AutoSecOps generic user-facing exception."""
 
     def __init__(self, *args, detail: Any | None = None, **kwargs):
@@ -9,11 +9,11 @@ class TracecatException(Exception):
         self.detail = detail
 
 
-class RegistryActionError(TracecatException):
+class RegistryActionError(AutoSecOpsException):
     """Exception raised when a registry UDF error occurs."""
 
 
-class SecretNotFoundError(TracecatException):
+class SecretNotFoundError(AutoSecOpsException):
     """Exception raised when a required secret is not set."""
 
 
@@ -27,5 +27,5 @@ class ActionIsInterfaceError(RegistryActionError):
         )
 
 
-class TracecatExpressionError(TracecatException):
+class AutoSecOpsExpressionError(AutoSecOpsException):
     """Exception raised when an expression evaluation fails."""

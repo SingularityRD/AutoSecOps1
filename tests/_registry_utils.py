@@ -16,7 +16,7 @@ from autosecops.registry.repository import RegisterKwargs, generate_model_from_f
 
 
 def input_schema_for(fn: Callable[..., Any]) -> dict[str, Any]:
-    kwargs = RegisterKwargs.model_validate(getattr(fn, "__tracecat_udf_kwargs"))
+    kwargs = RegisterKwargs.model_validate(getattr(fn, "__autosecops_udf_kwargs"))
     args_cls, _, _ = generate_model_from_function(fn, kwargs)
     return args_cls.model_json_schema()
 
@@ -29,7 +29,7 @@ def core_udfs() -> dict[str, Callable[..., Any]]:
     for info in pkgutil.walk_packages(core.__path__, f"{core.__name__}."):
         module = importlib.import_module(info.name)
         for obj in vars(module).values():
-            kwargs = getattr(obj, "__tracecat_udf_kwargs", None)
+            kwargs = getattr(obj, "__autosecops_udf_kwargs", None)
             if isinstance(kwargs, dict) and obj.__module__ == module.__name__:
                 udfs[f"{kwargs['namespace']}.{obj.__name__}"] = obj
     return udfs

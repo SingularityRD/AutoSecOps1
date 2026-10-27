@@ -154,7 +154,7 @@ def test_generate_model_extracts_base_type_from_annotated() -> None:
 
 
 def test_generate_model_preserves_component_metadata() -> None:
-    """Ensure `x-tracecat-component` propagates to JSON schema.
+    """Ensure `x-autosecops-component` propagates to JSON schema.
 
     Registry modules use lightweight dataclasses from `autosecops_registry.fields`
     which are not instances of `autosecops.registry.fields.Component` but should
@@ -175,7 +175,7 @@ def test_generate_model_preserves_component_metadata() -> None:
     schema = input_model.model_json_schema()
 
     script_schema = schema["properties"]["script"]
-    components = script_schema.get("x-tracecat-component", [])
+    components = script_schema.get("x-autosecops-component", [])
     assert components and components[0]["component_id"] == "code"
 
 

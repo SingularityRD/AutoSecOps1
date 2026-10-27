@@ -72,11 +72,11 @@ def build_untrusted_seccomp_policy() -> str:
     """
     blocked_syscalls = ", ".join(_UNTRUSTED_BLOCKED_SYSCALLS)
     return (
-        "POLICY tracecat_untrusted { "
+        "POLICY autosecops_untrusted { "
         f"ERRNO(1) {{ {blocked_syscalls} }}, "
         # clone3 with ENOSYS (not EPERM) so glibc's clone3→clone fallback
         # triggers cleanly — matches Docker's default-profile semantics.
         # Verified live: threads, fork, and uvloop all work under this rule.
         "ERRNO(38) { clone3 } "
-        "} USE tracecat_untrusted DEFAULT ALLOW"
+        "} USE autosecops_untrusted DEFAULT ALLOW"
     )

@@ -39,7 +39,7 @@ def evidence_storage_prefix(
 
 async def delete_evidence_objects(prefixes: Iterable[str]) -> None:
     """Delete stored evidence objects; best effort (logged, never raised)."""
-    bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
+    bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS
     for prefix in prefixes:
         for name in EVIDENCE_OBJECTS:
             try:

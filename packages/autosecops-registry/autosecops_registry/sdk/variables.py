@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from autosecops_registry.sdk.types import UNSET, Unset, is_set
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 T = TypeVar("T")
@@ -16,7 +16,7 @@ T = TypeVar("T")
 class VariablesClient:
     """Client for Variables API operations."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def get(
@@ -37,7 +37,7 @@ class VariablesClient:
             The value for the specified key.
 
         Raises:
-            TracecatNotFoundError: If the variable doesn't exist.
+            AutoSecOpsNotFoundError: If the variable doesn't exist.
 
         Example:
             >>> from autosecops_registry import ctx
@@ -73,13 +73,13 @@ class VariablesClient:
             ...     "api_config", "timeout", 30
             ... )
         """
-        from autosecops_registry.sdk.exceptions import TracecatNotFoundError
+        from autosecops_registry.sdk.exceptions import AutoSecOpsNotFoundError
 
         try:
             value = await self.get(name, key, environment=environment)
             # Return default if the value itself is None
             return default if value is None else value
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             return default
 
     async def get_variable(
@@ -98,7 +98,7 @@ class VariablesClient:
             Variable metadata including id, name, description, values, and environment.
 
         Raises:
-            TracecatNotFoundError: If the variable doesn't exist.
+            AutoSecOpsNotFoundError: If the variable doesn't exist.
         """
         params: dict[str, Any] = {}
         if is_set(environment):

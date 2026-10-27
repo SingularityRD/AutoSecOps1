@@ -24,10 +24,10 @@ from registry package contents. Avoid ``noexec`` because Python packages may
 include native extension modules loaded from the mounted artifact.
 """
 
-LOOP_DEVICE_SYNC_HELPER = "/usr/local/bin/tracecat-loop-device-sync"
+LOOP_DEVICE_SYNC_HELPER = "/usr/local/bin/autosecops-loop-device-sync"
 """Fixed-purpose helper that mirrors kernel-confirmed loop nodes into ``/dev``."""
 
-_METER = metrics.get_meter("tracecat.executor.registry_cache")
+_METER = metrics.get_meter("autosecops.executor.registry_cache")
 _MOUNT_RETRIES = _METER.create_counter(
     "registry_cache.mount.retries",
     description="SquashFS mount attempts retried after a loop-device failure.",
@@ -202,7 +202,7 @@ async def mount_squashfs(image_path: Path, target_dir: Path) -> None:
         SquashfsMountUnavailableError: The mount command could not be started.
         SquashfsMountCommandError: The mount command failed after recovery.
     """
-    max_attempts = config.TRACECAT__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS
+    max_attempts = config.AUTOSECOPS__EXECUTOR_SQUASHFS_MOUNT_MAX_ATTEMPTS
     for attempt in range(1, max_attempts + 1):
         if is_mount(target_dir):
             return

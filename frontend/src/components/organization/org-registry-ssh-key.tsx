@@ -36,7 +36,7 @@ import { toast } from "@/components/ui/use-toast"
 import { getApiErrorDetail } from "@/lib/errors"
 import { useOrgSecrets } from "@/lib/hooks"
 
-/** Mirrors `REGISTRY_GIT_SSH_KEY_SECRET_NAME` in `tracecat/registry/constants.py`. */
+/** Mirrors `REGISTRY_GIT_SSH_KEY_SECRET_NAME` in `autosecops/registry/constants.py`. */
 const REGISTRY_SSH_KEY_NAME = "github-ssh-key"
 /** Registry sync reads the key from the default environment only. */
 const REGISTRY_SSH_KEY_ENVIRONMENT = "default"

@@ -209,7 +209,7 @@ def ingest_role(sender: SenderKey) -> Role:
     """The role ingest acts under in the sender key's workspace."""
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=sender.workspace_id,
         organization_id=sender.organization_id,
         scopes=INGEST_SCOPES,

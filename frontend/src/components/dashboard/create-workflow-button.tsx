@@ -43,7 +43,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useFolders, useWorkflowManager } from "@/lib/hooks"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
@@ -96,7 +96,7 @@ function ImportWorkflowDialog({
       router.push(`/workspaces/${workspaceId}/workflows/${response.id}`)
     } catch (error) {
       if (error instanceof ApiError) {
-        const apiError = error as TracecatApiError
+        const apiError = error as AutoSecOpsApiError
         switch (apiError.status) {
           case 400:
             console.error("Bad request:", apiError)

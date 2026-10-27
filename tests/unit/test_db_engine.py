@@ -51,7 +51,7 @@ class DummySession:
 
 def test_get_db_uri_logs_decode_error(monkeypatch: pytest.MonkeyPatch) -> None:
     response: dict[str, object] = {"SecretBinary": base64.b64encode(b"\xff\xfe")}
-    monkeypatch.setattr(config, "TRACECAT__DB_PASS__ARN", "arn:secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_PASS__ARN", "arn:secret")
     monkeypatch.setattr(
         "autosecops.db.engine.boto3.session.Session",
         lambda: DummySession(response),
@@ -108,7 +108,7 @@ async def test_get_async_session_rls_context(
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
     monkeypatch.setattr(
@@ -118,7 +118,7 @@ async def test_get_async_session_rls_context(
     monkeypatch.setattr("autosecops.db.engine.set_rls_context_from_role", set_from_role)
     monkeypatch.setattr("autosecops.db.engine.get_async_engine", lambda: object())
     if rls_mode is not None:
-        monkeypatch.setattr(config, "TRACECAT__RLS_MODE", rls_mode)
+        monkeypatch.setattr(config, "AUTOSECOPS__RLS_MODE", rls_mode)
 
     token = ctx_role.set(role) if with_role else None
     try:
@@ -160,7 +160,7 @@ async def test_only_auth_session_binds_to_auth_engine(
     monkeypatch.setattr("autosecops.db.engine.AsyncSession", record_bind)
     monkeypatch.setattr("autosecops.db.engine.set_rls_context", AsyncMock())
     monkeypatch.setattr("autosecops.db.engine.set_rls_context_from_role", AsyncMock())
-    monkeypatch.setattr(config, "TRACECAT__RLS_MODE", config.RLSMode.OFF)
+    monkeypatch.setattr(config, "AUTOSECOPS__RLS_MODE", config.RLSMode.OFF)
 
     request_generator = get_async_session()
     await anext(request_generator)
@@ -186,9 +186,9 @@ async def test_only_auth_session_binds_to_auth_engine(
 async def test_auth_engine_pool_size_honors_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__DB_POOL_SIZE", 11)
-    monkeypatch.setattr(config, "TRACECAT__DB_AUTH_POOL_SIZE", 3)
-    monkeypatch.setattr(config, "TRACECAT__DB_AUTH_MAX_OVERFLOW", 4)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_POOL_SIZE", 11)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_AUTH_POOL_SIZE", 3)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_AUTH_MAX_OVERFLOW", 4)
     reset_async_engine()
 
     engine = get_async_engine()

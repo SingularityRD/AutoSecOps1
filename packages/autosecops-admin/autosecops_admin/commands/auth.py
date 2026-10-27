@@ -70,7 +70,7 @@ def login(
         elif e.response.status_code == 404:
             print_error(
                 "Login endpoint not found. Ensure basic auth is enabled "
-                "(TRACECAT__AUTH_TYPES must include 'basic')"
+                "(AUTOSECOPS__AUTH_TYPES must include 'basic')"
             )
         elif e.response.status_code == 422:
             print_error(f"Validation error: {e.response.text}")

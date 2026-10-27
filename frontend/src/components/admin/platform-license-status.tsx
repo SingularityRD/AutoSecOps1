@@ -50,7 +50,7 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
       <Alert>
         <AlertTitle>Multi-tenant mode</AlertTitle>
         <AlertDescription>
-          Entitlements come from tiers. The license key is ignored.
+          The license grants multi-tenant mode. Entitlements come from tiers.
         </AlertDescription>
       </Alert>
     )
@@ -86,7 +86,7 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
         <Alert>
           <AlertTitle>No license key installed</AlertTitle>
           <AlertDescription>
-            Set TRACECAT__LICENSE_KEY to unlock paid features. Contact{" "}
+            Set AUTOSECOPS__LICENSE_KEY to unlock paid features. Contact{" "}
             {LICENSE_CONTACT} to buy a license.
           </AlertDescription>
         </Alert>
@@ -99,7 +99,7 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
 function EntitlementBadges({
   entitlements,
 }: {
-  entitlements: readonly Entitlement[]
+  entitlements: readonly string[]
 }) {
   return (
     <dd className="flex flex-wrap gap-1.5">
@@ -149,9 +149,13 @@ export function PlatformLicenseStatus() {
   // from the paid ones even when the license key also names them.
   const includedEntitlements = license.included_entitlements ?? []
   const includedSet = new Set<Entitlement>(includedEntitlements)
-  const paidEntitlements = (license.entitlements ?? []).filter(
-    (entitlement) => !includedSet.has(entitlement)
-  )
+  // Deployment grants such as multi_tenant are listed with paid entitlements.
+  const paidEntitlements: string[] = [
+    ...(license.entitlements ?? []).filter(
+      (entitlement) => !includedSet.has(entitlement)
+    ),
+    ...(license.grants ?? []),
+  ]
 
   return (
     <div className="space-y-8">

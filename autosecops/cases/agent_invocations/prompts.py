@@ -72,7 +72,7 @@ def build_comment_agent_input(context: CommentThreadContext) -> CommentAgentInpu
         f'invoking_comment_id="{context.invoking_comment_id}">\n'
         f"{rendered_entries}\n"
         "</CaseCommentThread>\n"
-        "</tracecat-model-context>"
+        "</autosecops-model-context>"
     )
     return CommentAgentInput(
         model_context_prompt=model_context_prompt,

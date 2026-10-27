@@ -1,7 +1,7 @@
 ---
 title: License key
 description: "Install a signed AutoSecOps license key on a self-hosted deployment to unlock paid features, check its status, and see what happens when it expires."
-keywords: ["license", "license key", "entitlements", "enterprise", "TRACECAT__LICENSE_KEY"]
+keywords: ["license", "license key", "entitlements", "enterprise", "AUTOSECOPS__LICENSE_KEY"]
 ---
 
 A self-hosted AutoSecOps deployment runs the free feature set until you install a license key.
@@ -19,14 +19,14 @@ A license key is a single line of two base64url segments separated by a dot:
 eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
 ```
 
-Set it as `TRACECAT__LICENSE_KEY` on every backend service: `api`, `worker`, `executor`, `agent-worker`, `agent-executor`, and `mcp`.
+Set it as `AUTOSECOPS__LICENSE_KEY` on every backend service: `api`, `worker`, `executor`, `agent-worker`, `agent-executor`, and `mcp`.
 
 <Tabs>
   <Tab title="Docker Compose">
     Add the key to your `.env` file, then recreate the services.
 
     ```bash
-    TRACECAT__LICENSE_KEY=eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
+    AUTOSECOPS__LICENSE_KEY=eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx...
     ```
 
     ```bash
@@ -34,7 +34,7 @@ Set it as `TRACECAT__LICENSE_KEY` on every backend service: `api`, `worker`, `ex
     ```
   </Tab>
   <Tab title="AWS Fargate">
-    Set the `license_key` Terraform variable, then apply.
+    Set the `license_key` Terraform variable, then apply. Terraform stores the key in a Secrets Manager secret and injects it through the task definition `secrets`, so it does not appear in the plaintext container environment.
 
     ```bash
     export TF_VAR_license_key="eyJjdXN0b21lciI6Ii4uLiJ9.MEUCIQDx..."
@@ -42,7 +42,7 @@ Set it as `TRACECAT__LICENSE_KEY` on every backend service: `api`, `worker`, `ex
     ```
   </Tab>
   <Tab title="Kubernetes">
-    Add `TRACECAT__LICENSE_KEY` to the environment of the backend deployments, then roll them out.
+    Add the key to the core Secret as `licenseKey`, or set `secrets.licenseKey` when the chart creates the Secret, then upgrade the release. The chart passes it to every backend deployment and the migrations Job.
   </Tab>
 </Tabs>
 
@@ -55,22 +55,23 @@ The same data is available from the API:
 
 ```bash
 curl -H "Authorization: Bearer <superuser-token>" \
-  https://tracecat.yourdomain.com/api/admin/license
+  https://autosecops.yourdomain.com/api/admin/license
 ```
 
 The `api` service also logs the license status at startup.
 
 | Status | Meaning | Paid entitlements |
 | :----- | :------ | :---------------- |
-| `missing` | No `TRACECAT__LICENSE_KEY` is set. | Off |
+| `missing` | No `AUTOSECOPS__LICENSE_KEY` is set. | Off |
 | `valid` | The signature verifies and the license has not expired. | On |
 | `grace` | The license expired less than 14 days ago. | On |
 | `expired` | The license expired 14 or more days ago. | Off |
-| `invalid` | The key is malformed, or its signature does not verify. | Off |
+| `invalid` | The key is malformed, its signature does not verify, or its issue date is in the future (`not_yet_valid`). | Off |
 
 ## Expiry and grace period
 
-When a license expires, AutoSecOps keeps its entitlements on for a 14-day grace period and logs a `LICENSE EXPIRED` warning at least once an hour.
+When a license expires, AutoSecOps keeps its entitlements on for a 14-day grace period and logs a `LICENSE EXPIRED` warning.
+The `api` service logs it at startup, and every service logs it again at most once an hour while paid features are in use. An idle deployment can go longer between warnings, so check the `License` page or the API for the current status.
 After the grace period, paid features turn off and AutoSecOps logs an error.
 Install a renewed key before the grace period ends to avoid interruption.
 
@@ -79,7 +80,7 @@ Turning paid features off keeps your data. Workflows, cases, and other records c
 
 ## Feature flags
 
-`TRACECAT__FEATURE_FLAGS` no longer turns on paid entitlements.
+`AUTOSECOPS__FEATURE_FLAGS` no longer turns on paid entitlements.
 If you previously enabled paid features with flags such as `git-sync`, `case-tasks`, `rbac`, `agent-channels`, or `forms`, install a license key that grants them.
 The `api` service logs a warning at startup that lists flags whose entitlements your license does not grant.
 
@@ -88,7 +89,12 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 
 ## Multi-tenant deployments
 
-With `TRACECAT__EE_MULTI_TENANT=true`, AutoSecOps ignores the license key and resolves entitlements from the tiers that platform admins assign to organizations.
+Multi-tenant mode needs both `AUTOSECOPS__EE_MULTI_TENANT=true` and a license key that grants `multi_tenant`.
+The license must be valid or in its grace period when each service starts.
+In multi-tenant mode, AutoSecOps resolves entitlements from the tiers that platform admins assign to organizations, and the license key's other entitlements do not apply.
+
+If `AUTOSECOPS__EE_MULTI_TENANT=true` is set without such a license, the `api` service logs an error at startup and every service runs single-tenant, with entitlements from the license key as described above.
+Services evaluate the `multi_tenant` grant at startup, so restart them after you install or replace the key.
 
 ## Third-party notices
 

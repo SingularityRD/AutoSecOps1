@@ -32,7 +32,7 @@ import {
   templatePillTheme,
 } from "./common"
 import { createSimpleTemplatePlugin } from "./highlight-plugin"
-import { tracecatSyntaxHighlighting } from "./syntax-highlight"
+import { autosecopsSyntaxHighlighting } from "./syntax-highlight"
 
 const stripNewline = (value: string) => {
   return value.endsWith("\n") ? value.slice(0, -1) : value
@@ -241,7 +241,7 @@ export const YamlStyledEditor = React.forwardRef<
       history(),
       indentUnit.of("  "),
       yaml(),
-      tracecatSyntaxHighlighting,
+      autosecopsSyntaxHighlighting,
       linter(customYamlLinter),
 
       bracketMatching(),
@@ -775,7 +775,7 @@ export function YamlViewOnlyEditor({
       // Core language support with proper indentation
       indentUnit.of("  "),
       yaml(),
-      tracecatSyntaxHighlighting,
+      autosecopsSyntaxHighlighting,
       bracketMatching(),
 
       // Read-only configuration

@@ -300,10 +300,10 @@ def _stream_entries(
     """What ``create_event`` publishes after commit, for each record in order."""
     entries: list[_StreamEntry] = []
     for record in records:
-        if config.TRACECAT__CASE_TRIGGERS_ENABLED:
+        if config.AUTOSECOPS__CASE_TRIGGERS_ENABLED:
             entries.append(
                 _StreamEntry(
-                    stream=config.TRACECAT__CASE_TRIGGERS_STREAM_KEY,
+                    stream=config.AUTOSECOPS__CASE_TRIGGERS_STREAM_KEY,
                     fields=case_event_fields(
                         event_id=str(record.event_id),
                         case_id=str(record.case_id),
@@ -311,7 +311,7 @@ def _stream_entries(
                         event_type=record.event_type,
                         created_at=record.created_at,
                     ),
-                    maxlen=config.TRACECAT__CASE_TRIGGERS_MAXLEN,
+                    maxlen=config.AUTOSECOPS__CASE_TRIGGERS_MAXLEN,
                     redeliver=partial(
                         publish_case_event_payload,
                         event_id=str(record.event_id),
@@ -324,7 +324,7 @@ def _stream_entries(
             )
         entries.append(
             _StreamEntry(
-                stream=config.TRACECAT__CASE_DURATION_SYNC_STREAM_KEY,
+                stream=config.AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY,
                 fields=case_duration_sync_fields(
                     workspace_id=workspace_id,
                     reason="case_event",

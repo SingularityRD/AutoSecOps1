@@ -5,7 +5,7 @@ node_modules/
 *.kube
 
 # AutoSecOps-related files
-.tracecat/
+.autosecops/
 .dev/
 .llm/
 .v0/

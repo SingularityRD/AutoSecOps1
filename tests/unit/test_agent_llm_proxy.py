@@ -619,7 +619,7 @@ async def test_write_stream_response_surfaces_friendly_read_timeout(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
+        "autosecops.agent.sandbox.llm_proxy.app_config.AUTOSECOPS__LLM_PROXY_READ_TIMEOUT",
         600.0,
     )
     errors: list[LLMProxyError] = []
@@ -816,7 +816,7 @@ async def test_passthrough_does_not_double_prefix_version_in_request_url(
         pytest.param(
             "customer-alias",
             None,
-            "openai/gpt-5-mini::tracecat-subagent::analyst",
+            "openai/gpt-5-mini::autosecops-subagent::analyst",
             (
                 "https://customer-litellm.example/v1/messages",
                 "Bearer sk-customer",
@@ -825,9 +825,9 @@ async def test_passthrough_does_not_double_prefix_version_in_request_url(
             id="root-direct-subagent-gateway",
         ),
         pytest.param(
-            "child-alias::tracecat-subagent::analyst",
+            "child-alias::autosecops-subagent::analyst",
             "child-alias",
-            "openai/gpt-5-mini::tracecat-subagent::critic",
+            "openai/gpt-5-mini::autosecops-subagent::critic",
             (
                 "https://customer-litellm.example/v1/messages",
                 "Bearer sk-customer",
@@ -950,7 +950,7 @@ async def test_managed_route_anthropic_only_field_cleanup(
         handler,
         _request(
             {
-                "model": "openai/gpt-5-mini::tracecat-subagent::analyst",
+                "model": "openai/gpt-5-mini::autosecops-subagent::analyst",
                 "messages": _HELLO,
                 **_ANTHROPIC_ONLY_FIELDS,
             },
@@ -1076,7 +1076,7 @@ def test_direct_route_forwards_tools_untouched() -> None:
         "model": "claude-4-6-sonnet",
         "tools": [
             {
-                "name": "mcp__tracecat-registry__core__cases__list_cases",
+                "name": "mcp__autosecops-registry__core__cases__list_cases",
                 "description": "List cases",
                 "input_schema": {"type": "object"},
                 "defer_loading": True,
@@ -1109,7 +1109,7 @@ def test_direct_route_forwards_messages_untouched() -> None:
                         "content": [
                             {
                                 "type": "tool_reference",
-                                "tool_name": "mcp__tracecat-registry__core__cases__list_cases",
+                                "tool_name": "mcp__autosecops-registry__core__cases__list_cases",
                             },
                             {"type": "text", "text": "1 result"},
                         ],
@@ -1171,7 +1171,7 @@ async def test_read_timeout_records_safe_body_timing(
     content_type: str,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.agent.sandbox.llm_proxy.app_config.TRACECAT__LLM_PROXY_READ_TIMEOUT",
+        "autosecops.agent.sandbox.llm_proxy.app_config.AUTOSECOPS__LLM_PROXY_READ_TIMEOUT",
         300.0,
     )
     errors: list[LLMProxyError] = []
@@ -1286,7 +1286,7 @@ async def test_read_timeout_before_headers_records_route(
     [
         (
             401,
-            "tracecat_llm_token_invalid",
+            "autosecops_llm_token_invalid",
             False,
             RuntimeErrorKind.AGENT_LLM_GATEWAY_AUTH_FAILED,
             RuntimeErrorOwner.PLATFORM,
@@ -1294,7 +1294,7 @@ async def test_read_timeout_before_headers_records_route(
         ),
         (
             401,
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
             False,
             RuntimeErrorKind.AGENT_LLM_PROVIDER_AUTH_FAILED,
             RuntimeErrorOwner.USER,
@@ -1302,7 +1302,7 @@ async def test_read_timeout_before_headers_records_route(
         ),
         (
             403,
-            "tracecat_llm_model_not_enabled",
+            "autosecops_llm_model_not_enabled",
             False,
             RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
             RuntimeErrorOwner.USER,
@@ -1310,7 +1310,7 @@ async def test_read_timeout_before_headers_records_route(
         ),
         (
             403,
-            "tracecat_llm_provider_subscription_required",
+            "autosecops_llm_provider_subscription_required",
             False,
             RuntimeErrorKind.AGENT_LLM_PROVIDER_AUTH_FAILED,
             RuntimeErrorOwner.USER,
@@ -1318,7 +1318,7 @@ async def test_read_timeout_before_headers_records_route(
         ),
         (
             401,
-            "tracecat_llm_token_invalid",
+            "autosecops_llm_token_invalid",
             True,
             RuntimeErrorKind.AGENT_LLM_PROVIDER_AUTH_FAILED,
             RuntimeErrorOwner.USER,
@@ -1374,7 +1374,7 @@ async def test_read_timeout_before_headers_records_route(
         ),
         (
             500,
-            "tracecat_llm_token_invalid",
+            "autosecops_llm_token_invalid",
             False,
             RuntimeErrorKind.AGENT_EXECUTOR_UNCLASSIFIED,
             RuntimeErrorOwner.PLATFORM,
@@ -1494,7 +1494,7 @@ async def test_failed_discovery_does_not_consume_generation_failure_callback(
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
             return httpx.Response(
-                401, json={"error": {"type": "tracecat_llm_token_invalid"}}
+                401, json={"error": {"type": "autosecops_llm_token_invalid"}}
             )
         if failure == "connect":
             raise httpx.ConnectError("synthetic connection failure")
@@ -1705,7 +1705,7 @@ async def test_llm_metadata_follows_selected_route_on_all_failure_phases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__SERVICE_KEY",
+        "autosecops.config.AUTOSECOPS__SERVICE_KEY",
         "synthetic-signing-key-for-tests-only",
     )
 
@@ -1729,7 +1729,7 @@ async def test_llm_metadata_follows_selected_route_on_all_failure_phases(
                 "error": {
                     "type": "budget_exceeded"
                     if failure == "budget"
-                    else "tracecat_llm_token_invalid"
+                    else "autosecops_llm_token_invalid"
                     if failure == "auth"
                     else "rate_limit_error"
                 }
@@ -2339,7 +2339,7 @@ async def test_managed_stream_cut_after_headers_is_stream_interrupted(
             200,
             headers={
                 "Content-Type": "text/event-stream",
-                "X-Tracecat-Gateway": "litellm-0/42",
+                "X-AutoSecOps-Gateway": "litellm-0/42",
             },
             stream=_CutSSEStream(error),
         )
@@ -2560,7 +2560,7 @@ async def test_routing_plan_derives_diagnostics_from_root_and_subagent_providers
         )
     ]
     monkeypatch.setattr(
-        app_config, "TRACECAT__SERVICE_KEY", "synthetic-signing-key-for-tests-only"
+        app_config, "AUTOSECOPS__SERVICE_KEY", "synthetic-signing-key-for-tests-only"
     )
     token = mint_llm_token(
         workspace_id=uuid.uuid4(),
@@ -2648,9 +2648,9 @@ def span_exporter(monkeypatch: pytest.MonkeyPatch) -> Iterator[InMemorySpanExpor
     # Initialization replaces the process-global propagator; restore it after.
     propagator = get_global_textmap()
     shutdown_platform_tracing()
-    monkeypatch.setattr(app_config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(app_config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-test", exporter=exporter)
+    initialize_platform_tracing("autosecops-test", exporter=exporter)
     yield exporter
     shutdown_platform_tracing()
     set_global_textmap(propagator)
@@ -2660,7 +2660,7 @@ def _upstream_spans(exporter: InMemorySpanExporter) -> list[ReadableSpan]:
     return [
         span
         for span in exporter.get_finished_spans()
-        if span.name == "tracecat.agent.llm_proxy.upstream"
+        if span.name == "autosecops.agent.llm_proxy.upstream"
     ]
 
 
@@ -2695,9 +2695,9 @@ async def test_upstream_span_records_streamed_response_without_content(
     assert span.kind is SpanKind.CLIENT
     assert span.status.status_code is StatusCode.UNSET
     attributes = dict(span.attributes or {})
-    ttft_ms = attributes.pop("tracecat.agent.llm_proxy.response.ttft_ms")
+    ttft_ms = attributes.pop("autosecops.agent.llm_proxy.response.ttft_ms")
     stream_duration_ms = attributes.pop(
-        "tracecat.agent.llm_proxy.response.stream_duration_ms"
+        "autosecops.agent.llm_proxy.response.stream_duration_ms"
     )
     assert isinstance(ttft_ms, float)
     assert isinstance(stream_duration_ms, float)
@@ -2705,17 +2705,17 @@ async def test_upstream_span_records_streamed_response_without_content(
     assert attributes == {
         "http.request.method": "POST",
         "http.route": "/v1/messages",
-        "tracecat.agent.llm_proxy.route": "managed",
-        "tracecat.agent.llm_proxy.trace_request_id": "trace-span",
-        "tracecat.agent.llm_proxy.attempt": 1,
+        "autosecops.agent.llm_proxy.route": "managed",
+        "autosecops.agent.llm_proxy.trace_request_id": "trace-span",
+        "autosecops.agent.llm_proxy.attempt": 1,
         "http.response.status_code": 200,
         "http.response.body.size": len(_SSE_MESSAGE_START + _SSE_MESSAGE_STOP),
-        "tracecat.agent.llm_proxy.response.chunks": 1,
-        "tracecat.agent.llm_proxy.response.sse_events": 2,
-        "tracecat.agent.llm_proxy.response.saw_message_stop": True,
+        "autosecops.agent.llm_proxy.response.chunks": 1,
+        "autosecops.agent.llm_proxy.response.sse_events": 2,
+        "autosecops.agent.llm_proxy.response.saw_message_stop": True,
     }
     [event] = span.events
-    assert event.name == "tracecat.agent.llm_proxy.first_byte"
+    assert event.name == "autosecops.agent.llm_proxy.first_byte"
     assert span.start_time is not None
     assert span.end_time is not None
     assert span.start_time <= event.timestamp <= span.end_time
@@ -2745,10 +2745,10 @@ async def test_upstream_span_per_rate_limited_attempt(
     assert errors == []
     spans = _upstream_spans(span_exporter)
     assert [
-        (span.attributes or {})["tracecat.agent.llm_proxy.attempt"] for span in spans
+        (span.attributes or {})["autosecops.agent.llm_proxy.attempt"] for span in spans
     ] == [1, 2, 3]
     assert [
-        (span.attributes or {})["tracecat.agent.llm_proxy.trace_request_id"]
+        (span.attributes or {})["autosecops.agent.llm_proxy.trace_request_id"]
         for span in spans
     ] == ["trace-rate-limit"] * 3
     dropped, limited, ok = spans
@@ -2761,8 +2761,8 @@ async def test_upstream_span_per_rate_limited_attempt(
     assert ok.status.status_code is StatusCode.UNSET
     assert "error.type" not in (ok.attributes or {})
     # JSON responses are not streams, so they carry no stream timings.
-    assert "tracecat.agent.llm_proxy.response.ttft_ms" not in (ok.attributes or {})
-    assert "tracecat.agent.llm_proxy.response.stream_duration_ms" not in (
+    assert "autosecops.agent.llm_proxy.response.ttft_ms" not in (ok.attributes or {})
+    assert "autosecops.agent.llm_proxy.response.stream_duration_ms" not in (
         ok.attributes or {}
     )
 
@@ -2792,15 +2792,15 @@ async def test_upstream_span_fails_on_stream_cut_after_headers(
     assert span.status.description is None
     assert attributes["error.type"] == "RemoteProtocolError"
     assert attributes["http.response.status_code"] == 200
-    assert attributes["tracecat.agent.llm_proxy.response.chunks"] == 1
-    assert isinstance(attributes["tracecat.agent.llm_proxy.response.ttft_ms"], float)
+    assert attributes["autosecops.agent.llm_proxy.response.chunks"] == 1
+    assert isinstance(attributes["autosecops.agent.llm_proxy.response.ttft_ms"], float)
     assert isinstance(
-        attributes["tracecat.agent.llm_proxy.response.stream_duration_ms"], float
+        attributes["autosecops.agent.llm_proxy.response.stream_duration_ms"], float
     )
-    assert attributes["tracecat.agent.llm_proxy.response.sse_events"] == 1
-    assert attributes["tracecat.agent.llm_proxy.response.saw_message_stop"] is False
+    assert attributes["autosecops.agent.llm_proxy.response.sse_events"] == 1
+    assert attributes["autosecops.agent.llm_proxy.response.saw_message_stop"] is False
     assert [event.name for event in span.events] == [
-        "tracecat.agent.llm_proxy.first_byte"
+        "autosecops.agent.llm_proxy.first_byte"
     ]
     assert "peer closed" not in str(span.to_json())
 

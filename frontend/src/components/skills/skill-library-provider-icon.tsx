@@ -22,7 +22,6 @@ const PROVIDER_ICONS: Record<
   "google-secops": mcpCatalogProviderIcons.google_cloud_secops_mcp,
   splunk: mcpCatalogProviderIcons.splunk_mcp,
   autosecops: Icons.logo,
-  tracecat: Icons.logo,
 }
 
 /**
@@ -77,7 +76,7 @@ export function SkillLibraryMaintainerMark({
           aria-label={label}
           className="absolute -bottom-1.5 -right-1.5 flex size-4 cursor-help items-center justify-center rounded-[4px] ring-[1.5px] ring-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {maintainer === "tracecat" ? (
+          {maintainer === "autosecops" ? (
             <span className="flex size-full items-center justify-center rounded-[4px] bg-foreground p-[2px] text-background">
               <Icons.logo className="size-full" />
             </span>
@@ -90,7 +89,7 @@ export function SkillLibraryMaintainerMark({
       </TooltipTrigger>
       <TooltipContent side="bottom" align="start">
         <p className="font-medium">{label}</p>
-        {maintainer === "tracecat" ? (
+        {maintainer === "autosecops" ? (
           <p className="opacity-80">
             Ships with AutoSecOps and updates with each release.
           </p>

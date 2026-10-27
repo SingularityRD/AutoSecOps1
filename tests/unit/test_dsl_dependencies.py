@@ -444,7 +444,7 @@ async def test_collection_activity_inputs_use_consumer_dependencies(
     scheduler = object.__new__(DSLScheduler)
     scheduler.logger = get_workflow_logger()
     scheduler.role = Role(
-        type="service", service_id="tracecat-runner", workspace_id=UUID(int=1)
+        type="service", service_id="autosecops-runner", workspace_id=UUID(int=1)
     )
     wf_id = WorkflowUUID.new_uuid4()
     scheduler.run_context = RunContext(

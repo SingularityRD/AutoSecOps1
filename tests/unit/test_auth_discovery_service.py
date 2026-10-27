@@ -14,7 +14,7 @@ from autosecops.auth import discovery as auth_discovery_module
 from autosecops.auth.discovery import AuthDiscoveryMethod, AuthDiscoveryService
 from autosecops.auth.enums import AuthType
 from autosecops.db.models import Invitation, Organization, OrganizationDomain
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.organization.domains import normalize_domain
 
@@ -61,7 +61,7 @@ async def test_discovery_prefers_saml_for_mapped_domains(
     await _create_domain(session, organization.id, "acme.com")
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     setting_reader = AsyncMock(return_value=True)
@@ -99,10 +99,10 @@ async def test_discovery_org_hint_without_saml_setup_falls_back_to_oidc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Invite links carry an org hint; orgs that never set up SAML use OIDC."""
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     service = AuthDiscoveryService(session)
@@ -123,10 +123,10 @@ async def test_discovery_mapped_domain_without_saml_idp_falls_back_to_oidc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _create_domain(session, organization.id, "no-idp.com")
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -147,10 +147,10 @@ async def test_discovery_keeps_saml_when_enforced_without_idp(
     organization: Organization,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -173,11 +173,11 @@ async def test_discovery_uses_saml_when_org_idp_is_configured(
     organization: Organization,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(config, "SAML_IDP_METADATA_URL", None)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -214,13 +214,13 @@ async def test_discovery_env_idp_metadata_only_applies_to_single_tenant(
     multi_tenant: bool,
     expected: AuthDiscoveryMethod,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
     monkeypatch.setattr(
         config, "SAML_IDP_METADATA_URL", "https://idp.example.com/metadata"
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -246,7 +246,7 @@ async def test_discovery_returns_oidc_for_mapped_non_saml_domains(
     await _create_domain(session, organization.id, "acme.io")
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC},
     )
     service = AuthDiscoveryService(session)
@@ -267,10 +267,10 @@ async def test_discovery_falls_back_when_mapped_org_is_inactive(
     await session.commit()
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     service = AuthDiscoveryService(session)
 
     response = await service.discover("user@acme.dev")
@@ -283,10 +283,10 @@ async def test_discovery_returns_safe_platform_fallback_for_unknown_domains(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC},
     )
     service = AuthDiscoveryService(session)
@@ -302,10 +302,10 @@ async def test_discovery_prefers_default_org_saml_for_unknown_domains_in_single_
     organization: Organization,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -330,10 +330,10 @@ async def test_discovery_unknown_domains_fallback_to_oidc_in_multi_tenant_with_s
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -353,7 +353,7 @@ async def test_discovery_returns_basic_when_basic_is_only_platform_auth_type(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.BASIC})
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_TYPES", {AuthType.BASIC})
     service = AuthDiscoveryService(session)
 
     response = await service.discover("user@unknown-domain.example")
@@ -369,7 +369,7 @@ async def test_discovery_prefers_org_hint_over_email_domain(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     monkeypatch.setattr(
@@ -398,12 +398,12 @@ async def test_discovery_rejects_invalid_org_hint_without_fallback(
     await _create_domain(session, organization.id, "acme.com")
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUTH_TYPES",
+        "AUTOSECOPS__AUTH_TYPES",
         {AuthType.BASIC, AuthType.OIDC, AuthType.SAML},
     )
     service = AuthDiscoveryService(session)
 
-    with pytest.raises(TracecatValidationError) as exc:
+    with pytest.raises(AutoSecOpsValidationError) as exc:
         await service.discover("user@acme.com", org_slug="does-not-exist")
 
     assert str(exc.value) == "Invalid organization"
@@ -416,7 +416,9 @@ async def test_discovery_ignores_invitations_once_saml_is_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Routing depends on org settings only, so it cannot reveal who is invited."""
-    monkeypatch.setattr(config, "TRACECAT__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML})
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__AUTH_TYPES", {AuthType.BASIC, AuthType.SAML}
+    )
     monkeypatch.setattr(
         auth_discovery_module,
         "get_setting_from_bypass_session",

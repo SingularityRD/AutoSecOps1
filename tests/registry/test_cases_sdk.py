@@ -15,12 +15,12 @@ import httpx
 import orjson
 import pytest
 from autosecops_registry.sdk.cases import CasesClient
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 
 @pytest.fixture
-def mock_tracecat_client() -> MagicMock:
-    """Create a mock TracecatClient."""
+def mock_autosecops_client() -> MagicMock:
+    """Create a mock AutoSecOpsClient."""
     client = MagicMock()
     client.get = AsyncMock()
     client.post = AsyncMock()
@@ -30,9 +30,9 @@ def mock_tracecat_client() -> MagicMock:
 
 
 @pytest.fixture
-def cases_client(mock_tracecat_client: MagicMock) -> CasesClient:
+def cases_client(mock_autosecops_client: MagicMock) -> CasesClient:
     """Create a CasesClient with mocked HTTP client."""
-    return CasesClient(mock_tracecat_client)
+    return CasesClient(mock_autosecops_client)
 
 
 @pytest.mark.anyio
@@ -55,7 +55,7 @@ async def test_aggregate_cases_uses_exact_gateway_path(
         assert request.method == "POST"
         assert (
             str(request.url)
-            == "http://tracecat-action-gateway/internal/cases/aggregate"
+            == "http://autosecops-action-gateway/internal/cases/aggregate"
         )
         assert orjson.loads(request.content) == spec
         return httpx.Response(200, json=response)
@@ -65,7 +65,7 @@ async def test_aggregate_cases_uses_exact_gateway_path(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/aggregate-cases-test.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/aggregate-cases-test.sock")
     assert await client.cases.aggregate_cases(spec) == response
     assert len(requests) == 1
 
@@ -94,7 +94,7 @@ async def test_relationship_sort_uses_gateway_query(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-sort.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-sort.sock")
     await client.cases.list_cases(order_by=order_by, sort="asc")
     await client.cases.search_cases(order_by=order_by, sort="asc")
     assert [request.url.path for request in requests] == [
@@ -105,12 +105,12 @@ async def test_relationship_sort_uses_gateway_query(
 
 @pytest.mark.anyio
 async def test_create_case_serializes_dropdown_uuid_values(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
     """UUID dropdown ids are serialized to strings for JSON transport."""
     definition_id = uuid4()
     option_id = uuid4()
-    mock_tracecat_client.post.return_value = {"id": "case-id"}
+    mock_autosecops_client.post.return_value = {"id": "case-id"}
 
     await cases_client.create_case(
         summary="Case summary",
@@ -121,7 +121,7 @@ async def test_create_case_serializes_dropdown_uuid_values(
         ],
     )
 
-    mock_tracecat_client.post.assert_called_once_with(
+    mock_autosecops_client.post.assert_called_once_with(
         "/cases",
         json={
             "summary": "Case summary",
@@ -139,18 +139,18 @@ async def test_create_case_serializes_dropdown_uuid_values(
 
 @pytest.mark.anyio
 async def test_update_case_simple_serializes_and_keeps_null_option(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
     """UUID dropdown ids are stringified while explicit null option_id is retained."""
     definition_id = uuid4()
-    mock_tracecat_client.patch.return_value = {"id": "case-id"}
+    mock_autosecops_client.patch.return_value = {"id": "case-id"}
 
     await cases_client.update_case_simple(
         "case-id",
         dropdown_values=[{"definition_id": definition_id, "option_id": None}],
     )
 
-    mock_tracecat_client.patch.assert_called_once_with(
+    mock_autosecops_client.patch.assert_called_once_with(
         "/cases/case-id/simple",
         json={
             "dropdown_values": [
@@ -162,13 +162,13 @@ async def test_update_case_simple_serializes_and_keeps_null_option(
 
 @pytest.mark.anyio
 async def test_list_case_rows_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.get.return_value = {"items": [], "next_cursor": None}
+    mock_autosecops_client.get.return_value = {"items": [], "next_cursor": None}
 
     await cases_client.list_case_rows("case-id", limit=10)
 
-    mock_tracecat_client.get.assert_called_once_with(
+    mock_autosecops_client.get.assert_called_once_with(
         "/cases/case-id/rows",
         params={"limit": 10},
     )
@@ -176,13 +176,13 @@ async def test_list_case_rows_uses_client_internal_prefix_once(
 
 @pytest.mark.anyio
 async def test_link_case_row_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.post.return_value = {"case_id": "case-id"}
+    mock_autosecops_client.post.return_value = {"case_id": "case-id"}
 
     await cases_client.link_case_row("case-id", table_id="table-id", row_id="row-id")
 
-    mock_tracecat_client.post.assert_called_once_with(
+    mock_autosecops_client.post.assert_called_once_with(
         "/cases/case-id/rows",
         json={"table_id": "table-id", "row_id": "row-id"},
     )
@@ -190,20 +190,20 @@ async def test_link_case_row_uses_client_internal_prefix_once(
 
 @pytest.mark.anyio
 async def test_unlink_case_row_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
     await cases_client.unlink_case_row("case-id", table_id="table-id", row_id="row-id")
 
-    mock_tracecat_client.delete.assert_called_once_with(
+    mock_autosecops_client.delete.assert_called_once_with(
         "/cases/case-id/rows/table-id/row-id"
     )
 
 
 @pytest.mark.anyio
 async def test_insert_case_row_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.post.return_value = {"case_id": "case-id"}
+    mock_autosecops_client.post.return_value = {"case_id": "case-id"}
 
     await cases_client.insert_case_row(
         "case-id",
@@ -211,7 +211,7 @@ async def test_insert_case_row_uses_client_internal_prefix_once(
         row={"customer": "acme"},
     )
 
-    mock_tracecat_client.post.assert_called_once_with(
+    mock_autosecops_client.post.assert_called_once_with(
         "/cases/case-id/rows/insert",
         json={"table_id": "table-id", "row": {"data": {"customer": "acme"}}},
     )
@@ -219,38 +219,40 @@ async def test_insert_case_row_uses_client_internal_prefix_once(
 
 @pytest.mark.anyio
 async def test_list_comment_threads_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.get.return_value = []
+    mock_autosecops_client.get.return_value = []
 
     await cases_client.list_comment_threads("case-id")
 
-    mock_tracecat_client.get.assert_called_once_with("/cases/case-id/comments/threads")
+    mock_autosecops_client.get.assert_called_once_with(
+        "/cases/case-id/comments/threads"
+    )
 
 
 @pytest.mark.anyio
 async def test_get_comment_thread_uses_client_internal_prefix_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.get.return_value = {"comment": {}, "replies": []}
+    mock_autosecops_client.get.return_value = {"comment": {}, "replies": []}
 
     await cases_client.get_comment_thread("comment-id")
 
-    mock_tracecat_client.get.assert_called_once_with("/comments/comment-id/thread")
+    mock_autosecops_client.get.assert_called_once_with("/comments/comment-id/thread")
 
 
 @pytest.mark.anyio
 async def test_update_comment_by_id_only_sends_content(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.patch.return_value = {"id": "comment-id"}
+    mock_autosecops_client.patch.return_value = {"id": "comment-id"}
 
     await cases_client.update_comment_by_id(
         "comment-id",
         content="Updated content",
     )
 
-    mock_tracecat_client.patch.assert_called_once_with(
+    mock_autosecops_client.patch.assert_called_once_with(
         "/comments/comment-id",
         json={"content": "Updated content"},
     )
@@ -258,9 +260,9 @@ async def test_update_comment_by_id_only_sends_content(
 
 @pytest.mark.anyio
 async def test_reply_to_comment_uses_udf_simple_endpoint_once(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.post.return_value = {"id": "comment-id"}
+    mock_autosecops_client.post.return_value = {"id": "comment-id"}
 
     await cases_client.reply_to_comment(
         "case-id",
@@ -268,7 +270,7 @@ async def test_reply_to_comment_uses_udf_simple_endpoint_once(
         content="Reply content",
     )
 
-    mock_tracecat_client.post.assert_called_once_with(
+    mock_autosecops_client.post.assert_called_once_with(
         "/cases/case-id/comments/simple",
         json={"content": "Reply content", "parent_id": "parent-id"},
     )
@@ -276,16 +278,16 @@ async def test_reply_to_comment_uses_udf_simple_endpoint_once(
 
 @pytest.mark.anyio
 async def test_update_comment_simple_only_sends_content(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.patch.return_value = {"id": "comment-id"}
+    mock_autosecops_client.patch.return_value = {"id": "comment-id"}
 
     await cases_client.update_comment_simple(
         "comment-id",
         content="Updated content",
     )
 
-    mock_tracecat_client.patch.assert_called_once_with(
+    mock_autosecops_client.patch.assert_called_once_with(
         "/comments/comment-id/simple",
         json={"content": "Updated content"},
     )
@@ -293,15 +295,15 @@ async def test_update_comment_simple_only_sends_content(
 
 @pytest.mark.anyio
 async def test_list_linked_cases_uses_table_row_path(
-    cases_client: CasesClient, mock_tracecat_client: MagicMock
+    cases_client: CasesClient, mock_autosecops_client: MagicMock
 ) -> None:
-    mock_tracecat_client.get.return_value = {"items": [], "next_cursor": None}
+    mock_autosecops_client.get.return_value = {"items": [], "next_cursor": None}
 
     await cases_client.list_linked_cases(
         "table-id", "row-id", limit=5, exclude_case_id="CASE-0001", sort="asc"
     )
 
-    mock_tracecat_client.get.assert_called_once_with(
+    mock_autosecops_client.get.assert_called_once_with(
         "/tables/table-id/rows/row-id/cases",
         params={"limit": 5, "sort": "asc", "exclude_case_id": "CASE-0001"},
     )
@@ -326,7 +328,7 @@ async def test_search_cases_canonical_gateway_body_and_detail_flags(
         requests.append(request)
         assert request.method == "POST"
         assert (
-            str(request.url) == "http://tracecat-action-gateway/internal/cases/search"
+            str(request.url) == "http://autosecops-action-gateway/internal/cases/search"
         )
         assert orjson.loads(request.content) == {
             "limit": 7,
@@ -355,7 +357,7 @@ async def test_search_cases_canonical_gateway_body_and_detail_flags(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
     response = await client.cases.search_cases(
         limit=7,
         search_term="powershell encoded",
@@ -431,7 +433,7 @@ async def test_search_cases_serializes_native_filter_scalars(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", create_transport)
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic-case-search.sock")
     await client.cases.search_cases(filters=filters)
     assert len(requests) == 1
     assert filters == original

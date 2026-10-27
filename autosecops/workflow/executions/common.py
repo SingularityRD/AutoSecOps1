@@ -392,7 +392,7 @@ def build_query(
             for execution_type in sorted(execution_types, key=lambda value: value.value)
         ]
         # Backward compatibility: older published runs may not have
-        # TracecatExecutionType indexed at all.
+        # AutoSecOpsExecutionType indexed at all.
         if (
             ExecutionType.PUBLISHED in execution_types
             and ExecutionType.DRAFT not in execution_types

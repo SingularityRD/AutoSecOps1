@@ -6,7 +6,7 @@ through the browser on first connection. If you belong to more than one
 organization, AutoSecOps asks which organizations the connection can access, and
 one connection then works across all of them. For clients or environments that cannot
 complete a browser sign-in, authenticate with a
-[personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens) instead.
+[personal access token (PAT)](/automations/autosecops-mcp#personal-access-tokens) instead.
 
 <Tabs sync={false}>
   <Tab title="Claude Code" icon="https://cdn.simpleicons.org/anthropic">
@@ -19,13 +19,13 @@ complete a browser sign-in, authenticate with a
     /mcp
     ```
 
-    Or authenticate with a [personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens).
-    Set `TRACECAT_MCP_PAT` in your environment and reference it with **single
+    Or authenticate with a [personal access token (PAT)](/automations/autosecops-mcp#personal-access-tokens).
+    Set `AUTOSECOPS_MCP_PAT` in your environment and reference it with **single
     quotes** so the variable (not the token) is written to the saved config:
 
     ```bash
     claude mcp add --transport http autosecops https://<your-autosecops-host>/mcp \
-      --header 'Authorization: Bearer ${TRACECAT_MCP_PAT}'
+      --header 'Authorization: Bearer ${AUTOSECOPS_MCP_PAT}'
     ```
   </Tab>
 
@@ -38,12 +38,12 @@ complete a browser sign-in, authenticate with a
     codex mcp login autosecops
     ```
 
-    Or authenticate with a [personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens).
-    Set `TRACECAT_MCP_PAT` in your environment, then reference it by name:
+    Or authenticate with a [personal access token (PAT)](/automations/autosecops-mcp#personal-access-tokens).
+    Set `AUTOSECOPS_MCP_PAT` in your environment, then reference it by name:
 
     ```bash
     codex mcp add autosecops --url https://<your-autosecops-host>/mcp \
-      --bearer-token-env-var TRACECAT_MCP_PAT
+      --bearer-token-env-var AUTOSECOPS_MCP_PAT
     ```
   </Tab>
 
@@ -78,13 +78,13 @@ complete a browser sign-in, authenticate with a
     }
     ```
 
-    To use a [personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens) instead of
-    OAuth, add an `Authorization` header (`${TRACECAT_MCP_PAT}` is read from your
+    To use a [personal access token (PAT)](/automations/autosecops-mcp#personal-access-tokens) instead of
+    OAuth, add an `Authorization` header (`${AUTOSECOPS_MCP_PAT}` is read from your
     environment):
 
     ```json
     "headers": {
-      "Authorization": "Bearer ${TRACECAT_MCP_PAT}"
+      "Authorization": "Bearer ${AUTOSECOPS_MCP_PAT}"
     }
     ```
   </Tab>
@@ -103,13 +103,13 @@ complete a browser sign-in, authenticate with a
     }
     ```
 
-    To use a [personal access token (PAT)](/automations/tracecat-mcp#personal-access-tokens) instead of
-    OAuth, add an `Authorization` header (Cursor resolves `${env:TRACECAT_MCP_PAT}`
+    To use a [personal access token (PAT)](/automations/autosecops-mcp#personal-access-tokens) instead of
+    OAuth, add an `Authorization` header (Cursor resolves `${env:AUTOSECOPS_MCP_PAT}`
     from your environment):
 
     ```json
     "headers": {
-      "Authorization": "Bearer ${env:TRACECAT_MCP_PAT}"
+      "Authorization": "Bearer ${env:AUTOSECOPS_MCP_PAT}"
     }
     ```
   </Tab>

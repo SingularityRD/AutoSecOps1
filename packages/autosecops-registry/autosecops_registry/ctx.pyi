@@ -9,7 +9,7 @@ from uuid import UUID
 from autosecops_registry import types
 from autosecops_registry._internal.models import WorkflowExecutionID
 from autosecops_registry.sdk.agents import CursorPage
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 from autosecops_registry.sdk.types import CasePriority, CaseSeverity, CaseStatus, Unset
 from autosecops_registry.sdk.workflows import JsonPatchOperation
 
@@ -1513,4 +1513,4 @@ environment: str
 api_url: str
 executor_url: str
 token: str
-client: TracecatClient
+client: AutoSecOpsClient

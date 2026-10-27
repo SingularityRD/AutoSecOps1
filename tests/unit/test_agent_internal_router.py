@@ -22,7 +22,7 @@ from autosecops.db.engine import get_async_session
 def executor_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),

@@ -12,7 +12,7 @@ from autosecops.chat.tools import (
 def _role(*scopes: str) -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -127,7 +127,7 @@ def test_scope_filter_none_scopes_strips_all_tools() -> None:
     # An unresolved/empty scope set denies every tool, matching the executor.
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),

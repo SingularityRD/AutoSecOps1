@@ -13,10 +13,10 @@ Security model:
 - Site-packages or a minimal Claude SDK subtree mounted read-only
 
 Key design:
-- Runtime executes a standalone shim script from the per-job /run/tracecat/job directory
+- Runtime executes a standalone shim script from the per-job /run/autosecops/job directory
 - Shim mode avoids AutoSecOps package mounts entirely
-- Control socket at /run/tracecat/control.sock
-- LLM socket at /run/tracecat/llm.sock (proxied to LLM gateway)
+- Control socket at /run/autosecops/control.sock
+- LLM socket at /run/autosecops/llm.sock (proxied to LLM gateway)
 """
 
 from __future__ import annotations
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
 from autosecops.agent.common.config import (
     AGENT_RUNTIME_DIR,
     AGENT_RUNTIME_PROTECTED_ENV_VARS,
+    AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB,
+    AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB,
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT,
     CONTROL_SOCKET_NAME,
     JAILED_CONTROL_SOCKET_PATH,
     JAILED_LLM_SOCKET_PATH,
     JAILED_OTEL_SOCKET_PATH,
-    TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB,
-    TRACECAT__AGENT_SANDBOX_MEMORY_MB,
-    TRACECAT__AGENT_SANDBOX_TIMEOUT,
     TRUSTED_MCP_SOCKET_PATH,
     build_agent_runtime_uv_env,
 )
@@ -59,7 +59,7 @@ _ENV_VAR_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def _sandbox_kill_ceiling_seconds() -> int:
     """Kernel kill ceiling: above any per-run timeout, plus the cleanup buffer."""
-    return TRACECAT__AGENT_SANDBOX_TIMEOUT + AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
+    return AUTOSECOPS__AGENT_SANDBOX_TIMEOUT + AGENT_TIMEOUT_CLEANUP_BUFFER_SECONDS
 
 
 def _contains_dangerous_chars(value: str) -> tuple[bool, str | None]:
@@ -93,7 +93,7 @@ class AgentResourceLimits:
     """Resource limits for agent sandbox execution.
 
     Defaults are read from environment variables:
-    - TRACECAT__AGENT_SANDBOX_MEMORY_MB: memory_mb (default 4096 = 4 GiB)
+    - AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB: memory_mb (default 4096 = 4 GiB)
 
     Default cpu_seconds/timeout_seconds are a kill ceiling, not the per-run
     timeout: that is enforced upstream by the executor activity, which cancels
@@ -112,7 +112,7 @@ class AgentResourceLimits:
         timeout_seconds: Maximum wall-clock execution time.
     """
 
-    memory_mb: int = field(default_factory=lambda: TRACECAT__AGENT_SANDBOX_MEMORY_MB)
+    memory_mb: int = field(default_factory=lambda: AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
     cpu_seconds: int = field(default_factory=lambda: _sandbox_kill_ceiling_seconds())
     max_file_size_mb: int = 256
     max_open_files: int = 512
@@ -122,7 +122,7 @@ class AgentResourceLimits:
     )
 
     address_space_mb: int | None = field(
-        default_factory=lambda: TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB
+        default_factory=lambda: AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB
     )
 
     def __post_init__(self) -> None:
@@ -166,7 +166,7 @@ AGENT_SANDBOX_BASE_ENV = {
     "USER": "agent",
     # Keep UV caches, credentials, managed Pythons, and tools out of stable home.
     **build_agent_runtime_uv_env(JAILED_AGENT_UV_STATE_DIR),
-    "TRACECAT__EXECUTOR_BACKEND": "nsjail",
+    "AUTOSECOPS__EXECUTOR_BACKEND": "nsjail",
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONUNBUFFERED": "1",
     "LANG": "C.UTF-8",
@@ -580,9 +580,9 @@ def build_agent_env_map(config: AgentSandboxConfig) -> dict[str, str]:
     # Enforce the process cap inside the jail: nsjail cannot apply
     # rlimit_nproc under clone_newuser, so the trusted shim applies this
     # injected value before starting the Claude runtime.
-    env_map["TRACECAT__SANDBOX_RLIMIT_NPROC"] = str(config.resources.max_processes)
-    if value := os.environ.get("TRACECAT__LITELLM_BASE_URL"):
-        env_map["TRACECAT__LITELLM_BASE_URL"] = value
+    env_map["AUTOSECOPS__SANDBOX_RLIMIT_NPROC"] = str(config.resources.max_processes)
+    if value := os.environ.get("AUTOSECOPS__LITELLM_BASE_URL"):
+        env_map["AUTOSECOPS__LITELLM_BASE_URL"] = value
 
     for key, value in config.env_vars.items():
         _validate_env_key(key)

@@ -29,7 +29,7 @@ from autosecops.dsl.action import (
     DSLActivities,
 )
 from autosecops.dsl.schemas import ExecutionContext, TaskResult
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
@@ -43,7 +43,7 @@ from autosecops.temporal.errors import extract_error_classification
 def role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -109,7 +109,7 @@ async def test_agent_materialization_failure_keeps_platform_attribution(
     ("error", "owner", "kind", "retry_disposition"),
     [
         (
-            TracecatValidationError("invalid agent input diagnostic"),
+            AutoSecOpsValidationError("invalid agent input diagnostic"),
             RuntimeErrorOwner.USER,
             RuntimeErrorKind.WORKFLOW_AGENT_INPUT_INVALID,
             RetryDisposition.NON_RETRYABLE,

@@ -3978,16 +3978,16 @@ class TestMCPIntegrationValidation:
 
         # Simulate tightened policy: remove 'npx' from the allowed set after the
         # row was already persisted.
-        from autosecops.exceptions import TracecatValidationError
+        from autosecops.exceptions import AutoSecOpsValidationError
         from autosecops.integrations import mcp_validation
 
         original = mcp_validation.ALLOWED_MCP_COMMANDS
         mcp_validation.ALLOWED_MCP_COMMANDS = frozenset(original - {"npx"})
         try:
             # The integration should be skipped; with no remaining refs the
-            # method raises TracecatValidationError rather than returning an
+            # method raises AutoSecOpsValidationError rather than returning an
             # empty list.
-            with pytest.raises(TracecatValidationError):
+            with pytest.raises(AutoSecOpsValidationError):
                 await preset_service.resolve_mcp_integration_refs([str(created.id)])
         finally:
             mcp_validation.ALLOWED_MCP_COMMANDS = original
@@ -4143,7 +4143,7 @@ class TestMCPIntegrationWorkspaceIsolation:
             workspace_id=workspace2.id,
             organization_id=svc_workspace.organization_id,
             user_id=svc_role.user_id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ADMIN_SCOPES,
         )
         service2 = IntegrationService(session=session, role=role2)
@@ -4197,7 +4197,7 @@ class TestMCPIntegrationWorkspaceIsolation:
             workspace_id=workspace2.id,
             organization_id=svc_workspace.organization_id,
             user_id=svc_role.user_id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ADMIN_SCOPES,
         )
         service2 = IntegrationService(session=session, role=role2)
@@ -6236,7 +6236,7 @@ class TestMCPProviderOAuth:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Wiz provider must send resource with trailing slash for OAuth calls."""
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
         provider = WizMCPProvider(
             client_id="wiz-client",
             client_secret="wiz-secret",
@@ -6270,7 +6270,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
 
         discovery = OAuthDiscoveryResult(
             authorization_endpoint="https://dummy.example/oauth/authorize",
@@ -6328,7 +6328,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
         discovery = OAuthDiscoveryResult(
             authorization_endpoint="https://offline.example/oauth/authorize",
             token_endpoint="https://offline.example/oauth/token",
@@ -6411,7 +6411,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
         discovery = OAuthDiscoveryResult(
             authorization_endpoint="https://narrowed.example/oauth/authorize",
             token_endpoint="https://narrowed.example/oauth/token",
@@ -6486,7 +6486,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
 
         def fake_register(self: MCPAuthProvider) -> DynamicRegistrationResult:
             assert self._registration_requested_scopes == [
@@ -6538,7 +6538,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
         discovery = OAuthDiscoveryResult(
             authorization_endpoint="https://existing.example/oauth/authorize",
             token_endpoint="https://existing.example/oauth/token",
@@ -6626,7 +6626,7 @@ class TestMCPProviderOAuth:
                 enabled=True,
             )
 
-        monkeypatch.setenv("TRACECAT__PUBLIC_APP_URL", "https://app.test")
+        monkeypatch.setenv("AUTOSECOPS__PUBLIC_APP_URL", "https://app.test")
         provider = DummyMCPProvider(
             client_id="dummy-client",
             discovered_auth_endpoint="https://dummy.example/oauth/authorize",

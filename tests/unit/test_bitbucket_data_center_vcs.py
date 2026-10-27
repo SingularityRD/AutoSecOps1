@@ -10,9 +10,9 @@ import pytest
 from pydantic import SecretStr
 
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
 )
 from autosecops.git.types import GitUrl
 from autosecops.secrets.schemas import SecretKeyValue
@@ -52,7 +52,7 @@ def test_invalid_instance_url(base_url):
 async def test_credential_lifecycle_and_status_never_returns_token():
     service = BitbucketDataCenterTokenService(session=AsyncMock(), role=role())
     secrets = AsyncMock(spec=SecretsService)
-    secrets._get_org_secret_by_name.side_effect = TracecatNotFoundError("missing")
+    secrets._get_org_secret_by_name.side_effect = AutoSecOpsNotFoundError("missing")
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
         patch(

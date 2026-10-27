@@ -358,6 +358,14 @@
 
 </ResponseField>
 
+<ResponseField name="FN.get_interaction" type="function">
+
+  `FN.get_interaction() -> None`
+
+  Keep historical registry templates executable without interaction context.
+
+</ResponseField>
+
 <ResponseField name="FN.get_minute" type="function">
 
   `FN.get_minute(x: datetime | str) -> int`
@@ -1138,7 +1146,7 @@
 
 <ResponseField name="FN.url_encode" type="function">
 
-  `FN.url_encode(x: str) -> str`
+  `FN.url_encode(x: str | int, safe: str = ) -> str`
 
   Converts URL-unsafe characters into percent-encoded characters.
 

@@ -33,7 +33,10 @@ from autosecops.db.models import (
     UserRoleAssignment,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
+from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
+)
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate
 from autosecops.invitations.schemas import InvitationGrant as InvitationGrantRequest
@@ -120,7 +123,7 @@ def role(org: Organization) -> Role:
         type="scim",
         organization_id=org.id,
         scim_connection_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"org:member:remove"}),
     )
 
@@ -383,7 +386,7 @@ async def test_malformed_username_is_rejected(
     service: ScimProvisioningService, email: str
 ) -> None:
     """An owned domain is not enough: the whole address must be well formed."""
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.provision_user(
             external_id=f"idp-{uuid.uuid4().hex[:8]}", email=email
         )
@@ -440,7 +443,7 @@ async def test_new_account_follows_the_org_domain_policy(
         )
     )
     await session.flush()
-    monkeypatch.setattr(config, "TRACECAT__AUTH_ALLOWED_DOMAINS", {"elsewhere.com"})
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", {"elsewhere.com"})
 
     provisioned = await service.provision_user(
         external_id="idp-owned", email=f"new@{domain}"
@@ -454,7 +457,7 @@ async def test_non_email_username_is_rejected(
     service: ScimProvisioningService,
 ) -> None:
     """A bare username has no address to store, so it fails validation."""
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.provision_user(external_id="idp-9", email="not-an-email")
 
 
@@ -548,7 +551,7 @@ async def test_reactivation_revokes_invitation_before_it_can_grant_roles(
     await session.commit()
     await session.refresh(invitation)
     assert invitation.status == InvitationStatus.REVOKED
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await accept_invitation_for_user(
             session, user_id=user_id, token=invitation.token
         )

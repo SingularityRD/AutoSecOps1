@@ -50,10 +50,10 @@ from autosecops.db.models import Schedule, Workflow
 from autosecops.dsl.enums import JoinStrategy
 from autosecops.dsl.schemas import ROOT_STREAM, ActionStatement, StreamID
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatValidationError,
 )
 from autosecops.expressions.common import ExprType
 from autosecops.integrations.enums import (
@@ -171,7 +171,7 @@ def resolved_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"case:read"}),
@@ -286,7 +286,7 @@ def _edit_role() -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )
 
@@ -432,7 +432,7 @@ async def test_prepare_template_file_upload_stores_artifact(monkeypatch):
     assert stored.user_id == user_id
     assert (
         upload_args["expiry"]
-        == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+        == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
     )
 
 
@@ -3836,7 +3836,7 @@ async def test_search_cases(monkeypatch, order_by):
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"case:read"}),
@@ -3910,7 +3910,7 @@ async def test_search_cases_forwards_canonical_request(
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"case:read"}),
@@ -3978,7 +3978,7 @@ async def test_search_cases_forwards_canonical_request(
     "error",
     [
         EntitlementRequired("case_addons"),
-        TracecatValidationError("Unknown case tag refs"),
+        AutoSecOpsValidationError("Unknown case tag refs"),
     ],
 )
 async def test_search_cases_transports_typed_errors(
@@ -3986,7 +3986,7 @@ async def test_search_cases_transports_typed_errors(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"case:read"}),
@@ -4014,7 +4014,7 @@ async def test_search_cases_requires_scope_and_validates_canonical_options(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset(),
@@ -4763,7 +4763,10 @@ async def test_watchtower_middleware_passes_tool_call_targets(
             id="upstream-claims-email",
         ),
         pytest.param(
-            True, {"client_id": "tracecat-client"}, "tracecat-client", id="client-id"
+            True,
+            {"client_id": "autosecops-client"},
+            "autosecops-client",
+            id="client-id",
         ),
         pytest.param(True, None, "anonymous", id="no-token"),
         pytest.param(False, None, "anonymous", id="no-context"),
@@ -5613,7 +5616,7 @@ async def test_create_agent_folder_without_parents_requires_parent(
             self, name: str, parent_path: str = "/", commit: bool = True
         ) -> None:
             _ = name, parent_path, commit
-            raise TracecatValidationError("Parent path /soc/ not found")
+            raise AutoSecOpsValidationError("Parent path /soc/ not found")
 
     monkeypatch.setattr(mcp_server, "_resolve_workspace_role", _resolve)
     monkeypatch.setattr(
@@ -7011,7 +7014,7 @@ async def test_get_skill_with_path_returns_inline_text(
             assert path == "SKILL.md"
             assert (
                 url_expiry_seconds
-                == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+                == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
             )
             return SkillDraftFileRead(
                 kind="inline",
@@ -7066,7 +7069,7 @@ async def test_get_skill_with_path_returns_presigned_download(
             assert path == "scripts/helper.py"
             assert (
                 url_expiry_seconds
-                == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+                == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
             )
             return SkillDraftFileRead(
                 kind="download",
@@ -7189,7 +7192,7 @@ async def test_prepare_skill_download_returns_complete_presigned_plan(
             assert skill_id == expected_skill_id
             assert (
                 url_expiry_seconds
-                == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+                == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
             )
             return SkillDownloadPreparedResponse(
                 workspace_id=workspace_id,
@@ -7280,7 +7283,7 @@ async def test_prepare_skill_upload_creates_skill_and_presigned_sessions(
             captured["uploads"] = list(params)
             assert (
                 url_expiry_seconds
-                == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+                == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
             )
             return SkillUploadSessionBatchRead(
                 skill_id=skill_id,
@@ -7375,7 +7378,7 @@ async def test_prepare_skill_upload_reuses_existing_draft(
             captured["params"] = list(params)
             assert (
                 url_expiry_seconds
-                == mcp_server.TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+                == mcp_server.AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
             )
             return SkillUploadSessionBatchRead(
                 skill_id=skill_id,
@@ -7508,7 +7511,7 @@ async def test_prepare_skill_upload_rejects_oversized_manifest_before_service(
 ) -> None:
     monkeypatch.setattr(
         mcp_server.config,
-        "TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES",
+        "AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES",
         1,
     )
 
@@ -7881,7 +7884,7 @@ def test_mcp_instruction_text_stays_within_context_budget() -> None:
     assert len(mcp_server._MCP_INSTRUCTIONS_RENDERED) <= 10000, (
         "MCP instructions exceeded the prompt budget. Always-on instructions "
         "carry only rules that fail hard when violated; move long-form guidance "
-        "into the `tracecat://platform/authoring-guide` resource or a tool "
+        "into the `autosecops://platform/authoring-guide` resource or a tool "
         "docstring, or intentionally raise this ceiling with a clear reason."
     )
 
@@ -8436,7 +8439,7 @@ async def test_get_execution_action_result_clamps_max_bytes(monkeypatch):
         )
     )
     # Clamped up to the configured minimum limit rather than returning nothing.
-    assert len(payload["result"]) == mcp_server.config.TRACECAT__LIMIT_MIN
+    assert len(payload["result"]) == mcp_server.config.AUTOSECOPS__LIMIT_MIN
     assert payload["truncated"] is True
 
     payload = _payload(
@@ -8582,7 +8585,7 @@ def _patch_forms(
     """Stand in for the forms service behind the MCP form tools."""
     role = Role(
         type="user",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -8607,7 +8610,7 @@ def _patch_forms(
     monkeypatch.setattr(mcp_server.FormsService, "with_session", _with_session)
     monkeypatch.setattr(
         mcp_server.config,
-        "TRACECAT__FEATURE_FLAGS",
+        "AUTOSECOPS__FEATURE_FLAGS",
         {mcp_server.FeatureFlag.FORMS} if flag else set(),
     )
     return service

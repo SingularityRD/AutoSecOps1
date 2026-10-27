@@ -2,7 +2,7 @@
 
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
 import Image from "next/image"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import React from "react"
 import { AwsIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
@@ -74,7 +74,7 @@ export function SecretSourcePicker({
           {selected ? (
             <AwsIcon className="size-4 shrink-0 rounded-sm" />
           ) : (
-            <Image src={TracecatIcon} alt="" className="size-4 rounded-sm" />
+            <Image src={AutoSecOpsIcon} alt="" className="size-4 rounded-sm" />
           )}
           <span className="min-w-0 flex-1 truncate text-left">
             {selected ? selected.name : "AutoSecOps"}
@@ -99,11 +99,15 @@ export function SecretSourcePicker({
           <CommandList className="max-h-72">
             <CommandEmpty>No stores match.</CommandEmpty>
             <CommandItem
-              value="tracecat"
+              value="autosecops"
               onSelect={() => choose(null)}
               className="gap-2"
             >
-              <Image src={TracecatIcon} alt="" className="size-4 rounded-sm" />
+              <Image
+                src={AutoSecOpsIcon}
+                alt=""
+                className="size-4 rounded-sm"
+              />
               <span className="flex-1">AutoSecOps</span>
               <CheckIcon
                 className={cn("size-4", value !== null && "invisible")}

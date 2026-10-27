@@ -272,7 +272,7 @@ export function groupScopesByResource(
   )
 }
 
-/** Mirrors `is_org_level_role` in tracecat/authz/scopes.py. */
+/** Mirrors `is_org_level_role` in autosecops/authz/scopes.py. */
 export function isOrgLevelRole(role: { scopes?: ScopeRead[] }): boolean {
   return (role.scopes ?? []).some((scope) => scope.name.startsWith("org:"))
 }

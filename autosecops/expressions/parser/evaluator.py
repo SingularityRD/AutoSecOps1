@@ -4,7 +4,7 @@ from typing import Any, TypeVar
 from lark import Token, Transformer, Tree, v_args
 from lark.exceptions import VisitError
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions import functions
 from autosecops.expressions.common import (
     MAX_VARS_PATH_DEPTH,
@@ -55,7 +55,7 @@ class ExprEvaluator(Transformer[Token, Any]):
                 if self._format_error is not None and isinstance(e.obj, Tree)
                 else str(e)
             )
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"[evaluator] Evaluation failed at node:\n```\n{tree.pretty()}\n```\nReason: {reason}",
                 detail=reason,
             ) from e
@@ -187,7 +187,7 @@ class ExprEvaluator(Transformer[Token, Any]):
         key_segments = parts[1:] if len(parts) > 1 else []
         if len(key_segments) > MAX_VARS_PATH_DEPTH:
             formatted = ".".join(parts)
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 "VARS expressions currently support at most one key segment "
                 "(`VARS.<name>.<key>`). "
                 f"Got VARS.{formatted!s} with {len(key_segments)} key segments after the variable name."
@@ -245,7 +245,7 @@ class ExprEvaluator(Transformer[Token, Any]):
         )
         fn = functions.FUNCTION_MAPPING.get(fn_name)
         if fn is None:
-            raise TracecatExpressionError(f"Unknown function {fn_name!r}")
+            raise AutoSecOpsExpressionError(f"Unknown function {fn_name!r}")
         final_fn = fn.map if is_mapped else fn  # pyright: ignore[reportFunctionMemberAccess] # type: ignore[possibly-missing-attribute]
         result = final_fn(*fn_args)
         self.logger.trace(
@@ -442,26 +442,26 @@ class ExprEvaluator(Transformer[Token, Any]):
             try:
                 return value[index]
             except KeyError as exc:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     f"Key {index!r} not found for mapping access"
                 ) from exc
             except TypeError as exc:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     f"Invalid key type {type(index).__name__!r} for mapping access"
                 ) from exc
 
         if isinstance(value, Sequence):
             if not isinstance(index, int):
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     f"Sequence indices must be integers, got {type(index).__name__!r}"
                 )
             try:
                 return value[index]
             except IndexError as exc:
-                raise TracecatExpressionError(
+                raise AutoSecOpsExpressionError(
                     f"Sequence index {index} out of range"
                 ) from exc
 
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             f"Object of type {type(value).__name__!r} is not indexable"
         )

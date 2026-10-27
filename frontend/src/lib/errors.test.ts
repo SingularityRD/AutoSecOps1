@@ -1,5 +1,6 @@
 import {
   chainError,
+  getApiErrorBodyMessage,
   getApiErrorDetail,
   showFallbackErrorToast,
 } from "@/lib/errors"
@@ -36,7 +37,7 @@ describe("getApiErrorDetail", () => {
     const error = Object.assign(new Error("Bad Request"), {
       body: {
         detail: {
-          action: "tracecat.examples.broken",
+          action: "autosecops.examples.broken",
           reason: "Action not found",
         },
         message: "Internal Server Error",
@@ -45,7 +46,7 @@ describe("getApiErrorDetail", () => {
 
     expect(getApiErrorDetail(error)).toBe(
       JSON.stringify({
-        action: "tracecat.examples.broken",
+        action: "autosecops.examples.broken",
         reason: "Action not found",
       })
     )
@@ -186,5 +187,27 @@ describe("showFallbackErrorToast", () => {
       description: "Please try again.",
       variant: "destructive",
     })
+  })
+})
+
+describe("getApiErrorBodyMessage", () => {
+  it("returns the API body message", () => {
+    const error = Object.assign(new Error("Bad Request"), {
+      body: { type: "AutoSecOpsValidationError", message: "Invalid DSL" },
+    })
+
+    expect(getApiErrorBodyMessage(error)).toBe("Invalid DSL")
+  })
+
+  it("returns null for transport failures without a body", () => {
+    // fetch rejects with a bare TypeError when the API is unreachable.
+    expect(getApiErrorBodyMessage(new TypeError("Failed to fetch"))).toBeNull()
+  })
+
+  it("returns null for bodies without a usable message", () => {
+    for (const body of [undefined, null, "oops", {}, { message: "" }]) {
+      const error = Object.assign(new Error("Server Error"), { body })
+      expect(getApiErrorBodyMessage(error)).toBeNull()
+    }
   })
 })

@@ -33,7 +33,7 @@ from litellm.proxy._types import UserAPIKeyAuth
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
-from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway import AutoSecOpsCallbackHandler
 from autosecops.agent.gateway_outbound import OutboundLLMHTTPHandler
 from autosecops.agent.mcp.user_client import _create_transport, list_remote_mcp_tools
 from autosecops.agent.provider.service import (
@@ -116,7 +116,7 @@ def network(monkeypatch: pytest.MonkeyPatch) -> RecordingBackend:
     monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9999")
     backend = RecordingBackend()
     monkeypatch.setattr("autosecops.outbound.AnyIOBackend", lambda: backend)
-    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS", ())
+    monkeypatch.setattr(config, "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS", ())
     return backend
 
 
@@ -247,7 +247,7 @@ async def test_operator_exception_is_narrow(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+        "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
         (ipaddress.ip_network("10.0.0.5/32"),),
     )
     async with create_outbound_http_client() as client:
@@ -392,7 +392,7 @@ async def test_mcp_connectivity_service_blocks_private_destination(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        config, "AUTOSECOPS__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
     )
     service = IntegrationService(session=session, role=test_role)
     result = await service.test_mcp_http_connection(
@@ -427,7 +427,7 @@ async def test_gateway_hook_installs_guard_for_custom_provider(
             }
         ),
     )
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     data = await handler.async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
             api_key="synthetic",
@@ -587,7 +587,7 @@ async def test_gateway_credential_urls_use_guarded_transport(
         "autosecops.agent.gateway.get_provider_credentials",
         AsyncMock(return_value=creds),
     )
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     data = await handler.async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
             api_key="synthetic",
@@ -952,7 +952,7 @@ async def test_cancellation_closes_winner_during_loser_cleanup(
 def test_explicit_tunnel_proxy_routes_through_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("TRACECAT__TUNNEL_PROXY_URL", raising=False)
+    monkeypatch.delenv("AUTOSECOPS__TUNNEL_PROXY_URL", raising=False)
     direct = create_outbound_http_client()
     tunneled = create_outbound_http_client(
         tunnel_proxy="http://tunnel:token@10.1.2.3:8080"
@@ -980,9 +980,9 @@ async def egress_proxy(
     network: RecordingBackend, monkeypatch: pytest.MonkeyPatch
 ) -> AsyncMock:
     """Configure a private operator proxy and a public DNS answer for targets."""
-    monkeypatch.delenv("TRACECAT__TUNNEL_PROXY_URL", raising=False)
-    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_PROXY_URL", SYNTHETIC_PROXY)
-    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_NO_PROXY", ())
+    monkeypatch.delenv("AUTOSECOPS__TUNNEL_PROXY_URL", raising=False)
+    monkeypatch.setattr(config, "AUTOSECOPS__OUTBOUND_PROXY_URL", SYNTHETIC_PROXY)
+    monkeypatch.setattr(config, "AUTOSECOPS__OUTBOUND_NO_PROXY", ())
     resolver = AsyncMock(return_value=[dns_answer("8.8.8.8")])
     monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolver)
     return resolver
@@ -1060,7 +1060,7 @@ async def test_egress_proxy_honors_private_cidr_exception(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+        "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
         (ipaddress.ip_network("10.0.0.5/32"),),
     )
     network.responses = [OK_RESPONSE]
@@ -1075,7 +1075,7 @@ async def test_egress_proxy_honors_private_cidr_exception(
 async def test_egress_proxy_is_unused_when_unset(
     network: RecordingBackend, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_PROXY_URL", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__OUTBOUND_PROXY_URL", None)
     monkeypatch.setattr(
         asyncio.get_running_loop(),
         "getaddrinfo",
@@ -1109,7 +1109,7 @@ async def test_egress_proxy_no_proxy_connects_directly(
     egress_proxy: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__OUTBOUND_NO_PROXY", no_proxy)
+    monkeypatch.setattr(config, "AUTOSECOPS__OUTBOUND_NO_PROXY", no_proxy)
     tunneled = dialed == PROXY_ADDRESS and url.startswith("https")
     network.responses = [(CONNECT_OK, OK_RESPONSE) if tunneled else OK_RESPONSE]
     async with create_outbound_http_client() as client:
@@ -1125,7 +1125,7 @@ async def test_egress_proxy_bypass_keeps_direct_policy(
 ) -> None:
     monkeypatch.setattr(
         config,
-        "TRACECAT__OUTBOUND_NO_PROXY",
+        "AUTOSECOPS__OUTBOUND_NO_PROXY",
         ("internal.example.com", ipaddress.ip_network("10.0.0.0/8")),
     )
     egress_proxy.return_value = [dns_answer("10.0.0.1")]
@@ -1147,7 +1147,7 @@ async def test_tunnel_proxy_takes_precedence_over_egress_proxy(
         tunnel_proxy="http://tunnel:token@10.1.2.3:8080"
     )
     monkeypatch.setenv(
-        "TRACECAT__TUNNEL_PROXY_URL", "http://tunnel:token@10.1.2.4:8080"
+        "AUTOSECOPS__TUNNEL_PROXY_URL", "http://tunnel:token@10.1.2.4:8080"
     )
     from_env = create_outbound_http_client()
     for client, host in ((explicit, b"10.1.2.3"), (from_env, b"10.1.2.4")):

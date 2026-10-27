@@ -17,7 +17,7 @@ class AuthenticatedServiceClient(httpx.AsyncClient):
     ---------------
     1. Role passed to the client
     2. Role set in the session role context
-    3. Default role Role(type="service", service_id="tracecat-service")
+    3. Default role Role(type="service", service_id="autosecops-service")
     """
 
     def __init__(self, role: Role | None = None, *args: Any, **kwargs: Any):
@@ -27,10 +27,10 @@ class AuthenticatedServiceClient(httpx.AsyncClient):
         if resolved_role is None:
             resolved_role = Role(
                 type="service",
-                service_id="tracecat-service",
+                service_id="autosecops-service",
             )
         self.role: Role = resolved_role
-        self.headers["x-tracecat-service-key"] = get_service_key()
+        self.headers["x-autosecops-service-key"] = get_service_key()
         self.headers.update(self.role.to_headers())
 
 
@@ -41,10 +41,10 @@ class AuthenticatedAPIClient(AuthenticatedServiceClient):
     ---------------
     1. Role passed to the client
     2. Role set in the session role context
-    3. Default role Role(type="service", service_id="tracecat-service")
+    3. Default role Role(type="service", service_id="autosecops-service")
     """
 
     def __init__(self, role: Role | None = None, *args: Any, **kwargs: Any):
         kwargs["role"] = role
-        kwargs["base_url"] = config.TRACECAT__API_URL
+        kwargs["base_url"] = config.AUTOSECOPS__API_URL
         super().__init__(*args, **kwargs)

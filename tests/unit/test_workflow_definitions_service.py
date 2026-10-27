@@ -141,7 +141,7 @@ async def test_create_initial_workflow_definition_uses_create_scope(
 ):
     create_only_role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=svc_workspace.organization_id,
         workspace_id=svc_workspace.id,
         scopes=frozenset({"workflow:create"}),

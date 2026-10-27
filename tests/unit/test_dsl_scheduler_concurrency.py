@@ -62,7 +62,7 @@ def _build_scheduler(
     wf_id = WorkflowUUID.new_uuid4()
     test_role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
     )

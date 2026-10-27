@@ -61,10 +61,10 @@ from autosecops.chat.schemas import (
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import AgentSession
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.logger import logger
 from autosecops.observability.otel import set_current_span_attributes
@@ -170,7 +170,7 @@ async def _require_workspace_chat_entitlement_for_session_tree(
             if related_id is not None:
                 related = await svc.get_session(related_id)
                 if related is None:
-                    raise TracecatNotFoundError(
+                    raise AutoSecOpsNotFoundError(
                         "Related session not found in workspace"
                     )
                 pending.append(related)
@@ -225,7 +225,7 @@ async def create_session(
         and request.entity_type in CHAT_BACKEND_ENTITIES
     ):
         request = request.model_copy(
-            update={"backend_id": config.TRACECAT__AGENT_CHAT_BACKEND}
+            update={"backend_id": config.AUTOSECOPS__AGENT_CHAT_BACKEND}
         )
     await require_workspace_chat_entitlement_for_entity(
         session=session,
@@ -237,17 +237,17 @@ async def create_session(
         if request.spawned_by_session_id is not None:
             parent = await svc.get_session(request.spawned_by_session_id)
             if parent is None:
-                raise TracecatNotFoundError("Parent session not found in workspace")
+                raise AutoSecOpsNotFoundError("Parent session not found in workspace")
             _require_session_write_access(role, parent)
             await _require_workspace_chat_entitlement_for_session_tree(
                 svc=svc, session=session, role=role, agent_session=parent
             )
         agent_session = await svc.create_session(request)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
@@ -306,9 +306,9 @@ async def list_sessions(
         False, description="Include spawned children without a parent filter"
     ),
     limit: int = Query(
-        config.TRACECAT__LIMIT_AGENT_SESSIONS_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_AGENT_SESSIONS_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum number of sessions to return",
     ),
 ) -> list[AgentSessionRead | ChatReadMinimal]:
@@ -479,7 +479,7 @@ async def update_session(
 
     try:
         updated = await svc.update_session(agent_session, params=params)
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
@@ -507,7 +507,7 @@ async def remove_session_artifact(
     try:
         agent_session = await svc.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session {session_id} not found")
         _require_session_write_access(role, agent_session)
         await _require_workspace_chat_entitlement_for_session_tree(
             session=session,
@@ -520,7 +520,7 @@ async def remove_session_artifact(
             artifact_type=artifact_type,
             artifact_id=artifact_id,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -591,9 +591,9 @@ async def send_message(
             )
         set_current_span_attributes(
             {
-                "tracecat.organization.id": role.organization_id,
-                "tracecat.workspace.id": workspace_id,
-                "tracecat.agent.session.id": session_id,
+                "autosecops.organization.id": role.organization_id,
+                "autosecops.workspace.id": workspace_id,
+                "autosecops.agent.session.id": session_id,
             }
         )
 
@@ -636,7 +636,7 @@ async def send_message(
                     if turn_response is not None
                     else agent_session.curr_run_id
                 )
-                set_current_span_attributes({"tracecat.agent.run.id": run_id})
+                set_current_span_attributes({"autosecops.agent.run.id": run_id})
                 message_id = _bubble_id(session_id, run_id)
 
                 if rotated_stream_id is None:
@@ -712,7 +712,7 @@ async def send_message(
                         "New agent turn completed without a stream response"
                     )
                 set_current_span_attributes(
-                    {"tracecat.agent.run.id": turn_response.curr_run_id}
+                    {"autosecops.agent.run.id": turn_response.curr_run_id}
                 )
                 message_id = _bubble_id(session_id, turn_response.curr_run_id)
 
@@ -734,19 +734,19 @@ async def send_message(
             media_type="text/event-stream",
             headers=_sse_headers("vercel"),
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         # A decision contradicting one already recorded: the client is acting on
         # stale state and should refresh, not retry.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=e.detail or str(e),
         ) from e
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -894,7 +894,7 @@ async def fork_session(
         svc = AgentSessionService(session, role)
         parent_session = await svc.get_session(session_id)
         if parent_session is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Parent session with ID {session_id} not found"
             )
         _require_session_write_access(role, parent_session)
@@ -916,7 +916,7 @@ async def fork_session(
         if spawning_parent_id is not None:
             spawning_parent = await svc.get_session(spawning_parent_id)
             if spawning_parent is None:
-                raise TracecatNotFoundError("Parent session not found in workspace")
+                raise AutoSecOpsNotFoundError("Parent session not found in workspace")
             _require_session_write_access(role, spawning_parent)
             await _require_workspace_chat_entitlement_for_session_tree(
                 svc=svc, session=session, role=role, agent_session=spawning_parent
@@ -927,12 +927,12 @@ async def fork_session(
             spawned_by_session_id=spawning_parent_id,
         )
         return build_session_read(forked, role)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -956,7 +956,7 @@ async def cancel_session(
     try:
         agent_session = await svc.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
         _require_session_write_access(role, agent_session)
         await _require_workspace_chat_entitlement_for_session_tree(
             svc=svc,
@@ -965,12 +965,12 @@ async def cancel_session(
             agent_session=agent_session,
         )
         return await svc.request_cancel(session_id, reason=reason)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=e.detail or str(e),
@@ -996,7 +996,7 @@ async def control_session(
     try:
         agent_session = await svc.get_session(session_id)
         if agent_session is None:
-            raise TracecatNotFoundError(f"Session with ID {session_id} not found")
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
         _require_session_write_access(role, agent_session)
         await _require_workspace_chat_entitlement_for_session_tree(
             svc=svc,
@@ -1005,17 +1005,17 @@ async def control_session(
             agent_session=agent_session,
         )
         return await svc.control(session_id, request)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         # The message, which the composer shows as the reason.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

@@ -27,7 +27,7 @@ async def test_default_settings_preserve_concurrent_insert() -> None:
     organization_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
     )
     try:

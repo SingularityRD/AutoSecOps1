@@ -11,7 +11,7 @@ The agent replies in the thread, and approval-gated tool calls show `Approve` an
 
 ## Before you start
 
-Slack must be able to reach your AutoSecOps API at `TRACECAT__PUBLIC_API_URL`.
+Slack must be able to reach your AutoSecOps API at `AUTOSECOPS__PUBLIC_API_URL`.
 
 ## Connect a Slack app
 
@@ -57,7 +57,7 @@ Open the connect dialog again from the `Channels` tab to update credentials.
 Click `Rotate endpoint` to issue a new endpoint URL, then update the Slack app's `Event Subscriptions` and `Interactivity` request URLs.
 Click `Disconnect` to remove the Slack connection from the preset.
 
-Changing `TRACECAT__SIGNING_SECRET` invalidates existing endpoint URLs.
+Changing `AUTOSECOPS__SIGNING_SECRET` invalidates existing endpoint URLs.
 
 ## Related pages
 

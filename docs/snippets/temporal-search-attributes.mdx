@@ -1,0 +1,29 @@
+AutoSecOps tags every workflow run with these Temporal search attributes, all of type `Keyword`:
+
+| Search attribute | Holds |
+| :--------------- | :---- |
+| `AutoSecOpsTriggerType` | How the run started, e.g. `manual`, `scheduled`, or `webhook` |
+| `AutoSecOpsTriggeredByUserId` | ID of the user who started the run |
+| `AutoSecOpsWorkspaceId` | Workspace that owns the run |
+| `AutoSecOpsAlias` | Workflow or agent alias |
+| `AutoSecOpsCorrelationId` | ID that groups related runs |
+| `AutoSecOpsExecutionType` | `draft` or `published` |
+| `AutoSecOpsErrorOwner` | Owner of a terminal runtime error |
+
+The `api` service registers missing attributes at startup when its Temporal credentials have operator access. On Temporal Cloud, or when the `api` logs `operator access denied; provision search attributes externally`, create them yourself before the first workflow run. Without them, every workflow start fails with `no mapping defined for search attribute`.
+
+```bash
+# Temporal Cloud
+for attr in AutoSecOpsTriggerType AutoSecOpsTriggeredByUserId AutoSecOpsWorkspaceId \
+  AutoSecOpsAlias AutoSecOpsCorrelationId AutoSecOpsExecutionType AutoSecOpsErrorOwner; do
+  tcld namespace search-attributes add --namespace <namespace> --search-attribute "$attr=Keyword"
+done
+
+# Self-hosted Temporal
+for attr in AutoSecOpsTriggerType AutoSecOpsTriggeredByUserId AutoSecOpsWorkspaceId \
+  AutoSecOpsAlias AutoSecOpsCorrelationId AutoSecOpsExecutionType AutoSecOpsErrorOwner; do
+  temporal operator search-attribute create --namespace <namespace> --name "$attr" --type Keyword
+done
+```
+
+Temporal SQL visibility stores allow 10 `Keyword` attributes per namespace, so use a namespace that has room for all seven.

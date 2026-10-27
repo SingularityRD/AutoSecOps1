@@ -2,11 +2,11 @@
 
 This checks the full "happy path" in production mode:
 1. Login with test credentials
-2. Get or create a RegistryRepository record that points to the internal-registry repo
+2. Get or create a RegistryRepository record that points to a private registry repo
 3. Create GitHub SSH deploy key secret for repository access
 4. Sync the repo, which clones via git+ssh and installs with `uv add`
 5. Verify the action is registered in the repository
-6. Run a DSLWorkflow that calls `tracecat.math.add_300` via Temporal,
+6. Run a DSLWorkflow that calls `autosecops.math.add_300` via Temporal,
    verifying the worker can import and execute the freshly-installed code
 """
 
@@ -47,8 +47,14 @@ from autosecops.secrets.schemas import SecretCreate
 from autosecops.settings.schemas import GitSettingsUpdate
 from tests.shared import generate_test_exec_id, to_data
 
-GIT_SSH_URL = "git+ssh://git@github.com/TracecatHQ/internal-registry.git"
-KNOWN_GOOD_REMOTE_COMMIT_SHA = "e2bfd94c35c93f8052c2b97ff542961596ddd3f8"
+# The private registry repository and the commit to install come from the
+# environment, so the test only targets a repository the operator controls.
+# That commit must provide `custom_actions` with the `autosecops.math.add_300`
+# action, e.g. git+ssh://git@github.com/<owner>/<repo>.git.
+GIT_SSH_URL = os.environ.get("AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL", "")
+KNOWN_GOOD_REMOTE_COMMIT_SHA = os.environ.get(
+    "AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA", ""
+)
 PLACEHOLDER_TARBALL_URI = "s3://test/test.tar.gz"
 TEST_USER_EMAIL = "test@autosecops.example"
 TEST_USER_PASSWORD = "password1234"
@@ -270,11 +276,18 @@ def _sync_builtin_platform_registry(
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(
+    not (GIT_SSH_URL and KNOWN_GOOD_REMOTE_COMMIT_SHA),
+    reason=(
+        "Set AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL and "
+        "AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA to test a private registry"
+    ),
+)
 async def test_remote_custom_registry_repo() -> None:
     """
     End-to-end assertion that the worker can:
     1. Clone & install the remote repo via `uv add`.
-    2. Execute the `tracecat.math.add_300` action inside a workflow via Temporal.
+    2. Execute the `autosecops.math.add_300` action inside a workflow via Temporal.
     """
     logger.info("Starting remote custom registry repo test")
 
@@ -282,7 +295,7 @@ async def test_remote_custom_registry_repo() -> None:
     # 1.  Create a session and register/login with test credentials
     # ---------------------------------------------------------------------
     logger.info("Step 1: Creating session and setting up test user")
-    base_url = os.environ.get("TRACECAT__PUBLIC_API_URL", "http://localhost/api")
+    base_url = os.environ.get("AUTOSECOPS__PUBLIC_API_URL", "http://localhost/api")
     session = requests.Session()
 
     # First, try to register the test user (in case it doesn't exist)
@@ -318,7 +331,7 @@ async def test_remote_custom_registry_repo() -> None:
 
     # Set organization context for org-scoped endpoints. Superuser only grants
     # /admin access; tenant access is provided by the explicit owner assignment.
-    session.cookies.set("tracecat-org-id", str(org_id))
+    session.cookies.set("autosecops-org-id", str(org_id))
     logger.info("Set organization context", organization_id=str(org_id))
 
     logger.info("Ensuring builtin platform registry tarball is synced")
@@ -447,12 +460,12 @@ async def test_remote_custom_registry_repo() -> None:
     # Check that our action is in the actions list
     actions = repo_details.get("actions", [])
     action_found = any(
-        action["action"] == "tracecat.math.add_300" for action in actions
+        action["action"] == "autosecops.math.add_300" for action in actions
     )
-    assert action_found, "tracecat.math.add_300 should be in the repository actions"
+    assert action_found, "autosecops.math.add_300 should be in the repository actions"
     logger.info(
         "Action verification successful",
-        action="tracecat.math.add_300",
+        action="autosecops.math.add_300",
         total_actions=len(actions),
     )
 
@@ -495,11 +508,11 @@ async def test_remote_custom_registry_repo() -> None:
     # Create a role for workflow execution
     role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=workspace_id,
         organization_id=organization_id,
         user_id=uuid.UUID(int=0),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
     token = ctx_role.set(role)
 
@@ -515,7 +528,7 @@ async def test_remote_custom_registry_repo() -> None:
         actions=[
             ActionStatement(
                 ref="add_action",
-                action="tracecat.math.add_300",
+                action="autosecops.math.add_300",
                 args={"number": 1},
             )
         ],
@@ -526,9 +539,9 @@ async def test_remote_custom_registry_repo() -> None:
     # The worker service running in Docker will handle the execution
     client = await get_temporal_client()
     # Use the default task queue that matches the Docker worker
-    # (conftest sets config.TEMPORAL__CLUSTER_QUEUE to "test-tracecat-task-queue" for unit tests,
+    # (conftest sets config.TEMPORAL__CLUSTER_QUEUE to "test-autosecops-task-queue" for unit tests,
     # but this integration test runs against the Docker worker which uses the default queue)
-    task_queue = "tracecat-task-queue"
+    task_queue = "autosecops-task-queue"
 
     try:
         result = await client.execute_workflow(

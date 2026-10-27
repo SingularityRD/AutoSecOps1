@@ -47,7 +47,7 @@ def workspace_targeted_service_account_role(test_admin_role: Role) -> Role:
     assert organization_id is not None
     return Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
@@ -64,7 +64,7 @@ def workspace_bound_service_account_role(test_admin_role: Role) -> Role:
     assert organization_id is not None
     return Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
         bound_workspace_id=workspace_id,
@@ -180,7 +180,7 @@ async def test_org_service_account_can_list_org_workspaces(
     assert organization_id is not None
     role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         service_account_id=uuid.uuid4(),
         scopes=frozenset({"org:workspace:read"}),
@@ -218,7 +218,7 @@ async def test_org_service_account_can_list_workflows_for_target_workspace(
 
     role = Role(
         type="service_account",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
         service_account_id=uuid.uuid4(),
@@ -365,7 +365,7 @@ async def test_service_account_can_get_workflow_execution_by_workflow_route(
         close_time=None,
         status=WorkflowExecutionStatus.RUNNING,
         workflow_type="DSLWorkflow",
-        task_queue="tracecat-task-queue",
+        task_queue="autosecops-task-queue",
         history_length=0,
         typed_search_attributes={},
     )

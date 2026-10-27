@@ -14,9 +14,9 @@ resource "aws_ecs_task_definition" "litellm_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
-      name      = "TracecatLitellmContainer"
-      image     = "${var.tracecat_image}:${local.tracecat_image_tag}"
+    merge({
+      name      = "AutoSecOpsLitellmContainer"
+      image     = "${var.autosecops_image}:${local.autosecops_image_tag}"
       essential = true
       # k8s lets LiteLLM drain for 30 min; Fargate caps stopTimeout at 120 s.
       stopTimeout = local.litellm_stop_timeout_seconds
@@ -32,7 +32,7 @@ resource "aws_ecs_task_definition" "litellm_task_definition" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "litellm"
         }
@@ -46,13 +46,13 @@ resource "aws_ecs_task_definition" "litellm_task_definition" {
         retries     = 3
         startPeriod = 30
       }
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 
-resource "aws_ecs_service" "tracecat_litellm" {
-  name                 = "tracecat-litellm"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_litellm" {
+  name                 = "autosecops-litellm"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.litellm_task_definition.arn
   desired_count        = var.litellm_desired_count
   force_new_deployment = var.force_new_deployment
@@ -89,7 +89,7 @@ resource "aws_ecs_service" "tracecat_litellm" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-litellm"
       }
@@ -103,6 +103,6 @@ resource "aws_ecs_service" "tracecat_litellm" {
   }
 
   depends_on = [
-    aws_ecs_service.tracecat_api
+    aws_ecs_service.autosecops_api
   ]
 }

@@ -150,12 +150,12 @@ class ExecutorActivities:
         act_attempt = act_info.attempt
         set_current_span_attributes(
             {
-                "tracecat.organization.id": role.organization_id,
-                "tracecat.workspace.id": role.workspace_id,
-                "tracecat.workflow.id": input.run_context.wf_id,
-                "tracecat.workflow.execution.id": input.run_context.wf_exec_id,
-                "tracecat.action.ref": task.ref,
-                "tracecat.action.name": action_name,
+                "autosecops.organization.id": role.organization_id,
+                "autosecops.workspace.id": role.workspace_id,
+                "autosecops.workflow.id": input.run_context.wf_id,
+                "autosecops.workflow.execution.id": input.run_context.wf_exec_id,
+                "autosecops.action.ref": task.ref,
+                "autosecops.action.name": action_name,
                 "temporal.activity.attempt": act_attempt,
                 "temporal.task_queue": act_info.task_queue,
             }
@@ -167,12 +167,12 @@ class ExecutorActivities:
             retry_policy=task.retry_policy,
             input=input,
         )
-        with platform_span("tracecat.action.materialize_inputs"):
+        with platform_span("autosecops.action.materialize_inputs"):
             materialized_input = input.model_copy(
                 update={"exec_context": await materialize_context(input.exec_context)}
             )
 
-        heartbeat_interval = config.TRACECAT__ACTIVITY_HEARTBEAT_INTERVAL
+        heartbeat_interval = config.AUTOSECOPS__ACTIVITY_HEARTBEAT_INTERVAL
 
         # Run a background heartbeat task for the full activity lifetime
         # (including tenacity backoff sleeps) so Temporal can detect a dead
@@ -201,11 +201,11 @@ class ExecutorActivities:
                         attempt_number=attempt_manager.retry_state.attempt_number,
                     )
                     with platform_span(
-                        "tracecat.action.execute",
+                        "autosecops.action.execute",
                         attributes={
-                            "tracecat.action.ref": task.ref,
-                            "tracecat.action.name": action_name,
-                            "tracecat.retry.attempt": (
+                            "autosecops.action.ref": task.ref,
+                            "autosecops.action.name": action_name,
+                            "autosecops.retry.attempt": (
                                 attempt_manager.retry_state.attempt_number
                             ),
                         },
@@ -228,7 +228,7 @@ class ExecutorActivities:
                         stream_id=input.stream_id,
                         ref=task.ref,
                     )
-                    with platform_span("tracecat.action.store_result"):
+                    with platform_span("autosecops.action.store_result"):
                         with activity_error_boundary(
                             result_persistence_error_classification
                         ):

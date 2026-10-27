@@ -42,7 +42,7 @@ When Redis is unreachable, each replica falls back to its own cache, so a replay
 AutoSecOps logs each fallback at error level (`Robot EDR fleet replay cache could not reach Redis`): alert on that line.
 
 The robot's request signature covers the path with the `/api` prefix, as the robot sent it.
-If you serve the API under another prefix, set `TRACECAT__API_ROOT_PATH` to that prefix.
+If you serve the API under another prefix, set `AUTOSECOPS__API_ROOT_PATH` to that prefix.
 
 ## SOC keys
 
@@ -106,7 +106,7 @@ The robot page lists every rotation and its state.
 ## Profiles and approvals
 
 A robot publishes draft profiles for review; the robot page lists them.
-AutoSecOps keeps the newest 16 drafts per robot and deletes older ones; set `TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS` to change the limit.
+AutoSecOps keeps the newest 16 drafts per robot and deletes older ones; set `AUTOSECOPS__ROBOT_EDR_FLEET_MAX_DRAFTS` to change the limit.
 Lock and sign the profile offline with `robodr-commission`, then select **Offer profile** and paste the locked profile and its `.sig` file.
 The robot stages the offered profile; it stays in observe mode.
 

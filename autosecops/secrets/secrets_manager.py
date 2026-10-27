@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 from autosecops.auth.sandbox import AuthSandbox
 from autosecops.contexts import ctx_env, ctx_role, ctx_run, get_env
-from autosecops.exceptions import ScopeDeniedError, TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError, ScopeDeniedError
 from autosecops.integrations.aws_assume_role import build_workspace_external_id
 from autosecops.integrations.enums import OAuthGrantType
 from autosecops.integrations.schemas import ProviderKey
@@ -103,7 +103,7 @@ def _infer_grant_type_from_token_name(token_name: str) -> OAuthGrantType | None:
     return None
 
 
-_AWS_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
+_AWS_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
 _AWS_ROLE_SECRET_NAMES = frozenset({"aws", "amazon_s3", "amazon_bedrock"})
 
 
@@ -268,7 +268,7 @@ async def get_action_secrets(
                             ],
                         )
                     if missing_required:
-                        raise TracecatCredentialsError(
+                        raise AutoSecOpsCredentialsError(
                             "Missing required OAuth integrations",
                             detail=[
                                 {
@@ -295,7 +295,7 @@ async def get_action_secrets(
                     )
         except ScopeDeniedError:
             raise
-        except TracecatCredentialsError:
+        except AutoSecOpsCredentialsError:
             raise
         except Exception as e:
             logger.warning("Could not get oauth secrets", error=e)

@@ -30,7 +30,7 @@ default value when its key may be absent from `inputs`.
 
 Set `allow_network: true` when your script makes outbound network
 requests. When the executor runs with
-`TRACECAT__EXECUTOR_BACKEND=nsjail`, deployment-wide
+`AUTOSECOPS__EXECUTOR_BACKEND=nsjail`, deployment-wide
 [CA certificates](/self-hosting/tls#trust-an-internal-ca-for-outbound-connections)
 do not reach sandboxed scripts.
 
@@ -74,7 +74,7 @@ not need `allow_network: true`.
 
 ### Import AutoSecOps SDK
 
-Import `ctx` from `tracecat_registry`; do not add the SDK to
+Import `ctx` from `autosecops_registry`; do not add the SDK to
 `dependencies`.
 Use clients such as `ctx.cases`, `ctx.tables`, `ctx.variables`, and
 `ctx.workflows`. Each client also provides an async variant under
@@ -96,7 +96,7 @@ must already contain matching columns.
         inputs:
           findings: ${{ TRIGGER.findings }}
         script: |
-          from tracecat_registry import ctx
+          from autosecops_registry import ctx
 
           BATCH_SIZE = 500
 
@@ -139,7 +139,7 @@ must already contain matching columns.
         inputs:
           findings: ${{ TRIGGER.findings }}
         script: |
-          from tracecat_registry import ctx
+          from autosecops_registry import ctx
 
           BATCH_SIZE = 500
 

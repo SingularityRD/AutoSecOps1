@@ -2,7 +2,7 @@
 
 from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.search.embeddings.client import EmbeddingClient
 from autosecops.search.embeddings.schemas import (
     EmbeddingConfigurationRead,
@@ -26,7 +26,7 @@ class WorkspaceEmbeddingService:
 
     def __init__(self, role: Role):
         if role.organization_id is None or role.workspace_id is None:
-            raise TracecatAuthorizationError("Workspace context required")
+            raise AutoSecOpsAuthorizationError("Workspace context required")
         self.role = role
         self.scope = SearchScope(role.organization_id, role.workspace_id)
 

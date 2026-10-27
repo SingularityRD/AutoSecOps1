@@ -4832,6 +4832,32 @@ export const schedulesCreateSchedule = (
 }
 
 /**
+ * Search Schedules
+ * **[WORK IN PROGRESS]** Search for schedules.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns ScheduleRead Successful Response
+ * @throws ApiError
+ */
+export const schedulesSearchSchedules = (
+  data: SchedulesSearchSchedulesData
+): CancelablePromise<SchedulesSearchSchedulesResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/schedules/search",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
  * Get Schedule
  * Get a schedule from a workflow.
  * @param data The data for the request.
@@ -4903,32 +4929,6 @@ export const schedulesDeleteSchedule = (
       workspace_id: data.workspaceId,
       schedule_id: data.scheduleId,
     },
-    errors: {
-      422: "Validation Error",
-    },
-  })
-}
-
-/**
- * Search Schedules
- * **[WORK IN PROGRESS]** Search for schedules.
- * @param data The data for the request.
- * @param data.workspaceId
- * @param data.requestBody
- * @returns ScheduleRead Successful Response
- * @throws ApiError
- */
-export const schedulesSearchSchedules = (
-  data: SchedulesSearchSchedulesData
-): CancelablePromise<SchedulesSearchSchedulesResponse> => {
-  return __request(OpenAPI, {
-    method: "GET",
-    url: "/workspaces/{workspace_id}/schedules/search",
-    path: {
-      workspace_id: data.workspaceId,
-    },
-    body: data.requestBody,
-    mediaType: "application/json",
     errors: {
       422: "Validation Error",
     },
@@ -16310,6 +16310,9 @@ export const vcsGithubAppInstallCallback = (
 /**
  * Github Webhook
  * Handle GitHub webhook events.
+ *
+ * Deliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the
+ * webhook secret stored in the GitHub App credentials.
  * @param data The data for the request.
  * @param data.requestBody
  * @returns string Successful Response

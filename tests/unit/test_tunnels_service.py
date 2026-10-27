@@ -16,9 +16,9 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import VIEWER_SCOPES
 from autosecops.db.models import Organization, Workspace, WorkspaceTunnel
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
 )
 from autosecops.pagination import PageParams
 from autosecops.secrets.encryption import decrypt_value
@@ -30,7 +30,7 @@ SECRET = "machine-client-secret"
 
 @pytest.fixture(autouse=True)
 def kubernetes_gateways(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "kubernetes")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "kubernetes")
     monkeypatch.setattr(service_module, "sync_gateway", AsyncMock())
     monkeypatch.setattr(service_module, "delete_gateway", AsyncMock())
 
@@ -100,7 +100,7 @@ async def test_get_and_list_are_scoped_to_workspace(
     assert (await service.get_tunnel_by_name("onprem-splunk")).id == own.id
     page = await service.list_tunnels(PageParams(limit=10))
     assert [tunnel.id for tunnel in page.items] == [own.id]
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_tunnel(other.id)
 
 
@@ -109,15 +109,15 @@ async def test_cross_workspace_access_is_not_found(
 ) -> None:
     victim = await service.create_tunnel(_params())
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.get_tunnel(victim.id)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.get_tunnel_by_name(victim.name)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.update_tunnel(
             victim, TunnelUpdate.model_validate({"client_secret": "attacker"})
         )
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.delete_tunnel(victim)
     assert (await other_service.list_tunnels(PageParams(limit=10))).items == []
 
@@ -165,7 +165,7 @@ async def test_update_rotates_secret_and_targets(service: TunnelsService) -> Non
 async def test_delete_removes_tunnel(service: TunnelsService) -> None:
     tunnel = await service.create_tunnel(_params())
     await service.delete_tunnel(tunnel)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.get_tunnel(tunnel.id)
 
 
@@ -227,9 +227,9 @@ async def test_gateway_key_cross_workspace_is_not_found(
     victim = await service.create_tunnel(_params())
     key = await service.issue_gateway_key(victim)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.issue_gateway_key(victim)
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await other_service.get_gateway_key(victim)
     assert await service.get_gateway_key(victim) == key
 
@@ -384,7 +384,7 @@ async def test_tunnels_require_kubernetes_gateway_backend(
     service: TunnelsService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tunnel = await service.create_tunnel(_params())
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "none")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "none")
 
     with pytest.raises(TunnelGatewayUnavailableError, match="Kubernetes"):
         await service.create_tunnel(_params("another"))

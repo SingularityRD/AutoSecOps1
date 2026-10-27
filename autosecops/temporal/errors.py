@@ -26,14 +26,14 @@ from autosecops.logger import logger
 from autosecops.observability.sentry import capture_activity_failure
 from autosecops.observability.types import PlatformErrorCapture
 from autosecops.runtime.errors import (
+    AutoSecOpsRuntimeError,
     RetryDisposition,
     RuntimeErrorClassification,
     RuntimeErrorOwner,
-    TracecatRuntimeError,
 )
 from autosecops.temporal.error_chain import iter_error_chain
 
-ERROR_TRANSPORT_DETAIL_SCHEMA = "tracecat.temporal_error.v1"
+ERROR_TRANSPORT_DETAIL_SCHEMA = "autosecops.temporal_error.v1"
 
 
 class ErrorTransportDetail[DiagnosticT](BaseModel):
@@ -43,7 +43,7 @@ class ErrorTransportDetail[DiagnosticT](BaseModel):
 
     # Required so validation itself rejects undiscriminated payloads and the
     # discriminator always survives ``exclude_unset`` serialization.
-    schema_: Literal["tracecat.temporal_error.v1"] = Field(alias="schema")
+    schema_: Literal["autosecops.temporal_error.v1"] = Field(alias="schema")
     classification: RuntimeErrorClassification
     diagnostic: DiagnosticT | None = None
 
@@ -277,7 +277,7 @@ def extract_error_classification(
 ) -> RuntimeErrorClassification | None:
     """Extract the first valid classification from an exception chain."""
     for current in iter_error_chain(error):
-        if isinstance(current, TracecatRuntimeError):
+        if isinstance(current, AutoSecOpsRuntimeError):
             return current.classification
         if (
             isinstance(current, ApplicationError)
@@ -306,7 +306,7 @@ def extract_error_classifications(
         error,
         include_implicit_context=include_implicit_context,
     ):
-        if isinstance(current, TracecatRuntimeError):
+        if isinstance(current, AutoSecOpsRuntimeError):
             _append_unique_classification(
                 classifications,
                 seen,

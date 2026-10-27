@@ -18,7 +18,7 @@ from autosecops.admin.registry.schemas import (
 from autosecops.admin.registry.service import AdminRegistryService
 from autosecops.auth.credentials import SuperuserRole
 from autosecops.db.dependencies import AsyncDBSessionBypass
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.registry.repositories.schemas import (
     RegistryRepositoryRead,
     RegistryRepositoryReadMinimal,
@@ -93,9 +93,9 @@ async def list_registry_versions(
     session: AsyncDBSessionBypass,
     repository_id: uuid.UUID | None = Query(None),
     limit: int = Query(
-        config.TRACECAT__LIMIT_REGISTRY_VERSIONS_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_REGISTRY_VERSIONS_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[RegistryVersionRead]:
     """List registry versions with optional filtering."""
@@ -116,9 +116,9 @@ async def start_registry_artifacts_backfill(
     service = AdminRegistryService(session, role)
     try:
         return await service.start_artifacts_backfill(params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -140,7 +140,7 @@ async def promote_registry_version(
         return await service.promote_version(
             repository_id=repository_id, version_id=version_id
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -162,7 +162,7 @@ async def delete_registry_version(
     service = AdminRegistryService(session, role)
     try:
         await service.delete_version(repository_id=repository_id, version_id=version_id)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e

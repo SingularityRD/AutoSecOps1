@@ -26,7 +26,7 @@ from autosecops.agent.skill.manifest import (
     normalize_skill_path,
     skill_file_limit_violation,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 LIBRARY_ROOT = Path(__file__).parent / "skills"
 """Bundled library root; tests repoint it at fixture entries."""
@@ -104,12 +104,12 @@ def get_library_skills(slugs: Sequence[str]) -> list[LibrarySkill]:
     """Resolve slugs against the bundled library, in the given order.
 
     Raises:
-        TracecatValidationError: If any slug is not in the library.
+        AutoSecOpsValidationError: If any slug is not in the library.
     """
 
     library = load_library()
     if missing := sorted(set(slugs) - library.keys()):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Unknown library skills: {', '.join(missing)}",
             detail={"code": "library_skill_not_found", "slugs": missing},
         )

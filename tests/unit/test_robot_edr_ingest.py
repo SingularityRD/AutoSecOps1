@@ -49,9 +49,9 @@ from autosecops.db.models import (
 )
 from autosecops.db.tenant_rls import enable_workspace_table_rls
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
 )
 from autosecops.robot_edr import ingest as ingest_module
 from autosecops.robot_edr import rate_limit
@@ -85,7 +85,7 @@ INGEST = "/robot-edr/v2/ingest"
 
 @pytest.fixture(autouse=True)
 def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -159,7 +159,7 @@ async def other_workspace(
 def admin_role(ws: Workspace, scopes: frozenset[str] = ADMIN_SCOPES) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=scopes,
@@ -1140,7 +1140,7 @@ async def mgmt(
     async def _not_found(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
 
-    app.add_exception_handler(TracecatNotFoundError, _not_found)
+    app.add_exception_handler(AutoSecOpsNotFoundError, _not_found)
     app.add_exception_handler(ScopeDeniedError, _denied)
     app.add_exception_handler(EntitlementRequired, _entitlement)
     transport = httpx.ASGITransport(app=app)

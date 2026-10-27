@@ -287,7 +287,7 @@ async def test_registry_proxy_server_accepts_hook_injected_metadata_during_tool_
         "transcript_path": "/tmp/test-transcript.jsonl",
         "cwd": "/tmp",
         "hook_event_name": "PreToolUse",
-        "tool_name": "mcp__tracecat-registry__core__http_request",
+        "tool_name": "mcp__autosecops-registry__core__http_request",
         "tool_input": {"url": "https://example.com", "method": "GET"},
         "tool_use_id": "toolu_123",
     }

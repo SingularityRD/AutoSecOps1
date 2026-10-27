@@ -132,7 +132,7 @@ def shutdown_executor_and_worker(monkeysession: pytest.MonkeyPatch):
     # In CI, do nothing - executor/worker are not running as separate containers
     if os.environ.get("GITHUB_ACTIONS") is not None:
         return
-    monkeysession.setattr(config, "TRACECAT__API_URL", "http://localhost/api")
+    monkeysession.setattr(config, "AUTOSECOPS__API_URL", "http://localhost/api")
     # shutdown executor and worker processes
     import subprocess
 
@@ -561,7 +561,7 @@ async def test_workflow_completes_and_correct(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.AutoSecOpsExpressionErrorAutoSecOpsValidationError"
                 ],
             ),
         )
@@ -1278,7 +1278,7 @@ async def test_child_workflow_parallel_loop_with_dispatch_cap(
 ) -> None:
     test_name = test_child_workflow_parallel_loop_with_dispatch_cap.__name__
     wf_exec_id = generate_test_exec_id(test_name)
-    monkeypatch.setattr(config, "TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW", 8)
+    monkeypatch.setattr(config, "AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW", 8)
 
     child_dsl = DSLInput(
         entrypoint=DSLEntrypoint(expects={}, ref="reshape"),
@@ -1967,7 +1967,7 @@ async def test_single_child_workflow_get_correct_secret_environment(
     test_executor_worker_factory: WorkerFactory,
 ) -> None:
     # We need to set this on the API server, as we run it in a separate process
-    # monkeysession.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    # monkeysession.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
     test_name = f"{test_single_child_workflow_get_correct_secret_environment.__name__}"
     test_description = "Test that a single child workflow can get a secret from the correect environment"
 
@@ -2528,10 +2528,10 @@ async def test_scheduled_workflow_legacy_role_auto_heals_organization_id(
         pytest.fail("test_role.workspace_id is required")
 
     # Keep this test self-contained when local env vars are missing.
-    monkeypatch.setenv("TRACECAT__DB_ENCRYPTION_KEY", "test-encryption-key")
-    monkeypatch.setattr(config, "TRACECAT__DB_ENCRYPTION_KEY", "test-encryption-key")
-    monkeypatch.setenv("TRACECAT__LOCAL_REPOSITORY_ENABLED", "1")
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True)
+    monkeypatch.setenv("AUTOSECOPS__DB_ENCRYPTION_KEY", "test-encryption-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_ENCRYPTION_KEY", "test-encryption-key")
+    monkeypatch.setenv("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "1")
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True)
     minio_access_key = (
         os.environ.get("AWS_ACCESS_KEY_ID")
         or os.environ.get("MINIO_ROOT_USER")
@@ -2583,9 +2583,9 @@ async def test_scheduled_workflow_legacy_role_auto_heals_organization_id(
 
     legacy_schedule_role = Role(
         type="service",
-        service_id="tracecat-schedule-runner",
+        service_id="autosecops-schedule-runner",
         workspace_id=workspace_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-schedule-runner"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-schedule-runner"],
     )
     run_args = DSLRunArgs(
         role=legacy_schedule_role,
@@ -2617,7 +2617,7 @@ DIVISION_BY_ZERO_MESSAGE = (
     "There was an error in the executor when calling action 'core.transform.reshape'.\n"
     "\n"
     "\n"
-    "TracecatExpressionError: Error evaluating expression `1/0`\n"
+    "AutoSecOpsExpressionError: Error evaluating expression `1/0`\n"
     "\n"
     "[evaluator] Evaluation failed at node:\n"
     "```\n"
@@ -2635,7 +2635,7 @@ PARTIAL_DIVISION_BY_ZERO_ERROR = {
         "message": DIVISION_BY_ZERO_MESSAGE,
         "owner": "user",
         "retry_disposition": "retryable",
-        "schema": "tracecat.error.v1",
+        "schema": "autosecops.error.v1",
     },
     "diagnostic": {
         "ref": "start",
@@ -2646,7 +2646,7 @@ PARTIAL_DIVISION_BY_ZERO_ERROR = {
         "stream_id": "<root>:0",
         "children": None,
     },
-    "schema": "tracecat.temporal_error.v1",
+    "schema": "autosecops.temporal_error.v1",
 }
 
 
@@ -3081,7 +3081,7 @@ async def test_workflow_error_path(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionErrorTracecatValidationError"
+                    "autosecops.exceptions.AutoSecOpsExpressionErrorAutoSecOpsValidationError"
                 ],
             ),
         )
@@ -3158,8 +3158,8 @@ async def test_workflow_join_unreachable(
                 retry_policy=RetryPolicy(
                     maximum_attempts=1,
                     non_retryable_error_types=[
-                        "autosecops.exceptions.TracecatExpressionError",
-                        "TracecatValidationError",
+                        "autosecops.exceptions.AutoSecOpsExpressionError",
+                        "AutoSecOpsValidationError",
                     ],
                 ),
             )
@@ -3254,8 +3254,8 @@ async def test_workflow_join_run_if_skip_ok(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )
@@ -3340,8 +3340,8 @@ async def test_workflow_multiple_entrypoints(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )
@@ -3462,8 +3462,8 @@ async def test_workflow_runs_template_for_each(
             retry_policy=RetryPolicy(
                 maximum_attempts=1,
                 non_retryable_error_types=[
-                    "autosecops.exceptions.TracecatExpressionError",
-                    "TracecatValidationError",
+                    "autosecops.exceptions.AutoSecOpsExpressionError",
+                    "AutoSecOpsValidationError",
                 ],
             ),
         )
@@ -6320,8 +6320,8 @@ async def test_workflow_return_strategy(
     """
     Test that the workflow return strategy is respected.
     """
-    monkeypatch.setenv("TRACECAT__WORKFLOW_RETURN_STRATEGY", return_strategy)
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_RETURN_STRATEGY", return_strategy)
+    monkeypatch.setenv("AUTOSECOPS__WORKFLOW_RETURN_STRATEGY", return_strategy)
+    monkeypatch.setattr(config, "AUTOSECOPS__WORKFLOW_RETURN_STRATEGY", return_strategy)
     test_name = f"{test_workflow_return_strategy.__name__}_{request.node.callspec.id}"
     wf_exec_id = generate_test_exec_id(test_name)
 
@@ -6375,10 +6375,10 @@ async def test_workflow_environment_override(
     Test that the correct secrets are used for the action environment override.
     """
     # Set return strategy to context so we can verify the result
-    monkeypatch.setenv("TRACECAT__WORKFLOW_RETURN_STRATEGY", "context")
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_RETURN_STRATEGY", "context")
+    monkeypatch.setenv("AUTOSECOPS__WORKFLOW_RETURN_STRATEGY", "context")
+    monkeypatch.setattr(config, "AUTOSECOPS__WORKFLOW_RETURN_STRATEGY", "context")
     # Disable secret masking so we can verify the actual secret value
-    monkeypatch.setattr(config, "TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True)
 
     test_name = f"{test_workflow_environment_override.__name__}"
     wf_exec_id = generate_test_exec_id(test_name)

@@ -19,7 +19,7 @@ from autosecops.agent.channels.schemas import (
     SlackOAuthStartRequest,
 )
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 
 class _AsyncContext:
@@ -36,7 +36,7 @@ class _AsyncContext:
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:update"}),
@@ -107,13 +107,13 @@ async def test_start_slack_oauth_returns_404_for_soft_deleted_existing_token() -
     mock_service = MagicMock()
     mock_service.get_token = AsyncMock(return_value=existing_token)
     mock_service.parse_stored_channel_config.return_value = SlackChannelTokenConfig(
-        slack_bot_token="__tracecat_pending_bot_token__",
+        slack_bot_token="__autosecops_pending_bot_token__",
         slack_client_id="old-client-id",
         slack_client_secret="old-client-secret",
         slack_signing_secret="old-signing-secret",
     )
     mock_service.update_token = AsyncMock(
-        side_effect=TracecatNotFoundError(
+        side_effect=AutoSecOpsNotFoundError(
             "Agent preset with ID 'deleted-preset' not found in workspace"
         )
     )
@@ -135,7 +135,7 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
     return_url = "https://app.tracecat.com/settings"
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:update"}),
@@ -173,7 +173,7 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
         async def require_active_preset_for_token(self, token_arg, *, lock: bool):
             assert token_arg is token
             assert lock is True
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Agent preset with ID '{preset_id}' not found in workspace"
             )
 
@@ -196,7 +196,7 @@ async def test_slack_oauth_callback_rejects_soft_deleted_preset_before_exchange(
             AsyncMock(return_value=role),
         ),
         patch(
-            "autosecops.agent.channels.router.config.TRACECAT__PUBLIC_APP_URL",
+            "autosecops.agent.channels.router.config.AUTOSECOPS__PUBLIC_APP_URL",
             "https://app.tracecat.com",
         ),
     ):
@@ -228,7 +228,7 @@ async def test_update_channel_token_returns_404_for_soft_deleted_preset() -> Non
     )
     mock_service = AsyncMock()
     mock_service.get_token.return_value = existing_token
-    mock_service.update_token.side_effect = TracecatNotFoundError(
+    mock_service.update_token.side_effect = AutoSecOpsNotFoundError(
         "Agent preset not found in workspace"
     )
 

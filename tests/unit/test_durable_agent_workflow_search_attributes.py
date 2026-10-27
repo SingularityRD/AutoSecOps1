@@ -52,7 +52,7 @@ from autosecops.workflow.executions.enums import (
 def _user_role() -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -100,7 +100,7 @@ def test_agent_token_ttl_includes_executor_queue_and_setup_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops_ee.agent.workflows.durable.config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT",
+        "autosecops_ee.agent.workflows.durable.config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT",
         300,
     )
 
@@ -113,7 +113,7 @@ def test_apply_configured_timeout_preserves_inheritance_or_pins_explicit_value(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -182,7 +182,7 @@ def test_approval_update_does_not_rotate_stream_when_decision_set_fails() -> Non
 
 
 @pytest.mark.anyio
-async def test_upsert_tracecat_search_attributes_fills_missing_keys() -> None:
+async def test_upsert_autosecops_search_attributes_fills_missing_keys() -> None:
     role = _user_role()
     workflow_args = _build_workflow_args(role)
     workflow_instance = DurableAgentWorkflow(workflow_args)
@@ -197,7 +197,7 @@ async def test_upsert_tracecat_search_attributes_fills_missing_keys() -> None:
             "autosecops_ee.agent.workflows.durable.workflow.upsert_search_attributes"
         ) as upsert_mock,
     ):
-        workflow_instance._upsert_tracecat_search_attributes()
+        workflow_instance._upsert_autosecops_search_attributes()
 
     upsert_mock.assert_called_once()
     updates = upsert_mock.call_args.args[0]
@@ -214,10 +214,10 @@ async def test_upsert_tracecat_search_attributes_fills_missing_keys() -> None:
 
 
 @pytest.mark.anyio
-async def test_upsert_tracecat_search_attributes_preserves_existing_values() -> None:
+async def test_upsert_autosecops_search_attributes_preserves_existing_values() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=None,
@@ -245,7 +245,7 @@ async def test_upsert_tracecat_search_attributes_preserves_existing_values() -> 
             "autosecops_ee.agent.workflows.durable.workflow.upsert_search_attributes"
         ) as upsert_mock,
     ):
-        workflow_instance._upsert_tracecat_search_attributes()
+        workflow_instance._upsert_autosecops_search_attributes()
 
     upsert_mock.assert_not_called()
 
@@ -272,7 +272,7 @@ async def test_run_skips_search_attribute_upsert_without_patch_marker() -> None:
             return_value=False,
         ),
         patch.object(
-            workflow_instance, "_upsert_tracecat_search_attributes"
+            workflow_instance, "_upsert_autosecops_search_attributes"
         ) as upsert_mock,
         patch.object(workflow_instance, "_build_config", AsyncMock(return_value=cfg)),
         patch.object(
@@ -296,7 +296,7 @@ async def test_run_skips_search_attribute_upsert_without_patch_marker() -> None:
     # Search-attribute upsert and both finalization history shapes retain their
     # independent patch gates.
     assert patched_mock.call_args_list == [
-        ((DurableAgentWorkflowPatch.UPSERT_TRACECAT_SEARCH_ATTRIBUTES,),),
+        ((DurableAgentWorkflowPatch.UPSERT_AUTOSECOPS_SEARCH_ATTRIBUTES,),),
         ((DurableAgentWorkflowPatch.FINALIZE_TURN_WITH_END,),),
         ((DurableAgentWorkflowPatch.FINALIZE_TURN,),),
     ]
@@ -542,7 +542,7 @@ async def test_run_skips_activity_error_emission_without_patch_marker() -> None:
     # resolves False, and _finalize_session_error early-returns before scheduling
     # emit_session_error, preserving the legacy command shape.
     assert patched_mock.call_args_list == [
-        ((DurableAgentWorkflowPatch.UPSERT_TRACECAT_SEARCH_ATTRIBUTES,),),
+        ((DurableAgentWorkflowPatch.UPSERT_AUTOSECOPS_SEARCH_ATTRIBUTES,),),
         ((DurableAgentWorkflowPatch.EMIT_PRE_STREAM_SESSION_ERRORS,),),
         ((DurableAgentWorkflowPatch.PERSIST_SESSION_ERROR,),),
         ((DurableAgentWorkflowPatch.FINALIZE_TURN_WITH_END,),),
@@ -834,7 +834,7 @@ async def test_build_config_prunes_tool_tunnels_after_action_override(
 def test_approved_user_mcp_tool_name_from_normalized_approval() -> None:
     assert _approved_user_mcp_tool_name("mcp.Jira.getIssue") == ("mcp__Jira__getIssue")
     assert (
-        _approved_user_mcp_tool_name("mcp__tracecat-registry__mcp__Jira__getIssue")
+        _approved_user_mcp_tool_name("mcp__autosecops-registry__mcp__Jira__getIssue")
         == "mcp__Jira__getIssue"
     )
     assert _approved_user_mcp_tool_name("core.http_request") is None
@@ -917,7 +917,7 @@ def test_build_approved_tool_run_input_is_deterministic() -> None:
     )
     tool_call = ApprovedToolCall(
         tool_call_id="toolu_123",
-        tool_name="mcp__tracecat__core_http_request",
+        tool_name="mcp__autosecops__core_http_request",
         args={"url": "https://example.com"},
     )
 
@@ -949,7 +949,7 @@ def test_approved_registry_tool_failures_are_not_retried() -> None:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
     registry_lock = RegistryLock(
         origins={"autosecops_registry": "test-version"},
@@ -981,7 +981,7 @@ def test_approved_registry_tool_failures_are_not_retried() -> None:
     assert retry_policy == RETRY_POLICIES["activity:fail_fast"]
     assert retry_policy.maximum_attempts == 1
     assert start_activity_mock.call_args.kwargs["task_queue"] == (
-        config.TRACECAT__EXECUTOR_QUEUE
+        config.AUTOSECOPS__EXECUTOR_QUEUE
     )
 
 
@@ -997,10 +997,10 @@ def test_build_approved_tool_run_input_strips_proxy_metadata() -> None:
     )
     tool_call = ApprovedToolCall(
         tool_call_id="toolu_123",
-        tool_name="mcp__tracecat_registry__core__cases__create_case",
+        tool_name="mcp__autosecops_registry__core__cases__create_case",
         args={
             "summary": "hello",
-            "__tracecat": {"tool_call_id": "toolu_123"},
+            "__autosecops": {"tool_call_id": "toolu_123"},
         },
     )
 

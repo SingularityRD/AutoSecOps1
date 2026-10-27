@@ -34,7 +34,7 @@ from autosecops.db.models import (
     SkillLibraryInstall,
     Workspace,
 )
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.registry.versions.schemas import (
     RegistryVersionManifest,
     RegistryVersionManifestAction,
@@ -179,7 +179,7 @@ async def test_seed_fails_cleanly_without_robodr_tools(
     session: AsyncSession, svc_workspace: Workspace, svc_role: Role
 ) -> None:
     service = AgentPresetService(session=session, role=svc_role)
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await seed_robot_soc_preset(
             service,
             robot_soc_preset_create(model_name="gpt-4o-mini", model_provider="openai"),
@@ -189,7 +189,7 @@ async def test_seed_fails_cleanly_without_robodr_tools(
 def test_install_route_maps_missing_tools_to_400() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:create"}),
@@ -199,7 +199,7 @@ def test_install_route_maps_missing_tools_to_400() -> None:
     role_dependency = get_args(WorkspaceActorRouteRole)[1].dependency
     app.dependency_overrides[role_dependency] = lambda: role
     app.dependency_overrides[get_async_session] = lambda: AsyncMock(spec=AsyncSession)
-    seed = AsyncMock(side_effect=TracecatValidationError("tools missing"))
+    seed = AsyncMock(side_effect=AutoSecOpsValidationError("tools missing"))
     with (
         patch("autosecops.agent.preset.router.seed_robot_soc_preset", seed),
         TestClient(app) as client,

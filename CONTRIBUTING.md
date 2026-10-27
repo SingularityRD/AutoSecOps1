@@ -80,7 +80,7 @@ test@autosecops.example / password1234
 You can then access the application at http://localhost:80.
 
 > [!IMPORTANT]
-> `--seed` creates a test user only. Superadmin is determined by `TRACECAT__AUTH_SUPERADMIN_EMAIL` in `.env` set via `./env.sh`, and the first signup or login with that email becomes the organization owner.
+> `--seed` creates a test user only. Superadmin is determined by `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` in `.env` set via `./env.sh`, and the first signup or login with that email becomes the organization owner.
 
 ## PR and Commit Message Guidelines
 

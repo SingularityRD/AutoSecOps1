@@ -20,13 +20,13 @@ from autosecops.agent.skill.folders.service import (
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 router = APIRouter(prefix="/skill-folders", tags=["skill-folders"])
 
 
-def _folder_http_exception(err: TracecatValidationError) -> HTTPException:
+def _folder_http_exception(err: AutoSecOpsValidationError) -> HTTPException:
     detail = err.detail if isinstance(err.detail, dict) else {}
     raw_code = detail.get("code") if isinstance(detail, dict) else None
     try:
@@ -52,9 +52,9 @@ async def get_directory(
     service = SkillFolderService(session, role=role)
     try:
         return list(await service.get_directory_items(path, order_by="desc"))
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -65,9 +65,9 @@ async def list_folders(
     session: AsyncDBSession,
     parent_path: str = Query(default="/", description="Parent folder path"),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -83,7 +83,7 @@ async def list_folders(
                 reverse=reverse,
             ),
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
     return CursorPaginatedResponse(
         items=SkillFolderRead.list_adapter().validate_python(page.items),
@@ -109,7 +109,7 @@ async def create_folder(
             name=params.name, parent_path=params.parent_path
         )
         return SkillFolderRead.model_validate(folder, from_attributes=True)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -150,7 +150,7 @@ async def update_folder(
 
     try:
         folder = await service.rename_folder(folder_id, params.name)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
     else:
         return SkillFolderRead.model_validate(folder, from_attributes=True)
@@ -169,7 +169,7 @@ async def delete_folder(
     try:
         recursive = params.recursive if params is not None else False
         await service.delete_folder(folder_id, recursive=recursive)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
 
 
@@ -196,7 +196,7 @@ async def move_folder(
 
     try:
         folder = await service.move_folder(folder_id, new_parent_id)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _folder_http_exception(e) from e
     else:
         return SkillFolderRead.model_validate(folder, from_attributes=True)

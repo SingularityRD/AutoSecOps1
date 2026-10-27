@@ -392,7 +392,7 @@ class FormsService(BaseWorkspaceService):
             config=current_config,
             config_version=config_version(current_config),
             issues=resolve_form(current_config, inputs.expects).issues,
-            url=f"{config.TRACECAT__PUBLIC_APP_URL}/forms/{form.id}",
+            url=f"{config.AUTOSECOPS__PUBLIC_APP_URL}/forms/{form.id}",
             counts=counts,
             created_at=form.created_at,
             updated_at=form.updated_at,

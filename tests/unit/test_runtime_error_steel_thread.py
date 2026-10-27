@@ -44,7 +44,7 @@ from autosecops.dsl.types import (
     ActionErrorInfo,
 )
 from autosecops.dsl.workflow import DSLWorkflow
-from autosecops.exceptions import TracecatExpressionError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsExpressionError, AutoSecOpsValidationError
 from autosecops.expressions.schemas import ExpectedField
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.runtime.errors import (
@@ -98,7 +98,7 @@ _REMAINING_BOUNDARY_POLICIES: tuple[_BoundaryPolicyExpectation, ...] = (
     _BoundaryPolicyExpectation(
         "return.expression",
         _expression_error_classification,
-        lambda: TracecatExpressionError("invalid return expression"),
+        lambda: AutoSecOpsExpressionError("invalid return expression"),
         RuntimeErrorOwner.USER,
         RuntimeErrorKind.WORKFLOW_EXPRESSION_INVALID,
         RetryDisposition.NON_RETRYABLE,
@@ -152,7 +152,7 @@ _REMAINING_BOUNDARY_POLICIES: tuple[_BoundaryPolicyExpectation, ...] = (
     _BoundaryPolicyExpectation(
         "agent.input",
         _agent_preparation_error_classification,
-        lambda: TracecatValidationError("invalid agent input"),
+        lambda: AutoSecOpsValidationError("invalid agent input"),
         RuntimeErrorOwner.USER,
         RuntimeErrorKind.WORKFLOW_AGENT_INPUT_INVALID,
         RetryDisposition.NON_RETRYABLE,
@@ -199,7 +199,7 @@ def test_remaining_runtime_boundary_policy_inventory(
         ),
         (
             "expression",
-            TracecatExpressionError("expression diagnostic"),
+            AutoSecOpsExpressionError("expression diagnostic"),
             RuntimeErrorOwner.USER,
             RuntimeErrorKind.WORKFLOW_EXPRESSION_INVALID,
             RetryDisposition.NON_RETRYABLE,
@@ -338,7 +338,7 @@ async def test_collection_boundaries_classify_storage_failures(
     failure_stage: str,
     kind: RuntimeErrorKind,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", True)
     diagnostic = f"{activity_name} {failure_stage} diagnostic"
     error = HTTPClientError(error=RuntimeError(diagnostic))
     storage = MagicMock()
@@ -439,7 +439,7 @@ def test_subflow_batch_storage_failure_keeps_persistence_classification() -> Non
 async def test_synchronize_collection_streams_externalized_child_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__RESULT_EXTERNALIZATION_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED", True)
     events: list[tuple[str, object]] = []
     inputs: list[StoredObject] = [
         InlineObject(data="first"),
@@ -508,7 +508,7 @@ def _prepare_subflow_input() -> PrepareSubflowActivityInput:
     return PrepareSubflowActivityInput(
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
         ),

@@ -175,14 +175,14 @@ from autosecops.dsl.validation import (
     normalize_trigger_inputs,
 )
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryActionValidationError,
     RegistryError,
     ScopeDeniedError,
-    TracecatCredentialsNotFoundError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.forms.access import can_read_form_config
@@ -209,10 +209,10 @@ from autosecops.mcp.auth import (
     resolve_role_for_request,
 )
 from autosecops.mcp.config import (
-    TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS,
-    TRACECAT_MCP__MAX_INPUT_SIZE_BYTES,
-    TRACECAT_MCP__RATE_LIMIT_BURST,
-    TRACECAT_MCP__RATE_LIMIT_RPS,
+    AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS,
+    AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES,
+    AUTOSECOPS_MCP__RATE_LIMIT_BURST,
+    AUTOSECOPS_MCP__RATE_LIMIT_RPS,
 )
 from autosecops.mcp.json_patch import apply_json_patch_operations
 from autosecops.mcp.middleware import (
@@ -1465,7 +1465,7 @@ class SkillUploadFileMetadata(BaseModel):
     sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     size_bytes: int = Field(
         ge=0,
-        le=config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES,
+        le=config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES,
     )
     content_type: str = Field(min_length=1, max_length=255)
 
@@ -1551,13 +1551,13 @@ _SKILL_FILE_WARNING = (
     " For whole-directory hydration, prefer `prepare_skill_download` plus the "
     "local helper over per-file reads."
 )
-_INLINE_WORKFLOW_YAML_MAX_BYTES = TRACECAT_MCP__MAX_INPUT_SIZE_BYTES
+_INLINE_WORKFLOW_YAML_MAX_BYTES = AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES
 _workflow_artifact_redis: AsyncRedis | None = None
 
 
 def _mcp_file_transfer_ttl_seconds() -> int:
     """Return the TTL for staged MCP file transfer URLs and artifacts."""
-    return TRACECAT_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+    return AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
 
 
 def _inline_workflow_yaml_max_bytes() -> int:
@@ -1612,12 +1612,12 @@ def _require_remote_mcp_context(ctx: Context | None, *, tool_name: str) -> None:
 
 def _workflow_file_bucket() -> str:
     """Return the bucket used for staged MCP file blobs."""
-    return config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW
+    return config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW
 
 
 def _template_file_bucket() -> str:
     """Return the bucket used for staged template file blobs."""
-    return config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW
+    return config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW
 
 
 def _compute_sha256(content: bytes) -> str:
@@ -1664,10 +1664,10 @@ def _validate_staged_skill_paths(paths: Sequence[str]) -> list[str]:
 
     if not paths:
         raise ToolError("Skill upload must include at least one file")
-    if len(paths) > config.TRACECAT__MAX_SKILL_FILES_COUNT:
+    if len(paths) > config.AUTOSECOPS__MAX_SKILL_FILES_COUNT:
         raise ToolError(
             "Skill upload contains too many files "
-            f"({len(paths)} > {config.TRACECAT__MAX_SKILL_FILES_COUNT})"
+            f"({len(paths)} > {config.AUTOSECOPS__MAX_SKILL_FILES_COUNT})"
         )
 
     normalized_paths: list[str] = []
@@ -1675,7 +1675,7 @@ def _validate_staged_skill_paths(paths: Sequence[str]) -> list[str]:
     for path in paths:
         try:
             normalized_path = SkillService._normalize_path(path)
-        except TracecatValidationError as exc:
+        except AutoSecOpsValidationError as exc:
             raise ToolError(str(exc)) from exc
         if normalized_path in seen_paths:
             raise ToolError(f"Skill upload contains duplicate path '{normalized_path}'")
@@ -1714,23 +1714,23 @@ def _validate_staged_skill_files(
     )
     if (
         manifest_size_bytes is not None
-        and manifest_size_bytes > config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES
+        and manifest_size_bytes > config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES
     ):
         raise ToolError(
             "Root SKILL.md exceeds the size limit "
             f"({manifest_size_bytes} > "
-            f"{config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES} bytes)"
+            f"{config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES} bytes)"
         )
-    if total_size_bytes > config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES:
+    if total_size_bytes > config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES:
         raise ToolError(
             "Skill upload exceeds the aggregate size limit "
             f"({total_size_bytes} > "
-            f"{config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES} bytes)"
+            f"{config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES} bytes)"
         )
     return normalized_paths
 
 
-def _skill_validation_tool_error(error: TracecatValidationError) -> ToolError:
+def _skill_validation_tool_error(error: AutoSecOpsValidationError) -> ToolError:
     """Preserve structured skill validation details for agent recovery."""
 
     if error.detail is not None:
@@ -1854,7 +1854,7 @@ async def _build_workflow_yaml_envelope(
             "event_types": case_trigger.event_types,
             "tag_filters": case_trigger.tag_filters,
         }
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         payload["case_trigger"] = None
     except Exception as e:
         logger.warning(
@@ -1938,7 +1938,7 @@ def _parse_uploaded_text_file(content: bytes, *, label: str) -> tuple[str, str]:
     """Validate uploaded text file bytes and decode to UTF-8 text."""
     if not content:
         raise ToolError(f"Uploaded {label} is empty")
-    if len(content) > config.TRACECAT__MAX_FILE_SIZE_BYTES:
+    if len(content) > config.AUTOSECOPS__MAX_FILE_SIZE_BYTES:
         raise ToolError(f"Uploaded {label} exceeds the maximum allowed size")
     try:
         return content.decode("utf-8"), _compute_sha256(content)
@@ -2026,7 +2026,7 @@ async def _apply_case_trigger_payload(
             create_missing_tags=True,
             commit=False,
         )
-    except TracecatNotFoundError:
+    except AutoSecOpsNotFoundError:
         config = CaseTriggerConfig(
             status=patch.status or "offline",
             event_types=patch.event_types or [],
@@ -2348,7 +2348,7 @@ async def _validate_template_action_text(
                 }
             ],
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         return TemplateValidationResponse(
             valid=False,
             action_name=action_name,
@@ -2447,7 +2447,7 @@ inside workflow YAML under `definition.actions[*].action`.
 `tools.<integration_slug>.<action_name>` third-party integration actions
 - Discover actions with `list_actions`; inspect exact schemas with \
 `get_action_context` or `get_workflow_authoring_context`
-- `tracecat://platform/dsl-reference` is a workflow YAML/DSL reference, not an \
+- `autosecops://platform/dsl-reference` is a workflow YAML/DSL reference, not an \
 MCP tool argument reference. MCP tool schemas and tool docstrings are the source \
 of truth for tool calls.
 - Action priority: integration action > core action > Python. Before writing \
@@ -2592,26 +2592,26 @@ allowlisted CIDRs are CIDR strings.
 listed on `update_case_trigger`.
 - Keep table names, column names, and case field names under 63 characters.
 
-Read the `tracecat://platform/dsl-reference` resource for the full DSL specification.
-Read the `tracecat://platform/authoring-guide` resource for worked graph-shape, \
+Read the `autosecops://platform/dsl-reference` resource for the full DSL specification.
+Read the `autosecops://platform/authoring-guide` resource for worked graph-shape, \
 loop, batching, condition-ladder, and agent-preset guidance.
 
 ## Canonical references
 Read these MCP resources when you need detail; do not fetch external docs URLs.
-- `tracecat://platform/dsl-reference`: expressions, `FN.*` functions, \
+- `autosecops://platform/dsl-reference`: expressions, `FN.*` functions, \
 secrets, and case-trigger and form-trigger patterns
-- `tracecat://platform/authoring-guide`: graph shape, conditions and \
+- `autosecops://platform/authoring-guide`: graph shape, conditions and \
 transforms, loops and batching, and agent presets
-- `tracecat://platform/domain-reference`: case, table column, workflow, and \
+- `autosecops://platform/domain-reference`: case, table column, workflow, and \
 trigger enum values
-- `tracecat://workspaces/{workspace_id}/action-catalog`: available actions \
+- `autosecops://workspaces/{workspace_id}/action-catalog`: available actions \
 and secret configuration status
 """
 
 _MCP_INSTRUCTIONS_RENDERED = _render_prompt_text(_MCP_INSTRUCTIONS)
 
 mcp = FastMCP(
-    "tracecat-workflows",
+    "autosecops-workflows",
     auth=auth,
     instructions=_MCP_INSTRUCTIONS_RENDERED,
 )
@@ -2622,8 +2622,8 @@ mcp = FastMCP(
 
 mcp.add_middleware(
     RateLimitingMiddleware(
-        max_requests_per_second=TRACECAT_MCP__RATE_LIMIT_RPS,
-        burst_capacity=TRACECAT_MCP__RATE_LIMIT_BURST,
+        max_requests_per_second=AUTOSECOPS_MCP__RATE_LIMIT_RPS,
+        burst_capacity=AUTOSECOPS_MCP__RATE_LIMIT_BURST,
         get_client_id=get_mcp_client_id,
     )
 )
@@ -3119,7 +3119,7 @@ layout:
 
 
 @mcp.resource(
-    "tracecat://platform/dsl-reference",
+    "autosecops://platform/dsl-reference",
     name="DSL Reference",
     description="Complete AutoSecOps workflow DSL specification including YAML structure, expression syntax, built-in functions, and common patterns.",
     mime_type="text/plain",
@@ -3132,7 +3132,7 @@ def get_dsl_reference() -> str:
 _AUTHORING_GUIDE_TEXT = """\
 # AutoSecOps Workflow Authoring Guide
 
-`tracecat://platform/dsl-reference` covers syntax. This resource covers the
+`autosecops://platform/dsl-reference` covers syntax. This resource covers the
 judgment calls the syntax leaves open: how to shape the graph, when to loop,
 when to reach for Python, and how to author an agent preset.
 
@@ -3367,7 +3367,7 @@ that one ref only, and tell them the subagent will no longer pick up updates.
 
 
 @mcp.resource(
-    "tracecat://platform/authoring-guide",
+    "autosecops://platform/authoring-guide",
     name="Workflow Authoring Guide",
     description="Judgment guidance for authoring AutoSecOps workflows: graph shape, condition and transform selection, loop and batching strategy, and agent preset authoring.",
     mime_type="text/plain",
@@ -3429,7 +3429,7 @@ _DOMAIN_REFERENCE_RENDERED = _render_prompt_text(_DOMAIN_REFERENCE_TEXT)
 
 
 @mcp.resource(
-    "tracecat://platform/domain-reference",
+    "autosecops://platform/domain-reference",
     name="Domain Reference",
     description="Valid enum values for cases, tables, workflows, and triggers.",
     mime_type="text/plain",
@@ -3504,7 +3504,7 @@ async def _build_action_catalog(workspace_id: uuid.UUID) -> ActionCatalogRespons
 
 
 @mcp.resource(
-    "tracecat://workspaces/{workspace_id}/action-catalog",
+    "autosecops://workspaces/{workspace_id}/action-catalog",
     name="Action Catalog",
     description="Complete browsable inventory of all available actions in a workspace, grouped by namespace with descriptions and secret configuration status.",
     mime_type="application/json",
@@ -3523,7 +3523,7 @@ def _normalize_limit(
     """Clamp a requested MCP list limit to a safe range."""
     if limit is None:
         return default
-    return max(config.TRACECAT__LIMIT_MIN, min(limit, max_limit))
+    return max(config.AUTOSECOPS__LIMIT_MIN, min(limit, max_limit))
 
 
 def _pagination_fingerprint(tool_name: str, **filters: Any) -> str:
@@ -3621,7 +3621,7 @@ def _truncate_named_sections(
     return truncated_sections, summary
 
 
-_MCP_EMBEDDED_COLLECTION_LIMIT = min(50, config.TRACECAT__LIMIT_CURSOR_MAX)
+_MCP_EMBEDDED_COLLECTION_LIMIT = min(50, config.AUTOSECOPS__LIMIT_CURSOR_MAX)
 
 
 def _workflow_tag_payload(tag: Any) -> TagRead:
@@ -3861,7 +3861,7 @@ def _serialize_temporal_exception(error: BaseException) -> dict[str, Any]:
 
 @mcp.tool()
 async def list_workspaces(
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[WorkspaceSummaryResponse]:
     """List all workspaces accessible to the authenticated user.
@@ -3880,8 +3880,8 @@ async def list_workspaces(
             tool_name="list_workspaces",
             limit=_normalize_limit(
                 limit,
-                default=config.TRACECAT__LIMIT_DEFAULT,
-                max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
             ),
             cursor=cursor,
         )
@@ -4593,7 +4593,7 @@ async def list_workflow_tree(
     path: str = "/",
     depth: int = 1,
     include_workflows: bool = True,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> WorkflowTreeResponse:
     """List workflow folders and workflows under a path.
@@ -4655,8 +4655,8 @@ async def list_workflow_tree(
                 tool_name="list_workflow_tree",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 filters={
@@ -4776,7 +4776,7 @@ async def rename_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename workflow folder", error=str(e))
@@ -4819,7 +4819,7 @@ async def move_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move workflow folder", error=str(e))
@@ -4852,7 +4852,7 @@ async def delete_workflow_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete workflow folder", error=str(e))
@@ -5114,8 +5114,8 @@ async def sync_custom_registry(
             except (
                 RegistryActionValidationError,
                 RegistryError,
-                TracecatCredentialsNotFoundError,
-                TracecatValidationError,
+                AutoSecOpsCredentialsNotFoundError,
+                AutoSecOpsValidationError,
                 ValueError,
             ) as exc:
                 return CustomRegistrySyncResponse(
@@ -5368,7 +5368,7 @@ async def validate_workflow(
             dsl: DSLInput | None = None
             try:
                 dsl = await svc.build_dsl_from_workflow(workflow)
-            except TracecatValidationError as e:
+            except AutoSecOpsValidationError as e:
                 errors.append({"type": "dsl", "message": str(e)})
             except ValidationError as e:
                 errors.append({"type": "dsl", "message": str(e)})
@@ -5544,7 +5544,7 @@ async def publish_workflow(
         async with WorkflowsManagementService.with_session(role=role) as svc:
             try:
                 result = await svc.publish_workflow(workflow_id)
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ToolError(str(e)) from e
 
         if not result.ok:
@@ -5620,9 +5620,9 @@ async def run_workflow(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(
             json.dumps(
                 {
@@ -5799,7 +5799,7 @@ async def lock_workflow_action(
             )
     except ToolError:
         raise
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -5923,9 +5923,9 @@ async def rerun_workflow_execution(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(
             json.dumps(
                 {
@@ -6287,7 +6287,7 @@ async def update_webhook(
                     workflow_id=workflow_id,
                     params=update_params,
                 )
-            except TracecatNotFoundError as e:
+            except AutoSecOpsNotFoundError as e:
                 raise ToolError(f"Webhook not found for workflow {workflow_id}") from e
         return MCPMessageResponse(
             message=f"Webhook for workflow {workflow_id} updated successfully"
@@ -6322,7 +6322,7 @@ async def get_case_trigger(
         async with CaseTriggersService.with_session(role=role) as svc:
             case_trigger = await svc.get_case_trigger(workflow_id)
             return CaseTriggerRead.model_validate(case_trigger, from_attributes=True)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -6395,7 +6395,7 @@ async def update_case_trigger(
         return MCPMessageResponse(
             message=f"Case trigger for workflow {workflow_id} updated successfully"
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ToolError:
         raise
@@ -6446,7 +6446,7 @@ async def _forms_service(
 @mcp.tool()
 async def list_forms(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[FormReadMinimal]:
     """List the forms of a workspace, newest first.
@@ -6468,8 +6468,8 @@ async def list_forms(
     async with _forms_service(workspace_id, "list forms", "form:read") as svc:
         limit = _normalize_limit(
             limit,
-            default=config.TRACECAT__LIMIT_DEFAULT,
-            max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+            default=config.AUTOSECOPS__LIMIT_DEFAULT,
+            max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         )
         forms = await svc.list_forms(PageParams(limit=limit, cursor=cursor))
     return MCPPaginatedResponse(
@@ -6525,7 +6525,7 @@ async def update_form(
     with their default widget. A required input with no default widget,
     such as `dict` or `list[dict]`, needs a `user` or `file` widget or an
     autofill. Read the "Form Trigger" section of
-    `tracecat://platform/dsl-reference` for the layout entries, widgets and
+    `autosecops://platform/dsl-reference` for the layout entries, widgets and
     rules.
 
     Args:
@@ -6555,7 +6555,7 @@ async def update_form(
 @mcp.tool()
 async def list_workflow_tags(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[TagRead]:
     """List workflow tag definitions in a workspace.
@@ -6572,8 +6572,8 @@ async def list_workflow_tags(
                 tool_name="list_workflow_tags",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
             )
@@ -6683,7 +6683,7 @@ async def delete_workflow_tag(
 async def list_tags_for_workflow(
     workspace_id: uuid.UUID,
     workflow_id: MCPWorkflowUUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[TagRead]:
     """List tags attached to a workflow.
@@ -6701,8 +6701,8 @@ async def list_tags_for_workflow(
                 tool_name="list_tags_for_workflow",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 filters={"workflow_id": workflow_id},
@@ -6792,7 +6792,7 @@ async def remove_workflow_tag(
 @mcp.tool()
 async def list_cases(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
     order_by: str | None = None,
     sort: str | None = None,
@@ -6818,8 +6818,8 @@ async def list_cases(
             result = await svc.list_cases(
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 order_by=cast(Any, order_by),
@@ -6836,7 +6836,7 @@ async def list_cases(
 @mcp.tool()
 async def search_cases(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
     search_term: str | None = None,
     search_mode: Literal["full_text", "literal"] | None = None,
@@ -6936,8 +6936,8 @@ async def search_cases(
             {
                 "limit": _normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 "cursor": cursor,
                 "search_term": search_term,
@@ -6973,7 +6973,7 @@ async def search_cases(
         raise ToolError(
             f"Missing required scope: {', '.join(e.required_scopes)}"
         ) from e
-    except (EntitlementRequired, TracecatValidationError) as e:
+    except (EntitlementRequired, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7136,9 +7136,9 @@ async def create_case(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7242,9 +7242,9 @@ async def update_case(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7288,8 +7288,8 @@ async def set_case_parent(
         raise ToolError(f"Missing required scope: {required}") from e
     except (
         EntitlementRequired,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
         ValueError,
     ) as e:
         raise ToolError(str(e)) from e
@@ -7328,8 +7328,8 @@ async def clear_case_parent(
         raise ToolError(f"Missing required scope: {required}") from e
     except (
         EntitlementRequired,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
         ValueError,
     ) as e:
         raise ToolError(str(e)) from e
@@ -7453,7 +7453,7 @@ async def create_case_comment(
             return MCPMessageResponse(message="Comment created successfully")
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7500,7 +7500,7 @@ async def update_case_comment(
             )
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7543,7 +7543,7 @@ async def delete_case_comment(
             )
     except ToolError:
         raise
-    except (TracecatValidationError, TracecatNotFoundError) as e:
+    except (AutoSecOpsValidationError, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7606,7 +7606,7 @@ async def get_case_task(
         async with CaseTasksService.with_session(role=role) as svc:
             task = await svc.get_task(task_id)
             return _case_task_payload(task)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7670,9 +7670,9 @@ async def create_case_task(
             return _case_task_payload(task)
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7748,9 +7748,9 @@ async def update_case_task(
             return _case_task_payload(task)
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7856,7 +7856,7 @@ async def run_case_task(
         )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -7951,7 +7951,7 @@ async def list_case_events(
 @mcp.tool()
 async def list_case_tags(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[CaseTagRead]:
     """List case tag definitions in a workspace.
@@ -7968,8 +7968,8 @@ async def list_case_tags(
                 tool_name="list_case_tags",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
             )
@@ -8075,7 +8075,7 @@ async def delete_case_tag(workspace_id: uuid.UUID, tag_id: str) -> MCPMessageRes
 async def list_tags_for_case(
     workspace_id: uuid.UUID,
     case_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[CaseTagRead]:
     """List tags attached to a case.
@@ -8092,8 +8092,8 @@ async def list_tags_for_case(
                 tool_name="list_tags_for_case",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 filters={"case_id": case_id},
@@ -8165,7 +8165,7 @@ async def remove_case_tag(
             return MCPMessageResponse(
                 message=f"Case tag {tag_identifier} removed from case {case_id}"
             )
-    except (NoResultFound, TracecatNotFoundError) as e:
+    except (NoResultFound, AutoSecOpsNotFoundError) as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8177,7 +8177,7 @@ async def remove_case_tag(
 @mcp.tool()
 async def list_case_fields(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[CaseFieldReadMinimal]:
     """List case field definitions in a workspace.
@@ -8200,8 +8200,8 @@ async def list_case_fields(
                 tool_name="list_case_fields",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
             )
@@ -8327,7 +8327,7 @@ async def update_case_field(
 @mcp.tool()
 async def list_case_dropdowns(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[CaseDropdownDefinitionRead]:
     """List case dropdown definitions in a workspace. Requires the case
@@ -8347,8 +8347,8 @@ async def list_case_dropdowns(
                 tool_name="list_case_dropdowns",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
             )
@@ -8428,7 +8428,7 @@ async def create_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8494,9 +8494,9 @@ async def update_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8536,7 +8536,7 @@ async def delete_case_dropdown(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8597,9 +8597,9 @@ async def add_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8663,9 +8663,9 @@ async def update_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8708,7 +8708,7 @@ async def delete_case_dropdown_option(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8765,9 +8765,9 @@ async def set_case_dropdown_value(
         raise ToolError(f"Missing required scope: {required}") from e
     except EntitlementRequired as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -8779,7 +8779,7 @@ async def set_case_dropdown_value(
 @mcp.tool()
 async def list_tables(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[TableSummaryResponse]:
     """List workspace tables."""
@@ -8796,8 +8796,8 @@ async def list_tables(
                 tool_name="list_tables",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
             )
@@ -8947,7 +8947,7 @@ async def create_column(
             )
     except ToolError:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except ValueError as e:
         raise ToolError(str(e)) from e
@@ -9162,7 +9162,7 @@ async def export_csv(
             while True:
                 page = await svc.search_rows(
                     table,
-                    limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                     cursor=cursor,
                 )
                 for row in page.items:
@@ -9266,7 +9266,7 @@ async def drop_column_index(
 async def list_variables(
     workspace_id: uuid.UUID,
     environment: str = DEFAULT_SECRETS_ENVIRONMENT,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[VariableSummaryResponse]:
     """List workspace variables."""
@@ -9290,8 +9290,8 @@ async def list_variables(
                 tool_name="list_variables",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 filters={"environment": environment},
@@ -9344,7 +9344,7 @@ async def get_variable(
 async def list_secrets_metadata(
     workspace_id: uuid.UUID,
     environment: str = DEFAULT_SECRETS_ENVIRONMENT,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[SecretMetadataResponse]:
     """List secret metadata without secret values."""
@@ -9374,8 +9374,8 @@ async def list_secrets_metadata(
                 tool_name="list_secrets_metadata",
                 limit=_normalize_limit(
                     limit,
-                    default=config.TRACECAT__LIMIT_DEFAULT,
-                    max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                    default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                    max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                 ),
                 cursor=cursor,
                 filters={"environment": environment},
@@ -9408,7 +9408,7 @@ async def get_secret_metadata(
                 secret = await svc.get_secret_by_name(
                     secret_name, environment=environment
                 )
-            except TracecatNotFoundError:
+            except AutoSecOpsNotFoundError:
                 raise ToolError(f"Secret {secret_name!r} not found") from None
             return SecretMetadataResponse(
                 id=secret.id,
@@ -9698,7 +9698,7 @@ async def create_agent_preset(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create agent preset", error=str(e))
@@ -9826,7 +9826,7 @@ async def update_agent_preset(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error(
@@ -9841,7 +9841,7 @@ async def list_agent_tree(
     path: str = "/",
     depth: int = 1,
     include_presets: bool = True,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> AgentTreeResponse:
     """List agent folders and presets under a path."""
@@ -9854,8 +9854,8 @@ async def list_agent_tree(
         root_path = _normalize_folder_path_arg(path)
         limit = _normalize_limit(
             limit,
-            default=config.TRACECAT__LIMIT_DEFAULT,
-            max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+            default=config.AUTOSECOPS__LIMIT_DEFAULT,
+            max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         )
         filters = {
             "path": root_path,
@@ -9995,7 +9995,7 @@ async def create_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create agent folder", error=str(e))
@@ -10026,7 +10026,7 @@ async def rename_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename agent folder", error=str(e))
@@ -10069,7 +10069,7 @@ async def move_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move agent folder", error=str(e))
@@ -10102,7 +10102,7 @@ async def delete_agent_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete agent folder", error=str(e))
@@ -10208,7 +10208,7 @@ async def list_skill_tree(
     path: str = "/",
     depth: int = 1,
     include_skills: bool = True,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> SkillTreeResponse:
     """List skill folders and skills under a path."""
@@ -10220,8 +10220,8 @@ async def list_skill_tree(
         root_path = _normalize_folder_path_arg(path)
         limit = _normalize_limit(
             limit,
-            default=config.TRACECAT__LIMIT_DEFAULT,
-            max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+            default=config.AUTOSECOPS__LIMIT_DEFAULT,
+            max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         )
         filters = {"path": root_path, "depth": depth, "include_skills": include_skills}
         fingerprint = _pagination_fingerprint("list_skill_tree", **filters)
@@ -10359,7 +10359,7 @@ async def create_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to create skill folder", error=str(e))
@@ -10390,7 +10390,7 @@ async def rename_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to rename skill folder", error=str(e))
@@ -10433,7 +10433,7 @@ async def move_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to move skill folder", error=str(e))
@@ -10466,7 +10466,7 @@ async def delete_skill_folder(
             )
     except ToolError:
         raise
-    except (ValueError, TracecatValidationError) as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to delete skill folder", error=str(e))
@@ -10568,7 +10568,7 @@ async def move_skills(
 @mcp.tool()
 async def list_skills(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> CursorPaginatedResponse[SkillReadMinimal]:
     """List workspace skills with IDs, names, and current published versions.
@@ -10583,8 +10583,8 @@ async def list_skills(
                 CursorPaginationParams(
                     limit=_normalize_limit(
                         limit,
-                        default=config.TRACECAT__LIMIT_DEFAULT,
-                        max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                        max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
                     ),
                     cursor=cursor,
                 )
@@ -10593,7 +10593,7 @@ async def list_skills(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to list skills", error_type=type(e).__name__)
@@ -10637,9 +10637,9 @@ async def get_skill(
             raise
         except ValidationError as e:
             raise ToolError(str(e)) from e
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise ToolError(str(e)) from e
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             raise ToolError(str(e)) from e
         except Exception as e:
             logger.error("Failed to get skill draft", error_type=type(e).__name__)
@@ -10665,9 +10665,9 @@ async def get_skill(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to get skill draft file", error_type=type(e).__name__)
@@ -10707,9 +10707,9 @@ async def prepare_skill_download(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to prepare skill download", error_type=type(e).__name__)
@@ -10817,9 +10817,9 @@ async def prepare_skill_upload(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to prepare skill upload", error_type=type(e).__name__)
@@ -10852,7 +10852,7 @@ async def complete_skill_upload(
             if draft is None:
                 raise ToolError(f"Skill '{skill_id}' not found")
             if draft.draft_revision != base_revision:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Draft revision conflict",
                     detail={
                         "code": "draft_revision_conflict",
@@ -10888,9 +10888,9 @@ async def complete_skill_upload(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise _skill_validation_tool_error(e) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to complete skill upload", error_type=type(e).__name__)
@@ -10917,9 +10917,9 @@ async def publish_skill(
         raise
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise ToolError(str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise ToolError(str(e)) from e
     except Exception as e:
         logger.error("Failed to publish skill", error_type=type(e).__name__)
@@ -10985,7 +10985,7 @@ async def _collect_agent_response(
 @mcp.tool()
 async def list_agent_presets(
     workspace_id: uuid.UUID,
-    limit: int = config.TRACECAT__LIMIT_DEFAULT,
+    limit: int = config.AUTOSECOPS__LIMIT_DEFAULT,
     cursor: str | None = None,
 ) -> MCPPaginatedResponse[AgentPresetListItem]:
     """List saved agent preset slugs and names.
@@ -11007,8 +11007,8 @@ async def list_agent_presets(
             tool_name="list_agent_presets",
             limit=_normalize_limit(
                 limit,
-                default=config.TRACECAT__LIMIT_DEFAULT,
-                max_limit=config.TRACECAT__LIMIT_CURSOR_MAX,
+                default=config.AUTOSECOPS__LIMIT_DEFAULT,
+                max_limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
             ),
             cursor=cursor,
         )

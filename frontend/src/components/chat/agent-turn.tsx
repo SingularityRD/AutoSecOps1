@@ -56,7 +56,7 @@ function getToolsCompletedAt(message: ThreadMessage): number | null {
     if (!isToolUIPart(part)) {
       continue
     }
-    const completedAt = part.callProviderMetadata?.tracecat?.completed_at
+    const completedAt = part.callProviderMetadata?.autosecops?.completed_at
     if (typeof completedAt !== "string") {
       continue
     }

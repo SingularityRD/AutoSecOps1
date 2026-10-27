@@ -31,7 +31,9 @@ def test_invitation_template_escapes_html_and_subject_controls() -> None:
 def test_build_accept_url_handles_trailing_slash(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://app.example.com/")
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__PUBLIC_APP_URL", "https://app.example.com/"
+    )
 
     assert build_accept_url("token-123") == (
         "https://app.example.com/invitations/accept?token=token-123"
@@ -41,7 +43,9 @@ def test_build_accept_url_handles_trailing_slash(
 def test_invitation_logo_url_handles_trailing_slash(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://app.example.com/")
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__PUBLIC_APP_URL", "https://app.example.com/"
+    )
 
     _, html, _ = render_invitation_email(
         accept_url="https://app.example.com/invitations/accept?token=t",
@@ -54,7 +58,7 @@ def test_invitation_logo_url_handles_trailing_slash(
 def test_invitation_email_renders_subject_and_link(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://app.example.com")
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_APP_URL", "https://app.example.com")
 
     message = invitation_email(
         to="invitee@example.com", organization_name="Acme", token="token-123"
@@ -111,7 +115,7 @@ def test_invitation_template_omits_the_grants_block_when_empty() -> None:
 def test_invitation_email_threads_grants_into_the_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PUBLIC_APP_URL", "https://app.example.com")
+    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_APP_URL", "https://app.example.com")
 
     message = invitation_email(
         to="invitee@example.com",

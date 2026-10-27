@@ -18,7 +18,7 @@ from autosecops.agent.preset.schemas import AgentPresetCreate
 from autosecops.agent.preset.service import AgentPresetService
 from autosecops.agent.skill.library.service import SkillLibraryService
 from autosecops.db.models import AgentPreset
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 ROBOT_SOC_SLUG: Final = "robot-soc"
 ROBOT_SOC_NAME: Final = "Robot SOC"
@@ -178,11 +178,11 @@ async def seed_robot_soc_preset(
         The preset, and whether this call created it.
 
     Raises:
-        TracecatValidationError: If a required registry action or library
+        AutoSecOpsValidationError: If a required registry action or library
             skill is unavailable in this workspace.
     """
     if not set(MANDATORY_APPROVAL_TOOLS) <= set(params.tool_approvals or {}):
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "The Robot SOC preset must require approval for robot actions"
         )
     if existing := await service.get_preset_by_slug(ROBOT_SOC_SLUG):

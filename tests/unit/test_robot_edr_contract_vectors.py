@@ -48,7 +48,7 @@ MANIFEST: dict[str, Any] = json.loads((VECTORS / "manifest.json").read_text())
 
 @pytest.fixture(autouse=True)
 def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -82,7 +82,7 @@ async def _drop_workspace(ws: Workspace) -> None:
 async def _register_manifest_workspace(ws: Workspace) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,

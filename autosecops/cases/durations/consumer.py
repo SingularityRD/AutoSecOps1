@@ -100,12 +100,12 @@ class CaseDurationSyncConsumer:
         stop_event: asyncio.Event | None = None,
     ) -> None:
         self.client = client
-        self.stream_key = config.TRACECAT__CASE_DURATION_SYNC_STREAM_KEY
-        self.group = config.TRACECAT__CASE_DURATION_SYNC_GROUP
-        self.block_ms = config.TRACECAT__CASE_DURATION_SYNC_BLOCK_MS
-        self.batch = config.TRACECAT__CASE_DURATION_SYNC_BATCH
-        self.claim_idle_ms = config.TRACECAT__CASE_DURATION_SYNC_CLAIM_IDLE_MS
-        self.backfill_batch = config.TRACECAT__CASE_DURATION_SYNC_BACKFILL_BATCH
+        self.stream_key = config.AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY
+        self.group = config.AUTOSECOPS__CASE_DURATION_SYNC_GROUP
+        self.block_ms = config.AUTOSECOPS__CASE_DURATION_SYNC_BLOCK_MS
+        self.batch = config.AUTOSECOPS__CASE_DURATION_SYNC_BATCH
+        self.claim_idle_ms = config.AUTOSECOPS__CASE_DURATION_SYNC_CLAIM_IDLE_MS
+        self.backfill_batch = config.AUTOSECOPS__CASE_DURATION_SYNC_BACKFILL_BATCH
         self.consumer_name = consumer_name or f"{socket.gethostname()}:{os.getpid()}"
         self._pending_check_interval = max(self.claim_idle_ms / 1000.0, 30.0)
         self._stop_event = stop_event

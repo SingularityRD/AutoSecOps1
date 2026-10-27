@@ -81,10 +81,10 @@ def _enforce_nproc_limit() -> None:
     #
     # nsjail cannot enforce rlimit_nproc when it creates a user namespace
     # (clone_newuser), so the host injects the configured limit via
-    # TRACECAT__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
+    # AUTOSECOPS__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
     # before spawning the user-selected MCP command. The command inherits the
     # rlimit, containing fork bombs to this probe's configured process cap.
-    raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+    raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
     if not raw:
         return
     try:
@@ -390,7 +390,7 @@ async def probe_stdio_mcp_tools_in_sandbox(
 ) -> StdioMCPProbeResult:
     """Run a stdio MCP server using the configured backend and list its tools.
 
-    TRACECAT__EXECUTOR_BACKEND selects nsjail or direct execution. The nsjail
+    AUTOSECOPS__EXECUTOR_BACKEND selects nsjail or direct execution. The nsjail
     backend returns probe failures without falling back to direct execution.
     The direct backend uses the same best-effort PID-level isolation as
     unsandboxed Python actions, regardless of nsjail availability.
@@ -413,9 +413,9 @@ async def probe_stdio_mcp_tools_in_sandbox(
             )
             (job_dir / "input.json").write_bytes(orjson.dumps(payload))
 
-            if config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+            if config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
                 probe_limits = AgentResourceLimits(
-                    memory_mb=min(1024, config.TRACECAT__AGENT_SANDBOX_MEMORY_MB)
+                    memory_mb=min(1024, config.AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
                 )
                 sandbox = NsjailExecutor(cgroup_mount=sandbox_cgroup())
                 result = await sandbox.execute(

@@ -17,13 +17,13 @@ from autosecops.agent.skill.internal_router import (
     publish_skill_version,
 )
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 def _executor_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
@@ -34,11 +34,11 @@ def _executor_role() -> Role:
 async def test_list_endpoints_convert_invalid_cursor_to_http_400() -> None:
     skill_id = uuid.uuid4()
     mock_service = AsyncMock()
-    mock_service.list_skills.side_effect = TracecatValidationError(
+    mock_service.list_skills.side_effect = AutoSecOpsValidationError(
         "Invalid cursor for skills"
     )
     mock_service.get_skill_by_identifier.return_value = SimpleNamespace(id=skill_id)
-    mock_service.list_versions.side_effect = TracecatValidationError(
+    mock_service.list_versions.side_effect = AutoSecOpsValidationError(
         "Invalid cursor for skill versions"
     )
 
@@ -159,7 +159,7 @@ async def test_publish_skill_version_converts_version_conflict_to_http_409() -> 
     }
     mock_service = AsyncMock()
     mock_service.get_skill_by_identifier.return_value = SimpleNamespace(id=uuid.uuid4())
-    mock_service.publish_skill_version.side_effect = TracecatValidationError(
+    mock_service.publish_skill_version.side_effect = AutoSecOpsValidationError(
         "Skill version conflict",
         detail=detail,
     )
@@ -189,7 +189,7 @@ async def test_publish_skill_draft_converts_revision_conflict_to_http_409() -> N
     }
     mock_service = AsyncMock()
     mock_service.get_skill_by_identifier.return_value = SimpleNamespace(id=uuid.uuid4())
-    mock_service.publish_skill.side_effect = TracecatValidationError(
+    mock_service.publish_skill.side_effect = AutoSecOpsValidationError(
         "Draft revision conflict",
         detail=detail,
     )

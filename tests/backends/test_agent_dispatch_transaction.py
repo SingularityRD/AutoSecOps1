@@ -55,7 +55,7 @@ from autosecops.agent.types import AgentConfig
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentSession, AgentSessionHistory
 from autosecops.dsl._converter import get_data_converter
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 from tests.database import TEST_DB_CONFIG
 
 pytestmark = [pytest.mark.anyio, pytest.mark.dbtest]
@@ -121,7 +121,7 @@ async def make_context(db: AsyncSession) -> SessionTurnContext:
         session=session,
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid4(),
             workspace_id=workspace_id,
         ),
@@ -318,7 +318,7 @@ async def test_uncertain_dispatch_keeps_history_and_blocks_another_turn(
             describe = AsyncMock(side_effect=TimeoutError("lookup unavailable"))
             with (
                 patch.object(backend, "handle", return_value=Mock(describe=describe)),
-                pytest.raises(TracecatConflictError),
+                pytest.raises(AutoSecOpsConflictError),
             ):
                 await backend.start_turn(
                     replace(context, run_id=uuid4(), stream_id=uuid4())
@@ -718,7 +718,7 @@ async def test_lost_acknowledgement_keeps_the_session_until_the_original_ends(
         ):
             await lose_first_start(backend, connection, context)
             await age_reservation(db, session_id, timedelta(minutes=1))
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await backend.start_turn(next_turn)
             await assert_reserved_by(connection, session_id, context.run_id)
             # The existing terminal-status path releases the original once it ends.
@@ -758,7 +758,7 @@ async def test_unknown_tombstone_outcome_keeps_the_session_and_next_send_retries
         ):
             await lose_first_start(backend, connection, context)
             await age_reservation(db, session_id, timedelta(minutes=1))
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await backend.start_turn(next_turn)
             await assert_reserved_by(connection, session_id, context.run_id)
             assert temporal.terminations == []
@@ -802,7 +802,7 @@ async def test_fresh_reservation_is_never_tombstoned(
             await age_reservation(db, session_id, reserved_ago)
             # The first start may still be in flight, so a quick second send
             # gets today's conflict instead of tombstoning that turn.
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await backend.start_turn(next_turn)
             assert len(temporal.starts) == 1
             await assert_reserved_by(connection, session_id, context.run_id)
@@ -871,7 +871,7 @@ async def test_successor_reserved_by_another_writer_is_never_tombstoned(
             )
             await db.commit()
             await age_reservation(db, session_id, timedelta(minutes=1))
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await backend.start_turn(
                     replace(context, run_id=uuid4(), stream_id=uuid4())
                 )
@@ -926,7 +926,7 @@ async def test_caller_owned_reservation_is_never_tombstoned(
                 prepared = await service.prepare_new_turn(session_id, "Investigate")
             # The caller's child start has no deadline, so no age makes it lost.
             await age_reservation(db, session_id, timedelta(minutes=1))
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await backend.start_turn(
                     replace(context, run_id=uuid4(), stream_id=uuid4())
                 )
@@ -1099,7 +1099,7 @@ async def test_real_tombstone_never_displaces_an_original_that_landed(
                     return_value=temporal_client,
                 ),
                 patch.object(backend, "handle", return_value=missing),
-                pytest.raises(TracecatConflictError),
+                pytest.raises(AutoSecOpsConflictError),
             ):
                 await backend.start_turn(
                     replace(context, run_id=uuid4(), stream_id=uuid4())

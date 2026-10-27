@@ -30,7 +30,7 @@ Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).
 > As a result, script execution uses subprocess isolation without nsjail-level mount/network/cgroup controls.
 > If you need highest isolation for untrusted code execution, deploy AutoSecOps on Kubernetes with the Helm chart, where `nsjail` is enabled by default.
 
-- `TRACECAT__EXECUTOR_BACKEND=direct` (executor + agent-executor)
+- `AUTOSECOPS__EXECUTOR_BACKEND=direct` (executor + agent-executor)
 
 ## Default sizing
 
@@ -41,8 +41,8 @@ Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).
 - `agent_executor_desired_count=1`
 - `agent_executor_cpu=4096`
 - `agent_executor_memory=16384`
-- `tracecat_db_instance_class=db.t4g.medium`
-- `tracecat_db_allocated_storage=20`
+- `autosecops_db_instance_class=db.t4g.medium`
+- `autosecops_db_allocated_storage=20`
 - `temporal_db_instance_class=db.t4g.2xlarge`
 - `temporal_db_allocated_storage=50`
 - `temporal_cpu=8192`
@@ -63,12 +63,12 @@ export AWS_DEFAULT_REGION=us-east-1
 ./scripts/create-aws-secrets.sh
 
 export TF_VAR_aws_region=us-east-1
-export TF_VAR_domain_name=tracecat.example.com
+export TF_VAR_domain_name=autosecops.example.com
 export TF_VAR_hosted_zone_id=Z1234567890
-export TF_VAR_tracecat_db_encryption_key_arn=arn:aws:secretsmanager:...
-export TF_VAR_tracecat_service_key_arn=arn:aws:secretsmanager:...
-export TF_VAR_tracecat_signing_secret_arn=arn:aws:secretsmanager:...
-export TF_VAR_tracecat_image_tag=1.0.0
+export TF_VAR_autosecops_db_encryption_key_arn=arn:aws:secretsmanager:...
+export TF_VAR_autosecops_service_key_arn=arn:aws:secretsmanager:...
+export TF_VAR_autosecops_signing_secret_arn=arn:aws:secretsmanager:...
+export TF_VAR_autosecops_image_tag=1.0.0
 
 terraform apply
 ```
@@ -98,22 +98,23 @@ and tag as the application. Set these optional variables to decouple it:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `tracecat_migrations_image` | `tracecat_image` | Optional migrations image repository override |
-| `tracecat_migrations_image_tag` | `tracecat_image_tag` | Optional migrations image tag override |
+| `autosecops_migrations_image` | `autosecops_image` | Optional migrations image repository override |
+| `autosecops_migrations_image_tag` | `autosecops_image_tag` | Optional migrations image tag override |
 
 For app-only rollbacks, keep the migrations image on a version that understands
 the current Alembic database revision while rolling back the app images.
 
 ## Resource name prefixes
 
-`name_prefix` (default `tracecat`) and `iam_name_prefix` (default `Tracecat`)
-predate the AutoSecOps name. New installs may set `autosecops` / `AutoSecOps`
-before the first apply. Keep the defaults on existing stacks: AWS resource names
-are immutable, so a prefix change replaces the VPC, ALB, ECS cluster, Redis, S3
-buckets, IAM roles, and task definition families. To migrate, stand up a second
-stack with the new prefixes, restore the core database with
-`restore_from_snapshot`, `aws s3 sync` the buckets, then cut DNS over. See
-`docs/self-hosting/aws-fargate.mdx`.
+`name_prefix` (default `autosecops`) and `iam_name_prefix` (default
+`AutoSecOps`) name the stack's AWS resources. Stacks created before the
+AutoSecOps rename used `tracecat` / `Tracecat`; set
+`TF_VAR_name_prefix=tracecat` and `TF_VAR_iam_name_prefix=Tracecat` to keep
+them. AWS resource names are immutable, so a prefix change replaces the VPC,
+ALB, ECS cluster, Redis, S3 buckets, IAM roles, and task definition families.
+To migrate, stand up a second stack with the new prefixes, restore the core
+database with `restore_from_snapshot`, `aws s3 sync` the buckets, then cut DNS
+over. See `docs/self-hosting/aws-fargate.mdx`.
 
 ## Useful outputs
 

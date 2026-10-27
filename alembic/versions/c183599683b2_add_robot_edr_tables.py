@@ -1,7 +1,7 @@
 """Add RoboDR robot registry, keys, findings, finding events, ingest batches.
 
 Revision ID: c183599683b2
-Revises: b7d41c9e2a6f
+Revises: 07c9a895bd57
 Create Date: 2026-10-26 10:10:56.669416
 
 Expand-only: creates five new workspace-scoped tables with tenant RLS. The
@@ -20,7 +20,7 @@ from autosecops.db.tenant_rls import (
 )
 
 revision: str = "c183599683b2"
-down_revision: str | None = "b7d41c9e2a6f"
+down_revision: str | None = "07c9a895bd57"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

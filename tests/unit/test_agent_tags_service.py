@@ -10,11 +10,11 @@ from autosecops.agent.tags.service import AgentTagsService
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentTag, AgentTagLink
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
 from autosecops.tags.schemas import TagCreate, TagUpdate
@@ -27,7 +27,7 @@ def _role_with_scopes(scopes: frozenset[str] | None) -> Role:
         user_id=uuid4(),
         organization_id=uuid4(),
         workspace_id=uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=scopes,
     )
 
@@ -261,13 +261,15 @@ async def test_list_tags_invalid_cursor_raises_validation(
     monkeypatch.setattr(service, "_require_preset_in_workspace", AsyncMock())
 
     with pytest.raises(
-        TracecatValidationError, match="Invalid cursor for agent preset tags"
+        AutoSecOpsValidationError, match="Invalid cursor for agent preset tags"
     ):
         await service.list_tags_for_preset_paginated(
             uuid4(), CursorPaginationParams(cursor="invalid")
         )
 
-    with pytest.raises(TracecatValidationError, match="Invalid cursor for agent tags"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Invalid cursor for agent tags"
+    ):
         await service.list_tags_paginated(CursorPaginationParams(cursor="invalid"))
 
 
@@ -294,7 +296,7 @@ async def test_delete_tag_by_id_allows_delete_scope_without_read(
 
 
 @pytest.mark.anyio
-async def test_get_tag_missing_raises_tracecat_not_found(
+async def test_get_tag_missing_raises_autosecops_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Missing tag definitions should surface app-level not-found errors."""
@@ -308,12 +310,12 @@ async def test_get_tag_missing_raises_tracecat_not_found(
     )
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatNotFoundError, match="Agent tag not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Agent tag not found"):
         await service.get_tag(uuid4())
 
 
 @pytest.mark.anyio
-async def test_update_tag_commit_conflict_raises_tracecat_conflict(
+async def test_update_tag_commit_conflict_raises_autosecops_conflict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Commit-time uniqueness races should be translated by the service."""
@@ -335,7 +337,7 @@ async def test_update_tag_commit_conflict_raises_tracecat_conflict(
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
     with pytest.raises(
-        TracecatConflictError, match="Agent tag with slug 'beta' already exists"
+        AutoSecOpsConflictError, match="Agent tag with slug 'beta' already exists"
     ):
         await service.update_tag(tag, TagUpdate(name="beta"))
 
@@ -356,7 +358,7 @@ async def test_list_tags_for_preset_requires_existing_preset(
     )
     monkeypatch.setattr(service, "has_entitlement", AsyncMock(return_value=True))
 
-    with pytest.raises(TracecatNotFoundError, match="Agent preset not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Agent preset not found"):
         await service.list_tags_for_preset(uuid4())
 
     session.execute.assert_not_awaited()

@@ -53,10 +53,10 @@ from autosecops.db.models import (
     Role as DBRole,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import WorkspaceID
 from autosecops.invitations.enums import InvitationStatus
@@ -115,7 +115,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         scope = result.scalar_one_or_none()
         if scope is None:
-            raise TracecatNotFoundError("Scope not found")
+            raise AutoSecOpsNotFoundError("Scope not found")
         return scope
 
     @require_scope("org:rbac:create")
@@ -136,12 +136,12 @@ class RBACService(BaseOrgService):
             Created Scope object
         """
         if not validate_scope_string(name):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Invalid scope name. Must be lowercase with only alphanumeric, "
                 "colon, underscore, dot, dash, and asterisk characters."
             )
         if is_reserved_scope_name(name):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Scope name cannot start with a reserved prefix: "
                 f"{', '.join(sorted(f'{root}:' for root in RESERVED_SCOPE_ROOTS))}, "
                 "or a wildcard that matches one"
@@ -150,7 +150,7 @@ class RBACService(BaseOrgService):
         # Parse resource and action from scope name
         parts = name.rsplit(":", 1)
         if len(parts) != 2:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Scope name must be in format 'resource:action'"
             )
         resource, action = parts
@@ -178,12 +178,12 @@ class RBACService(BaseOrgService):
         scope = await self.get_scope(scope_id)
 
         if scope.source != ScopeSource.CUSTOM:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 f"Cannot delete {scope.source.value} scopes"
             )
 
         if scope.organization_id != self.organization_id:
-            raise TracecatAuthorizationError("Cannot delete scope from another org")
+            raise AutoSecOpsAuthorizationError("Cannot delete scope from another org")
 
         await self.session.delete(scope)
         await self.session.commit()
@@ -220,7 +220,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         role = result.scalar_one_or_none()
         if role is None:
-            raise TracecatNotFoundError("Role not found")
+            raise AutoSecOpsNotFoundError("Role not found")
         return role
 
     @require_scope("org:rbac:create")
@@ -234,7 +234,7 @@ class RBACService(BaseOrgService):
     ) -> DBRole:
         """Create a custom role for the organization."""
         if self.role.user_id is None:
-            raise TracecatAuthorizationError("User ID required to create role")
+            raise AutoSecOpsAuthorizationError("User ID required to create role")
 
         role = DBRole(
             name=name,
@@ -275,7 +275,7 @@ class RBACService(BaseOrgService):
 
         # Preset roles cannot have scopes modified
         if role.slug in PRESET_ROLE_SCOPES and scope_ids is not None:
-            raise TracecatAuthorizationError("Cannot modify scopes of system roles")
+            raise AutoSecOpsAuthorizationError("Cannot modify scopes of system roles")
 
         if name is not None:
             role.name = name
@@ -287,7 +287,7 @@ class RBACService(BaseOrgService):
             if is_org_level_role(scope.name for scope in scopes) != is_org_level_role(
                 scope.name for scope in role.scopes
             ) and await self._role_in_use(role.id):
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     "Remove this role's assignments and pending invitations before switching it between organization and workspace level"
                 )
             await self._write_role_scopes(role.id, scopes)
@@ -308,14 +308,14 @@ class RBACService(BaseOrgService):
 
         # Preset roles cannot be deleted
         if role.slug in PRESET_ROLE_SCOPES:
-            raise TracecatAuthorizationError("Cannot delete system roles")
+            raise AutoSecOpsAuthorizationError("Cannot delete system roles")
 
         # Check if role is in use by any group assignments
         stmt = select(func.count()).where(GroupRoleAssignment.role_id == role_id)
         result = await self.session.execute(stmt)
         group_count = result.scalar() or 0
         if group_count > 0:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete role that is assigned to groups. "
                 "Remove all group assignments first."
             )
@@ -325,13 +325,13 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         user_count = result.scalar() or 0
         if user_count > 0:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete role that is assigned to users. "
                 "Remove all user assignments first."
             )
 
         if await self._role_in_use(role_id):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete role offered in pending invitations. "
                 "Revoke those invitations first."
             )
@@ -348,7 +348,7 @@ class RBACService(BaseOrgService):
         )
         scopes = (await self.session.execute(stmt)).scalars().all()
         if len(scopes) != len(set(scope_ids)):
-            raise TracecatNotFoundError("Scope not found")
+            raise AutoSecOpsNotFoundError("Scope not found")
         await self._ensure_can_grant_scopes(scopes)
         return scopes
 
@@ -385,7 +385,7 @@ class RBACService(BaseOrgService):
         )
         result = await self.session.execute(stmt)
         if result.scalar_one_or_none() is None:
-            raise TracecatNotFoundError("Group not found")
+            raise AutoSecOpsNotFoundError("Group not found")
 
     async def _user_in_organization(self, user_id: UUID) -> bool:
         """Check whether the user holds any role path in the organization."""
@@ -434,7 +434,7 @@ class RBACService(BaseOrgService):
         """Reject hand-editing a group whose membership the provider owns.
 
         Raises:
-            TracecatConflictError: A mapping projects members into the group.
+            AutoSecOpsConflictError: A mapping projects members into the group.
         """
         mapped = await self.session.scalar(
             select(
@@ -447,7 +447,7 @@ class RBACService(BaseOrgService):
             )
         )
         if mapped:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "This group's membership is managed by the identity provider."
             )
 
@@ -479,7 +479,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         group = result.scalar_one_or_none()
         if group is None:
-            raise TracecatNotFoundError("Group not found")
+            raise AutoSecOpsNotFoundError("Group not found")
         return group
 
     @require_scope("org:rbac:create")
@@ -546,7 +546,7 @@ class RBACService(BaseOrgService):
 
         # Verify user belongs to this organization
         if not await self._user_in_organization(user_id):
-            raise TracecatNotFoundError("User not found in organization")
+            raise AutoSecOpsNotFoundError("User not found in organization")
 
         # Check if already a member
         stmt = select(GroupMember).where(
@@ -555,7 +555,7 @@ class RBACService(BaseOrgService):
         )
         result = await self.session.execute(stmt)
         if result.scalar_one_or_none() is not None:
-            raise TracecatValidationError("User is already a member of this group")
+            raise AutoSecOpsValidationError("User is already a member of this group")
 
         member = GroupMember(
             group_id=group_id,
@@ -585,7 +585,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         member = result.scalar_one_or_none()
         if member is None:
-            raise TracecatNotFoundError("Group member not found")
+            raise AutoSecOpsNotFoundError("Group member not found")
 
         await self.session.delete(member)
         await self.session.commit()
@@ -688,7 +688,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         assignment = result.scalar_one_or_none()
         if assignment is None:
-            raise TracecatNotFoundError("Group assignment not found")
+            raise AutoSecOpsNotFoundError("Group assignment not found")
         return assignment
 
     @require_scope("org:rbac:create")
@@ -723,7 +723,7 @@ class RBACService(BaseOrgService):
             )
             result = await self.session.execute(stmt)
             if result.scalar_one_or_none() is None:
-                raise TracecatNotFoundError("Workspace not found")
+                raise AutoSecOpsNotFoundError("Workspace not found")
 
         assignment = GroupRoleAssignment(
             organization_id=self.organization_id,
@@ -828,12 +828,12 @@ class RBACService(BaseOrgService):
                     for a in params.expected_group_assignments
                 }
             ):
-                raise TracecatConflictError("Roles or group access changed")
+                raise AutoSecOpsConflictError("Roles or group access changed")
             if not await self._user_in_organization(params.user_id):
-                raise TracecatNotFoundError("User not found in organization")
+                raise AutoSecOpsNotFoundError("User not found in organization")
             desired = {a.workspace_id: a.role_id for a in params.assignments}
             if len(desired) != len(params.assignments):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Only one direct role per scope is allowed"
                 )
             existing = {a.workspace_id: a for a in current}
@@ -862,7 +862,7 @@ class RBACService(BaseOrgService):
                     )
                     is None
                 ):
-                    raise TracecatNotFoundError("Workspace not found")
+                    raise AutoSecOpsNotFoundError("Workspace not found")
             for scope, role_id in changed.items():
                 if scope in existing:
                     existing[scope].role_id = role_id
@@ -913,7 +913,7 @@ class RBACService(BaseOrgService):
         result = await self.session.execute(stmt)
         assignment = result.scalar_one_or_none()
         if assignment is None:
-            raise TracecatNotFoundError("User role assignment not found")
+            raise AutoSecOpsNotFoundError("User role assignment not found")
         return assignment
 
     @require_scope("org:rbac:create")
@@ -938,7 +938,7 @@ class RBACService(BaseOrgService):
         await lock_role_changes(self.session, self.organization_id)
         # Verify user belongs to this organization
         if not await self._user_in_organization(user_id):
-            raise TracecatNotFoundError("User not found in organization")
+            raise AutoSecOpsNotFoundError("User not found in organization")
 
         # Verify role exists
         await self._ensure_role_assignable(role_id, workspace_id)
@@ -951,7 +951,7 @@ class RBACService(BaseOrgService):
             )
             result = await self.session.execute(stmt)
             if result.scalar_one_or_none() is None:
-                raise TracecatNotFoundError("Workspace not found")
+                raise AutoSecOpsNotFoundError("Workspace not found")
 
         assignment = UserRoleAssignment(
             organization_id=self.organization_id,
@@ -970,7 +970,7 @@ class RBACService(BaseOrgService):
             await self.session.commit()
         except IntegrityError as e:
             await self.session.rollback()
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "User already has an assignment for this workspace"
             ) from e
         await self.session.refresh(assignment, ["user", "role", "workspace"])

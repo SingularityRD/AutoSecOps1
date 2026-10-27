@@ -63,8 +63,8 @@ def test_docs_assets_are_same_origin_and_allowed_by_csp(
     # Pinned versions only, never floating npm tags such as `@5`.
     asset_urls = {asset.url for asset in DOCS_ASSETS}
     for url in scripts | stylesheets:
-        assert url.startswith(config.TRACECAT__API_ROOT_PATH.rstrip("/") + "/"), url
-        app_url = url.removeprefix(config.TRACECAT__API_ROOT_PATH.rstrip("/"))
+        assert url.startswith(config.AUTOSECOPS__API_ROOT_PATH.rstrip("/") + "/"), url
+        app_url = url.removeprefix(config.AUTOSECOPS__API_ROOT_PATH.rstrip("/"))
         assert app_url in asset_urls, url
         assert re.search(r"@\d+\.\d+\.\d+/", url), url
         asset = client.get(app_url)
@@ -121,7 +121,7 @@ def test_docs_load_openapi_from_root_path(
     monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
     """Behind Caddy's `/api` prefix the page must fetch `<root>/openapi.json`."""
-    monkeypatch.setattr(config, "TRACECAT__API_ROOT_PATH", "/api")
+    monkeypatch.setattr(config, "AUTOSECOPS__API_ROOT_PATH", "/api")
     app = create_app()
     html = TestClient(app).get(path).text
 

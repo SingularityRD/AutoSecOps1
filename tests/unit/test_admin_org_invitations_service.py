@@ -24,7 +24,7 @@ from autosecops.db.models import (
     UserRoleAssignment,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatConflictError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.service import RESEND_COOLDOWN, accept_invitation_for_user
 from autosecops.pagination import CursorPaginationParams
@@ -86,7 +86,7 @@ async def platform_role(platform_admin: User) -> PlatformRole:
     return PlatformRole(
         type="user",
         user_id=platform_admin.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -133,7 +133,7 @@ async def test_create_organization_invitation_rejects_duplicate_pending_invite(
     await service.create_organization_invitation(org.id, params)
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="An invitation already exists for duplicate@example.com",
     ):
         await service.create_organization_invitation(org.id, params)
@@ -174,7 +174,7 @@ async def test_create_organization_invitation_rejects_existing_member(
 
     service = AdminOrgService(session, platform_role)
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="member@example.com is already a member",
     ):
         await service.create_organization_invitation(
@@ -370,7 +370,7 @@ async def test_list_organization_invitations_rejects_invalid_cursor(
     service = AdminOrgService(session, platform_role)
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="Invalid cursor for organization invitations",
     ):
         await service.list_organization_invitations(
@@ -458,7 +458,7 @@ async def test_revoke_organization_invitation_only_revokes_pending_platform_invi
     with pytest.raises(NoResultFound):
         await service.revoke_organization_invitation(org.id, tenant_invitation.id)
 
-    with pytest.raises(TracecatValidationError, match="Cannot revoke invitation"):
+    with pytest.raises(AutoSecOpsValidationError, match="Cannot revoke invitation"):
         await service.revoke_organization_invitation(org.id, platform_invitation.id)
 
 
@@ -519,7 +519,7 @@ async def test_resend_organization_invitation_rejects_unknown_and_non_pending(
     )
     await service.revoke_organization_invitation(org.id, invitation.id)
 
-    with pytest.raises(TracecatValidationError, match="Cannot resend invitation"):
+    with pytest.raises(AutoSecOpsValidationError, match="Cannot resend invitation"):
         await service.resend_organization_invitation(org.id, invitation.id)
 
 
@@ -538,7 +538,7 @@ async def test_resend_organization_invitation_requires_email_delivery(
     )
 
     with pytest.raises(
-        TracecatValidationError, match="Email delivery is not configured"
+        AutoSecOpsValidationError, match="Email delivery is not configured"
     ):
         await service.resend_organization_invitation(org.id, invitation.id)
 
@@ -563,7 +563,7 @@ async def test_resend_organization_invitation_enforces_cooldown(
 
     db_invitation.email_claimed_at = datetime.now(UTC) - (RESEND_COOLDOWN / 2)
     await session.commit()
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await service.resend_organization_invitation(org.id, invitation.id)
 
     db_invitation.email_claimed_at = datetime.now(UTC) - (

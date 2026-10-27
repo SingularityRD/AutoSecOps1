@@ -2,17 +2,17 @@
 
 import type { RegistryRepositoryReadMinimal } from "@/client"
 
-const TRACECAT_REGISTRY_ORIGIN = "autosecops_registry"
+const AUTOSECOPS_REGISTRY_ORIGIN = "autosecops_registry"
 
 export function isCustomRegistryOrigin(origin: string): boolean {
   return origin.startsWith("git+ssh://")
 }
 
-export function isTracecatRegistryOrigin(
+export function isAutoSecOpsRegistryOrigin(
   origin: string,
   platformOrigins: ReadonlySet<string>
 ): boolean {
-  return platformOrigins.has(origin) || origin === TRACECAT_REGISTRY_ORIGIN
+  return platformOrigins.has(origin) || origin === AUTOSECOPS_REGISTRY_ORIGIN
 }
 
 export function shortCommitSha(commitSha: string | null | undefined): string {
@@ -31,7 +31,7 @@ export function getRegistryOriginLabel(params: {
 }): string {
   const { origin, platformOrigins, customOrigin } = params
 
-  if (isTracecatRegistryOrigin(origin, platformOrigins)) {
+  if (isAutoSecOpsRegistryOrigin(origin, platformOrigins)) {
     return "AutoSecOps"
   }
 

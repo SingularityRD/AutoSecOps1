@@ -138,13 +138,13 @@ from autosecops.db.models import (
 )
 from autosecops.db.session_events import AfterCommitQueue
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatException,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.expressions.expectations import (
     ExpectedField,
@@ -232,8 +232,8 @@ class CasesService(BaseWorkspaceService):
         UUIDs are returned as-is without a database lookup.
 
         Raises:
-            TracecatValidationError: If the reference is neither a UUID nor a short ID.
-            TracecatNotFoundError: If no case in this workspace has the short ID.
+            AutoSecOpsValidationError: If the reference is neither a UUID nor a short ID.
+            AutoSecOpsNotFoundError: If no case in this workspace has the short ID.
         """
         if isinstance(case_ref, uuid.UUID):
             return case_ref
@@ -243,7 +243,7 @@ class CasesService(BaseWorkspaceService):
             pass
         case_number = parse_case_short_id(case_ref)
         if case_number is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Case ID must be a UUID or a short ID like CASE-0042"
             )
         case_id = await self.session.scalar(
@@ -253,7 +253,7 @@ class CasesService(BaseWorkspaceService):
             )
         )
         if case_id is None:
-            raise TracecatNotFoundError(f"Case {case_ref} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case_ref} not found")
         return case_id
 
     @require_scope("case:read")
@@ -288,7 +288,7 @@ class CasesService(BaseWorkspaceService):
         for field in requested_fields:
             resolved = resolver.resolve_aggregation(field)
             if resolved is None:
-                raise TracecatValidationError(f"Unknown aggregation field {field!r}")
+                raise AutoSecOpsValidationError(f"Unknown aggregation field {field!r}")
             resolved_fields[field] = resolved.field
             if (join := resolved.join) is not None and join.key not in joined:
                 statement = statement.join(
@@ -571,7 +571,7 @@ class CasesService(BaseWorkspaceService):
             Tuple containing the case and its fields (or None if no fields exist)
 
         Raises:
-            TracecatNotFoundError: If the case doesn't exist
+            AutoSecOpsNotFoundError: If the case doesn't exist
         """
         statement = (
             select(Case)
@@ -618,7 +618,7 @@ class CasesService(BaseWorkspaceService):
             .returning(Workspace.last_case_number)
         )
         if next_case_number is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
         case.case_number = next_case_number
         await self.session.flush()
 
@@ -740,7 +740,7 @@ class CasesService(BaseWorkspaceService):
             pending_dropdown_values: Dropdown values from the update request.
 
         Raises:
-            TracecatValidationError: If any required field or dropdown is empty.
+            AutoSecOpsValidationError: If any required field or dropdown is empty.
         """
         if not await self.has_entitlement(Entitlement.CASE_ADDONS):
             return
@@ -812,7 +812,7 @@ class CasesService(BaseWorkspaceService):
                     "missing_dropdowns": missing_dropdowns,
                 }
             ).decode()
-            raise TracecatValidationError(detail)
+            raise AutoSecOpsValidationError(detail)
 
     @require_scope("case:update")
     @audit_log(resource_type="case", action="update")
@@ -835,7 +835,7 @@ class CasesService(BaseWorkspaceService):
             Updated case with fields
 
         Raises:
-            TracecatNotFoundError: If the case has no fields when trying to update fields
+            AutoSecOpsNotFoundError: If the case has no fields when trying to update fields
         """
 
         try:
@@ -872,14 +872,14 @@ class CasesService(BaseWorkspaceService):
         """Restore one scoped field version through the normal update transaction."""
         case = (await self._lock_cases([case_id])).get(case_id)
         if case is None:
-            raise TracecatNotFoundError(f"Case '{case_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Case '{case_id}' not found")
 
         version = await self.versions.get_version(
             case_id=case_id,
             version_id=version_id,
         )
         if version is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Case version '{version_id}' not found for case '{case_id}'"
             )
 
@@ -1144,7 +1144,7 @@ class CasesService(BaseWorkspaceService):
                     getattr(exc.orig, "sqlstate", None)
                     == CASE_BATCH_LOCK_NOT_AVAILABLE_SQLSTATE
                 ):
-                    raise TracecatConflictError(
+                    raise AutoSecOpsConflictError(
                         f"Timed out waiting to lock cases for batch {action}"
                     ) from exc
                 raise
@@ -1208,7 +1208,11 @@ class CasesService(BaseWorkspaceService):
                 with queue.checkpointed():
                     async with self.session.begin_nested():
                         await apply(case)
-            except (TracecatNotFoundError, TracecatValidationError, ValueError) as exc:
+            except (
+                AutoSecOpsNotFoundError,
+                AutoSecOpsValidationError,
+                ValueError,
+            ) as exc:
                 error = str(exc)
             except DBAPIError:
                 error = "Database operation failed"
@@ -1287,9 +1291,9 @@ class CasesService(BaseWorkspaceService):
         another parent are moved.
 
         Raises:
-            TracecatNotFoundError: If the parent case does not exist.
-            TracecatValidationError: If the parent case is itself a sub-case.
-            TracecatConflictError: If the cases cannot be locked in time.
+            AutoSecOpsNotFoundError: If the parent case does not exist.
+            AutoSecOpsValidationError: If the parent case is itself a sub-case.
+            AutoSecOpsConflictError: If the cases cannot be locked in time.
         """
         return await self._change_parent(case_ids, parent_id)
 
@@ -1714,7 +1718,7 @@ class CaseFieldsService(CustomFieldsService):
             The row ID for the case's field values
 
         Raises:
-            TracecatException: If the row could not be created or retrieved
+            AutoSecOpsException: If the row could not be created or retrieved
         """
         await self._ensure_schema_ready()
         table = self._table_definition()
@@ -1733,7 +1737,7 @@ class CaseFieldsService(CustomFieldsService):
         inserted_id = result.scalar_one_or_none()
 
         if inserted_id is None:
-            raise TracecatException(
+            raise AutoSecOpsException(
                 "Failed to ensure case fields workspace row for the given case."
             )
 
@@ -1816,11 +1820,11 @@ class CaseFieldsService(CustomFieldsService):
             Dictionary containing the updated row data
 
         Raises:
-            TracecatException: If the case has no workspace or if field operations fail
-            TracecatNotFoundError: If the row is not found after ensuring it exists
+            AutoSecOpsException: If the case has no workspace or if field operations fail
+            AutoSecOpsNotFoundError: If the row is not found after ensuring it exists
         """
         if case.workspace_id is None:
-            raise TracecatException(
+            raise AutoSecOpsException(
                 "Cannot upsert case fields without an owning workspace."
             )
         for field_name in fields:
@@ -1836,9 +1840,9 @@ class CaseFieldsService(CustomFieldsService):
                 await self.session.flush()
                 return res
             return await self.editor.get_row(row_id=row_id)
-        except TracecatValidationError:
+        except AutoSecOpsValidationError:
             raise
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             self.logger.error(
                 "Case fields row not found after upsert",
                 row_id=row_id,
@@ -1850,7 +1854,7 @@ class CaseFieldsService(CustomFieldsService):
             field_info = (
                 f" Fields attempted: {', '.join(field_names)}." if field_names else ""
             )
-            raise TracecatException(
+            raise AutoSecOpsException(
                 "Failed to save custom field values for case. The field row was upserted but could not be updated."
                 f"{field_info} Please verify all custom fields exist in Settings > Cases > Custom Fields and have correct data types."
             ) from e
@@ -1858,10 +1862,10 @@ class CaseFieldsService(CustomFieldsService):
             while cause := e.__cause__:
                 e = cause
             if isinstance(e, UndefinedColumnError):
-                raise TracecatException(
+                raise AutoSecOpsException(
                     "Failed to create case fields. One or more custom fields do not exist. Please ensure these fields have been created and try again."
                 ) from e
-            raise TracecatException(
+            raise AutoSecOpsException(
                 "Failed to create case fields due to an unexpected error."
             ) from e
 
@@ -1885,7 +1889,7 @@ class CaseCommentsService(BaseWorkspaceService):
         )
         result = await self.session.execute(statement)
         if (case := result.scalar_one_or_none()) is None:
-            raise TracecatNotFoundError(f"Case {case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case_id} not found")
         return case
 
     def _thread_root_id(
@@ -2020,11 +2024,11 @@ class CaseCommentsService(BaseWorkspaceService):
             )
         )
         if (workflow := result.scalar_one_or_none()) is None:
-            raise TracecatValidationError("Workflow not found")
+            raise AutoSecOpsValidationError("Workflow not found")
         # Publishing sets the version; the trigger consumer fails the comment
         # when the workflow has no definition, so reject drafts up front.
         if workflow.version is None:
-            raise TracecatValidationError("Workflow is not published")
+            raise AutoSecOpsValidationError("Workflow is not published")
         return workflow
 
     async def _audit_workflow_execution_event(
@@ -2415,13 +2419,15 @@ class CaseCommentsService(BaseWorkspaceService):
         if parent_id is None:
             return
         if (parent := await self.get_comment(parent_id)) is None:
-            raise TracecatValidationError("Parent comment not found")
+            raise AutoSecOpsValidationError("Parent comment not found")
         if parent.case_id != case.id or parent.workspace_id != self.workspace_id:
-            raise TracecatValidationError("Parent comment must belong to the same case")
+            raise AutoSecOpsValidationError(
+                "Parent comment must belong to the same case"
+            )
         if parent.parent_id is not None:
-            raise TracecatValidationError("Replies cannot have replies")
+            raise AutoSecOpsValidationError("Replies cannot have replies")
         if parent.deleted_at is not None:
-            raise TracecatValidationError("Cannot reply to a deleted comment")
+            raise AutoSecOpsValidationError("Cannot reply to a deleted comment")
 
     async def _comment_has_replies(self, comment_id: uuid.UUID) -> bool:
         """Check whether a comment has replies."""
@@ -2691,8 +2697,8 @@ class CaseCommentsService(BaseWorkspaceService):
             The updated comment
 
         Raises:
-            TracecatNotFoundError: If the comment doesn't exist
-            TracecatAuthorizationError: If the user doesn't own the comment
+            AutoSecOpsNotFoundError: If the comment doesn't exist
+            AutoSecOpsAuthorizationError: If the user doesn't own the comment
         """
         audit_data = self._comment_audit_data(
             case_id=comment.case_id,
@@ -2708,15 +2714,15 @@ class CaseCommentsService(BaseWorkspaceService):
 
         try:
             if self.role.user_id is None or comment.user_id != self.role.user_id:
-                raise TracecatAuthorizationError("You cannot update this comment")
+                raise AutoSecOpsAuthorizationError("You cannot update this comment")
             if comment.deleted_at is not None:
-                raise TracecatValidationError("Deleted comments cannot be updated")
+                raise AutoSecOpsValidationError("Deleted comments cannot be updated")
             if comment.workflow_id is not None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Workflow-backed comments cannot be edited"
                 )
             if "parent_id" in params.model_fields_set:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Changing a comment parent is not supported"
                 )
             if "content" not in params.model_fields_set:
@@ -2728,7 +2734,7 @@ class CaseCommentsService(BaseWorkspaceService):
                 )
                 return comment
             if params.content is None:
-                raise TracecatValidationError("Comment content is required")
+                raise AutoSecOpsValidationError("Comment content is required")
             comment.content = params.content
             comment.last_edited_at = datetime.now(UTC)
             case = await self._get_case(comment.case_id)
@@ -2770,12 +2776,12 @@ class CaseCommentsService(BaseWorkspaceService):
             comment_id: The ID of the comment to delete
 
         Raises:
-            TracecatNotFoundError: If the comment doesn't exist
-            TracecatAuthorizationError: If the user doesn't own the comment
+            AutoSecOpsNotFoundError: If the comment doesn't exist
+            AutoSecOpsAuthorizationError: If the user doesn't own the comment
         """
 
         if self.role.user_id is None or comment.user_id != self.role.user_id:
-            raise TracecatAuthorizationError("You can only delete your own comments")
+            raise AutoSecOpsAuthorizationError("You can only delete your own comments")
 
         has_replies = comment.parent_id is None and await self._comment_has_replies(
             comment.id
@@ -2889,7 +2895,7 @@ class CaseTasksService(BaseWorkspaceService):
             The task
 
         Raises:
-            TracecatNotFoundError: If the task is not found
+            AutoSecOpsNotFoundError: If the task is not found
         """
         statement = select(CaseTask).where(
             CaseTask.workspace_id == self.workspace_id,
@@ -2898,7 +2904,7 @@ class CaseTasksService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         task = result.scalars().first()
         if not task:
-            raise TracecatNotFoundError(f"Task {task_id} not found")
+            raise AutoSecOpsNotFoundError(f"Task {task_id} not found")
         return task
 
     async def _validate_default_trigger_values(
@@ -2913,12 +2919,12 @@ class CaseTasksService(BaseWorkspaceService):
             default_trigger_values: The trigger values to validate
 
         Raises:
-            TracecatNotFoundError: If the workflow is not found
-            TracecatValidationError: If values don't match schema
+            AutoSecOpsNotFoundError: If the workflow is not found
+            AutoSecOpsValidationError: If values don't match schema
         """
 
         if not workflow_id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot set default_trigger_values without a workflow_id"
             )
         # Fetch workflow
@@ -2930,7 +2936,7 @@ class CaseTasksService(BaseWorkspaceService):
         workflow = result.scalars().first()
 
         if not workflow:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
         # Skip validation if workflow has no expects schema
         if not workflow.expects:
@@ -2948,7 +2954,7 @@ class CaseTasksService(BaseWorkspaceService):
         try:
             validator(**default_trigger_values)
         except ValidationError as e:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Invalid default_trigger_values for workflow '{workflow.title}': {e}"
             ) from e
 
@@ -2965,7 +2971,7 @@ class CaseTasksService(BaseWorkspaceService):
             The created task
 
         Raises:
-            TracecatNotFoundError: If the case is not found in the current workspace
+            AutoSecOpsNotFoundError: If the case is not found in the current workspace
         """
         statement = select(Case).where(
             Case.workspace_id == self.workspace_id,
@@ -2974,7 +2980,7 @@ class CaseTasksService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         case = result.scalars().first()
         if not case:
-            raise TracecatNotFoundError(f"Case {case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {case_id} not found")
 
         # Convert workflow_id from AnyWorkflowID to UUID
         workflow_uuid = (
@@ -3037,7 +3043,7 @@ class CaseTasksService(BaseWorkspaceService):
             The updated task
 
         Raises:
-            TracecatNotFoundError: If the task is not found
+            AutoSecOpsNotFoundError: If the task is not found
         """
         task = await self.get_task(task_id)
 
@@ -3049,7 +3055,7 @@ class CaseTasksService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         case = result.scalars().first()
         if not case:
-            raise TracecatNotFoundError(f"Case {task.case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {task.case_id} not found")
 
         run_ctx = ctx_run.get()
         wf_exec_id = run_ctx.wf_exec_id if run_ctx else None
@@ -3176,7 +3182,7 @@ class CaseTasksService(BaseWorkspaceService):
             task_id: The ID of the task to delete
 
         Raises:
-            TracecatNotFoundError: If the task is not found
+            AutoSecOpsNotFoundError: If the task is not found
         """
         task = await self.get_task(task_id)
 
@@ -3188,7 +3194,7 @@ class CaseTasksService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         case = result.scalars().first()
         if not case:
-            raise TracecatNotFoundError(f"Case {task.case_id} not found")
+            raise AutoSecOpsNotFoundError(f"Case {task.case_id} not found")
 
         run_ctx = ctx_run.get()
         wf_exec_id = run_ctx.wf_exec_id if run_ctx else None

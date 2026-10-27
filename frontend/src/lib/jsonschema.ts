@@ -2,16 +2,16 @@ import type { JSONSchema7 } from "json-schema"
 import { z } from "zod"
 
 import {
-  TRACECAT_COMPONENT_KEY,
-  type TracecatJsonSchema,
-  type TracecatJsonSchemaDefinition,
-  type TracecatJsonSchemaType,
+  AUTOSECOPS_COMPONENT_KEY,
+  type AutoSecOpsJsonSchema,
+  type AutoSecOpsJsonSchemaDefinition,
+  type AutoSecOpsJsonSchemaType,
 } from "@/lib/schema"
 
 export interface JSONSchemaParam {
   parameter: string
   type: string
-  default: TracecatJsonSchemaType
+  default: AutoSecOpsJsonSchemaType
   description: string
   constraints: string
   required: boolean
@@ -20,14 +20,14 @@ export interface JSONSchemaParam {
 }
 
 export function jsonSchemaToParams(
-  schema: TracecatJsonSchema
+  schema: AutoSecOpsJsonSchema
 ): JSONSchemaParam[] {
   const properties = schema.properties || {}
   const required = schema.required || []
 
   const rows: JSONSchemaParam[] = Object.entries(properties).map(
     ([key, value]) => {
-      const jsonSchemaValue = value as TracecatJsonSchema
+      const jsonSchemaValue = value as AutoSecOpsJsonSchema
       const { default: defaultValue, description } = jsonSchemaValue
       return {
         parameter: key,
@@ -38,14 +38,14 @@ export function jsonSchemaToParams(
         required: required.includes(key),
         deprecated: jsonSchemaValue.deprecated === true,
         deprecationMessage:
-          jsonSchemaValue["x-tracecat-deprecation-message"] ?? "",
+          jsonSchemaValue["x-autosecops-deprecation-message"] ?? "",
       }
     }
   )
   return rows
 }
 
-export function getType(value: TracecatJsonSchema): string {
+export function getType(value: AutoSecOpsJsonSchema): string {
   // Handle anyOf
   if (value.anyOf) {
     return value.anyOf.map((item) => getTypeFromDefinition(item)).join(" | ")
@@ -77,7 +77,7 @@ export function getType(value: TracecatJsonSchema): string {
 
 // Helper function to get type from JSONSchema7Definition
 function getTypeFromDefinition(
-  definition: TracecatJsonSchemaDefinition
+  definition: AutoSecOpsJsonSchemaDefinition
 ): string {
   if (typeof definition === "boolean") {
     throw new Error("Boolean type not supported")
@@ -85,7 +85,7 @@ function getTypeFromDefinition(
   return getType(definition)
 }
 
-export function getConstraints(value: TracecatJsonSchema): string {
+export function getConstraints(value: AutoSecOpsJsonSchema): string {
   const constraints = []
 
   // Exclude these standard keys from constraints
@@ -96,17 +96,17 @@ export function getConstraints(value: TracecatJsonSchema): string {
     "title",
     "anyOf",
     "deprecated",
-    "x-tracecat-deprecation-message",
-    TRACECAT_COMPONENT_KEY,
+    "x-autosecops-deprecation-message",
+    AUTOSECOPS_COMPONENT_KEY,
   ]
 
   // Iterate through the keys of the value object
   for (const key in value) {
     if (excludeKeys.includes(key)) continue
-    const cons = value[key as keyof TracecatJsonSchema]
+    const cons = value[key as keyof AutoSecOpsJsonSchema]
     if (key === "additionalProperties") {
       constraints.push(
-        `additionalProperties: ${getType(cons as TracecatJsonSchema)}`
+        `additionalProperties: ${getType(cons as AutoSecOpsJsonSchema)}`
       )
     } else if (Array.isArray(cons)) {
       constraints.push(
@@ -188,7 +188,9 @@ export function jsonSchemaToZod(schema: JSONSchema7): z.ZodTypeAny {
 
       case "array":
         if (schema.items) {
-          const itemSchema = jsonSchemaToZod(schema.items as TracecatJsonSchema)
+          const itemSchema = jsonSchemaToZod(
+            schema.items as AutoSecOpsJsonSchema
+          )
           return z.array(itemSchema)
         }
         return z.array(z.unknown())
@@ -200,7 +202,7 @@ export function jsonSchemaToZod(schema: JSONSchema7): z.ZodTypeAny {
 
           Object.entries(schema.properties).forEach(([key, prop]) => {
             if (typeof prop === "boolean") return
-            let fieldSchema = jsonSchemaToZod(prop as TracecatJsonSchema)
+            let fieldSchema = jsonSchemaToZod(prop as AutoSecOpsJsonSchema)
 
             // Make optional if not required
             if (!required.includes(key)) {

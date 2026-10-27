@@ -13,7 +13,7 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import autosecops.agent.service as agent_service
-from autosecops import config as tracecat_config
+from autosecops import config as autosecops_config
 from autosecops.agent.bedrock import BedrockDiscoveredModel, BedrockError
 from autosecops.agent.catalog.service import AgentCatalogService
 from autosecops.agent.config import PROVIDER_CREDENTIAL_CONFIGS
@@ -32,7 +32,7 @@ from autosecops.db.models import (
     Secret,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.integrations.aws_assume_role import build_workspace_external_id
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.encryption import encrypt_keyvalues
@@ -45,7 +45,7 @@ from autosecops.secrets.types import ExternalSecretReference
 def role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -59,7 +59,9 @@ async def test_workspace_provider_credentials_resolve_source_and_preserve_fallba
     role: Role, monkeypatch: pytest.MonkeyPatch, source: str
 ) -> None:
     encryption_key = Fernet.generate_key().decode()
-    monkeypatch.setattr(tracecat_config, "TRACECAT__DB_ENCRYPTION_KEY", encryption_key)
+    monkeypatch.setattr(
+        autosecops_config, "AUTOSECOPS__DB_ENCRYPTION_KEY", encryption_key
+    )
     service = AgentManagementService(AsyncMock(), role=role)
     secret = Secret(
         id=uuid.uuid4(),
@@ -127,7 +129,7 @@ def _db_role(org: Organization, workspace: Workspace | None = None) -> Role:
         user_id=uuid.uuid4(),
         workspace_id=workspace.id if workspace is not None else None,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )
 
@@ -201,7 +203,7 @@ async def _grant_access(
 @pytest.fixture
 def encryption_key(monkeypatch: pytest.MonkeyPatch) -> str:
     key = Fernet.generate_key().decode()
-    monkeypatch.setattr(tracecat_config, "TRACECAT__DB_ENCRYPTION_KEY", key)
+    monkeypatch.setattr(autosecops_config, "AUTOSECOPS__DB_ENCRYPTION_KEY", key)
     return key
 
 
@@ -293,7 +295,7 @@ async def test_get_catalog_credentials_respects_workspace_override_access(
 
     service = _db_service(session, svc_organization, svc_workspace)
 
-    with pytest.raises(agent_service.TracecatAuthorizationError):
+    with pytest.raises(agent_service.AutoSecOpsAuthorizationError):
         await service.get_catalog_credentials(inherited_catalog.id)
     credentials = await service.get_catalog_credentials(workspace_catalog.id)
     assert credentials == {"ANTHROPIC_API_KEY": "live-anthropic"}
@@ -594,7 +596,7 @@ async def test_load_custom_model_provider_creds_requires_catalog_access(
 
     service = _db_service(session, svc_organization, svc_workspace)
 
-    with pytest.raises(agent_service.TracecatAuthorizationError):
+    with pytest.raises(agent_service.AutoSecOpsAuthorizationError):
         await _load_custom_model_provider_creds(
             service,
             catalog_id=catalog.id,
@@ -869,7 +871,7 @@ async def test_get_runtime_provider_credentials_injects_bedrock_external_id(
     credentials = await service.get_runtime_provider_credentials("bedrock")
 
     assert credentials is not None
-    assert credentials["TRACECAT_AWS_EXTERNAL_ID"] == build_workspace_external_id(
+    assert credentials["AUTOSECOPS_AWS_EXTERNAL_ID"] == build_workspace_external_id(
         role.workspace_id
     )
 
@@ -889,7 +891,7 @@ async def test_with_model_config_injects_bedrock_external_id(role: Role) -> None
             "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role",
             "AWS_REGION": "us-east-1",
             "AWS_INFERENCE_PROFILE_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-            "TRACECAT_AWS_EXTERNAL_ID": external_id,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": external_id,
         }
     )
     catalog_row = SimpleNamespace(
@@ -902,16 +904,16 @@ async def test_with_model_config_injects_bedrock_external_id(role: Role) -> None
         return_value=SimpleNamespace(scalar_one=lambda: catalog_row)
     )
 
-    assert registry_secrets.get_or_default("TRACECAT_AWS_EXTERNAL_ID") is None
-    assert secrets_manager.get("TRACECAT_AWS_EXTERNAL_ID") is None
+    assert registry_secrets.get_or_default("AUTOSECOPS_AWS_EXTERNAL_ID") is None
+    assert secrets_manager.get("AUTOSECOPS_AWS_EXTERNAL_ID") is None
 
     async with service.with_model_config() as model_config:
         assert model_config.name == "us.anthropic.claude-sonnet-4-20250514-v1:0"
-        assert registry_secrets.get("TRACECAT_AWS_EXTERNAL_ID") == external_id
-        assert secrets_manager.get("TRACECAT_AWS_EXTERNAL_ID") == external_id
+        assert registry_secrets.get("AUTOSECOPS_AWS_EXTERNAL_ID") == external_id
+        assert secrets_manager.get("AUTOSECOPS_AWS_EXTERNAL_ID") == external_id
 
-    assert registry_secrets.get_or_default("TRACECAT_AWS_EXTERNAL_ID") is None
-    assert secrets_manager.get("TRACECAT_AWS_EXTERNAL_ID") is None
+    assert registry_secrets.get_or_default("AUTOSECOPS_AWS_EXTERNAL_ID") is None
+    assert secrets_manager.get("AUTOSECOPS_AWS_EXTERNAL_ID") is None
 
 
 @pytest.mark.parametrize(
@@ -1077,7 +1079,7 @@ async def test_refresh_bedrock_catalog_requires_credentials(role: Role) -> None:
     service = AgentManagementService(AsyncMock(), role=role)
     service.get_provider_credentials = AsyncMock(return_value=None)
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.refresh_bedrock_catalog()
 
 

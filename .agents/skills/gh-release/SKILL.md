@@ -52,6 +52,32 @@ Verify the selected branch contains the stable-only image guard and the current
 release workflow before cutting its tag; old train branches may need those
 changes cherry-picked first.
 
+## License signing key
+
+Release builds must verify licenses with SingularityRD's production public key,
+not the development key committed for local work and tests. The image and Helm
+chart publish workflows run `python3 scripts/check_license_public_key.py` for
+release tags and fail while `autosecops/licensing/keys.py` still embeds the
+development key. The API also logs an error at startup when it runs with the
+development key.
+
+Never generate, request, or commit a production private key yourself. If the
+check fails, stop and ask the key owner to rotate the key:
+
+1. On an offline machine, generate the pair with the repo's license tool:
+   `uv run python scripts/license_tool.py keygen --out-dir <offline-dir>`.
+2. Keep `license-private.pem` offline. It never enters the repository, CI,
+   chat, or a shared machine.
+3. Replace `LICENSE_PUBLIC_KEY_PEM` in `autosecops/licensing/keys.py` with the
+   printed public key. Leave `DEVELOPMENT_PUBLIC_KEY_SHA256` unchanged so the
+   guard keeps recognizing the development key.
+4. Land that change on `main` through a reviewed PR, then cherry-pick it onto
+   the release branch.
+5. Issue customer licenses with the new private key
+   (`scripts/license_tool.py issue`). Rotating the key invalidates every
+   license signed with the previous key, and tokens signed with the
+   development key never verify on release builds.
+
 ## Preflight and confirmation
 
 Fetch branches and tags, inspect the working tree, and verify the public tag is
@@ -114,8 +140,10 @@ Create or switch to `BRANCH` at the verified commit. Run
 approved release. It writes the public tag to `__version__` and its PEP 440
 value to `__pep440_version__` (for example, `1.2.0-alpha.1` becomes `1.2.0a1`,
 and `1.2.0-alpha.1.2` becomes `1.2.0a1.post2`).
-Verify both application and registry versions agree, and validate the Python
-version with `packaging.version.Version` through `uv run python`.
+Verify both application and registry versions agree, that
+`deployments/helm/autosecops/Chart.yaml` has `version` and `appVersion` equal
+to the tag, and validate the Python version with `packaging.version.Version`
+through `uv run python`.
 
 Review the generated diff and, for a patch, repeat the migration gate against
 the final release tree (including all version-bump edits) before committing or
@@ -234,8 +262,20 @@ gh release create '<tag>' --verify-tag --prerelease --latest=false \
 Run only the command for the approved release type. If the range contains no
 changes, state `No changes since <PREV_TAG>.` rather than reusing older notes.
 
+Publishing the release triggers `.github/workflows/publish-helm-chart.yml`.
+Find the run whose `headSha` matches the release commit, watch it to success,
+and verify the chart:
+
+```sh
+helm show chart oci://ghcr.io/singularityrd/charts/autosecops --version '<tag>'
+```
+
+`version` and `appVersion` must both equal the tag. If the run fails, report
+it; the workflow never overwrites a published chart version, so a trusted
+actor can rerun it or dispatch it from the tag ref with the tag as input.
+
 Report the branch, immutable tag/commit, GitHub release URL, image-build run,
-and manifest verification. Never delete the alpha-line or train branch,
+manifest verification, and chart publish run. Never delete the alpha-line or train branch,
 force-push, amend existing release commits, or deploy as part of this skill.
 If signing or a publication step fails, stop and report the concrete state
 before attempting further external mutations.

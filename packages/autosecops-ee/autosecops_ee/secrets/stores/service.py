@@ -19,7 +19,7 @@ from autosecops.db.models import (
     WorkspaceSecretStoreAuthorization,
 )
 from autosecops.db.rls import set_rls_context, set_rls_context_from_role
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.identifiers import WorkspaceID
 from autosecops.pagination import Page, PageParams, paginate
 from autosecops.secrets.schemas import (
@@ -69,7 +69,7 @@ class SecretStoresService(BaseOrgService):
         result = await self.session.execute(stmt)
         store = result.scalar_one_or_none()
         if store is None:
-            raise TracecatNotFoundError("Secret store not found")
+            raise AutoSecOpsNotFoundError("Secret store not found")
         return store
 
     async def count_references(
@@ -201,7 +201,7 @@ class SecretStoresService(BaseOrgService):
             if config.region != current.region and await self._has_arn_references(
                 store.id
             ):
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     "Update or remove secrets that reference this store by ARN"
                     " before changing its region."
                 )
@@ -224,7 +224,7 @@ class SecretStoresService(BaseOrgService):
         """Delete a store. Rejected while workspace secrets still reference it."""
         counts = await self.count_references([store.id])
         if reference_count := counts.get(store.id, 0):
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 f"Secret store is referenced by {reference_count} workspace"
                 " secret(s). Remove those references first.",
                 detail={"reference_count": reference_count},
@@ -243,7 +243,7 @@ class SecretStoresService(BaseOrgService):
             Workspace.organization_id == self.organization_id,
         )
         if (await self.session.execute(workspace_stmt)).scalar_one_or_none() is None:
-            raise TracecatNotFoundError("Workspace not found in this organization")
+            raise AutoSecOpsNotFoundError("Workspace not found in this organization")
 
         stmt = (
             insert(WorkspaceSecretStoreAuthorization)
@@ -280,12 +280,12 @@ class SecretStoresService(BaseOrgService):
             store, attribute_names=["all_workspaces"], with_for_update={"read": True}
         )
         if store.all_workspaces:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Turn off all-workspace access before revoking individual workspaces."
             )
         counts = await self.count_references([store.id], workspace_id=workspace_id)
         if reference_count := counts.get(store.id, 0):
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 f"Workspace still has {reference_count} secret(s) referencing this"
                 " store. Remove those references first.",
                 detail={"reference_count": reference_count},
@@ -296,7 +296,7 @@ class SecretStoresService(BaseOrgService):
         )
         authorization = (await self.session.execute(stmt)).scalar_one_or_none()
         if authorization is None:
-            raise TracecatNotFoundError("Workspace authorization not found")
+            raise AutoSecOpsNotFoundError("Workspace authorization not found")
         await self.session.delete(authorization)
         await self._commit_removal()
 
@@ -306,7 +306,7 @@ class SecretStoresService(BaseOrgService):
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Secret store or authorization is still referenced by workspace"
                 " secrets. Remove those references first."
             ) from exc

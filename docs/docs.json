@@ -28,7 +28,7 @@
             "group": "Building automations",
             "icon": "workflow",
             "pages": [
-              "automations/tracecat-mcp",
+              "automations/autosecops-mcp",
               {
                 "group": "Core concepts",
                 "pages": [
@@ -251,6 +251,7 @@
               "tools/falconpy",
               "tools/first_epss",
               "tools/fleetdm",
+              "tools/fortisiem",
               "tools/freshservice",
               "tools/gitguardian",
               "tools/github",
@@ -330,6 +331,7 @@
               "tools/terraform",
               "tools/threatfox",
               "tools/threatstream",
+              "tools/typesafe",
               "tools/urlhaus",
               "tools/urlscan",
               "tools/vercel_security",
@@ -531,7 +533,11 @@
     },
     {
       "source": "/automations/ai-builder",
-      "destination": "/automations/tracecat-mcp"
+      "destination": "/automations/autosecops-mcp"
+    },
+    {
+      "source": "/automations/tracecat-mcp",
+      "destination": "/automations/autosecops-mcp"
     },
     {
       "source": "/automations/core-concepts/workflows",

@@ -18,7 +18,7 @@ from autosecops.agent.types import AgentConfig
 from autosecops.auth.types import Role
 from autosecops.chat.tools import WORKSPACE_CHAT_DEFAULT_TOOLS
 from autosecops.db.models import AgentSession
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.tiers.enums import Entitlement
 
 
@@ -41,7 +41,7 @@ def _build_service() -> tuple[_TestAgentSessionService, SimpleNamespace, Role]:
     workspace_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         # action:*:execute lets _resolve_workspace_chat_actions keep the full
@@ -155,7 +155,7 @@ async def test_session_mcp_integrations_must_load_before_persisting(
     mcp_integrations = [str(uuid.uuid4())]
     preset_service = Mock()
     preset_service.load_selected_mcp_integrations = AsyncMock(
-        side_effect=TracecatValidationError("MCP integration not found")
+        side_effect=AutoSecOpsValidationError("MCP integration not found")
     )
     service._validate_preset_version_for_assignment = AsyncMock(return_value=None)
     service._resolve_agents_binding_for_preset_version_id = AsyncMock(return_value=None)
@@ -165,7 +165,7 @@ async def test_session_mcp_integrations_must_load_before_persisting(
             "autosecops.agent.session.service.AgentPresetService",
             Mock(return_value=preset_service),
         ),
-        pytest.raises(TracecatValidationError, match="MCP integration not found"),
+        pytest.raises(AutoSecOpsValidationError, match="MCP integration not found"),
     ):
         if operation == "create":
             await service.create_session(
@@ -305,7 +305,7 @@ async def test_update_session_rejects_preset_updates_for_invalid_entity_type() -
     )
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="Cannot update preset assignment for a session with an invalid entity type",
     ):
         await service.update_session(
@@ -326,7 +326,7 @@ def _restricted_service() -> _TestAgentSessionService:
     """
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset(
@@ -403,7 +403,7 @@ async def test_workspace_chat_preset_config_superuser_keeps_all_actions() -> Non
     """A fully-scoped caller retains every action the preset exposes."""
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute", "action:*:execute"}),

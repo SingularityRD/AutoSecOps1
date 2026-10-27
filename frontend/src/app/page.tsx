@@ -4,7 +4,7 @@ import { LogInIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { useEffect } from "react"
 import { Icons } from "@/components/icons"
 import { CenteredSpinner } from "@/components/loading/spinner"
@@ -51,7 +51,7 @@ export default function HomePage() {
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-8 text-center sm:w-[350px]">
           <Image
-            src={TracecatIcon}
+            src={AutoSecOpsIcon}
             alt="AutoSecOps"
             className="mx-auto size-16"
           />

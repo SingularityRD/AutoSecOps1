@@ -318,7 +318,7 @@ async def test_start_up_heap_is_frozen_only_after_the_start_up_tasks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.api.lifespan.config.TRACECAT__LOCAL_REPOSITORY_ENABLED", False
+        "autosecops.api.lifespan.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", False
     )
     supervisor = LifespanTaskSupervisor(drain_timeout=5.0)
     release = asyncio.Event()
@@ -354,7 +354,7 @@ async def test_start_up_heap_is_not_frozen_for_reloads_or_after_shutdown(
     monkeypatch: pytest.MonkeyPatch, local_repository: bool, draining: bool
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.api.lifespan.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "autosecops.api.lifespan.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
         local_repository,
     )
     supervisor = LifespanTaskSupervisor(drain_timeout=5.0)

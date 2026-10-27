@@ -32,7 +32,7 @@ def test_request_context_values_are_normalized() -> None:
             headers={
                 "X-Forwarded-For": "198.51.100.20",
                 "User-Agent": (
-                    "TracecatClient/1.0 session=synthetic-opaque-value "
+                    "AutoSecOpsClient/1.0 session=synthetic-opaque-value "
                     "Authorization: Bearer synthetic-token"
                 ),
             },
@@ -40,7 +40,7 @@ def test_request_context_values_are_normalized() -> None:
 
     assert response.json() == {
         "client_ip": "198.51.100.20",
-        "user_agent": "tracecat/1.0",
+        "user_agent": "autosecops/1.0",
     }
 
 
@@ -135,7 +135,7 @@ def test_client_ip_resolution_honors_custom_trusted_networks(
     """A narrowed trust list stops private-range peers from speaking for clients."""
     monkeypatch.setattr(
         config,
-        "TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS",
+        "AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS",
         (ip_network("198.51.100.0/24"),),
     )
     app = FastAPI()

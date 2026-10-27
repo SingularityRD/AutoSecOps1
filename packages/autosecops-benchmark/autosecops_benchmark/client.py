@@ -106,7 +106,7 @@ def _as_bool(value: object) -> bool:
     return value is True
 
 
-class TracecatClient:
+class AutoSecOpsClient:
     """Async client scoped to one workspace of one local AutoSecOps cluster."""
 
     def __init__(

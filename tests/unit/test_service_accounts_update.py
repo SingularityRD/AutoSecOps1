@@ -13,7 +13,7 @@ import autosecops.service_accounts.service as service_accounts_service
 from autosecops.auth.types import Role
 from autosecops.authz.enums import ScopeSource
 from autosecops.db.models import Scope
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 from autosecops.service_accounts.service import OrganizationServiceAccountService
 from autosecops.tiers import defaults as tier_defaults
 
@@ -55,7 +55,7 @@ async def test_update_service_account_can_clear_description(
         cast(AsyncSession, _NoopSession()),
         role=Role(
             type="user",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             scopes=frozenset({"org:service_account:update"}),
         ),
@@ -102,7 +102,7 @@ async def test_issue_api_key_locks_service_account_before_rotation(
         role=Role(
             type="user",
             user_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             scopes=frozenset({"org:service_account:update"}),
         ),
@@ -134,7 +134,7 @@ async def test_create_service_account_rejects_scopes_not_held_by_caller(
         role=Role(
             type="user",
             user_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             scopes=frozenset({"org:service_account:create"}),
         ),
@@ -161,7 +161,7 @@ async def test_create_service_account_rejects_scopes_not_held_by_caller(
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match=(
             "Cannot assign service account scopes not held by the caller: "
             "workspace:delete"
@@ -191,7 +191,7 @@ async def test_update_service_account_rejects_scopes_not_held_by_caller(
         role=Role(
             type="user",
             user_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             organization_id=uuid.uuid4(),
             scopes=frozenset({"org:service_account:update"}),
         ),
@@ -221,7 +221,7 @@ async def test_update_service_account_rejects_scopes_not_held_by_caller(
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match=(
             "Cannot assign service account scopes not held by the caller: "
             "workspace:delete"

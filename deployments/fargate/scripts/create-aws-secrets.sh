@@ -18,10 +18,10 @@ USER_AUTH_SECRET=$(openssl rand -hex 32)
 DB_ENCRYPTION_KEY=$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')
 
 # Set default KEY_NAMES if not provided
-DB_ENCRYPTION_KEY_NAME=${DB_ENCRYPTION_KEY_NAME:-"${APP_ENV:-prod}/tracecat/db-encryption-key"}
-SERVICE_KEY_NAME=${SERVICE_KEY_NAME:-"${APP_ENV:-prod}/tracecat/service-key"}
-SIGNING_SECRET_NAME=${SIGNING_SECRET_NAME:-"${APP_ENV:-prod}/tracecat/signing-secret"}
-USER_AUTH_SECRET_NAME=${USER_AUTH_SECRET_NAME:-"${APP_ENV:-prod}/tracecat/user-auth-secret"}
+DB_ENCRYPTION_KEY_NAME=${DB_ENCRYPTION_KEY_NAME:-"${APP_ENV:-prod}/autosecops/db-encryption-key"}
+SERVICE_KEY_NAME=${SERVICE_KEY_NAME:-"${APP_ENV:-prod}/autosecops/service-key"}
+SIGNING_SECRET_NAME=${SIGNING_SECRET_NAME:-"${APP_ENV:-prod}/autosecops/signing-secret"}
+USER_AUTH_SECRET_NAME=${USER_AUTH_SECRET_NAME:-"${APP_ENV:-prod}/autosecops/user-auth-secret"}
 
 # Create AWS Secrets
 aws secretsmanager create-secret --name "$DB_ENCRYPTION_KEY_NAME" --secret-string "$DB_ENCRYPTION_KEY" --region "$AWS_DEFAULT_REGION" --no-cli-pager

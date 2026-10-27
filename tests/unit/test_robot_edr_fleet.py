@@ -16,7 +16,10 @@ from sqlalchemy import select
 
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Robot, RobotKey
-from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
+from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
+)
 from autosecops.pagination import PageParams
 from autosecops.robot_edr import fleet_wire as wire
 from autosecops.robot_edr.evidence import RobotEvidenceService
@@ -175,7 +178,7 @@ async def test_token_needs_a_fleet_key(soc: Soc) -> None:
         robot = Robot(workspace_id=soc.workspace.id, robot_id="ugv-102")
         session.add(robot)
         await session.commit()
-        with pytest.raises(TracecatValidationError, match="fleet key"):
+        with pytest.raises(AutoSecOpsValidationError, match="fleet key"):
             await soc.fleet(soc.alice, session).issue_token(
                 robot.id, FleetTokenCreate()
             )
@@ -211,7 +214,7 @@ async def test_soc_key_rotation_keeps_one_active_key(soc: Soc) -> None:
         first_id, second_id = first.key_id, second.key_id
         await service.activate_fleet_key(second)
         keys = {k.key_id: k.status for k in await service.list_soc_keys()}
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service.activate_approval_key(second)
         # A key is registered once on the whole SOC.
         with pytest.raises(RobotConflictError):
@@ -234,7 +237,7 @@ async def test_approval_needs_two_distinct_platform_users(
     profile = offer.profile.decode()
     async with get_async_session_context_manager() as session:
         # The vector profile is locked for unit ugv-001, not this robot.
-        with pytest.raises(TracecatValidationError, match="unit"):
+        with pytest.raises(AutoSecOpsValidationError, match="unit"):
             await soc.fleet(soc.alice, session).set_offer(
                 robot_uuid,
                 FleetOfferUpdate(profile=profile, signature=offer.sig.decode()),
@@ -254,11 +257,11 @@ async def test_approval_needs_two_distinct_platform_users(
             4,
             "ugv-x1",
         )
-        with pytest.raises(TracecatValidationError, match="currently offered"):
+        with pytest.raises(AutoSecOpsValidationError, match="currently offered"):
             await alice.request_approval(
                 robot_uuid, FleetApprovalCreate(profile_digest="sha256:" + "0" * 64)
             )
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await soc.fleet(soc.service, session).request_approval(
                 robot_uuid, FleetApprovalCreate(profile_digest=offer.digest)
             )
@@ -267,7 +270,7 @@ async def test_approval_needs_two_distinct_platform_users(
             FleetApprovalCreate(profile_digest=offer.digest, validity_hours=2),
         )
         assert pending.status is FleetApprovalStatus.PENDING
-        with pytest.raises(TracecatAuthorizationError, match="second person"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="second person"):
             await alice.approve(robot_uuid, pending.id)
     path = (
         f"/robot-edr/v2/fleet/profiles/approvals/{offer.digest.removeprefix('sha256:')}"
@@ -277,7 +280,7 @@ async def test_approval_needs_two_distinct_platform_users(
 
     async with get_async_session_context_manager() as session:
         signed = await soc.fleet(soc.bob, session).approve(robot_uuid, pending.id)
-        with pytest.raises(TracecatValidationError, match="pending"):
+        with pytest.raises(AutoSecOpsValidationError, match="pending"):
             await soc.fleet(soc.bob, session).approve(robot_uuid, pending.id)
         keys = await soc.fleet(soc.alice, session).list_soc_keys()
     assert signed.status is FleetApprovalStatus.SIGNED
@@ -364,7 +367,7 @@ async def test_revocation_lists_are_monotonic(
         await service.add_trust_root(
             FleetTrustRootCreate(public_key=root.public_key.hex(), label="oem root")
         )
-        with pytest.raises(TracecatValidationError, match="does not verify"):
+        with pytest.raises(AutoSecOpsValidationError, match="does not verify"):
             await service.publish_revocation_list(
                 FleetRevocationCreate(revocation_list=revocation_list(other_root))
             )
@@ -379,7 +382,7 @@ async def test_revocation_lists_are_monotonic(
             FleetRevocationCreate(revocation_list=body)
         )
         assert again.id == published.id
-        with pytest.raises(TracecatValidationError, match="lower"):
+        with pytest.raises(AutoSecOpsValidationError, match="lower"):
             await service.publish_revocation_list(
                 FleetRevocationCreate(revocation_list=revocation_list(root, serial=1))
             )

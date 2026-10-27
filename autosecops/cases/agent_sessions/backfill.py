@@ -121,7 +121,7 @@ def _trusted_mcp_server_names(
     return frozenset(names)
 
 
-def _is_tracecat_owned_tool(
+def _is_autosecops_owned_tool(
     name: str,
     trusted_mcp_server_names: frozenset[str],
 ) -> bool:
@@ -142,7 +142,7 @@ def _resolve_tool(
 ) -> tuple[str, Mapping[str, Any] | None] | None:
     """Resolve a supported direct or legacy wrapper tool call."""
     name = block.get("name")
-    if not isinstance(name, str) or not _is_tracecat_owned_tool(
+    if not isinstance(name, str) or not _is_autosecops_owned_tool(
         name, trusted_mcp_server_names
     ):
         return None
@@ -156,7 +156,7 @@ def _resolve_tool(
         if arguments is None:
             return None
         wrapped_name = arguments.get("tool_name")
-        if not isinstance(wrapped_name, str) or not _is_tracecat_owned_tool(
+        if not isinstance(wrapped_name, str) or not _is_autosecops_owned_tool(
             wrapped_name,
             trusted_mcp_server_names,
         ):

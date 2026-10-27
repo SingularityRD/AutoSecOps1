@@ -42,7 +42,7 @@ describe("RESOURCE_CATEGORIES", () => {
 })
 
 describe("forms category", () => {
-  // Resources and actions as seeded in tracecat/authz/seeding.py.
+  // Resources and actions as seeded in autosecops/authz/seeding.py.
   const scopes = [
     "form:read",
     "form:create",

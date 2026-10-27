@@ -29,9 +29,9 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentCatalog
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.temporal.errors import raise_application_error_from_classification
 
@@ -92,9 +92,9 @@ async def resolve_agent_preset_config_activity(
             ) as config:
                 return agent_config_to_payload(config)
     except (
-        TracecatAuthorizationError,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsAuthorizationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
     ) as exc:
         raise_application_error_from_classification(invalid_agent_configuration(exc))
 
@@ -137,9 +137,9 @@ async def resolve_agents_config_activity(
             agent_preparation_failed(exc, retryable=False)
         )
     except (
-        TracecatAuthorizationError,
-        TracecatNotFoundError,
-        TracecatValidationError,
+        AutoSecOpsAuthorizationError,
+        AutoSecOpsNotFoundError,
+        AutoSecOpsValidationError,
     ) as exc:
         raise_application_error_from_classification(invalid_agent_configuration(exc))
 
@@ -194,7 +194,7 @@ async def resolve_custom_model_provider_config_activity(
                 catalog_id=catalog_id,
                 model_provider=model_provider,
             )
-        except TracecatAuthorizationError as exc:
+        except AutoSecOpsAuthorizationError as exc:
             raise_application_error_from_classification(
                 invalid_agent_configuration(exc)
             )

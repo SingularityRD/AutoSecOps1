@@ -30,7 +30,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from tests.support.membership import (
     grant_org_membership,
     seed_external_group,
@@ -174,7 +174,7 @@ def _role_claiming(user: User, org: Organization, scopes: set[str]) -> Role:
         type="user",
         user_id=user.id,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(scopes),
     )
 
@@ -198,7 +198,7 @@ async def test_denies_when_cached_scopes_exceed_database(
     granter = _role_claiming(granter_user, org, {OWNER_SCOPE, ADMIN_SCOPE})
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match="Cannot grant scopes not held by the caller",
     ):
         await resolve_grantable_role(session, granter, org.id, target.id)
@@ -289,7 +289,7 @@ async def test_workspace_scoped_assignment_counts_in_workspace_context(
         user_id=granter_user.id,
         organization_id=org.id,
         workspace_id=workspace.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(),
     )
 
@@ -319,7 +319,7 @@ async def test_workspace_scoped_assignment_ignored_in_org_context(
     granter = _role_claiming(granter_user, org, {OWNER_SCOPE})
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match="Cannot grant scopes not held by the caller",
     ):
         await resolve_grantable_role(session, granter, org.id, target.id)
@@ -337,7 +337,7 @@ async def test_service_role_falls_back_to_cached_scopes(
         type="service",
         user_id=None,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({OWNER_SCOPE}),
     )
 
@@ -357,12 +357,12 @@ async def test_service_role_denied_beyond_cached_scopes(
         type="service",
         user_id=None,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({ADMIN_SCOPE}),
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match="Cannot grant scopes not held by the caller",
     ):
         await resolve_grantable_role(session, granter, org.id, target.id)
@@ -387,7 +387,7 @@ async def test_rejects_role_from_another_organization(
 
     granter = _role_claiming(granter_user, org, {OWNER_SCOPE, ADMIN_SCOPE})
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await resolve_grantable_role(session, granter, org.id, foreign_role.id)
 
 
@@ -403,7 +403,7 @@ async def test_superuser_bypasses_ceiling(
         type="user",
         user_id=granter_user.id,
         organization_id=org.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=True,
         scopes=frozenset(),
     )

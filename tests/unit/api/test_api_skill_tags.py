@@ -15,7 +15,7 @@ from autosecops.agent.skill.tags import router as skill_tags_router
 from autosecops.agent.tags import definitions_router as agent_tag_definitions_router
 from autosecops.agent.tags import router as agent_tags_router
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 _RESOURCE_TAG_SURFACES = [
@@ -76,7 +76,7 @@ async def test_list_resource_tags_missing_resource_returns_404(
     with patch.object(router, service_name) as mock_service_cls:
         mock_service = _mock_service_with_async_method(
             list_method,
-            side_effect=TracecatNotFoundError(not_found_message),
+            side_effect=AutoSecOpsNotFoundError(not_found_message),
         )
         mock_service_cls.return_value = mock_service
 
@@ -167,7 +167,9 @@ async def test_update_tag_definition_conflict_returns_409(
     with patch.object(router, service_name) as mock_service_cls:
         mock_service = MagicMock()
         mock_service.get_tag = AsyncMock(return_value=object())
-        mock_service.update_tag = AsyncMock(side_effect=TracecatConflictError(message))
+        mock_service.update_tag = AsyncMock(
+            side_effect=AutoSecOpsConflictError(message)
+        )
         mock_service_cls.return_value = mock_service
 
         response = client.patch(f"{prefix}/{uuid.uuid4()}", json={"name": "Updated"})

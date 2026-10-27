@@ -54,9 +54,11 @@ def _build_test_auth(
     *,
     enable_refresh_tokens: bool = True,
 ) -> mcp_auth.OIDCProxy:
-    monkeypatch.setattr(mcp_auth, "TRACECAT__PUBLIC_APP_URL", "https://mcp.example.com")
+    monkeypatch.setattr(
+        mcp_auth, "AUTOSECOPS__PUBLIC_APP_URL", "https://mcp.example.com"
+    )
     # Mock the internal OIDC issuer config used by _create_oidc_auth
-    monkeypatch.setattr(mcp_auth, "INTERNAL_CLIENT_ID", "tracecat-mcp-oidc-internal")
+    monkeypatch.setattr(mcp_auth, "INTERNAL_CLIENT_ID", "autosecops-mcp-oidc-internal")
     monkeypatch.setattr(
         mcp_auth,
         "get_internal_client_secret",
@@ -70,7 +72,7 @@ def _build_test_auth(
     # Use in-memory store instead of Redis for tests
     monkeypatch.setattr(mcp_auth, "REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__DB_ENCRYPTION_KEY",
+        "autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode() if enable_refresh_tokens else "",
     )
     monkeypatch.setattr(mcp_auth.AsyncRedis, "from_url", lambda *a, **kw: MagicMock())
@@ -762,7 +764,7 @@ async def test_load_access_token_preserves_fastmcp_upstream_claims(
         "_jwt_issuer",
         SimpleNamespace(
             verify_token=lambda token: {
-                "client_id": "tracecat-client",
+                "client_id": "autosecops-client",
                 "scope": f"organization:{org_id} workspace:{ws_id}",
                 "upstream_claims": {"email": " user@example.com "},
             }
@@ -770,7 +772,7 @@ async def test_load_access_token_preserves_fastmcp_upstream_claims(
     )
 
     merged = cast(AccessToken, await auth.load_access_token("fastmcp-jwt"))
-    assert merged.client_id == "tracecat-client"
+    assert merged.client_id == "autosecops-client"
     assert merged.scopes == [f"organization:{org_id}", f"workspace:{ws_id}"]
     assert merged.claims["email"] == "user@example.com"
     assert merged.claims["upstream_claims"] == {"email": " user@example.com "}
@@ -904,10 +906,10 @@ def test_get_token_identity_extracts_ids_from_claims_and_scopes(
         "T",
         (),
         {
-            "client_id": "tracecat-client",
+            "client_id": "autosecops-client",
             "scopes": [f"organization:{extra_org_id}", f"workspace:{extra_ws_id}"],
             "claims": {
-                "sub": "tracecat-client",
+                "sub": "autosecops-client",
                 "organization_id": str(org_id),
                 "workspace_id": str(ws_id),
             },
@@ -917,7 +919,7 @@ def test_get_token_identity_extracts_ids_from_claims_and_scopes(
 
     identity = mcp_auth.get_token_identity()
 
-    assert identity.client_id == "tracecat-client"
+    assert identity.client_id == "autosecops-client"
     assert identity.email is None
     assert identity.organization_ids == frozenset({org_id, extra_org_id})
     assert identity.workspace_ids == frozenset({ws_id, extra_ws_id})
@@ -930,10 +932,10 @@ def test_get_token_identity_reads_email_from_upstream_claims(
         "T",
         (),
         {
-            "client_id": "tracecat-client",
+            "client_id": "autosecops-client",
             "scopes": [],
             "claims": {
-                "client_id": "tracecat-client",
+                "client_id": "autosecops-client",
                 "upstream_claims": {"email": " user@example.com "},
             },
         },
@@ -942,7 +944,7 @@ def test_get_token_identity_reads_email_from_upstream_claims(
 
     identity = mcp_auth.get_token_identity()
 
-    assert identity.client_id == "tracecat-client"
+    assert identity.client_id == "autosecops-client"
     assert identity.email == "user@example.com"
 
 
@@ -995,7 +997,7 @@ async def test_list_workspaces_for_request_passes_claimed_org_ids(
     captured: dict[str, object] = {}
 
     identity = mcp_auth.MCPTokenIdentity(
-        client_id="tracecat-client",
+        client_id="autosecops-client",
         email="user@example.com",
         organization_ids=frozenset({org_id_1, org_id_2}),
     )
@@ -1026,10 +1028,10 @@ async def test_list_workspaces_for_request_reads_email_from_upstream_claims(
         "T",
         (),
         {
-            "client_id": "tracecat-client",
+            "client_id": "autosecops-client",
             "scopes": [],
             "claims": {
-                "client_id": "tracecat-client",
+                "client_id": "autosecops-client",
                 "upstream_claims": {"email": " user@example.com "},
             },
         },
@@ -1138,7 +1140,7 @@ async def test_resolve_role_for_request_allows_claimed_workspace(
         user_id=user_id,
         workspace_id=workspace_id,
         organization_id=organization_id,
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
     )
 
     async def _resolve_role(email: str, workspace_id_arg: uuid.UUID) -> Role:
@@ -1197,7 +1199,7 @@ async def test_resolve_role_for_request_allows_claimed_org_workspace(
         user_id=user_id,
         workspace_id=workspace_id,
         organization_id=organization_id,
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
     )
 
     async def _resolve_workspace_org(_workspace_id: uuid.UUID) -> uuid.UUID:
@@ -1248,7 +1250,7 @@ async def test_resolve_role_superuser_uses_rbac_for_workspace_access(
         "resolve_workspace_membership",
         _resolve_workspace_membership,
     )
-    monkeypatch.setattr(mcp_auth.config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(mcp_auth.config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
     role = await mcp_auth.resolve_role("user@example.com", workspace_id)
 
@@ -1290,7 +1292,7 @@ async def test_resolve_role_requires_superuser_workspace_membership_without_org_
         "resolve_workspace_membership",
         _resolve_workspace_membership,
     )
-    monkeypatch.setattr(mcp_auth.config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(mcp_auth.config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     with pytest.raises(ValueError, match="no access"):
         await mcp_auth.resolve_role("admin@example.com", workspace_id)
@@ -1488,7 +1490,7 @@ async def test_list_user_workspaces_for_superuser_uses_membership_rows(
         "get_async_session_bypass_rls_context_manager",
         lambda: _AsyncContext(_Session()),
     )
-    monkeypatch.setattr(mcp_auth.config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(mcp_auth.config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     workspaces = await mcp_auth.list_user_workspaces("admin@example.com")
 
@@ -1614,7 +1616,7 @@ def _patch_resolve_org_role_deps(
             return None
 
     identity = SimpleNamespace(
-        client_id="tracecat-client",
+        client_id="autosecops-client",
         email="user@example.com",
         organization_ids=identity_org_ids,
         workspace_ids=identity_workspace_ids,
@@ -1634,7 +1636,7 @@ def _patch_resolve_org_role_deps(
         "get_async_session_bypass_rls_context_manager",
         lambda: _AsyncContext(_Session()),
     )
-    monkeypatch.setattr(mcp_auth.config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(mcp_auth.config, "AUTOSECOPS__EE_MULTI_TENANT", False)
 
 
 @pytest.mark.anyio

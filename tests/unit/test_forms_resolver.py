@@ -385,7 +385,7 @@ def test_resolves_a_full_layout() -> None:
     assert single["q"].config is not None
     assert single["q"].config.max_files == 1
     assert single["q"].config.max_file_size == (
-        app_config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES
+        app_config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES
     )
 
 

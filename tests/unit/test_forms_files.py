@@ -21,7 +21,7 @@ from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.db.models import Form, FormFile, FormSubmission, FormView, Workspace
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.forms import router as forms_router
 from autosecops.forms import storage
 from autosecops.forms.constants import MAX_PENDING_FILES_PER_UPLOADER, PENDING_FILE_TTL
@@ -230,7 +230,7 @@ async def test_upload_stores_a_pending_file_and_serves_it_back(
     assert blob_store.presigned == [
         {
             "key": key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS,
             "force_download": True,
             "override_content_type": "application/octet-stream",
             "redact_log_identifiers": True,
@@ -243,7 +243,7 @@ async def test_upload_stores_a_pending_file_and_serves_it_back(
     assert base64.b64decode(content.content_base64) == PDF
     assert content.model_dump(exclude={"content_base64"}) == uploaded.model_dump()
     blob_store.objects[key] = b"tampered"
-    with pytest.raises(TracecatException):
+    with pytest.raises(AutoSecOpsException):
         await files.read_content(uploaded.id)
     del blob_store.objects[key]
     assert await files.read_content(uploaded.id) is None
@@ -310,7 +310,7 @@ async def test_upload_follows_the_workspace_policy_and_the_form_state(
     assert await _upload_error(files, form, content=TEXT) is (
         FormErrorCode.FILE_TYPE_NOT_ALLOWED
     )
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENT_SIZE_BYTES", len(PDF) - 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES", len(PDF) - 1)
     assert await _upload_error(files, form) is FormErrorCode.FILE_TOO_LARGE
     form.status = FormStatus.OFFLINE.value
     await session.commit()
@@ -342,7 +342,7 @@ async def test_upload_route_refuses_an_oversized_body_and_reads_the_rest(
     uploaded = await upload(PDF)
     assert list(blob_store.objects) == [_key(form, uploaded.id)]
 
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENT_SIZE_BYTES", 1024 * 1024)
+    monkeypatch.setattr(config, "AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES", 1024 * 1024)
     with pytest.raises(FormError) as exc_info:
         await upload(PDF + b"\x00" * (1024 * 1024))
     assert exc_info.value.code is FormErrorCode.FILE_TOO_LARGE
@@ -722,7 +722,7 @@ async def test_submit_checks_files_against_the_workspaces_current_policy(
     # An admin narrows the workspace's attachment settings after the upload.
     await _set_workspace_settings(session, svc_workspace, settings)
     if max_size is not None:
-        monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENT_SIZE_BYTES", max_size)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES", max_size)
 
     errors = await _claim_errors(submissions, form, extras=[str(notes.id)])
 
@@ -796,10 +796,10 @@ async def test_pending_files_are_private_to_their_uploader(
     uploaded = await _upload(files, form)
     executor = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
     async def readable(role: Role) -> tuple[bool, bool]:
@@ -1039,7 +1039,7 @@ async def test_an_upload_whose_storage_answer_is_lost_leaves_no_blob(
 
 
 def test_file_names_follow_the_configured_length_limit() -> None:
-    # Validation enforces TRACECAT__MAX_ATTACHMENT_FILENAME_LENGTH, which may
+    # Validation enforces AUTOSECOPS__MAX_ATTACHMENT_FILENAME_LENGTH, which may
     # exceed 255, so the column must not cap names on its own.
     column_type = FormFile.__table__.c.name.type
     assert isinstance(column_type, String)

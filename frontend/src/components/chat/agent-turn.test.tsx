@@ -161,7 +161,7 @@ describe("AgentTurn", () => {
           input: {},
           output: [],
           callProviderMetadata: {
-            tracecat: { completed_at: at(35).created_at },
+            autosecops: { completed_at: at(35).created_at },
           },
         },
       ],
@@ -192,7 +192,7 @@ describe("AgentTurn", () => {
           input: {},
           output: [],
           callProviderMetadata: {
-            tracecat: { completed_at: at(35).created_at },
+            autosecops: { completed_at: at(35).created_at },
           },
         },
       ],

@@ -28,7 +28,7 @@ def test_instrumented_engine_preserves_pool_settings_and_detects_auth_pool() -> 
             max_overflow=2,
             pool_timeout=7,
             connect_args={
-                "server_settings": {"application_name": "tracecat-worker-auth"}
+                "server_settings": {"application_name": "autosecops-worker-auth"}
             },
         )
         try:
@@ -107,7 +107,7 @@ def test_sitecustomize_requires_private_benchmark_opt_in() -> None:
     base_environment = os.environ.copy()
     base_environment["PYTHONPATH"] = python_path
     base_environment.pop(
-        "TRACECAT_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT",
+        "AUTOSECOPS_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT",
         None,
     )
 
@@ -121,7 +121,7 @@ def test_sitecustomize_requires_private_benchmark_opt_in() -> None:
     assert disabled.stdout.strip() == "sqlalchemy.ext.asyncio.engine"
 
     enabled_environment = base_environment | {
-        "TRACECAT_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT": "9091"
+        "AUTOSECOPS_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT": "9091"
     }
     enabled = subprocess.run(
         command,
@@ -151,10 +151,10 @@ def test_only_main_idle_worker_processes_start_metrics_eagerly(
     started_ports: list[int] = []
     original_create_async_engine = sqlalchemy_asyncio.create_async_engine
     monkeypatch.setenv(
-        "TRACECAT_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT",
+        "AUTOSECOPS_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT",
         "9091",
     )
-    monkeypatch.setenv("TRACECAT__SERVICE_NAME", service_name)
+    monkeypatch.setenv("AUTOSECOPS__SERVICE_NAME", service_name)
     monkeypatch.setattr(pool_metrics.os, "getpid", lambda: process_id)
     monkeypatch.setattr(
         pool_metrics,

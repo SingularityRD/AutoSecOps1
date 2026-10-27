@@ -1,4 +1,0 @@
-interface:
-  display_name: "AutoSecOps Automation Best Practices"
-  short_description: "Author and debug AutoSecOps workflows, tables, and agents."
-  default_prompt: "Use $tracecat-automation-best-practices to build or fix an AutoSecOps automation."

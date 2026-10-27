@@ -63,7 +63,7 @@ export function getInitialFormValues(blocks: FormBlock[]): FormValues {
 /**
  * Return the fields a requester with these values sees, in block order.
  *
- * Mirrors `visible_fields` in `tracecat/forms/values.py`: a conditional field
+ * Mirrors `visible_fields` in `autosecops/forms/values.py`: a conditional field
  * shows while its controller strictly equals the rule's value, and an empty
  * controller counts as its default, because an empty answer is not sent and
  * the server then applies the default. Only scalar fields can be controllers,

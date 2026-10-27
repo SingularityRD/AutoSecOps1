@@ -25,7 +25,7 @@ class DefaultBackend(AgentBackend[AgentWorkflowArgs, AgentOutput]):
     """Dispatch and control the existing Claude durable workflow."""
 
     workflow = DurableAgentWorkflow
-    task_queue = config.TRACECAT__AGENT_QUEUE
+    task_queue = config.AUTOSECOPS__AGENT_QUEUE
     priority: ClassVar[Priority] = Priority(priority_key=1)
     retry_policy = RETRY_POLICIES["workflow:fail_fast"]
     name = "Default"

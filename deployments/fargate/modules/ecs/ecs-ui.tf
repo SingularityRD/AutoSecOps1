@@ -13,9 +13,9 @@ resource "aws_ecs_task_definition" "ui_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
-      name  = "TracecatUiContainer"
-      image = "${var.tracecat_ui_image}:${local.tracecat_image_tag}"
+    merge({
+      name  = "AutoSecOpsUiContainer"
+      image = "${var.autosecops_ui_image}:${local.autosecops_image_tag}"
       portMappings = [
         {
           containerPort = 3000
@@ -27,20 +27,20 @@ resource "aws_ecs_task_definition" "ui_task_definition" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ui"
         }
       }
       environment = local.ui_env
-      secrets     = local.tracecat_ui_secrets
-    }
+      secrets     = local.autosecops_ui_secrets
+    }, local.autosecops_repository_credentials)
   ])
 }
 
-resource "aws_ecs_service" "tracecat_ui" {
-  name                 = "tracecat-ui"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_ui" {
+  name                 = "autosecops-ui"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.ui_task_definition.arn
   launch_type          = "FARGATE"
   desired_count        = 1
@@ -73,7 +73,7 @@ resource "aws_ecs_service" "tracecat_ui" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-ui"
       }
@@ -81,6 +81,6 @@ resource "aws_ecs_service" "tracecat_ui" {
   }
 
   depends_on = [
-    aws_ecs_service.tracecat_api
+    aws_ecs_service.autosecops_api
   ]
 }

@@ -130,7 +130,7 @@ def fleet_role(workspace_id: uuid.UUID, organization_id: uuid.UUID) -> Role:
     """The role fleet processing acts under in a robot's workspace."""
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=organization_id,
         scopes=_FLEET_SCOPES,
@@ -1159,7 +1159,7 @@ async def _store_draft(session: AsyncSession, robot: FleetRobot, body: bytes) ->
     await session.scalar(
         select(Robot.id).where(Robot.id == robot.robot_fk).with_for_update()
     )
-    keep = max(1, config.TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS) - 1
+    keep = max(1, config.AUTOSECOPS__ROBOT_EDR_FLEET_MAX_DRAFTS) - 1
     oldest = (
         select(RobotFleetProfileDraft.id)
         .where(RobotFleetProfileDraft.robot_fk == robot.robot_fk)

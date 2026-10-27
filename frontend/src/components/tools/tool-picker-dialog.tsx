@@ -475,7 +475,7 @@ function PickerBody({
       },
       { kind: "source", id: "selected", title: "Selected", total: 0 },
     ]
-    for (const section of ["mcp", "tracecat", "custom"] as const) {
+    for (const section of ["mcp", "autosecops", "custom"] as const) {
       if (!mcpEnabled && section === "mcp") continue
       const groups = index.groups.filter((group) => group.section === section)
       if (!groups.length) continue
@@ -484,7 +484,7 @@ function PickerBody({
         id: section,
         title: {
           mcp: "MCP servers",
-          tracecat: "AutoSecOps registry",
+          autosecops: "AutoSecOps registry",
           custom: "Custom registry",
         }[section],
       })

@@ -9,7 +9,7 @@ import jsonpath_ng.jsonpath as jsonpath_nodes
 from jsonpath_ng.exceptions import JsonPathParserError
 from jsonpath_ng.ext.parser import ExtentedJsonPathParser
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.logger import logger
 
 # jsonpath_ng builds a new PLY parser per parse() call, and without a shipped
@@ -76,12 +76,12 @@ def parse_jsonpath(expr: str) -> jsonpath_nodes.JSONPath:
 MAX_VARS_PATH_DEPTH = 1
 
 
-class TracecatEnum(StrEnum):
+class AutoSecOpsEnum(StrEnum):
     def __repr__(self) -> str:
         return str(self)
 
 
-class ExprContext(TracecatEnum):
+class ExprContext(AutoSecOpsEnum):
     """Expression contexts."""
 
     # Global contexts
@@ -113,7 +113,7 @@ class ExprContext(TracecatEnum):
     """Template action steps context"""
 
 
-class ExprType(TracecatEnum):
+class ExprType(AutoSecOpsEnum):
     GENERIC = auto()
     ACTION = auto()
     SECRET = auto()
@@ -187,7 +187,7 @@ def eval_jsonpath(
         logger.error(
             "Invalid operand for jsonpath", operand_type=type(operand).__name__
         )
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             f"A dict or list operand is required as jsonpath target. Got {type(operand)}"
         )
     try:
@@ -198,7 +198,7 @@ def eval_jsonpath(
             "Invalid jsonpath expression", expr=repr(expr), context_type=context_type
         )
         formatted_expr = _expr_with_context(expr, context_type)
-        raise TracecatExpressionError(f"Invalid jsonpath {formatted_expr!r}") from e
+        raise AutoSecOpsExpressionError(f"Invalid jsonpath {formatted_expr!r}") from e
     found = (
         jsonpath_expr.find(operand) if find is None else find(jsonpath_expr, operand)
     )
@@ -254,7 +254,7 @@ def eval_jsonpath(
             # expression only.
             logger.error("Jsonpath no match", expr=repr(expr))
             formatted_expr = _expr_with_context(expr, context_type)
-            raise TracecatExpressionError(
+            raise AutoSecOpsExpressionError(
                 f"Couldn't resolve expression {formatted_expr!r} in the context",
                 detail={"expression": formatted_expr},
             )

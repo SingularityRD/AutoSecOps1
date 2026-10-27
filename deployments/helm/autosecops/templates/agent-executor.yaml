@@ -1,0 +1,58 @@
+{{- define "autosecops.agentExecutor.container" -}}
+{{- $v := .Values.agentExecutor -}}
+{{- $backend := include "autosecops.executorBackend" (dict "root" . "values" $v) -}}
+{{- if eq $backend "nsjail" }}
+# The root bootstrap delegates the agent sandbox cgroup to uid 1001, then
+# execs the worker as that user.
+command: ["python", "-m", "autosecops.agent.sandbox.cgroup"]
+args: ["python", "-m", "autosecops.agent.executor_worker"]
+{{- else }}
+command: ["python", "-m", "autosecops.agent.executor_worker"]
+{{- end }}
+{{- with include "autosecops.metricsPort" . }}
+ports:
+  {{- . | nindent 2 }}
+{{- end }}
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: agent-executor
+  - name: AUTOSECOPS__EXECUTOR_BACKEND
+    value: {{ $backend | quote }}
+  - name: AUTOSECOPS__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES
+    value: {{ $v.maxConcurrentActivities | toString | quote }}
+  # Keep the thread pool aligned with agent activity concurrency.
+  - name: TEMPORAL__THREADPOOL_MAX_WORKERS
+    value: {{ $v.maxConcurrentActivities | toString | quote }}
+  - name: AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB
+    value: {{ .Values.autosecops.sandbox.agentMemoryMb | toString | quote }}
+  - name: AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
+    value: {{ include "autosecops.agentGracefulShutdownTimeout" . | quote }}
+  - name: AUTOSECOPS__LLM_PROXY_READ_TIMEOUT
+    value: {{ $v.llmProxyReadTimeout | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES
+    value: {{ .Values.executor.registryCacheMaxEntries | toString | quote }}
+  - name: AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES
+    value: {{ .Values.executor.registryCacheMaxBytes | int64 | toString | quote }}
+  {{- include "autosecops.env.sandboxPaths" . | nindent 2 }}
+  {{- include "autosecops.env.metrics" . | nindent 2 }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "agent-executor") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.agentExecutor.enabled }}
+{{- $v := .Values.agentExecutor }}
+{{- $ctx := dict "root" . "component" "agent-executor" "values" $v }}
+{{- $grace := $v.terminationGracePeriodSeconds | default (add (int (include "autosecops.agentGracefulShutdownTimeout" .)) 60) }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.agentExecutor.container" .)
+    "backend" true
+    "sandboxed" (eq (include "autosecops.executorBackend" $ctx) "nsjail")
+    "terminationGracePeriodSeconds" $grace
+    "extraPodAnnotations" (include "autosecops.metricsPodAnnotations" .)
+  ) $ctx) }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

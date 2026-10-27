@@ -142,11 +142,11 @@ async def _execute_agent_workflow(
         DurableAgentWorkflow.run,
         workflow_args,
         id=AgentWorkflowID(session_id),
-        task_queue=config.TRACECAT__AGENT_QUEUE,
+        task_queue=config.AUTOSECOPS__AGENT_QUEUE,
         retry_policy=RETRY_POLICIES["workflow:fail_fast"],
         priority=Priority(priority_key=1),
         # The sandbox HTTP call must not outlive the workflow.
-        execution_timeout=timedelta(seconds=config.TRACECAT__EXECUTOR_CLIENT_TIMEOUT),
+        execution_timeout=timedelta(seconds=config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT),
     )
     return AgentOutput.model_validate(result)
 

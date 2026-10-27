@@ -22,9 +22,9 @@ from autosecops.cases.event_schemas import (
 from autosecops.contexts import ctx_run
 from autosecops.db.models import Case, CaseAttachment, File, Workspace
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatException,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsException,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.logger import logger
 from autosecops.service import BaseWorkspaceService
@@ -71,7 +71,7 @@ class CaseAttachmentService(BaseWorkspaceService):
     @property
     def attachments_bucket(self) -> str:
         """Centralized accessor for the attachments blob bucket."""
-        return config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
+        return config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS
 
     @staticmethod
     def _storage_key_for(sha256: str) -> str:
@@ -92,7 +92,7 @@ class CaseAttachmentService(BaseWorkspaceService):
         except Exception as e:
             # Rollback the database transaction if storage fails to keep DB/storage in sync
             await self.session.rollback()
-            raise TracecatException(f"Failed to upload file: {str(e)}") from e
+            raise AutoSecOpsException(f"Failed to upload file: {str(e)}") from e
 
     async def _emit_case_event(
         self, case: Case, event: AttachmentCreatedEvent | AttachmentDeletedEvent
@@ -119,7 +119,7 @@ class CaseAttachmentService(BaseWorkspaceService):
             )
             workspace = result.scalar_one_or_none()
             if not workspace:
-                raise TracecatException(f"Workspace {self.workspace_id} not found")
+                raise AutoSecOpsException(f"Workspace {self.workspace_id} not found")
             self._workspace_cache = workspace
         return self._workspace_cache
 
@@ -134,32 +134,32 @@ class CaseAttachmentService(BaseWorkspaceService):
         )
         count_result = await self.session.execute(count_stmt)
         current_attachment_count = int(count_result.scalar_one() or 0)
-        if current_attachment_count >= config.TRACECAT__MAX_ATTACHMENTS_PER_CASE:
+        if current_attachment_count >= config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE:
             raise MaxAttachmentsExceededError(
                 f"Case already has {current_attachment_count} attachments. "
-                f"Maximum allowed is {config.TRACECAT__MAX_ATTACHMENTS_PER_CASE}",
+                f"Maximum allowed is {config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE}",
                 current_count=current_attachment_count,
-                max_count=config.TRACECAT__MAX_ATTACHMENTS_PER_CASE,
+                max_count=config.AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE,
             )
 
         current_storage = await self.get_total_storage_used(case)
-        if current_storage + new_size > config.TRACECAT__MAX_CASE_STORAGE_BYTES:
+        if current_storage + new_size > config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES:
             current_mb = current_storage / 1024 / 1024
             new_mb = new_size / 1024 / 1024
-            max_mb = config.TRACECAT__MAX_CASE_STORAGE_BYTES / 1024 / 1024
+            max_mb = config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES / 1024 / 1024
             raise StorageLimitExceededError(
                 f"Adding this file ({new_mb:.1f}MB) would exceed the case storage limit. "
                 f"Current usage: {current_mb:.1f}MB, Maximum allowed: {max_mb:.1f}MB",
                 current_size=current_storage,
                 new_file_size=new_size,
-                max_size=config.TRACECAT__MAX_CASE_STORAGE_BYTES,
+                max_size=config.AUTOSECOPS__MAX_CASE_STORAGE_BYTES,
             )
 
     @staticmethod
     def _verify_integrity(content: bytes, expected_sha256: str) -> None:
         computed_hash = hashlib.sha256(content).hexdigest()
         if computed_hash != expected_sha256:
-            raise TracecatException("File integrity check failed")
+            raise AutoSecOpsException("File integrity check failed")
 
     async def list_attachments(self, case: Case) -> Sequence[CaseAttachment]:
         """List all attachments for a case.
@@ -211,7 +211,7 @@ class CaseAttachmentService(BaseWorkspaceService):
     ) -> CaseAttachment:
         attachment = await self.get_attachment(case, attachment_id)
         if not attachment:
-            raise TracecatNotFoundError(f"Attachment {attachment_id} not found")
+            raise AutoSecOpsNotFoundError(f"Attachment {attachment_id} not found")
         return attachment
 
     async def create_attachment(
@@ -236,7 +236,7 @@ class CaseAttachmentService(BaseWorkspaceService):
 
         Raises:
             ValueError: If validation fails
-            TracecatException: If storage operation fails
+            AutoSecOpsException: If storage operation fails
         """
 
         if not robodr_evidence and (
@@ -265,10 +265,10 @@ class CaseAttachmentService(BaseWorkspaceService):
             # Use actual size for all validations to prevent bypass
 
         # Validate file size limits using actual content size
-        if actual_size > config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES:
+        if actual_size > config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES:
             raise FileSizeError(
                 f"File size ({actual_size / 1024 / 1024:.1f}MB) exceeds maximum allowed size "
-                f"({config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB)"
+                f"({config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB)"
             )
 
         # Serialize concurrent uploads for the same case: the limit checks below
@@ -468,8 +468,8 @@ class CaseAttachmentService(BaseWorkspaceService):
             Tuple of (content, filename, content_type)
 
         Raises:
-            TracecatNotFoundError: If attachment not found
-            TracecatException: If download fails
+            AutoSecOpsNotFoundError: If attachment not found
+            AutoSecOpsException: If download fails
         """
 
         attachment = await self._require_attachment(case, attachment_id)
@@ -487,9 +487,9 @@ class CaseAttachmentService(BaseWorkspaceService):
 
             return content, attachment.file.name, attachment.file.content_type
         except FileNotFoundError as e:
-            raise TracecatNotFoundError("Attachment file not found in storage") from e
+            raise AutoSecOpsNotFoundError("Attachment file not found in storage") from e
         except Exception as e:
-            raise TracecatException(f"Failed to download attachment: {str(e)}") from e
+            raise AutoSecOpsException(f"Failed to download attachment: {str(e)}") from e
 
     async def get_attachment_download_url(
         self,
@@ -511,8 +511,8 @@ class CaseAttachmentService(BaseWorkspaceService):
             Tuple of (presigned_url, filename, content_type)
 
         Raises:
-            TracecatNotFoundError: If attachment not found
-            TracecatException: If URL generation fails
+            AutoSecOpsNotFoundError: If attachment not found
+            AutoSecOpsException: If URL generation fails
         """
 
         attachment = await self._require_attachment(case, attachment_id)
@@ -540,10 +540,15 @@ class CaseAttachmentService(BaseWorkspaceService):
                 expiry=expiry,
                 force_download=force_download,
                 override_content_type=override_content_type,
+                # The storage key ends in the content hash; save under the
+                # uploaded name instead.
+                download_filename=attachment.file.name,
             )
             return presigned_url, attachment.file.name, attachment.file.content_type
         except Exception as e:
-            raise TracecatException(f"Failed to generate download URL: {str(e)}") from e
+            raise AutoSecOpsException(
+                f"Failed to generate download URL: {str(e)}"
+            ) from e
 
     async def delete_attachment(self, case: Case, attachment_id: uuid.UUID) -> None:
         """Soft delete an attachment.
@@ -556,8 +561,8 @@ class CaseAttachmentService(BaseWorkspaceService):
             attachment_id: The attachment ID
 
         Raises:
-            TracecatNotFoundError: If attachment not found
-            TracecatAuthorizationError: If user lacks permission
+            AutoSecOpsNotFoundError: If attachment not found
+            AutoSecOpsAuthorizationError: If user lacks permission
         """
 
         attachment = await self._require_attachment(case, attachment_id)
@@ -571,7 +576,7 @@ class CaseAttachmentService(BaseWorkspaceService):
             and attachment.file.creator_id != self.role.user_id
             and not self.role.is_privileged
         ):
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "You don't have permission to delete this attachment"
             )
 

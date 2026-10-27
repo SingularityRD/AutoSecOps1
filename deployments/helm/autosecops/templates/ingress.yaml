@@ -1,4 +1,7 @@
 {{- if .Values.ingress.enabled }}
+{{- $api := include "autosecops.componentName" (dict "root" . "component" "api") -}}
+{{- $mcp := include "autosecops.componentName" (dict "root" . "component" "mcp") -}}
+{{- $ui := include "autosecops.componentName" (dict "root" . "component" "ui") -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -18,17 +21,48 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    - {{- with .Values.ingress.host }}
-      host: {{ . | quote }}
-      {{- end }}
+    - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          # Caddy owns path routing (/api prefix stripping, MCP, /s3).
+          {{- if .Values.api.enabled }}
+          # FastAPI serves under the /api root path, so the prefix is kept.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $api }}
+                port:
+                  name: http
+          {{- end }}
+          {{- if .Values.mcp.enabled }}
+          # MCP endpoint plus the OAuth and discovery routes FastMCP serves at
+          # the root, as in the Docker Compose Caddyfile.
+          {{- range $path := list "/mcp" "/.well-known/oauth-protected-resource" "/authorize" "/consent" "/auth/callback" }}
+          - path: {{ $path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $mcp }}
+                port:
+                  name: http
+          {{- end }}
+          {{- range $path := list "/.well-known/oauth-authorization-server" "/token" "/register" }}
+          - path: {{ $path }}
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $mcp }}
+                port:
+                  name: http
+          {{- end }}
+          {{- end }}
+          {{- if .Values.ui.enabled }}
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "autosecops.componentFullname" (dict "root" . "component" "caddy") }}
+                name: {{ $ui }}
                 port:
                   name: http
+          {{- end }}
 {{- end }}

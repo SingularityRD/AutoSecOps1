@@ -24,7 +24,7 @@ from autosecops.audit.logger import audit_log
 from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import AgentCatalog, AgentCustomProvider, AgentModelAccess
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.outbound import create_outbound_http_client
 from autosecops.pagination import (
     BaseCursorPaginator,
@@ -112,7 +112,7 @@ class AgentCustomProviderService(BaseOrgService):
         )
         model = (await self.session.execute(stmt)).scalar_one_or_none()
         if model is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Custom provider {provider_id} not found in organization"
             )
         return AgentCustomProviderRead.model_validate(model)
@@ -257,7 +257,7 @@ class AgentCustomProviderService(BaseOrgService):
         )
         model = (await self.session.execute(stmt)).scalar_one_or_none()
         if model is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Custom provider {provider_id} not found in organization"
             )
 
@@ -310,7 +310,7 @@ class AgentCustomProviderService(BaseOrgService):
         )
         model = (await self.session.execute(stmt)).scalar_one_or_none()
         if model is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Custom provider {provider_id} not found in organization"
             )
         await self.session.delete(model)
@@ -332,7 +332,7 @@ class AgentCustomProviderService(BaseOrgService):
         )
         provider = (await self.session.execute(provider_stmt)).scalar_one_or_none()
         if provider is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Custom provider {provider_id} not found in organization"
             )
 

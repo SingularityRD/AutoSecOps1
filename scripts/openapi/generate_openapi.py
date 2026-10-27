@@ -144,7 +144,7 @@ def _normalize_multipart_binary_fields(spec: dict) -> None:
 
 def main() -> None:
     """Generate OpenAPI spec and write to stdout or file."""
-    os.environ["TRACECAT__AUTH_TYPES"] = "basic,oidc"
+    os.environ["AUTOSECOPS__AUTH_TYPES"] = "basic,oidc"
     os.environ["OIDC_ISSUER"] = "https://issuer.example.com"
     os.environ["OIDC_CLIENT_ID"] = "openapi-client"
     os.environ["OIDC_CLIENT_SECRET"] = "openapi-client-secret"

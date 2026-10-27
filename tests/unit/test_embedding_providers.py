@@ -206,10 +206,10 @@ def aws_session(monkeypatch):
     "region,session_name,expected_name",
     [
         ("us-east-1", "  synthetic-session  ", "synthetic-session"),
-        ("us-gov-west-1", "   ", "tracecat-search"),
-        ("cn-north-1", "", "tracecat-search"),
+        ("us-gov-west-1", "   ", "autosecops-search"),
+        ("cn-north-1", "", "autosecops-search"),
         ("us-east-2", "synthetic-session", "synthetic-session"),
-        ("us-west-2", None, "tracecat-search"),
+        ("us-west-2", None, "autosecops-search"),
     ],
 )
 async def test_bedrock_assumed_role_uses_workspace_external_id(

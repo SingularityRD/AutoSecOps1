@@ -23,7 +23,11 @@ import {
 } from "@/client"
 import { ToastAction } from "@/components/ui/toast"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type TracecatApiError } from "@/lib/errors"
+import {
+  type AutoSecOpsApiError,
+  getApiErrorBodyMessage,
+  getApiErrorDetail,
+} from "@/lib/errors"
 import {
   type MutateFunction,
   useMutation,
@@ -57,10 +61,6 @@ type WorkflowContextType = {
   >
   validationErrors: ValidationResult[] | null
   setValidationErrors: React.Dispatch<SetStateAction<ValidationResult[] | null>>
-}
-type TracecatErrorMessage = {
-  type?: string
-  message: string
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(
@@ -131,7 +131,7 @@ export function WorkflowProvider({
       toast({
         title: "Error saving workflow",
         description:
-          (error.body as TracecatErrorMessage).message ||
+          getApiErrorBodyMessage(error) ??
           "Could not save workflow. Please try again.",
         variant: "destructive",
       })
@@ -183,7 +183,7 @@ export function WorkflowProvider({
     },
     onError: (error: ApiError) => {
       console.warn("Failed to publish workflow:", error)
-      const apiError = error as TracecatApiError<string>
+      const apiError = error as AutoSecOpsApiError<string>
       const detail = apiError.body?.detail
       switch (apiError.status) {
         case 400:
@@ -253,7 +253,7 @@ export function WorkflowProvider({
         queryKey: ["agent-preset-workflow-references", workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to update workflow:", error)
       // `body` is absent on transport failures, and `String(undefined)` is the
       // truthy string "undefined", so read the detail through the safe accessor

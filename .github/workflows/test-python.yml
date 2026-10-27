@@ -56,40 +56,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The upstream starter kit is not mirrored under SingularityRD. Set the
-      # CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY Actions variable (owner/repo
-      # of a public starter kit that ships a `custom_actions` package) to run
-      # this check; until then the job passes with a notice.
-      - name: Resolve custom registry starter
-        id: starter-kit
-        env:
-          STARTER_KIT_REPOSITORY: ${{ vars.CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY }}
-        run: |
-          set -euo pipefail
-          if [ -z "$STARTER_KIT_REPOSITORY" ]; then
-            echo "::notice::Skipping custom registry install test: CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY is not set."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [[ ! "$STARTER_KIT_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            echo "::error::CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY must be owner/repo."
-            exit 1
-          fi
-          echo "enabled=true" >> "$GITHUB_OUTPUT"
+      # A minimal custom integrations repository is vendored as a fixture so
+      # this required check depends only on this repository.
+      - name: Install the registry package from the lockfile
+        run: env -u UV_SYSTEM_PYTHON uv sync --frozen --package autosecops-registry --no-dev
 
-      - name: Clone custom registry starter
-        if: steps.starter-kit.outputs.enabled == 'true'
-        env:
-          STARTER_KIT_REPOSITORY: ${{ vars.CUSTOM_INTEGRATIONS_STARTER_KIT_REPOSITORY }}
-        run: git clone --depth 1 "https://github.com/${STARTER_KIT_REPOSITORY}" custom-integrations-starter-kit
-
-      - name: Install dependencies
-        if: steps.starter-kit.outputs.enabled == 'true'
-        working-directory: custom-integrations-starter-kit
+      - name: Install and import the custom registry fixture
         run: |
-          uv venv
-          env -u UV_SYSTEM_PYTHON uv pip install --python .venv/bin/python .
-          .venv/bin/python -c "import custom_actions"
+          env -u UV_SYSTEM_PYTHON uv pip install --python .venv/bin/python --no-deps ./tests/data/custom_registry_starter
+          # -I keeps the checkout off sys.path, so imports resolve from the venv.
+          .venv/bin/python -I -c '
+          import importlib.util
+          from custom_actions.greetings import say_hello
+          assert importlib.util.find_spec("autosecops") is None, "registry env must not include the platform"
+          assert getattr(say_hello, "__autosecops_udf_key") == "custom_actions.greetings.say_hello"
+          assert say_hello(name="ci") == "Hello, ci!"
+          print("custom registry fixture imports and registers")
+          '
 
   test-all:
     runs-on: ubuntu-22.04
@@ -157,12 +140,12 @@ jobs:
 
           if [ "${{ matrix.test_group }}" = "temporal" ]; then
             services=(temporal postgres_db minio redis)
-            cat > /tmp/tracecat-ci-postgres.yml <<'YAML'
+            cat > /tmp/autosecops-ci-postgres.yml <<'YAML'
           services:
             postgres_db:
               command: ["postgres", "-c", "max_connections=500"]
           YAML
-            compose_files+=(-f /tmp/tracecat-ci-postgres.yml)
+            compose_files+=(-f /tmp/autosecops-ci-postgres.yml)
           fi
 
           docker compose "${compose_files[@]}" up -d "${services[@]}"
@@ -201,7 +184,7 @@ jobs:
       - name: Verify automatic vector provisioning completed
         run: |
           docker compose -f docker-compose.dev.yml exec -T postgres_db \
-            psql -X -U postgres -d postgres -f /usr/local/share/tracecat/pgvector.sql
+            psql -X -U postgres -d postgres -f /usr/local/share/autosecops/pgvector.sql
 
       - name: Register Temporal search attributes
         if: matrix.test_group == 'temporal'
@@ -222,13 +205,13 @@ jobs:
           done
 
           attrs=(
-            TracecatTriggerType
-            TracecatTriggeredByUserId
-            TracecatWorkspaceId
-            TracecatAlias
-            TracecatCorrelationId
-            TracecatExecutionType
-            TracecatErrorOwner
+            AutoSecOpsTriggerType
+            AutoSecOpsTriggeredByUserId
+            AutoSecOpsWorkspaceId
+            AutoSecOpsAlias
+            AutoSecOpsCorrelationId
+            AutoSecOpsExecutionType
+            AutoSecOpsErrorOwner
           )
 
           add_args=()
@@ -267,19 +250,19 @@ jobs:
         run: |
           # Keep image builds out of individual smoke-test deadlines and avoid
           # concurrent xdist workers rebuilding the same Compose service image.
-          docker build --target test --tag tracecat-sandbox-test:ci .
-          echo "TRACECAT_TEST_SANDBOX_IMAGE=tracecat-sandbox-test:ci" >> "$GITHUB_ENV"
+          docker build --target test --tag autosecops-sandbox-test:ci .
+          echo "AUTOSECOPS_TEST_SANDBOX_IMAGE=autosecops-sandbox-test:ci" >> "$GITHUB_ENV"
 
       - name: Run tests
         env:
-          TRACECAT__SYSTEM_PATH: "/usr/local/bin:/usr/bin:/bin"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
-          TRACECAT__WORKFLOW_RETURN_STRATEGY: "context"
-          TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
+          AUTOSECOPS__SYSTEM_PATH: "/usr/local/bin:/usr/bin:/bin"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__WORKFLOW_RETURN_STRATEGY: "context"
+          AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING: "true"
           # xdist workers share the same CI Postgres container; keep each
           # worker's service-session pool small enough to avoid exhausting it.
-          TRACECAT__DB_POOL_SIZE: "1"
-          TRACECAT__DB_MAX_OVERFLOW: "2"
+          AUTOSECOPS__DB_POOL_SIZE: "1"
+          AUTOSECOPS__DB_MAX_OVERFLOW: "2"
         run: |
           # Container/nsjail sandbox tests dominate the unit job's tail, so they
           # run as their own matrix group in parallel with the rest of tests/unit.
@@ -301,18 +284,18 @@ jobs:
           elif [ "${{ matrix.test_group }}" = "temporal" ]; then
             # Temporal tests run with compression enabled and parallelization
             # Worker-specific task queues in conftest.py enable safe parallel execution
-            TRACECAT_TEST_API_MODE=inprocess \
-            TRACECAT__CONTEXT_COMPRESSION_ENABLED=true \
-            TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
+            AUTOSECOPS_TEST_API_MODE=inprocess \
+            AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED=true \
+            AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
             uv run pytest tests/temporal -m "not live_secret and not requires_api" -n auto -ra -o faulthandler_timeout=300
 
             # API-backed temporal tests start a local API process against the
             # test DB. Run them serially to avoid startup races under xdist,
             # with enough pool headroom for concurrent gateway-backed actions.
-            TRACECAT_TEST_API_MODE=inprocess \
-            TRACECAT__CONTEXT_COMPRESSION_ENABLED=true \
-            TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
-            TRACECAT__DB_MAX_OVERFLOW=9 \
+            AUTOSECOPS_TEST_API_MODE=inprocess \
+            AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED=true \
+            AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB=0 \
+            AUTOSECOPS__DB_MAX_OVERFLOW=9 \
             uv run pytest tests/temporal -m "requires_api and not live_secret" -ra -o faulthandler_timeout=300
           else
             uv run pytest tests/${{ matrix.test_group }} -m "not live_secret" -n auto -ra -o faulthandler_timeout=300

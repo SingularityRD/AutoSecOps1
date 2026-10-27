@@ -14,9 +14,9 @@ from autosecops.identifiers import InternalServiceID, SessionID, UserID, Workspa
 ExecutionOrigin = Literal["agent", "workflow"]
 """Trusted entry point that initiated an executor action."""
 
-EXECUTOR_TOKEN_ISSUER = "tracecat-executor"
-EXECUTOR_TOKEN_AUDIENCE = "tracecat-api"
-EXECUTOR_TOKEN_SUBJECT = "tracecat-executor"
+EXECUTOR_TOKEN_ISSUER = "autosecops-executor"
+EXECUTOR_TOKEN_AUDIENCE = "autosecops-api"
+EXECUTOR_TOKEN_SUBJECT = "autosecops-executor"
 REQUIRED_CLAIMS = (
     "iss",
     "aud",
@@ -45,10 +45,10 @@ class ExecutorTokenPayload(BaseModel):
     def validate_agent_session_provenance(self) -> Self:
         """Require agent-session claims to originate from the trusted MCP service."""
         if self.agent_session_id is not None and (
-            self.execution_origin != "agent" or self.service_id != "tracecat-mcp"
+            self.execution_origin != "agent" or self.service_id != "autosecops-mcp"
         ):
             raise ValueError(
-                "agent_session_id requires the tracecat-mcp agent execution origin"
+                "agent_session_id requires the autosecops-mcp agent execution origin"
             )
         return self
 
@@ -57,7 +57,7 @@ def mint_executor_token(
     *,
     workspace_id: WorkspaceID,
     user_id: UserID | None,
-    service_id: InternalServiceID = "tracecat-executor",
+    service_id: InternalServiceID = "autosecops-executor",
     execution_origin: ExecutionOrigin | None = None,
     root_action: str | None = None,
     agent_session_id: SessionID | None = None,
@@ -67,14 +67,14 @@ def mint_executor_token(
 ) -> str:
     """Create a signed executor JWT scoped to a specific workflow execution."""
     if agent_session_id is not None and (
-        execution_origin != "agent" or service_id != "tracecat-mcp"
+        execution_origin != "agent" or service_id != "autosecops-mcp"
     ):
         raise ValueError(
-            "agent_session_id requires the tracecat-mcp agent execution origin"
+            "agent_session_id requires the autosecops-mcp agent execution origin"
         )
 
     now = datetime.now(UTC)
-    ttl = ttl_seconds or config.TRACECAT__EXECUTOR_TOKEN_TTL_SECONDS
+    ttl = ttl_seconds or config.AUTOSECOPS__EXECUTOR_TOKEN_TTL_SECONDS
     payload: dict[str, Any] = {
         "iss": EXECUTOR_TOKEN_ISSUER,
         "aud": EXECUTOR_TOKEN_AUDIENCE,

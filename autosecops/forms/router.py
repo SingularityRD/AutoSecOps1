@@ -248,7 +248,7 @@ async def upload_form_file(
     """
     form = await get_form_or_404(FormsService(session, role), form_id)
     # The body is already spooled; refuse to load an oversized one into memory.
-    max_size = config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES
+    max_size = config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES
     if file.size is not None and file.size > max_size:
         raise FormError(
             FormErrorCode.FILE_TOO_LARGE,

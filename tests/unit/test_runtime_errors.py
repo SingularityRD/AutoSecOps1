@@ -60,7 +60,7 @@ def test_error_classification_serializes_exact_contract() -> None:
     )
 
     assert classification.model_dump(mode="json") == {
-        "schema": "tracecat.error.v1",
+        "schema": "autosecops.error.v1",
         "owner": "user",
         "kind": "action.execution.failed",
         "message": "The action failed",
@@ -85,7 +85,7 @@ def test_error_classification_rejects_extra_version_field() -> None:
     with pytest.raises(ValidationError):
         RuntimeErrorClassification.model_validate(
             {
-                "schema": "tracecat.error.v1",
+                "schema": "autosecops.error.v1",
                 "version": 1,
                 "owner": "user",
                 "kind": "action.execution.failed",
@@ -108,7 +108,7 @@ def test_parser_requires_explicit_schema_discriminator() -> None:
     assert parse_error_classification(serialized) is not None
     assert parse_error_classification(missing_schema) is None
     assert (
-        parse_error_classification({**serialized, "schema": "tracecat.error.v2"})
+        parse_error_classification({**serialized, "schema": "autosecops.error.v2"})
         is None
     )
 

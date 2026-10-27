@@ -543,7 +543,7 @@ class AuthorizationCodeOAuthProvider(BaseOAuthProvider):
     @classmethod
     def redirect_uri(cls) -> str:
         """The redirect URI for the OAuth provider."""
-        return f"{config.TRACECAT__PUBLIC_APP_URL}/integrations/callback"
+        return f"{config.AUTOSECOPS__PUBLIC_APP_URL}/integrations/callback"
 
     def _use_pkce(self) -> bool:
         """Override to enable PKCE for providers that support/require it."""

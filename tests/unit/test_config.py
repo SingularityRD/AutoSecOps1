@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-import autosecops.config as tracecat_config
+import autosecops.config as autosecops_config
 from autosecops.config import (
     bound_env,
     env_bool,
@@ -41,7 +41,7 @@ TRACED_COMPOSE_SERVICES = (
     "agent-executor",
 )
 PLATFORM_OTEL_COMPOSE_ENV = (
-    "TRACECAT__PLATFORM_OTEL_ENABLED: ${TRACECAT__PLATFORM_OTEL_ENABLED:-false}",
+    "AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}",
     "OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}",
     "OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}",
     "OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}",
@@ -50,23 +50,23 @@ PLATFORM_OTEL_HEADERS_COMPOSE_ENV = (
     "OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}"
 )
 SANDBOX_POLICY_ENV_VARS = {
-    "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
-    "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
-    "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
-    "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
-    "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
-    "TRACECAT__SANDBOX_BLOCKED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS",
+    "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_SCRIPT_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_ACTION_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_AGENT_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_BLOCKED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_ALLOW_PUBLIC_IPV6_EGRESS",
 }
 REGISTRY_POLICY_ENV_VARS = {
-    "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
-    "TRACECAT__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
+    "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS",
+    "AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_TCP_PORTS",
 }
 SENTRY_PLATFORM_COMPOSE_SERVICES = (
     "api",
@@ -76,11 +76,11 @@ SENTRY_PLATFORM_COMPOSE_SERVICES = (
     "agent-executor",
 )
 SMTP_COMPOSE_ENV = (
-    "TRACECAT__SMTP_HOST: ${TRACECAT__SMTP_HOST:-}",
-    "TRACECAT__SMTP_PORT: ${TRACECAT__SMTP_PORT:-587}",
-    "TRACECAT__SMTP_USER: ${TRACECAT__SMTP_USER:-}",
-    "TRACECAT__SMTP_PASSWORD: ${TRACECAT__SMTP_PASSWORD:-}",
-    "TRACECAT__EMAIL_FROM: ${TRACECAT__EMAIL_FROM:-}",
+    "AUTOSECOPS__SMTP_HOST: ${AUTOSECOPS__SMTP_HOST:-}",
+    "AUTOSECOPS__SMTP_PORT: ${AUTOSECOPS__SMTP_PORT:-587}",
+    "AUTOSECOPS__SMTP_USER: ${AUTOSECOPS__SMTP_USER:-}",
+    "AUTOSECOPS__SMTP_PASSWORD: ${AUTOSECOPS__SMTP_PASSWORD:-}",
+    "AUTOSECOPS__EMAIL_FROM: ${AUTOSECOPS__EMAIL_FROM:-}",
 )
 
 
@@ -228,10 +228,11 @@ def test_env_networks_uses_default_when_unset_or_blank(
     else:
         monkeypatch.setenv("TEST_NETWORKS_ENV", raw_value)
     default = env_networks(
-        "TEST_NETWORKS_ENV", default=tracecat_config.TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS
+        "TEST_NETWORKS_ENV",
+        default=autosecops_config.AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS,
     )
 
-    assert default == tracecat_config.TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS
+    assert default == autosecops_config.AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS
 
 
 @pytest.mark.parametrize("raw_value", [None, "", "   "])
@@ -335,22 +336,22 @@ def test_outbound_proxy_is_disabled_by_default(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.delenv("TRACECAT__OUTBOUND_PROXY_URL", raising=False)
-            env.delenv("TRACECAT__OUTBOUND_NO_PROXY", raising=False)
+            env.delenv("AUTOSECOPS__OUTBOUND_PROXY_URL", raising=False)
+            env.delenv("AUTOSECOPS__OUTBOUND_NO_PROXY", raising=False)
             # Generic proxy variables must not enable the proxy implicitly.
             env.setenv("HTTPS_PROXY", "http://127.0.0.1:9999")
             env.setenv("HTTP_PROXY", "http://127.0.0.1:9999")
             env.setenv("NO_PROXY", "example.com")
-            reloaded = importlib.reload(tracecat_config)
-            assert reloaded.TRACECAT__OUTBOUND_PROXY_URL is None
-            assert reloaded.TRACECAT__OUTBOUND_NO_PROXY == ()
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.AUTOSECOPS__OUTBOUND_PROXY_URL is None
+            assert reloaded.AUTOSECOPS__OUTBOUND_NO_PROXY == ()
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_audit_trusted_proxy_env_is_wired_to_deployments() -> None:
     """Both audit consumers (api, mcp) must receive the override in every target."""
-    name = "TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS"
+    name = "AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS"
     for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
         source = path.read_text()
         for service in ("api", "mcp"):
@@ -369,9 +370,12 @@ def test_audit_trusted_proxy_env_is_wired_to_deployments() -> None:
 @pytest.mark.parametrize(
     "name,tf_var",
     [
-        ("TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS", "outbound_allowed_private_cidrs"),
-        ("TRACECAT__OUTBOUND_PROXY_URL", "outbound_proxy_url"),
-        ("TRACECAT__OUTBOUND_NO_PROXY", "outbound_no_proxy"),
+        (
+            "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+            "outbound_allowed_private_cidrs",
+        ),
+        ("AUTOSECOPS__OUTBOUND_PROXY_URL", "outbound_proxy_url"),
+        ("AUTOSECOPS__OUTBOUND_NO_PROXY", "outbound_no_proxy"),
     ],
 )
 def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> None:
@@ -388,10 +392,15 @@ def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> 
                 f"{path.name}: {service} must forward the override and default to empty"
             )
     fargate = REPO_ROOT / "deployments/fargate"
-    assert re.search(
-        rf"{name}\s*=\s*var\.{tf_var}\n",
-        (fargate / "modules/ecs/locals.tf").read_text(),
-    )
+    if name in FARGATE_SECRET_SETTINGS:
+        assert (
+            f'name      = "{name}"' in (fargate / "modules/ecs/secrets.tf").read_text()
+        )
+    else:
+        assert re.search(
+            rf"{name}\s*=\s*var\.{tf_var}\n",
+            (fargate / "modules/ecs/locals.tf").read_text(),
+        )
     assert re.search(
         rf"{tf_var}\s*=\s*var\.{tf_var}\n",
         (fargate / "main.tf").read_text(),
@@ -401,6 +410,45 @@ def test_outbound_policy_env_is_wired_to_deployments(name: str, tf_var: str) -> 
             rf'variable "{tf_var}" \{{[^}}]*default\s*=\s*""',
             (fargate / tf).read_text(),
         ), tf
+
+
+FARGATE_SECRET_SETTINGS = {
+    "AUTOSECOPS__LICENSE_KEY": "license_key",
+    "AUTOSECOPS__OUTBOUND_PROXY_URL": "outbound_proxy_url",
+}
+
+
+@pytest.mark.parametrize("name,tf_var", sorted(FARGATE_SECRET_SETTINGS.items()))
+def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> None:
+    """Task-definition env is plaintext to anyone with ecs:DescribeTaskDefinition."""
+    ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
+    assert not re.search(
+        rf"^\s*{name}\s*=", (ecs / "locals.tf").read_text(), re.MULTILINE
+    ), f"{name} must not be in a task-definition environment map"
+    secrets = (ecs / "secrets.tf").read_text()
+    assert f'name      = "{name}"' in secrets
+    assert f"secret_string = var.{tf_var}" in secrets
+    iam = (ecs / "iam.tf").read_text()
+    assert f"aws_secretsmanager_secret.{tf_var}[*].arn" in iam
+
+
+def test_fargate_autosecops_containers_use_registry_credentials() -> None:
+    ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
+    checked = 0
+    for tf in sorted(ecs.glob("ecs-*.tf")):
+        source = tf.read_text()
+        for block in re.split(r"\n    (?:merge\()?\{\n", source)[1:]:
+            image = re.search(r"^      image\s*=\s*(.+)$", block, re.MULTILINE)
+            if image is None or "autosecops" not in image.group(1):
+                continue
+            checked += 1
+            assert re.search(
+                r"\n    \}, local\.autosecops_repository_credentials\)", block
+            ), f"{tf.name}: {image.group(1)} has no repositoryCredentials"
+    assert checked >= 9
+    fargate = REPO_ROOT / "deployments/fargate"
+    for tf in ("variables.tf", "main.tf", "modules/ecs/variables.tf"):
+        assert "autosecops_registry_credentials_arn" in (fargate / tf).read_text()
 
 
 def test_smtp_env_is_wired_to_api_deployments() -> None:
@@ -622,11 +670,11 @@ def test_agent_runtime_feature_flag_is_loaded_from_environment(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__FEATURE_FLAGS", "agent-runtime")
-            reloaded_config = importlib.reload(tracecat_config)
-            assert reloaded_config.TRACECAT__FEATURE_FLAGS == {"agent-runtime"}
+            env.setenv("AUTOSECOPS__FEATURE_FLAGS", "agent-runtime")
+            reloaded_config = importlib.reload(autosecops_config)
+            assert reloaded_config.AUTOSECOPS__FEATURE_FLAGS == {"agent-runtime"}
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_action_gateway_socket_uses_default_for_empty_string(
@@ -634,16 +682,16 @@ def test_action_gateway_socket_uses_default_for_empty_string(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__ACTION_GATEWAY_SOCKET", "")
+            env.setenv("AUTOSECOPS__ACTION_GATEWAY_SOCKET", "")
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
             assert (
-                reloaded_config.TRACECAT__ACTION_GATEWAY_SOCKET
-                == "/var/run/tracecat/action-gateway.sock"
+                reloaded_config.AUTOSECOPS__ACTION_GATEWAY_SOCKET
+                == "/var/run/autosecops/action-gateway.sock"
             )
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 @pytest.mark.parametrize("port", ["0", "65536", "-1"])
@@ -652,12 +700,12 @@ def test_smtp_port_rejects_out_of_range(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__SMTP_PORT", port)
+            env.setenv("AUTOSECOPS__SMTP_PORT", port)
 
-            with pytest.raises(ValueError, match="TRACECAT__SMTP_PORT"):
-                importlib.reload(tracecat_config)
+            with pytest.raises(ValueError, match="AUTOSECOPS__SMTP_PORT"):
+                importlib.reload(autosecops_config)
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_smtp_password_preserves_whitespace(
@@ -665,20 +713,20 @@ def test_smtp_password_preserves_whitespace(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__SMTP_PASSWORD", " secret ")
+            env.setenv("AUTOSECOPS__SMTP_PASSWORD", " secret ")
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
-            assert reloaded_config.TRACECAT__SMTP_PASSWORD == " secret "
+            assert reloaded_config.AUTOSECOPS__SMTP_PASSWORD == " secret "
 
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__SMTP_PASSWORD", "   ")
+            env.setenv("AUTOSECOPS__SMTP_PASSWORD", "   ")
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
-            assert reloaded_config.TRACECAT__SMTP_PASSWORD is None
+            assert reloaded_config.AUTOSECOPS__SMTP_PASSWORD is None
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_copilot_skills_dir_uses_default_for_empty_string(
@@ -686,16 +734,16 @@ def test_copilot_skills_dir_uses_default_for_empty_string(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__COPILOT_SKILLS_DIR", "")
+            env.setenv("AUTOSECOPS__COPILOT_SKILLS_DIR", "")
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
             assert (
-                reloaded_config.TRACECAT__COPILOT_SKILLS_DIR
-                == "/var/lib/tracecat/copilot-skills"
+                reloaded_config.AUTOSECOPS__COPILOT_SKILLS_DIR
+                == "/var/lib/autosecops/copilot-skills"
             )
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 @pytest.mark.parametrize(
@@ -710,25 +758,25 @@ def test_agent_executor_drain_default_covers_all_supported_timeouts(
     try:
         with monkeypatch.context() as env:
             if sandbox_timeout is None:
-                env.delenv("TRACECAT__AGENT_SANDBOX_TIMEOUT", raising=False)
+                env.delenv("AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", raising=False)
             else:
-                env.setenv("TRACECAT__AGENT_SANDBOX_TIMEOUT", str(sandbox_timeout))
+                env.setenv("AUTOSECOPS__AGENT_SANDBOX_TIMEOUT", str(sandbox_timeout))
             env.delenv(
-                "TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT",
+                "AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT",
                 raising=False,
             )
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
-            assert reloaded_config.TRACECAT__AGENT_SANDBOX_TIMEOUT == (
+            assert reloaded_config.AUTOSECOPS__AGENT_SANDBOX_TIMEOUT == (
                 expected_drain_timeout - 60
             )
             assert (
-                reloaded_config.TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
+                reloaded_config.AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
                 == expected_drain_timeout
             )
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 @pytest.mark.parametrize(
@@ -741,16 +789,16 @@ def test_agent_executor_drain_default_covers_all_supported_timeouts(
         ),
         pytest.param(
             {
-                "TRACECAT__LIMIT_AGG_GROUPS_DEFAULT": "250",
-                "TRACECAT__LIMIT_AGG_GROUPS_MAX": "2000",
-                "TRACECAT__AGG_STATEMENT_TIMEOUT_MS": "15000",
+                "AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT": "250",
+                "AUTOSECOPS__LIMIT_AGG_GROUPS_MAX": "2000",
+                "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS": "15000",
             },
             (250, 2000, 15_000),
             id="operator-overrides",
         ),
         pytest.param(
             {
-                "TRACECAT__AGG_STATEMENT_TIMEOUT_MS": "2147483648",
+                "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS": "2147483648",
             },
             (100, 1000, 2_147_483_647),
             id="timeout-clamped-to-postgres-maximum",
@@ -763,9 +811,9 @@ def test_aggregation_query_config(
     expected: tuple[int, int, int],
 ) -> None:
     names = (
-        "TRACECAT__LIMIT_AGG_GROUPS_DEFAULT",
-        "TRACECAT__LIMIT_AGG_GROUPS_MAX",
-        "TRACECAT__AGG_STATEMENT_TIMEOUT_MS",
+        "AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT",
+        "AUTOSECOPS__LIMIT_AGG_GROUPS_MAX",
+        "AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS",
     )
     try:
         with monkeypatch.context() as env:
@@ -774,15 +822,15 @@ def test_aggregation_query_config(
             for name, value in values.items():
                 env.setenv(name, value)
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
             assert (
-                reloaded_config.TRACECAT__LIMIT_AGG_GROUPS_DEFAULT,
-                reloaded_config.TRACECAT__LIMIT_AGG_GROUPS_MAX,
-                reloaded_config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS,
+                reloaded_config.AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT,
+                reloaded_config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX,
+                reloaded_config.AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS,
             ) == expected
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_executor_concurrency_uses_bounded_defaults(
@@ -790,15 +838,15 @@ def test_executor_concurrency_uses_bounded_defaults(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.delenv("TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES", raising=False)
-            env.delenv("TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS", raising=False)
+            env.delenv("AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES", raising=False)
+            env.delenv("AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS", raising=False)
 
-            reloaded_config = importlib.reload(tracecat_config)
+            reloaded_config = importlib.reload(autosecops_config)
 
-            assert reloaded_config.TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES == 16
-            assert reloaded_config.TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS == 16
+            assert reloaded_config.AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES == 16
+            assert reloaded_config.AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS == 16
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 def test_bound_env_rejects_invalid_numeric_value(
@@ -817,9 +865,36 @@ def test_bound_env_rejects_invalid_bounds() -> None:
         bound_env("TEST_BOUND_ENV", 16, lower=10, upper=8)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        # Read by no code.
+        "AUTOSECOPS__AGENT_FS_ARCHIVE_CACHE_MAX_BYTES",
+        # Tuning knobs that Compose never passes to a container.
+        "AUTOSECOPS__EXECUTOR_TOKEN_TTL_SECONDS",
+        "AUTOSECOPS__BLOB_STORAGE_MAX_ATTEMPTS",
+        "SAML_ACCEPTED_TIME_DIFF",
+    ],
+)
+def test_env_example_does_not_advertise_ineffective_settings(name: str) -> None:
+    source = (REPO_ROOT / ".env.example").read_text()
+    assert f"{name}=" not in source
+
+
+def test_ui_deployments_do_not_set_unread_auth_types() -> None:
+    """The frontend never reads NEXT_PUBLIC_AUTH_TYPES; auth discovery is an API."""
+    paths = [
+        *COMPOSE_ENV_FILES,
+        REPO_ROOT / "deployments" / "helm" / "autosecops" / "templates" / "ui.yaml",
+        REPO_ROOT / "deployments" / "fargate" / "modules" / "ecs" / "locals.tf",
+    ]
+    for path in paths:
+        assert "NEXT_PUBLIC_AUTH_TYPES" not in path.read_text(), path.name
+
+
 def test_platform_otel_operator_settings_are_not_advertised_in_env_example() -> None:
     source = (REPO_ROOT / ".env.example").read_text()
-    assert "TRACECAT__PLATFORM_OTEL_ENABLED" not in source
+    assert "AUTOSECOPS__PLATFORM_OTEL_ENABLED" not in source
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in source
     assert "OTEL_EXPORTER_OTLP_HEADERS" not in source
 
@@ -832,16 +907,16 @@ def test_sandbox_address_space_override(
 ) -> None:
     try:
         with monkeypatch.context() as env:
-            env.setenv("TRACECAT__SANDBOX_ADDRESS_SPACE_MB", raw)
-            reloaded_config = importlib.reload(tracecat_config)
-            assert reloaded_config.TRACECAT__SANDBOX_ADDRESS_SPACE_MB == expected
+            env.setenv("AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB", raw)
+            reloaded_config = importlib.reload(autosecops_config)
+            assert reloaded_config.AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB == expected
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
 
 
 @pytest.mark.parametrize(
     "name",
-    ["TRACECAT__SANDBOX_DEFAULT_MEMORY_MB", "TRACECAT__SANDBOX_ADDRESS_SPACE_MB"],
+    ["AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB", "AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB"],
 )
 @pytest.mark.parametrize("value", ["0", "-1"])
 def test_sandbox_memory_limits_must_be_positive(
@@ -851,22 +926,80 @@ def test_sandbox_memory_limits_must_be_positive(
         with monkeypatch.context() as env:
             env.setenv(name, value)
             with pytest.raises(ValueError, match=name):
-                importlib.reload(tracecat_config)
+                importlib.reload(autosecops_config)
     finally:
-        importlib.reload(tracecat_config)
+        importlib.reload(autosecops_config)
+
+
+def test_legacy_env_var_replacements_maps_pre_rename_names() -> None:
+    environ = {
+        "TRACECAT__DB_URI": "postgresql://synthetic",
+        "TRACECAT_MCP__PORT": "8099",
+        "AUTOSECOPS__APP_ENV": "development",
+        "PATH": "/usr/bin",
+    }
+
+    assert autosecops_config.legacy_env_var_replacements(environ) == {
+        "TRACECAT_MCP__PORT": "AUTOSECOPS_MCP__PORT",
+        "TRACECAT__DB_URI": "AUTOSECOPS__DB_URI",
+    }
+
+
+def test_report_legacy_env_vars_logs_error_naming_replacement(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    environ = {"TRACECAT__SERVICE_KEY": "synthetic-service-key"}
+
+    with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+        reported = autosecops_config.report_legacy_env_vars(environ)
+
+    assert reported == {"TRACECAT__SERVICE_KEY": "AUTOSECOPS__SERVICE_KEY"}
+    messages = [r.getMessage() for r in caplog.records if r.levelname == "ERROR"]
+    assert len(messages) == 1
+    assert "TRACECAT__SERVICE_KEY" in messages[0]
+    assert "AUTOSECOPS__SERVICE_KEY" in messages[0]
+    assert "synthetic-service-key" not in messages[0]
+
+
+def test_report_legacy_env_vars_is_silent_without_legacy_names(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+        reported = autosecops_config.report_legacy_env_vars(
+            {"AUTOSECOPS__SERVICE_KEY": "synthetic-service-key"}
+        )
+
+    assert reported == {}
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+
+
+def test_legacy_env_vars_are_ignored_on_import(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("AUTOSECOPS__SERVICE_NAME", raising=False)
+    monkeypatch.setenv("TRACECAT__SERVICE_NAME", "legacy-service-name")
+
+    try:
+        with caplog.at_level("ERROR", logger=autosecops_config.logger.name):
+            reloaded = importlib.reload(autosecops_config)
+        assert reloaded.AUTOSECOPS__SERVICE_NAME == "autosecops"
+        assert any("AUTOSECOPS__SERVICE_NAME" in r.getMessage() for r in caplog.records)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(autosecops_config)
 
 
 ENV_EXAMPLE_GENERATED_SECRETS = (
-    "TRACECAT__DB_ENCRYPTION_KEY",
-    "TRACECAT__SERVICE_KEY",
-    "TRACECAT__SIGNING_SECRET",
+    "AUTOSECOPS__DB_ENCRYPTION_KEY",
+    "AUTOSECOPS__SERVICE_KEY",
+    "AUTOSECOPS__SIGNING_SECRET",
     "USER_AUTH_SECRET",
-    "TRACECAT__POSTGRES_PASSWORD",
+    "AUTOSECOPS__POSTGRES_PASSWORD",
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
 )
 WEAK_DEFAULT_CREDENTIALS = {
-    "TRACECAT__POSTGRES_PASSWORD": {"postgres"},
+    "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},
     "TEMPORAL__POSTGRES_PASSWORD": {"temporal"},
     "MINIO_ROOT_PASSWORD": {"password", "minioadmin"},
 }
@@ -895,7 +1028,7 @@ def test_env_example_ships_placeholders_instead_of_weak_secrets() -> None:
 
 def test_env_example_defaults_to_production_mode() -> None:
     values = _env_example_values()
-    assert values["TRACECAT__APP_ENV"] == "production"
+    assert values["AUTOSECOPS__APP_ENV"] == "production"
     assert values["NODE_ENV"] == "production"
     assert values["NEXT_PUBLIC_APP_ENV"] == "production"
 

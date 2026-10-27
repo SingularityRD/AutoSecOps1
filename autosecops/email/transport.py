@@ -10,7 +10,7 @@ from typing import Final
 import aiosmtplib
 
 from autosecops import config
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 
 # Applied per SMTP operation, so a send makes several of these back to back.
 OPERATION_TIMEOUT_SECONDS: Final = 20
@@ -29,7 +29,7 @@ class OutboundEmail:
     text: str
 
 
-class EmailDeliveryError(TracecatException):
+class EmailDeliveryError(AutoSecOpsException):
     """A send failed. Carries port and error type only, never host or recipients."""
 
     def __init__(self, *args: object, retryable: bool = False) -> None:
@@ -52,15 +52,15 @@ class SMTPTransport:
     @classmethod
     def from_config(cls) -> SMTPTransport | None:
         """Return the configured transport, or None while any SMTP setting is unset."""
-        host = config.TRACECAT__SMTP_HOST
-        username = config.TRACECAT__SMTP_USER
-        password = config.TRACECAT__SMTP_PASSWORD
-        from_addr = config.TRACECAT__EMAIL_FROM
+        host = config.AUTOSECOPS__SMTP_HOST
+        username = config.AUTOSECOPS__SMTP_USER
+        password = config.AUTOSECOPS__SMTP_PASSWORD
+        from_addr = config.AUTOSECOPS__EMAIL_FROM
         if not (host and username and password and from_addr):
             return None
         return cls(
             host=host,
-            port=config.TRACECAT__SMTP_PORT,
+            port=config.AUTOSECOPS__SMTP_PORT,
             username=username,
             password=password,
             from_addr=from_addr,

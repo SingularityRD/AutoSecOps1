@@ -371,14 +371,14 @@ class SlackStreamSink:
                 "elements": [
                     {
                         "type": "button",
-                        "action_id": "tracecat_approval_approve",
+                        "action_id": "autosecops_approval_approve",
                         "text": {"type": "plain_text", "text": "Approve"},
                         "style": "primary",
                         "value": approve_value,
                     },
                     {
                         "type": "button",
-                        "action_id": "tracecat_approval_deny",
+                        "action_id": "autosecops_approval_deny",
                         "text": {"type": "plain_text", "text": "Deny"},
                         "style": "danger",
                         "value": deny_value,

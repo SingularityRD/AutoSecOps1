@@ -20,7 +20,7 @@ from autosecops.agent.skill.folders.schemas import (
 )
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Skill, SkillFolder
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import (
     BaseCursorPaginator,
     CursorPaginatedResponse,
@@ -57,8 +57,8 @@ class SkillFolderService(BaseWorkspaceService):
         message: str,
         *,
         code: SkillFolderErrorCode,
-    ) -> TracecatValidationError:
-        return TracecatValidationError(message, detail={"code": code.value})
+    ) -> AutoSecOpsValidationError:
+        return AutoSecOpsValidationError(message, detail={"code": code.value})
 
     @staticmethod
     def _normalize_folder_name(name: str) -> str:
@@ -222,13 +222,13 @@ class SkillFolderService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for skill folders"
                 ) from err
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError("Invalid cursor for skill folders")
+                raise AutoSecOpsValidationError("Invalid cursor for skill folders")
 
             predicate = sa.or_(
                 SkillFolder.created_at < cursor_created_at,
@@ -309,7 +309,7 @@ class SkillFolderService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         skill = result.scalar_one_or_none()
         if not skill:
-            raise TracecatNotFoundError(f"Skill {skill_id} not found")
+            raise AutoSecOpsNotFoundError(f"Skill {skill_id} not found")
 
         skill.folder_id = folder.id if folder else None
         self.session.add(skill)
@@ -511,7 +511,7 @@ class SkillFolderService(BaseWorkspaceService):
         if path != "/":
             folder = await self._get_folder_by_path(path)
             if not folder:
-                raise TracecatNotFoundError(f"Folder {path} not found")
+                raise AutoSecOpsNotFoundError(f"Folder {path} not found")
             return path, folder.id
 
         return path, None

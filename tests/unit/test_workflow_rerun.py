@@ -242,10 +242,10 @@ def _scheduler(
         context=context,
         role=Role(
             type="service",
-            service_id="tracecat-runner",
+            service_id="autosecops-runner",
             workspace_id=uuid.uuid4(),
             user_id=uuid.uuid4(),
-            scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+            scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
         ),
         run_context=RunContext(
             wf_id=wf_id,

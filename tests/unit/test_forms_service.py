@@ -291,10 +291,10 @@ async def test_upsert_creates_the_form_then_updates_it(
 ) -> None:
     executor = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=svc_workspace.id,
         organization_id=svc_workspace.organization_id,
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
     workflow_id = WorkflowUUID.new(published_workflow.id)
 
@@ -696,7 +696,7 @@ def org_role(svc_workspace: Workspace, requester: User) -> Role:
         type="user",
         organization_id=svc_workspace.organization_id,
         user_id=requester.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         # Lets the catalog see every workspace of the organization, so the
         # per-workspace form:read check is what decides.
         scopes=frozenset({"org:workspace:read"}),

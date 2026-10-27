@@ -1,6 +1,6 @@
 import pytest
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 
@@ -47,5 +47,5 @@ def test_registry_repository_create_valid_urls(url: str) -> None:
 def test_registry_repository_create_invalid_urls(url: str) -> None:
     """Invalid git SSH URLs fail the shared regex and are rejected."""
     assert not GIT_SSH_URL_REGEX.match(url)
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         RegistryRepositoryCreate(origin=url)

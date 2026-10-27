@@ -70,7 +70,7 @@ from autosecops.db.models import (
     ScimConnection,
     User,
 )
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.organization.domains import normalize_domain
@@ -134,9 +134,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def validate_password(
         self, password: str, user: schemas.BaseUserCreate | User
     ) -> None:
-        if len(password) < config.TRACECAT__AUTH_MIN_PASSWORD_LENGTH:
+        if len(password) < config.AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH:
             raise InvalidPasswordException(
-                f"Password must be at least {config.TRACECAT__AUTH_MIN_PASSWORD_LENGTH} characters long"
+                f"Password must be at least {config.AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH} characters long"
             )
 
     async def validate_email(
@@ -146,16 +146,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         async with get_async_session_auth_context_manager() as session:
             if not await users_exist(session=session):
                 # Only allow registration if this is the designated superadmin email
-                if not config.TRACECAT__AUTH_SUPERADMIN_EMAIL:
+                if not config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL:
                     self.logger.error(
                         "No superadmin email configured, but attempting first user registration"
                     )
                     raise InvalidEmailException()
-                if email != config.TRACECAT__AUTH_SUPERADMIN_EMAIL:
+                if email != config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL:
                     self.logger.error(
                         "First user registration attempted with non-superadmin email",
                         attempted_email=email,
-                        expected_email=config.TRACECAT__AUTH_SUPERADMIN_EMAIL,
+                        expected_email=config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL,
                     )
                     raise InvalidEmailException()
                 self.logger.info(
@@ -173,7 +173,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             return
 
         # For non-first users, apply normal domain validation
-        allowed_domains = list(config.TRACECAT__AUTH_ALLOWED_DOMAINS)
+        allowed_domains = list(config.AUTOSECOPS__AUTH_ALLOWED_DOMAINS)
         self.logger.debug("Allowed domains", allowed_domains=allowed_domains)
         validate_email(email=email, allowed_domains=allowed_domains)
 
@@ -229,7 +229,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         )
 
     async def _is_local_password_login_allowed(self, user: User) -> bool:
-        if AuthType.BASIC not in config.TRACECAT__AUTH_TYPES:
+        if AuthType.BASIC not in config.AUTOSECOPS__AUTH_TYPES:
             return False
 
         # An IdP-provisioned user holds a generated password the IdP cannot
@@ -330,7 +330,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             org_ids = result.scalars().all()
             if not org_ids:
                 return False
-            if AuthType.SAML in config.TRACECAT__AUTH_TYPES:
+            if AuthType.SAML in config.AUTOSECOPS__AUTH_TYPES:
                 for org_id in org_ids:
                     if not await get_setting_from_bypass_session(
                         "saml_enabled",
@@ -377,7 +377,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         Checks both the email-domain-mapped org *and* all orgs the user is a
         member of, matching the policy applied to local password logins.
         """
-        if AuthType.SAML not in config.TRACECAT__AUTH_TYPES:
+        if AuthType.SAML not in config.AUTOSECOPS__AUTH_TYPES:
             return False
 
         # 1. Domain-based check: the org owning this email domain enforces SAML
@@ -495,7 +495,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
         # Promote to superuser if email matches configured superadmin email
         # No count/lock needed - email uniqueness ensures only one user can have this email
-        superadmin_email = config.TRACECAT__AUTH_SUPERADMIN_EMAIL
+        superadmin_email = config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL
         if superadmin_email and user.email == superadmin_email:
             update_params = UserUpdate(is_superuser=True)
             user = await self.admin_update(user_update=update_params, user=user)
@@ -541,13 +541,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                     org_id=str(invitation.organization_id),
                 )
                 return invitation.organization_id
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             self.logger.warning(
                 "Invitation token not found during registration",
                 user_id=str(user.id),
                 email=user.email,
             )
-        except TracecatAuthorizationError as e:
+        except AutoSecOpsAuthorizationError as e:
             self.logger.warning(
                 "Invitation acceptance failed during registration",
                 user_id=str(user.id),
@@ -561,7 +561,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         audit_role = PlatformRole(
             type="user",
             user_id=user.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
         )
         try:
             async with AuditService.with_session(
@@ -618,7 +618,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             audit_role = PlatformRole(
                 type="user",
                 user_id=user.id,
-                service_id="tracecat-api",
+                service_id="autosecops-api",
             )
             try:
                 async with AuditService.with_session(
@@ -646,7 +646,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 type="user",
                 user_id=user.id,
                 organization_id=org_id,
-                service_id="tracecat-api",
+                service_id="autosecops-api",
             )
             for audit_sink in ("platform", "organization"):
                 try:
@@ -802,14 +802,14 @@ def _get_cookie_name() -> str:
     """
     # Allow explicit override via environment variable (for backward compatibility)
     if env_cookie_name := (
-        os.environ.get("TRACECAT__DEV_COOKIE_NAME")
-        or os.environ.get("TRACECAT__COOKIE_NAME")
+        os.environ.get("AUTOSECOPS__DEV_COOKIE_NAME")
+        or os.environ.get("AUTOSECOPS__COOKIE_NAME")
     ):
         return env_cookie_name
 
     # Only generate stable cookie name in development mode
-    if config.TRACECAT__APP_ENV == "development":
-        """Generate a stable cookie name unique to this tracecat instance.
+    if config.AUTOSECOPS__APP_ENV == "development":
+        """Generate a stable cookie name unique to this autosecops instance.
 
         Uses the Docker Compose project name (COMPOSE_PROJECT_NAME) if available,
         which provides a stable, instance-specific identifier. Falls back to a hash
@@ -819,25 +819,25 @@ def _get_cookie_name() -> str:
         across restarts, preventing cookie conflicts when running multiple instances.
 
         Returns:
-            A stable cookie name like 'tracecat_auth_<project_name>' or 'tracecat_auth_<hash>'.
+            A stable cookie name like 'autosecops_auth_<project_name>' or 'autosecops_auth_<hash>'.
         """
         # Prefer Docker Compose project name (most stable and human-readable)
         from slugify import slugify
 
         if compose_project_name := os.environ.get("COMPOSE_PROJECT_NAME"):
-            return f"tracecat_auth_{slugify(compose_project_name)}"
+            return f"autosecops_auth_{slugify(compose_project_name)}"
 
         # Fallback: use hash of stable instance configuration
         # Use public app URL as primary source of uniqueness (unique per instance)
         # The DB URI and internal API URL are typically the same across Docker instances
         # since they use internal Docker network addresses
-        stable_value = config.TRACECAT__PUBLIC_APP_URL
+        stable_value = config.AUTOSECOPS__PUBLIC_APP_URL
 
         # Generate a short hash (first 8 characters of SHA256)
         hash_obj = hashlib.sha256(stable_value.encode())
         hash_hex = hash_obj.hexdigest()[:8]
 
-        return f"tracecat_auth_{hash_hex}"
+        return f"autosecops_auth_{hash_hex}"
 
     # In production/staging, use default cookie name (None)
     return "fastapiusersauth"
@@ -846,7 +846,7 @@ def _get_cookie_name() -> str:
 cookie_transport = CookieTransport(
     cookie_name=_get_cookie_name(),
     cookie_max_age=config.SESSION_EXPIRE_TIME_SECONDS,
-    cookie_secure=config.TRACECAT__PUBLIC_API_URL.startswith("https"),
+    cookie_secure=config.AUTOSECOPS__PUBLIC_API_URL.startswith("https"),
 )
 
 
@@ -952,7 +952,7 @@ class FastAPIUserWithLogoutRouter(FastAPIUsers[models.UP, models.ID]):
     def get_logout_router(
         self,
         backend: AuthenticationBackend[models.UP, models.ID],
-        requires_verification: bool = config.TRACECAT__AUTH_REQUIRE_EMAIL_VERIFICATION,
+        requires_verification: bool = config.AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION,
     ) -> APIRouter:
         """
         Provide a router for logout only for OAuth/OIDC Flows.

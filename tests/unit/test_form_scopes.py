@@ -59,10 +59,10 @@ def _form_scopes(scopes: frozenset[str]) -> frozenset[str]:
         pytest.param(ORG_SERVICE_ACCOUNT_ASSIGNABLE_SCOPES, ALL, id="org-sa"),
         pytest.param(WORKSPACE_OPERATIONAL_SCOPES, OPERATIONAL, id="operational"),
         pytest.param(
-            SERVICE_PRINCIPAL_SCOPES["tracecat-executor"], OPERATIONAL, id="executor"
+            SERVICE_PRINCIPAL_SCOPES["autosecops-executor"], OPERATIONAL, id="executor"
         ),
         pytest.param(
-            SERVICE_PRINCIPAL_SCOPES["tracecat-runner"], OPERATIONAL, id="runner"
+            SERVICE_PRINCIPAL_SCOPES["autosecops-runner"], OPERATIONAL, id="runner"
         ),
     ],
 )

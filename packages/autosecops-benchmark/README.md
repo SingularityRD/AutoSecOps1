@@ -41,8 +41,8 @@ submits load.
 Resolve or create the synthetic workspace, then run a small one-shot workload:
 
 ```bash
-export TRACECAT_LOADTEST_EMAIL='benchmark@tracecat.example'
-export TRACECAT_LOADTEST_PASSWORD='<local synthetic password>'
+export AUTOSECOPS_LOADTEST_EMAIL='benchmark@autosecops.example'
+export AUTOSECOPS_LOADTEST_PASSWORD='<local synthetic password>'
 
 benchmark_workspace_id="$(
   uv run --all-packages autosecops-benchmark-kubernetes -- \
@@ -61,7 +61,7 @@ uv run --all-packages autosecops-benchmark-kubernetes -- \
   --one-shot
 ```
 
-The adapter uses `https://tracecat.k8s.orb.local/api` by default and loads the
+The adapter uses `https://autosecops.k8s.orb.local/api` by default and loads the
 OrbStack development CA from the macOS keychain for normal TLS verification.
 Pass wrapper options before `--` (for example, `--context` or `--namespace`)
 and runner options after it. Supply credentials for a synthetic user that
@@ -319,7 +319,7 @@ defaults:
 | `max_connections` | `200` |
 | `repeats` | `1` |
 
-Resource columns use the exact `TRACECAT__LOADTEST_*` names from
+Resource columns use the exact `AUTOSECOPS__LOADTEST_*` names from
 `experiment.env.example`. Columns may be omitted, and empty cells inherit that
 checked-in baseline. Unknown columns are rejected so typos cannot silently
 change an experiment.
@@ -342,7 +342,7 @@ no action expressions, runtime `for_each`, or fixture-table writes, so the
 runner reports zero expected rows while retaining activity-level throughput and
 latency measurements.
 
-Artifacts are written below `/tmp/tracecat-load-test/`. The collector records
+Artifacts are written below `/tmp/autosecops-load-test/`. The collector records
 the resolved Compose model and rejects configuration drift between cluster
 startup and measurement.
 
@@ -361,7 +361,7 @@ Browse recorded runs in a local browser UI:
 uv run --all-packages autosecops-benchmark-viewer
 ```
 
-It serves `http://127.0.0.1:8321` over `/tmp/tracecat-load-test/` and is
+It serves `http://127.0.0.1:8321` over `/tmp/autosecops-load-test/` and is
 read-only. Use `--artifact-root`, `--port`, and `--host` to point it elsewhere.
 
 The landing view lists every indexed run newest first, labeled with the matrix

@@ -14,10 +14,10 @@ from sqlalchemy.exc import ProgrammingError
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.db.models import Table, TableColumn, Workspace
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.query.errors import (
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
 )
 from autosecops.tables import internal_router as internal_tables_router
 from autosecops.tables.exceptions import TableRowError
@@ -412,7 +412,7 @@ async def test_internal_aggregate_rows_rejects_limit_above_maximum(
         response = action_gateway_client.post(
             f"/internal/tables/{mock_table.name}/aggregate",
             params={"workspace_id": str(test_admin_role.workspace_id)},
-            json={"group_by": [], "limit": config.TRACECAT__LIMIT_AGG_GROUPS_MAX + 1},
+            json={"group_by": [], "limit": config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX + 1},
         )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -424,22 +424,22 @@ async def test_internal_aggregate_rows_rejects_limit_above_maximum(
     ("error", "expected_status"),
     [
         pytest.param(
-            TracecatValidationError("Unsupported aggregation"),
+            AutoSecOpsValidationError("Unsupported aggregation"),
             status.HTTP_400_BAD_REQUEST,
             id="semantic-error",
         ),
         pytest.param(
-            TracecatNotFoundError("Table not found"),
+            AutoSecOpsNotFoundError("Table not found"),
             status.HTTP_404_NOT_FOUND,
             id="missing-table",
         ),
         pytest.param(
-            TracecatQueryTimeoutError(),
+            AutoSecOpsQueryTimeoutError(),
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             id="shared-timeout-contract",
         ),
         pytest.param(
-            TracecatQueryOverflowError(),
+            AutoSecOpsQueryOverflowError(),
             status.HTTP_400_BAD_REQUEST,
             id="shared-overflow-contract",
         ),

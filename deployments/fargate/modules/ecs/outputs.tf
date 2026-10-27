@@ -1,26 +1,26 @@
-output "tracecat_image_tag" {
+output "autosecops_image_tag" {
   description = "The version of AutoSecOps used"
-  value       = local.tracecat_image_tag
+  value       = local.autosecops_image_tag
 }
 
-output "tracecat_migrations_image" {
+output "autosecops_migrations_image" {
   description = "The AutoSecOps migrations init container image repository"
-  value       = local.tracecat_migrations_image
+  value       = local.autosecops_migrations_image
 }
 
-output "tracecat_migrations_image_tag" {
+output "autosecops_migrations_image_tag" {
   description = "The AutoSecOps migrations init container image tag"
-  value       = local.tracecat_migrations_image_tag
+  value       = local.autosecops_migrations_image_tag
 }
 
 output "ecs_cluster_name" {
   description = "ECS cluster name"
-  value       = aws_ecs_cluster.tracecat_cluster.name
+  value       = aws_ecs_cluster.autosecops_cluster.name
 }
 
 output "ecs_cluster_arn" {
   description = "ECS cluster ARN"
-  value       = aws_ecs_cluster.tracecat_cluster.arn
+  value       = aws_ecs_cluster.autosecops_cluster.arn
 }
 
 output "executor_assume_role_arn" {

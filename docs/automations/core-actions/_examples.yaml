@@ -348,7 +348,7 @@ examples:
         args:
           host: 10.0.10.15
           port: 22
-          username: tracecat
+          username: autosecops
           host_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBEXAMPLEHOSTKEY"
           command: uptime
           timeout_seconds: 20
@@ -931,6 +931,17 @@ examples:
           search_term: database
           limit: 50
           paginate: true
+
+  tables-semantic-search:
+    title: Search table rows by meaning
+    language: yaml
+    code: |
+      - ref: similar_incidents
+        action: core.table.search
+        args:
+          table: incident_notes
+          query: credential stuffing against the VPN portal
+          limit: 10
 
   tables-aggregate:
     title: Sum bytes by source and hour

@@ -9,7 +9,7 @@ import pytest
 from autosecops.auth.types import Role
 from autosecops.db.models import Action, Workflow, WorkflowDefinition
 from autosecops.dsl.common import DSLInput
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.expressions.expectations import ExpectedField
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.registry.lock.types import RegistryLock
@@ -110,7 +110,7 @@ async def test_restore_workflow_definition_serializes_expected_fields(
     workflow_id = uuid.uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=workspace_id,
         scopes=frozenset({"*"}),
@@ -261,7 +261,7 @@ def _service(role: Role) -> WorkflowsManagementService:
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         scopes=frozenset({"*"}),
@@ -474,7 +474,7 @@ async def test_persist_edit_document_wraps_case_trigger_validation_error(
 ) -> None:
     """An online case trigger on an unpublished workflow becomes WorkflowEditError.
 
-    ``CaseTriggersService`` raises ``TracecatValidationError``
+    ``CaseTriggersService`` raises ``AutoSecOpsValidationError``
     for correctable authoring mistakes (e.g. enabling a case trigger before the
     workflow is published). ``persist_workflow_edit_document`` must convert that
     into a transport-neutral ``WorkflowEditError`` so the internal edit route
@@ -482,7 +482,7 @@ async def test_persist_edit_document_wraps_case_trigger_validation_error(
     caller can fix instead of letting it escape as a 500.
     """
     from autosecops.cases.enums import CaseEventType
-    from autosecops.exceptions import TracecatValidationError
+    from autosecops.exceptions import AutoSecOpsValidationError
     from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
     from autosecops.workflow.management import draft as draft_module
     from autosecops.workflow.management.draft import (
@@ -517,7 +517,7 @@ async def test_persist_edit_document_wraps_case_trigger_validation_error(
             create_missing_tags: bool = False,
             commit: bool = True,
         ) -> None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Publish the workflow before enabling case triggers"
             )
 
@@ -535,7 +535,7 @@ async def test_persist_edit_document_wraps_case_trigger_validation_error(
             original_document=original_document,
             updated_document=updated_document,
         )
-    assert not isinstance(exc.value, TracecatValidationError)
+    assert not isinstance(exc.value, AutoSecOpsValidationError)
     assert "case trigger" in str(exc.value).lower()
     session.commit.assert_not_awaited()
 
@@ -724,7 +724,7 @@ async def test_validate_edit_document_runs_case_trigger_check_on_dry_run(
     reports the same WorkflowEditError a real apply would.
     """
     from autosecops.cases.enums import CaseEventType
-    from autosecops.exceptions import TracecatValidationError
+    from autosecops.exceptions import AutoSecOpsValidationError
     from autosecops.workflow.case_triggers.schemas import CaseTriggerConfig
     from autosecops.workflow.management import draft as draft_module
     from autosecops.workflow.management.draft import (
@@ -759,7 +759,7 @@ async def test_validate_edit_document_runs_case_trigger_check_on_dry_run(
         async def validate_case_trigger_config(
             self, workflow_id: Any, config: Any
         ) -> None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Publish the workflow before enabling case triggers"
             )
 
@@ -909,7 +909,7 @@ async def test_publish_workflow_invalid_draft_returns_errors(
     internal route can each render them; only the internal route turns them into a
     400. version is None and the result is not ``ok``.
     """
-    from autosecops.exceptions import TracecatValidationError
+    from autosecops.exceptions import AutoSecOpsValidationError
     from autosecops.identifiers.workflow import WorkflowUUID
     from autosecops.workflow.management.management import WorkflowPublishResult
 
@@ -919,7 +919,7 @@ async def test_publish_workflow_invalid_draft_returns_errors(
     service.get_workflow = AsyncMock(return_value=SimpleNamespace(id=uuid.uuid4()))  # type: ignore[method-assign]
 
     async def fail_build(_workflow: Any) -> Any:
-        raise TracecatValidationError("Workflow has no actions.")
+        raise AutoSecOpsValidationError("Workflow has no actions.")
 
     monkeypatch.setattr(service, "build_dsl_from_workflow", fail_build)
 
@@ -1108,7 +1108,7 @@ async def test_locked_action_results_skips_unusable_locks(
 
     async def _get_rerun_source(exec_id: str) -> Any:
         if exec_id not in sources:
-            raise TracecatNotFoundError("gone")
+            raise AutoSecOpsNotFoundError("gone")
         return sources[exec_id]
 
     fake_exec.get_rerun_source = _get_rerun_source  # type: ignore[attr-defined]
@@ -1196,7 +1196,7 @@ async def test_run_workflow_draft_validation_error_does_not_dispatch(
     )
     fake_exec = _patch_exec_service(monkeypatch)
 
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await service.run_workflow(WorkflowUUID.new_uuid4(), use_draft=True)
     assert fake_exec.calls == []
 

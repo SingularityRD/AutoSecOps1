@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react"
 import Image from "next/image"
-import TracecatIcon from "public/icon.png"
+import AutoSecOpsIcon from "public/icon.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const CONTACT_US_URL = "mailto:sales@singularityrd.com"
@@ -29,7 +29,7 @@ export function SystemInfoAlert({ kind }: { kind: SystemMessageKind }) {
     <Alert className="border border-sky-200 bg-sky-50 text-xs text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
       <AlertDescription className="text-xs flex items-start gap-2">
         <Image
-          src={TracecatIcon}
+          src={AutoSecOpsIcon}
           alt="AutoSecOps"
           className="size-3.5 inline-block mt-0.5"
         />

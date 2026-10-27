@@ -47,7 +47,7 @@ describe("useFormConfigDraft markSaved", () => {
     // The next save goes over the config this one saved.
     expect(result.current.baseVersion).toBe("v2")
     expect(
-      sessionStorage.getItem("tracecat:form-config-draft:form-1")
+      sessionStorage.getItem("autosecops:form-config-draft:form-1")
     ).toContain("Sent and more")
   })
 
@@ -56,7 +56,7 @@ describe("useFormConfigDraft markSaved", () => {
 
     expect(result.current.text).toBe(SENT)
     expect(result.current.isDirty).toBe(false)
-    expect(sessionStorage.getItem("tracecat:form-config-draft:form-1")).toBe(
+    expect(sessionStorage.getItem("autosecops:form-config-draft:form-1")).toBe(
       null
     )
   })

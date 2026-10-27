@@ -58,6 +58,12 @@ async def create_tag(
     service = TagsService(session, role)
     try:
         return await service.create_tag(tag)
+    except ValueError as e:
+        # Raised by the service when a tag with the same slug already exists.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except IntegrityError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,7 +82,13 @@ async def update_tag(
 ) -> WorkflowTag:
     """Update an existing tag."""
     service = TagsService(session, role)
-    tag = await service.get_tag(tag_id)
+    try:
+        tag = await service.get_tag(tag_id)
+    except NoResultFound as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tag not found",
+        ) from e
     try:
         return await service.update_tag(tag, tag_update)
     except IntegrityError as e:

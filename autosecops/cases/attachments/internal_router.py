@@ -18,7 +18,7 @@ from autosecops.cases.attachments.schemas import (
 from autosecops.cases.dependencies import ExecutorCaseIDPath
 from autosecops.cases.service import CasesService
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.logger import logger
 from autosecops.storage.exceptions import (
     FileContentMismatchError,
@@ -280,7 +280,7 @@ async def download_attachment_content(
         content, filename, content_type = await service.attachments.download_attachment(
             case, attachment_id
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),

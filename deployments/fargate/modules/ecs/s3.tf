@@ -20,12 +20,12 @@ resource "random_id" "agent_bucket_suffix" {
 
 # S3 bucket for AutoSecOps case attachments
 resource "aws_s3_bucket" "attachments" {
-  bucket = "${var.name_prefix}-attachments-${var.tracecat_app_env}-${random_id.attachments_bucket_suffix.hex}"
+  bucket = "${var.name_prefix}-attachments-${var.autosecops_app_env}-${random_id.attachments_bucket_suffix.hex}"
 
   tags = {
     Name        = "AutoSecOps attachments storage"
-    Environment = var.tracecat_app_env
-    Service     = "tracecat"
+    Environment = var.autosecops_app_env
+    Service     = "autosecops"
     Purpose     = "attachments"
     ManagedBy   = "terraform"
   }
@@ -145,12 +145,12 @@ resource "aws_s3_bucket_cors_configuration" "attachments" {
 
 # S3 bucket for AutoSecOps registry tarballs
 resource "aws_s3_bucket" "registry" {
-  bucket = "${var.name_prefix}-registry-${var.tracecat_app_env}-${random_id.registry_bucket_suffix.hex}"
+  bucket = "${var.name_prefix}-registry-${var.autosecops_app_env}-${random_id.registry_bucket_suffix.hex}"
 
   tags = {
     Name        = "AutoSecOps registry storage"
-    Environment = var.tracecat_app_env
-    Service     = "tracecat"
+    Environment = var.autosecops_app_env
+    Service     = "autosecops"
     Purpose     = "registry"
     ManagedBy   = "terraform"
   }
@@ -269,12 +269,12 @@ resource "aws_s3_bucket_cors_configuration" "skills" {
 
 # S3 bucket for AutoSecOps workspace skills
 resource "aws_s3_bucket" "skills" {
-  bucket = "${var.name_prefix}-skills-${var.tracecat_app_env}-${random_id.skills_bucket_suffix.hex}"
+  bucket = "${var.name_prefix}-skills-${var.autosecops_app_env}-${random_id.skills_bucket_suffix.hex}"
 
   tags = {
     Name        = "AutoSecOps skills storage"
-    Environment = var.tracecat_app_env
-    Service     = "tracecat"
+    Environment = var.autosecops_app_env
+    Service     = "autosecops"
     Purpose     = "skills"
     ManagedBy   = "terraform"
   }
@@ -421,12 +421,12 @@ resource "aws_s3_bucket_policy" "skills" {
 
 # S3 bucket for externalized workflow artifacts
 resource "aws_s3_bucket" "workflow" {
-  bucket = "${var.name_prefix}-workflow-${var.tracecat_app_env}-${random_id.workflow_bucket_suffix.hex}"
+  bucket = "${var.name_prefix}-workflow-${var.autosecops_app_env}-${random_id.workflow_bucket_suffix.hex}"
 
   tags = {
     Name        = "AutoSecOps workflow storage"
-    Environment = var.tracecat_app_env
-    Service     = "tracecat"
+    Environment = var.autosecops_app_env
+    Service     = "autosecops"
     Purpose     = "workflow"
     ManagedBy   = "terraform"
   }
@@ -529,12 +529,12 @@ resource "aws_s3_bucket_policy" "workflow" {
 
 # S3 bucket for durable agent filesystem snapshots
 resource "aws_s3_bucket" "agent" {
-  bucket = "${var.name_prefix}-agent-${var.tracecat_app_env}-${random_id.agent_bucket_suffix.hex}"
+  bucket = "${var.name_prefix}-agent-${var.autosecops_app_env}-${random_id.agent_bucket_suffix.hex}"
 
   tags = {
     Name        = "AutoSecOps agent filesystem storage"
-    Environment = var.tracecat_app_env
-    Service     = "tracecat"
+    Environment = var.autosecops_app_env
+    Service     = "autosecops"
     Purpose     = "agent"
     ManagedBy   = "terraform"
   }

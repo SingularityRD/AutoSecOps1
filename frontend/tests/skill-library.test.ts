@@ -98,7 +98,7 @@ describe("libraryMaintainer", () => {
   it.each([
     [undefined, "official"],
     [null, "official"],
-    ["AutoSecOps", "tracecat"],
+    ["AutoSecOps", "autosecops"],
     ["Someone", "community"],
   ] as const)("classifies %j as %s", (provider, expected) => {
     expect(libraryMaintainer(provider)).toBe(expected)

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, TypeAdapter
 
 from autosecops.identifiers.common import (
-    TracecatUUID,
+    AutoSecOpsUUID,
     id_from_short,
     id_to_short,
 )
@@ -129,8 +129,8 @@ def test_id_from_short_invalid_prefix() -> None:
         id_from_short("invalid_12345", prefix="test_")
 
 
-class MockUUID(TracecatUUID[str]):
-    """Test implementation of TracecatUUID."""
+class MockUUID(AutoSecOpsUUID[str]):
+    """Test implementation of AutoSecOpsUUID."""
 
     prefix = "test_"
     legacy_prefix = "test-legacy-"
@@ -149,13 +149,13 @@ def test_uuid_str() -> str:
     return "12345678-1234-1234-1234-123456789012"
 
 
-class TestTracecatUUID:
-    """Test suite for TracecatUUID base class."""
+class TestAutoSecOpsUUID:
+    """Test suite for AutoSecOpsUUID base class."""
 
     def test_missing_prefix(self) -> None:
-        """Test that TracecatUUID requires a prefix."""
+        """Test that AutoSecOpsUUID requires a prefix."""
 
-        class InvalidUUID(TracecatUUID):
+        class InvalidUUID(AutoSecOpsUUID):
             pass
 
         with pytest.raises(ValueError, match="requires a prefix to be set"):
@@ -194,7 +194,7 @@ class TestTracecatUUID:
             MockUUID.new("not-a-uuid")
 
     def test_equality(self) -> None:
-        """Test that TracecatUUID instances can be compared using ==."""
+        """Test that AutoSecOpsUUID instances can be compared using ==."""
 
         # Create two UUIDs with the same value
         uuid_int = 12345
@@ -256,8 +256,8 @@ class TestWorkflowUUID:
                 WorkflowUUID.from_legacy(invalid_id)
 
 
-def test_tracecat_uuid_construction_and_serialization(test_uuid_str):
-    """TracecatUUID accepts every supported input form and round-trips via JSON."""
+def test_autosecops_uuid_construction_and_serialization(test_uuid_str):
+    """AutoSecOpsUUID accepts every supported input form and round-trips via JSON."""
 
     class TestModel(BaseModel):
         id: MockUUID

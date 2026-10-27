@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from autosecops.db.models import Table, TableColumn
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.tables.schemas import (
     TableColumnCreate,
     TableColumnUpdate,
@@ -214,7 +214,7 @@ class TableAdapter(DirectoryManifestAdapter):
                 # Fallback path: no source-id mapping, so look up by name.
                 try:
                     table = await table_service.get_table_by_name(spec.name)
-                except TracecatNotFoundError:
+                except AutoSecOpsNotFoundError:
                     # No table with that name either: create it from scratch.
                     table = await table_service.create_table(
                         TableCreate(

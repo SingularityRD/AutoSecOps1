@@ -16,7 +16,7 @@ from autosecops.cases.versions.schemas import (
     CaseVersionRestoreRead,
 )
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, PageParams
 
 router = APIRouter(prefix="/cases/{case_id}/versions", tags=["cases"])
@@ -33,9 +33,9 @@ async def list_case_versions(
     session: AsyncDBSession,
     case_id: uuid.UUID,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
         description="Maximum items per page",
     ),
     cursor: str | None = Query(
@@ -61,7 +61,7 @@ async def list_case_versions(
             page=PageParams(limit=limit, cursor=cursor),
             field=field,
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=exc.detail or str(exc),
@@ -112,7 +112,7 @@ async def restore_case_version(
             case_id=case_id,
             version_id=version_id,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail=str(exc),

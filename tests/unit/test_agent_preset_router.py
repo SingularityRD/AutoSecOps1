@@ -29,7 +29,7 @@ from autosecops.agent.preset.schemas import (
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.auth.types import Role
 from autosecops.db.engine import get_async_session
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import PaginationError, PaginationErrorCode
 
 
@@ -45,7 +45,7 @@ def test_preset_validation_error_response_contract(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:create"}),
@@ -59,7 +59,7 @@ def test_preset_validation_error_response_contract(
         patch(
             "autosecops.agent.preset.router.AgentPresetService.create_preset",
             new_callable=AsyncMock,
-            side_effect=TracecatValidationError(
+            side_effect=AutoSecOpsValidationError(
                 "Invalid preset configuration", detail=detail
             ),
         ),
@@ -105,12 +105,12 @@ async def test_preview_preserves_validation_details(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read"}),
     )
-    error = TracecatValidationError("Invalid skill selection", detail=detail)
+    error = AutoSecOpsValidationError("Invalid skill selection", detail=detail)
     with (
         patch(
             "autosecops.agent.preset.router.AgentPresetService.preview_tool_policy",
@@ -140,7 +140,7 @@ async def test_preset_routes_preserve_validation_details(operation: str) -> None
     detail = {"code": "agent_tool_limit_exceeded", "tool_count": 140, "max_tools": 128}
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:create", "agent:update", "agent:read"}),
@@ -148,7 +148,7 @@ async def test_preset_routes_preserve_validation_details(operation: str) -> None
     preset_id = uuid.uuid4()
     version_id = uuid.uuid4()
     session = AsyncMock(spec=AsyncSession)
-    error = TracecatValidationError("Invalid preset configuration", detail=detail)
+    error = AutoSecOpsValidationError("Invalid preset configuration", detail=detail)
     with (
         patch(
             "autosecops.agent.preset.router.AgentPresetService", autospec=True
@@ -223,7 +223,7 @@ async def test_preset_routes_preserve_validation_details(operation: str) -> None
 async def test_workflow_references_invalid_cursor_is_400() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:read", "workflow:read"}),

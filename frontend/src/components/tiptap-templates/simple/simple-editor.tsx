@@ -29,9 +29,9 @@ import { AttachmentImage } from "@/components/tiptap-node/image-node/attachment-
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
 import { MermaidCodeBlock } from "@/components/tiptap-node/mermaid-code-block-node/mermaid-code-block-node"
 import {
+  AutoSecOpsTable,
   canMoveTableColumnLeft,
   canMoveTableColumnRight,
-  TracecatTable,
 } from "@/components/tiptap-node/table-node/table-node-extension"
 // --- UI Primitives ---
 import { Button, ButtonGroup } from "@/components/tiptap-ui-primitive/button"
@@ -674,7 +674,7 @@ export function SimpleEditor({
       MermaidCodeBlock.configure({
         renderWhenBlurred: renderMermaidWhenBlurred,
       }),
-      TracecatTable.configure({
+      AutoSecOpsTable.configure({
         resizable: false,
       }),
       TableRow,

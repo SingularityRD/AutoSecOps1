@@ -20,7 +20,7 @@ from autosecops.auth.types import PlatformRole, Role
 from autosecops.db.models import Invitation, InvitationGrant, Organization, User
 from autosecops.db.models import Role as DBRole
 from autosecops.email.transport import EmailDeliveryError, OutboundEmail, SMTPTransport
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 from autosecops.invitations.consumer import (
     MAX_EMAIL_ATTEMPTS,
     deliver_next_invitation,
@@ -597,7 +597,7 @@ async def _resend(
         service = AdminOrgService(
             session,
             PlatformRole(
-                type="user", user_id=invitation.invited_by, service_id="tracecat-api"
+                type="user", user_id=invitation.invited_by, service_id="autosecops-api"
             ),
         )
         await service.resend_organization_invitation(
@@ -610,7 +610,7 @@ async def _resend(
                 type="user",
                 user_id=invitation.invited_by,
                 organization_id=invitation.organization_id,
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:member:invite"}),
             ),
         )
@@ -638,7 +638,7 @@ async def test_stale_resend_cannot_clear_a_new_claim(
         assert await deliver_next_invitation(org_factory_session, transport)
         assert stale.email_claimed_at == old_claim
 
-        with pytest.raises(TracecatConflictError):
+        with pytest.raises(AutoSecOpsConflictError):
             await _resend(stale_session, invitation, platform_admin=platform_admin)
 
     await org_factory_session.refresh(invitation)
@@ -675,7 +675,7 @@ async def test_resend_is_rejected_while_delivery_is_in_flight(
         try:
             await asyncio.wait_for(sending.wait(), timeout=5)
             # The committed claim is the gate: no row lock is held during SMTP.
-            with pytest.raises(TracecatConflictError):
+            with pytest.raises(AutoSecOpsConflictError):
                 await _resend(resender, invitation, platform_admin=platform_admin)
         finally:
             finish_send.set()

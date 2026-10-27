@@ -13,7 +13,7 @@ import {
   type SlackOAuthStartResponse,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 
 type ListChannelTokenParams = {
@@ -31,7 +31,7 @@ export function useAgentChannelTokens(
     isLoading: tokensIsLoading,
     error: tokensError,
     refetch: refetchTokens,
-  } = useQuery<Array<AgentChannelTokenRead>, TracecatApiError>({
+  } = useQuery<Array<AgentChannelTokenRead>, AutoSecOpsApiError>({
     queryKey: ["agent-channel-tokens", workspaceId, agentPresetId, channelType],
     queryFn: async () => {
       if (!workspaceId) {
@@ -64,7 +64,7 @@ export function useCreateAgentChannelToken(workspaceId: string) {
     error: createChannelTokenError,
   } = useMutation<
     AgentChannelTokenRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     AgentChannelTokenCreate
   >({
     mutationFn: async (requestBody) =>
@@ -110,7 +110,7 @@ export function useUpdateAgentChannelToken(workspaceId: string) {
     error: updateChannelTokenError,
   } = useMutation<
     AgentChannelTokenRead,
-    TracecatApiError,
+    AutoSecOpsApiError,
     { tokenId: string; requestBody: AgentChannelTokenUpdate }
   >({
     mutationFn: async ({ tokenId, requestBody }) =>
@@ -155,35 +155,37 @@ export function useRotateAgentChannelToken(workspaceId: string) {
     mutateAsync: rotateChannelToken,
     isPending: rotateChannelTokenIsPending,
     error: rotateChannelTokenError,
-  } = useMutation<AgentChannelTokenRead, TracecatApiError, { tokenId: string }>(
-    {
-      mutationFn: async ({ tokenId }) =>
-        await agentChannelsRotateChannelToken({
-          workspaceId,
-          tokenId,
-        }),
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: ["agent-channel-tokens", workspaceId],
-        })
-        toast({
-          title: "Endpoint rotated",
-          description: "Use the new endpoint URL in Slack configuration.",
-        })
-      },
-      onError: (error) => {
-        const detail =
-          typeof error.body?.detail === "string"
-            ? error.body.detail
-            : "Failed to rotate channel token."
-        toast({
-          title: "Rotate failed",
-          description: detail,
-          variant: "destructive",
-        })
-      },
-    }
-  )
+  } = useMutation<
+    AgentChannelTokenRead,
+    AutoSecOpsApiError,
+    { tokenId: string }
+  >({
+    mutationFn: async ({ tokenId }) =>
+      await agentChannelsRotateChannelToken({
+        workspaceId,
+        tokenId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["agent-channel-tokens", workspaceId],
+      })
+      toast({
+        title: "Endpoint rotated",
+        description: "Use the new endpoint URL in Slack configuration.",
+      })
+    },
+    onError: (error) => {
+      const detail =
+        typeof error.body?.detail === "string"
+          ? error.body.detail
+          : "Failed to rotate channel token."
+      toast({
+        title: "Rotate failed",
+        description: detail,
+        variant: "destructive",
+      })
+    },
+  })
 
   return {
     rotateChannelToken,
@@ -199,7 +201,7 @@ export function useDeleteAgentChannelToken(workspaceId: string) {
     mutateAsync: deleteChannelToken,
     isPending: deleteChannelTokenIsPending,
     error: deleteChannelTokenError,
-  } = useMutation<void, TracecatApiError, { tokenId: string }>({
+  } = useMutation<void, AutoSecOpsApiError, { tokenId: string }>({
     mutationFn: async ({ tokenId }) =>
       await agentChannelsDeleteChannelToken({
         workspaceId,
@@ -250,7 +252,7 @@ export function useStartSlackOAuth(workspaceId: string) {
     error: startSlackOAuthError,
   } = useMutation<
     SlackOAuthStartResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     SlackOAuthStartArgs
   >({
     mutationFn: async (params) => {

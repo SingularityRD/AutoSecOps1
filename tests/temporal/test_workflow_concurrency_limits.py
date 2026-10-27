@@ -88,17 +88,19 @@ async def concurrency_limits_enabled(
     environment before each test and tears down the shared connection before and
     after execution.
     """
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__FEATURE_FLAGS",
+        "AUTOSECOPS__FEATURE_FLAGS",
         {FeatureFlag.WORKFLOW_CONCURRENCY_LIMITS},
     )
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS", 0.02)
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS", 0.1)
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_PERMIT_MAX_WAIT_SECONDS", 30)
-    monkeypatch.setattr(config, "TRACECAT__ACTION_PERMIT_MAX_WAIT_SECONDS", 30)
-    monkeypatch.setattr(config, "TRACECAT__WORKFLOW_PERMIT_HEARTBEAT_SECONDS", 10.0)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_BASE_SECONDS", 0.02
+    )
+    monkeypatch.setattr(config, "AUTOSECOPS__WORKFLOW_PERMIT_BACKOFF_MAX_SECONDS", 0.1)
+    monkeypatch.setattr(config, "AUTOSECOPS__WORKFLOW_PERMIT_MAX_WAIT_SECONDS", 30)
+    monkeypatch.setattr(config, "AUTOSECOPS__ACTION_PERMIT_MAX_WAIT_SECONDS", 30)
+    monkeypatch.setattr(config, "AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS", 10.0)
     monkeypatch.setattr(redis_client_module, "REDIS_URL", os.environ["REDIS_URL"])
 
     redis_wrapper = await get_redis_client()
@@ -312,7 +314,7 @@ async def test_workflow_concurrency_batch_never_exceeds_cap(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handles = await _start_batch(
@@ -408,7 +410,7 @@ async def test_action_concurrency_never_exceeds_cap(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handles = await _start_batch(
@@ -510,7 +512,7 @@ async def test_action_concurrency_limit_update_applies_to_pending_acquires(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handles = await _start_batch(
@@ -605,7 +607,7 @@ async def test_workflow_concurrency_limit_update_applies_to_pending_acquires(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handles = await _start_batch(
@@ -723,7 +725,7 @@ async def test_scatter_gather_respects_action_concurrency_cap(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handle: WorkflowHandle = await env.client.start_workflow(
@@ -804,7 +806,7 @@ async def test_start_delay_does_not_consume_action_permit(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         delayed_handle = await env.client.start_workflow(
@@ -876,7 +878,7 @@ async def test_retry_until_iterations_count_toward_action_execution_limit_e2e(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         with pytest.raises(WorkflowFailureError) as exc_info:
@@ -976,7 +978,7 @@ async def test_concurrency_caps_are_isolated_per_organization(
         test_worker_factory(
             env.client,
             activities=[execute_action_activity_mock],
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
         ),
     ):
         handles_a = await _start_batch(

@@ -58,9 +58,9 @@ from autosecops.db.models import (
     Role as DBRole,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsValidationError,
 )
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.router import create_invitation
@@ -315,7 +315,7 @@ def create_admin_role(organization_id: uuid.UUID, user_id: uuid.UUID) -> Role:
         type="user",
         user_id=user_id,
         organization_id=organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=False,
         scopes=ORG_ADMIN_SCOPES,
     )
@@ -327,7 +327,7 @@ def create_superuser_role(organization_id: uuid.UUID, user_id: uuid.UUID) -> Rol
         type="user",
         user_id=user_id,
         organization_id=organization_id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=True,
         scopes=ORG_ADMIN_SCOPES,
     )
@@ -728,7 +728,7 @@ class TestOrganizationServiceDeleteMember:
         org1: Organization,
         admin_in_org1: User,
     ):
-        """Test delete_member raises TracecatAuthorizationError for superuser."""
+        """Test delete_member raises AutoSecOpsAuthorizationError for superuser."""
         # Create a superuser in org1
         superuser = User(
             id=uuid.uuid4(),
@@ -748,7 +748,9 @@ class TestOrganizationServiceDeleteMember:
         role = create_admin_role(org1.id, admin_in_org1.id)
         service = OrgService(session, role=role)
 
-        with pytest.raises(TracecatAuthorizationError, match="Cannot delete superuser"):
+        with pytest.raises(
+            AutoSecOpsAuthorizationError, match="Cannot delete superuser"
+        ):
             await service.delete_member(superuser.id)
 
         # Verify superuser was NOT deleted
@@ -790,7 +792,7 @@ class TestOrganizationServiceDeleteMember:
             await session.flush()
         service = OrgService(session, role=create_admin_role(org1.id, admin_in_org1.id))
         if blocked:
-            with pytest.raises(TracecatConflictError, match="identity provider"):
+            with pytest.raises(AutoSecOpsConflictError, match="identity provider"):
                 await service.delete_member(user_in_org1.id)
         else:
             await service.delete_member(user_in_org1.id)
@@ -864,11 +866,15 @@ class TestOrganizationServiceDeleteMember:
         role = create_admin_role(org1.id, admin_in_org1.id)
         service = OrgService(session, role=role)
 
-        with pytest.raises(TracecatAuthorizationError, match="Cannot delete superuser"):
+        with pytest.raises(
+            AutoSecOpsAuthorizationError, match="Cannot delete superuser"
+        ):
             await service.delete_member(superuser.id)
 
         # The bypass does not lower the superuser bar either.
-        with pytest.raises(TracecatAuthorizationError, match="Cannot delete superuser"):
+        with pytest.raises(
+            AutoSecOpsAuthorizationError, match="Cannot delete superuser"
+        ):
             await service.delete_member(superuser.id, allow_idp_managed=True)
 
     @pytest.mark.anyio
@@ -900,7 +906,7 @@ class TestOrganizationServiceDeleteMember:
         service = OrgService(session, role=create_admin_role(org1.id, admin_in_org1.id))
 
         if linked_in_own_org:
-            with pytest.raises(TracecatConflictError, match="identity provider"):
+            with pytest.raises(AutoSecOpsConflictError, match="identity provider"):
                 await service.delete_member(user_in_org1.id)
             return
 
@@ -954,7 +960,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1029,7 +1035,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1091,7 +1097,7 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
@@ -1119,13 +1125,13 @@ class TestOrganizationServiceDeleteOrganization:
             user_id=admin_in_org1.id,
             organization_id=org1.id,
             scopes=ORG_OWNER_SCOPES,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             is_platform_superuser=False,
         )
         service = OrgService(session, role=role)
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="Confirmation text must exactly match the organization name.",
         ):
             await service.delete_organization(confirmation="wrong")
@@ -1146,7 +1152,7 @@ class TestOrganizationServiceDeleteOrganization:
         service = OrgService(session, role=role)
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="You don't have permission to perform this action.",
         ):
             await service.delete_organization(confirmation=org1.name)
@@ -1224,7 +1230,7 @@ class TestOrganizationServiceSessions:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         by_user = {
@@ -1351,7 +1357,7 @@ class TestOrganizationServiceInvitations:
         service = InvitationService(session, role=role)
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.create_invitation(
@@ -1378,7 +1384,7 @@ class TestOrganizationServiceInvitations:
         service = InvitationService(session, role=role)
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="Cannot grant scopes not held by the caller",
         ):
             await service.create_invitation(
@@ -1451,7 +1457,7 @@ class TestOrganizationServiceInvitations:
         )
 
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="An invitation already exists for duplicate@example.com",
         ):
             await service.create_invitation(
@@ -1544,7 +1550,7 @@ class TestOrganizationServiceInvitations:
 
         # admin_in_org1 is already a member of org1, try to invite their email
         with pytest.raises(
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             match="is already a member of this organization",
         ):
             await service.create_invitation(
@@ -1564,7 +1570,7 @@ class TestOrganizationServiceInvitations:
         monkeypatch: pytest.MonkeyPatch,
     ):
         """Test superuser accounts can be invited as regular org members."""
-        monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+        monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
         superuser = User(
             id=uuid.uuid4(),
             email=f"superuser-{uuid.uuid4().hex[:8]}@example.com",
@@ -1790,7 +1796,7 @@ class TestOrganizationServiceInvitations:
         await service.revoke_invitation(invitation.id)
 
         with pytest.raises(
-            TracecatAuthorizationError, match="Cannot revoke invitation"
+            AutoSecOpsAuthorizationError, match="Cannot revoke invitation"
         ):
             await service.revoke_invitation(invitation.id)
 
@@ -1880,7 +1886,7 @@ class TestOrganizationServiceInvitations:
         multi_tenant: bool,
     ):
         """Superuser accounts accept org invitations as users in either tenancy mode."""
-        monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
+        monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
         standalone_superuser = User(
             id=uuid.uuid4(),
             email=f"standalone-superuser-{uuid.uuid4().hex[:8]}@example.com",
@@ -1955,7 +1961,7 @@ class TestOrganizationServiceInvitations:
         )
 
         # Try to accept again with the same user
-        with pytest.raises(TracecatAuthorizationError, match="already been accepted"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="already been accepted"):
             await accept_invitation_for_user(
                 session, user_id=user_in_org2.id, token=invitation.token
             )
@@ -1995,7 +2001,7 @@ class TestOrganizationServiceInvitations:
         await session.commit()
 
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match="invitation was sent to a different email address",
         ):
             await accept_invitation_for_user(
@@ -2024,7 +2030,7 @@ class TestOrganizationServiceInvitations:
         )
         await admin_service.revoke_invitation(invitation.id)
 
-        with pytest.raises(TracecatAuthorizationError, match="has been revoked"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="has been revoked"):
             await accept_invitation_for_user(
                 session, user_id=user_in_org2.id, token=invitation.token
             )
@@ -2299,7 +2305,7 @@ class TestOrganizationServiceListMemberAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
 
@@ -2539,7 +2545,7 @@ class TestOrganizationServiceListInvitationAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         service = OrgService(session, role=member_role)
@@ -2720,7 +2726,7 @@ class TestOrganizationServiceListInvitationAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
         with patch.object(
@@ -2920,11 +2926,11 @@ class TestOrganizationServiceTraceMemberAccess:
             type="user",
             user_id=user_in_org1.id,
             organization_id=org1.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_MEMBER_SCOPES,
         )
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await OrgService(session, role=member_role).trace_member_access(
                 user_in_org1.id
             )

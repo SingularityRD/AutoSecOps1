@@ -28,7 +28,7 @@ import type {
 } from "@/components/filters/filter-multi-select"
 import type { CaseHierarchyFilter } from "@/hooks/use-case-search-infinite"
 import { restoreCaseFilter } from "@/lib/case-filters"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import { useInfiniteQuery, useQuery } from "@/lib/query"
 import { withAbortSignal } from "@/lib/query-cancellation"
 import { useWorkspaceId } from "@/providers/workspace-id"
@@ -1145,7 +1145,7 @@ export function useCases(options: UseCasesOptions = {}): UseCasesResult {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useInfiniteQuery<CasesQueryCasesResponse, TracecatApiError>({
+  } = useInfiniteQuery<CasesQueryCasesResponse, AutoSecOpsApiError>({
     queryKey: ["cases", workspaceId, rowsKey],
     queryFn: ({ pageParam, signal }) =>
       withAbortSignal(
@@ -1191,7 +1191,7 @@ export function useCases(options: UseCasesOptions = {}): UseCasesResult {
     isFetching: isCountsFetching,
     isError: isCountsError,
     refetch: refetchCounts,
-  } = useQuery<CasesQueryCaseAggregatesResponse, TracecatApiError>({
+  } = useQuery<CasesQueryCaseAggregatesResponse, AutoSecOpsApiError>({
     queryKey: ["cases", "aggregate", workspaceId, filtersKey],
     queryFn: ({ signal }) =>
       withAbortSignal(

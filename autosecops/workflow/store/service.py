@@ -5,7 +5,7 @@ from pathlib import Path
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Workflow
 from autosecops.dsl.common import DSLInput
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.logger import logger
 from autosecops.service import BaseWorkspaceService
@@ -34,7 +34,7 @@ class WorkflowStoreService(BaseWorkspaceService):
         """Take the latest version of the workflow definition and publish it to the store."""
         # Validate that workflow_id matches the provided workflow object
         if workflow.id != workflow_id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Workflow ID mismatch: provided {workflow_id} but workflow object has ID {workflow.id}"
             )
 
@@ -61,7 +61,7 @@ class WorkflowStoreService(BaseWorkspaceService):
                         field_name="pr_base_branch",
                     )
             except ValueError as e:
-                raise TracecatValidationError(str(e)) from e
+                raise AutoSecOpsValidationError(str(e)) from e
         else:
             logger.warning(
                 "workflow_publish_legacy_mode_used",
@@ -69,7 +69,7 @@ class WorkflowStoreService(BaseWorkspaceService):
                 workspace_id=str(self.workspace_id),
             )
             validated_branch = validate_short_branch_name(
-                f"tracecat-sync-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
+                f"autosecops-sync-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
                 field_name="branch",
             )
             create_pr = True

@@ -2,9 +2,17 @@
 locals {
 
   # AutoSecOps version
-  tracecat_image_tag            = var.tracecat_image_tag
-  tracecat_migrations_image     = coalesce(var.tracecat_migrations_image, var.tracecat_image)
-  tracecat_migrations_image_tag = coalesce(var.tracecat_migrations_image_tag, local.tracecat_image_tag)
+  autosecops_image_tag            = var.autosecops_image_tag
+  autosecops_migrations_image     = coalesce(var.autosecops_migrations_image, var.autosecops_image)
+  autosecops_migrations_image_tag = coalesce(var.autosecops_migrations_image_tag, local.autosecops_image_tag)
+
+  # Pull credentials for a private registry such as GHCR, merged into every
+  # container definition that runs an AutoSecOps image.
+  autosecops_repository_credentials = var.autosecops_registry_credentials_arn != null ? {
+    repositoryCredentials = {
+      credentialsParameter = var.autosecops_registry_credentials_arn
+    }
+  } : {}
 
   # WAF regex pattern set names. Default to "${name_prefix}-..." so each stack
   # gets uniquely-named pattern sets within a shared AWS account; explicit
@@ -24,60 +32,60 @@ locals {
   allow_origins          = "https://${var.domain_name},http://ui-service:3000"
   internal_litellm_url   = "http://litellm-service:4000"
 
-  tracecat_litellm_env = {
-    TRACECAT__LITELLM_BASE_URL = local.internal_litellm_url
+  autosecops_litellm_env = {
+    AUTOSECOPS__LITELLM_BASE_URL = local.internal_litellm_url
   }
 
   # AutoSecOps Postgres env vars
-  tracecat_db_configs = {
-    TRACECAT__DB_USER              = "postgres"
-    TRACECAT__DB_PORT              = "5432"
-    TRACECAT__DB_NAME              = "postgres" # Hardcoded in RDS resource configs
-    TRACECAT__DB_PASS__ARN         = data.aws_secretsmanager_secret_version.tracecat_db_password.arn
-    TRACECAT__DB_MAX_OVERFLOW      = var.db_max_overflow
-    TRACECAT__DB_POOL_SIZE         = var.db_pool_size
-    TRACECAT__DB_POOL_TIMEOUT      = var.db_pool_timeout
-    TRACECAT__DB_POOL_RECYCLE      = var.db_pool_recycle
-    TRACECAT__DB_AUTH_MAX_OVERFLOW = var.db_auth_max_overflow
-    TRACECAT__DB_AUTH_POOL_SIZE    = var.db_auth_pool_size
+  autosecops_db_configs = {
+    AUTOSECOPS__DB_USER              = "postgres"
+    AUTOSECOPS__DB_PORT              = "5432"
+    AUTOSECOPS__DB_NAME              = "postgres" # Hardcoded in RDS resource configs
+    AUTOSECOPS__DB_PASS__ARN         = data.aws_secretsmanager_secret_version.autosecops_db_password.arn
+    AUTOSECOPS__DB_MAX_OVERFLOW      = var.db_max_overflow
+    AUTOSECOPS__DB_POOL_SIZE         = var.db_pool_size
+    AUTOSECOPS__DB_POOL_TIMEOUT      = var.db_pool_timeout
+    AUTOSECOPS__DB_POOL_RECYCLE      = var.db_pool_recycle
+    AUTOSECOPS__DB_AUTH_MAX_OVERFLOW = var.db_auth_max_overflow
+    AUTOSECOPS__DB_AUTH_POOL_SIZE    = var.db_auth_pool_size
   }
 
-  tracecat_db_configs_executor = {
-    TRACECAT__DB_MAX_OVERFLOW = var.db_max_overflow_executor
-    TRACECAT__DB_POOL_SIZE    = var.db_pool_size_executor
+  autosecops_db_configs_executor = {
+    AUTOSECOPS__DB_MAX_OVERFLOW = var.db_max_overflow_executor
+    AUTOSECOPS__DB_POOL_SIZE    = var.db_pool_size_executor
   }
 
-  tracecat_common_env = {
-    LOG_LEVEL                                         = var.log_level
-    TEMPORAL__CLUSTER_NAMESPACE                       = local.temporal_namespace
-    TEMPORAL__CLUSTER_URL                             = local.temporal_cluster_url
-    TRACECAT__APP_ENV                                 = var.tracecat_app_env
-    TRACECAT__LOG_FORMAT                              = var.log_format
-    TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID              = data.aws_caller_identity.current.account_id
-    TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
-    TRACECAT__FEATURE_FLAGS                           = var.feature_flags
-    TRACECAT__LICENSE_KEY                             = var.license_key
-    TRACECAT__EE_MULTI_TENANT                         = var.ee_multi_tenant
-    TRACECAT__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
-    TRACECAT__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb
-    TRACECAT__RESULT_EXTERNALIZATION_ENABLED          = var.result_externalization_enabled
-    TRACECAT__COLLECTION_MANIFESTS_ENABLED            = var.collection_manifests_enabled
-    TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES  = var.result_externalization_threshold_bytes
-    TRACECAT__UNSAFE_DISABLE_SECRET_ERROR_WITHHOLDING = var.unsafe_disable_secret_error_withholding
-    TRACECAT__DB_SSLMODE                              = "require"
+  autosecops_common_env = {
+    LOG_LEVEL                                           = var.log_level
+    TEMPORAL__CLUSTER_NAMESPACE                         = local.temporal_namespace
+    TEMPORAL__CLUSTER_URL                               = local.temporal_cluster_url
+    AUTOSECOPS__APP_ENV                                 = var.autosecops_app_env
+    AUTOSECOPS__LOG_FORMAT                              = var.log_format
+    AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID              = data.aws_caller_identity.current.account_id
+    AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
+    AUTOSECOPS__FEATURE_FLAGS                           = var.feature_flags
+    AUTOSECOPS__EE_MULTI_TENANT                         = var.ee_multi_tenant
+    AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
+    AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb
+    AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED          = var.result_externalization_enabled
+    AUTOSECOPS__COLLECTION_MANIFESTS_ENABLED            = var.collection_manifests_enabled
+    AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES  = var.result_externalization_threshold_bytes
+    AUTOSECOPS__UNSAFE_DISABLE_SECRET_ERROR_WITHHOLDING = var.unsafe_disable_secret_error_withholding
+    AUTOSECOPS__DB_SSLMODE                              = "require"
     # Agent timeout ceiling: every process that parses workflow DSL or
     # enforces the clamp must agree, so it rides the common env.
-    TRACECAT__AGENT_SANDBOX_TIMEOUT = var.agent_sandbox_timeout
+    AUTOSECOPS__AGENT_SANDBOX_TIMEOUT = var.agent_sandbox_timeout
     # Shared outbound policy for MCP and custom LLM requests.
-    TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS = var.outbound_allowed_private_cidrs
-    TRACECAT__OUTBOUND_PROXY_URL             = var.outbound_proxy_url
-    TRACECAT__OUTBOUND_NO_PROXY              = var.outbound_no_proxy
+    AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = var.outbound_allowed_private_cidrs
+    # AUTOSECOPS__OUTBOUND_PROXY_URL can hold credentials, so it is an ECS
+    # secret (secrets.tf), like AUTOSECOPS__LICENSE_KEY.
+    AUTOSECOPS__OUTBOUND_NO_PROXY = var.outbound_no_proxy
     # Audit client-IP attribution: both api and mcp resolve X-Forwarded-For,
     # so it rides the common env. Empty uses the built-in private-range default.
-    TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs
+    AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs
   }
 
-  tracecat_temporal_payload_encryption_env = {
+  autosecops_temporal_payload_encryption_env = {
     TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = var.temporal_payload_encryption_enabled
     TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN       = var.temporal_payload_encryption_keyring_arn
     TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS = var.temporal_payload_encryption_cache_ttl_seconds
@@ -95,45 +103,45 @@ locals {
     ])
   ]))
 
-  tracecat_blob_storage_env = {
-    TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS = aws_s3_bucket.attachments.bucket
-    TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY    = aws_s3_bucket.registry.bucket
-    TRACECAT__BLOB_STORAGE_BUCKET_SKILLS      = aws_s3_bucket.skills.bucket
-    TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW    = aws_s3_bucket.workflow.bucket
-    TRACECAT__BLOB_STORAGE_BUCKET_AGENT       = aws_s3_bucket.agent.bucket
+  autosecops_blob_storage_env = {
+    AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS = aws_s3_bucket.attachments.bucket
+    AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY    = aws_s3_bucket.registry.bucket
+    AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS      = aws_s3_bucket.skills.bucket
+    AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW    = aws_s3_bucket.workflow.bucket
+    AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT       = aws_s3_bucket.agent.bucket
   }
 
   api_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_litellm_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
+      local.autosecops_common_env,
+      local.autosecops_litellm_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
       {
-        TRACECAT__ALLOW_ORIGINS                    = local.allow_origins
-        TRACECAT__API_ROOT_PATH                    = "/api"
-        TRACECAT__API_URL                          = local.internal_api_url
-        TRACECAT__PUBLIC_API_URL                   = local.public_api_url
-        TRACECAT__PUBLIC_APP_URL                   = local.public_app_url
-        TRACECAT__AUTH_TYPES                       = var.auth_types
-        TRACECAT__AUTH_ALLOWED_DOMAINS             = var.auth_allowed_domains
-        TRACECAT__AUTH_MIN_PASSWORD_LENGTH         = var.auth_min_password_length
-        TRACECAT__AUTH_SUPERADMIN_EMAIL            = var.auth_superadmin_email
-        TRACECAT__SMTP_HOST                        = var.smtp_host
-        TRACECAT__SMTP_PORT                        = tostring(var.smtp_port)
-        TRACECAT__SMTP_USER                        = var.smtp_user
-        TRACECAT__EMAIL_FROM                       = var.email_from
-        TRACECAT__DB_ENDPOINT                      = local.core_db_hostname
-        TRACECAT__SERVICE_NAME                     = "api"
-        OIDC_ISSUER                                = var.oidc_issuer
-        OIDC_SCOPES                                = var.oidc_scopes
-        TEMPORAL__CLUSTER_QUEUE                    = local.temporal_cluster_queue
-        SAML_ALLOW_UNSOLICITED                     = var.saml_allow_unsolicited
-        TRACECAT__WORKFLOW_ARTIFACT_RETENTION_DAYS = var.workflow_artifact_retention_days
+        AUTOSECOPS__ALLOW_ORIGINS                    = local.allow_origins
+        AUTOSECOPS__API_ROOT_PATH                    = "/api"
+        AUTOSECOPS__API_URL                          = local.internal_api_url
+        AUTOSECOPS__PUBLIC_API_URL                   = local.public_api_url
+        AUTOSECOPS__PUBLIC_APP_URL                   = local.public_app_url
+        AUTOSECOPS__AUTH_TYPES                       = var.auth_types
+        AUTOSECOPS__AUTH_ALLOWED_DOMAINS             = var.auth_allowed_domains
+        AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH         = var.auth_min_password_length
+        AUTOSECOPS__AUTH_SUPERADMIN_EMAIL            = var.auth_superadmin_email
+        AUTOSECOPS__SMTP_HOST                        = var.smtp_host
+        AUTOSECOPS__SMTP_PORT                        = tostring(var.smtp_port)
+        AUTOSECOPS__SMTP_USER                        = var.smtp_user
+        AUTOSECOPS__EMAIL_FROM                       = var.email_from
+        AUTOSECOPS__DB_ENDPOINT                      = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME                     = "api"
+        OIDC_ISSUER                                  = var.oidc_issuer
+        OIDC_SCOPES                                  = var.oidc_scopes
+        TEMPORAL__CLUSTER_QUEUE                      = local.temporal_cluster_queue
+        SAML_ALLOW_UNSOLICITED                       = var.saml_allow_unsolicited
+        AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS = var.workflow_artifact_retention_days
 
         # Break-glass recovery for a platform admin IP allowlist lockout.
-        TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS = var.platform_admin_ip_allowlist_bypass
+        AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS = var.platform_admin_ip_allowlist_bypass
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -141,20 +149,20 @@ locals {
 
   worker_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
+      local.autosecops_common_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
       {
-        TRACECAT__API_ROOT_PATH           = "/api"
-        TRACECAT__API_URL                 = local.internal_api_url
-        TRACECAT__DB_ENDPOINT             = local.core_db_hostname
-        TRACECAT__SERVICE_NAME            = "worker"
-        TRACECAT__PUBLIC_API_URL          = local.public_api_url
-        TRACECAT__PUBLIC_APP_URL          = local.public_app_url
-        TRACECAT__EXECUTOR_CLIENT_TIMEOUT = var.executor_client_timeout
-        TEMPORAL__CLUSTER_QUEUE           = local.temporal_cluster_queue
-        # Worker concurrency tuning (see tracecat/dsl/worker.py)
+        AUTOSECOPS__API_ROOT_PATH           = "/api"
+        AUTOSECOPS__API_URL                 = local.internal_api_url
+        AUTOSECOPS__DB_ENDPOINT             = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME            = "worker"
+        AUTOSECOPS__PUBLIC_API_URL          = local.public_api_url
+        AUTOSECOPS__PUBLIC_APP_URL          = local.public_app_url
+        AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT = var.executor_client_timeout
+        TEMPORAL__CLUSTER_QUEUE             = local.temporal_cluster_queue
+        # Worker concurrency tuning (see autosecops/dsl/worker.py)
         TEMPORAL__THREADPOOL_MAX_WORKERS        = var.worker_threadpool_max_workers
         TEMPORAL__MAX_CONCURRENT_ACTIVITIES     = var.worker_max_concurrent_activities
         TEMPORAL__MAX_CONCURRENT_WORKFLOW_TASKS = var.worker_max_concurrent_workflow_tasks
@@ -165,22 +173,22 @@ locals {
 
   agent_worker_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
+      local.autosecops_common_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
       {
-        TRACECAT__API_ROOT_PATH                   = "/api"
-        TRACECAT__API_URL                         = local.internal_api_url
-        TRACECAT__PUBLIC_API_URL                  = local.public_api_url
-        TRACECAT__DB_ENDPOINT                     = local.core_db_hostname
-        TRACECAT__SERVICE_NAME                    = "agent-worker"
-        TRACECAT__EXECUTOR_CLIENT_TIMEOUT         = var.executor_client_timeout
-        TRACECAT__AGENT_QUEUE                     = var.agent_queue
-        TRACECAT__AGENT_EXECUTOR_QUEUE            = var.agent_executor_queue
-        TRACECAT__EXECUTOR_QUEUE                  = var.executor_queue
-        TRACECAT__AGENT_MAX_CONCURRENT_ACTIVITIES = var.agent_worker_max_concurrent_activities
-        TEMPORAL__CLUSTER_QUEUE                   = local.temporal_cluster_queue
+        AUTOSECOPS__API_ROOT_PATH                   = "/api"
+        AUTOSECOPS__API_URL                         = local.internal_api_url
+        AUTOSECOPS__PUBLIC_API_URL                  = local.public_api_url
+        AUTOSECOPS__DB_ENDPOINT                     = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME                    = "agent-worker"
+        AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT         = var.executor_client_timeout
+        AUTOSECOPS__AGENT_QUEUE                     = var.agent_queue
+        AUTOSECOPS__AGENT_EXECUTOR_QUEUE            = var.agent_executor_queue
+        AUTOSECOPS__EXECUTOR_QUEUE                  = var.executor_queue
+        AUTOSECOPS__AGENT_MAX_CONCURRENT_ACTIVITIES = var.agent_worker_max_concurrent_activities
+        TEMPORAL__CLUSTER_QUEUE                     = local.temporal_cluster_queue
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -188,27 +196,27 @@ locals {
 
   executor_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
-      local.tracecat_db_configs_executor,
+      local.autosecops_common_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
+      local.autosecops_db_configs_executor,
       {
-        TRACECAT__API_URL                             = local.internal_api_url
-        TRACECAT__DB_ENDPOINT                         = local.core_db_hostname
-        TRACECAT__SERVICE_NAME                        = "executor"
-        TRACECAT__EXECUTOR_BACKEND                    = "direct"
-        TRACECAT__EXECUTOR_QUEUE                      = var.executor_queue
-        TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = var.executor_registry_cache_max_entries
-        TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES   = var.executor_registry_cache_max_bytes
-        # Executor concurrency tuning (see tracecat/executor/worker.py and tracecat/executor/service.py)
-        TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES = var.executor_max_concurrent_activities
-        TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS    = var.executor_threadpool_max_workers
-        TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY  = var.executor_for_each_max_concurrency
-        TRACECAT__UNSAFE_DISABLE_SM_MASKING          = "false"
-        TRACECAT__SANDBOX_NSJAIL_PATH                = "/usr/local/bin/nsjail"
-        TRACECAT__SANDBOX_ROOTFS_PATH                = "/var/lib/tracecat/sandbox-rootfs"
-        TRACECAT__SANDBOX_CACHE_DIR                  = "/var/lib/tracecat/sandbox-cache"
+        AUTOSECOPS__API_URL                             = local.internal_api_url
+        AUTOSECOPS__DB_ENDPOINT                         = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME                        = "executor"
+        AUTOSECOPS__EXECUTOR_BACKEND                    = "direct"
+        AUTOSECOPS__EXECUTOR_QUEUE                      = var.executor_queue
+        AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES = var.executor_registry_cache_max_entries
+        AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES   = var.executor_registry_cache_max_bytes
+        # Executor concurrency tuning (see autosecops/executor/worker.py and autosecops/executor/service.py)
+        AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES = var.executor_max_concurrent_activities
+        AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS    = var.executor_threadpool_max_workers
+        AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY  = var.executor_for_each_max_concurrency
+        AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING          = "false"
+        AUTOSECOPS__SANDBOX_NSJAIL_PATH                = "/usr/local/bin/nsjail"
+        AUTOSECOPS__SANDBOX_ROOTFS_PATH                = "/var/lib/autosecops/sandbox-rootfs"
+        AUTOSECOPS__SANDBOX_CACHE_DIR                  = "/var/lib/autosecops/sandbox-cache"
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -216,39 +224,39 @@ locals {
 
   agent_executor_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_litellm_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
-      local.tracecat_db_configs_executor,
+      local.autosecops_common_env,
+      local.autosecops_litellm_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
+      local.autosecops_db_configs_executor,
       {
-        TRACECAT__API_URL                                  = local.internal_api_url
-        TRACECAT__DB_ENDPOINT                              = local.core_db_hostname
-        TRACECAT__SERVICE_NAME                             = "agent-executor"
-        TRACECAT__EXECUTOR_BACKEND                         = "direct"
-        TRACECAT__AGENT_QUEUE                              = var.agent_queue
-        TRACECAT__AGENT_EXECUTOR_QUEUE                     = var.agent_executor_queue
-        TRACECAT__EXECUTOR_QUEUE                           = var.executor_queue
-        TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES      = var.executor_registry_cache_max_entries
-        TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES        = var.executor_registry_cache_max_bytes
-        TRACECAT__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES = var.agent_executor_max_concurrent_activities
-        TRACECAT__EXECUTOR_CLIENT_TIMEOUT                  = var.executor_client_timeout
-        TRACECAT__LLM_PROXY_READ_TIMEOUT                   = var.llm_proxy_read_timeout
-        TRACECAT__LLM_GATEWAY_CREDENTIAL_CACHE_TTL_SECONDS = var.llm_gateway_credential_cache_ttl_seconds
-        TRACECAT__LLM_GATEWAY_HEALTHCHECK_INTERVAL_SECONDS = var.llm_gateway_healthcheck_interval_seconds
-        TRACECAT__LLM_GATEWAY_HEALTHCHECK_TIMEOUT_SECONDS  = var.llm_gateway_healthcheck_timeout_seconds
-        TRACECAT__LLM_GATEWAY_CONNECT_TIMEOUT_SECONDS      = var.llm_gateway_healthcheck_connect_timeout_seconds
-        TRACECAT__LLM_GATEWAY_READ_TIMEOUT_SECONDS         = var.llm_gateway_healthcheck_read_timeout_seconds
-        TRACECAT__LLM_GATEWAY_WRITE_TIMEOUT_SECONDS        = var.llm_gateway_healthcheck_write_timeout_seconds
-        TRACECAT__LLM_GATEWAY_POOL_TIMEOUT_SECONDS         = var.llm_gateway_healthcheck_pool_timeout_seconds
-        TRACECAT__LLM_GATEWAY_FAILURE_THRESHOLD            = var.llm_gateway_healthcheck_failure_threshold
-        TRACECAT__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS  = var.llm_gateway_status_log_interval_seconds
-        TRACECAT__LITELLM_BASE_URL                         = "http://litellm-service:4000"
-        TRACECAT__UNSAFE_DISABLE_SM_MASKING                = "false"
-        TRACECAT__SANDBOX_NSJAIL_PATH                      = "/usr/local/bin/nsjail"
-        TRACECAT__SANDBOX_ROOTFS_PATH                      = "/var/lib/tracecat/sandbox-rootfs"
-        TRACECAT__SANDBOX_CACHE_DIR                        = "/var/lib/tracecat/sandbox-cache"
+        AUTOSECOPS__API_URL                                  = local.internal_api_url
+        AUTOSECOPS__DB_ENDPOINT                              = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME                             = "agent-executor"
+        AUTOSECOPS__EXECUTOR_BACKEND                         = "direct"
+        AUTOSECOPS__AGENT_QUEUE                              = var.agent_queue
+        AUTOSECOPS__AGENT_EXECUTOR_QUEUE                     = var.agent_executor_queue
+        AUTOSECOPS__EXECUTOR_QUEUE                           = var.executor_queue
+        AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES      = var.executor_registry_cache_max_entries
+        AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES        = var.executor_registry_cache_max_bytes
+        AUTOSECOPS__AGENT_EXECUTOR_MAX_CONCURRENT_ACTIVITIES = var.agent_executor_max_concurrent_activities
+        AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT                  = var.executor_client_timeout
+        AUTOSECOPS__LLM_PROXY_READ_TIMEOUT                   = var.llm_proxy_read_timeout
+        AUTOSECOPS__LLM_GATEWAY_CREDENTIAL_CACHE_TTL_SECONDS = var.llm_gateway_credential_cache_ttl_seconds
+        AUTOSECOPS__LLM_GATEWAY_HEALTHCHECK_INTERVAL_SECONDS = var.llm_gateway_healthcheck_interval_seconds
+        AUTOSECOPS__LLM_GATEWAY_HEALTHCHECK_TIMEOUT_SECONDS  = var.llm_gateway_healthcheck_timeout_seconds
+        AUTOSECOPS__LLM_GATEWAY_CONNECT_TIMEOUT_SECONDS      = var.llm_gateway_healthcheck_connect_timeout_seconds
+        AUTOSECOPS__LLM_GATEWAY_READ_TIMEOUT_SECONDS         = var.llm_gateway_healthcheck_read_timeout_seconds
+        AUTOSECOPS__LLM_GATEWAY_WRITE_TIMEOUT_SECONDS        = var.llm_gateway_healthcheck_write_timeout_seconds
+        AUTOSECOPS__LLM_GATEWAY_POOL_TIMEOUT_SECONDS         = var.llm_gateway_healthcheck_pool_timeout_seconds
+        AUTOSECOPS__LLM_GATEWAY_FAILURE_THRESHOLD            = var.llm_gateway_healthcheck_failure_threshold
+        AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS  = var.llm_gateway_status_log_interval_seconds
+        AUTOSECOPS__LITELLM_BASE_URL                         = "http://litellm-service:4000"
+        AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING                = "false"
+        AUTOSECOPS__SANDBOX_NSJAIL_PATH                      = "/usr/local/bin/nsjail"
+        AUTOSECOPS__SANDBOX_ROOTFS_PATH                      = "/var/lib/autosecops/sandbox-rootfs"
+        AUTOSECOPS__SANDBOX_CACHE_DIR                        = "/var/lib/autosecops/sandbox-cache"
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -262,14 +270,14 @@ locals {
 
   litellm_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_litellm_env,
-      local.tracecat_db_configs,
+      local.autosecops_common_env,
+      local.autosecops_litellm_env,
+      local.autosecops_db_configs,
       {
-        TRACECAT__DB_ENDPOINT         = local.core_db_hostname
-        TRACECAT__SERVICE_NAME        = "litellm"
-        TRACECAT__LITELLM_PORT        = "4000"
-        TRACECAT__LITELLM_NUM_WORKERS = var.litellm_num_workers
+        AUTOSECOPS__DB_ENDPOINT         = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME        = "litellm"
+        AUTOSECOPS__LITELLM_PORT        = "4000"
+        AUTOSECOPS__LITELLM_NUM_WORKERS = var.litellm_num_workers
         # Drain budget D: gateway drain logs flag requests still open after it.
         GRACEFUL_SHUTDOWN_TIMEOUT = local.litellm_drain_timeout_seconds
       }
@@ -279,25 +287,25 @@ locals {
 
   mcp_env = [
     for k, v in merge(
-      local.tracecat_common_env,
-      local.tracecat_temporal_payload_encryption_env,
-      local.tracecat_blob_storage_env,
-      local.tracecat_db_configs,
+      local.autosecops_common_env,
+      local.autosecops_temporal_payload_encryption_env,
+      local.autosecops_blob_storage_env,
+      local.autosecops_db_configs,
       {
-        TRACECAT__DB_ENDPOINT                     = local.core_db_hostname
-        TRACECAT__SERVICE_NAME                    = "mcp"
-        TRACECAT__API_URL                         = local.internal_api_url
-        TRACECAT__PUBLIC_APP_URL                  = local.public_app_url
-        TRACECAT__PUBLIC_API_URL                  = local.public_api_url
-        TRACECAT_MCP__HOST                        = "0.0.0.0"
-        TRACECAT_MCP__PORT                        = "8099"
-        TRACECAT_MCP__RATE_LIMIT_RPS              = var.mcp_rate_limit_rps
-        TRACECAT_MCP__RATE_LIMIT_BURST            = var.mcp_rate_limit_burst
-        TRACECAT_MCP__TOOL_TIMEOUT_SECONDS        = var.mcp_tool_timeout_seconds
-        TRACECAT_MCP__MAX_INPUT_SIZE_BYTES        = var.mcp_max_input_size_bytes
-        TRACECAT_MCP__STARTUP_MAX_ATTEMPTS        = var.mcp_startup_max_attempts
-        TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS = var.mcp_startup_retry_delay_seconds
-        TEMPORAL__CLUSTER_QUEUE                   = local.temporal_cluster_queue
+        AUTOSECOPS__DB_ENDPOINT                     = local.core_db_hostname
+        AUTOSECOPS__SERVICE_NAME                    = "mcp"
+        AUTOSECOPS__API_URL                         = local.internal_api_url
+        AUTOSECOPS__PUBLIC_APP_URL                  = local.public_app_url
+        AUTOSECOPS__PUBLIC_API_URL                  = local.public_api_url
+        AUTOSECOPS_MCP__HOST                        = "0.0.0.0"
+        AUTOSECOPS_MCP__PORT                        = "8099"
+        AUTOSECOPS_MCP__RATE_LIMIT_RPS              = var.mcp_rate_limit_rps
+        AUTOSECOPS_MCP__RATE_LIMIT_BURST            = var.mcp_rate_limit_burst
+        AUTOSECOPS_MCP__TOOL_TIMEOUT_SECONDS        = var.mcp_tool_timeout_seconds
+        AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES        = var.mcp_max_input_size_bytes
+        AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS        = var.mcp_startup_max_attempts
+        AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS = var.mcp_startup_retry_delay_seconds
+        TEMPORAL__CLUSTER_QUEUE                     = local.temporal_cluster_queue
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -306,28 +314,27 @@ locals {
   migrations_env = [
     for k, v in merge(
       {
-        LOG_LEVEL               = var.log_level
-        TRACECAT__APP_ENV       = var.tracecat_app_env
-        TRACECAT__DB_SSLMODE    = "require"
-        TRACECAT__DB_ENDPOINT   = local.core_db_hostname
-        TRACECAT__FEATURE_FLAGS = var.feature_flags
-        TRACECAT__LOG_FORMAT    = var.log_format
-        TRACECAT__SERVICE_NAME  = "migrations"
+        LOG_LEVEL                 = var.log_level
+        AUTOSECOPS__APP_ENV       = var.autosecops_app_env
+        AUTOSECOPS__DB_SSLMODE    = "require"
+        AUTOSECOPS__DB_ENDPOINT   = local.core_db_hostname
+        AUTOSECOPS__FEATURE_FLAGS = var.feature_flags
+        AUTOSECOPS__LOG_FORMAT    = var.log_format
+        AUTOSECOPS__SERVICE_NAME  = "migrations"
       },
-      local.tracecat_db_configs
+      local.autosecops_db_configs
     ) :
     { name = k, value = tostring(v) } if v != null
   ]
 
   ui_env = [
     for k, v in {
-      NEXT_PUBLIC_API_URL               = local.public_api_url
-      NEXT_PUBLIC_APP_ENV               = var.tracecat_app_env
-      NEXT_PUBLIC_APP_URL               = local.public_app_url
-      NEXT_PUBLIC_AUTH_TYPES            = var.auth_types
-      NEXT_SERVER_API_URL               = local.internal_api_url
-      NODE_ENV                          = "production"
-      TRACECAT__CSP_CONNECT_SRC_ORIGINS = join(" ", local.presigned_browser_origins)
+      NEXT_PUBLIC_API_URL                 = local.public_api_url
+      NEXT_PUBLIC_APP_ENV                 = var.autosecops_app_env
+      NEXT_PUBLIC_APP_URL                 = local.public_app_url
+      NEXT_SERVER_API_URL                 = local.internal_api_url
+      NODE_ENV                            = "production"
+      AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS = join(" ", local.presigned_browser_origins)
     } :
     { name = k, value = tostring(v) } if v != null
   ]

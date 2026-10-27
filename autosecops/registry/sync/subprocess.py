@@ -86,23 +86,23 @@ async def fetch_actions_from_subprocess(
     )
 
     # Build environment for subprocess
-    # Inherit current environment and add tracecat-specific config
+    # Inherit current environment and add autosecops-specific config
     subprocess_env = os.environ.copy()
 
     # Pass through critical config values as environment variables
     # so the subprocess has access to them
-    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
-        subprocess_env["TRACECAT__LOCAL_REPOSITORY_ENABLED"] = "true"
-    if config.TRACECAT__LOCAL_REPOSITORY_PATH:
-        subprocess_env["TRACECAT__LOCAL_REPOSITORY_PATH"] = str(
-            config.TRACECAT__LOCAL_REPOSITORY_PATH
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
+        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "true"
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_PATH:
+        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_PATH"] = str(
+            config.AUTOSECOPS__LOCAL_REPOSITORY_PATH
         )
-    if config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH:
-        subprocess_env["TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH"] = str(
-            config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH:
+        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH"] = str(
+            config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH
         )
-    if config.TRACECAT__APP_ENV:
-        subprocess_env["TRACECAT__APP_ENV"] = config.TRACECAT__APP_ENV
+    if config.AUTOSECOPS__APP_ENV:
+        subprocess_env["AUTOSECOPS__APP_ENV"] = config.AUTOSECOPS__APP_ENV
 
     # Start the subprocess
     process = await asyncio.create_subprocess_exec(

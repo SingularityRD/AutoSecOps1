@@ -26,7 +26,7 @@ from autosecops.cases.enums import (
 from autosecops.cases.schemas import CaseCreate, CaseUpdate
 from autosecops.cases.service import CasesService
 from autosecops.db.models import Case, CaseEvent, CaseVersion, User, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import PageParams
 from tests.database import TEST_DB_CONFIG
 
@@ -480,7 +480,7 @@ async def test_restore_case_version_is_scoped_append_only_and_atomic(
         )
     )
     assert other_version_id is not None
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.restore_version(
             case_id=restored_case_id,
             version_id=other_version_id,
@@ -518,7 +518,7 @@ async def test_restore_case_version_is_scoped_append_only_and_atomic(
         ]
     )
     await session.commit()
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await service.restore_version(
             case_id=restored_case_id,
             version_id=foreign_version_id,

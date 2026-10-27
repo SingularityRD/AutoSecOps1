@@ -62,7 +62,7 @@ def test_role() -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -74,7 +74,7 @@ def system_role() -> Role:
         workspace_id=None,
         organization_id=uuid.uuid4(),
         user_id=None,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
     )
 
 
@@ -86,7 +86,7 @@ def superuser_role() -> Role:
         workspace_id=None,
         organization_id=None,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         is_platform_superuser=True,
     )
 
@@ -152,7 +152,7 @@ class TestSetRlsContext:
     ):
         """set_rls_context should still apply GUCs when mode is off."""
         monkeypatch.setattr(
-            "autosecops.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
+            "autosecops.db.rls.config.AUTOSECOPS__RLS_MODE", config.RLSMode.OFF
         )
 
         org_id = uuid.uuid4()
@@ -205,7 +205,7 @@ class TestSetRlsContextFromRole:
     ):
         """set_rls_context_from_role should still apply GUCs when mode is off."""
         monkeypatch.setattr(
-            "autosecops.db.rls.config.TRACECAT__RLS_MODE", config.RLSMode.OFF
+            "autosecops.db.rls.config.AUTOSECOPS__RLS_MODE", config.RLSMode.OFF
         )
 
         await set_rls_context_from_role(mock_session, test_role)

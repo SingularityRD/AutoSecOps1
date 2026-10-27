@@ -19,7 +19,7 @@ from autosecops.db.models import (
     CaseCommentAgentInvocation,
     CaseCommentMention,
 )
-from autosecops.exceptions import TracecatConflictError
+from autosecops.exceptions import AutoSecOpsConflictError
 from autosecops.service import BaseWorkspaceService
 
 
@@ -65,7 +65,7 @@ class CaseCommentAgentInvocationCompletionService(BaseWorkspaceService):
         invocation, source_comment, case = row
         if invocation.status == CaseCommentAgentInvocationStatus.SUCCEEDED.value:
             if invocation.reply_comment_id is None:
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     "Succeeded comment agent invocation has no reply"
                 )
             return await self.session.scalar(
@@ -89,7 +89,7 @@ class CaseCommentAgentInvocationCompletionService(BaseWorkspaceService):
             .with_for_update()
         )
         if thread_root is None or thread_root.deleted_at is not None:
-            raise TracecatConflictError("Cannot reply to a deleted comment thread")
+            raise AutoSecOpsConflictError("Cannot reply to a deleted comment thread")
 
         reply = CaseComment(
             id=uuid.uuid4(),
@@ -114,7 +114,7 @@ class CaseCommentAgentInvocationCompletionService(BaseWorkspaceService):
             self.session, self.role
         ).mark_succeeded(invocation.id, reply.id)
         if transitioned is None:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Comment agent invocation changed while creating its reply"
             )
 

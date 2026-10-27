@@ -29,9 +29,9 @@ from autosecops.db.models import (
 )
 from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.workspaces.schemas import WorkspaceMembershipCreate
 from tests.support.membership import (
@@ -138,7 +138,7 @@ def actor_role(
         user_id=actor_user.id,
         organization_id=organization.id,
         workspace_id=workspace.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         # Presets no longer carry the add scope; API callers hold it explicitly.
         scopes=ADMIN_SCOPES | {"workspace:member:invite"},
     )
@@ -258,7 +258,7 @@ async def test_create_membership_duplicate_raises_conflict(
     )
     await session.commit()
 
-    with pytest.raises(TracecatConflictError):
+    with pytest.raises(AutoSecOpsConflictError):
         await membership_service.create_membership(
             workspace_id=workspace.id,
             params=WorkspaceMembershipCreate(user_id=member_user.id),
@@ -275,7 +275,7 @@ async def test_create_membership_rejects_non_org_member(
     """Workspace add must not admit a user who is not already in the org."""
     assert workspace_editor_role.slug == "workspace-editor"
 
-    with pytest.raises(TracecatNotFoundError):
+    with pytest.raises(AutoSecOpsNotFoundError):
         await membership_service.create_membership(
             workspace_id=workspace.id,
             params=WorkspaceMembershipCreate(user_id=member_user.id),
@@ -388,13 +388,13 @@ async def test_create_membership_rejects_inviter_without_editor_scopes(
             user_id=actor_user.id,
             organization_id=organization.id,
             workspace_id=workspace.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=frozenset({"workspace:member:invite"}),
         ),
     )
 
     with pytest.raises(
-        TracecatAuthorizationError,
+        AutoSecOpsAuthorizationError,
         match="Cannot grant scopes not held by the caller",
     ):
         await service.create_membership(
@@ -511,7 +511,7 @@ async def test_create_membership_allows_org_admin_inviter(
             user_id=actor_user.id,
             organization_id=organization.id,
             workspace_id=workspace.id,
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             scopes=ORG_ADMIN_SCOPES,
         ),
     )
@@ -660,7 +660,7 @@ async def test_delete_membership_rejects_when_group_grant_remains(
         )
     await session.commit()
 
-    with pytest.raises(TracecatConflictError, match="Reviewers"):
+    with pytest.raises(AutoSecOpsConflictError, match="Reviewers"):
         await membership_service.delete_membership(
             workspace_id=workspace.id,
             user_id=member_user.id,
@@ -739,7 +739,7 @@ async def test_delete_membership_rejects_when_org_wide_workspace_role_remains(
 
     # The org-wide grant is reported even when a workspace group also remains.
     with pytest.raises(
-        TracecatConflictError,
+        AutoSecOpsConflictError,
         match="every workspace through group 'Everywhere'"
         if source == "group"
         else "every workspace. Change their organization-wide role",

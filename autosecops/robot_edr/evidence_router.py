@@ -20,9 +20,9 @@ from autosecops.authz.controls import has_scope, require_scope
 from autosecops.cases.dependencies import ExecutorCaseIDPath
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
@@ -86,9 +86,9 @@ async def store_evidence(
     service = RobotEvidenceService(session, role=role)
     try:
         return await service.store_verified_export(case_id, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except (TracecatValidationError, FileValidationError) as exc:
+    except (AutoSecOpsValidationError, FileValidationError) as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
@@ -123,7 +123,7 @@ async def list_blackbox_keys(
         return await RobotEvidenceService(session, role=role).blackbox_key_files(
             robot_id, from_ms=from_ms, to_ms=to_ms
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc

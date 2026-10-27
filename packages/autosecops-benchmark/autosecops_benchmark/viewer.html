@@ -1523,7 +1523,7 @@ function summarySection(detail) {
     tile("Aborted", fmtCount(summary.aborted), null, isNum(summary.aborted) && summary.aborted > 0),
     tile("Wall clock", fmtSeconds(summary.wall_clock_seconds)),
     tile("Throughput", fmtNum(summary.throughput_workflows_per_second, 3), "workflows/s"),
-    tile("Action throughput", isNum(activityMetrics.completed_tracecat_actions_per_second) ? fmtNum(activityMetrics.completed_tracecat_actions_per_second, 3) : "—", "actions/s"),
+    tile("Action throughput", isNum(activityMetrics.completed_autosecops_actions_per_second) ? fmtNum(activityMetrics.completed_autosecops_actions_per_second, 3) : "—", "actions/s"),
     tile("Latency p50", fmtSeconds(latency.p50)),
     tile("Latency p95", fmtSeconds(latency.p95)),
     tile("Latency p99", fmtSeconds(latency.p99)),
@@ -1572,7 +1572,7 @@ function activitySection(detail) {
   }
   section.appendChild(
     el("div", { class: "tiles" }, [
-      tile("AutoSecOps actions", fmtCount(metrics.completed_tracecat_actions), fmtNum(metrics.completed_tracecat_actions_per_second, 3) + " /s"),
+      tile("AutoSecOps actions", fmtCount(metrics.completed_autosecops_actions), fmtNum(metrics.completed_autosecops_actions_per_second, 3) + " /s"),
       tile("Temporal activities", fmtCount(metrics.completed_activities), fmtNum(metrics.completed_activities_per_second, 3) + " /s"),
       tile("Measurement window", fmtSeconds(metrics.measurement_window_seconds)),
     ])
@@ -1985,7 +1985,7 @@ async function renderDetail(view, runId) {
           statusPill(manifest.status || null),
           el("span", { text: scenario.load_type || "unknown load type" }),
           el("span", { text: fmtClock(manifest.started_at || scenario.started_at) }),
-          el("span", { class: "mono", text: "commit " + shortHash(manifest.tracecat_commit || scenario.tracecat_commit) + (manifest.tracecat_commit_dirty ? " (dirty)" : "") }),
+          el("span", { class: "mono", text: "commit " + shortHash(manifest.autosecops_commit || scenario.autosecops_commit) + (manifest.autosecops_commit_dirty ? " (dirty)" : "") }),
           el("span", { text: detail.matrix ? "matrix " + detail.matrix.slice(7) : "standalone run" }),
         ]),
       ]),

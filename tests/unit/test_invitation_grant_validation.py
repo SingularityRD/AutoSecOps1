@@ -9,7 +9,10 @@ import pytest
 from autosecops.auth.types import Role
 from autosecops.db.models import Invitation, Scope
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatAuthorizationError, TracecatValidationError
+from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
+)
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
 from autosecops.invitations.service import (
@@ -56,7 +59,7 @@ async def test_validate_grants_batch(
     organization_id = uuid.uuid4()
     granter = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         organization_id=organization_id,
         is_platform_superuser=superuser,
@@ -96,12 +99,12 @@ async def test_validate_grants_batch(
     session.execute.side_effect = [workspace_result, role_result, scope_result]
 
     if missing_role:
-        with pytest.raises(TracecatValidationError, match="Invalid role ID"):
+        with pytest.raises(AutoSecOpsValidationError, match="Invalid role ID"):
             await validate_grants(session, granter, organization_id, params)
     elif not superuser and any(
         scope.name not in live_scopes for target in targets for scope in target.scopes
     ):
-        with pytest.raises(TracecatAuthorizationError, match="Cannot grant scopes"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="Cannot grant scopes"):
             await validate_grants(session, granter, organization_id, params)
     else:
         await validate_grants(session, granter, organization_id, params)
@@ -122,7 +125,7 @@ async def test_validate_grants_batch(
 async def test_validate_grants_rejects_foreign_workspace() -> None:
     organization_id = uuid.uuid4()
     granter = Role(
-        type="user", service_id="tracecat-api", organization_id=organization_id
+        type="user", service_id="autosecops-api", organization_id=organization_id
     )
     params = InvitationCreate(
         email="invitee@example.com",
@@ -133,7 +136,7 @@ async def test_validate_grants_rejects_foreign_workspace() -> None:
     session = AsyncMock()
     session.execute.return_value = result
 
-    with pytest.raises(TracecatValidationError, match="Workspace not found"):
+    with pytest.raises(AutoSecOpsValidationError, match="Workspace not found"):
         await validate_grants(session, granter, organization_id, params)
     assert session.execute.await_count == 1
 
@@ -156,7 +159,7 @@ async def test_revoke_uses_database_status(current_status: InvitationStatus) -> 
         await revoke_invitation_row(session, invitation)
         assert invitation.status == InvitationStatus.REVOKED
     else:
-        with pytest.raises(TracecatAuthorizationError, match=current_status.value):
+        with pytest.raises(AutoSecOpsAuthorizationError, match=current_status.value):
             await revoke_invitation_row(session, invitation)
         assert invitation.status == current_status
 
@@ -184,7 +187,9 @@ async def test_claim_rechecks_expiry_after_wait(expires_during_claim: bool) -> N
 
     session.execute.side_effect = execute_claim
     if expires_during_claim:
-        with pytest.raises(TracecatAuthorizationError, match="Invitation has expired"):
+        with pytest.raises(
+            AutoSecOpsAuthorizationError, match="Invitation has expired"
+        ):
             await _claim_pending(session, invitation)
     else:
         await _claim_pending(session, invitation)
@@ -195,7 +200,7 @@ async def test_validate_grants_rejects_org_role_on_workspace() -> None:
     organization_id = uuid.uuid4()
     granter = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         is_platform_superuser=True,
     )
@@ -217,5 +222,7 @@ async def test_validate_grants_rejects_org_role_on_workspace() -> None:
     session = AsyncMock()
     session.execute.side_effect = [workspace_result, role_result]
 
-    with pytest.raises(TracecatValidationError, match="Target is an organization role"):
+    with pytest.raises(
+        AutoSecOpsValidationError, match="Target is an organization role"
+    ):
         await validate_grants(session, granter, organization_id, params)

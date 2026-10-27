@@ -29,7 +29,7 @@ from autosecops.workflow.store.schemas import (
 )
 from autosecops.workspace_sync.enums import SyncResourceType
 
-MANIFEST_FILENAME = "tracecat.json"
+MANIFEST_FILENAME = "autosecops.json"
 WORKFLOW_ROOT = "workflows"
 AGENT_PRESET_ROOT = "agent_presets"
 SKILL_ROOT = "skills"
@@ -91,7 +91,7 @@ class WorkspaceManifestResources(BaseModel):
 
 
 class WorkspaceManifest(BaseModel):
-    """Top-level ``tracecat.json`` describing a workspace sync repository."""
+    """Top-level ``autosecops.json`` describing a workspace sync repository."""
 
     model_config = ConfigDict(extra="forbid")
 

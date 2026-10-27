@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from autosecops_ee.secrets.stores.backends import get_backend
 from autosecops_registry._internal import secrets as registry_secrets
 from azure.identity.aio import ClientSecretCredential
-from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import service_account
 from pydantic import SecretStr
 from sqlalchemy import select
@@ -72,11 +71,15 @@ from autosecops.db.models import (
 )
 from autosecops.exceptions import (
     AgentModelNotEnabledError,
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.integrations.aws_assume_role import build_workspace_external_id
 from autosecops.logger import logger
+from autosecops.outbound_auth import (
+    OutboundGoogleAuthRequest,
+    azure_identity_proxy_kwargs,
+)
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.constants import DEFAULT_SECRETS_ENVIRONMENT
 from autosecops.secrets.encryption import decrypt_keyvalues, decrypt_value
@@ -101,7 +104,7 @@ from autosecops.tiers.enums import Entitlement
 if TYPE_CHECKING:
     from types_boto3_bedrock.client import BedrockClient
 
-_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "TRACECAT_AWS_EXTERNAL_ID"
+_AWS_ASSUME_ROLE_EXTERNAL_ID_SECRET_KEY = "AUTOSECOPS_AWS_EXTERNAL_ID"
 _BEDROCK_ROLE_WORKSPACE_LIMIT = 25
 _VERTEX_BEARER_TOKEN_KEY = "VERTEX_AI_BEARER_TOKEN"
 _GOOGLE_CLOUD_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
@@ -236,7 +239,8 @@ def _refresh_vertex_token(credentials_blob: str) -> str:
         orjson.loads(credentials_blob),
         scopes=[_GOOGLE_CLOUD_SCOPE],
     )
-    creds.refresh(GoogleAuthRequest())
+    # google-auth uses its own HTTP stack; route it through the egress proxy.
+    creds.refresh(OutboundGoogleAuthRequest())
     return creds.token
 
 
@@ -280,10 +284,13 @@ async def _resolve_azure_ad_token(
     assert client_id is not None
     assert client_secret is not None
 
+    # azure-identity uses its own HTTP stack; route it through the egress proxy.
+    proxy_kwargs = await azure_identity_proxy_kwargs()
     credential = ClientSecretCredential(
         tenant_id=tenant_id,
         client_id=client_id,
         client_secret=client_secret,
+        **proxy_kwargs,
     )
     try:
         token = await credential.get_token(_AZURE_COGNITIVE_SCOPE)
@@ -315,7 +322,7 @@ class AgentManagementService(BaseOrgService):
                 session=self.session,
                 role=self.role,
             )
-        except TracecatAuthorizationError:
+        except AutoSecOpsAuthorizationError:
             self.presets = None
 
     def _get_credential_secret_name(self, provider: str) -> str:
@@ -388,7 +395,7 @@ class AgentManagementService(BaseOrgService):
     async def get_model_config(self, model_name: str) -> ModelConfig:
         """Get configuration for a specific model."""
         if model_name not in MODEL_CONFIGS:
-            raise TracecatNotFoundError(f"Model {model_name} not found")
+            raise AutoSecOpsNotFoundError(f"Model {model_name} not found")
         return MODEL_CONFIGS[model_name]
 
     async def list_provider_credential_configs(
@@ -405,7 +412,7 @@ class AgentManagementService(BaseOrgService):
     ) -> ProviderCredentialConfig:
         """Get credential configuration for a specific provider."""
         if provider not in PROVIDER_CREDENTIAL_CONFIGS:
-            raise TracecatNotFoundError(f"Provider {provider} not found")
+            raise AutoSecOpsNotFoundError(f"Provider {provider} not found")
         return PROVIDER_CREDENTIAL_CONFIGS[provider]
 
     @require_scope("agent:update")
@@ -428,7 +435,7 @@ class AgentManagementService(BaseOrgService):
             await self._refresh_gateway_provider_catalog_best_effort(params.provider)
             await self._auto_grant_provider_access(params.provider)
             return existing
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             # Create new credentials
             keys = [
                 SecretKeyValue(key=k, value=SecretStr(v))
@@ -477,7 +484,7 @@ class AgentManagementService(BaseOrgService):
             return
         try:
             await self.refresh_gateway_provider_catalog(provider)
-        except (ValueError, TracecatNotFoundError) as exc:
+        except (ValueError, AutoSecOpsNotFoundError) as exc:
             self.logger.warning(
                 "Gateway provider model discovery failed",
                 provider=provider,
@@ -501,18 +508,18 @@ class AgentManagementService(BaseOrgService):
             Number of models discovered.
 
         Raises:
-            TracecatNotFoundError: If the provider is not a built-in gateway
+            AutoSecOpsNotFoundError: If the provider is not a built-in gateway
                 provider or has no stored credentials.
             ValueError: If the base URL is missing or discovery fails.
         """
         org_id = self.role.organization_id
         if org_id is None or not is_builtin_gateway_provider(provider):
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"{provider} is not a built-in gateway provider"
             )
         creds = await self.get_provider_credentials(provider)
         if creds is None:
-            raise TracecatNotFoundError(f"No credentials configured for {provider}")
+            raise AutoSecOpsNotFoundError(f"No credentials configured for {provider}")
         runtime = resolve_gateway_provider_config(provider, creds)
         if runtime is None or not runtime.base_url:
             raise ValueError(f"{provider} base URL is not configured")
@@ -552,7 +559,7 @@ class AgentManagementService(BaseOrgService):
     async def _get_bedrock_client(self) -> BedrockClient:
         credentials = await self.get_provider_credentials("bedrock")
         if credentials is None:
-            raise TracecatNotFoundError("No credentials configured for bedrock")
+            raise AutoSecOpsNotFoundError("No credentials configured for bedrock")
         external_ids = (
             await self._bedrock_role_external_ids()
             if credentials.get("AWS_ROLE_ARN")
@@ -570,12 +577,12 @@ class AgentManagementService(BaseOrgService):
         """Discover Bedrock chat models and their AWS subscription status.
 
         Raises:
-            TracecatNotFoundError: If Bedrock credentials are not configured.
+            AutoSecOpsNotFoundError: If Bedrock credentials are not configured.
             ValueError: If AWS authentication or model listing fails.
         """
         org_id = self.role.organization_id
         if org_id is None:
-            raise TracecatNotFoundError("Organization not found")
+            raise AutoSecOpsNotFoundError("Organization not found")
         client = await self._get_bedrock_client()
         try:
             models = await asyncio.to_thread(list_bedrock_models, client)
@@ -607,18 +614,20 @@ class AgentManagementService(BaseOrgService):
         """Accept the AWS Marketplace offer for a Bedrock catalog row's model.
 
         Raises:
-            TracecatNotFoundError: If the row or Bedrock credentials are missing.
+            AutoSecOpsNotFoundError: If the row or Bedrock credentials are missing.
             ValueError: If the model cannot be resolved or AWS rejects the request.
         """
         org_id = self.role.organization_id
         if org_id is None:
-            raise TracecatNotFoundError("Organization not found")
+            raise AutoSecOpsNotFoundError("Organization not found")
         catalog_service = AgentCatalogService(session=self.session)
         row = await catalog_service.get_catalog_entry(
             org_id=org_id, catalog_id=catalog_id
         )
         if row.model_provider != "bedrock" or row.organization_id != org_id:
-            raise TracecatNotFoundError(f"Bedrock catalog entry {catalog_id} not found")
+            raise AutoSecOpsNotFoundError(
+                f"Bedrock catalog entry {catalog_id} not found"
+            )
         metadata = row.model_metadata or {}
         client = await self._get_bedrock_client()
         try:
@@ -653,7 +662,7 @@ class AgentManagementService(BaseOrgService):
             secret = await self.secrets_service.get_org_secret_by_name(secret_name)
             decrypted_keys = self.secrets_service.decrypt_keys(secret.encrypted_keys)
             return {kv.key: kv.value.get_secret_value() for kv in decrypted_keys}
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             return None
 
     @require_scope("agent:read")
@@ -901,7 +910,7 @@ class AgentManagementService(BaseOrgService):
             return replace(config, passthrough=False)
         if not runtime.base_url:
             spec = GATEWAY_PROVIDER_SPECS[config.model_provider]
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"{config.model_provider} passthrough requires "
                 f"{spec.base_url_key} in provider credentials."
             )
@@ -921,7 +930,7 @@ class AgentManagementService(BaseOrgService):
             secret = await self.secrets_service.get_org_secret_by_name(secret_name)
             await self.secrets_service.delete_org_secret(secret)
             await self._auto_revoke_provider_access(provider)
-        except TracecatNotFoundError:
+        except AutoSecOpsNotFoundError:
             logger.warning(
                 "Attempted to delete non-existent credentials",
                 provider=provider,
@@ -1112,7 +1121,7 @@ class AgentManagementService(BaseOrgService):
             )
         )
         if catalog_row is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Catalog row {catalog_id!s} is not enabled for this organization"
             )
         catalog_entry = AgentCatalogRead.model_validate(catalog_row)
@@ -1172,7 +1181,7 @@ class AgentManagementService(BaseOrgService):
         if catalog_id is None:
             legacy_name = await self._get_default_model_name_setting()
             if not legacy_name:
-                raise TracecatNotFoundError("No default model set")
+                raise AutoSecOpsNotFoundError("No default model set")
 
             access_svc = AgentModelAccessService(session=self.session, role=self.role)
             enabled_models = await access_svc.get_org_models()
@@ -1180,7 +1189,7 @@ class AgentManagementService(BaseOrgService):
                 enabled_models, model_name=legacy_name
             )
             if catalog_entry is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Default model {legacy_name!r} is not enabled for this "
                     "organization"
                 )
@@ -1199,7 +1208,7 @@ class AgentManagementService(BaseOrgService):
 
         credentials = await self.get_catalog_credentials(catalog_id)
         if not credentials:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "No organization credentials found for the default model. "
                 "Configure credentials in organization settings first."
             )
@@ -1224,7 +1233,7 @@ class AgentManagementService(BaseOrgService):
                 "AWS_MODEL_ID"
             )
             if not target:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     "No Bedrock invocation target configured on catalog row "
                     f"{catalog_id}. Add AWS_INFERENCE_PROFILE_ID or "
                     "AWS_MODEL_ID via organization settings."
@@ -1233,7 +1242,7 @@ class AgentManagementService(BaseOrgService):
         elif provider == "azure_openai":
             deployment = credentials.get("AZURE_DEPLOYMENT_NAME")
             if not deployment:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"No Azure OpenAI deployment configured on catalog row "
                     f"{catalog_id}."
                 )
@@ -1241,14 +1250,14 @@ class AgentManagementService(BaseOrgService):
         elif provider == "azure_ai":
             azure_model = credentials.get("AZURE_AI_MODEL_NAME")
             if not azure_model:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"No Azure AI model configured on catalog row {catalog_id}."
                 )
             model_config = model_config.model_copy(update={"name": azure_model})
         elif provider == "vertex_ai":
             vertex_model = credentials.get("VERTEX_AI_MODEL")
             if not vertex_model:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"No Vertex AI model configured on catalog row {catalog_id}."
                 )
             model_config = model_config.model_copy(update={"name": vertex_model})
@@ -1285,7 +1294,7 @@ class AgentManagementService(BaseOrgService):
                 and prunes afterwards.
         """
         if self.presets is None:
-            raise TracecatAuthorizationError(
+            raise AutoSecOpsAuthorizationError(
                 "Agent presets require a workspace role",
             )
 
@@ -1342,7 +1351,7 @@ class AgentManagementService(BaseOrgService):
             )
 
         if not credentials:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"No credentials found for provider '{preset_config.model_provider}'. "
                 "Please configure credentials for this provider first."
             )

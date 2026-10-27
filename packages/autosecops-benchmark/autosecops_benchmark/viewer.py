@@ -38,7 +38,7 @@ import yaml
 
 from .models import PgActivitySample, ResourceUsageSample, TemporalBacklogSample
 
-DEFAULT_ARTIFACT_ROOT: Final = Path("/tmp/tracecat-load-test")
+DEFAULT_ARTIFACT_ROOT: Final = Path("/tmp/autosecops-load-test")
 DEFAULT_HOST: Final = "127.0.0.1"
 DEFAULT_PORT: Final = 8321
 
@@ -62,7 +62,7 @@ SDK_METRICS_KEYS: Final = (
 )
 
 # Environment names carrying a scheduling, concurrency, or pool knob. Matched as
-# substrings so the same list covers the TEMPORAL__ and TRACECAT__ namespaces
+# substrings so the same list covers the TEMPORAL__ and AUTOSECOPS__ namespaces
 # and any per-service prefix (executor, agent-executor, litellm).
 TUNING_ENV_MARKERS: Final = (
     "MAX_CONCURRENT",
@@ -102,7 +102,7 @@ class RunListItem(TypedDict):
     workflow_count: int | None
     branch_count: int | None
     one_shot: bool | None
-    tracecat_commit: str | None
+    autosecops_commit: str | None
     submitted: int | None
     completed: int | None
     failed: int | None
@@ -314,8 +314,8 @@ def build_run_list_item(run_dir: Path, run_id: str, matrix: str | None) -> RunLi
         workflow_count=_get_int(scenario, "workflow_count"),
         branch_count=_get_int(scenario, "branch_count"),
         one_shot=_get_bool(scenario, "one_shot"),
-        tracecat_commit=_get_str(manifest, "tracecat_commit")
-        or _get_str(scenario, "tracecat_commit"),
+        autosecops_commit=_get_str(manifest, "autosecops_commit")
+        or _get_str(scenario, "autosecops_commit"),
         submitted=_get_int(summary, "submitted"),
         completed=_get_int(summary, "completed"),
         failed=_get_int(summary, "failed"),
@@ -323,7 +323,7 @@ def build_run_list_item(run_dir: Path, run_id: str, matrix: str | None) -> RunLi
             summary, "throughput_workflows_per_second"
         ),
         throughput_actions_per_second=_get_float(
-            activity_metrics, "completed_tracecat_actions_per_second"
+            activity_metrics, "completed_autosecops_actions_per_second"
         ),
         latency_p50_seconds=_get_float(latency, "p50"),
         latency_p95_seconds=_get_float(latency, "p95"),

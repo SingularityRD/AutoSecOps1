@@ -59,7 +59,7 @@ _FULL_SHA = re.compile(r"[0-9a-f]{40}")
 
 
 def _get(url: str) -> bytes:
-    headers = {"User-Agent": "tracecat-skill-library"}
+    headers = {"User-Agent": "autosecops-skill-library"}
     if token := os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(url, headers=headers)

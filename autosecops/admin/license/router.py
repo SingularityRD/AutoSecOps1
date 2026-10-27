@@ -20,13 +20,14 @@ async def get_license(role: SuperuserRole) -> LicenseRead:
     claims = state.claims
     return LicenseRead(
         status=state.status,
-        enforced=not config.TRACECAT__EE_MULTI_TENANT,
+        enforced=not config.AUTOSECOPS__EE_MULTI_TENANT,
         license_id=claims.license_id if claims else None,
         customer=claims.customer if claims else None,
         issued_at=claims.issued_at if claims else None,
         expires_at=claims.expires_at if claims else None,
         grace_ends_at=state.grace_ends_at,
         entitlements=sorted(state.granted),
+        grants=sorted(state.grants),
         included_entitlements=sorted(
             Entitlement(key)
             for key, enabled in BASELINE_ENTITLEMENTS.model_dump().items()

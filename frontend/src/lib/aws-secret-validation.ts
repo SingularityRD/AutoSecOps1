@@ -3,7 +3,7 @@
  * Each validator returns a specific message, or null when the value is valid.
  */
 
-// Keep these patterns in sync with tracecat/secrets/schemas.py.
+// Keep these patterns in sync with autosecops/secrets/schemas.py.
 const AWS_ROLE_ARN_REGEX =
   /^arn:aws(?:-[a-z]+)*:iam::\d{12}:role\/[\w+=,.@/-]+$/
 const AWS_REGION_REGEX = /^[a-z]{2}(?:-[a-z]+)+-\d$/
@@ -16,7 +16,7 @@ const SECRET_KEY_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /** Synthetic example shown in role ARN hints and placeholders. */
 export const EXAMPLE_ROLE_ARN =
-  "arn:aws:iam::123456789012:role/tracecat-secrets-reader"
+  "arn:aws:iam::123456789012:role/autosecops-secrets-reader"
 const EXAMPLE_SECRET_ARN =
   "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/app/api-key-AbCdEf"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from autosecops.exceptions import TracecatException, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsException, AutoSecOpsValidationError
 
 
 class QueryErrorCode(StrEnum):
@@ -14,7 +14,7 @@ class QueryErrorCode(StrEnum):
     NUMERIC_OVERFLOW = "query_numeric_overflow"
 
 
-class TracecatQueryTimeoutError(TracecatException):
+class AutoSecOpsQueryTimeoutError(AutoSecOpsException):
     """Raised when PostgreSQL cancels a query at its statement timeout."""
 
     code = QueryErrorCode.TIMEOUT
@@ -31,7 +31,7 @@ class TracecatQueryTimeoutError(TracecatException):
         )
 
 
-class TracecatQueryOverflowError(TracecatValidationError):
+class AutoSecOpsQueryOverflowError(AutoSecOpsValidationError):
     """Raised when a query result exceeds its supported numeric range."""
 
     code = QueryErrorCode.NUMERIC_OVERFLOW

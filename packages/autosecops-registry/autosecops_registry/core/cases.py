@@ -10,7 +10,7 @@ from typing_extensions import Doc
 
 from autosecops_registry import config, ctx, registry, types
 from autosecops_registry.sdk.exceptions import (
-    TracecatValidationError,
+    AutoSecOpsValidationError,
 )
 
 
@@ -576,9 +576,9 @@ async def list_cases_by_row(
         Doc("If true, return cursor pagination metadata along with items."),
     ] = False,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
-        raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
+        raise AutoSecOpsValidationError(
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}
@@ -666,9 +666,9 @@ async def list_cases(
         ),
     ] = None,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
-        raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
+        raise AutoSecOpsValidationError(
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}
@@ -844,9 +844,9 @@ async def search_cases(
     ] = None,
 ) -> list[types.CaseReadMinimal] | types.CaseListResponse:
     """Search cases based on various criteria."""
-    if limit > config.TRACECAT__LIMIT_CURSOR_MAX:
-        raise TracecatValidationError(
-            detail=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}"
+    if limit > config.AUTOSECOPS__LIMIT_CURSOR_MAX:
+        raise AutoSecOpsValidationError(
+            detail=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}"
         )
 
     params: dict[str, Any] = {"limit": limit}
@@ -1123,7 +1123,7 @@ async def upload_attachment(
     try:
         content = base64.b64decode(content_base64, validate=True)
     except Exception as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"Invalid base64 encoding: {str(e)}"
         ) from e
 
@@ -1140,7 +1140,7 @@ def _infer_filename_from_url(url: str) -> str:
         if filename:
             return filename
 
-    raise TracecatValidationError(detail=f"Unable to infer filename from URL: {url}")
+    raise AutoSecOpsValidationError(detail=f"Unable to infer filename from URL: {url}")
 
 
 @registry.register(
@@ -1177,12 +1177,12 @@ async def upload_attachment_from_url(
         content_type = response.headers.get("Content-Type")
 
     if not content:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"No content found in response from URL: {url}"
         )
 
     if not content_type:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"No content type found in response from URL: {url}"
         )
 
@@ -1234,7 +1234,7 @@ async def download_attachment(
     try:
         attachment_uuid = UUID(attachment_id)
     except ValueError as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"Invalid attachment ID format: {str(e)}"
         ) from e
 
@@ -1267,7 +1267,7 @@ async def get_attachment(
     try:
         attachment_uuid = UUID(attachment_id)
     except ValueError as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"Invalid attachment ID format: {str(e)}"
         ) from e
 
@@ -1303,7 +1303,7 @@ async def delete_attachment(
     try:
         attachment_uuid = UUID(attachment_id)
     except ValueError as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"Invalid attachment ID format: {str(e)}"
         ) from e
 
@@ -1342,18 +1342,18 @@ async def get_attachment_download_url(
     try:
         attachment_uuid = UUID(attachment_id)
     except ValueError as e:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             detail=f"Invalid attachment ID format: {str(e)}"
         ) from e
 
     # Validate expiry if provided
     if expiry is not None:
         if expiry <= 0:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 detail="Expiry must be a positive number of seconds"
             )
         if expiry > 86400:  # 24 hours
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 detail="Expiry cannot exceed 24 hours (86400 seconds)"
             )
 

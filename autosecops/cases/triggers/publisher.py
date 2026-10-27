@@ -45,7 +45,7 @@ async def publish_case_event_payload(
     extra_fields: dict[str, str | None] | None = None,
 ) -> None:
     """Publish a case event to the Redis streams pipeline."""
-    if not config.TRACECAT__CASE_TRIGGERS_ENABLED:
+    if not config.AUTOSECOPS__CASE_TRIGGERS_ENABLED:
         return
 
     payload = case_event_fields(
@@ -59,9 +59,9 @@ async def publish_case_event_payload(
 
     client = await get_redis_client()
     await client.xadd(
-        stream_key=config.TRACECAT__CASE_TRIGGERS_STREAM_KEY,
+        stream_key=config.AUTOSECOPS__CASE_TRIGGERS_STREAM_KEY,
         fields=payload,
-        maxlen=config.TRACECAT__CASE_TRIGGERS_MAXLEN,
+        maxlen=config.AUTOSECOPS__CASE_TRIGGERS_MAXLEN,
         approximate=True,
         expire_seconds=None,
     )

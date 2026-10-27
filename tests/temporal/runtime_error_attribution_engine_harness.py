@@ -94,7 +94,7 @@ async def run_handled_platform_activity_failure_uses_authored_error_edge(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -152,7 +152,7 @@ async def run_engine_terminal_status_does_not_set_error_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             if terminal_operation == "timeout":

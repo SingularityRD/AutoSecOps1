@@ -44,7 +44,7 @@ async def test_locked_legacy_slack_template_reaches_sdk(
     action = template.definition.action
     role = Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
     )

@@ -23,7 +23,7 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.dsl._converter import get_data_converter
 
 with workflow.unsafe.imports_passed_through():
-    from autosecops.agent.types import AgentConfig as TracecatAgentConfig
+    from autosecops.agent.types import AgentConfig as AutoSecOpsAgentConfig
 
 pytestmark = [pytest.mark.temporal]
 
@@ -36,8 +36,8 @@ async def env() -> AsyncGenerator[WorkflowEnvironment, None]:
         yield workflow_env
 
 
-def _build_agent_config() -> TracecatAgentConfig:
-    return TracecatAgentConfig(
+def _build_agent_config() -> AutoSecOpsAgentConfig:
+    return AutoSecOpsAgentConfig(
         model_name="gpt-5.2",
         model_provider="openai",
         instructions="You are a security analyst.",
@@ -58,8 +58,8 @@ def _build_agent_config() -> TracecatAgentConfig:
     )
 
 
-@activity.defn(name="return_tracecat_agent_config")
-async def return_tracecat_agent_config() -> TracecatAgentConfig:
+@activity.defn(name="return_autosecops_agent_config")
+async def return_autosecops_agent_config() -> AutoSecOpsAgentConfig:
     """Mock activity that returns the full runtime AgentConfig."""
     return _build_agent_config()
 
@@ -106,7 +106,7 @@ class LegacyAgentConfigPayloadDecodeWorkflow:
         # This simulates replaying an activity result recorded before
         # resolve_agent_preset_config_activity switched to AgentConfigPayload.
         payload = await workflow.execute_activity(
-            "return_tracecat_agent_config",
+            "return_autosecops_agent_config",
             start_to_close_timeout=timedelta(seconds=10),
             result_type=AgentConfigPayload,
         )
@@ -146,7 +146,7 @@ async def test_legacy_agent_config_payload_replays_as_agent_config_payload(
     async with Worker(
         env.client,
         task_queue=task_queue,
-        activities=[return_tracecat_agent_config],
+        activities=[return_autosecops_agent_config],
         workflows=[LegacyAgentConfigPayloadDecodeWorkflow],
         workflow_runner=new_sandbox_runner(),
     ):
@@ -173,9 +173,9 @@ async def test_legacy_agent_config_payload_replays_as_agent_config_payload(
 # ---------------------------------------------------------------------------
 
 
-def _legacy_mcp_agent_config() -> TracecatAgentConfig:
+def _legacy_mcp_agent_config() -> AutoSecOpsAgentConfig:
     """Pre-rollout config: inline ``headers``, no ``id`` on the MCP server."""
-    return TracecatAgentConfig(
+    return AutoSecOpsAgentConfig(
         model_name="gpt-5.2",
         model_provider="openai",
         mcp_servers=[
@@ -191,9 +191,9 @@ def _legacy_mcp_agent_config() -> TracecatAgentConfig:
     )
 
 
-def _ref_mcp_agent_config() -> TracecatAgentConfig:
+def _ref_mcp_agent_config() -> AutoSecOpsAgentConfig:
     """Post-rollout config: ``id`` set, no ``headers``."""
-    return TracecatAgentConfig(
+    return AutoSecOpsAgentConfig(
         model_name="gpt-5.2",
         model_provider="openai",
         mcp_servers=[
@@ -209,9 +209,9 @@ def _ref_mcp_agent_config() -> TracecatAgentConfig:
     )
 
 
-def _mixed_mcp_agent_config() -> TracecatAgentConfig:
+def _mixed_mcp_agent_config() -> AutoSecOpsAgentConfig:
     """Heterogeneous payload exercising every supported shape."""
-    return TracecatAgentConfig(
+    return AutoSecOpsAgentConfig(
         model_name="gpt-5.2",
         model_provider="openai",
         mcp_servers=[

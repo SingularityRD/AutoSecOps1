@@ -57,12 +57,12 @@ def test_workers_and_agent_runtime_agree_on_backend(
     expected: str,
 ) -> None:
     env = os.environ.copy()
-    env.pop("TRACECAT__EXECUTOR_BACKEND", None)
+    env.pop("AUTOSECOPS__EXECUTOR_BACKEND", None)
     if value is not None:
-        env["TRACECAT__EXECUTOR_BACKEND"] = value
+        env["AUTOSECOPS__EXECUTOR_BACKEND"] = value
     # Removed flags cannot override the selected backend.
-    env["TRACECAT__DISABLE_NSJAIL"] = "true" if expected == "nsjail" else "false"
-    env["TRACECAT__EXECUTOR_SANDBOX_ENABLED"] = (
+    env["AUTOSECOPS__DISABLE_NSJAIL"] = "true" if expected == "nsjail" else "false"
+    env["AUTOSECOPS__EXECUTOR_SANDBOX_ENABLED"] = (
         "false" if expected == "nsjail" else "true"
     )
     result = subprocess.run(
@@ -71,7 +71,7 @@ def test_workers_and_agent_runtime_agree_on_backend(
             "-c",
             "from autosecops import config; "
             "from autosecops.agent.common import config as agent_config; "
-            "print(config.TRACECAT__EXECUTOR_BACKEND, agent_config.TRACECAT__EXECUTOR_BACKEND)",
+            "print(config.AUTOSECOPS__EXECUTOR_BACKEND, agent_config.AUTOSECOPS__EXECUTOR_BACKEND)",
         ],
         env=env,
         check=True,
@@ -83,7 +83,7 @@ def test_workers_and_agent_runtime_agree_on_backend(
 
 @pytest.mark.parametrize("value", ["auto", "invalid", "test"])
 def test_unknown_backend_is_rejected(value: str) -> None:
-    with pytest.raises(ValueError, match="Invalid TRACECAT__EXECUTOR_BACKEND"):
+    with pytest.raises(ValueError, match="Invalid AUTOSECOPS__EXECUTOR_BACKEND"):
         ExecutorBackendType.from_config(value)
 
 
@@ -112,7 +112,7 @@ async def test_action_runner_uses_selected_backend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType(backend)
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType(backend)
     )
     runner = ActionRunner(cache_dir=tmp_path)
     direct = AsyncMock(return_value="direct")
@@ -135,7 +135,7 @@ async def test_python_script_does_not_fall_back_when_nsjail_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        sandbox_service, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        sandbox_service, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     service = SandboxService(cache_dir=str(tmp_path))
     monkeypatch.setattr(

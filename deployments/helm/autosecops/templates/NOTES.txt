@@ -1,21 +1,42 @@
-AutoSecOps {{ .Chart.AppVersion }} is deployed as release {{ .Release.Name }}.
+AutoSecOps {{ .Chart.AppVersion }} is deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
 
 Public URL: {{ include "autosecops.publicAppUrl" . }}
-{{- if .Values.caddy.enabled }}
-In-cluster entrypoint: {{ include "autosecops.componentFullname" (dict "root" . "component" "caddy") }}:{{ .Values.caddy.service.port }}
-{{- end }}
-{{- if not .Values.ingress.enabled }}
 
-No Ingress was created. Expose the Caddy service through your own load
-balancer or Ingress, or port-forward for a quick check:
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "autosecops.componentFullname" (dict "root" . "component" "caddy") }} 8080:{{ .Values.caddy.service.port }}
-{{- end }}
-{{- if .Values.devDependencies.enabled }}
+1. Watch the rollout:
 
-WARNING: devDependencies.enabled=true runs single-replica PostgreSQL, Redis,
-MinIO, and Temporal without backups. Use it only for evaluation.
-{{- end }}
-{{- if not .Values.autosecops.auth.allowedDomains }}
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
 
-NOTE: autosecops.auth.allowedDomains is blank, so any email domain can sign up.
+{{- if .Values.migrations.enabled }}
+
+   Migrations run in the {{ include "autosecops.migrationsJobName" . }} Job:
+   kubectl -n {{ .Release.Namespace }} logs job/{{ include "autosecops.migrationsJobName" . }}
+{{- end }}
+
+2. Check the API without an ingress:
+
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "autosecops.componentName" (dict "root" . "component" "api") }} 8000:{{ .Values.api.service.port }}
+   curl http://localhost:8000/health
+
+{{- if .Values.ingress.enabled }}
+
+3. Open https://{{ .Values.ingress.host }} once DNS points at your ingress controller.
+{{- else }}
+
+3. Expose the UI and API with `ingress.enabled=true`, or put your own proxy in
+   front of the {{ include "autosecops.componentName" (dict "root" . "component" "ui") }} (/) and {{ include "autosecops.componentName" (dict "root" . "component" "api") }} (/api) services.
+{{- end }}
+
+{{- if .Values.autosecops.auth.superadminEmail }}
+
+Sign in first as {{ .Values.autosecops.auth.superadminEmail }} to become superadmin.
+{{- else }}
+
+WARNING: autosecops.auth.superadminEmail is empty. Nobody can register until you set it.
+{{- end }}
+
+{{- if and (not .Values.secrets.existingSecret) .Values.migrations.enabled .Values.migrations.useHelmHooks }}
+
+Chart-created Secrets are Helm hooks: `helm uninstall` keeps them so the
+encryption keys survive. Back them up, and delete them by hand only when you
+discard the installation.
 {{- end }}

@@ -51,7 +51,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { jsonSchemaToZod } from "@/lib/jsonschema"
-import type { TracecatJsonSchema } from "@/lib/schema"
+import type { AutoSecOpsJsonSchema } from "@/lib/schema"
 
 export type TriggerFormValues = Record<string, unknown>
 
@@ -66,7 +66,7 @@ export const TRIGGER_SCROLL_AREA_CLASS =
   "flex min-h-0 flex-1 flex-col [&>[data-radix-scroll-area-viewport]]:min-h-0 [&>[data-radix-scroll-area-viewport]]:flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!w-full [&>[data-radix-scroll-area-viewport]>div]:!min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!max-w-full"
 
 interface WorkflowTriggerFormProps {
-  schema: TracecatJsonSchema
+  schema: AutoSecOpsJsonSchema
   caseId: string
   caseFields: Record<string, unknown>
   caseFieldDisplayNameById: ReadonlyMap<string, string>
@@ -135,7 +135,7 @@ const formatValuePreview = (value: unknown): string => {
     : stringified
 }
 
-const getPrimaryType = (schema: TracecatJsonSchema): string | undefined => {
+const getPrimaryType = (schema: AutoSecOpsJsonSchema): string | undefined => {
   if (!schema.type) {
     return undefined
   }
@@ -143,7 +143,7 @@ const getPrimaryType = (schema: TracecatJsonSchema): string | undefined => {
 }
 
 const isValueCompatible = (
-  schema: TracecatJsonSchema,
+  schema: AutoSecOpsJsonSchema,
   value: unknown
 ): boolean => {
   if (isNullish(value)) {
@@ -345,7 +345,7 @@ export function WorkflowTriggerForm({
   const properties = useMemo(
     () =>
       Object.entries(schema.properties ?? {}).filter(
-        (entry): entry is [string, TracecatJsonSchema] =>
+        (entry): entry is [string, AutoSecOpsJsonSchema] =>
           typeof entry[1] !== "boolean"
       ),
     [schema]
@@ -647,7 +647,7 @@ type MappingStatus = "case" | "schema-default" | "custom" | "empty"
 
 interface CaseValueSelectorProps {
   fieldName: string
-  fieldSchema: TracecatJsonSchema
+  fieldSchema: AutoSecOpsJsonSchema
   caseFields: Record<string, unknown>
   caseFieldDisplayNameById: ReadonlyMap<string, string>
   caseId: string

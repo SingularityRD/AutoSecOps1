@@ -11,7 +11,7 @@ from autosecops.audit.logger import AuditEventDetails, audit_log
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import Schedule, Workflow
 from autosecops.db.session_events import AfterCommitQueue
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.identifiers import ScheduleUUID, WorkflowID
 from autosecops.identifiers.schedules import AnyScheduleID
 from autosecops.identifiers.workflow import AnyWorkflowID, WorkflowUUID
@@ -69,7 +69,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
             .with_for_update()
         )
         if await self.session.scalar(stmt) is None:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
     async def _require_published_workflow(
         self, workflow_id: AnyWorkflowID | uuid.UUID
@@ -82,11 +82,11 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         )
         workflow = await self.session.scalar(stmt)
         if workflow is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Workflow not found. Please check the workflow ID and try again."
             )
         if workflow.version is None:
-            raise TracecatConflictError(
+            raise AutoSecOpsConflictError(
                 "Workflow must be saved before creating a schedule."
             )
 
@@ -138,7 +138,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
 
         Raises
         ------
-        TracecatServiceError
+        AutoSecOpsServiceError
             If there is an error creating the schedule.
 
         """
@@ -183,7 +183,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         role_copy = self.role.model_copy(
             update={
                 "type": "service",
-                "service_id": "tracecat-schedule-runner",
+                "service_id": "autosecops-schedule-runner",
                 "user_id": None,
             }
         )
@@ -250,7 +250,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
 
         Raises
         ------
-        TracecatNotFoundError
+        AutoSecOpsNotFoundError
             If the schedule is not found
 
         """
@@ -264,7 +264,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         try:
             return result.scalar_one()
         except NoResultFound as e:
-            raise TracecatNotFoundError(f"Schedule {schedule_uuid} not found") from e
+            raise AutoSecOpsNotFoundError(f"Schedule {schedule_uuid} not found") from e
 
     async def _get_schedule_with_workflow_lock(
         self, schedule_id: AnyScheduleID
@@ -283,7 +283,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
         try:
             return result.scalar_one()
         except NoResultFound as e:
-            raise TracecatNotFoundError(f"Schedule {schedule_uuid} not found") from e
+            raise AutoSecOpsNotFoundError(f"Schedule {schedule_uuid} not found") from e
 
     @require_scope("schedule:update")
     @audit_log(
@@ -311,7 +311,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
 
         Raises
         ------
-        TracecatNotFoundError
+        AutoSecOpsNotFoundError
             If there is an error updating the schedule.
         """
         schedule = await self._get_schedule_with_workflow_lock(schedule_id)
@@ -363,7 +363,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
 
         Raises
         ------
-        TracecatServiceError
+        AutoSecOpsServiceError
             If an error occurs while deleting the schedule from Temporal.
 
         """
@@ -468,7 +468,7 @@ class WorkflowSchedulesService(BaseWorkspaceService):
                 if schedule.inputs is None:
                     return None
                 return InlineObject(data=schedule.inputs)
-        except TracecatNotFoundError as e:
+        except AutoSecOpsNotFoundError as e:
             classification = RuntimeErrorClassification.platform(
                 kind=RuntimeErrorKind.WORKFLOW_BOOTSTRAP_INVALID_DATA,
                 message="AutoSecOps could not load the scheduled workflow trigger",

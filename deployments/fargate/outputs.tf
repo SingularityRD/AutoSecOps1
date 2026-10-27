@@ -2,7 +2,7 @@
 # ENDPOINTS - Key URLs for accessing the application
 # =============================================================================
 
-output "tracecat_endpoints" {
+output "autosecops_endpoints" {
   description = "Key endpoints for accessing the AutoSecOps UI and API"
   value = {
     ui_url      = module.ecs.public_app_url
@@ -12,22 +12,22 @@ output "tracecat_endpoints" {
 }
 
 # =============================================================================
-# TRACECAT APPLICATION OUTPUTS
+# AUTOSECOPS APPLICATION OUTPUTS
 # =============================================================================
 
-output "tracecat_image_tag" {
+output "autosecops_image_tag" {
   description = "The version of AutoSecOps used"
-  value       = module.ecs.tracecat_image_tag
+  value       = module.ecs.autosecops_image_tag
 }
 
-output "tracecat_migrations_image" {
+output "autosecops_migrations_image" {
   description = "The AutoSecOps migrations init container image repository"
-  value       = module.ecs.tracecat_migrations_image
+  value       = module.ecs.autosecops_migrations_image
 }
 
-output "tracecat_migrations_image_tag" {
+output "autosecops_migrations_image_tag" {
   description = "The AutoSecOps migrations init container image tag"
-  value       = module.ecs.tracecat_migrations_image_tag
+  value       = module.ecs.autosecops_migrations_image_tag
 }
 
 output "ecs_cluster_name" {

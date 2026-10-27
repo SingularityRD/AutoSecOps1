@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.identifiers import VariableID
 from autosecops.logger import logger
 from autosecops.variables.schemas import (
@@ -83,7 +83,7 @@ async def get_variable_by_name(
         variable = await service.get_variable_by_name(
             variable_name, environment=environment
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Variable not found"
         ) from exc
@@ -123,7 +123,7 @@ async def update_variable_by_id(
     try:
         variable = await service.get_variable(variable_id)
         updated = await service.update_variable(variable, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         logger.error("Variable not found", variable_id=variable_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Variable does not exist"
@@ -148,7 +148,7 @@ async def delete_variable_by_id(
     try:
         variable = await service.get_variable(variable_id)
         await service.delete_variable(variable)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         logger.info("Variable not found", variable_id=variable_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Variable does not exist"

@@ -95,7 +95,7 @@ async def _fetch_manifest(
 ) -> RegistryVersionManifest:
     """Fetch manifest from database for a specific origin and version.
 
-    Routes to platform tables for the base registry (tracecat-registry),
+    Routes to platform tables for the base registry (autosecops-registry),
     otherwise queries org-scoped tables.
 
     Both table hierarchies share the same structure via BaseRegistryVersion/BaseRegistryRepository,

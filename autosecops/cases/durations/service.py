@@ -53,8 +53,8 @@ from autosecops.concurrency import cooperative_every
 from autosecops.db.models import Case, CaseDuration, CaseEvent
 from autosecops.db.models import CaseDurationDefinition as CaseDurationDefinitionDB
 from autosecops.exceptions import (
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.service import BaseWorkspaceService, requires_entitlement
 from autosecops.tables.common import coerce_to_utc_datetime
@@ -146,7 +146,7 @@ class CaseDurationDefinitionService(BaseWorkspaceService):
         if "start_anchor" in set_fields:
             start_anchor = params.start_anchor
             if start_anchor is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Start anchor cannot be null when updating a duration definition."
                 )
             self._apply_anchor(entity, start_anchor, "start")
@@ -154,7 +154,7 @@ class CaseDurationDefinitionService(BaseWorkspaceService):
         if "end_anchor" in set_fields:
             end_anchor = params.end_anchor
             if end_anchor is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "End anchor cannot be null when updating a duration definition."
                 )
             self._apply_anchor(entity, end_anchor, "end")
@@ -210,7 +210,7 @@ class CaseDurationDefinitionService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         entity = result.scalars().first()
         if entity is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Case duration definition {duration_id} not found in this workspace"
             )
         return entity
@@ -226,7 +226,7 @@ class CaseDurationDefinitionService(BaseWorkspaceService):
             stmt = stmt.where(CaseDurationDefinitionDB.id != exclude_id)
         result = await self.session.execute(stmt)
         if result.scalars().first() is not None:
-            raise TracecatValidationError(f"A duration named '{name}' already exists")
+            raise AutoSecOpsValidationError(f"A duration named '{name}' already exists")
 
     def _to_read_model(
         self, entity: CaseDurationDefinitionDB
@@ -1193,7 +1193,7 @@ class CaseDurationService(BaseWorkspaceService):
             stmt = stmt.where(CaseDuration.id != exclude_id)
         result = await self.session.execute(stmt)
         if result.scalars().first() is not None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "A duration for this definition already exists on the case"
             )
 
@@ -1208,7 +1208,7 @@ class CaseDurationService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         entity = result.scalars().first()
         if entity is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Case duration {duration_id} not found for this case"
             )
         return entity
@@ -1216,7 +1216,7 @@ class CaseDurationService(BaseWorkspaceService):
     async def _resolve_case(self, case: Case | uuid.UUID) -> Case:
         if isinstance(case, Case):
             if case.workspace_id != self.workspace_id:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     "Case does not belong to the active workspace"
                 )
             return case
@@ -1228,7 +1228,7 @@ class CaseDurationService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         resolved = result.scalars().first()
         if resolved is None:
-            raise TracecatNotFoundError(f"Case {case} not found in this workspace")
+            raise AutoSecOpsNotFoundError(f"Case {case} not found in this workspace")
         return resolved
 
     def _sql_anchor_cache_key(self, anchor: CaseDurationEventAnchor) -> tuple[Any, ...]:

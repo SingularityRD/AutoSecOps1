@@ -134,7 +134,7 @@ def _management_role(
 ) -> Role:
     return Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
         is_platform_superuser=True,

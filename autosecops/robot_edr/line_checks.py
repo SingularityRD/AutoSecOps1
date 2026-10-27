@@ -37,7 +37,7 @@ DETAIL_MAX: Final = 300
 # Worker processes for large batches; 0 checks every batch in the API process.
 # The API process only waits while the workers run, so they may use every CPU.
 CHECK_WORKERS: Final = int(
-    os.environ.get("TRACECAT__ROBOT_EDR_CHECK_WORKERS")
+    os.environ.get("AUTOSECOPS__ROBOT_EDR_CHECK_WORKERS")
     or (min(4, os.cpu_count() or 1) if (os.cpu_count() or 1) > 1 else 0)
 )
 # Below this many lines a batch is checked in the API process: shipping the

@@ -23,15 +23,15 @@ flowchart TB
   subgraph runtime["Disconnected runtime · zero internet routes"]
     direction TB
     registry["Internal OCI registry<br/>and model store"]
-    tracecat["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
+    autosecops["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
     dependencies["Internal dependencies<br/>state · identity · integrations · telemetry"]
     litellm["Bundled LiteLLM"]
     inference["vLLM or Ollama<br/>in-cluster or adjacent DGX Spark"]
 
-    registry --> tracecat
-    tracecat <--> dependencies
-    tracecat -->|direct passthrough| inference
-    tracecat -->|bundled route| litellm --> inference
+    registry --> autosecops
+    autosecops <--> dependencies
+    autosecops -->|direct passthrough| inference
+    autosecops -->|bundled route| litellm --> inference
   end
 
   artifacts -. mirror before cutover .-> registry
@@ -39,7 +39,7 @@ flowchart TB
 
 ## Prepare while connected
 
-- Package the AutoSecOps Helm chart from `deployments/helm/autosecops` (`helm package`) and push it, with every referenced container image, to an internal OCI registry.
+- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry.
 - Stage the inference image, model weights, tokenizer, and model configuration in internal repositories.
 - Provision internal PostgreSQL, Redis, S3-compatible storage, Temporal, identity, DNS, TLS, secrets, telemetry, and integration endpoints. Validate image pulls and model discovery before removing egress.
 

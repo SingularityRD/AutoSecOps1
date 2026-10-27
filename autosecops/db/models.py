@@ -2116,7 +2116,9 @@ class Webhook(WorkspaceModel):
     @property
     def url(self) -> str:
         short_wf_id = WorkflowUUID.make_short(self.workflow_id)
-        return f"{config.TRACECAT__PUBLIC_API_URL}/webhooks/{short_wf_id}/{self.secret}"
+        return (
+            f"{config.AUTOSECOPS__PUBLIC_API_URL}/webhooks/{short_wf_id}/{self.secret}"
+        )
 
     @property
     def normalized_methods(self) -> tuple[str, ...]:
@@ -2656,7 +2658,7 @@ class BaseRegistryVersion(Base):
     version: Mapped[str] = mapped_column(
         String,
         nullable=False,
-        doc="Version string, e.g., '1.0.0', 'tracecat_core@1.2.3'",
+        doc="Version string, e.g., '1.0.0', 'autosecops_core@1.2.3'",
     )
     commit_sha: Mapped[str | None] = mapped_column(
         String,
@@ -5836,7 +5838,7 @@ class File(WorkspaceModel):
         doc="SHA256 hash for content-addressable storage and deduplication",
     )
     name: Mapped[str] = mapped_column(
-        String(config.TRACECAT__MAX_ATTACHMENT_FILENAME_LENGTH),
+        String(config.AUTOSECOPS__MAX_ATTACHMENT_FILENAME_LENGTH),
         nullable=False,
         doc="Original filename when uploaded",
     )
@@ -6340,7 +6342,7 @@ class MCPRefreshToken(OrganizationModel):
     encrypted_metadata: Mapped[bytes] = mapped_column(
         LargeBinary,
         nullable=False,
-        doc="Encrypted JSON blob with session context (email, scope, resource, is_platform_superuser). Encrypted via secrets.encryption.encrypt_bytes with TRACECAT__DB_ENCRYPTION_KEY.",
+        doc="Encrypted JSON blob with session context (email, scope, resource, is_platform_superuser). Encrypted via secrets.encryption.encrypt_bytes with AUTOSECOPS__DB_ENCRYPTION_KEY.",
     )
     status: Mapped[str] = mapped_column(
         String,

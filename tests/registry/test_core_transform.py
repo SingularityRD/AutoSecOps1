@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import redis.asyncio as aioredis
-from autosecops_registry._internal.exceptions import TracecatExpressionError
+from autosecops_registry._internal.exceptions import AutoSecOpsExpressionError
 from autosecops_registry.context import clear_context, set_context
 from autosecops_registry.core.transform import (
     apply,
@@ -23,7 +23,7 @@ from autosecops_registry.core.transform import (
 @pytest.fixture(autouse=True)
 def deduplicate_workspace_scope(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure deduplication tests have an explicit workspace scope by default."""
-    monkeypatch.setenv("TRACECAT__WORKSPACE_ID", "test-workspace")
+    monkeypatch.setenv("AUTOSECOPS__WORKSPACE_ID", "test-workspace")
 
 
 class _RedisDedupClient:
@@ -57,7 +57,7 @@ async def dedup_registry_context(deduplicate_workspace_scope: None) -> Any:
     The Redis connection is made lazily when create_digests is called,
     so non-dedup tests don't require a running Redis instance.
     """
-    workspace_id = os.environ.get("TRACECAT__WORKSPACE_ID", "test-workspace")
+    workspace_id = os.environ.get("AUTOSECOPS__WORKSPACE_ID", "test-workspace")
     ctx = MagicMock()
     ctx.workspace_id = workspace_id
     ctx.deduplicate = _RedisDedupClient(workspace_id)
@@ -221,7 +221,7 @@ def test_drop_nulls(items: list[Any], expected: list[Any]) -> None:
 
 
 def test_drop_nulls_action_key() -> None:
-    assert getattr(drop_nulls, "__tracecat_udf_key") == "core.transform.drop_nulls"
+    assert getattr(drop_nulls, "__autosecops_udf_key") == "core.transform.drop_nulls"
 
 
 @pytest.mark.parametrize(
@@ -680,19 +680,19 @@ async def test_deduplicate_requires_registry_context() -> None:
         (
             [{"id": 1}, {"name": "test"}],
             ["id"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
         # Invalid jsonpath
         (
             [{"id": 1}],
             ["id..invalid"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
         # Non-dict items in list
         (
             ["not a dict"],
             ["id"],
-            TracecatExpressionError,
+            AutoSecOpsExpressionError,
         ),
     ],
 )
@@ -1117,5 +1117,5 @@ def test_eval_jsonpaths_invalid_expressions(
     input_json: dict[str, Any], jsonpaths: list[str]
 ) -> None:
     """Test eval_jsonpaths with invalid JSONPath expressions."""
-    with pytest.raises(TracecatExpressionError):
+    with pytest.raises(AutoSecOpsExpressionError):
         eval_jsonpaths(input_json, jsonpaths)

@@ -60,7 +60,7 @@ def _target(request: Request) -> str:
     query = request.scope.get("query_string", b"")
     if query:
         path = f"{path}?{query.decode('latin-1')}"
-    base = config.TRACECAT__API_ROOT_PATH.rstrip("/")
+    base = config.AUTOSECOPS__API_ROOT_PATH.rstrip("/")
     if base and not path.startswith(f"{base}/"):
         path = f"{base}{path}"
     return path
@@ -98,7 +98,7 @@ async def _serve(
         else None
     )
     try:
-        if config.TRACECAT__ROBOT_EDR_REQUIRE_TLS and not arrived_over_tls(request):
+        if config.AUTOSECOPS__ROBOT_EDR_REQUIRE_TLS and not arrived_over_tls(request):
             raise FleetRejectedError(
                 403, FleetErrorCode.TLS_REQUIRED, "TLS is required"
             )

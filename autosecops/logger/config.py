@@ -13,7 +13,7 @@ class LogFormat(StrEnum):
 
 def log_format_from_env() -> LogFormat:
     """Resolve the configured process-wide log rendering format."""
-    raw_value = os.environ.get("TRACECAT__LOG_FORMAT")
+    raw_value = os.environ.get("AUTOSECOPS__LOG_FORMAT")
     if raw_value is None or not raw_value.strip():
         return LogFormat.CONSOLE
 
@@ -22,5 +22,5 @@ def log_format_from_env() -> LogFormat:
     except ValueError as error:
         supported = ", ".join(log_format.value for log_format in LogFormat)
         raise ValueError(
-            f"TRACECAT__LOG_FORMAT must be one of {supported} (got {raw_value!r})"
+            f"AUTOSECOPS__LOG_FORMAT must be one of {supported} (got {raw_value!r})"
         ) from error

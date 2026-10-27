@@ -24,7 +24,7 @@ The card and the details panel show the same object, in the shape Slack's `entit
 {
   "entity_type": "slack#/entities/incident",
   "url": "<case URL>",
-  "external_ref": { "id": "oauth:<short name>", "type": "tracecat_case" },
+  "external_ref": { "id": "oauth:<short name>", "type": "autosecops_case" },
   "entity_payload": {
     "attributes": {
       "title": { "text": "<case title>" },

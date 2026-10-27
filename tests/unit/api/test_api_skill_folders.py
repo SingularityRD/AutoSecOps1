@@ -18,7 +18,7 @@ from autosecops.agent.skill.folders import router as skill_folder_router
 from autosecops.agent.skill.folders.service import SkillFolderErrorCode
 from autosecops.agent.skill.schemas import SkillMoveToFolder
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 _FOLDER_SURFACES = [
@@ -152,7 +152,7 @@ async def test_folder_validation_errors_map_to_http_status(
     with patch.object(router, service_name) as mock_service_cls:
         mock_service = _mock_service_with_async_method(
             service_method,
-            side_effect=TracecatValidationError(
+            side_effect=AutoSecOpsValidationError(
                 message, detail={"code": error_codes[code].value}
             ),
         )

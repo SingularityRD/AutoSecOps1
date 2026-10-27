@@ -10,7 +10,7 @@ from autosecops_registry.sdk.agents import AgentsClient
 
 
 @pytest.fixture
-def mock_tracecat_client() -> MagicMock:
+def mock_autosecops_client() -> MagicMock:
     client = MagicMock()
     client.get = AsyncMock()
     client.patch = AsyncMock()
@@ -19,16 +19,16 @@ def mock_tracecat_client() -> MagicMock:
 
 
 @pytest.fixture
-def agents_client(mock_tracecat_client: MagicMock) -> AgentsClient:
-    return AgentsClient(mock_tracecat_client)
+def agents_client(mock_autosecops_client: MagicMock) -> AgentsClient:
+    return AgentsClient(mock_autosecops_client)
 
 
 @pytest.mark.anyio
 async def test_list_skill_versions_builds_cursor_params(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.get.return_value = {
+    mock_autosecops_client.get.return_value = {
         "items": [],
         "next_cursor": None,
         "has_more": False,
@@ -42,7 +42,7 @@ async def test_list_skill_versions_builds_cursor_params(
     )
 
     assert result == {"items": [], "next_cursor": None, "has_more": False}
-    mock_tracecat_client.get.assert_awaited_once_with(
+    mock_autosecops_client.get.assert_awaited_once_with(
         "/agent/skills/skill-id/versions",
         params={"limit": 50, "reverse": True, "cursor": "cursor-1"},
     )
@@ -51,10 +51,10 @@ async def test_list_skill_versions_builds_cursor_params(
 @pytest.mark.anyio
 async def test_list_skill_versions_prefers_skill_uuid(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
     skill_uuid = uuid.uuid4()
-    mock_tracecat_client.get.return_value = {
+    mock_autosecops_client.get.return_value = {
         "items": [],
         "next_cursor": None,
         "has_more": False,
@@ -65,7 +65,7 @@ async def test_list_skill_versions_prefers_skill_uuid(
         skill_uuid=skill_uuid,
     )
 
-    mock_tracecat_client.get.assert_awaited_once_with(
+    mock_autosecops_client.get.assert_awaited_once_with(
         f"/agent/skills/{skill_uuid}/versions",
         params={"limit": 20, "reverse": False},
     )
@@ -74,16 +74,16 @@ async def test_list_skill_versions_prefers_skill_uuid(
 @pytest.mark.anyio
 async def test_get_skill_version_uses_version_endpoint(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.get.return_value = {"id": "version-id"}
+    mock_autosecops_client.get.return_value = {"id": "version-id"}
 
     result = await agents_client.get_skill_version(
         skill_id="skill-id", version_id="version-id"
     )
 
     assert result == {"id": "version-id"}
-    mock_tracecat_client.get.assert_awaited_once_with(
+    mock_autosecops_client.get.assert_awaited_once_with(
         "/agent/skills/skill-id/versions/version-id"
     )
 
@@ -91,16 +91,16 @@ async def test_get_skill_version_uses_version_endpoint(
 @pytest.mark.anyio
 async def test_restore_skill_version_uses_restore_endpoint(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.post.return_value = {"current_version_id": "version-id"}
+    mock_autosecops_client.post.return_value = {"current_version_id": "version-id"}
 
     result = await agents_client.restore_skill_version(
         skill_id="skill-id", version_id="version-id"
     )
 
     assert result == {"current_version_id": "version-id"}
-    mock_tracecat_client.post.assert_awaited_once_with(
+    mock_autosecops_client.post.assert_awaited_once_with(
         "/agent/skills/skill-id/versions/version-id/restore"
     )
 
@@ -108,22 +108,24 @@ async def test_restore_skill_version_uses_restore_endpoint(
 @pytest.mark.anyio
 async def test_get_skill_draft_uses_draft_endpoint(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.get.return_value = {"revision": 2}
+    mock_autosecops_client.get.return_value = {"revision": 2}
 
     result = await agents_client.get_skill_draft("skill-id", skill_uuid="skill-uuid")
 
     assert result == {"revision": 2}
-    mock_tracecat_client.get.assert_awaited_once_with("/agent/skills/skill-uuid/draft")
+    mock_autosecops_client.get.assert_awaited_once_with(
+        "/agent/skills/skill-uuid/draft"
+    )
 
 
 @pytest.mark.anyio
 async def test_get_skill_draft_file_uses_path_query_parameter(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.get.return_value = {"path": "SKILL.md"}
+    mock_autosecops_client.get.return_value = {"path": "SKILL.md"}
 
     result = await agents_client.get_skill_draft_file(
         skill_id="skill-id",
@@ -132,7 +134,7 @@ async def test_get_skill_draft_file_uses_path_query_parameter(
     )
 
     assert result == {"path": "SKILL.md"}
-    mock_tracecat_client.get.assert_awaited_once_with(
+    mock_autosecops_client.get.assert_awaited_once_with(
         "/agent/skills/skill-uuid/draft/file",
         params={"path": "SKILL.md"},
     )
@@ -141,7 +143,7 @@ async def test_get_skill_draft_file_uses_path_query_parameter(
 @pytest.mark.anyio
 async def test_patch_skill_draft_sends_revision_and_operations(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
     operations = [
         {
@@ -150,7 +152,7 @@ async def test_patch_skill_draft_sends_revision_and_operations(
             "content": "draft",
         }
     ]
-    mock_tracecat_client.patch.return_value = {"revision": 3}
+    mock_autosecops_client.patch.return_value = {"revision": 3}
 
     result = await agents_client.patch_skill_draft(
         skill_id="skill-id",
@@ -160,7 +162,7 @@ async def test_patch_skill_draft_sends_revision_and_operations(
     )
 
     assert result == {"revision": 3}
-    mock_tracecat_client.patch.assert_awaited_once_with(
+    mock_autosecops_client.patch.assert_awaited_once_with(
         "/agent/skills/skill-uuid/draft",
         json={"base_revision": 2, "operations": operations},
     )
@@ -169,16 +171,16 @@ async def test_patch_skill_draft_sends_revision_and_operations(
 @pytest.mark.anyio
 async def test_publish_skill_draft_uses_publish_endpoint(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
-    mock_tracecat_client.post.return_value = {"id": "version-id"}
+    mock_autosecops_client.post.return_value = {"id": "version-id"}
 
     result = await agents_client.publish_skill_draft(
         "skill-id", skill_uuid="skill-uuid"
     )
 
     assert result == {"id": "version-id"}
-    mock_tracecat_client.post.assert_awaited_once_with(
+    mock_autosecops_client.post.assert_awaited_once_with(
         "/agent/skills/skill-uuid/publish"
     )
 
@@ -186,7 +188,7 @@ async def test_publish_skill_draft_uses_publish_endpoint(
 @pytest.mark.anyio
 async def test_create_preset_omits_model_fields_when_not_provided(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
     await agents_client.create_preset(
         name="Case Triage",
@@ -194,7 +196,7 @@ async def test_create_preset_omits_model_fields_when_not_provided(
         enable_internet_access=True,
     )
 
-    mock_tracecat_client.post.assert_awaited_once_with(
+    mock_autosecops_client.post.assert_awaited_once_with(
         "/agent/presets",
         json={
             "name": "Case Triage",
@@ -207,14 +209,14 @@ async def test_create_preset_omits_model_fields_when_not_provided(
 @pytest.mark.anyio
 async def test_create_preset_accepts_canonical_catalog_id_without_legacy_model_fields(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
     await agents_client.create_preset(
         name="Case Triage",
         catalog_id="catalog_123",
     )
 
-    mock_tracecat_client.post.assert_awaited_once_with(
+    mock_autosecops_client.post.assert_awaited_once_with(
         "/agent/presets",
         json={
             "name": "Case Triage",
@@ -226,7 +228,7 @@ async def test_create_preset_accepts_canonical_catalog_id_without_legacy_model_f
 @pytest.mark.anyio
 async def test_update_preset_serializes_authoring_fields(
     agents_client: AgentsClient,
-    mock_tracecat_client: MagicMock,
+    mock_autosecops_client: MagicMock,
 ) -> None:
     await agents_client.update_preset(
         "case-triage",
@@ -236,7 +238,7 @@ async def test_update_preset_serializes_authoring_fields(
         skills=[{"skill_id": "11111111-1111-1111-1111-111111111111"}],
     )
 
-    mock_tracecat_client.patch.assert_awaited_once_with(
+    mock_autosecops_client.patch.assert_awaited_once_with(
         "/agent/presets/by-slug/case-triage",
         json={
             "instructions": "Triage cases.",

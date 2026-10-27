@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import base64
+import os
+import subprocess
+import sys
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
+import check_license_public_key
 import license_tool
 import orjson
 import pytest
@@ -26,13 +31,24 @@ from autosecops.auth.types import PlatformRole
 from autosecops.db.models import Tier
 from autosecops.licensing import keys
 from autosecops.licensing import service as license_service
-from autosecops.licensing.service import LICENSE_GRACE_PERIOD, evaluate_license
+from autosecops.licensing.evaluation import (
+    LICENSE_CLOCK_SKEW,
+    LICENSE_GRACE_PERIOD,
+    evaluate_license,
+    license_grants_multi_tenant,
+)
 from autosecops.licensing.token import (
     LicenseVerificationError,
     decode_license,
     encode_license,
 )
-from autosecops.licensing.types import LicenseClaims, LicenseErrorCode, LicenseStatus
+from autosecops.licensing.types import (
+    MAX_LICENSE_EXPIRY,
+    LicenseClaims,
+    LicenseErrorCode,
+    LicenseGrant,
+    LicenseStatus,
+)
 from autosecops.tiers import access as tier_access
 from autosecops.tiers import defaults as tier_defaults
 from autosecops.tiers import service as tier_service_module
@@ -89,7 +105,7 @@ def single_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     The session conftest widens DEFAULT_ENTITLEMENTS for unrelated suites;
     these tests need the real baseline.
     """
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -98,7 +114,7 @@ def single_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _install(monkeypatch: pytest.MonkeyPatch, token: str | None) -> None:
-    monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", token)
+    monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", token)
 
 
 # --- Token sign/verify -------------------------------------------------------
@@ -412,7 +428,7 @@ def test_legacy_feature_flags_no_longer_grant_entitlements(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
     legacy = "git-sync,agent-approvals,case-durations,rbac,agent-channels,forms"
-    monkeypatch.setenv("TRACECAT__FEATURE_FLAGS", legacy)
+    monkeypatch.setenv("AUTOSECOPS__FEATURE_FLAGS", legacy)
     _install(monkeypatch, None)
 
     entitlements = tier_defaults.get_single_tenant_entitlements()
@@ -467,7 +483,7 @@ async def test_is_org_entitled_single_tenant_uses_license(
 async def test_multi_tenant_ignores_license(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     _install(
         monkeypatch,
         encode_license(
@@ -502,7 +518,7 @@ async def test_admin_license_endpoint_reports_status(
     embedded_key: Ed25519PrivateKey,
     multi_tenant: bool,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", multi_tenant)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", multi_tenant)
     claims = LicenseClaims(
         license_id="lic_test",
         customer="Synthetic Customer",
@@ -511,7 +527,7 @@ async def test_admin_license_endpoint_reports_status(
         entitlements=["git_sync", "future_feature"],
     )
     _install(monkeypatch, encode_license(claims, embedded_key))
-    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="tracecat-api")
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
     result = await get_license(role)
 
@@ -528,7 +544,7 @@ async def test_admin_license_endpoint_reports_missing(
     monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
 ) -> None:
     _install(monkeypatch, None)
-    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="tracecat-api")
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
     result = await get_license(role)
 
@@ -619,3 +635,417 @@ def test_license_tool_keygen_writes_private_key_owner_only(tmp_path) -> None:
     assert license_tool.main(["keygen", "--out-dir", str(out_dir)]) == 0
     assert (out_dir / "license-private.pem").stat().st_mode & 0o777 == 0o600
     assert license_tool.main(["keygen", "--out-dir", str(out_dir)]) == 2
+
+
+# --- Far-future expiry --------------------------------------------------------
+
+
+def test_claims_reject_expiry_at_or_after_cap() -> None:
+    with pytest.raises(ValidationError):
+        LicenseClaims(
+            license_id="lic",
+            customer="x",
+            issued_at=ISSUED_AT,
+            expires_at=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+        )
+    with pytest.raises(ValidationError):
+        LicenseClaims(
+            license_id="lic",
+            customer="x",
+            issued_at=ISSUED_AT,
+            expires_at=MAX_LICENSE_EXPIRY,
+        )
+
+
+def test_far_future_expiry_token_is_invalid_and_never_raises(
+    private_key: Ed25519PrivateKey,
+) -> None:
+    """A signed "perpetual" license must not overflow the grace computation."""
+    payload = orjson.dumps(
+        {
+            **_claims().model_dump(mode="json"),
+            "expires_at": "9999-12-31T23:59:59Z",
+        }
+    )
+    token = f"{_b64(payload)}.{_b64(private_key.sign(payload))}"
+
+    state = evaluate_license(token, now=ISSUED_AT, public_key=private_key.public_key())
+
+    assert state.status == LicenseStatus.INVALID
+    assert state.error == LicenseErrorCode.INVALID_CLAIMS
+    assert state.granted == frozenset()
+
+
+def test_latest_allowed_expiry_evaluates(private_key: Ed25519PrivateKey) -> None:
+    expires_at = MAX_LICENSE_EXPIRY - timedelta(seconds=1)
+    claims = _claims().model_copy(update={"expires_at": expires_at})
+    token = encode_license(claims, private_key)
+
+    state = evaluate_license(token, now=ISSUED_AT, public_key=private_key.public_key())
+
+    assert state.status == LicenseStatus.VALID
+    assert state.grace_ends_at == expires_at + LICENSE_GRACE_PERIOD
+
+
+def test_license_tool_rejects_far_future_expiry(tmp_path) -> None:
+    private_path = tmp_path / "private.pem"
+    private_path.write_bytes(
+        Ed25519PrivateKey.generate().private_bytes(
+            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+        )
+    )
+
+    exit_code = license_tool.main(
+        [
+            "issue",
+            "--private-key",
+            str(private_path),
+            "--customer",
+            "Synthetic Customer",
+            "--expires",
+            "9999-12-31",
+        ]
+    )
+
+    assert exit_code == 2
+
+
+# --- Not-yet-valid licenses ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("issued_in", "status"),
+    [
+        pytest.param(LICENSE_CLOCK_SKEW, LicenseStatus.VALID, id="within_skew"),
+        pytest.param(
+            LICENSE_CLOCK_SKEW + timedelta(seconds=1),
+            LicenseStatus.INVALID,
+            id="beyond_skew",
+        ),
+        pytest.param(timedelta(days=365), LicenseStatus.INVALID, id="next_year"),
+    ],
+)
+def test_license_issued_in_the_future(
+    private_key: Ed25519PrivateKey, issued_in: timedelta, status: LicenseStatus
+) -> None:
+    now = datetime(2026, 6, 1, tzinfo=UTC)
+    claims = LicenseClaims(
+        license_id="lic_test",
+        customer="Synthetic Customer",
+        issued_at=now + issued_in,
+        expires_at=now + timedelta(days=400),
+        entitlements=["git_sync"],
+    )
+    token = encode_license(claims, private_key)
+
+    state = evaluate_license(token, now=now, public_key=private_key.public_key())
+
+    assert state.status == status
+    if status == LicenseStatus.INVALID:
+        assert state.error == LicenseErrorCode.NOT_YET_VALID
+        assert state.granted == frozenset()
+    else:
+        assert state.granted == {Entitlement.GIT_SYNC}
+
+
+# --- Canonical base64url --------------------------------------------------------
+
+_B64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+
+def _flip_low_bit(segment: str) -> str:
+    last = _B64URL_ALPHABET.index(segment[-1])
+    return segment[:-1] + _B64URL_ALPHABET[last ^ 1]
+
+
+def test_non_canonical_base64_is_malformed(private_key: Ed25519PrivateKey) -> None:
+    """Unused trailing bits must be zero, so a token has one encoding."""
+    token = encode_license(_claims(), private_key)
+    payload_part, signature_part = token.split(".")
+    # An Ed25519 signature is 64 bytes: 86 base64url chars with 4 unused bits.
+    assert len(signature_part) % 4 != 0
+    variant = f"{payload_part}.{_flip_low_bit(signature_part)}"
+    # The variant decodes to the same bytes under a lenient decoder.
+    padding = "=" * (-len(signature_part) % 4)
+    assert base64.urlsafe_b64decode(
+        _flip_low_bit(signature_part) + padding
+    ) == base64.urlsafe_b64decode(signature_part + padding)
+
+    with pytest.raises(LicenseVerificationError) as exc_info:
+        decode_license(variant, private_key.public_key())
+    assert exc_info.value.code == LicenseErrorCode.MALFORMED
+
+
+# --- Multi-tenant mode requires a license grant ---------------------------------
+
+
+def _multi_tenant_token(
+    private_key: Ed25519PrivateKey,
+    *,
+    entitlements: list[str],
+    expires_at: datetime | None = None,
+) -> str:
+    now = datetime.now(UTC)
+    return encode_license(
+        LicenseClaims(
+            license_id="lic_test",
+            customer="Synthetic Customer",
+            issued_at=now - timedelta(days=60),
+            expires_at=expires_at or now + timedelta(days=30),
+            entitlements=entitlements,
+        ),
+        private_key,
+    )
+
+
+def test_multi_tenant_grant_is_known_but_not_an_org_entitlement(
+    private_key: Ed25519PrivateKey,
+) -> None:
+    token = encode_license(_claims(["multi_tenant", "git_sync"]), private_key)
+
+    state = evaluate_license(token, now=ISSUED_AT, public_key=private_key.public_key())
+
+    assert state.grants == {LicenseGrant.MULTI_TENANT}
+    assert state.granted == {Entitlement.GIT_SYNC}
+    assert state.unknown_entitlements == ()
+
+
+def test_license_grants_multi_tenant(embedded_key: Ed25519PrivateKey) -> None:
+    now = datetime.now(UTC)
+
+    assert not license_grants_multi_tenant(None)
+    assert not license_grants_multi_tenant("garbage")
+    assert not license_grants_multi_tenant(
+        _multi_tenant_token(embedded_key, entitlements=["git_sync"])
+    )
+    assert license_grants_multi_tenant(
+        _multi_tenant_token(embedded_key, entitlements=["multi_tenant"])
+    )
+    in_grace = _multi_tenant_token(
+        embedded_key,
+        entitlements=["multi_tenant"],
+        expires_at=now - timedelta(days=1),
+    )
+    assert license_grants_multi_tenant(in_grace)
+    past_grace = _multi_tenant_token(
+        embedded_key,
+        entitlements=["multi_tenant"],
+        expires_at=now - timedelta(days=15),
+    )
+    assert not license_grants_multi_tenant(past_grace)
+
+
+def test_multi_tenant_flag_without_license_stays_single_tenant() -> None:
+    """Setting the env flag alone must not turn on multi-tenant mode."""
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key != "AUTOSECOPS__LICENSE_KEY"
+    }
+    env["AUTOSECOPS__EE_MULTI_TENANT"] = "true"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from autosecops import config;"
+            "print(config.AUTOSECOPS__EE_MULTI_TENANT_REQUESTED,"
+            " config.AUTOSECOPS__EE_MULTI_TENANT)",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.split() == ["True", "False"]
+
+
+async def _entitlement_sources(
+    monkeypatch: pytest.MonkeyPatch, token: str | None
+) -> tuple[bool, AsyncMock]:
+    """Resolve multi-tenant mode like config does and check git_sync."""
+    _install(monkeypatch, token)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__EE_MULTI_TENANT", license_grants_multi_tenant(token)
+    )
+    # Tiers grant git_sync; a license without git_sync does not.
+    tier = Tier(display_name="Paid", entitlements={"git_sync": True})
+    resolve = AsyncMock(return_value=(None, tier))
+    monkeypatch.setattr(tier_access, "get_org_tier_and_resolved_tier", resolve)
+    entitled = await is_org_entitled(AsyncMock(), uuid.uuid4(), Entitlement.GIT_SYNC)
+    return entitled, resolve
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("single_tenant")
+async def test_multi_tenant_flag_without_license_uses_license_mode(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    entitled, resolve = await _entitlement_sources(monkeypatch, None)
+
+    assert config.AUTOSECOPS__EE_MULTI_TENANT is False
+    assert entitled is False
+    resolve.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("single_tenant")
+async def test_multi_tenant_flag_with_license_lacking_grant_uses_license_mode(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    token = _multi_tenant_token(embedded_key, entitlements=["forms"])
+
+    entitled, resolve = await _entitlement_sources(monkeypatch, token)
+
+    assert config.AUTOSECOPS__EE_MULTI_TENANT is False
+    assert entitled is False
+    resolve.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("single_tenant")
+async def test_multi_tenant_flag_with_licensed_grant_uses_tier_mode(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    token = _multi_tenant_token(embedded_key, entitlements=["multi_tenant"])
+
+    entitled, resolve = await _entitlement_sources(monkeypatch, token)
+
+    assert config.AUTOSECOPS__EE_MULTI_TENANT is True
+    assert entitled is True
+    resolve.assert_awaited_once()
+
+
+def test_startup_logs_error_when_multi_tenant_is_not_licensed(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT_REQUESTED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    _install(monkeypatch, None)
+    mock_logger = MagicMock()
+    monkeypatch.setattr(tier_defaults, "logger", mock_logger)
+
+    tier_defaults.log_license_startup()
+
+    messages = [call.args[0] for call in mock_logger.error.call_args_list]
+    assert any("grants multi_tenant" in message for message in messages)
+
+
+@pytest.mark.anyio
+async def test_admin_license_endpoint_reports_grants(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    _install(
+        monkeypatch,
+        _multi_tenant_token(embedded_key, entitlements=["multi_tenant", "forms"]),
+    )
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
+
+    result = await get_license(role)
+
+    assert result.entitlements == [Entitlement.FORMS]
+    assert result.grants == [LicenseGrant.MULTI_TENANT]
+
+
+def test_license_tool_all_entitlements_excludes_multi_tenant(
+    tmp_path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    private_key = Ed25519PrivateKey.generate()
+    private_path = tmp_path / "private.pem"
+    private_path.write_bytes(
+        private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    )
+    base_args = [
+        "issue",
+        "--private-key",
+        str(private_path),
+        "--customer",
+        "Synthetic Customer",
+        "--expires",
+        "2030-01-01",
+        "--all-entitlements",
+    ]
+
+    assert license_tool.main(base_args) == 0
+    token = capsys.readouterr().out.strip()
+    assert (
+        "multi_tenant"
+        not in decode_license(token, private_key.public_key()).entitlements
+    )
+
+    assert license_tool.main([*base_args, "--entitlement", "multi_tenant"]) == 0
+    token = capsys.readouterr().out.strip()
+    assert (
+        "multi_tenant" in decode_license(token, private_key.public_key()).entitlements
+    )
+
+
+# --- Development key guard ------------------------------------------------------
+
+# A copy of the development key, so these tests keep passing after the
+# production key replaces it in keys.py.
+_DEV_PUBLIC_KEY_PEM = b"""-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA9SNn3/ISCoRcLmzTqRyi37LOYO/boUAld+8JlK0mjyo=
+-----END PUBLIC KEY-----
+"""
+
+
+def _other_public_key_pem() -> bytes:
+    return (
+        Ed25519PrivateKey.generate()
+        .public_key()
+        .public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    )
+
+
+def test_development_key_fingerprint() -> None:
+    assert keys.is_development_public_key(_DEV_PUBLIC_KEY_PEM)
+    assert not keys.is_development_public_key(_other_public_key_pem())
+
+
+def test_startup_logs_error_for_development_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(keys, "LICENSE_PUBLIC_KEY_PEM", _DEV_PUBLIC_KEY_PEM)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
+    mock_logger = MagicMock()
+    monkeypatch.setattr(tier_defaults, "logger", mock_logger)
+
+    tier_defaults.log_license_startup()
+
+    messages = [call.args[0] for call in mock_logger.error.call_args_list]
+    assert any("DEVELOPMENT license public key" in message for message in messages)
+
+
+def test_startup_does_not_log_development_key_error_for_other_keys(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
+    mock_logger = MagicMock()
+    monkeypatch.setattr(tier_defaults, "logger", mock_logger)
+
+    tier_defaults.log_license_startup()
+
+    mock_logger.error.assert_not_called()
+
+
+def _keys_module_with(tmp_path: Path, pem: bytes) -> Path:
+    """Copy keys.py with ``LICENSE_PUBLIC_KEY_PEM`` set to ``pem``."""
+    source = check_license_public_key.KEYS_PATH.read_text()
+    current = keys.LICENSE_PUBLIC_KEY_PEM.decode()
+    assert current in source
+    path = tmp_path / "keys.py"
+    path.write_text(source.replace(current, pem.decode()))
+    return path
+
+
+def test_release_check_fails_on_development_key(tmp_path: Path) -> None:
+    path = _keys_module_with(tmp_path, _DEV_PUBLIC_KEY_PEM)
+
+    assert check_license_public_key.main([str(path)]) == 1
+
+
+def test_release_check_passes_on_other_key(tmp_path: Path) -> None:
+    path = _keys_module_with(tmp_path, _other_public_key_pem())
+
+    assert check_license_public_key.main([str(path)]) == 0

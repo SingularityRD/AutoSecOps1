@@ -242,7 +242,7 @@ async def create_proxy_mcp_server(
     )
 
     return create_sdk_mcp_server(
-        name="tracecat-registry",
+        name="autosecops-registry",
         version="1.0.0",
         tools=tools,
     )

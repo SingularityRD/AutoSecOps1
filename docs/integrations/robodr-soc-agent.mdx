@@ -15,7 +15,7 @@ AutoSecOps never installs the preset for you.
 Install it once per workspace with a [service account API key](/api-reference/authentication) that holds the `agent:create` scope:
 
 ```bash
-curl -X POST "https://<tracecat-host>/api/agent/presets/robot-soc?workspace_id=<workspace_id>" \
+curl -X POST "https://<autosecops-host>/api/agent/presets/robot-soc?workspace_id=<workspace_id>" \
   -H "Authorization: Bearer <api_key>" \
   -H "Content-Type: application/json" \
   -d '{"model_name": "claude-sonnet-4-5", "model_provider": "anthropic"}'

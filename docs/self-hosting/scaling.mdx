@@ -25,7 +25,7 @@ executor vCPU needed        = λ × 1.21 / 0.8  ≈ 1.5 × λ
 in-flight actions needed    = λ × 2.6  / 0.8  ≈ 3.25 × λ
 ```
 
-`TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` controls in-flight actions per executor replica, not actions per second.
+`AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` controls in-flight actions per executor replica, not actions per second.
 A 4 vCPU replica completes about `0.8 × 4 / 1.21 ≈ 2.7` actions per second for the reference workload whether it admits 8 or 32 activities, so keep the default of 32 and add replicas to add throughput.
 The extra admission absorbs bursts; it does not add CPU.
 
@@ -57,7 +57,7 @@ Validate any tier above 16 actions/s with a load test on the target hardware bef
 
 The default settings row is deliberately conservative.
 A single executor with 32 admitted activities could reach 32 / 2.6 ≈ 12 actions per second, but on an 8-core host shared with every other service it has roughly 4 cores available, which caps it at 0.8 × 4 / 1.21 ≈ 2.6 actions per second for the reference workload.
-Adding cores or replicas, not a higher `TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES`, raises sustained throughput on that host.
+Adding cores or replicas, not a higher `AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES`, raises sustained throughput on that host.
 
 ## Physical capacity is a hard limit
 
@@ -72,11 +72,11 @@ Above that, [convert to Docker Swarm](/self-hosting/docker-compose#convert-to-do
 
 <Steps>
   <Step title="Keep the default executor concurrency">
-    Leave `TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` and `TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS` at their default of 32.
+    Leave `AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` and `AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS` at their default of 32.
     Every tier scales by replica count, not by this value.
 
-    Actions that use `for_each` multiply database concurrency by `TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY` (default 4), so one replica can queue 128 database-bound tasks against its 8 + 8 pool.
-    If executor logs show pool timeouts, lower `TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY` to 1 or lower `TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` to 8 rather than raising the pool, because the validated 8 + 8 pool is what the `max_connections` column budgets for.
+    Actions that use `for_each` multiply database concurrency by `AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY` (default 4), so one replica can queue 128 database-bound tasks against its 8 + 8 pool.
+    If executor logs show pool timeouts, lower `AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY` to 1 or lower `AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` to 8 rather than raising the pool, because the validated 8 + 8 pool is what the `max_connections` column budgets for.
   </Step>
   <Step title="Pin executor resources and Postgres pools">
     Create `docker-compose.override.yml` next to `docker-compose.yml`.
@@ -91,9 +91,9 @@ Above that, [convert to Docker Swarm](/self-hosting/docker-compose#convert-to-do
               cpus: "4"
               memory: 4G
         environment:
-          TRACECAT__DB_POOL_SIZE: 8
-          TRACECAT__DB_MAX_OVERFLOW: 8
-          TRACECAT__DB_POOL_TIMEOUT: 30
+          AUTOSECOPS__DB_POOL_SIZE: 8
+          AUTOSECOPS__DB_MAX_OVERFLOW: 8
+          AUTOSECOPS__DB_POOL_TIMEOUT: 30
 
       postgres_db:
         command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=1GB"]
@@ -105,7 +105,7 @@ Above that, [convert to Docker Swarm](/self-hosting/docker-compose#convert-to-do
     ```
 
     Use the `max_connections` value from the table.
-    Each executor replica can open at most `TRACECAT__DB_POOL_SIZE + TRACECAT__DB_MAX_OVERFLOW` connections per pool, and the API, worker, and agent services keep their default 10 + 60 pools.
+    Each executor replica can open at most `AUTOSECOPS__DB_POOL_SIZE + AUTOSECOPS__DB_MAX_OVERFLOW` connections per pool, and the API, worker, and agent services keep their default 10 + 60 pools.
     Budget `max_connections ≥ 16 × executor replicas + 150` so a burst cannot exhaust PostgreSQL connection slots.
     Set `shared_buffers` to about 25% of the PostgreSQL memory limit.
   </Step>
@@ -153,5 +153,5 @@ Lower `TEMPORAL__THREADPOOL_MAX_WORKERS` and `TEMPORAL__MAX_CONCURRENT_WORKFLOW_
 ## Related pages
 
 - See [Docker Compose](/self-hosting/docker-compose) for the base deployment, general host sizing, and the Docker Swarm conversion.
-- See [Kubernetes](/self-hosting/kubernetes) for KEDA autoscaling of worker and executor deployments beyond a single host.
+- See [Kubernetes](/self-hosting/kubernetes#autoscaling) for horizontal pod autoscaling of worker and executor deployments beyond a single host.
 - See [Architecture](/self-hosting/architecture) for how the API, worker, executor, Temporal, and PostgreSQL services fit together.

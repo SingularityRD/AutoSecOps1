@@ -1,7 +1,7 @@
 """Minimal action runner for sandboxed execution.
 
 This module provides lightweight action execution for untrusted sandboxes.
-It only imports autosecops_registry (NOT tracecat) to minimize cold start time.
+It only imports autosecops_registry (NOT autosecops) to minimize cold start time.
 
 Key design:
 - No database access
@@ -71,8 +71,8 @@ except ImportError:
 
 
 # Static config (read once at module load, immutable)
-_API_URL = os.environ.get("TRACECAT__API_URL", "http://api:8000")
-_ACTION_GATEWAY_SOCKET = os.environ.get("TRACECAT__ACTION_GATEWAY_SOCKET") or None
+_API_URL = os.environ.get("AUTOSECOPS__API_URL", "http://api:8000")
+_ACTION_GATEWAY_SOCKET = os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET") or None
 _CAPTURED_OUTPUT_CHAR_LIMIT = 8192
 _SUPPRESSED_OUTPUT_PREVIEW_CHAR_LIMIT = 500
 
@@ -90,14 +90,14 @@ def _install_action_gateway_sdk_transport() -> None:
     except ImportError:
         return
 
-    tracecat_client_cls = getattr(sdk_client, "TracecatClient", None)
-    if tracecat_client_cls is None:
+    autosecops_client_cls = getattr(sdk_client, "AutoSecOpsClient", None)
+    if autosecops_client_cls is None:
         return
 
-    if hasattr(tracecat_client_cls, "_request_url_and_transport"):
+    if hasattr(autosecops_client_cls, "_request_url_and_transport"):
         return
 
-    if getattr(tracecat_client_cls, "_tracecat_action_gateway_transport", False):
+    if getattr(autosecops_client_cls, "_autosecops_action_gateway_transport", False):
         return
 
     async def request(
@@ -119,7 +119,7 @@ def _install_action_gateway_sdk_transport() -> None:
         ) as client:
             response = await client.request(
                 method,
-                f"http://tracecat-action-gateway/internal{path}",
+                f"http://autosecops-action-gateway/internal{path}",
                 params=params,
                 json=json,
                 headers=request_headers,
@@ -133,8 +133,8 @@ def _install_action_gateway_sdk_transport() -> None:
 
         return response.json()
 
-    tracecat_client_cls.request = request
-    tracecat_client_cls._tracecat_action_gateway_transport = True
+    autosecops_client_cls.request = request
+    autosecops_client_cls._autosecops_action_gateway_transport = True
 
 
 class ActionTimeoutError(TimeoutError):
@@ -439,11 +439,11 @@ def _run_udf(
 
         _install_action_gateway_sdk_transport()
         registry_ctx = RegistryContext(
-            workspace_id=os.environ.get("TRACECAT__WORKSPACE_ID", ""),
-            workflow_id=os.environ.get("TRACECAT__WORKFLOW_ID", ""),
-            run_id=os.environ.get("TRACECAT__RUN_ID", ""),
+            workspace_id=os.environ.get("AUTOSECOPS__WORKSPACE_ID", ""),
+            workflow_id=os.environ.get("AUTOSECOPS__WORKFLOW_ID", ""),
+            run_id=os.environ.get("AUTOSECOPS__RUN_ID", ""),
             api_url=_API_URL,
-            token=os.environ.get("TRACECAT__EXECUTOR_TOKEN", ""),
+            token=os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", ""),
         )
         set_context(registry_ctx)
     except ImportError:
@@ -812,12 +812,12 @@ def _enforce_nproc_limit() -> None:
 
     nsjail cannot enforce rlimit_nproc when it creates a user namespace
     (clone_newuser), so the host injects the configured limit via
-    TRACECAT__SANDBOX_RLIMIT_NPROC and this trusted runner applies it before
+    AUTOSECOPS__SANDBOX_RLIMIT_NPROC and this trusted runner applies it before
     any untrusted code runs. Lowering a hard rlimit is permitted for
     unprivileged processes, and the limit is enforced per real UID, which
     covers every process in the sandbox.
     """
-    raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+    raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
     if not raw:
         return
     try:

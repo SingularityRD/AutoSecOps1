@@ -15,11 +15,11 @@ from autosecops.authz.controls import require_scope
 from autosecops.authz.service import MembershipService
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatManagementError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsManagementError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.identifiers import UserID, WorkspaceID
 from autosecops.logger import logger
@@ -73,7 +73,7 @@ async def list_workspaces(
     service = WorkspaceService(session, role=role)
     try:
         workspaces = await service.list_accessible_workspaces()
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
         ) from e
@@ -99,7 +99,7 @@ async def create_workspace(
     service = WorkspaceService(session, role=role)
     try:
         workspace = await service.create_workspace(params.name)
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         logger.warning(
             "User does not have the required scope",
             role=role,
@@ -127,7 +127,7 @@ async def search_workspaces(
     service = WorkspaceService(session, role=role)
     try:
         workspaces = await service.search_workspaces(params)
-    except TracecatAuthorizationError as e:
+    except AutoSecOpsAuthorizationError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
         ) from e
@@ -185,7 +185,7 @@ async def update_workspace(
     logger.info("Updating workspace", params=params)
     try:
         updated = await service.update_workspace(workspace, params=params)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -218,7 +218,7 @@ async def delete_workspace(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found"
         ) from e
-    except TracecatManagementError as e:
+    except AutoSecOpsManagementError as e:
         raise HTTPException(
             detail=str(e),
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -288,12 +288,12 @@ async def create_workspace_membership(
     )
     service = MembershipService(session, role=role)
     try:
-        # TracecatAuthorizationError intentionally propagates: the API-wide
+        # AutoSecOpsAuthorizationError intentionally propagates: the API-wide
         # handler maps it to 403, which is correct for a scope-ceiling denial.
         await service.create_membership(workspace_id, params=params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     except IntegrityError as e:
         logger.error("INTEGRITY ERROR", error=str(e))
@@ -301,7 +301,7 @@ async def create_workspace_membership(
             status_code=status.HTTP_409_CONFLICT,
             detail="User is already a member of workspace.",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -352,5 +352,5 @@ async def delete_workspace_membership(
     service = MembershipService(session, role=role)
     try:
         await service.delete_membership(workspace_id, user_id=user_id)
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e

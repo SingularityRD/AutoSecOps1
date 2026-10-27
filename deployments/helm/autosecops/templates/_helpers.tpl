@@ -1,9 +1,11 @@
-{{/* Chart name. */}}
+{{/*
+Naming, labels, images, and shared lookups for the AutoSecOps chart.
+*/}}
+
 {{- define "autosecops.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/* Fully qualified release name. */}}
 {{- define "autosecops.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
@@ -21,411 +23,197 @@
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/* Common labels. Pass the root context. */}}
-{{- define "autosecops.labels" -}}
-helm.sh/chart: {{ include "autosecops.chart" . }}
+{{/*
+Resource name for a component: <fullname>-<component>. Names are DNS labels
+(at most 63 characters). When the full name is too long, shorten the fullname
+part and add a hash of it, so the component suffix survives and names stay
+unique per release.
+*/}}
+{{- define "autosecops.componentName" -}}
+{{- $fullname := include "autosecops.fullname" .root -}}
+{{- $name := printf "%s-%s" $fullname .component -}}
+{{- if gt (len $name) 63 -}}
+{{- $keep := int (sub 63 (add (len .component) 10)) -}}
+{{- $name = printf "%s-%s-%s" ($fullname | trunc $keep | trimSuffix "-") ($fullname | sha256sum | trunc 8) .component -}}
+{{- end -}}
+{{- $name -}}
+{{- end }}
+
+{{/* Migrations Job name. Without Helm hooks, each revision gets its own Job. */}}
+{{- define "autosecops.migrationsJobName" -}}
+{{- if .Values.migrations.useHelmHooks -}}
+{{- include "autosecops.componentName" (dict "root" . "component" "migrations") -}}
+{{- else -}}
+{{- include "autosecops.componentName" (dict "root" . "component" (printf "migrations-%d" .Release.Revision)) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "autosecops.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "autosecops.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "autosecops.labels" -}}
+helm.sh/chart: {{ include "autosecops.chart" . }}
+{{ include "autosecops.selectorLabels" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: autosecops
+{{- with .Values.commonLabels }}
+{{ toYaml . }}
+{{- end }}
 {{- end }}
 
-{{/* Selector labels for a component. Pass (dict "root" $ "component" "api"). */}}
-{{- define "autosecops.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "autosecops.name" .root }}
-app.kubernetes.io/instance: {{ .root.Release.Name }}
+{{/* Selector labels for a component. Expects dict root, component. */}}
+{{- define "autosecops.componentSelectorLabels" -}}
+{{ include "autosecops.selectorLabels" .root }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
-{{/* Resource name for a component. Pass (dict "root" $ "component" "api"). */}}
-{{- define "autosecops.componentFullname" -}}
-{{- printf "%s-%s" (include "autosecops.fullname" .root | trunc 45 | trimSuffix "-") .component }}
+{{- define "autosecops.componentLabels" -}}
+{{ include "autosecops.labels" .root }}
+app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
-{{- define "autosecops.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "autosecops.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{/* Image reference. Expects dict image (repository/tag/digest), root. */}}
+{{- define "autosecops.imageRef" -}}
+{{- if .image.digest -}}
+{{- printf "%s@%s" .image.repository .image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .image.repository (.image.tag | default .root.Chart.AppVersion | toString) -}}
+{{- end -}}
 {{- end }}
 
 {{- define "autosecops.image" -}}
-{{- printf "%s:%s" .Values.image.repository (default .Chart.AppVersion .Values.image.tag) }}
+{{- include "autosecops.imageRef" (dict "image" .Values.image "root" .) -}}
 {{- end }}
 
 {{- define "autosecops.uiImage" -}}
-{{- printf "%s:%s" .Values.uiImage.repository (default .Chart.AppVersion .Values.uiImage.tag) }}
+{{- include "autosecops.imageRef" (dict "image" .Values.uiImage "root" .) -}}
 {{- end }}
 
+{{- define "autosecops.migrationsImage" -}}
+{{- $repo := .Values.migrations.image.repository | default .Values.image.repository -}}
+{{- if and (not .Values.migrations.image.repository) (not .Values.migrations.image.tag) .Values.image.digest -}}
+{{- printf "%s@%s" $repo .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" $repo (.Values.migrations.image.tag | default .Values.image.tag | default .Chart.AppVersion | toString) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "autosecops.tunnelGatewayImage" -}}
+{{- printf "%s:%s" .Values.tunnels.gateway.image.repository (.Values.tunnels.gateway.image.tag | default .Chart.AppVersion | toString) -}}
+{{- end }}
+
+{{/* Service account name. Expects dict root, component, values. */}}
+{{- define "autosecops.serviceAccountName" -}}
+{{- $sa := default dict .values.serviceAccount -}}
+{{- if $sa.create -}}
+{{- $sa.name | default (include "autosecops.componentName" .) -}}
+{{- else if $sa.name -}}
+{{- $sa.name -}}
+{{- else if .root.Values.serviceAccount.create -}}
+{{- .root.Values.serviceAccount.name | default (include "autosecops.fullname" .root) -}}
+{{- else -}}
+{{- .root.Values.serviceAccount.name | default "default" -}}
+{{- end -}}
+{{- end }}
+
+{{/* ---------- URLs ---------- */}}
+
 {{- define "autosecops.publicAppUrl" -}}
-{{- .Values.urls.publicApp | trimSuffix "/" }}
+{{- required "urls.publicApp is required, e.g. https://autosecops.example.com" .Values.urls.publicApp | trimSuffix "/" -}}
 {{- end }}
 
 {{- define "autosecops.publicApiUrl" -}}
-{{- default (printf "%s/api" (include "autosecops.publicAppUrl" .)) .Values.urls.publicApi | trimSuffix "/" }}
+{{- .Values.urls.publicApi | default (printf "%s/api" (include "autosecops.publicAppUrl" .)) | trimSuffix "/" -}}
 {{- end }}
 
 {{- define "autosecops.internalApiUrl" -}}
-{{- printf "http://%s:8000" (include "autosecops.componentFullname" (dict "root" . "component" "api")) }}
+{{- printf "http://%s:%v" (include "autosecops.componentName" (dict "root" . "component" "api")) .Values.api.service.port -}}
 {{- end }}
 
-{{- define "autosecops.litellmUrl" -}}
-{{- printf "http://%s:4000" (include "autosecops.componentFullname" (dict "root" . "component" "litellm")) }}
+{{- define "autosecops.internalApiFqdnUrl" -}}
+{{- printf "http://%s.%s.svc.cluster.local:%v" (include "autosecops.componentName" (dict "root" . "component" "api")) .Release.Namespace .Values.api.service.port -}}
 {{- end }}
 
-{{/* Connection targets, switched to the bundled services in dev mode. */}}
-{{- define "autosecops.dbHost" -}}
-{{- if .Values.devDependencies.enabled }}
-{{- include "autosecops.componentFullname" (dict "root" . "component" "postgres") }}
-{{- else }}
-{{- .Values.externalPostgres.host }}
-{{- end }}
-{{- end }}
-
-{{- define "autosecops.dbSslMode" -}}
-{{- if .Values.devDependencies.enabled }}disable{{ else }}{{ .Values.externalPostgres.sslMode }}{{ end }}
-{{- end }}
-
-{{- define "autosecops.redisUrl" -}}
-{{- if .Values.devDependencies.enabled }}
-{{- printf "redis://%s:6379" (include "autosecops.componentFullname" (dict "root" . "component" "redis")) }}
-{{- else }}
-{{- .Values.externalRedis.url }}
-{{- end }}
-{{- end }}
-
-{{- define "autosecops.blobEndpoint" -}}
-{{- if .Values.devDependencies.enabled }}
-{{- printf "http://%s:9000" (include "autosecops.componentFullname" (dict "root" . "component" "minio")) }}
-{{- else }}
-{{- .Values.externalS3.endpoint }}
-{{- end }}
-{{- end }}
-
-{{- define "autosecops.blobProxyUpstream" -}}
-{{- if .Values.externalS3.caddyProxyUpstream }}
-{{- .Values.externalS3.caddyProxyUpstream }}
-{{- else if .Values.devDependencies.enabled }}
-{{- include "autosecops.blobEndpoint" . }}
-{{- end }}
+{{- define "autosecops.internalLitellmUrl" -}}
+{{- printf "http://%s:%v" (include "autosecops.componentName" (dict "root" . "component" "litellm")) .Values.litellm.service.port -}}
 {{- end }}
 
 {{- define "autosecops.presignedUrlEndpoint" -}}
-{{- if .Values.externalS3.presignedUrlEndpoint }}
-{{- .Values.externalS3.presignedUrlEndpoint }}
-{{- else if and .Values.caddy.enabled (include "autosecops.blobProxyUpstream" .) }}
-{{- printf "%s/s3" (include "autosecops.publicAppUrl" .) }}
-{{- else }}
-{{- include "autosecops.blobEndpoint" . }}
-{{- end }}
+{{- .Values.externalS3.presignedUrlEndpoint | default .Values.externalS3.endpoint -}}
 {{- end }}
 
-{{- define "autosecops.temporalUrl" -}}
-{{- if .Values.devDependencies.enabled }}
-{{- printf "%s:7233" (include "autosecops.componentFullname" (dict "root" . "component" "temporal")) }}
-{{- else }}
-{{- .Values.externalTemporal.clusterUrl }}
-{{- end }}
+{{/* ---------- Secret names ---------- */}}
+
+{{- define "autosecops.coreSecretName" -}}
+{{- .Values.secrets.existingSecret | default (printf "%s-secrets" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{/*
-Static facts about each backend component: resource suffix, container
-command, listening port, and which platform secrets and services it needs.
-Mirrors the service definitions in the root docker-compose.yml.
-*/}}
-{{- define "autosecops.backendComponents" -}}
-api:
-  component: api
-  command: []
-  port: 8000
-  secrets: [dbEncryptionKey, serviceKey, signingSecret, userAuthSecret]
-  services: true
-worker:
-  component: worker
-  command: ["python", "-m", "autosecops.dsl.worker"]
-  port: 0
-  secrets: [dbEncryptionKey, serviceKey, signingSecret]
-  services: true
-executor:
-  component: executor
-  command: ["python", "-m", "autosecops.executor.worker"]
-  sandboxEntrypoint: ["python", "-m", "autosecops.sandbox.bootstrap"]
-  port: 0
-  secrets: [dbEncryptionKey, serviceKey, signingSecret]
-  services: true
-agentWorker:
-  component: agent-worker
-  command: ["python", "-m", "autosecops.agent.worker"]
-  port: 0
-  secrets: [dbEncryptionKey, serviceKey, signingSecret]
-  services: true
-agentExecutor:
-  component: agent-executor
-  command: ["python", "-m", "autosecops.agent.executor_worker"]
-  sandboxEntrypoint: ["python", "-m", "autosecops.agent.sandbox.cgroup"]
-  port: 0
-  secrets: [dbEncryptionKey, serviceKey, signingSecret]
-  services: true
-mcp:
-  component: mcp
-  command: ["python", "-m", "autosecops.mcp"]
-  port: 8099
-  secrets: [dbEncryptionKey, serviceKey, signingSecret, userAuthSecret]
-  services: true
-litellm:
-  component: litellm
-  command: ["python", "-m", "autosecops.agent.litellm"]
-  port: 4000
-  secrets: [dbEncryptionKey, serviceKey]
-  services: false
+{{- define "autosecops.postgresSecretName" -}}
+{{- .Values.externalPostgres.auth.existingSecret | default (printf "%s-postgres-credentials" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{/* Render a key/value map as EnvVar entries. */}}
-{{- define "autosecops.envMap" -}}
-{{- range $name, $value := . }}
-- name: {{ $name }}
-  value: {{ $value | toString | quote }}
-{{- end }}
+{{- define "autosecops.redisSecretName" -}}
+{{- .Values.externalRedis.auth.existingSecret | default (printf "%s-redis-credentials" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{- define "autosecops.secretEnv" -}}
-- name: {{ .name }}
-  valueFrom:
-    secretKeyRef:
-      name: {{ .secret }}
-      key: {{ .key }}
+{{- define "autosecops.s3SecretName" -}}
+{{- .Values.externalS3.auth.existingSecret | default (printf "%s-s3-credentials" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{/* Database connection env. Pass the root context. */}}
-{{- define "autosecops.dbEnv" -}}
-{{- $pg := .Values.externalPostgres }}
-- name: TRACECAT__DB_ENDPOINT
-  value: {{ include "autosecops.dbHost" . | quote }}
-- name: TRACECAT__DB_PORT
-  value: {{ $pg.port | toString | quote }}
-- name: TRACECAT__DB_NAME
-  value: {{ $pg.database | quote }}
-- name: TRACECAT__DB_SSLMODE
-  value: {{ include "autosecops.dbSslMode" . | quote }}
-{{- if $pg.auth.usernameKey }}
-{{ include "autosecops.secretEnv" (dict "name" "TRACECAT__DB_USER" "secret" $pg.auth.existingSecret "key" $pg.auth.usernameKey) }}
-{{- else }}
-- name: TRACECAT__DB_USER
-  value: {{ $pg.auth.username | quote }}
-{{- end }}
-{{ include "autosecops.secretEnv" (dict "name" "TRACECAT__DB_PASS" "secret" $pg.auth.existingSecret "key" $pg.auth.passwordKey) }}
+{{- define "autosecops.temporalSecretName" -}}
+{{- .Values.externalTemporal.auth.existingSecret | default (printf "%s-temporal-credentials" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{/*
-Environment for a backend component.
-Pass (dict "root" $ "key" "api" "meta" <backendComponents entry>).
-*/}}
-{{- define "autosecops.backendEnv" -}}
-{{- $root := .root }}
-{{- $v := $root.Values }}
-{{- $meta := .meta }}
-{{- $values := index $v .key }}
-- name: TRACECAT__SERVICE_NAME
-  value: {{ $meta.component | quote }}
-- name: TRACECAT__APP_ENV
-  value: {{ $v.autosecops.appEnv | quote }}
-- name: LOG_LEVEL
-  value: {{ $v.autosecops.logLevel | quote }}
-- name: TRACECAT__LOG_FORMAT
-  value: {{ $v.autosecops.logFormat | quote }}
-- name: TRACECAT__API_URL
-  value: {{ include "autosecops.internalApiUrl" $root | quote }}
-- name: TRACECAT__API_ROOT_PATH
-  value: "/api"
-- name: TRACECAT__PUBLIC_APP_URL
-  value: {{ include "autosecops.publicAppUrl" $root | quote }}
-- name: TRACECAT__PUBLIC_API_URL
-  value: {{ include "autosecops.publicApiUrl" $root | quote }}
-- name: TRACECAT__ALLOW_ORIGINS
-  value: {{ default (include "autosecops.publicAppUrl" $root) $v.autosecops.allowOrigins | quote }}
-- name: TRACECAT__AUTH_TYPES
-  value: {{ $v.autosecops.auth.types | quote }}
-- name: TRACECAT__AUTH_ALLOWED_DOMAINS
-  value: {{ $v.autosecops.auth.allowedDomains | quote }}
-- name: TRACECAT__AUTH_SUPERADMIN_EMAIL
-  value: {{ $v.autosecops.auth.superadminEmail | quote }}
-- name: TRACECAT__AUTH_MIN_PASSWORD_LENGTH
-  value: {{ $v.autosecops.auth.minPasswordLength | toString | quote }}
-- name: TRACECAT__FEATURE_FLAGS
-  value: {{ $v.autosecops.featureFlags | quote }}
-- name: TRACECAT__EE_MULTI_TENANT
-  value: {{ $v.autosecops.eeMultiTenant | toString | quote }}
-- name: TRACECAT__LITELLM_BASE_URL
-  value: {{ include "autosecops.litellmUrl" $root | quote }}
-- name: TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS
-  value: {{ $v.autosecops.outboundAllowedPrivateCidrs | quote }}
-{{- if eq .key "litellm" }}
-- name: TRACECAT__LITELLM_PORT
-  value: "4000"
-{{- end }}
-{{- if or (eq .key "executor") (eq .key "agentExecutor") }}
-- name: TRACECAT__EXECUTOR_BACKEND
-  value: {{ $values.backend | quote }}
-{{- end }}
-{{ include "autosecops.dbEnv" $root }}
-{{- range $meta.secrets }}
-{{- $envName := get (dict "dbEncryptionKey" "TRACECAT__DB_ENCRYPTION_KEY" "serviceKey" "TRACECAT__SERVICE_KEY" "signingSecret" "TRACECAT__SIGNING_SECRET" "userAuthSecret" "USER_AUTH_SECRET") . }}
-{{ include "autosecops.secretEnv" (dict "name" $envName "secret" $v.secrets.existingSecret "key" (index $v.secrets.keys .)) }}
-{{- end }}
-{{- if $meta.services }}
-{{- if $v.secrets.keys.licenseKey }}
-{{ include "autosecops.secretEnv" (dict "name" "TRACECAT__LICENSE_KEY" "secret" $v.secrets.existingSecret "key" $v.secrets.keys.licenseKey) }}
-{{- end }}
-{{- if and $v.externalRedis.auth.existingSecret (not $v.devDependencies.enabled) }}
-{{ include "autosecops.secretEnv" (dict "name" "REDIS_URL" "secret" $v.externalRedis.auth.existingSecret "key" $v.externalRedis.auth.urlKey) }}
-{{- else }}
-- name: REDIS_URL
-  value: {{ include "autosecops.redisUrl" $root | quote }}
-{{- end }}
-- name: TEMPORAL__CLUSTER_URL
-  value: {{ include "autosecops.temporalUrl" $root | quote }}
-- name: TEMPORAL__CLUSTER_NAMESPACE
-  value: {{ $v.externalTemporal.namespace | quote }}
-- name: TEMPORAL__CLUSTER_QUEUE
-  value: {{ $v.externalTemporal.queue | quote }}
-{{- if $v.externalTemporal.auth.existingSecret }}
-{{ include "autosecops.secretEnv" (dict "name" "TEMPORAL__API_KEY" "secret" $v.externalTemporal.auth.existingSecret "key" $v.externalTemporal.auth.apiKeyKey) }}
-{{- end }}
-- name: TRACECAT__BLOB_STORAGE_ENDPOINT
-  value: {{ include "autosecops.blobEndpoint" $root | quote }}
-- name: TRACECAT__BLOB_STORAGE_SSL_VERIFY
-  value: {{ $v.externalS3.sslVerify | toString | quote }}
-- name: TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
-  value: {{ include "autosecops.presignedUrlEndpoint" $root | quote }}
-- name: TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW
-  value: {{ $v.externalS3.buckets.workflow | quote }}
-- name: TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
-  value: {{ $v.externalS3.buckets.attachments | quote }}
-- name: TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY
-  value: {{ $v.externalS3.buckets.registry | quote }}
-- name: TRACECAT__BLOB_STORAGE_BUCKET_AGENT
-  value: {{ $v.externalS3.buckets.agent | quote }}
-{{- if $v.externalS3.region }}
-- name: AWS_REGION
-  value: {{ $v.externalS3.region | quote }}
-- name: AWS_DEFAULT_REGION
-  value: {{ $v.externalS3.region | quote }}
-{{- end }}
-{{- if $v.externalS3.auth.existingSecret }}
-{{ include "autosecops.secretEnv" (dict "name" "AWS_ACCESS_KEY_ID" "secret" $v.externalS3.auth.existingSecret "key" $v.externalS3.auth.accessKeyIdKey) }}
-{{ include "autosecops.secretEnv" (dict "name" "AWS_SECRET_ACCESS_KEY" "secret" $v.externalS3.auth.existingSecret "key" $v.externalS3.auth.secretAccessKeyKey) }}
-{{- end }}
-{{- end }}
-{{- include "autosecops.envMap" $v.autosecops.env }}
-{{- with $v.autosecops.extraEnv }}
-{{ toYaml . }}
-{{- end }}
-{{- include "autosecops.envMap" $values.env }}
-{{- with $values.extraEnv }}
-{{ toYaml . }}
-{{- end }}
+{{- define "autosecops.pangolinSecretName" -}}
+{{- .Values.autosecops.pangolin.existingSecret | default (printf "%s-pangolin-credentials" (include "autosecops.fullname" .)) -}}
 {{- end }}
 
-{{/* Writable scratch mounts for the backend image under a read-only root. */}}
-{{- define "autosecops.backendScratchVolumes" -}}
-- name: tmp
-  emptyDir: {}
-- name: cache-tmp
-  emptyDir: {}
-- name: cache-uv
-  emptyDir: {}
-- name: cache-s3
-  emptyDir: {}
-- name: run
-  emptyDir: {}
-- name: sandbox-cache
-  emptyDir: {}
+{{/* "true" when S3 static credentials are configured. */}}
+{{- define "autosecops.s3CredentialsEnabled" -}}
+{{- if or .Values.externalS3.auth.existingSecret .Values.externalS3.auth.accessKeyId -}}true{{- end -}}
 {{- end }}
 
-{{- define "autosecops.backendScratchMounts" -}}
-- name: tmp
-  mountPath: /tmp
-- name: cache-tmp
-  mountPath: /home/apiuser/.cache/tmp
-- name: cache-uv
-  mountPath: /home/apiuser/.cache/uv
-- name: cache-s3
-  mountPath: /home/apiuser/.cache/s3
-- name: run
-  mountPath: /var/run/tracecat
-- name: sandbox-cache
-  mountPath: /var/lib/tracecat/sandbox-cache
+{{- define "autosecops.temporalAuthEnabled" -}}
+{{- if or .Values.externalTemporal.auth.existingSecret .Values.externalTemporal.auth.apiKey -}}true{{- end -}}
 {{- end }}
 
-{{/* Shared pod scheduling fields. Pass the root context. */}}
-{{- define "autosecops.podScheduling" -}}
-{{- with .Values.imagePullSecrets }}
-imagePullSecrets:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
-{{- with .Values.nodeSelector }}
-nodeSelector:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
-{{- with .Values.tolerations }}
-tolerations:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
-{{- with .Values.affinity }}
-affinity:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
-{{- with .Values.topologySpreadConstraints }}
-topologySpreadConstraints:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
-{{- with .Values.priorityClassName }}
-priorityClassName: {{ . }}
-{{- end }}
+{{- define "autosecops.pangolinEnabled" -}}
+{{- if or .Values.autosecops.pangolin.existingSecret .Values.autosecops.pangolin.apiKey -}}true{{- end -}}
 {{- end }}
 
-{{/* Fail fast on missing required values. */}}
-{{- define "autosecops.validate" -}}
-{{- $v := .Values }}
-{{- if not $v.urls.publicApp }}
-{{- fail "urls.publicApp is required (for example https://autosecops.example.com)" }}
+{{/* ---------- Sandbox ---------- */}}
+
+{{/* Execution backend for a sandboxed component. Expects dict root, values. */}}
+{{- define "autosecops.executorBackend" -}}
+{{- if .values.backend -}}
+{{- .values.backend -}}
+{{- else if .root.Values.autosecops.sandbox.disableNsjail -}}
+direct
+{{- else -}}
+nsjail
+{{- end -}}
 {{- end }}
-{{- if not $v.secrets.existingSecret }}
-{{- fail "secrets.existingSecret is required: create a Secret with dbEncryptionKey, serviceKey, signingSecret, and userAuthSecret" }}
+
+{{/* Agent executor drain timeout. */}}
+{{- define "autosecops.agentGracefulShutdownTimeout" -}}
+{{- $min := add (int .Values.autosecops.agentSandboxTimeout) 60 -}}
+{{- if .Values.agentExecutor.gracefulShutdownTimeout -}}
+{{- if lt (int .Values.agentExecutor.gracefulShutdownTimeout) (int $min) -}}
+{{- fail (printf "agentExecutor.gracefulShutdownTimeout (%v) must be at least autosecops.agentSandboxTimeout + 60 (%v)" .Values.agentExecutor.gracefulShutdownTimeout $min) -}}
+{{- end -}}
+{{- int .Values.agentExecutor.gracefulShutdownTimeout -}}
+{{- else -}}
+{{- $min -}}
+{{- end -}}
 {{- end }}
-{{- if not $v.externalPostgres.auth.existingSecret }}
-{{- fail "externalPostgres.auth.existingSecret is required (also used by devDependencies)" }}
-{{- end }}
-{{- if and (not $v.externalPostgres.auth.usernameKey) (not $v.externalPostgres.auth.username) }}
-{{- fail "set externalPostgres.auth.usernameKey or externalPostgres.auth.username" }}
-{{- end }}
-{{- if not $v.devDependencies.enabled }}
-{{- if not $v.externalPostgres.host }}
-{{- fail "externalPostgres.host is required unless devDependencies.enabled=true" }}
-{{- end }}
-{{- if and (not $v.externalRedis.url) (not $v.externalRedis.auth.existingSecret) }}
-{{- fail "set externalRedis.url or externalRedis.auth.existingSecret unless devDependencies.enabled=true" }}
-{{- end }}
-{{- if not $v.externalTemporal.clusterUrl }}
-{{- fail "externalTemporal.clusterUrl is required unless devDependencies.enabled=true" }}
-{{- end }}
-{{- else }}
-{{- if not $v.externalS3.auth.existingSecret }}
-{{- fail "devDependencies.enabled=true needs externalS3.auth.existingSecret for the bundled MinIO credentials" }}
-{{- end }}
-{{- if not $v.externalPostgres.auth.usernameKey }}
-{{- fail "devDependencies.enabled=true needs externalPostgres.auth.usernameKey for the bundled PostgreSQL user" }}
-{{- end }}
-{{- end }}
-{{- if and $v.ingress.enabled (not $v.caddy.enabled) }}
-{{- fail "ingress.enabled requires caddy.enabled: the Ingress routes through Caddy, which strips the /api prefix" }}
-{{- end }}
-{{- range $key := list "executor" "agentExecutor" }}
-{{- $backend := (index $v $key).backend }}
-{{- if not (has $backend (list "direct" "nsjail")) }}
-{{- fail (printf "%s.backend must be direct or nsjail" $key) }}
-{{- end }}
-{{- end }}
+
+{{/* ---------- Checksums ---------- */}}
+
+{{/* Hash of rendered config and chart-managed secrets, so pods roll on change. */}}
+{{- define "autosecops.configChecksum" -}}
+{{- $parts := list (include (print .Template.BasePath "/configmap.yaml") .) (include (print .Template.BasePath "/secrets.yaml") .) -}}
+{{- join "\n" $parts | sha256sum -}}
 {{- end }}

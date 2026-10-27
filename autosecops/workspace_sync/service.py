@@ -31,11 +31,11 @@ from autosecops.db.models import (
 from autosecops.db.session_events import AfterCommitQueue
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsSettingsError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatSettingsError,
-    TracecatValidationError,
 )
 from autosecops.git.types import GitUrl
 from autosecops.git.utils import parse_git_url
@@ -192,18 +192,18 @@ class WorkspaceSyncService(SyncMappingService):
         """
         workspace_id = role.workspace_id
         if workspace_id is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
         workspace = await WorkspaceService(session=session, role=role).get_workspace(
             workspace_id
         )
         if workspace is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
         settings = workspace.settings
         raw_provider = settings.get("git_provider") if settings else None
         try:
             provider = VcsProvider(raw_provider) if raw_provider else VcsProvider.GITHUB
         except ValueError as e:
-            raise TracecatSettingsError(
+            raise AutoSecOpsSettingsError(
                 f"Unsupported Git provider configured for this workspace: {raw_provider}"
             ) from e
         return cls(
@@ -764,7 +764,7 @@ class WorkspaceSyncService(SyncMappingService):
         self._enforce_any_required_scope(["workflow:sync", "workspace_sync:sync"])
 
     def _validate_export_params(self, params: WorkspaceSyncExportRequest) -> None:
-        """Validate the export branch names, raising :class:`TracecatValidationError`."""
+        """Validate the export branch names, raising :class:`AutoSecOpsValidationError`."""
         try:
             validate_short_branch_name(params.branch, field_name="branch")
             if params.pr_base_branch is not None:
@@ -773,7 +773,7 @@ class WorkspaceSyncService(SyncMappingService):
                     field_name="pr_base_branch",
                 )
         except ValueError as e:
-            raise TracecatValidationError(str(e)) from e
+            raise AutoSecOpsValidationError(str(e)) from e
 
     def _enforce_required_scopes(self, required_scopes: list[str]) -> None:
         """Raise :class:`ScopeDeniedError` when the role lacks any required scope."""
@@ -861,7 +861,7 @@ class WorkspaceSyncService(SyncMappingService):
         """Raise the first entitlement required by ``adapter``."""
         entitlement = next(iter(adapter.required_entitlements), None)
         if entitlement is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Resource type {adapter.resource_type.value!r} is not syncable"
             )
         raise EntitlementRequired(entitlement.value)
@@ -911,7 +911,7 @@ class WorkspaceSyncService(SyncMappingService):
             return
 
         messages = "; ".join(diagnostic.message for diagnostic in diagnostics)
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Workspace sync export contains unsupported dependencies: " + messages
         )
 
@@ -1519,7 +1519,7 @@ class WorkspaceSyncService(SyncMappingService):
         """Resolve resource references into a per-type set of local UUIDs.
 
         Direct ``local_id`` refs pass through; ``source_id`` refs are resolved
-        via their sync mapping and raise :class:`TracecatValidationError` when no
+        via their sync mapping and raise :class:`AutoSecOpsValidationError` when no
         mapping exists. A ref with neither id selects the whole resource type.
         Returns ``None`` when ``resources`` is empty (a full-workspace export).
         """
@@ -1549,7 +1549,7 @@ class WorkspaceSyncService(SyncMappingService):
                 (resource.resource_type.value, resource.source_id)
             )
             if mapping is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "No sync resource mapping found for "
                     f"{resource.resource_type.value} source id "
                     f"{resource.source_id!r}"
@@ -2079,8 +2079,8 @@ class WorkspaceSyncService(SyncMappingService):
     async def _workspace_git_url(self) -> GitUrl:
         """Resolve the workspace's configured Git repository URL.
 
-        Raises :class:`TracecatSettingsError` when no URL is configured or it is
-        invalid, and :class:`TracecatValidationError` for unsupported providers.
+        Raises :class:`AutoSecOpsSettingsError` when no URL is configured or it is
+        invalid, and :class:`AutoSecOpsValidationError` for unsupported providers.
         """
         provider = self._mapping_provider
         workspace = await self._workspace()
@@ -2088,7 +2088,7 @@ class WorkspaceSyncService(SyncMappingService):
             workspace.settings.get("git_repo_url") if workspace.settings else None
         )
         if not repo_url:
-            raise TracecatSettingsError(
+            raise AutoSecOpsSettingsError(
                 "Git repository URL not configured for this workspace."
             )
         try:
@@ -2100,18 +2100,18 @@ class WorkspaceSyncService(SyncMappingService):
                 case VcsProvider.BITBUCKET:
                     return parse_git_url(repo_url, allowed_domains={"bitbucket.org"})
         except ValueError as e:
-            raise TracecatSettingsError(
+            raise AutoSecOpsSettingsError(
                 f"Invalid Git repository URL configured for this workspace: {e}"
             ) from e
 
     async def _workspace(self) -> Workspace:
-        """Load the current workspace, raising :class:`TracecatNotFoundError` if absent."""
+        """Load the current workspace, raising :class:`AutoSecOpsNotFoundError` if absent."""
         workspace = await WorkspaceService(
             session=self.session,
             role=self.role,
         ).get_workspace(self.workspace_id)
         if workspace is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
         return workspace
 
 

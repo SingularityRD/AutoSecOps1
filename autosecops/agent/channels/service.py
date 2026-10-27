@@ -30,17 +30,17 @@ from autosecops.agent.channels.schemas import (
 )
 from autosecops.auth.secrets import get_db_encryption_key, get_signing_secret
 from autosecops.db.models import AgentChannelToken, AgentPreset
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.secrets.encryption import decrypt_value, encrypt_value
 from autosecops.service import BaseWorkspaceService
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-PENDING_SLACK_BOT_TOKEN = "__tracecat_pending_bot_token__"
+PENDING_SLACK_BOT_TOKEN = "__autosecops_pending_bot_token__"
 REDACTED_SLACK_SECRET = "********"
-REDACTED_SLACK_SIGNING_SECRET_PREFIX = "__tracecat_pending_signing_secret__"
-ENCRYPTED_CONFIG_VALUE_PREFIX = "__tracecat_encrypted__:"
+REDACTED_SLACK_SIGNING_SECRET_PREFIX = "__autosecops_pending_signing_secret__"
+ENCRYPTED_CONFIG_VALUE_PREFIX = "__autosecops_encrypted__:"
 SLACK_ENCRYPTED_CONFIG_FIELDS = (
     "slack_bot_token",
     "slack_client_secret",
@@ -94,7 +94,7 @@ class AgentChannelService(BaseWorkspaceService):
                 key=get_db_encryption_key(),
             )
         except InvalidToken as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Failed to decrypt stored Slack channel config"
             ) from exc
         return decrypted.decode("utf-8")
@@ -102,11 +102,11 @@ class AgentChannelService(BaseWorkspaceService):
     @staticmethod
     def _validate_hex(value: str, *, expected_len: int, field_name: str) -> str:
         if len(value) != expected_len:
-            raise TracecatValidationError(f"Invalid channel token {field_name}")
+            raise AutoSecOpsValidationError(f"Invalid channel token {field_name}")
         try:
             int(value, 16)
         except ValueError as exc:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Invalid channel token {field_name}"
             ) from exc
         return value.lower()
@@ -116,7 +116,7 @@ class AgentChannelService(BaseWorkspaceService):
         """Parse token path value in format `{id_hex}.{sig_hex}`."""
 
         if token.count(".") != 1:
-            raise TracecatValidationError("Invalid channel token format")
+            raise AutoSecOpsValidationError("Invalid channel token format")
 
         id_hex_raw, sig_hex_raw = token.split(".", maxsplit=1)
         id_hex = cls._validate_hex(id_hex_raw, expected_len=32, field_name="id")
@@ -127,7 +127,7 @@ class AgentChannelService(BaseWorkspaceService):
         try:
             token_id = uuid.UUID(hex=id_hex)
         except ValueError as exc:
-            raise TracecatValidationError("Invalid channel token id") from exc
+            raise AutoSecOpsValidationError("Invalid channel token id") from exc
         return token_id, sig_hex
 
     @classmethod
@@ -152,13 +152,15 @@ class AgentChannelService(BaseWorkspaceService):
     @classmethod
     def build_endpoint_url(cls, channel_type: ChannelType, public_token: str) -> str:
         return (
-            f"{config.TRACECAT__PUBLIC_API_URL}/agent/channels/"
+            f"{config.AUTOSECOPS__PUBLIC_API_URL}/agent/channels/"
             f"{channel_type.value}/{public_token}"
         )
 
     @classmethod
     def build_slack_oauth_redirect_uri(cls) -> str:
-        return f"{config.TRACECAT__PUBLIC_API_URL}/agent/channels/slack/oauth/callback"
+        return (
+            f"{config.AUTOSECOPS__PUBLIC_API_URL}/agent/channels/slack/oauth/callback"
+        )
 
     @classmethod
     def build_slack_oauth_authorization_url(cls, *, client_id: str, state: str) -> str:
@@ -215,9 +217,9 @@ class AgentChannelService(BaseWorkspaceService):
             or not isinstance(return_url, str)
             or not isinstance(exp, int)
         ):
-            raise TracecatValidationError("Invalid OAuth state")
+            raise AutoSecOpsValidationError("Invalid OAuth state")
         if exp < int(time.time()):
-            raise TracecatValidationError("OAuth state expired")
+            raise AutoSecOpsValidationError("OAuth state expired")
         return {
             "token_id": token_id,
             "workspace_id": workspace_id,
@@ -228,24 +230,24 @@ class AgentChannelService(BaseWorkspaceService):
     def _parse_slack_oauth_state_v2(cls, state: str) -> dict[str, Any]:
         parts = state.split(".")
         if len(parts) != 3:
-            raise TracecatValidationError("Invalid OAuth state")
+            raise AutoSecOpsValidationError("Invalid OAuth state")
         _, nonce_b64, ciphertext_b64 = parts
         try:
             nonce = cls._b64url_decode(nonce_b64)
             if len(nonce) != SLACK_OAUTH_STATE_NONCE_BYTES:
-                raise TracecatValidationError("Invalid OAuth state")
+                raise AutoSecOpsValidationError("Invalid OAuth state")
             ciphertext = cls._b64url_decode(ciphertext_b64)
             payload_bytes = AESGCM(cls._derive_slack_oauth_state_key()).decrypt(
                 nonce, ciphertext, None
             )
             return json.loads(payload_bytes.decode())
         except (InvalidTag, ValueError, json.JSONDecodeError) as exc:
-            raise TracecatValidationError("Invalid OAuth state") from exc
+            raise AutoSecOpsValidationError("Invalid OAuth state") from exc
 
     @classmethod
     def _parse_slack_oauth_state_legacy(cls, state: str) -> dict[str, Any]:
         if state.count(".") != 1:
-            raise TracecatValidationError("Invalid OAuth state")
+            raise AutoSecOpsValidationError("Invalid OAuth state")
         payload_b64, signature = state.split(".", maxsplit=1)
         expected_signature = hmac.new(
             get_signing_secret().encode(),
@@ -253,20 +255,20 @@ class AgentChannelService(BaseWorkspaceService):
             hashlib.sha256,
         ).hexdigest()
         if not secrets.compare_digest(signature, expected_signature):
-            raise TracecatValidationError("Invalid OAuth state")
+            raise AutoSecOpsValidationError("Invalid OAuth state")
 
         try:
             payload_bytes = cls._b64url_decode(payload_b64)
             return json.loads(payload_bytes.decode())
         except (ValueError, json.JSONDecodeError) as exc:
-            raise TracecatValidationError("Invalid OAuth state") from exc
+            raise AutoSecOpsValidationError("Invalid OAuth state") from exc
 
     @classmethod
     def _derive_slack_oauth_state_key(cls) -> bytes:
         signing_secret = get_signing_secret()
         return hmac.new(
             signing_secret.encode(),
-            b"tracecat:agent:channels:slack-oauth-state:v2",
+            b"autosecops:agent:channels:slack-oauth-state:v2",
             hashlib.sha256,
         ).digest()
 
@@ -307,7 +309,7 @@ class AgentChannelService(BaseWorkspaceService):
     @classmethod
     def parse_slack_approval_action_token(cls, token: str) -> dict[str, str]:
         if token.count(".") != 1:
-            raise TracecatValidationError("Invalid approval action token")
+            raise AutoSecOpsValidationError("Invalid approval action token")
 
         payload_b64, signature = token.split(".", maxsplit=1)
         expected_signature = hmac.new(
@@ -316,12 +318,12 @@ class AgentChannelService(BaseWorkspaceService):
             hashlib.sha256,
         ).hexdigest()
         if not secrets.compare_digest(signature, expected_signature):
-            raise TracecatValidationError("Invalid approval action token")
+            raise AutoSecOpsValidationError("Invalid approval action token")
 
         try:
             payload = json.loads(cls._b64url_decode(payload_b64).decode())
         except (ValueError, json.JSONDecodeError) as exc:
-            raise TracecatValidationError("Invalid approval action token") from exc
+            raise AutoSecOpsValidationError("Invalid approval action token") from exc
 
         batch_id = payload.get("batch_id")
         tool_call_id = payload.get("tool_call_id")
@@ -333,9 +335,9 @@ class AgentChannelService(BaseWorkspaceService):
             or action not in {"approve", "deny"}
             or not isinstance(exp, int)
         ):
-            raise TracecatValidationError("Invalid approval action token")
+            raise AutoSecOpsValidationError("Invalid approval action token")
         if exp < int(time.time()):
-            raise TracecatValidationError("Approval action token expired")
+            raise AutoSecOpsValidationError("Approval action token expired")
 
         return {
             "batch_id": batch_id,
@@ -359,7 +361,7 @@ class AgentChannelService(BaseWorkspaceService):
         )
         access_token = response.get("access_token")
         if not isinstance(access_token, str) or not access_token:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Slack OAuth response missing bot access token"
             )
         return access_token
@@ -375,9 +377,11 @@ class AgentChannelService(BaseWorkspaceService):
             try:
                 return SlackChannelTokenConfig.model_validate(config_payload)
             except ValidationError as exc:
-                raise TracecatValidationError("Invalid Slack channel config") from exc
+                raise AutoSecOpsValidationError("Invalid Slack channel config") from exc
 
-        raise TracecatValidationError(f"Unsupported channel type: {channel_type.value}")
+        raise AutoSecOpsValidationError(
+            f"Unsupported channel type: {channel_type.value}"
+        )
 
     @classmethod
     def serialize_channel_config_for_storage(
@@ -391,11 +395,13 @@ class AgentChannelService(BaseWorkspaceService):
             for field in SLACK_ENCRYPTED_CONFIG_FIELDS:
                 raw_value = payload.get(field)
                 if raw_value is not None and not isinstance(raw_value, str):
-                    raise TracecatValidationError("Invalid Slack channel config")
+                    raise AutoSecOpsValidationError("Invalid Slack channel config")
                 payload[field] = cls._encrypt_config_value(raw_value)
             return payload
 
-        raise TracecatValidationError(f"Unsupported channel type: {channel_type.value}")
+        raise AutoSecOpsValidationError(
+            f"Unsupported channel type: {channel_type.value}"
+        )
 
     @classmethod
     def parse_stored_channel_config(
@@ -408,18 +414,20 @@ class AgentChannelService(BaseWorkspaceService):
             if isinstance(config_payload, SlackChannelTokenConfig):
                 return config_payload
             if not isinstance(config_payload, dict):
-                raise TracecatValidationError("Invalid Slack channel config")
+                raise AutoSecOpsValidationError("Invalid Slack channel config")
 
             payload = dict(config_payload)
             for field in SLACK_ENCRYPTED_CONFIG_FIELDS:
                 raw_value = payload.get(field)
                 if raw_value is not None and not isinstance(raw_value, str):
-                    raise TracecatValidationError("Invalid Slack channel config")
+                    raise AutoSecOpsValidationError("Invalid Slack channel config")
                 payload[field] = cls._decrypt_config_value(raw_value)
 
             return cls._validate_channel_config(channel_type, payload)
 
-        raise TracecatValidationError(f"Unsupported channel type: {channel_type.value}")
+        raise AutoSecOpsValidationError(
+            f"Unsupported channel type: {channel_type.value}"
+        )
 
     @staticmethod
     def _redact_slack_config(
@@ -454,7 +462,7 @@ class AgentChannelService(BaseWorkspaceService):
             stmt = stmt.with_for_update()
         result = await self.session.execute(stmt)
         if result.scalar_one_or_none() is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Agent preset with ID '{preset_id}' not found in workspace"
             )
 
@@ -466,7 +474,7 @@ class AgentChannelService(BaseWorkspaceService):
             params.is_active
             and validated_config.slack_bot_token == PENDING_SLACK_BOT_TOKEN
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot activate token without Slack bot token"
             )
         lock_preset = (
@@ -493,7 +501,7 @@ class AgentChannelService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Active token already exists for this preset and channel type"
             ) from exc
         await self.session.refresh(token)
@@ -549,7 +557,7 @@ class AgentChannelService(BaseWorkspaceService):
                     channel_type=ChannelType.SLACK,
                     config_payload=token.config,
                 )
-            except TracecatValidationError:
+            except AutoSecOpsValidationError:
                 continue
             if config.slack_bot_token == PENDING_SLACK_BOT_TOKEN:
                 await self.session.delete(token)
@@ -601,7 +609,7 @@ class AgentChannelService(BaseWorkspaceService):
         next_is_active = token.is_active
         if "is_active" in set_fields:
             if set_fields["is_active"] is None:
-                raise TracecatValidationError("is_active cannot be null")
+                raise AutoSecOpsValidationError("is_active cannot be null")
             next_is_active = set_fields["is_active"]
 
         current_config = validated_config
@@ -611,7 +619,7 @@ class AgentChannelService(BaseWorkspaceService):
                 config_payload=token.config,
             )
         if next_is_active and current_config.slack_bot_token == PENDING_SLACK_BOT_TOKEN:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot activate token without Slack bot token"
             )
         if next_is_active or next_config is not None:
@@ -627,7 +635,7 @@ class AgentChannelService(BaseWorkspaceService):
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Active token already exists for this preset and channel type"
             ) from exc
         await self.session.refresh(token)

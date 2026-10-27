@@ -147,7 +147,7 @@ async def test_probe_falls_back_to_pid_isolation_without_nsjail() -> None:
     """Without nsjail, the probe runs under the best-effort PID fallback."""
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch("autosecops.agent.mcp.stdio_probe.NsjailExecutor") as executor_cls,
@@ -206,15 +206,15 @@ async def test_probe_runs_in_sandbox_when_nsjail_enabled(
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__AGENT_SANDBOX_MEMORY_MB",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB",
             memory_mb,
         ),
         patch(
-            "autosecops.agent.sandbox.config.TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB",
+            "autosecops.agent.sandbox.config.AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB",
             address_space_mb,
         ),
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -257,7 +257,7 @@ async def test_probe_timeout_leaves_buffer_before_nsjail_limit() -> None:
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -301,7 +301,7 @@ async def test_probe_returns_friendly_structured_timeout() -> None:
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -334,7 +334,7 @@ async def test_probe_returns_friendly_sandbox_timeout() -> None:
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -363,7 +363,7 @@ async def test_probe_filters_unsupported_stdio_tool_names() -> None:
     """Probe results only persist tool names the runtime can expose."""
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -403,7 +403,7 @@ async def test_pid_fallback_probes_real_stdio_mcp_server(tmp_path: Path) -> None
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         # Force the plain-subprocess path so the test behaves the same on
@@ -432,7 +432,7 @@ async def test_pid_fallback_reports_launch_failure(tmp_path: Path) -> None:
     """A command that is not an MCP server yields a clean failure result."""
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -458,7 +458,7 @@ async def test_pid_fallback_reports_friendly_timeout() -> None:
     """The real probe script reports a timeout without sandbox diagnostics."""
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -501,7 +501,7 @@ raise RuntimeError("synthetic startup failure")
 
     with (
         patch(
-            "autosecops.agent.mcp.stdio_probe.config.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.mcp.stdio_probe.config.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(

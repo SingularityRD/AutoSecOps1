@@ -14,28 +14,28 @@ resource "aws_ecs_task_definition" "api_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
-      name      = "TracecatApiMigrationsContainer"
-      image     = "${local.tracecat_migrations_image}:${local.tracecat_migrations_image_tag}"
+    merge({
+      name      = "AutoSecOpsApiMigrationsContainer"
+      image     = "${local.autosecops_migrations_image}:${local.autosecops_migrations_image_tag}"
       essential = false
       command   = ["python3", "-m", "alembic", "upgrade", "head"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "api-migrations"
         }
       }
       environment = local.migrations_env
-    },
-    {
-      name      = "TracecatApiContainer"
-      image     = "${var.tracecat_image}:${local.tracecat_image_tag}"
+    }, local.autosecops_repository_credentials),
+    merge({
+      name      = "AutoSecOpsApiContainer"
+      image     = "${var.autosecops_image}:${local.autosecops_image_tag}"
       essential = true
       dependsOn = [
         {
-          containerName = "TracecatApiMigrationsContainer"
+          containerName = "AutoSecOpsApiMigrationsContainer"
           condition     = "SUCCESS"
         }
       ]
@@ -50,13 +50,13 @@ resource "aws_ecs_task_definition" "api_task_definition" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "api"
         }
       }
       environment = local.api_env
-      secrets     = local.tracecat_api_secrets
+      secrets     = local.autosecops_api_secrets
       healthCheck = {
         command     = ["CMD", "curl", "-f", "http://localhost:8000/health"]
         interval    = 30
@@ -64,13 +64,13 @@ resource "aws_ecs_task_definition" "api_task_definition" {
         retries     = 3
         startPeriod = 60
       }
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 
-resource "aws_ecs_service" "tracecat_api" {
-  name                 = "tracecat-api"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+resource "aws_ecs_service" "autosecops_api" {
+  name                 = "autosecops-api"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.api_task_definition.arn
   desired_count        = var.api_desired_count
   force_new_deployment = var.force_new_deployment
@@ -105,7 +105,7 @@ resource "aws_ecs_service" "tracecat_api" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-api"
       }

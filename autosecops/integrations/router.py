@@ -220,7 +220,9 @@ def _oauth_callback_redirect_url(
     target_page = (
         "mcp-servers" if issubclass(provider_impl, MCPAuthProvider) else "integrations"
     )
-    return f"{config.TRACECAT__PUBLIC_APP_URL}/workspaces/{workspace_id}/{target_page}"
+    return (
+        f"{config.AUTOSECOPS__PUBLIC_APP_URL}/workspaces/{workspace_id}/{target_page}"
+    )
 
 
 async def _exchange_oauth_code_for_token(
@@ -314,7 +316,7 @@ async def oauth_callback(
     # only. Re-resolve them so workspace role grants apply.
     role = role.model_copy(update={"scopes": await compute_effective_scopes(role)})
     ctx_role.set(role)
-    if config.TRACECAT__RLS_MODE == config.RLSMode.ENFORCE:
+    if config.AUTOSECOPS__RLS_MODE == config.RLSMode.ENFORCE:
         await set_rls_context_from_role(session, role)
 
     # Create service to resolve provider (including custom providers)
@@ -370,7 +372,7 @@ async def oauth_callback(
                 verification_error = result.error or result.message
 
         redirect_url = (
-            f"{config.TRACECAT__PUBLIC_APP_URL}/workspaces/"
+            f"{config.AUTOSECOPS__PUBLIC_APP_URL}/workspaces/"
             f"{role.workspace_id}/mcp-servers"
         )
         if verification_error:

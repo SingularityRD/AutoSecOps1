@@ -199,7 +199,7 @@ def create_expectation_model(
         # Add components to field metadata if they exist
         if components:
             jsonschema_extra = field_info_kwargs.setdefault("json_schema_extra", {})
-            jsonschema_extra["x-tracecat-component"] = to_jsonable_python(components)
+            jsonschema_extra["x-autosecops-component"] = to_jsonable_python(components)
 
         field = Field(**field_info_kwargs)
         fields[field_name] = (field_type, field)

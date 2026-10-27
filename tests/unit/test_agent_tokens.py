@@ -30,14 +30,14 @@ def _registry_lock() -> RegistryLock:
 
 
 def _setup_service_key(monkeypatch) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     return uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 
 
 def test_mcp_token_round_trips_parent_agent_workflow_metadata(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     organization_id = uuid.uuid4()
@@ -166,9 +166,9 @@ def test_mcp_token_rejects_action_both_allowed_and_deferred(monkeypatch) -> None
     ("allowed_name", "deferred_name"),
     [
         ("core.http_request", "core__http_request"),
-        ("core.http_request", "mcp__tracecat-registry__core__http_request"),
-        ("core.http_request", "mcp.tracecat_registry.core.http_request"),
-        ("mcp__example__a__b", "mcp__tracecat-registry__mcp__example__a__b"),
+        ("core.http_request", "mcp__autosecops-registry__core__http_request"),
+        ("core.http_request", "mcp.autosecops_registry.core.http_request"),
+        ("mcp__example__a__b", "mcp__autosecops-registry__mcp__example__a__b"),
     ],
 )
 def test_mcp_token_rejects_overlap_in_another_spelling(
@@ -195,10 +195,10 @@ def test_mcp_token_canonicalizes_deferred_actions(monkeypatch) -> None:
         organization_id=organization_id,
         allowed_actions=[],
         deferred_actions=[
-            "mcp__tracecat-registry__core__http_request",
+            "mcp__autosecops-registry__core__http_request",
             "core.http_request",
-            "mcp__tracecat-registry__mcp__Jira__deleteIssue",
-            "mcp__tracecat-registry__mcp__example__a__b",
+            "mcp__autosecops-registry__mcp__Jira__deleteIssue",
+            "mcp__autosecops-registry__mcp__example__a__b",
         ],
         session_id=session_id,
         registry_lock=_registry_lock(),
@@ -254,7 +254,7 @@ def test_mcp_token_with_dotted_user_mcp_deferred_name_fails_verification(
 
 
 def test_agent_otel_token_round_trips(monkeypatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     organization_id = uuid.uuid4()
@@ -309,7 +309,7 @@ def test_agent_otel_token_round_trips(monkeypatch) -> None:
 def test_agent_otel_token_rejects_invalid_tokens(
     monkeypatch, token_factory: Callable[[], str], match: str
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     with pytest.raises(ValueError, match=match):
         verify_agent_otel_token(token_factory())

@@ -24,7 +24,7 @@ from openai import AsyncOpenAI
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from autosecops.agent.gateway import TracecatCallbackHandler
+from autosecops.agent.gateway import AutoSecOpsCallbackHandler
 from autosecops.agent.sandbox.llm_proxy import _http_error_classification
 from autosecops.runtime.errors import (
     RetryDisposition,
@@ -39,7 +39,7 @@ def gateway_callbacks(monkeypatch: pytest.MonkeyPatch) -> ProxyLogging:
     # and returns them, which the Anthropic endpoint currently ignores.
     proxy_logging = ProxyLogging(user_api_key_cache=UserApiKeyCache())
     proxy_logging.alert_types = []
-    monkeypatch.setattr(litellm, "callbacks", [TracecatCallbackHandler()])
+    monkeypatch.setattr(litellm, "callbacks", [AutoSecOpsCallbackHandler()])
     # Router registration also mutates these process-global callback lists.
     for name in (
         "success_callback",
@@ -115,7 +115,9 @@ async def test_router_unavailability_is_not_provider_throttling_or_auth(
     )
     assert failure.status_code == 503
     body = bytes(failure.body)
-    assert orjson.loads(body)["error"]["type"] == "tracecat_llm_deployment_unavailable"
+    assert (
+        orjson.loads(body)["error"]["type"] == "autosecops_llm_deployment_unavailable"
+    )
     assert b"synthetic-sensitive" not in body
     classification = _http_error_classification(503, route_is_direct=False, body=body)
     assert classification.kind is RuntimeErrorKind.AGENT_EXECUTOR_UNCLASSIFIED
@@ -367,22 +369,22 @@ async def test_retry_does_not_inherit_an_earlier_provider_quota_failure(
     "error_type,status_code,expected_kind",
     [
         (
-            "tracecat_llm_token_invalid",
+            "autosecops_llm_token_invalid",
             401,
             RuntimeErrorKind.AGENT_LLM_GATEWAY_AUTH_FAILED,
         ),
         (
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
             401,
             RuntimeErrorKind.AGENT_LLM_PROVIDER_AUTH_FAILED,
         ),
         (
-            "tracecat_llm_model_not_enabled",
+            "autosecops_llm_model_not_enabled",
             403,
             RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
         ),
         (
-            "tracecat_llm_provider_subscription_required",
+            "autosecops_llm_provider_subscription_required",
             403,
             RuntimeErrorKind.AGENT_LLM_PROVIDER_AUTH_FAILED,
         ),

@@ -183,7 +183,7 @@ class TestValidateIncomingWebhook:
             assert role is not None
             assert role.workspace_id == workspace_id
             assert role.organization_id == organization_id
-            assert role.service_id == "tracecat-runner"
+            assert role.service_id == "autosecops-runner"
         finally:
             ctx_role.reset(token)
 
@@ -232,6 +232,42 @@ class TestValidateIncomingWebhook:
                     )
         finally:
             ctx_role.reset(token)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Unauthorized webhook request"
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("supplied_secret", ["p\x15\u00d8\u00c8", "\u00e9t\u00e9"])
+    async def test_non_ascii_secret_returns_unauthorized(self, supplied_secret: str):
+        """A non-ASCII secret path segment is rejected with 401, not a 500."""
+        workflow_id = WorkflowUUID.new_uuid4()
+
+        request = MagicMock(spec=Request)
+        request.method = "POST"
+        request.headers = {}
+        request.client = None
+
+        webhook = MagicMock(spec=Webhook)
+        webhook.workflow_id = workflow_id
+        webhook.secret = "secret"
+        webhook.status = "online"
+
+        webhook_result = MagicMock()
+        webhook_result.scalar_one.return_value = webhook
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=webhook_result)
+
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__.return_value = mock_session
+        mock_session_cm.__aexit__.return_value = None
+
+        with patch(
+            "autosecops.webhooks.dependencies.get_async_session_bypass_rls_context_manager",
+            return_value=mock_session_cm,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await validate_incoming_webhook(workflow_id, supplied_secret, request)
 
         assert exc_info.value.status_code == 401
         assert exc_info.value.detail == "Unauthorized webhook request"
@@ -405,7 +441,7 @@ class TestWebhookSecret:
         webhook.id = webhook_id
         secret_getter = Webhook.secret.fget
         assert secret_getter is not None
-        with patch.object(config, "TRACECAT__SIGNING_SECRET", signing_secret):
+        with patch.object(config, "AUTOSECOPS__SIGNING_SECRET", signing_secret):
             actual_secret = secret_getter(webhook)
 
         assert actual_secret == expected_secret, (

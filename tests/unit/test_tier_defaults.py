@@ -1,6 +1,6 @@
 """Tests for single-tenant default entitlement resolution.
 
-Legacy ``TRACECAT__FEATURE_FLAGS`` tokens used to map to paid entitlements on
+Legacy ``AUTOSECOPS__FEATURE_FLAGS`` tokens used to map to paid entitlements on
 single-tenant installs. Paid entitlements now come only from a signed license
 (see ``tests/unit/test_licensing.py``); these tests pin the free baseline and
 confirm the legacy flags no longer change it.
@@ -52,17 +52,17 @@ def test_baseline_entitlements_match_fresh_install_defaults() -> None:
 def test_legacy_feature_flags_do_not_grant_entitlements(
     monkeypatch: pytest.MonkeyPatch, flags: str | None
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__LICENSE_KEY", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", None)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
         tier_defaults.BASELINE_ENTITLEMENTS.model_copy(),
     )
     if flags is None:
-        monkeypatch.delenv("TRACECAT__FEATURE_FLAGS", raising=False)
+        monkeypatch.delenv("AUTOSECOPS__FEATURE_FLAGS", raising=False)
     else:
-        monkeypatch.setenv("TRACECAT__FEATURE_FLAGS", flags)
+        monkeypatch.setenv("AUTOSECOPS__FEATURE_FLAGS", flags)
 
     entitlements = tier_defaults.get_single_tenant_entitlements()
 

@@ -22,9 +22,9 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
     BuiltinRegistryHasNoSelectionError,
-    TracecatConflictError,
-    TracecatNotFoundError,
 )
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.pagination import CursorPaginatedResponse
@@ -640,7 +640,7 @@ async def test_create_schedule_unpublished_workflow_returns_conflict(
     with patch(
         "autosecops.workflow.schedules.router.WorkflowSchedulesService.create_schedule",
         new_callable=AsyncMock,
-        side_effect=TracecatConflictError(
+        side_effect=AutoSecOpsConflictError(
             "Workflow must be saved before creating a schedule."
         ),
     ):
@@ -683,7 +683,7 @@ async def test_delete_missing_schedule_returns_not_found(
     with patch(
         "autosecops.workflow.schedules.router.WorkflowSchedulesService.delete_schedule",
         new_callable=AsyncMock,
-        side_effect=TracecatNotFoundError("Schedule not found"),
+        side_effect=AutoSecOpsNotFoundError("Schedule not found"),
     ):
         response = client.delete(
             "/schedules/sch_00000000000000000000000000000000",

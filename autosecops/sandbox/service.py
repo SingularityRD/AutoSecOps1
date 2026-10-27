@@ -15,13 +15,13 @@ from pathlib import Path
 from typing import Any
 
 from autosecops.config import (
-    TRACECAT__EXECUTOR_BACKEND,
-    TRACECAT__SANDBOX_ADDRESS_SPACE_MB,
-    TRACECAT__SANDBOX_CACHE_DIR,
-    TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-    TRACECAT__SANDBOX_DEFAULT_TIMEOUT,
-    TRACECAT__SANDBOX_PACKAGE_CACHE_MAX_BYTES,
-    TRACECAT__SANDBOX_PACKAGE_CACHE_MAX_ENTRIES,
+    AUTOSECOPS__EXECUTOR_BACKEND,
+    AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB,
+    AUTOSECOPS__SANDBOX_CACHE_DIR,
+    AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+    AUTOSECOPS__SANDBOX_DEFAULT_TIMEOUT,
+    AUTOSECOPS__SANDBOX_PACKAGE_CACHE_MAX_BYTES,
+    AUTOSECOPS__SANDBOX_PACKAGE_CACHE_MAX_ENTRIES,
 )
 from autosecops.logger import logger
 from autosecops.sandbox.cgroup import sandbox_cgroup
@@ -120,7 +120,7 @@ class SandboxService:
 
     def __init__(
         self,
-        cache_dir: str = TRACECAT__SANDBOX_CACHE_DIR,
+        cache_dir: str = AUTOSECOPS__SANDBOX_CACHE_DIR,
     ):
         self.cache_dir = Path(cache_dir)
         self.package_cache = self.cache_dir / "packages"
@@ -161,7 +161,7 @@ class SandboxService:
             return env_vars
 
         updated = dict(env_vars or {})
-        updated["TRACECAT__ACTION_GATEWAY_SOCKET"] = str(
+        updated["AUTOSECOPS__ACTION_GATEWAY_SOCKET"] = str(
             env_socket_path or resolved_socket_path
         )
         return updated
@@ -305,8 +305,8 @@ class SandboxService:
                 site_packages,
                 temp_dest,
                 trusted_root=job_dir,
-                max_bytes=TRACECAT__SANDBOX_PACKAGE_CACHE_MAX_BYTES,
-                max_entries=TRACECAT__SANDBOX_PACKAGE_CACHE_MAX_ENTRIES,
+                max_bytes=AUTOSECOPS__SANDBOX_PACKAGE_CACHE_MAX_BYTES,
+                max_entries=AUTOSECOPS__SANDBOX_PACKAGE_CACHE_MAX_ENTRIES,
             )
         )
         try:
@@ -426,7 +426,7 @@ class SandboxService:
     ) -> Any:
         """Execute a Python script in a sandbox.
 
-        TRACECAT__EXECUTOR_BACKEND selects the executor:
+        AUTOSECOPS__EXECUTOR_BACKEND selects the executor:
         - nsjail: Uses OS-level isolation and propagates nsjail failures.
         - direct: Uses the unsafe PID executor with PID namespace isolation
           when available.
@@ -456,13 +456,13 @@ class SandboxService:
             SandboxTimeoutError: If execution times out.
         """
         if timeout_seconds is None:
-            timeout_seconds = TRACECAT__SANDBOX_DEFAULT_TIMEOUT
+            timeout_seconds = AUTOSECOPS__SANDBOX_DEFAULT_TIMEOUT
         resolved_action_gateway_socket = self._require_action_gateway_socket(
             action_gateway_socket
         )
 
         # The configured backend is authoritative; never fall back from nsjail.
-        if TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+        if AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
             logger.debug("Using nsjail executor for script execution")
             return await self._run_with_nsjail(
                 script=script,
@@ -479,7 +479,7 @@ class SandboxService:
             logger.info(
                 "Using the direct backend with the unsafe PID executor. "
                 "Using PID namespace isolation when available. "
-                "For full OS-level isolation, set TRACECAT__EXECUTOR_BACKEND=nsjail "
+                "For full OS-level isolation, set AUTOSECOPS__EXECUTOR_BACKEND=nsjail "
                 "and ensure nsjail is installed with the sandbox rootfs."
             )
             resolved_env_vars = self._with_action_gateway_socket_env(
@@ -558,7 +558,7 @@ class SandboxService:
             SandboxTimeoutError: If execution times out.
         """
         if timeout_seconds is None:
-            timeout_seconds = TRACECAT__SANDBOX_DEFAULT_TIMEOUT
+            timeout_seconds = AUTOSECOPS__SANDBOX_DEFAULT_TIMEOUT
         resolved_action_gateway_socket = self._require_action_gateway_socket(
             action_gateway_socket
         )
@@ -598,8 +598,8 @@ class SandboxService:
                 ),
                 resources=ResourceLimits(
                     timeout_seconds=timeout_seconds,
-                    memory_mb=TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                    address_space_mb=TRACECAT__SANDBOX_ADDRESS_SPACE_MB,
+                    memory_mb=AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                    address_space_mb=AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB,
                 ),
                 env_vars=self._with_action_gateway_socket_env(
                     env_vars,
@@ -629,8 +629,8 @@ class SandboxService:
                 # gets a host-authored message naming the configured cap.
                 if result.error_code is SandboxErrorCode.RESOURCE_LIMIT_EXCEEDED:
                     message = sandbox_resource_limit_message(
-                        memory_mb=TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                        memory_env_var="TRACECAT__SANDBOX_DEFAULT_MEMORY_MB",
+                        memory_mb=AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                        memory_env_var="AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB",
                     )
                 else:
                     message = (

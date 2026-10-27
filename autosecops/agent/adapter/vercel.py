@@ -1106,11 +1106,11 @@ class MutableToolPart:
         """Merge the completion time into the result's AutoSecOps metadata."""
         if self.completed_at is None:
             return extra
-        tracecat = {
-            **(extra or {}).get("tracecat", {}),
+        autosecops = {
+            **(extra or {}).get("autosecops", {}),
             "completed_at": self.completed_at.isoformat(),
         }
-        return {**(extra or {}), "tracecat": tracecat}
+        return {**(extra or {}), "autosecops": autosecops}
 
     def to_ui_part(
         self, *, result_metadata: ProviderMetadata | None = None
@@ -1288,7 +1288,7 @@ def convert_chat_messages_to_ui(
     # the denial rather than a tool error, even after the approval card is gone.
     denied_results: dict[str, ProviderMetadata] = {
         message.approval.tool_call_id: {
-            "tracecat": {"approval": "rejected", "reason": message.approval.reason}
+            "autosecops": {"approval": "rejected", "reason": message.approval.reason}
         }
         for message in messages
         if message.kind == MessageKind.APPROVAL_REQUEST
@@ -1426,8 +1426,8 @@ def convert_chat_messages_to_ui(
                     tool_name = part.name
                     tool_input = part.input or {}
                     if part.name in {
-                        "mcp__tracecat-registry__execute_tool",
-                        "mcp__tracecat_registry__execute_tool",
+                        "mcp__autosecops-registry__execute_tool",
+                        "mcp__autosecops_registry__execute_tool",
                     } and isinstance(tool_input, dict):
                         tool_name = tool_input.get("tool_name", part.name)
                         tool_input = tool_input.get("args", tool_input)
@@ -1642,7 +1642,7 @@ async def sse_vercel(
                 case StreamEnd(id=end_id):
                     # End of stream marker from Redis
                     logger.debug("End-of-stream marker from Redis")
-                    end_event_id = f"tracecat:end:{end_id}"
+                    end_event_id = f"autosecops:end:{end_id}"
                     break
 
         # 3. Finalize any open parts at the end of the stream.

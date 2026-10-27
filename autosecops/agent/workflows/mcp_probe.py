@@ -33,7 +33,7 @@ class StdioMCPProbeWorkflow:
                 mcp_integration_id=input.mcp_integration_id,
                 role=input.role,
             ),
-            task_queue=config.TRACECAT__AGENT_EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
             start_to_close_timeout=timedelta(seconds=MCP_STDIO_PROBE_TIMEOUT_CAP + 30),
             schedule_to_close_timeout=timedelta(
                 seconds=MCP_STDIO_PROBE_TIMEOUT_CAP + 60
@@ -51,7 +51,7 @@ class StdioMCPProbeWorkflow:
                 role=input.role,
                 tools=probe_result.tools,
             ),
-            task_queue=config.TRACECAT__AGENT_QUEUE,
+            task_queue=config.AUTOSECOPS__AGENT_QUEUE,
             start_to_close_timeout=timedelta(seconds=30),
             schedule_to_close_timeout=timedelta(seconds=120),
             retry_policy=RetryPolicy(maximum_attempts=3),

@@ -99,7 +99,7 @@ class TierService(BaseService):
             DefaultTierNotConfiguredError: If no active default tier exists
                 and the organization has no assigned tier.
         """
-        if not config.TRACECAT__EE_MULTI_TENANT:
+        if not config.AUTOSECOPS__EE_MULTI_TENANT:
             return tier_defaults.DEFAULT_LIMITS.model_copy()
 
         org_tier, tier = await get_org_tier_and_resolved_tier(self.session, org_id)
@@ -155,7 +155,7 @@ class TierService(BaseService):
             DefaultTierNotConfiguredError: If no active default tier exists
                 and the organization has no assigned tier.
         """
-        if not config.TRACECAT__EE_MULTI_TENANT:
+        if not config.AUTOSECOPS__EE_MULTI_TENANT:
             return tier_defaults.get_single_tenant_entitlements()
 
         org_tier, tier = await get_org_tier_and_resolved_tier(self.session, org_id)

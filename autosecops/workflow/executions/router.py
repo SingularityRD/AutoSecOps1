@@ -26,7 +26,7 @@ from autosecops.dsl.common import (
     get_execution_type_from_search_attr,
     get_trigger_type_from_search_attr,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.identifiers import UserID
 from autosecops.identifiers.workflow import (
     AnyWorkflowIDPath,
@@ -111,9 +111,9 @@ COLLECTION_PAGE_PREVIEW_MAX_BYTES = 4 * 1024  # 4 KB per item preview in page re
 
 def _workflow_execution_search_pagination_params(
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_MAX,
+        default=config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -194,7 +194,7 @@ def _inline_download_response(
         file_name=_inline_item_filename(event_id, collection_index),
         content_type=content_type,
         size_bytes=len(serialized),
-        expires_in_seconds=config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY,
+        expires_in_seconds=config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY,
     )
 
 
@@ -210,7 +210,7 @@ async def _external_download_response(
             detail=f"Object not found: {ref.bucket}/{ref.key}",
         )
 
-    expiry = config.TRACECAT__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
+    expiry = config.AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_EXPIRY
     download_url = await blob.generate_presigned_download_url(
         key=ref.key,
         bucket=ref.bucket,
@@ -359,8 +359,8 @@ async def list_workflow_executions(
     triggered_by_user_id: UserID | None = Depends(resolve_triggered_by_user_id),
     limit: int | None = Query(
         None,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_MAX,
     ),
 ) -> list[WorkflowExecutionReadMinimal]:
     """List all workflow executions."""
@@ -368,14 +368,14 @@ async def list_workflow_executions(
     configured_limit = await get_setting("app_executions_query_limit")
     effective_limit = limit if limit is not None else configured_limit
     if effective_limit is None:
-        effective_limit = config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT
+        effective_limit = config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT
     try:
         effective_limit = int(effective_limit)
     except (TypeError, ValueError):
-        effective_limit = config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT
+        effective_limit = config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_DEFAULT
     effective_limit = max(
-        config.TRACECAT__LIMIT_MIN,
-        min(effective_limit, config.TRACECAT__LIMIT_WORKFLOW_EXECUTIONS_MAX),
+        config.AUTOSECOPS__LIMIT_MIN,
+        min(effective_limit, config.AUTOSECOPS__LIMIT_WORKFLOW_EXECUTIONS_MAX),
     )
     executions = await service.list_executions(
         workflow_id=workflow_id,
@@ -591,13 +591,13 @@ async def _rerun_workflow_execution(
                 rerun_from_ref=params.rerun_from_ref,
                 dry_run=dry_run,
             )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "TracecatValidationError",
+                "type": "AutoSecOpsValidationError",
                 "message": str(e),
                 "detail": e.detail,
             },
@@ -1046,11 +1046,11 @@ def _annotate_execution_trace(
     caller a reference for opening that trace."""
     set_current_span_attributes(
         {
-            "tracecat.organization.id": role.organization_id,
-            "tracecat.workspace.id": role.workspace_id,
-            "tracecat.workflow.id": response["wf_id"],
-            "tracecat.workflow.execution.id": response["wf_exec_id"],
-            "tracecat.trigger.type": TriggerType.MANUAL,
+            "autosecops.organization.id": role.organization_id,
+            "autosecops.workspace.id": role.workspace_id,
+            "autosecops.workflow.id": response["wf_id"],
+            "autosecops.workflow.execution.id": response["wf_exec_id"],
+            "autosecops.trigger.type": TriggerType.MANUAL,
         }
     )
     if trace_id := current_trace_id():
@@ -1109,11 +1109,11 @@ async def create_workflow_execution(
         )
         _annotate_execution_trace(role, response)
         return response
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "TracecatValidationError",
+                "type": "AutoSecOpsValidationError",
                 "message": str(e),
                 "detail": e.detail,
             },
@@ -1148,11 +1148,11 @@ async def create_draft_workflow_execution(
             fixed_action_results = await mgmt_service.locked_action_results(
                 wf_id, dsl_input
             )
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "type": "TracecatValidationError",
+                    "type": "AutoSecOpsValidationError",
                     "message": str(e),
                     "detail": e.detail,
                 },
@@ -1172,7 +1172,7 @@ async def create_draft_workflow_execution(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "TracecatValidationError",
+                "type": "AutoSecOpsValidationError",
                 "message": f"Workflow validation failed with {len(val_errors)} error(s)",
                 "detail": [err.root.model_dump(mode="json") for err in val_errors],
             },
@@ -1189,11 +1189,11 @@ async def create_draft_workflow_execution(
         )
         _annotate_execution_trace(role, response)
         return response
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "TracecatValidationError",
+                "type": "AutoSecOpsValidationError",
                 "message": str(e),
                 "detail": e.detail,
             },

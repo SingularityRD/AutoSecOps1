@@ -1,16 +1,16 @@
-x-tracecat-ci-image: &tracecat-ci-image
-  image: tracecat-ci:${TRACECAT__CI_IMAGE_TAG:?Set TRACECAT__CI_IMAGE_TAG}
+x-autosecops-ci-image: &autosecops-ci-image
+  image: autosecops-ci:${AUTOSECOPS__CI_IMAGE_TAG:?Set AUTOSECOPS__CI_IMAGE_TAG}
   pull_policy: never
 
 services:
   api:
-    <<: *tracecat-ci-image
+    <<: *autosecops-ci-image
 
   worker:
-    <<: *tracecat-ci-image
+    <<: *autosecops-ci-image
 
   executor:
-    <<: *tracecat-ci-image
+    <<: *autosecops-ci-image
 
   migrations:
-    <<: *tracecat-ci-image
+    <<: *autosecops-ci-image

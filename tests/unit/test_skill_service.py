@@ -67,7 +67,7 @@ from autosecops.db.models import (
 from autosecops.db.models import (
     SkillUpload as SkillUploadModel,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.service import IntegrationService
 from autosecops.pagination import CursorPaginationParams
@@ -135,18 +135,18 @@ async def configure_minio_for_skills(
 
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
         f"http://localhost:{os.environ.get('MINIO_PORT', '9000')}",
         raising=False,
     )
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_BUCKET_SKILLS",
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS",
         minio_bucket,
         raising=False,
     )
     monkeypatch.setenv(
-        "TRACECAT__BLOB_STORAGE_BUCKET_SKILLS",
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS",
         minio_bucket,
     )
     monkeypatch.setenv(
@@ -188,13 +188,13 @@ class TestSkillService:
 
         original = await skill_service._claim_blob_publication(
             sha256=sha256,
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
             key=storage_key,
             size_bytes=len(content),
         )
         reused = await skill_service._claim_blob_publication(
             sha256=sha256,
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
             key=storage_key,
             size_bytes=len(content),
         )
@@ -272,7 +272,7 @@ class TestSkillService:
         )
         monkeypatch.setattr(
             config,
-            "TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
+            "AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT",
             "http://downloads.example",
         )
 
@@ -313,7 +313,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="bounded-read"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES", 1)
 
         draft = await skill_service.get_draft(created.id)
 
@@ -322,7 +322,7 @@ class TestSkillService:
         assert [error.code for error in draft.validation_errors] == [
             "skill_manifest_size_limit_exceeded"
         ]
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.prepare_draft_download(skill_id=created.id)
         assert exc_info.value.detail is not None
         assert exc_info.value.detail["code"] == "skill_manifest_size_limit_exceeded"
@@ -658,7 +658,7 @@ class TestSkillService:
             fake_upload_file,
         )
 
-        with pytest.raises(TracecatValidationError, match="failed validation"):
+        with pytest.raises(AutoSecOpsValidationError, match="failed validation"):
             await skill_service.replace_skill_draft(
                 skill_id=created.id,
                 params=SkillUpload(
@@ -675,7 +675,7 @@ class TestSkillService:
                 ),
             )
 
-        with pytest.raises(TracecatValidationError, match="failed validation"):
+        with pytest.raises(AutoSecOpsValidationError, match="failed validation"):
             await skill_service.upload_skill(
                 SkillUpload(
                     name="invalid-upload",
@@ -931,7 +931,7 @@ class TestSkillService:
             row.slug = None
         await session.commit()
 
-        with pytest.raises(TracecatValidationError, match="ambiguous"):
+        with pytest.raises(AutoSecOpsValidationError, match="ambiguous"):
             await skill_service.get_skill_by_identifier("legacy-dup")
 
     async def test_patch_draft_enforces_revision(
@@ -942,7 +942,7 @@ class TestSkillService:
 
         created = await skill_service.create_skill(SkillCreate(name="revision-skill"))
 
-        with pytest.raises(TracecatValidationError, match="Draft revision conflict"):
+        with pytest.raises(AutoSecOpsValidationError, match="Draft revision conflict"):
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -969,7 +969,7 @@ class TestSkillService:
         assert draft is not None
 
         with pytest.raises(
-            TracecatValidationError, match="cannot escape the skill root"
+            AutoSecOpsValidationError, match="cannot escape the skill root"
         ):
             await skill_service.patch_draft(
                 skill_id=created.id,
@@ -1024,7 +1024,7 @@ class TestSkillService:
 
             async def patch_draft(
                 index: int,
-            ) -> SkillDraftRead | TracecatValidationError:
+            ) -> SkillDraftRead | AutoSecOpsValidationError:
                 async with session_factory() as concurrent_session:
                     service = SkillService(
                         session=concurrent_session,
@@ -1043,7 +1043,7 @@ class TestSkillService:
                                 ],
                             ),
                         )
-                    except TracecatValidationError as exc:
+                    except AutoSecOpsValidationError as exc:
                         return exc
 
             results = await asyncio.gather(
@@ -1057,7 +1057,7 @@ class TestSkillService:
             conflicts = [
                 result
                 for result in results
-                if isinstance(result, TracecatValidationError)
+                if isinstance(result, AutoSecOpsValidationError)
             ]
 
             assert len(successes) == 1
@@ -1138,7 +1138,7 @@ class TestSkillService:
                         ),
                     )
 
-                with pytest.raises(TracecatValidationError) as exc_info:
+                with pytest.raises(AutoSecOpsValidationError) as exc_info:
                     await stale_service.patch_draft(
                         skill_id=created.id,
                         params=SkillDraftPatch(
@@ -1320,7 +1320,7 @@ class TestSkillService:
         created = await skill_service.create_skill(SkillCreate(name="batch-rollback"))
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
 
         seed_markdown = SkillService._build_default_skill_markdown(
             name="batch-rollback", description=None
@@ -1366,7 +1366,7 @@ class TestSkillService:
             content_type="application/octet-stream",
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -1496,7 +1496,7 @@ class TestSkillService:
             "autosecops.agent.skill.service.blob.delete_file", fake_delete_file
         )
 
-        with pytest.raises(TracecatValidationError) as excinfo:
+        with pytest.raises(AutoSecOpsValidationError) as excinfo:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -1934,7 +1934,7 @@ class TestSkillService:
                 )
                 owner_claim = await owner_service._claim_blob_publication(
                     sha256=sha256,
-                    bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                    bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                     key=storage_key,
                     size_bytes=len(content),
                 )
@@ -1945,7 +1945,7 @@ class TestSkillService:
                     contender_started.set()
                     claim = await contender_service._claim_blob_publication(
                         sha256=sha256,
-                        bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                        bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                         key=storage_key,
                         size_bytes=len(content),
                     )
@@ -2039,7 +2039,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="prepare-batch"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
         captured: list[tuple[str, str, str, str, int]] = []
 
         async def generate_presigned_upload_url(
@@ -2166,7 +2166,7 @@ class TestSkillService:
             hashlib.sha256(seed_markdown.encode("utf-8")).hexdigest()
         )
         assert not await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
         await skill_service.session.refresh(svc_workspace)
 
@@ -2185,7 +2185,7 @@ class TestSkillService:
         seed_sha256 = hashlib.sha256(seed_markdown.encode("utf-8")).hexdigest()
         seed_key = skill_service._storage_key_for(seed_sha256)
         assert await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
 
         async def generate_presigned_upload_url(**_kwargs: Any) -> str:
@@ -2212,7 +2212,7 @@ class TestSkillService:
         # The second skill reused the committed seed blob, so the rollback must
         # leave both the row and its object for the first skill.
         assert await file_exists(
-            key=seed_key, bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+            key=seed_key, bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         )
         blob_row = await skill_service.session.scalar(
             select(SkillBlob).where(
@@ -2230,7 +2230,7 @@ class TestSkillService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         created = await skill_service.create_skill(SkillCreate(name="bounded-prepare"))
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES", 1)
         params = [
             SkillUploadSessionCreate(
                 sha256=hashlib.sha256(content).hexdigest(),
@@ -2240,7 +2240,7 @@ class TestSkillService:
             for content in (b"a", b"b")
         ]
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.prepare_draft_uploads(
                 skill_id=created.id,
                 params=params,
@@ -2285,7 +2285,7 @@ class TestSkillService:
         )
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 1)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 1)
         expected_detail = {
             "code": "skill_transfer_file_count_limit_exceeded",
             "file_count": 2,
@@ -2299,7 +2299,7 @@ class TestSkillService:
             "autosecops.agent.skill.service.blob.generate_presigned_upload_url",
             unexpected_generate_presigned_upload_url,
         )
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.prepare_draft_uploads(
                 skill_id=created.id,
                 params=[
@@ -2322,7 +2322,7 @@ class TestSkillService:
         assert upload_rows.all() == []
 
         # Patch rejects before looking up any upload.
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2341,11 +2341,11 @@ class TestSkillService:
             )
         assert exc_info.value.detail == expected_detail
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.prepare_draft_download(skill_id=created.id)
         assert exc_info.value.detail == expected_detail
 
-        monkeypatch.setattr(config, "TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
+        monkeypatch.setattr(config, "AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT", 2)
         prepared = await skill_service.prepare_draft_download(skill_id=created.id)
         assert prepared is not None
         assert len(prepared.files) == 2
@@ -2370,7 +2370,7 @@ class TestSkillService:
         )
         content = b"upload payload"
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.create_draft_upload(
                 skill_id=created.id,
                 params=SkillUploadSessionCreate(
@@ -2459,7 +2459,7 @@ class TestSkillService:
             await asyncio.gather(*skill_service_module._staged_upload_cleanup_tasks)
         assert deleted == {
             "key": stale_upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
         assert (
             await skill_service.session.scalar(
@@ -2595,7 +2595,7 @@ class TestSkillService:
             fake_open_download_stream,
         )
 
-        with pytest.raises(TracecatValidationError, match="size mismatch"):
+        with pytest.raises(AutoSecOpsValidationError, match="size mismatch"):
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2651,7 +2651,7 @@ class TestSkillService:
             fake_delete_file,
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2671,7 +2671,7 @@ class TestSkillService:
         }
         assert deleted == {
             "key": upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
 
     async def test_attach_uploaded_blob_stops_streaming_after_size_exceeded(
@@ -2729,7 +2729,7 @@ class TestSkillService:
             fake_open_download_stream,
         )
 
-        with pytest.raises(TracecatValidationError, match="size mismatch"):
+        with pytest.raises(AutoSecOpsValidationError, match="size mismatch"):
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2839,7 +2839,7 @@ class TestSkillService:
 
         assert deleted == {
             "key": upload.key,
-            "bucket": config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+            "bucket": config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
         }
 
     async def test_attach_uploaded_blob_waits_for_later_op_validation(
@@ -2873,7 +2873,7 @@ class TestSkillService:
             unexpected_file_exists,
         )
 
-        with pytest.raises(TracecatValidationError, match="Cannot move missing"):
+        with pytest.raises(AutoSecOpsValidationError, match="Cannot move missing"):
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2927,7 +2927,7 @@ class TestSkillService:
         )
         monkeypatch.setattr(
             config,
-            "TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES",
+            "AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES",
             sum(file.size_bytes for file in draft.files) + len(content) - 1,
         )
 
@@ -2940,7 +2940,7 @@ class TestSkillService:
             unexpected_file_exists,
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -2975,7 +2975,7 @@ class TestSkillService:
             ),
         )
 
-        with pytest.raises(TracecatValidationError, match="failed validation"):
+        with pytest.raises(AutoSecOpsValidationError, match="failed validation"):
             await skill_service.publish_skill(created.id)
 
     async def test_publish_rejects_file_directory_path_collisions(
@@ -3016,7 +3016,7 @@ class TestSkillService:
         ]
         assert updated_draft.validation_errors[0].path == "docs/readme.md"
 
-        with pytest.raises(TracecatValidationError, match="failed validation"):
+        with pytest.raises(AutoSecOpsValidationError, match="failed validation"):
             await skill_service.publish_skill(created.id)
 
     async def test_publish_skill_version_uses_files_without_rewriting_draft(
@@ -3098,7 +3098,7 @@ class TestSkillService:
             ),
         )
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.publish_skill_version(
                 skill_id=created.id,
                 params=SkillVersionPublish(
@@ -3561,7 +3561,7 @@ class TestSkillService:
             )
             is None
         )
-        with pytest.raises(TracecatNotFoundError, match="Skill version"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="Skill version"):
             await skill_service.get_version_read(
                 skill_id=created.id,
                 version_id=published.id,
@@ -3580,7 +3580,7 @@ class TestSkillService:
 
         await skill_service.archive_skill(created.id)
 
-        with pytest.raises(TracecatNotFoundError, match=f"Skill '{created.id}'"):
+        with pytest.raises(AutoSecOpsNotFoundError, match=f"Skill '{created.id}'"):
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -3594,10 +3594,10 @@ class TestSkillService:
                 ),
             )
 
-        with pytest.raises(TracecatNotFoundError, match=f"Skill '{created.id}'"):
+        with pytest.raises(AutoSecOpsNotFoundError, match=f"Skill '{created.id}'"):
             await skill_service.publish_skill(created.id)
 
-        with pytest.raises(TracecatNotFoundError, match=f"Skill '{created.id}'"):
+        with pytest.raises(AutoSecOpsNotFoundError, match=f"Skill '{created.id}'"):
             await skill_service.restore_version(
                 skill_id=created.id,
                 version_id=published.id,
@@ -3807,7 +3807,7 @@ class TestSkillService:
         assert await skill_service.get_skill_by_identifier(created.slug) is None
         assert await skill_service.get_skill_read(created.id) is None
 
-        with pytest.raises(TracecatValidationError) as bind_exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as bind_exc_info:
             await skill_service.validate_binding_inputs(
                 [AgentPresetSkillBindingBase(skill_id=created.id)]
             )
@@ -3897,7 +3897,7 @@ class TestPublishedSkillNameUniqueness:
         previous = await skill_service.publish_skill(second.id)
         await _set_package_name(skill_service, second.id, "search-package")
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.publish_skill(second.id)
         assert exc_info.value.detail == {
             "code": "skill_name_conflict",
@@ -3919,7 +3919,7 @@ class TestPublishedSkillNameUniqueness:
         second = await skill_service.create_skill(SkillCreate(name="original-package"))
         await skill_service.publish_skill(second.id)
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.restore_version(
                 skill_id=first.id, version_id=original.id
             )
@@ -3971,7 +3971,7 @@ class TestPublishedSkillNameUniqueness:
 
             async def publish(
                 skill_id: uuid.UUID,
-            ) -> SkillVersionRead | TracecatValidationError:
+            ) -> SkillVersionRead | AutoSecOpsValidationError:
                 nonlocal arrivals
                 arrivals += 1
                 if arrivals == 2:
@@ -3981,7 +3981,7 @@ class TestPublishedSkillNameUniqueness:
                     service = SkillService(session=session, role=role)
                     try:
                         return await service.publish_skill(skill_id)
-                    except TracecatValidationError as exc:
+                    except AutoSecOpsValidationError as exc:
                         await session.rollback()
                         return exc
 
@@ -3992,7 +3992,7 @@ class TestPublishedSkillNameUniqueness:
             errors = [
                 result
                 for result in results
-                if isinstance(result, TracecatValidationError)
+                if isinstance(result, AutoSecOpsValidationError)
             ]
             assert len(errors) == 1
             assert errors[0].detail == {
@@ -4017,7 +4017,7 @@ class TestSkillToolGrants:
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
 
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -4048,7 +4048,7 @@ metadata:
         created = await skill_service.create_skill(SkillCreate(name="draft-tools"))
         draft = await skill_service.get_draft(created.id)
         assert draft is not None
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await skill_service.patch_draft(
                 skill_id=created.id,
                 params=SkillDraftPatch(
@@ -4381,7 +4381,7 @@ metadata:
         ]
 
         integration_service = IntegrationService(session=session, role=svc_role)
-        with pytest.raises(TracecatValidationError) as exc_info:
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
             await integration_service.delete_mcp_integration(
                 mcp_integration_id=integration.id
             )

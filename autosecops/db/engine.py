@@ -117,7 +117,7 @@ def _guard_main_pool_checkout(
 
 async def _initialize_session_rls_context(session: AsyncSession) -> None:
     """Initialize RLS context for a newly opened request session."""
-    rls_mode = config.TRACECAT__RLS_MODE
+    rls_mode = config.AUTOSECOPS__RLS_MODE
 
     if rls_mode == config.RLSMode.ENFORCE:
         # Enforce mode applies role-based context with deny-default fallback.
@@ -171,12 +171,12 @@ def get_connection_string(
 
 def _get_db_uri(driver: Literal["psycopg", "asyncpg"] = "psycopg") -> str:
     # Check if AWS environment
-    if config.TRACECAT__DB_PASS__ARN:
+    if config.AUTOSECOPS__DB_PASS__ARN:
         logger.info("Retrieving database password from AWS Secrets Manager...")
         try:
             session = boto3.session.Session()
             client = session.client(service_name="secretsmanager")
-            response = client.get_secret_value(SecretId=config.TRACECAT__DB_PASS__ARN)
+            response = client.get_secret_value(SecretId=config.AUTOSECOPS__DB_PASS__ARN)
             secret_string = response.get("SecretString")
             if not secret_string and response.get("SecretBinary"):
                 try:
@@ -201,14 +201,14 @@ def _get_db_uri(driver: Literal["psycopg", "asyncpg"] = "psycopg") -> str:
                 parsed_json = False
                 secret_payload = {}
 
-            username = config.TRACECAT__DB_USER
+            username = config.AUTOSECOPS__DB_USER
             password = None
             if isinstance(secret_payload, dict):
                 username = username or secret_payload.get("username")
                 password = secret_payload.get("password")
 
             if not password:
-                if not parsed_json and config.TRACECAT__DB_USER:
+                if not parsed_json and config.AUTOSECOPS__DB_USER:
                     password = secret_string
                 else:
                     raise KeyError("password")
@@ -226,55 +226,59 @@ def _get_db_uri(driver: Literal["psycopg", "asyncpg"] = "psycopg") -> str:
             logger.error(
                 "Error retrieving secret from AWS secrets manager."
                 " Please check that the database secret in AWS Secrets Manager is a valid JSON object"
-                " with `username` and `password` (or set TRACECAT__DB_USER and store the password as the secret string)."
+                " with `username` and `password` (or set AUTOSECOPS__DB_USER and store the password as the secret string)."
             )
             raise e
 
         # Get the password from AWS Secrets Manager
-        if not config.TRACECAT__DB_ENDPOINT:
+        if not config.AUTOSECOPS__DB_ENDPOINT:
             raise ValueError(
-                "TRACECAT__DB_ENDPOINT is required when using AWS Secrets Manager"
+                "AUTOSECOPS__DB_ENDPOINT is required when using AWS Secrets Manager"
             )
-        if not config.TRACECAT__DB_PORT:
+        if not config.AUTOSECOPS__DB_PORT:
             raise ValueError(
-                "TRACECAT__DB_PORT is required when using AWS Secrets Manager"
+                "AUTOSECOPS__DB_PORT is required when using AWS Secrets Manager"
             )
-        if not config.TRACECAT__DB_NAME:
+        if not config.AUTOSECOPS__DB_NAME:
             raise ValueError(
-                "TRACECAT__DB_NAME is required when using AWS Secrets Manager"
+                "AUTOSECOPS__DB_NAME is required when using AWS Secrets Manager"
             )
         uri = get_connection_string(
             username=username,
             password=password,
-            host=config.TRACECAT__DB_ENDPOINT,
-            port=config.TRACECAT__DB_PORT,
-            database=config.TRACECAT__DB_NAME,
+            host=config.AUTOSECOPS__DB_ENDPOINT,
+            port=config.AUTOSECOPS__DB_PORT,
+            database=config.AUTOSECOPS__DB_NAME,
             driver=driver,
-            sslmode=config.TRACECAT__DB_SSLMODE,
+            sslmode=config.AUTOSECOPS__DB_SSLMODE,
         )
         logger.info("Successfully retrieved database password from AWS Secrets Manager")
     # Else check if the password is in the local environment
-    elif config.TRACECAT__DB_USER and config.TRACECAT__DB_PASS:
-        if not config.TRACECAT__DB_ENDPOINT:
+    elif config.AUTOSECOPS__DB_USER and config.AUTOSECOPS__DB_PASS:
+        if not config.AUTOSECOPS__DB_ENDPOINT:
             raise ValueError(
-                "TRACECAT__DB_ENDPOINT is required when using DB credentials"
+                "AUTOSECOPS__DB_ENDPOINT is required when using DB credentials"
             )
-        if not config.TRACECAT__DB_PORT:
-            raise ValueError("TRACECAT__DB_PORT is required when using DB credentials")
-        if not config.TRACECAT__DB_NAME:
-            raise ValueError("TRACECAT__DB_NAME is required when using DB credentials")
+        if not config.AUTOSECOPS__DB_PORT:
+            raise ValueError(
+                "AUTOSECOPS__DB_PORT is required when using DB credentials"
+            )
+        if not config.AUTOSECOPS__DB_NAME:
+            raise ValueError(
+                "AUTOSECOPS__DB_NAME is required when using DB credentials"
+            )
         uri = get_connection_string(
-            username=config.TRACECAT__DB_USER,
-            password=config.TRACECAT__DB_PASS,
-            host=config.TRACECAT__DB_ENDPOINT,
-            port=config.TRACECAT__DB_PORT,
-            database=config.TRACECAT__DB_NAME,
+            username=config.AUTOSECOPS__DB_USER,
+            password=config.AUTOSECOPS__DB_PASS,
+            host=config.AUTOSECOPS__DB_ENDPOINT,
+            port=config.AUTOSECOPS__DB_PORT,
+            database=config.AUTOSECOPS__DB_NAME,
             driver=driver,
-            sslmode=config.TRACECAT__DB_SSLMODE,
+            sslmode=config.AUTOSECOPS__DB_SSLMODE,
         )
     # Else use the default URI
     else:
-        uri = config.TRACECAT__DB_URI
+        uri = config.AUTOSECOPS__DB_URI
         if driver == "asyncpg":
             uri = uri.replace("psycopg", "asyncpg")
     logger.trace("Using database URI", uri=uri)
@@ -286,16 +290,16 @@ def _create_async_db_engine() -> AsyncEngine:
     uri = _get_db_uri(driver="asyncpg")
     engine = create_async_engine(
         uri,
-        max_overflow=config.TRACECAT__DB_MAX_OVERFLOW,
-        pool_recycle=config.TRACECAT__DB_POOL_RECYCLE,
-        pool_size=config.TRACECAT__DB_POOL_SIZE,
-        pool_timeout=config.TRACECAT__DB_POOL_TIMEOUT,
+        max_overflow=config.AUTOSECOPS__DB_MAX_OVERFLOW,
+        pool_recycle=config.AUTOSECOPS__DB_POOL_RECYCLE,
+        pool_size=config.AUTOSECOPS__DB_POOL_SIZE,
+        pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
         # Attribute pooled connections to the originating service in
         # pg_stat_activity.
         connect_args={
-            "server_settings": {"application_name": config.TRACECAT__SERVICE_NAME}
+            "server_settings": {"application_name": config.AUTOSECOPS__SERVICE_NAME}
         },
     )
     event.listen(engine.sync_engine, "checkout", _guard_main_pool_checkout)
@@ -313,15 +317,15 @@ def _create_async_auth_db_engine() -> AsyncEngine:
     uri = _get_db_uri(driver="asyncpg")
     return create_async_engine(
         uri,
-        max_overflow=config.TRACECAT__DB_AUTH_MAX_OVERFLOW,
-        pool_recycle=config.TRACECAT__DB_POOL_RECYCLE,
-        pool_size=config.TRACECAT__DB_AUTH_POOL_SIZE,
-        pool_timeout=config.TRACECAT__DB_POOL_TIMEOUT,
+        max_overflow=config.AUTOSECOPS__DB_AUTH_MAX_OVERFLOW,
+        pool_recycle=config.AUTOSECOPS__DB_POOL_RECYCLE,
+        pool_size=config.AUTOSECOPS__DB_AUTH_POOL_SIZE,
+        pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
         connect_args={
             "server_settings": {
-                "application_name": f"{config.TRACECAT__SERVICE_NAME}-auth"
+                "application_name": f"{config.AUTOSECOPS__SERVICE_NAME}-auth"
             }
         },
     )
@@ -360,7 +364,7 @@ def reset_async_engine() -> None:
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """Get an async SQLAlchemy database session with RLS context.
 
-    Behavior depends on TRACECAT__RLS_MODE:
+    Behavior depends on AUTOSECOPS__RLS_MODE:
     - off: bypass context by default
     - shadow: bypass context + rollout telemetry
     - enforce: role-derived context with deny-default fallback

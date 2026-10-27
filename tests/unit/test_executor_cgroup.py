@@ -54,7 +54,7 @@ def test_memory_budget_is_shared_across_all_execution_phases(
         executor._build_action_config(
             tmp_path,
             ActionSandboxConfig(
-                registry_paths=[], tracecat_app_dir=tmp_path, resources=resources
+                registry_paths=[], autosecops_app_dir=tmp_path, resources=resources
             ),
         ),
         *[
@@ -75,7 +75,8 @@ def test_action_cgroup_path_cannot_inject_config(tmp_path: Path) -> None:
     executor = NsjailExecutor(cgroup_mount=Path('/cgroup"\nrlimit_as: 0'))
     with pytest.raises(SandboxValidationError):
         executor._build_action_config(
-            tmp_path, ActionSandboxConfig(registry_paths=[], tracecat_app_dir=tmp_path)
+            tmp_path,
+            ActionSandboxConfig(registry_paths=[], autosecops_app_dir=tmp_path),
         )
 
 

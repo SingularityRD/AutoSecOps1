@@ -51,7 +51,7 @@ def build_exec_env() -> dict[str, str]:
 
 def get_bind_host() -> str:
     """Return the bind host for the managed LiteLLM process."""
-    if base_url := os.environ.get("TRACECAT__LITELLM_BASE_URL"):
+    if base_url := os.environ.get("AUTOSECOPS__LITELLM_BASE_URL"):
         parsed = urlparse(base_url)
         if parsed.hostname in {"0.0.0.0", "127.0.0.1", "localhost"}:
             return parsed.hostname
@@ -66,9 +66,9 @@ def main() -> None:
         "--host",
         get_bind_host(),
         "--port",
-        os.environ.get("TRACECAT__LITELLM_PORT") or "4000",
+        os.environ.get("AUTOSECOPS__LITELLM_PORT") or "4000",
         "--num_workers",
-        os.environ.get("TRACECAT__LITELLM_NUM_WORKERS") or "2",
+        os.environ.get("AUTOSECOPS__LITELLM_NUM_WORKERS") or "2",
         "--config",
         str(runtime_config),
     ]

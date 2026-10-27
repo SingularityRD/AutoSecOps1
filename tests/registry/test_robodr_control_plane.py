@@ -48,7 +48,7 @@ from autosecops_registry.context import (
 )
 from autosecops_registry.integrations import robodr_control_plane as cp
 from autosecops_registry.integrations import robodr_evidence as ev
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -1045,7 +1045,7 @@ async def test_revert_signoff_is_bound_to_the_revert(stub, platform) -> None:
 
 def test_state_changing_actions_require_approval() -> None:
     def kwargs(fn: Any) -> dict[str, Any]:
-        return getattr(fn, "__tracecat_udf_kwargs")
+        return getattr(fn, "__autosecops_udf_kwargs")
 
     for fn in (cp.request_action, cp.revert_action):
         assert kwargs(fn)["requires_approval"] is True
@@ -2374,7 +2374,7 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
-    client = TracecatClient(action_gateway_socket="/tmp/robot-edr-test.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/robot-edr-test.sock")
     await client.robot_edr.store_evidence(
         "CASE-0042",
         robot_id=ROBOT_ID,
@@ -2390,17 +2390,17 @@ async def test_robot_edr_sdk_calls_its_exact_internal_routes(
     assert [(r.method, str(r.url)) for r in sent] == [
         (
             "POST",
-            "http://tracecat-action-gateway/internal/robot-edr/cases/CASE-0042/evidence",
+            "http://autosecops-action-gateway/internal/robot-edr/cases/CASE-0042/evidence",
         ),
-        ("POST", "http://tracecat-action-gateway/internal/robot-edr/evidence/access"),
+        ("POST", "http://autosecops-action-gateway/internal/robot-edr/evidence/access"),
         (
             "GET",
-            "http://tracecat-action-gateway/internal/robot-edr/robots/"
+            "http://autosecops-action-gateway/internal/robot-edr/robots/"
             f"{ROBOT_ID}/blackbox-keys",
         ),
         (
             "GET",
-            "http://tracecat-action-gateway/internal/robot-edr/robots/"
+            "http://autosecops-action-gateway/internal/robot-edr/robots/"
             f"{ROBOT_ID}/blackbox-keys?from_ms=5&to_ms=9",
         ),
     ]

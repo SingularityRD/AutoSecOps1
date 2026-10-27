@@ -24,7 +24,7 @@ from autosecops.db.engine import get_async_session
 from autosecops.db.models import Case, Organization, Workspace
 from autosecops.executor.action_gateway.app import create_app
 from autosecops.pagination import PaginationError, PaginationErrorCode
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.lexical_types import SearchMode
 from autosecops.tiers import defaults as tier_defaults
 from tests.database import TEST_DB_CONFIG
@@ -32,7 +32,10 @@ from tests.integration.test_case_search_reads import (
     capture_search_queries,
     population_counts,
 )
-from tests.integration.test_case_text_search_postgres import load_search_migration
+from tests.integration.test_case_text_search_postgres import (
+    load_search_migration,
+    renamed_helper_sql,
+)
 from tests.unit.test_case_aggregation import add_case
 
 pytest_plugins = ["tests.unit.test_case_aggregation"]
@@ -48,17 +51,17 @@ async def lexical_service(aggregate_service: CasesService) -> CasesService:
     )
     migration = load_search_migration()
     for command in migration._FUNCTION_SQL_COMMANDS:
-        await session.execute(sa.text(command))
+        await session.execute(sa.text(renamed_helper_sql(command)))
     for name, expression in migration._INDEXES:
         await session.execute(
             sa.text(
-                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({expression})'
+                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({renamed_helper_sql(expression)})'
             )
         )
     for name, predicate in migration._FALLBACK_INDEXES:
         await session.execute(
             sa.text(
-                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {predicate}'
+                f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {renamed_helper_sql(predicate)}'
             )
         )
     return aggregate_service
@@ -371,7 +374,7 @@ async def test_legacy_matching_and_detail_count_projection_are_preserved(
     page_query = next(
         query.statement
         for query in queries
-        if "_tracecat_page_key_0" in query.statement
+        if "_autosecops_page_key_0" in query.statement
     )
     projection = page_query.split("FROM", 1)[0]
     assert '"case".description' not in projection
@@ -456,7 +459,7 @@ async def timeout_service() -> AsyncIterator[CasesService]:
                 session,
                 Role(
                     type="service",
-                    service_id="tracecat-executor",
+                    service_id="autosecops-executor",
                     workspace_id=workspace_id,
                     organization_id=org_id,
                     scopes=frozenset({"case:read"}),
@@ -467,17 +470,17 @@ async def timeout_service() -> AsyncIterator[CasesService]:
             )
             migration = load_search_migration()
             for command in migration._FUNCTION_SQL_COMMANDS:
-                await session.execute(sa.text(command))
+                await session.execute(sa.text(renamed_helper_sql(command)))
             for name, expression in migration._INDEXES:
                 await session.execute(
                     sa.text(
-                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({expression})'
+                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" USING gin ({renamed_helper_sql(expression)})'
                     )
                 )
             for name, predicate in migration._FALLBACK_INDEXES:
                 await session.execute(
                     sa.text(
-                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {predicate}'
+                        f'CREATE INDEX IF NOT EXISTS "{name}" ON public."case" (workspace_id,id) WHERE {renamed_helper_sql(predicate)}'
                     )
                 )
             await text_case(service, "PowerShell encoded")
@@ -506,7 +509,7 @@ async def test_canonical_timeout_rolls_back_its_savepoint(
             await blocker.execute(
                 sa.text('LOCK TABLE public."case" IN ACCESS EXCLUSIVE MODE')
             )
-            with pytest.raises(TracecatQueryTimeoutError) as error:
+            with pytest.raises(AutoSecOpsQueryTimeoutError) as error:
                 async with asyncio.timeout(8):
                     if phase == "status":
                         await timeout_service.query_case_aggregates(

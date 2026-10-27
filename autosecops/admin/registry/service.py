@@ -35,7 +35,7 @@ from autosecops.db.models import (
     PlatformRegistryVersion,
     WorkflowDefinition,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.parse import safe_url
 from autosecops.registry.actions.schemas import RegistryActionRead
 from autosecops.registry.actions.types import IndexEntry
@@ -234,7 +234,7 @@ class AdminRegistryService(BasePlatformService):
             self.session.add(PlatformRegistryRepository(origin=DEFAULT_REGISTRY_ORIGIN))
             created = True
 
-        if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+        if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
             if DEFAULT_LOCAL_REGISTRY_ORIGIN not in origins:
                 self.session.add(
                     PlatformRegistryRepository(origin=DEFAULT_LOCAL_REGISTRY_ORIGIN)
@@ -294,7 +294,7 @@ class AdminRegistryService(BasePlatformService):
         try:
             if repo.origin.startswith("git+ssh://"):
                 # NOTE: Platform git+ssh sync is not yet supported.
-                # Platform registry only supports origin=tracecat-registry.
+                # Platform registry only supports origin=autosecops-registry.
                 raise ValueError(
                     f"git+ssh origins are not supported for platform registry sync. "
                     f"Origin: {repo.origin}"
@@ -605,7 +605,7 @@ class AdminRegistryService(BasePlatformService):
             version_id for version_id in version_ids if version_id not in found_ids
         ]
         if missing_ids:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Registry versions not found: "
                 + ", ".join(str(version_id) for version_id in missing_ids)
             )
@@ -614,7 +614,7 @@ class AdminRegistryService(BasePlatformService):
             version.id for version in versions if version.tarball_uri is None
         ]
         if missing_tarballs:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Registry versions do not have tarballs: "
                 + ", ".join(str(version_id) for version_id in missing_tarballs)
             )
@@ -640,7 +640,7 @@ class AdminRegistryService(BasePlatformService):
             RegistryArtifactsBackfillWorkflow.run,
             request,
             id=workflow_id,
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             execution_timeout=execution_timeout,
         )
         return RegistryArtifactsBackfillStartResponse(
@@ -683,7 +683,7 @@ class AdminRegistryService(BasePlatformService):
             )
 
         if repo.current_version_id == version.id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete the currently promoted platform registry version. "
                 "Promote another version first."
             )
@@ -693,7 +693,7 @@ class AdminRegistryService(BasePlatformService):
             version=version.version,
         )
         if in_use:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot delete platform registry version in use by workflow "
                 "definitions."
             )
@@ -754,7 +754,7 @@ class AdminRegistryService(BasePlatformService):
             version.tarball_uri
         )
         if ready_artifact_uri is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Version {version_id} execution artifact is not ready"
             )
         if version.tarball_uri != ready_artifact_uri:

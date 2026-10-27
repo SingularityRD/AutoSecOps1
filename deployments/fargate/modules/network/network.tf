@@ -4,7 +4,7 @@ locals {
   az_count = length(var.public_subnet_cidrs)
 }
 
-resource "aws_vpc" "tracecat" {
+resource "aws_vpc" "autosecops" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -25,7 +25,7 @@ data "aws_availability_zones" "available" {}
 
 resource "aws_subnet" "public" {
   count                   = local.az_count
-  vpc_id                  = aws_vpc.tracecat.id
+  vpc_id                  = aws_vpc.autosecops.id
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
@@ -36,11 +36,11 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.tracecat.id
+  vpc_id = aws_vpc.autosecops.id
 }
 
 resource "aws_route" "internet_access" {
-  route_table_id         = aws_vpc.tracecat.main_route_table_id
+  route_table_id         = aws_vpc.autosecops.main_route_table_id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.gw.id
 }
@@ -59,7 +59,7 @@ resource "aws_nat_gateway" "gw" {
 
 resource "aws_subnet" "private" {
   count             = local.az_count
-  vpc_id            = aws_vpc.tracecat.id
+  vpc_id            = aws_vpc.autosecops.id
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
@@ -70,7 +70,7 @@ resource "aws_subnet" "private" {
 
 resource "aws_route_table" "private" {
   count  = local.az_count
-  vpc_id = aws_vpc.tracecat.id
+  vpc_id = aws_vpc.autosecops.id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -85,7 +85,7 @@ resource "aws_route_table_association" "private" {
 }
 
 resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.tracecat.id
+  vpc_id = aws_vpc.autosecops.id
 
   route {
     cidr_block = "0.0.0.0/0"

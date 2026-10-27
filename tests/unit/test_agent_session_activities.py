@@ -39,7 +39,7 @@ async def test_finalize_turn_activity_bridges_workflow_versions(
         type="service",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        service_id="tracecat-service",
+        service_id="autosecops-service",
     )
     session_id = uuid.uuid4()
     run_id = uuid.uuid4()
@@ -92,7 +92,7 @@ async def test_reconcile_tool_results_raises_on_materialization_failure(
             type="service",
             user_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
-            service_id="tracecat-service",
+            service_id="autosecops-service",
         ),
         pending_results=[
             PendingToolResult(
@@ -100,7 +100,7 @@ async def test_reconcile_tool_results_raises_on_materialization_failure(
                 tool_name="core.http_request",
                 stored_result=ExternalObject(
                     ref=ObjectRef(
-                        bucket="tracecat-workflow",
+                        bucket="autosecops-workflow",
                         key="results/test",
                         size_bytes=1,
                         sha256="0" * 64,
@@ -143,7 +143,7 @@ async def test_reconcile_tool_results_removes_interrupts_and_returns_tool_result
             type="service",
             user_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
-            service_id="tracecat-service",
+            service_id="autosecops-service",
         ),
         pending_results=[
             PendingToolResult(
@@ -193,7 +193,7 @@ async def test_reconcile_tool_results_appends_artifact_side_effect(
             type="service",
             user_id=uuid.uuid4(),
             workspace_id=uuid.uuid4(),
-            service_id="tracecat-service",
+            service_id="autosecops-service",
         ),
         pending_results=[
             PendingToolResult(

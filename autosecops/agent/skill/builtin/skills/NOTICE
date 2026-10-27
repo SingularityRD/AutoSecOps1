@@ -18,7 +18,12 @@ Modifications by SingularityRD:
     documentation site (https://docs.singularityrd.com) and support contact.
   - Vendored into this repository and copied into the application image at
     build time instead of being downloaded from the upstream repository.
+  - Renamed the skill directories, SKILL.md `name` values, `$tracecat-*`
+    cross-references and `tracecat://` MCP resource URIs to their
+    `autosecops-*`, `$autosecops-*` and `autosecops://` equivalents.
 
-Skill directory names, SKILL.md `name` values, `$tracecat-*` cross-references,
-`tracecat://` MCP resource URIs, and `autosecops_registry` imports are kept
-unchanged because the application and existing sessions reference them.
+The renamed skills are:
+
+  - autosecops-workspace-chat (from tracecat-workspace-chat)
+  - autosecops-automation-best-practices (from tracecat-automation-best-practices)
+  - autosecops-slackbot-best-practices (from tracecat-slackbot-best-practices)

@@ -18,7 +18,7 @@ take the workflow's word for the parts it can check itself:
 The bundle, manifest and signature go to the attachments bucket under a
 prefix of their own (`evidence_storage`), outside the per-case attachment
 limits and allowlist (an `RBBXBND1` bundle is no allowed type) but within a
-per-workspace quota (`TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES`); they are
+per-workspace quota (`AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES`); they are
 deleted with the case. The case gets a plain-text report attachment on a
 File marked `robodr_evidence`, which is what the UI trusts.
 """
@@ -51,7 +51,7 @@ from autosecops.cases.attachments.schemas import CaseAttachmentCreate
 from autosecops.cases.attachments.service import ROBODR_EVIDENCE_PREFIX
 from autosecops.cases.service import CasesService
 from autosecops.db.models import Robot, RobotEvidenceExport, RobotKey
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.robot_edr.evidence_storage import (
     BUNDLE_OBJECT,
     MANIFEST_OBJECT,
@@ -83,7 +83,7 @@ def _decode(value: str, what: str) -> bytes:
     try:
         return base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise TracecatValidationError(f"{what} is not valid base64") from exc
+        raise AutoSecOpsValidationError(f"{what} is not valid base64") from exc
 
 
 def _uint(value: object, what: str) -> int:
@@ -178,13 +178,13 @@ def _check_verification(verification: dict[str, object]) -> None:
     try:
         size = len(json.dumps(verification, default=str))
     except (TypeError, ValueError) as exc:
-        raise TracecatValidationError("verification is not JSON") from exc
+        raise AutoSecOpsValidationError("verification is not JSON") from exc
     if size > MAX_VERIFICATION_JSON_BYTES:
-        raise TracecatValidationError("verification is too large")
+        raise AutoSecOpsValidationError("verification is too large")
     if verification.get("verified") is not True:
-        raise TracecatValidationError("only verified evidence is stored")
+        raise AutoSecOpsValidationError("only verified evidence is stored")
     if verification.get("intact") is not True:
-        raise TracecatValidationError("only intact evidence is stored")
+        raise AutoSecOpsValidationError("only intact evidence is stored")
 
 
 def _overlaps(
@@ -248,8 +248,8 @@ class RobotEvidenceService(BaseWorkspaceService):
         :data:`MAX_KEYRING_KEYS` keys is an error.
 
         Raises:
-            TracecatNotFoundError: The robot has no enrolled black-box key.
-            TracecatValidationError: More keys match than a keyring holds.
+            AutoSecOpsNotFoundError: The robot has no enrolled black-box key.
+            AutoSecOpsValidationError: More keys match than a keyring holds.
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         stmt = (
@@ -266,7 +266,7 @@ class RobotEvidenceService(BaseWorkspaceService):
         )
         rows = (await self.session.execute(stmt)).tuples().all()
         if not rows:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "The robot has no black-box key registered by enrollment "
                 "(enroll it with robodr-enroll)"
             )
@@ -283,7 +283,7 @@ class RobotEvidenceService(BaseWorkspaceService):
             )
         ]
         if len(selected) > MAX_KEYRING_KEYS:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"{len(selected)} black-box keys are valid for this time range, "
                 f"more than a keyring holds ({MAX_KEYRING_KEYS}): narrow "
                 "from_ms/to_ms or pass the keys explicitly"
@@ -296,31 +296,31 @@ class RobotEvidenceService(BaseWorkspaceService):
         """Check and store a verified export; attach its report to the case.
 
         Raises:
-            TracecatNotFoundError: The case or the robot's finding key is unknown.
-            TracecatValidationError: The export does not check out.
+            AutoSecOpsNotFoundError: The case or the robot's finding key is unknown.
+            AutoSecOpsValidationError: The export does not check out.
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         cases = CasesService(self.session, role=self.role)
         case = await cases.get_case(case_id)
         if case is None:
-            raise TracecatNotFoundError("Case not found")
+            raise AutoSecOpsNotFoundError("Case not found")
 
         manifest_bytes = _decode(params.manifest_base64, "manifest_base64")
         if len(params.bundle_base64) > 4 * (
-            config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3 + 1
+            config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3 + 1
         ):
-            raise TracecatValidationError("the evidence bundle is too large")
+            raise AutoSecOpsValidationError("the evidence bundle is too large")
         bundle = _decode(params.bundle_base64, "bundle_base64")
-        if len(bundle) > config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES:
-            raise TracecatValidationError("the evidence bundle is too large")
+        if len(bundle) > config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES:
+            raise AutoSecOpsValidationError("the evidence bundle is too large")
 
         parsed = parse_signature_header(params.manifest_signature)
         if parsed is None:
-            raise TracecatValidationError("manifest_signature is malformed")
+            raise AutoSecOpsValidationError("manifest_signature is malformed")
         key_id = parsed[0]
         keys = await self._finding_keys(params.robot_id)
         if key_id not in keys:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "No active finding key with the manifest's key id is registered "
                 "for this robot"
             )
@@ -334,12 +334,12 @@ class RobotEvidenceService(BaseWorkspaceService):
         # EvidenceError is a ValueError; catching the base keeps this correct
         # when the registry package is reloaded (registry sync re-imports it).
         except ValueError as exc:
-            raise TracecatValidationError(str(exc)) from exc
+            raise AutoSecOpsValidationError(str(exc)) from exc
         bundle_sha256 = hashlib.sha256(bundle).hexdigest()
         if len(bundle) != manifest.bundle_bytes or bundle_sha256 != (
             manifest.bundle_sha256
         ):
-            raise TracecatValidationError("the bundle does not match its manifest")
+            raise AutoSecOpsValidationError("the bundle does not match its manifest")
         _check_verification(params.verification)
         # §11.6 steps 4-5 again, here: everything but the record signatures.
         report = verify_bundle(
@@ -350,7 +350,7 @@ class RobotEvidenceService(BaseWorkspaceService):
         )
         problems = report.problems or check_report_against_manifest(report, manifest)
         if problems:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "the bundle does not verify: " + "; ".join(problems[:5])
             )
 
@@ -369,7 +369,7 @@ class RobotEvidenceService(BaseWorkspaceService):
                 evidence_id=evidence_id,
             ).encode("ascii")
         except (ValueError, UnicodeEncodeError) as exc:
-            raise TracecatValidationError(str(exc)) from exc
+            raise AutoSecOpsValidationError(str(exc)) from exc
         await self._reserve_quota(len(bundle))
 
         # Objects first (each under a fresh, never-reused key), then the rows
@@ -448,25 +448,25 @@ class RobotEvidenceService(BaseWorkspaceService):
                 RobotEvidenceExport.workspace_id == self.workspace_id
             )
         )
-        quota = config.TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES
+        quota = config.AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES
         if int(used or 0) + size > quota:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"the workspace's RoboDR evidence quota ({quota} bytes) is "
                 "exhausted; delete cases with stored evidence or raise "
-                "TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES"
+                "AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES"
             )
 
     async def _upload_new(
         self, prefix: str, objects: tuple[tuple[str, bytes, str], ...]
     ) -> None:
         """Upload objects under keys that must not exist yet (never overwrite)."""
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS
         uploaded: list[str] = []
         try:
             for name, data, content_type in objects:
                 key = f"{prefix}/{name}"
                 if await blob.file_exists(key, bucket):
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "the evidence storage key is already in use"
                     )
                 await blob.upload_file(data, key, bucket, content_type)

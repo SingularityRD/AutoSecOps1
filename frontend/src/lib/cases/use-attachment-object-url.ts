@@ -40,7 +40,7 @@ export function useAttachmentObjectUrl(
         attachmentId: attachmentId as string,
         preview: true,
       })
-      // Cross-origin presigned host: must be listed in TRACECAT__CSP_CONNECT_SRC_ORIGINS.
+      // Cross-origin presigned host: must be listed in AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS.
       const fetched = await fetch(response.download_url)
       if (!fetched.ok) {
         throw new Error(`Failed to load image (${fetched.status})`)

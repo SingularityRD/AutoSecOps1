@@ -171,9 +171,9 @@ class EvidenceStoreRequest(BaseModel):
     bundle_base64: str = Field(
         ...,
         min_length=1,
-        # Base64 of at most TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, refused
+        # Base64 of at most AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES, refused
         # before it is decoded (or parsed as a bundle).
-        max_length=4 * -(-config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3),
+        max_length=4 * -(-config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3),
     )
     verification: dict[str, object] = Field(
         ...,

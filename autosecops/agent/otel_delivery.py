@@ -28,7 +28,7 @@ SignalPath = Literal["/v1/metrics", "/v1/logs", "/v1/traces"]
 
 type ShareKey = OrganizationID | Literal["platform"]
 
-_USER_AGENT = "tracecat-agent-otel-relay/1.0"
+_USER_AGENT = "autosecops-agent-otel-relay/1.0"
 
 # Per the OTLP spec, 500 is terminal: retrying it can duplicate a batch the
 # collector already accepted.

@@ -226,11 +226,11 @@ def test_stored_bundle_cap_follows_the_platform_setting() -> None:
     from autosecops import config as platform_config
 
     assert cp.MAX_STORED_BUNDLE_BYTES == min(
-        registry_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, 256 * 1024 * 1024
+        registry_config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES, 256 * 1024 * 1024
     )
     assert (
-        registry_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
-        == platform_config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
+        registry_config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES
+        == platform_config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES
     )
 
 

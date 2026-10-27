@@ -93,7 +93,7 @@ async def test_admin_git_sync_forwards_configured_package_name(
     )
     mocker.patch.object(
         config,
-        "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED",
+        "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED",
         sandbox_enabled,
     )
 
@@ -102,7 +102,7 @@ async def test_admin_git_sync_forwards_configured_package_name(
         role=PlatformRole(
             type="user",
             user_id=uuid.uuid4(),
-            service_id="tracecat-api",
+            service_id="autosecops-api",
         ),
     )
     mocker.patch.object(service, "_require_organization", mocker.AsyncMock())

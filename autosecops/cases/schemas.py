@@ -90,9 +90,9 @@ class CaseAggregateRequest(AggregationSpec):
 
     filters: Filter | None = Field(default=None)
     limit: int = Field(
-        default=config.TRACECAT__LIMIT_AGG_GROUPS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_AGG_GROUPS_DEFAULT,
         ge=1,
-        le=config.TRACECAT__LIMIT_AGG_GROUPS_MAX,
+        le=config.AUTOSECOPS__LIMIT_AGG_GROUPS_MAX,
     )
 
 

@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps to AWS ECS Fargate using Terraform: 
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 
 <Warning>
   This stack exposes AutoSecOps to the public internet.
@@ -40,6 +41,19 @@ cd autosecops-fargate
 
 If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
 
+## Registry credentials
+
+ECS pulls the AutoSecOps images from GHCR. If the packages are private, store your registry credentials in Secrets Manager and pass the secret ARN to Terraform:
+
+```bash
+aws secretsmanager create-secret --name autosecops/ghcr-pull \
+  --secret-string '{"username":"<github-user>","password":"<github-token-with-read:packages>"}'
+
+export TF_VAR_autosecops_registry_credentials_arn=<secret-arn>
+```
+
+Terraform adds `repositoryCredentials` to every AutoSecOps container and lets the execution roles read the secret. If you encrypt the secret with a customer-managed KMS key, also grant the execution roles `kms:Decrypt` on it. Skip this step if the packages are public, or mirror the images to Amazon ECR and set `autosecops_image` and `autosecops_ui_image` instead.
+
 ## Create core secrets
 
 <GenerateSecrets />
@@ -72,14 +86,14 @@ export TF_VAR_aws_region=<aws-region>
 export TF_VAR_domain_name=<domain>
 export TF_VAR_hosted_zone_id=<hosted-zone-id>
 
-export TF_VAR_tracecat_db_encryption_key_arn=<secret-arn>
-export TF_VAR_tracecat_service_key_arn=<secret-arn>
-export TF_VAR_tracecat_signing_secret_arn=<secret-arn>
+export TF_VAR_autosecops_db_encryption_key_arn=<secret-arn>
+export TF_VAR_autosecops_service_key_arn=<secret-arn>
+export TF_VAR_autosecops_signing_secret_arn=<secret-arn>
 export TF_VAR_user_auth_secret_arn=<secret-arn>
 export TF_VAR_auth_superadmin_email=<email>
 
 # Optional but recommended
-export TF_VAR_tracecat_image_tag=1.0.0
+export TF_VAR_autosecops_image_tag=1.0.0
 
 terraform apply
 ```
@@ -103,7 +117,7 @@ To update an existing AutoSecOps deployment on Fargate:
 
 1. Extract the Terraform stack from the image version you are updating to into a new directory.
 2. Copy your Terraform state into it, along with any `.tfvars` or override files you created. Skip the state file if you use a remote backend.
-3. Set `TF_VAR_tracecat_image_tag` to the same image version and run `terraform apply`.
+3. Set `TF_VAR_autosecops_image_tag` to the same image version and run `terraform apply`.
 
 ```bash
 # 1. Extract the new stack next to the current one
@@ -119,7 +133,7 @@ cd autosecops-fargate-<version>
 
 # 3. Set variables as before, then update the image tag
 terraform init
-export TF_VAR_tracecat_image_tag=<version>
+export TF_VAR_autosecops_image_tag=<version>
 
 terraform apply
 ```
@@ -139,16 +153,20 @@ If you are using Temporal Cloud or another external Temporal cluster, set `disab
 
 ## Resource name prefixes
 
-The stack names AWS resources with two prefixes that predate the AutoSecOps name:
+The stack names AWS resources with two prefixes:
 
 | Variable | Default | Applies to |
 | --- | --- | --- |
-| `name_prefix` | `tracecat` | VPC, ALB, ECS cluster, RDS snapshots, ElastiCache, S3 buckets, CloudWatch log groups, and the Sentry DSN secret. |
-| `iam_name_prefix` | `Tracecat` | IAM roles and policies, and ECS task definition families. |
+| `name_prefix` | `autosecops` | VPC, ALB, ECS cluster, RDS snapshots, ElastiCache, S3 buckets, CloudWatch log groups, and the Sentry DSN secret. |
+| `iam_name_prefix` | `AutoSecOps` | IAM roles and policies, and ECS task definition families. |
 
-New installs can set `TF_VAR_name_prefix=autosecops` and `TF_VAR_iam_name_prefix=AutoSecOps` before the first `terraform apply`.
+Stacks created before the AutoSecOps rename used `tracecat` and `Tracecat`. Set `TF_VAR_name_prefix=tracecat` and `TF_VAR_iam_name_prefix=Tracecat` to keep them on such a stack.
 
-Keep the defaults on an existing stack. AWS cannot rename these resources in place, so changing a prefix makes Terraform destroy and recreate them, including the S3 buckets and Redis cluster. To move an existing deployment to new prefixes, deploy a second stack with the new prefixes and the same platform secret ARNs, restore the core database from an RDS snapshot with `restore_from_snapshot`, copy the S3 buckets with `aws s3 sync`, verify the new stack, then switch DNS and destroy the old stack.
+AWS cannot rename these resources in place, so changing a prefix makes Terraform destroy and recreate them, including the S3 buckets and Redis cluster. To move an existing deployment to new prefixes, deploy a second stack with the new prefixes and the same platform secret ARNs, restore the core database from an RDS snapshot with `restore_from_snapshot`, copy the S3 buckets with `aws s3 sync`, verify the new stack, then switch DNS and destroy the old stack.
+
+## Temporal search attributes
+
+<TemporalSearchAttributes />
 
 ## FAQ
 

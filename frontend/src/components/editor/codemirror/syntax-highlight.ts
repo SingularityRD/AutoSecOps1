@@ -3,7 +3,7 @@ import { Prec } from "@codemirror/state"
 import { tags } from "@lezer/highlight"
 
 /** Syntax colors shared by the workflow builder editors and JSON field editors. */
-export const tracecatSyntaxHighlightStyle = HighlightStyle.define([
+export const autosecopsSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.content, color: "hsl(var(--syntax-content))" },
   {
     tag: tags.propertyName,
@@ -31,6 +31,6 @@ export const tracecatSyntaxHighlightStyle = HighlightStyle.define([
  * Shared syntax highlighting extension. High precedence so it wins over the
  * highlight style bundled with the `dark` (one-dark) CodeMirror theme.
  */
-export const tracecatSyntaxHighlighting = Prec.high(
-  syntaxHighlighting(tracecatSyntaxHighlightStyle)
+export const autosecopsSyntaxHighlighting = Prec.high(
+  syntaxHighlighting(autosecopsSyntaxHighlightStyle)
 )

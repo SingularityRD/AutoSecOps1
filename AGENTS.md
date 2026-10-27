@@ -28,8 +28,8 @@ If you change dependencies, regenerate the lockfile with
 
 ## Development stack
 
-Before using `just cluster`, check whether a `tracecat` stack already exists
-with `docker compose ls --filter name=tracecat`. If it does, decide whether to
+Before using `just cluster`, check whether an `autosecops` stack already exists
+with `docker compose ls --filter name=autosecops`. If it does, decide whether to
 keep using `docker compose` against it or use `just cluster` for this worktree.
 
 - Prefer `just cluster` (`up -d`, `up -d --seed`, `ps`, `logs -f api`,

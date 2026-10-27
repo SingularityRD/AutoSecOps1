@@ -22,7 +22,7 @@ from autosecops.auth.api_keys import (
 from autosecops.authz.controls import require_scope
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.db.models import ScimConnection
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.service import BaseOrgService
 
 
@@ -105,11 +105,11 @@ class ScimConnectionService(BaseOrgService):
         """Return the organization's connection status.
 
         Raises:
-            TracecatNotFoundError: No connection has been created.
+            AutoSecOpsNotFoundError: No connection has been created.
         """
         connection = await self._get()
         if connection is None:
-            raise TracecatNotFoundError("SCIM connection not found")
+            raise AutoSecOpsNotFoundError("SCIM connection not found")
         return connection
 
     async def _get(self) -> ScimConnection | None:

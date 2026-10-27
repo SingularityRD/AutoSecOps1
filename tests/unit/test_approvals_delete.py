@@ -17,7 +17,7 @@ from autosecops.auth.types import Role
 def _execute_role(workspace_id: uuid.UUID) -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace_id,
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),

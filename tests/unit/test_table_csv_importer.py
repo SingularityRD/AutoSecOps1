@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 
 from autosecops.db.models import Table, TableColumn
-from autosecops.exceptions import TracecatImportError
+from autosecops.exceptions import AutoSecOpsImportError
 from autosecops.tables.enums import SqlType
 from autosecops.tables.importer import CSVImporter, CSVSchemaInferer
 from autosecops.tables.service import TablesService
@@ -222,7 +222,7 @@ class TestCSVImporter:
         }
 
         with pytest.raises(
-            TracecatImportError,
+            AutoSecOpsImportError,
             match=(
                 "Mapped CSV column 'csv_name' was not found in file headers"
                 " at CSV row 2"
@@ -242,7 +242,7 @@ class TestCSVImporter:
         }
 
         with pytest.raises(
-            TracecatImportError,
+            AutoSecOpsImportError,
             match="Invalid null byte in column 'name' at CSV row 2",
         ):
             csv_importer.map_row(csv_row, column_mapping, row_number=2)
@@ -389,10 +389,10 @@ class TestCSVSchemaInferer:
     def test_rejects_duplicate_headers(self) -> None:
         """Duplicate CSV headers should raise an import error."""
         headers = ["Name", "Age", "Name"]
-        with pytest.raises(TracecatImportError, match="Duplicate columns: Name"):
+        with pytest.raises(AutoSecOpsImportError, match="Duplicate columns: Name"):
             CSVSchemaInferer.initialise(headers)
 
     def test_rejects_blank_duplicate_headers(self) -> None:
         headers = ["", " ", ""]
-        with pytest.raises(TracecatImportError, match="Duplicate columns: <empty>"):
+        with pytest.raises(AutoSecOpsImportError, match="Duplicate columns: <empty>"):
             CSVSchemaInferer.initialise(headers)

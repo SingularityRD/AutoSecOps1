@@ -22,7 +22,7 @@ from autosecops.agent.preset.schemas import build_agent_preset_tool_summary
 from autosecops.agent.preset.service import AgentPresetService
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import AgentFolder, AgentPreset
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import (
     BaseCursorPaginator,
     CursorPaginatedResponse,
@@ -59,8 +59,8 @@ class AgentFolderService(BaseWorkspaceService):
         message: str,
         *,
         code: AgentFolderErrorCode,
-    ) -> TracecatValidationError:
-        return TracecatValidationError(message, detail={"code": code.value})
+    ) -> AutoSecOpsValidationError:
+        return AutoSecOpsValidationError(message, detail={"code": code.value})
 
     @staticmethod
     def _normalize_folder_name(name: str) -> str:
@@ -224,13 +224,13 @@ class AgentFolderService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for agent folders"
                 ) from err
 
             cursor_created_at = cursor_data.sort_value
             if not isinstance(cursor_created_at, datetime):
-                raise TracecatValidationError("Invalid cursor for agent folders")
+                raise AutoSecOpsValidationError("Invalid cursor for agent folders")
 
             predicate = sa.or_(
                 AgentFolder.created_at < cursor_created_at,
@@ -310,7 +310,7 @@ class AgentFolderService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         preset = result.scalar_one_or_none()
         if not preset:
-            raise TracecatNotFoundError(f"Agent preset {preset_id} not found")
+            raise AutoSecOpsNotFoundError(f"Agent preset {preset_id} not found")
 
         preset.folder_id = folder.id if folder else None
         self.session.add(preset)
@@ -511,7 +511,7 @@ class AgentFolderService(BaseWorkspaceService):
         if path != "/":
             folder = await self._get_folder_by_path(path)
             if not folder:
-                raise TracecatNotFoundError(f"Folder {path} not found")
+                raise AutoSecOpsNotFoundError(f"Folder {path} not found")
             return path, folder.id
 
         return path, None

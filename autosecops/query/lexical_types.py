@@ -5,7 +5,7 @@ from enum import StrEnum
 from math import isfinite
 from typing import Literal
 
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 
 MAX_SEARCH_TEXT_LENGTH = 1_000
 MAX_SEARCH_TERMS = 32
@@ -82,7 +82,7 @@ class LexicalSearchErrorCode(StrEnum):
     CONFIGURATION_CHANGED = "search_configuration_changed"
 
 
-class LexicalSearchError(TracecatException):
+class LexicalSearchError(AutoSecOpsException):
     """A typed lexical availability failure; query timeouts use the shared error."""
 
     def __init__(self, code: LexicalSearchErrorCode) -> None:

@@ -1,0 +1,50 @@
+{{- define "autosecops.mcp.container" -}}
+{{- $v := .Values.mcp -}}
+command: ["python", "-m", "autosecops.mcp"]
+ports:
+  - name: http
+    containerPort: {{ $v.service.port }}
+    protocol: TCP
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: mcp
+  - name: AUTOSECOPS_MCP__HOST
+    value: "0.0.0.0"
+  - name: AUTOSECOPS_MCP__PORT
+    value: {{ $v.service.port | toString | quote }}
+  - name: AUTOSECOPS_MCP__RATE_LIMIT_RPS
+    value: {{ $v.rateLimitRps | toString | quote }}
+  - name: AUTOSECOPS_MCP__RATE_LIMIT_BURST
+    value: {{ $v.rateLimitBurst | toString | quote }}
+  - name: AUTOSECOPS_MCP__TOOL_TIMEOUT_SECONDS
+    value: {{ $v.toolTimeoutSeconds | toString | quote }}
+  - name: AUTOSECOPS_MCP__MAX_INPUT_SIZE_BYTES
+    value: {{ $v.maxInputSizeBytes | int64 | toString | quote }}
+  - name: AUTOSECOPS_MCP__FILE_TRANSFER_URL_EXPIRY_SECONDS
+    value: {{ $v.fileTransferUrlExpirySeconds | toString | quote }}
+  - name: AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS
+    value: {{ $v.startupMaxAttempts | toString | quote }}
+  - name: AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS
+    value: {{ $v.startupRetryDelaySeconds | toString | quote }}
+  {{- with include "autosecops.presignedUrlEndpoint" . }}
+  - name: AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
+    value: {{ . | quote }}
+  {{- end }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "mcp") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.mcp.enabled }}
+{{- $ctx := dict "root" . "component" "mcp" "values" .Values.mcp }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.mcp.container" .)
+    "backend" true
+  ) $ctx) }}
+---
+{{ include "autosecops.service" $ctx }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

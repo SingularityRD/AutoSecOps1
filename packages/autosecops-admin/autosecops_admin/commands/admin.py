@@ -21,6 +21,13 @@ from autosecops_admin.output import (
 
 app = typer.Typer(no_args_is_help=True)
 
+# autosecops-admin is not published to PyPI, so never suggest `pip install`
+# by name: anyone could register that name.
+BOOTSTRAP_INSTALL_HINT = (
+    "Bootstrap dependencies not installed. From an AutoSecOps checkout, run: "
+    "uv sync --extra admin && uv run autosecops ..."
+)
+
 
 def async_command[F: Callable[..., Any]](func: F) -> F:
     """Decorator to run async functions in typer commands."""
@@ -96,7 +103,7 @@ async def promote_user(
 ) -> None:
     """Promote a user to superuser status.
 
-    Requires: TRACECAT__SERVICE_KEY environment variable.
+    Requires: AUTOSECOPS__SERVICE_KEY environment variable.
     """
     try:
         async with AdminClient() as client:
@@ -128,7 +135,7 @@ async def demote_user(
 ) -> None:
     """Remove superuser status from a user.
 
-    Requires: TRACECAT__SERVICE_KEY environment variable.
+    Requires: AUTOSECOPS__SERVICE_KEY environment variable.
     """
     try:
         async with AdminClient() as client:
@@ -172,17 +179,14 @@ def create_superuser(
     Default behavior: Promotes an existing user to superuser.
     With --create: Creates a new user with password, then promotes to superuser.
 
-    Requires: TRACECAT__DB_URI environment variable or tracecat[bootstrap] installed.
+    Requires: AUTOSECOPS__DB_URI environment variable or autosecops[bootstrap] installed.
     """
     try:
         from autosecops_admin.services.bootstrap import (
             create_superuser as bootstrap_create_superuser,
         )
     except ImportError:
-        print_error(
-            "Bootstrap dependencies not installed. "
-            "Install with: pip install autosecops-admin[bootstrap]"
-        )
+        print_error(BOOTSTRAP_INSTALL_HINT)
         raise typer.Exit(1) from None
 
     if create:
@@ -222,7 +226,7 @@ def create_dev_user(
             "--email",
             "-e",
             help="Dev user email address",
-            envvar="TRACECAT__DEV_USER_EMAIL",
+            envvar="AUTOSECOPS__DEV_USER_EMAIL",
         ),
     ] = "dev@autosecops.example",
     password: Annotated[
@@ -231,7 +235,7 @@ def create_dev_user(
             "--password",
             "-p",
             help="Dev user password",
-            envvar="TRACECAT__DEV_USER_PASSWORD",
+            envvar="AUTOSECOPS__DEV_USER_PASSWORD",
         ),
     ] = "password1234",
     superuser_email: Annotated[
@@ -239,7 +243,7 @@ def create_dev_user(
         typer.Option(
             "--superuser-email",
             help="Dev platform superuser email address",
-            envvar="TRACECAT__DEV_SUPERUSER_EMAIL",
+            envvar="AUTOSECOPS__DEV_SUPERUSER_EMAIL",
         ),
     ] = "test@autosecops.example",
     superuser_password: Annotated[
@@ -247,7 +251,7 @@ def create_dev_user(
         typer.Option(
             "--superuser-password",
             help="Dev platform superuser password",
-            envvar="TRACECAT__DEV_SUPERUSER_PASSWORD",
+            envvar="AUTOSECOPS__DEV_SUPERUSER_PASSWORD",
         ),
     ] = "password1234",
     default_tier_entitlements: Annotated[
@@ -255,7 +259,7 @@ def create_dev_user(
         typer.Option(
             "--default-tier-entitlements",
             help="Default tier entitlements: all, none, or comma-separated names",
-            envvar="TRACECAT__DEV_DEFAULT_TIER_ENTITLEMENTS",
+            envvar="AUTOSECOPS__DEV_DEFAULT_TIER_ENTITLEMENTS",
         ),
     ] = "all",
     org_role: Annotated[
@@ -263,7 +267,7 @@ def create_dev_user(
         typer.Option(
             "--org-role",
             help="Organization role slug to assign",
-            envvar="TRACECAT__DEV_ORG_ROLE",
+            envvar="AUTOSECOPS__DEV_ORG_ROLE",
         ),
     ] = "organization-owner",
     workspace_role: Annotated[
@@ -271,7 +275,7 @@ def create_dev_user(
         typer.Option(
             "--workspace-role",
             help="Workspace role slug to assign",
-            envvar="TRACECAT__DEV_WORKSPACE_ROLE",
+            envvar="AUTOSECOPS__DEV_WORKSPACE_ROLE",
         ),
     ] = "workspace-admin",
 ) -> None:
@@ -287,10 +291,7 @@ def create_dev_user(
             create_dev_user as bootstrap_create_dev_user,
         )
     except ImportError:
-        print_error(
-            "Bootstrap dependencies not installed. "
-            "Install with: pip install autosecops-admin[bootstrap]"
-        )
+        print_error(BOOTSTRAP_INSTALL_HINT)
         raise typer.Exit(1) from None
 
     if len(password) < 12:

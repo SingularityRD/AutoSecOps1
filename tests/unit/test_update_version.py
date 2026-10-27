@@ -108,13 +108,13 @@ def test_alpha_hotfix_replaces_complete_tags_in_tracked_files(checkout: Path) ->
     seed_versions(checkout, "1.2.0-alpha.1.1", "1.2.0a1.post1")
     # Different old versions exercise pattern replacement, not just literal replacement.
     content = (
-        "${TRACECAT__IMAGE_TAG:-1.2.0-alpha.1.9}\n"
+        "${AUTOSECOPS__IMAGE_TAG:-1.2.0-alpha.1.9}\n"
         "docker pull ghcr.io/singularityrd/autosecops:1.2.0-alpha.1.9\n"
         "image: ghcr.io/singularityrd/autosecops-ui:1.2.0-alpha.1.9\n"
         'docker cp "$id":/opt/autosecops/install/. autosecops-1.2.0-alpha.1.9/\n'
         "https://github.com/TracecatHQ/tracecat/blob/1.2.0-alpha.1.9/file\n"
         "`1.2.0-alpha.1.9`\n"
-        "TF_VAR_tracecat_image_tag=1.2.0-alpha.1.9\n"
+        "TF_VAR_autosecops_image_tag=1.2.0-alpha.1.9\n"
         "Current version: 1.2.0-alpha.1.1\n"
     )
     doc = checkout / "docs/install.md"
@@ -138,12 +138,12 @@ def test_only_release_pins_are_replaced(checkout: Path) -> None:
         "https://www.conventionalcommits.org/en/v1.0.0/\n"
         "Example: `affects=package1,package2@1.0.0`\n"
         "Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).\n"
-        "image: ${TRACECAT__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}\n"
+        "image: ${AUTOSECOPS__PGVECTOR_IMAGE:-ghcr.io/singularityrd/autosecops-postgres:1}\n"
     )
     pinned = (
         "docker pull ghcr.io/singularityrd/autosecops:1.0.0\n"
         "mkdir -p autosecops-1.0.0\n"
-        "image: ghcr.io/singularityrd/autosecops:${TRACECAT__IMAGE_TAG:-1.0.0}\n"
+        "image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}\n"
         "Current version: 1.0.0.\n"
     )
     tf = checkout / "deployments/main.tf"
@@ -173,3 +173,21 @@ def test_malformed_alpha_hotfix_does_not_modify_files(
     assert result.returncode != 0
     assert "Version must use the release tag format" in result.stdout
     assert [(checkout / name).read_text() for name in VERSION_FILES] == before
+
+
+def test_contributing_version_examples_are_not_rewritten(checkout: Path) -> None:
+    seed_versions(checkout, "1.0.0", "1.0.0")
+    # The release guide documents version formats; none of these pin a release.
+    examples = (
+        "| `2.0.0-alpha.N`, `2.0.0` | A major. |\n"
+        "For example, `1.1.0-alpha.1.1` and `1.1.0-alpha.1.2` both belong on it.\n"
+        "(`1.1.0-alpha.1` becomes `1.1.0a1`)\n"
+    )
+    guide = checkout / "CONTRIBUTING.md"
+    guide.write_text(examples)
+    subprocess.run(["git", "add", "--", "CONTRIBUTING.md"], cwd=checkout, check=True)
+
+    result = update(checkout, "1.0.1")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert guide.read_text() == examples

@@ -1,4 +1,4 @@
-"""Tests for the tracecat:active-org-id cookie honored by _resolve_org_for_regular_user."""
+"""Tests for the autosecops:active-org-id cookie honored by _resolve_org_for_regular_user."""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -262,5 +262,5 @@ async def test_browser_encoded_cookie_overrides_legacy_selection(
     for org in (org_a, org_b):
         await _add_membership(session, user_id=user.id, organization_id=org.id)
     request = _request_with_cookie(str(org_a.id))
-    request.cookies["tracecat%3Aactive-org-id"] = str(org_b.id)
+    request.cookies["autosecops%3Aactive-org-id"] = str(org_b.id)
     assert await _resolve_org_for_regular_user(request, session, user) == org_b.id

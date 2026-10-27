@@ -9,11 +9,11 @@ from autosecops.authz.controls import require_scope
 from autosecops.db.models import Workflow, WorkflowDefinition
 from autosecops.dsl.common import DSLInput, expects_key_order
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     BuiltinRegistryHasNoSelectionError,
     EntitlementRequired,
     RegistryLockAmbiguousActionError,
     RegistryLockInvalidDataError,
-    TracecatValidationError,
 )
 from autosecops.identifiers.workflow import WorkflowID
 from autosecops.logger import logger
@@ -108,7 +108,9 @@ class WorkflowDefinitionsService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         latest_defn = result.scalars().first()
         if require_initial and latest_defn is not None:
-            raise TracecatValidationError("Initial workflow definition already exists")
+            raise AutoSecOpsValidationError(
+                "Initial workflow definition already exists"
+            )
 
         version = latest_defn.version + 1 if latest_defn else 1
         content = dsl.model_dump(exclude_unset=True)

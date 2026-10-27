@@ -353,7 +353,7 @@ async def run_missing_subflow_with_cancelled_sibling_preserves_causal_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             handle = await env.client.start_workflow(
@@ -559,7 +559,7 @@ async def run_isolated_platform_child_failure_does_not_attribute_parent(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             parent_handle = await env.client.start_workflow(
@@ -640,7 +640,7 @@ async def run_fail_all_preserves_mixed_child_attribution(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             parent_handle = await env.client.start_workflow(
@@ -726,7 +726,7 @@ async def run_concurrent_sibling_cancellation_preserves_causal_owner(
         slow_started=asyncio.Event(),
     )
     dsl_queue = f"runtime-error-attribution-{uuid.uuid4()}"
-    monkeypatch.setattr(config, "TRACECAT__ACTIVITY_HEARTBEAT_INTERVAL", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__ACTIVITY_HEARTBEAT_INTERVAL", 1)
 
     with (
         patch("autosecops.dsl.action._prepare_subflow", new=prepare_subflow_mock),
@@ -754,7 +754,7 @@ async def run_concurrent_sibling_cancellation_preserves_causal_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             root_handle = await env.client.start_workflow(
@@ -915,7 +915,7 @@ async def run_successful_error_handler_does_not_inherit_terminal_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             parent_handle = await env.client.start_workflow(
@@ -1068,7 +1068,7 @@ async def run_invalid_child_input_with_successful_error_handler_sets_user_owner(
             test_worker_factory(
                 env.client,
                 activities=[ExecutorActivities.execute_action_activity],
-                task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+                task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             ),
         ):
             parent_handle = await env.client.start_workflow(

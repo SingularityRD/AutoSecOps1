@@ -42,8 +42,8 @@ FLEET_SCOPES = ADMIN_SCOPES | {"robot:trust"}
 
 @pytest.fixture(autouse=True)
 def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
-    monkeypatch.setattr(config, "TRACECAT__API_ROOT_PATH", "/api")
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__API_ROOT_PATH", "/api")
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -99,7 +99,7 @@ async def new_soc(organization: Organization) -> tuple[Soc, list[uuid.UUID]]:
     def role(user_id: uuid.UUID | None) -> Role:
         return Role(
             type="user" if user_id else "service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             user_id=user_id,
             workspace_id=ws.id,
             organization_id=ws.organization_id,

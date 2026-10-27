@@ -18,7 +18,7 @@ from autosecops.db.models import (
     User,
     UserRoleAssignment,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.organization.management import (
     ensure_single_tenant_user_defaults_for_session,
 )
@@ -158,7 +158,7 @@ class AdminUserService(BasePlatformService):
         result = await self.session.execute(stmt)
         user = result.scalar_one_or_none()
         if not user:
-            raise TracecatNotFoundError(f"User {user_id} not found")
+            raise AutoSecOpsNotFoundError(f"User {user_id} not found")
 
         if user.is_superuser:
             count_stmt = (

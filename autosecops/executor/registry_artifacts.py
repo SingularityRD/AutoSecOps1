@@ -100,7 +100,7 @@ class RegistryArtifactFormat(StrEnum):
     TAR_GZ = "tar.gz"
 
 
-_METER = metrics.get_meter("tracecat.executor.registry_cache")
+_METER = metrics.get_meter("autosecops.executor.registry_cache")
 _DOWNLOAD_MB_PER_S = _METER.create_histogram(
     "registry_cache.download.mb_per_s",
     unit="MBy/s",
@@ -111,7 +111,7 @@ REGISTRY_ARTIFACT_CAPACITY_MAX_ATTEMPTS = 4
 REGISTRY_ARTIFACT_CAPACITY_RETRY_BASE_SECONDS = 0.25
 REGISTRY_ARTIFACT_CAPACITY_RETRY_MAX_SECONDS = 1.0
 
-BUNDLED_BUILTIN_REGISTRY_URI_PREFIX = f"tracecat-builtin://{DEFAULT_REGISTRY_ORIGIN}/"
+BUNDLED_BUILTIN_REGISTRY_URI_PREFIX = f"autosecops-builtin://{DEFAULT_REGISTRY_ORIGIN}/"
 """Pseudo-URI for the builtin registry already installed in the executor image."""
 
 
@@ -1595,4 +1595,4 @@ class RegistryArtifactCache(RegistryArtifactCacheStorage):
 
     def _can_try_squashfs(self) -> bool:
         """Return whether this process should prefer SquashFS artifacts."""
-        return config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED
+        return config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED

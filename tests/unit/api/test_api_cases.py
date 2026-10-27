@@ -41,9 +41,10 @@ from autosecops.cases.versions.schemas import (
 from autosecops.contexts import ctx_role
 from autosecops.db.models import Case, CaseTag, Workspace
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
+    EntitlementRequired,
 )
 from autosecops.pagination import CursorPaginatedResponse
 
@@ -359,20 +360,20 @@ def _duplicate_column_error() -> ProgrammingError:
             "/case-fields/bad-field",
             {"default": "value"},
             "update_field",
-            TracecatValidationError("Field nickname is reserved"),
+            AutoSecOpsValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
-            id="update-tracecat-validation-error",
+            id="update-autosecops-validation-error",
         ),
         pytest.param(
             "DELETE",
             "/case-fields/bad-field",
             None,
             "delete_field",
-            TracecatValidationError("Field nickname is reserved"),
+            AutoSecOpsValidationError("Field nickname is reserved"),
             status.HTTP_400_BAD_REQUEST,
             "Field nickname is reserved",
-            id="delete-tracecat-validation-error",
+            id="delete-autosecops-validation-error",
         ),
         pytest.param(
             "PATCH",
@@ -543,7 +544,7 @@ async def test_restore_case_version_success_and_mismatch_404(
         mock_service = AsyncMock()
         mock_service.restore_version.side_effect = [
             restored,
-            TracecatNotFoundError("Case version not found"),
+            AutoSecOpsNotFoundError("Case version not found"),
         ]
         mock_service_cls.return_value = mock_service
 
@@ -667,7 +668,7 @@ async def test_batch_case_lock_conflict_returns_409(
     """Batch lock timeouts map the service conflict to HTTP 409."""
     with patch.object(cases_router, "CasesService") as mock_service_cls:
         mock_svc = AsyncMock()
-        getattr(mock_svc, service_method).side_effect = TracecatConflictError(
+        getattr(mock_svc, service_method).side_effect = AutoSecOpsConflictError(
             "Timed out waiting to lock cases"
         )
         mock_service_cls.return_value = mock_svc
@@ -971,7 +972,7 @@ async def test_case_search_rejects_unresolved_tags(
             case_filters,
             "resolve_case_tag_filters",
             new=AsyncMock(
-                side_effect=TracecatValidationError(
+                side_effect=AutoSecOpsValidationError(
                     "Unknown case tag filter: 'missing-tag'"
                 )
             ),
@@ -1093,7 +1094,7 @@ async def test_update_comment_reparenting_returns_bad_request(
 
         mock_comments_service = AsyncMock()
         mock_comments_service.get_comment_in_case.return_value = object()
-        mock_comments_service.update_comment.side_effect = TracecatValidationError(
+        mock_comments_service.update_comment.side_effect = AutoSecOpsValidationError(
             "Changing a comment parent is not supported"
         )
         mock_comments_service_cls.return_value = mock_comments_service
@@ -1467,7 +1468,7 @@ async def test_search_cases_rejects_parent_id_with_top_level(
     """Contradictory hierarchy filters are a client error, not a 500."""
     with patch.object(cases_router, "CasesService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.search_cases.side_effect = TracecatValidationError(
+        mock_svc.search_cases.side_effect = AutoSecOpsValidationError(
             "parent_id cannot be combined with hierarchy=top_level"
         )
         MockService.return_value = mock_svc
@@ -1483,3 +1484,68 @@ async def test_search_cases_rejects_parent_id_with_top_level(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "cannot be combined" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["post", "patch", "delete"])
+async def test_case_task_routes_return_403_when_entitlement_missing(
+    client: TestClient,
+    test_admin_role: Role,
+    method: str,
+) -> None:
+    """Missing case_addons must surface as 403, not a generic 400/500."""
+    case_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+    with patch.object(cases_router, "CaseTasksService") as MockService:
+        mock_svc = AsyncMock()
+        error = EntitlementRequired("case_addons")
+        mock_svc.create_task.side_effect = error
+        mock_svc.get_task.side_effect = error
+        MockService.return_value = mock_svc
+
+        params = {"workspace_id": str(test_admin_role.workspace_id)}
+        match method:
+            case "post":
+                response = client.post(
+                    f"/cases/{case_id}/tasks", params=params, json={"title": "t"}
+                )
+            case "patch":
+                response = client.patch(
+                    f"/cases/{case_id}/tasks/{task_id}",
+                    params=params,
+                    json={"title": "t"},
+                )
+            case _:
+                response = client.delete(
+                    f"/cases/{case_id}/tasks/{task_id}", params=params
+                )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["type"] == "EntitlementRequired"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["patch", "delete"])
+async def test_case_task_routes_return_404_for_task_of_other_case(
+    client: TestClient,
+    test_admin_role: Role,
+    method: str,
+) -> None:
+    """A task that belongs to another case is a 404, not a generic 400/500."""
+    task_id = uuid.uuid4()
+    with patch.object(cases_router, "CaseTasksService") as MockService:
+        mock_svc = AsyncMock()
+        mock_svc.get_task.return_value.case_id = uuid.uuid4()
+        MockService.return_value = mock_svc
+
+        params = {"workspace_id": str(test_admin_role.workspace_id)}
+        url = f"/cases/{uuid.uuid4()}/tasks/{task_id}"
+        if method == "patch":
+            response = client.patch(url, params=params, json={"title": "t"})
+        else:
+            response = client.delete(url, params=params)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Task not found"
+    mock_svc.update_task.assert_not_called()
+    mock_svc.delete_task.assert_not_called()

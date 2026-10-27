@@ -64,9 +64,9 @@ def audit_capture(monkeypatch: pytest.MonkeyPatch) -> AuditCapture:
 def streams(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
     triggers = f"test-case-events-{uuid.uuid4().hex}"
     durations = f"test-case-durations-{uuid.uuid4().hex}"
-    monkeypatch.setattr(config, "TRACECAT__CASE_TRIGGERS_ENABLED", True)
-    monkeypatch.setattr(config, "TRACECAT__CASE_TRIGGERS_STREAM_KEY", triggers)
-    monkeypatch.setattr(config, "TRACECAT__CASE_DURATION_SYNC_STREAM_KEY", durations)
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_TRIGGERS_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_TRIGGERS_STREAM_KEY", triggers)
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_DURATION_SYNC_STREAM_KEY", durations)
     yield triggers, durations
 
 

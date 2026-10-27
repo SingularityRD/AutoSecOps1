@@ -48,9 +48,9 @@ from autosecops.db.models import (
     User,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatConflictError,
-    TracecatNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
 )
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.organization.service import OrgService
@@ -188,13 +188,13 @@ class SCIMService(BaseOrgService):
             The mapping and the display detail for both of its sides.
 
         Raises:
-            TracecatNotFoundError: The mapping is not in this organization.
+            AutoSecOpsNotFoundError: The mapping is not in this organization.
         """
         result = await self._mapping_page(
             ExternalGroupMapping.id == mapping_id, page=PageParams(limit=1)
         )
         if not result.items:
-            raise TracecatNotFoundError("External group mapping not found")
+            raise AutoSecOpsNotFoundError("External group mapping not found")
         return result.items[0]
 
     @require_scope("org:scim:manage")
@@ -313,7 +313,7 @@ class SCIMService(BaseOrgService):
                 )
             )
             if duplicate is not None:
-                raise TracecatConflictError(
+                raise AutoSecOpsConflictError(
                     "An external group already uses this externalId"
                 )
             group.external_id = external_id
@@ -332,7 +332,7 @@ class SCIMService(BaseOrgService):
             external_group_id: The external group to remove.
 
         Raises:
-            TracecatNotFoundError: The external group is not in this organization.
+            AutoSecOpsNotFoundError: The external group is not in this organization.
         """
         await lock_role_changes(self.session, self.organization_id)
         # Target groups first, then the external group: delete_mapping takes
@@ -368,7 +368,7 @@ class SCIMService(BaseOrgService):
                 provider, as ``external_user`` row ids.
 
         Raises:
-            TracecatNotFoundError: The external group is not in this organization.
+            AutoSecOpsNotFoundError: The external group is not in this organization.
         """
         await lock_role_changes(self.session, self.organization_id)
         # Serializes concurrent replacements: without it two pushes can each
@@ -427,13 +427,15 @@ class SCIMService(BaseOrgService):
             The stored mapping.
 
         Raises:
-            TracecatNotFoundError: Either side is not in this organization.
+            AutoSecOpsNotFoundError: Either side is not in this organization.
         """
         await lock_role_changes(self.session, self.organization_id)
         await self._get_external_group(external_group_id)
         await self._lock_group(group_id)
         if not await self._connection_is_active():
-            raise TracecatConflictError("Activate SCIM before creating group mappings")
+            raise AutoSecOpsConflictError(
+                "Activate SCIM before creating group mappings"
+            )
 
         stmt = (
             pg_insert(ExternalGroupMapping)
@@ -474,7 +476,7 @@ class SCIMService(BaseOrgService):
             mapping_id: The mapping to remove.
 
         Raises:
-            TracecatNotFoundError: The mapping is not in this organization.
+            AutoSecOpsNotFoundError: The mapping is not in this organization.
         """
         await lock_role_changes(self.session, self.organization_id)
         stmt = select(ExternalGroupMapping).where(
@@ -483,7 +485,7 @@ class SCIMService(BaseOrgService):
         )
         mapping = (await self.session.execute(stmt)).scalar_one_or_none()
         if mapping is None:
-            raise TracecatNotFoundError("External group mapping not found")
+            raise AutoSecOpsNotFoundError("External group mapping not found")
 
         group_id = mapping.group_id
         # Locked before the delete: create_mapping locks the group first, so
@@ -516,9 +518,9 @@ class SCIMService(BaseOrgService):
             delete: Mapping IDs to remove.
 
         Raises:
-            TracecatNotFoundError: A mapping or either side of one is not in
+            AutoSecOpsNotFoundError: A mapping or either side of one is not in
                 this organization.
-            TracecatConflictError: The connection is not active.
+            AutoSecOpsConflictError: The connection is not active.
         """
         await lock_role_changes(self.session, self.organization_id)
         await self._change_mappings(additions=create, removals=delete)
@@ -548,7 +550,7 @@ class SCIMService(BaseOrgService):
             else []
         )
         if len(removed) != len(removal_ids):
-            raise TracecatNotFoundError("External group mapping not found")
+            raise AutoSecOpsNotFoundError("External group mapping not found")
         pairs = {(m.external_group_id, m.group_id) for m in additions}
         external_group_ids = {external_group_id for external_group_id, _ in pairs}
         if external_group_ids:
@@ -561,11 +563,13 @@ class SCIMService(BaseOrgService):
                 )
             )
             if found != external_group_ids:
-                raise TracecatNotFoundError("External group not found")
+                raise AutoSecOpsNotFoundError("External group not found")
         gaining = {group_id for _, group_id in pairs}
         await self._lock_groups({group_id for _, group_id in removed} | gaining)
         if pairs and not await self._connection_is_active():
-            raise TracecatConflictError("Activate SCIM before creating group mappings")
+            raise AutoSecOpsConflictError(
+                "Activate SCIM before creating group mappings"
+            )
 
         await self._freeze_idp_members_as_manual(
             await self._groups_losing_every_source(removed, gaining)
@@ -636,7 +640,7 @@ class SCIMService(BaseOrgService):
         from an empty directory instead of re-admitting stale users.
 
         Raises:
-            TracecatNotFoundError: No connection exists.
+            AutoSecOpsNotFoundError: No connection exists.
         """
         await lock_role_changes(self.session, self.organization_id)
         connection = (
@@ -647,7 +651,7 @@ class SCIMService(BaseOrgService):
             )
         ).scalar_one_or_none()
         if connection is None:
-            raise TracecatNotFoundError("SCIM connection not found")
+            raise AutoSecOpsNotFoundError("SCIM connection not found")
 
         mapping_ids = list(
             (
@@ -702,7 +706,7 @@ class SCIMService(BaseOrgService):
             Counted people per outcome and a count summary per touched group.
 
         Raises:
-            TracecatNotFoundError: No connection exists, or a mapping or either
+            AutoSecOpsNotFoundError: No connection exists, or a mapping or either
                 side of one is not in this organization.
         """
         limit = None if full else REVIEW_PREVIEW_LIMIT
@@ -712,7 +716,7 @@ class SCIMService(BaseOrgService):
             )
         )
         if status is None:
-            raise TracecatNotFoundError("SCIM connection not found")
+            raise AutoSecOpsNotFoundError("SCIM connection not found")
         pending = status == ScimConnectionStatus.PENDING
         transitions = await self._group_transitions(
             proposed,
@@ -778,9 +782,9 @@ class SCIMService(BaseOrgService):
             proposed: The mappings to install as part of activation.
 
         Raises:
-            TracecatNotFoundError: No connection exists, or a mapping side is
+            AutoSecOpsNotFoundError: No connection exists, or a mapping side is
                 not in this organization.
-            TracecatConflictError: The connection is not pending activation.
+            AutoSecOpsConflictError: The connection is not pending activation.
         """
         await lock_role_changes(self.session, self.organization_id)
         connection = (
@@ -791,10 +795,10 @@ class SCIMService(BaseOrgService):
             )
         ).scalar_one_or_none()
         if connection is None:
-            raise TracecatNotFoundError("SCIM connection not found")
+            raise AutoSecOpsNotFoundError("SCIM connection not found")
         # A stale client must not activate a disconnected or already active directory.
         if connection.status != ScimConnectionStatus.PENDING:
-            raise TracecatConflictError("SCIM connection is not pending activation")
+            raise AutoSecOpsConflictError("SCIM connection is not pending activation")
 
         # Status first: admission and mapping installation below read it.
         connection.status = ScimConnectionStatus.ACTIVE
@@ -942,7 +946,7 @@ class SCIMService(BaseOrgService):
             else []
         )
         if len(removed_rows) != len(set(delete)):
-            raise TracecatNotFoundError("External group mapping not found")
+            raise AutoSecOpsNotFoundError("External group mapping not found")
         added_ids = {mapping.external_group_id for mapping in create}
         if added_ids:
             found = set(
@@ -954,7 +958,7 @@ class SCIMService(BaseOrgService):
                 )
             )
             if found != added_ids:
-                raise TracecatNotFoundError("External group not found")
+                raise AutoSecOpsNotFoundError("External group not found")
 
         removed_by_group: dict[UUID, set[UUID]] = {}
         for _, group_id, external_group_id in removed_rows:
@@ -982,7 +986,7 @@ class SCIMService(BaseOrgService):
             .all()
         )
         if len(group_names) != len(touched):
-            raise TracecatNotFoundError("Group not found")
+            raise AutoSecOpsNotFoundError("Group not found")
         sources_before_by_group: dict[UUID, set[UUID]] = {}
         for group_id, external_group_id in (
             await self.session.execute(
@@ -1128,9 +1132,9 @@ class SCIMService(BaseOrgService):
             user_id: The user the provider has deprovisioned.
 
         Raises:
-            TracecatAuthorizationError: The user is a superuser, or the caller
+            AutoSecOpsAuthorizationError: The user is a superuser, or the caller
                 lacks ``org:member:remove``.
-            TracecatNotFoundError: The account no longer exists.
+            AutoSecOpsNotFoundError: The account no longer exists.
         """
         await lock_role_changes(self.session, self.organization_id)
         if not await self._connection_is_active():
@@ -1139,9 +1143,9 @@ class SCIMService(BaseOrgService):
             return
         user = await self.session.get(User, user_id)
         if user is None:
-            raise TracecatNotFoundError("User not found")
+            raise AutoSecOpsNotFoundError("User not found")
         if user.is_superuser:
-            raise TracecatAuthorizationError("Cannot delete superuser")
+            raise AutoSecOpsAuthorizationError("Cannot delete superuser")
         await self.deactivate_external_user(user_id)
         membership = await self.session.get(
             OrganizationMembership, (user_id, self.organization_id)
@@ -1261,7 +1265,7 @@ class SCIMService(BaseOrgService):
             )
         )
         if locked != group_ids:
-            raise TracecatNotFoundError("Group not found")
+            raise AutoSecOpsNotFoundError("Group not found")
 
     async def _get_external_group(
         self, external_group_id: UUID, *, for_update: bool = False
@@ -1274,7 +1278,7 @@ class SCIMService(BaseOrgService):
             stmt = stmt.with_for_update()
         external_group = (await self.session.execute(stmt)).scalar_one_or_none()
         if external_group is None:
-            raise TracecatNotFoundError("External group not found")
+            raise AutoSecOpsNotFoundError("External group not found")
         return external_group
 
     async def _get_mapping(
@@ -1287,7 +1291,7 @@ class SCIMService(BaseOrgService):
         )
         mapping = (await self.session.execute(stmt)).scalar_one_or_none()
         if mapping is None:
-            raise TracecatNotFoundError("External group mapping not found")
+            raise AutoSecOpsNotFoundError("External group mapping not found")
         return mapping
 
     async def _mapped_group_ids(self, external_group_id: UUID) -> list[UUID]:

@@ -44,7 +44,7 @@ class TestAdminCommands:
         """Test list-users requires service key."""
         result = runner.invoke(app, ["admin", "list-users"])
         assert result.exit_code == 1
-        assert "TRACECAT__SERVICE_KEY" in result.stdout
+        assert "AUTOSECOPS__SERVICE_KEY" in result.stdout
 
 
 class TestOrgsCommands:

@@ -51,10 +51,10 @@ from autosecops.dsl.schemas import (
     StreamID,
 )
 from autosecops.exceptions import (
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ExecutionError,
     LoopExecutionError,
-    TracecatValidationError,
 )
 from autosecops.executor.activities import ExecutorActivities
 from autosecops.executor.registry_artifacts import (
@@ -85,7 +85,7 @@ def reset_platform_tracing(monkeypatch: pytest.MonkeyPatch):
     """Keep the process-global tracing runtime isolated between tests."""
     propagator = get_global_textmap()
     shutdown_platform_tracing()
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", False)
     yield
     shutdown_platform_tracing()
     set_global_textmap(propagator)
@@ -96,11 +96,11 @@ def mock_role() -> Role:
     """Create a mock role for testing."""
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-executor"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-executor"],
     )
 
 
@@ -204,8 +204,8 @@ class TestExecuteActionActivity:
     ) -> None:
         """The action activity exposes input, runtime, and storage latency."""
         exporter = InMemorySpanExporter()
-        monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
-        runtime = initialize_platform_tracing("tracecat-executor", exporter=exporter)
+        monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
+        runtime = initialize_platform_tracing("autosecops-executor", exporter=exporter)
         assert runtime is not None
 
         try:
@@ -231,17 +231,17 @@ class TestExecuteActionActivity:
         spans = {span.name: span for span in exporter.get_finished_spans()}
         assert set(spans) == {
             "temporal.activity",
-            "tracecat.action.materialize_inputs",
-            "tracecat.action.execute",
-            "tracecat.action.store_result",
+            "autosecops.action.materialize_inputs",
+            "autosecops.action.execute",
+            "autosecops.action.store_result",
         }
         activity_span = spans["temporal.activity"]
         assert activity_span.context is not None
         activity_span_id = activity_span.context.span_id
         for child_name in (
-            "tracecat.action.materialize_inputs",
-            "tracecat.action.execute",
-            "tracecat.action.store_result",
+            "autosecops.action.materialize_inputs",
+            "autosecops.action.execute",
+            "autosecops.action.store_result",
         ):
             child_parent = spans[child_name].parent
             assert child_parent is not None
@@ -249,16 +249,18 @@ class TestExecuteActionActivity:
 
         attributes = activity_span.attributes
         assert attributes is not None
-        assert attributes["tracecat.organization.id"] == str(mock_role.organization_id)
-        assert attributes["tracecat.workspace.id"] == str(mock_role.workspace_id)
-        assert attributes["tracecat.workflow.id"] == str(
+        assert attributes["autosecops.organization.id"] == str(
+            mock_role.organization_id
+        )
+        assert attributes["autosecops.workspace.id"] == str(mock_role.workspace_id)
+        assert attributes["autosecops.workflow.id"] == str(
             mock_run_action_input.run_context.wf_id
         )
-        assert attributes["tracecat.workflow.execution.id"] == str(
+        assert attributes["autosecops.workflow.execution.id"] == str(
             mock_run_action_input.run_context.wf_exec_id
         )
-        assert attributes["tracecat.action.ref"] == "test_action"
-        assert attributes["tracecat.action.name"] == "core.http_request"
+        assert attributes["autosecops.action.ref"] == "test_action"
+        assert attributes["autosecops.action.name"] == "core.http_request"
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
@@ -566,7 +568,7 @@ class TestProbeStdioMCPConnectionActivity:
         ("resolve_error", "expected_error"),
         [
             (
-                TracecatValidationError("invalid template references super-secret"),
+                AutoSecOpsValidationError("invalid template references super-secret"),
                 "invalid template references [redacted]",
             ),
             (

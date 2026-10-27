@@ -15,9 +15,9 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
   }
 
   container_definitions = jsonencode([
-    {
-      name      = "TracecatMcpContainer"
-      image     = "${var.tracecat_image}:${local.tracecat_image_tag}"
+    merge({
+      name      = "AutoSecOpsMcpContainer"
+      image     = "${var.autosecops_image}:${local.autosecops_image_tag}"
       essential = true
       portMappings = [
         {
@@ -31,7 +31,7 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+          awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "mcp"
         }
@@ -45,14 +45,14 @@ resource "aws_ecs_task_definition" "mcp_task_definition" {
         retries     = 3
         startPeriod = 30
       }
-    }
+    }, local.autosecops_repository_credentials)
   ])
 }
 
-resource "aws_ecs_service" "tracecat_mcp" {
+resource "aws_ecs_service" "autosecops_mcp" {
   count                = var.enable_mcp ? 1 : 0
-  name                 = "tracecat-mcp"
-  cluster              = aws_ecs_cluster.tracecat_cluster.id
+  name                 = "autosecops-mcp"
+  cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.mcp_task_definition[0].arn
   desired_count        = var.mcp_desired_count
   force_new_deployment = var.force_new_deployment
@@ -85,7 +85,7 @@ resource "aws_ecs_service" "tracecat_mcp" {
     log_configuration {
       log_driver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.tracecat_log_group.name
+        awslogs-group         = aws_cloudwatch_log_group.autosecops_log_group.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "service-connect-mcp"
       }
@@ -99,6 +99,6 @@ resource "aws_ecs_service" "tracecat_mcp" {
   }
 
   depends_on = [
-    aws_ecs_service.tracecat_api
+    aws_ecs_service.autosecops_api
   ]
 }

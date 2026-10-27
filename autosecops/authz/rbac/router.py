@@ -32,9 +32,9 @@ from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import Role as DBRole
 from autosecops.db.models import UserRoleAssignment
 from autosecops.exceptions import (
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 
 # =============================================================================
@@ -190,11 +190,11 @@ async def replace_user_assignments(
     service = RBACService(session, role=role)
     try:
         await service.replace_user_assignments(params)
-    except TracecatConflictError as exc:
+    except AutoSecOpsConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -212,7 +212,7 @@ async def get_user_assignment(
     service = RBACService(session, role=role)
     try:
         a = await service.get_user_assignment(assignment_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     return _assignment_to_read(a)
 
@@ -255,11 +255,11 @@ async def create_user_assignment(
             role_id=params.role_id,
             workspace_id=params.workspace_id,
         )
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -291,9 +291,9 @@ async def update_user_assignment(
     service = RBACService(session, role=role)
     try:
         a = await service.update_user_assignment(assignment_id, role_id=params.role_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -321,5 +321,5 @@ async def delete_user_assignment(
     service = RBACService(session, role=role)
     try:
         await service.delete_user_assignment(assignment_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

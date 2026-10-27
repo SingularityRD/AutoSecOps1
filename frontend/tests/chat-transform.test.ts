@@ -336,7 +336,7 @@ describe("markLiveDenials", () => {
     expect(message.parts[0]).toMatchObject({ input: { value: "edited" } })
     expect(message.parts[1]).toMatchObject({
       callProviderMetadata: {
-        tracecat: { approval: "rejected", reason: "No" },
+        autosecops: { approval: "rejected", reason: "No" },
       },
     })
   })
@@ -374,7 +374,7 @@ describe("markLiveDenials", () => {
     expect(message.parts[1]).toMatchObject({
       state: "output-error",
       callProviderMetadata: {
-        tracecat: { approval: "rejected", reason: "No" },
+        autosecops: { approval: "rejected", reason: "No" },
       },
     })
   })

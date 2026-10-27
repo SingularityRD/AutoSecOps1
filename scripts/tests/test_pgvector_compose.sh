@@ -12,12 +12,12 @@ cleanup() {
 }
 trap cleanup EXIT
 # Do not let the developer shell override the synthetic .env under test.
-unset TRACECAT__PGVECTOR_IMAGE COMPOSE_FILE COMPOSE_PROJECT_NAME
+unset AUTOSECOPS__PGVECTOR_IMAGE COMPOSE_FILE COMPOSE_PROJECT_NAME
 for compose_file in docker-compose.yml docker-compose.local.yml docker-compose.dev.yml; do
     cp "$repo_root/$compose_file" "$work_dir/compose.yaml"
-    printf 'COMPOSE_PROJECT_NAME=pgvector-config-test\nTRACECAT__LOCAL_REPOSITORY_PATH=/tmp/synthetic-registry\nPUBLIC_APP_PORT=8080\nTEMPORAL__UI_VERSION=latest\n' > "$work_dir/.env"
+    printf 'COMPOSE_PROJECT_NAME=pgvector-config-test\nAUTOSECOPS__LOCAL_REPOSITORY_PATH=/tmp/synthetic-registry\nPUBLIC_APP_PORT=8080\nTEMPORAL__UI_VERSION=latest\n' > "$work_dir/.env"
     (cd "$work_dir" && docker compose config --format json) > "$work_dir/default.json" 2> "$work_dir/warnings.log"
-    printf 'TRACECAT__PGVECTOR_IMAGE=synthetic-postgres-pgvector:validated\n' >> "$work_dir/.env"
+    printf 'AUTOSECOPS__PGVECTOR_IMAGE=synthetic-postgres-pgvector:validated\n' >> "$work_dir/.env"
     (cd "$work_dir" && docker compose config --format json) > "$work_dir/configured.json" 2>> "$work_dir/warnings.log"
     python3 - "$work_dir" "$repo_root/deployments/postgres/images.json" <<'PY'
 import json

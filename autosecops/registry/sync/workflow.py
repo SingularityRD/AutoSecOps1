@@ -298,7 +298,7 @@ async def backfill_registry_artifacts_activity(
             )
 
         with tempfile.TemporaryDirectory(
-            prefix="tracecat_registry_artifacts_backfill_"
+            prefix="autosecops_registry_artifacts_backfill_"
         ) as temp_dir:
             work_dir = Path(temp_dir)
             tarball_path = work_dir / "site-packages.tar.gz"

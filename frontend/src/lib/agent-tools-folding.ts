@@ -1,4 +1,4 @@
-import { getTracecatComponents, isTracecatJsonSchema } from "@/lib/schema"
+import { getAutoSecOpsComponents, isAutoSecOpsJsonSchema } from "@/lib/schema"
 
 type FieldEntry = [fieldName: string, fieldDefn: unknown]
 
@@ -33,8 +33,8 @@ function findField(
   componentId: "action-type" | "mcp-integration"
 ): string | null {
   for (const [fieldName, schema] of Object.entries(properties)) {
-    if (!isTracecatJsonSchema(schema)) continue
-    const found = getTracecatComponents(schema).some((component) => {
+    if (!isAutoSecOpsJsonSchema(schema)) continue
+    const found = getAutoSecOpsComponents(schema).some((component) => {
       if (component.component_id !== componentId) return false
       // Only the multi-select action picker is the agent's tool list.
       if (component.component_id === "action-type")

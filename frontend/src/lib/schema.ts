@@ -11,30 +11,30 @@ export type ExpressionComponent = {
   component_id: "expression"
 }
 
-export type TracecatEditorComponent = EditorComponent | ExpressionComponent
-export type TracecatComponentId = NonNullable<
-  TracecatEditorComponent["component_id"]
+export type AutoSecOpsEditorComponent = EditorComponent | ExpressionComponent
+export type AutoSecOpsComponentId = NonNullable<
+  AutoSecOpsEditorComponent["component_id"]
 >
 
-export type TracecatJsonSchema = JSONSchema7 & TcJsonSchemaExtra
-export type TracecatJsonSchemaDefinition = JSONSchema7Definition &
+export type AutoSecOpsJsonSchema = JSONSchema7 & TcJsonSchemaExtra
+export type AutoSecOpsJsonSchemaDefinition = JSONSchema7Definition &
   TcJsonSchemaExtra
-export type TracecatJsonSchemaType = JSONSchema7Type & TcJsonSchemaExtra
-export const TRACECAT_COMPONENT_KEY = "x-tracecat-component" as const
+export type AutoSecOpsJsonSchemaType = JSONSchema7Type & TcJsonSchemaExtra
+export const AUTOSECOPS_COMPONENT_KEY = "x-autosecops-component" as const
 
 export type TcJsonSchemaExtra = {
-  [TRACECAT_COMPONENT_KEY]?: TracecatEditorComponent[]
+  [AUTOSECOPS_COMPONENT_KEY]?: AutoSecOpsEditorComponent[]
   deprecated?: boolean
-  "x-tracecat-deprecation-message"?: string
+  "x-autosecops-deprecation-message"?: string
 }
 
-export function isTracecatJsonSchema(
+export function isAutoSecOpsJsonSchema(
   schema: unknown
-): schema is TracecatJsonSchema {
+): schema is AutoSecOpsJsonSchema {
   return (
     typeof schema === "object" &&
     schema !== null &&
-    TRACECAT_COMPONENT_KEY in schema
+    AUTOSECOPS_COMPONENT_KEY in schema
   )
 }
 
@@ -44,7 +44,7 @@ export function isTracecatJsonSchema(
  * If the component key is not present or not an array, returns an empty array.
  * Only returns the value if it is an array.
  *
- * @param schema - The TracecatJsonSchema object to extract components from.
+ * @param schema - The AutoSecOpsJsonSchema object to extract components from.
  * @returns An array of component objects with at least a component_id.
  */
 /**
@@ -54,9 +54,9 @@ export function isTracecatJsonSchema(
  * @param item - The item to check.
  * @returns True if the item is a valid AutoSecOps component, false otherwise.
  */
-export function isTracecatComponent(
+export function isAutoSecOpsComponent(
   item: unknown
-): item is TracecatEditorComponent {
+): item is AutoSecOpsEditorComponent {
   return (
     typeof item === "object" &&
     item !== null &&
@@ -70,22 +70,22 @@ export function isTracecatComponent(
  * If the component key is not present or not an array, returns an empty array.
  * Only returns the value if it is an array of valid AutoSecOps components.
  *
- * @param schema - The TracecatJsonSchema object to extract components from.
+ * @param schema - The AutoSecOpsJsonSchema object to extract components from.
  * @returns An array of component objects with at least a component_id.
  */
-export function getTracecatComponents(
-  schema: TracecatJsonSchema
-): TracecatEditorComponent[] {
-  const component = schema[TRACECAT_COMPONENT_KEY]
+export function getAutoSecOpsComponents(
+  schema: AutoSecOpsJsonSchema
+): AutoSecOpsEditorComponent[] {
+  const component = schema[AUTOSECOPS_COMPONENT_KEY]
   if (Array.isArray(component)) {
     // Use the type guard to filter valid components
-    return component.filter(isTracecatComponent)
+    return component.filter(isAutoSecOpsComponent)
   }
   return []
 }
 
 // Helper function to check if schema has multiple components
-export function hasMultipleComponents(schema: TracecatJsonSchema): boolean {
-  const component = schema[TRACECAT_COMPONENT_KEY]
+export function hasMultipleComponents(schema: AutoSecOpsJsonSchema): boolean {
+  const component = schema[AUTOSECOPS_COMPONENT_KEY]
   return Array.isArray(component) && component.length > 1
 }

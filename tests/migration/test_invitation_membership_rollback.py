@@ -33,7 +33,7 @@ def clean_redis_db() -> None:
 
 def _migrate(db_url: str, direction: str, revision: str) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", direction, revision],
         env=env,

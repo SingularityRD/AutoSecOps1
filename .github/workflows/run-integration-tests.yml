@@ -16,11 +16,13 @@ concurrency:
 
 jobs:
   plan-run:
-    # The suite needs the internal-registry-ci environment, its
-    # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key, and a private registry repository
-    # the key can read, named owner/repo in the INTERNAL_REGISTRY_REPOSITORY
-    # Actions variable. Skip every job cleanly until an operator has provisioned
-    # them and set the INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
+    # The suite runs in the internal-registry-ci environment. Skip every job
+    # cleanly until an operator has provisioned it and set the
+    # INTERNAL_REGISTRY_CI_ENABLED Actions variable to true.
+    # The private custom registry test also needs a repository the
+    # CUSTOM_REPO_SSH_PRIVATE_KEY deploy key can read, named by the
+    # CUSTOM_REGISTRY_REPOSITORY (owner/name) and CUSTOM_REGISTRY_COMMIT_SHA
+    # Actions variables. Without them that one test is skipped.
     if: vars.INTERNAL_REGISTRY_CI_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -97,7 +99,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────
   ssh-sanity:
     needs: plan-run
-    if: needs.plan-run.outputs.should_run == 'true'
+    if: needs.plan-run.outputs.should_run == 'true' && vars.CUSTOM_REGISTRY_REPOSITORY != ''
     environment: internal-registry-ci
     runs-on: ubuntu-latest
     timeout-minutes: 5 # short fail-fast window
@@ -122,34 +124,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Lightweight connectivity check — choose ONE:
-      #
-      # A) Strict git connectivity (fastest, no deps):
       - name: Verify git over SSH
         env:
-          INTERNAL_REGISTRY_REPOSITORY: ${{ vars.INTERNAL_REGISTRY_REPOSITORY }}
+          CUSTOM_REGISTRY_REPOSITORY: ${{ vars.CUSTOM_REGISTRY_REPOSITORY }}
         run: |
           set -euo pipefail
-          if [[ ! "$INTERNAL_REGISTRY_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            echo "::error::Set the INTERNAL_REGISTRY_REPOSITORY Actions variable to the private registry repository (owner/repo) that CUSTOM_REPO_SSH_PRIVATE_KEY can read."
+          if [[ ! "$CUSTOM_REGISTRY_REPOSITORY" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]]; then
+            echo "CUSTOM_REGISTRY_REPOSITORY must be owner/name" >&2
             exit 1
           fi
-          git ls-remote "git@github.com:${INTERNAL_REGISTRY_REPOSITORY}.git" HEAD
-      #
-      # B) End-to-end install smoke-test (still <10 s):
-      #- name: Smoke-test pip install via SSH
-      #  run: |
-      #    uv pip install --no-deps --quiet \
-      #      "git+ssh://git@github.com/${INTERNAL_REGISTRY_REPOSITORY}.git@main"
-      #    python -c "import importlib, sys; print('import ok:', bool(importlib.import_module('internal_registry', package=None))); sys.exit(0)"
+          git ls-remote "git@github.com:${CUSTOM_REGISTRY_REPOSITORY}.git" HEAD
 
   # ──────────────────────────────────────────────────────────────────
   # 2.  FULL INTEGRATION TESTS (with pytest-xdist for parallelization)
   #     Uses worker-specific task queues from conftest.py for isolation
   # ──────────────────────────────────────────────────────────────────
   test-integration:
-    needs: [plan-run, ssh-sanity] # only start if key check passed
-    if: needs.plan-run.outputs.should_run == 'true' && needs.ssh-sanity.result == 'success'
+    # Start when the key check passed, or when it was skipped because no
+    # private registry repository is configured.
+    needs: [plan-run, ssh-sanity]
+    if: >-
+      !cancelled() &&
+      needs.plan-run.outputs.should_run == 'true' &&
+      (needs.ssh-sanity.result == 'success' || needs.ssh-sanity.result == 'skipped')
     environment: internal-registry-ci
     runs-on: ubuntu-22.04
     timeout-minutes: 60
@@ -192,14 +189,14 @@ jobs:
           context: .
           target: production
           load: true
-          tags: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          tags: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
           # Reuse the amd64 layers the nightly image publish caches on main.
           cache-from: type=gha,scope=api-linux-amd64
 
       - name: Test production image sandboxes on native AMD64
         timeout-minutes: 5
         env:
-          CI_IMAGE: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          CI_IMAGE: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
           test "$(uname -m)" = x86_64
@@ -210,13 +207,13 @@ jobs:
             --security-opt systempaths=unconfined \
             --device /dev/net/tun \
             --mount "type=bind,source=$PWD/tests,target=/app/tests,readonly" \
-            -e TRACECAT__EXECUTOR_BACKEND=nsjail \
-            -e TRACECAT__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD=1 \
-            -e TRACECAT__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD=1 \
+            -e AUTOSECOPS__EXECUTOR_BACKEND=nsjail \
+            -e AUTOSECOPS__EXECUTOR_ACTION_SMOKE_DOCKER_CHILD=1 \
+            -e AUTOSECOPS__AGENT_NSJAIL_DOCKER_FALLBACK_CHILD=1 \
             -e PYTHONDONTWRITEBYTECODE=1 \
-            -e PYTHONPATH=/tmp/tracecat-smoke-deps:/app \
+            -e PYTHONPATH=/tmp/autosecops-smoke-deps:/app \
             "$CI_IMAGE" python -m autosecops.agent.sandbox.cgroup /bin/sh -ec '
-              uv pip install --target /tmp/tracecat-smoke-deps pytest==8.3.2
+              uv pip install --target /tmp/autosecops-smoke-deps pytest==8.3.2
               exec /app/.venv/bin/python /app/tests/smoke_app_image.py
             '
 
@@ -225,12 +222,12 @@ jobs:
 
       - name: Start core Docker services
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
-          TRACECAT__UNSAFE_DISABLE_SM_MASKING: "true"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
-          TRACECAT__FEATURE_FLAGS: ""
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING: "true"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__FEATURE_FLAGS: ""
           # Keep executor-hosted registry sync enabled (run via Temporal)
-          TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
+          AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
         run: |
           set -euo pipefail
 
@@ -292,13 +289,16 @@ jobs:
         env:
           # Expect a base64 encoded key
           CUSTOM_REPO_SSH_PRIVATE_KEY: ${{ secrets.CUSTOM_REPO_SSH_PRIVATE_KEY }}
+          # Empty when unconfigured, which skips the private registry test.
+          AUTOSECOPS_TEST_CUSTOM_REGISTRY_GIT_URL: ${{ vars.CUSTOM_REGISTRY_REPOSITORY && format('git+ssh://git@github.com/{0}.git', vars.CUSTOM_REGISTRY_REPOSITORY) || '' }}
+          AUTOSECOPS_TEST_CUSTOM_REGISTRY_COMMIT_SHA: ${{ vars.CUSTOM_REGISTRY_COMMIT_SHA }}
           # Keep executor-hosted registry sync enabled (run via Temporal)
-          TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
+          AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED: "true"
           # Tests run on the host, so Temporal must be reachable via localhost
           TEMPORAL__CLUSTER_URL: "localhost:7233"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
           # Privileged loop-device regression reuses the exact image built above.
-          TRACECAT__REGISTRY_LOOP_HOTPLUG_IMAGE: tracecat-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__REGISTRY_LOOP_HOTPLUG_IMAGE: autosecops-ci:integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           # Skip pool integration tests for now.
           # Worker-specific task queues in conftest.py ensure isolation
@@ -307,17 +307,17 @@ jobs:
 
       - name: Run API-backed temporal tests against compose
         env:
-          TRACECAT_TEST_API_MODE: "external"
-          TRACECAT_TEST_EXTERNAL_API_URL: "http://localhost/api"
+          AUTOSECOPS_TEST_API_MODE: "external"
+          AUTOSECOPS_TEST_EXTERNAL_API_URL: "http://localhost/api"
           TEMPORAL__CLUSTER_URL: "localhost:7233"
-          TRACECAT__EXECUTOR_BACKEND: "direct"
+          AUTOSECOPS__EXECUTOR_BACKEND: "direct"
         run: |
           uv run --no-sync pytest tests/temporal -m "requires_api and not live_secret" -n auto -ra -v -o faulthandler_timeout=300
 
       - name: Show Docker logs on failure
         if: failure()
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           echo "=== Docker Service Status ==="
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml ps
@@ -349,7 +349,7 @@ jobs:
       - name: Clean up
         if: always()
         env:
-          TRACECAT__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
+          AUTOSECOPS__CI_IMAGE_TAG: integration-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker compose -f docker-compose.local.yml -f .github/docker-compose.integration.yml down -v
 

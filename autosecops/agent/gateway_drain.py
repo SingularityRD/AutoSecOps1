@@ -1,7 +1,7 @@
 """Gateway identity and drain logging for managed LiteLLM workers.
 
 Each uvicorn worker of the managed LiteLLM service tags its responses with
-``x-tracecat-gateway: <pod>/<pid>`` so the LLM socket proxy can attribute an
+``x-autosecops-gateway: <pod>/<pid>`` so the LLM socket proxy can attribute an
 interrupted stream to the worker that served it.
 
 On SIGTERM every worker logs drain start, done, and timeout with its in-flight
@@ -31,7 +31,7 @@ from litellm.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownMan
 
 from autosecops.logger import logger
 
-GATEWAY_IDENTITY_HEADER = "x-tracecat-gateway"
+GATEWAY_IDENTITY_HEADER = "x-autosecops-gateway"
 _DRAIN_POLL_INTERVAL_SECONDS = 0.1
 
 _drain_tasks: set[asyncio.Task[None]] = set()

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from autosecops import config
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import (
     BaseCursorPaginator,
     CursorData,
@@ -125,7 +126,7 @@ async def _create_typed_page_items(session: AsyncSession) -> sa.Table:
 
 @pytest.fixture
 def pagination_signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "pagination-test-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "pagination-test-secret")
 
 
 class TestCursorPaginator:
@@ -170,6 +171,14 @@ class TestCursorPaginator:
         ).decode()
         with pytest.raises(ValueError, match="Invalid cursor format"):
             paginator.decode_cursor(incomplete_data)
+
+    def test_decode_invalid_cursor_is_a_client_error(self, session: AsyncSession):
+        """Malformed cursors map to a 4xx through the AutoSecOps handler."""
+        paginator = BaseCursorPaginator(session)
+
+        with pytest.raises(AutoSecOpsValidationError) as exc_info:
+            paginator.decode_cursor("null")
+        assert isinstance(exc_info.value, ValueError)
 
     def test_cursor_roundtrip_with_microseconds(self, session: AsyncSession):
         """Test that cursor encoding preserves microsecond precision."""

@@ -26,11 +26,11 @@ definition:
     source:
       type: str
       description: Event source identifier (e.g. application name, script name).
-      default: tracecat_workflow
+      default: autosecops_workflow
     sourcetype:
       type: str
       description: Event source type for categorization and parsing rules.
-      default: tracecat_log
+      default: autosecops_log
     host:
       type: str
       description: Host field value for the event.

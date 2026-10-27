@@ -23,7 +23,7 @@ from autosecops.cases.dropdowns.service import (
     CaseDropdownValuesService,
 )
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 # --- Definition CRUD router ---
 
@@ -62,7 +62,7 @@ async def create_dropdown_definition(
     service = CaseDropdownDefinitionsService(session=session, role=role)
     try:
         definition = await service.create_definition(params)
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -82,7 +82,7 @@ async def get_dropdown_definition(
     service = CaseDropdownDefinitionsService(session=session, role=role)
     try:
         definition = await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
@@ -102,13 +102,13 @@ async def update_dropdown_definition(
     service = CaseDropdownDefinitionsService(session=session, role=role)
     try:
         definition = await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
     try:
         updated = await service.update_definition(definition, params)
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -128,7 +128,7 @@ async def delete_dropdown_definition(
     service = CaseDropdownDefinitionsService(session=session, role=role)
     try:
         definition = await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
@@ -156,13 +156,13 @@ async def add_dropdown_option(
     # Verify definition exists
     try:
         await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
     try:
         option = await service.add_option(definition_id, params)
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -188,17 +188,17 @@ async def update_dropdown_option(
     # Verify definition belongs to this workspace
     try:
         await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
     try:
         option = await service.update_option(definition_id, option_id, params)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
-    except TracecatValidationError as err:
+    except AutoSecOpsValidationError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
@@ -223,13 +223,13 @@ async def delete_dropdown_option(
     # Verify definition belongs to this workspace
     try:
         await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
     try:
         await service.delete_option(definition_id, option_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
@@ -251,7 +251,7 @@ async def reorder_dropdown_options(
     service = CaseDropdownDefinitionsService(session=session, role=role)
     try:
         await service.get_definition(definition_id)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err
@@ -293,7 +293,7 @@ async def set_case_dropdown_value(
     service = CaseDropdownValuesService(session=session, role=role)
     try:
         return await service.set_value(case_id, definition_id, params)
-    except TracecatNotFoundError as err:
+    except AutoSecOpsNotFoundError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(err)
         ) from err

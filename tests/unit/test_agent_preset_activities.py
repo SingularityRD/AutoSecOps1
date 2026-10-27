@@ -37,10 +37,10 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.auth.types import Role
 from autosecops.dsl._converter import get_data_converter
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.runtime.errors import (
     RetryDisposition,
@@ -57,7 +57,7 @@ from autosecops.temporal.errors import (
 def _role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -111,10 +111,10 @@ def clean_redis_db() -> Iterator[None]:
 @pytest.mark.parametrize(
     "error",
     [
-        TracecatNotFoundError("Agent preset not found"),
-        TracecatValidationError("Preset version does not belong to preset"),
+        AutoSecOpsNotFoundError("Agent preset not found"),
+        AutoSecOpsValidationError("Preset version does not belong to preset"),
         ScopeDeniedError(required_scopes=["agent:read"], missing_scopes=["agent:read"]),
-        TracecatAuthorizationError("Synthetic model access denial"),
+        AutoSecOpsAuthorizationError("Synthetic model access denial"),
     ],
 )
 async def test_resolve_agent_preset_config_classifies_user_input_errors(
@@ -189,11 +189,12 @@ async def test_preset_preparation_enforces_serialized_role_scopes(
 ) -> None:
     """Exercise the real catalog/provider credential guard across the wire."""
     monkeypatch.setattr(
-        "autosecops.config.TRACECAT__DB_ENCRYPTION_KEY", Fernet.generate_key().decode()
+        "autosecops.config.AUTOSECOPS__DB_ENCRYPTION_KEY",
+        Fernet.generate_key().decode(),
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=scopes,
@@ -305,7 +306,7 @@ async def test_preset_preparation_enforces_serialized_role_scopes(
     "error",
     [
         ScopeDeniedError(required_scopes=["agent:read"], missing_scopes=["agent:read"]),
-        TracecatAuthorizationError("Synthetic private resource"),
+        AutoSecOpsAuthorizationError("Synthetic private resource"),
         ConnectionError("Synthetic database unavailable"),
     ],
 )
@@ -346,7 +347,7 @@ async def test_preparation_boundary_distinguishes_denials_from_platform_errors(
     )
     activity_error.__cause__ = restored
     classification = _agent_activity_classification(activity_error)
-    if isinstance(error, TracecatAuthorizationError):
+    if isinstance(error, AutoSecOpsAuthorizationError):
         assert isinstance(restored, ApplicationError)
         assert restored.non_retryable
         assert classification.owner is RuntimeErrorOwner.USER
@@ -568,7 +569,9 @@ async def test_resolve_agents_config_classifies_missing_subagent_preset(
 ) -> None:
     service = SimpleNamespace(
         resolve_agent_preset_version=AsyncMock(
-            side_effect=TracecatNotFoundError("Agent preset 'missing-child' not found")
+            side_effect=AutoSecOpsNotFoundError(
+                "Agent preset 'missing-child' not found"
+            )
         ),
         use_latest_resource_versions=AsyncMock(return_value=False),
     )
@@ -830,7 +833,7 @@ async def test_resolve_custom_model_provider_config_classifies_revoked_catalog(
         ),
         organization_id=uuid.uuid4(),
         get_catalog_credentials=AsyncMock(
-            side_effect=TracecatAuthorizationError("catalog access revoked")
+            side_effect=AutoSecOpsAuthorizationError("catalog access revoked")
         ),
     )
     role = _role()

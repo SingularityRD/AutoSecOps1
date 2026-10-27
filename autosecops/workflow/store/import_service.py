@@ -12,10 +12,10 @@ from autosecops.db.models import Webhook, Workflow, WorkflowTag, WorkflowTagLink
 from autosecops.dsl.common import DSLInput
 from autosecops.dsl.enums import PlatformAction
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
     EntitlementRequired,
     RegistryError,
     RegistryLockActionNotFoundError,
-    TracecatAuthorizationError,
 )
 from autosecops.forms.enums import FormStatus
 from autosecops.forms.service import FormsService
@@ -748,7 +748,7 @@ class WorkflowImportService(BaseWorkspaceService):
     async def _find_or_create_tag(self, tag_name: str) -> WorkflowTag:
         """Find existing tag or create new one in workspace."""
         if not self.workspace_id:
-            raise TracecatAuthorizationError("Workspace ID is required")
+            raise AutoSecOpsAuthorizationError("Workspace ID is required")
 
         stmt = select(WorkflowTag).where(
             WorkflowTag.workspace_id == self.workspace_id,
@@ -839,7 +839,7 @@ def _unique_temporary_workflow_alias(
     reserved_aliases: set[str],
 ) -> str:
     """Return a temporary workflow alias that does not collide."""
-    base = f"tracecat-sync-tmp-{workflow.id.hex}"
+    base = f"autosecops-sync-tmp-{workflow.id.hex}"
     candidate = base
     suffix = 1
     while candidate in reserved_aliases:

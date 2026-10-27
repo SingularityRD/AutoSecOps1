@@ -15,7 +15,7 @@ from autosecops.api.app import app
 from autosecops.auth.types import Role
 from autosecops.auth.users import current_active_user
 from autosecops.db.engine import get_async_session
-from autosecops.exceptions import TracecatConflictError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.invitations import router as invitations_router
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
@@ -193,7 +193,7 @@ async def test_resend_invitation_validation_error_returns_400(
 ) -> None:
     with patch.object(invitations_router, "InvitationService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.resend_invitation.side_effect = TracecatValidationError(
+        mock_svc.resend_invitation.side_effect = AutoSecOpsValidationError(
             "Email delivery is not configured"
         )
         MockService.return_value = mock_svc
@@ -210,7 +210,7 @@ async def test_resend_invitation_cooldown_returns_409(
 ) -> None:
     with patch.object(invitations_router, "InvitationService") as MockService:
         mock_svc = AsyncMock()
-        mock_svc.resend_invitation.side_effect = TracecatConflictError("too soon")
+        mock_svc.resend_invitation.side_effect = AutoSecOpsConflictError("too soon")
         MockService.return_value = mock_svc
 
         response = client.post(f"/invitations/{uuid.uuid4()}/resend")

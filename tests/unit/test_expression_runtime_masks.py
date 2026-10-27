@@ -9,7 +9,7 @@ import pytest
 
 from autosecops.contexts import ctx_secret_masks
 from autosecops.dsl.schemas import ActionRetryPolicy
-from autosecops.exceptions import ExecutionError, TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError, ExecutionError
 from autosecops.executor import service
 from autosecops.executor.schemas import (
     ActionImplementation,
@@ -56,7 +56,7 @@ async def async_masks(masks: SecretMaskCollector) -> AsyncIterator[SecretMaskCol
 def test_failed_parent_keeps_diagnostic_and_masks_intermediate(
     masks: SecretMaskCollector, expression: str
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ " + expression + " }}",
             operand={"SECRETS": {"api": {"TOKEN": SECRET}}},
@@ -107,7 +107,7 @@ def test_diagnostic_representations_are_masked(secret: str) -> None:
 def test_truncated_integer_errors_mask_observed_secret(
     masks: SecretMaskCollector, secret: str | bytes, expression: str
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ " + expression + " }}",
             operand={"SECRETS": {"api": {"TOKEN": secret}}},
@@ -127,7 +127,7 @@ def test_truncated_integer_error_masks_transformed_secret(
 ) -> None:
     secret = "synthetic-private-credential-" * 20
     encoded = base64.b64encode(secret.encode()).decode()
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(SECRETS.api.TOKEN)) }}",
             operand={"SECRETS": {"api": {"TOKEN": secret}}},
@@ -145,7 +145,7 @@ def test_long_public_integer_error_preserves_diagnostic(
     public = "public-non-numeric-value-" * 20
     with pytest.raises(ValueError) as original:
         int(public)
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(TRIGGER.value) }}", operand={"TRIGGER": {"value": public}}
         )
@@ -183,7 +183,7 @@ def test_partial_operand_diagnostics_are_safe_only_when_needed(
 ) -> None:
     reference = "SECRETS.api.TOKEN" if secret else "TRIGGER.value"
     expression = operation.replace("VALUE", reference)
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ " + expression + " }}",
             operand=(
@@ -210,7 +210,7 @@ def test_known_secret_fragments_are_protected_in_runtime_carriers(
 ) -> None:
     secret = "2026-09-25-synthetic-credential-value"
     masks.observe(secret)
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ FN.parse_datetime(" + context + '.value, "%Y-%m-%d") }}',
             operand={context: {"value": secret}},
@@ -223,7 +223,7 @@ def test_known_secret_fragments_are_protected_in_runtime_carriers(
 def test_public_failure_keeps_diagnostic_after_secret_sibling_evaluation(
     masks: SecretMaskCollector,
 ) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             '${{ [SECRETS.api.TOKEN, int("public-invalid-number")] }}',
             operand={"SECRETS": {"api": {"TOKEN": SECRET}}},
@@ -246,7 +246,7 @@ def test_public_sibling_does_not_inherit_secret_dependency(
     provenance = build_provenance(
         {"payload": {"token": "${{ SECRETS.api.TOKEN }}", "public": "not-a-number"}}
     )
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(" + reference + ") }}",
             operand={
@@ -274,7 +274,7 @@ def test_known_runtime_carrier_transformation_is_collected(
     masks: SecretMaskCollector,
 ) -> None:
     masks.observe(SECRET)
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(steps.fetch.result.token)) }}",
             operand={
@@ -287,7 +287,7 @@ def test_known_runtime_carrier_transformation_is_collected(
 
 
 def test_unknown_runtime_carrier_retains_diagnostic(masks: SecretMaskCollector) -> None:
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(ACTIONS.fetch.result) }}",
             operand={"ACTIONS": {"fetch": {"result": "not-a-number"}}},
@@ -476,7 +476,7 @@ def test_selecting_public_value_does_not_inherit_parent_key_sensitivity(
         "nested": {"status": public},
         "items": [{"status": public}],
     }
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(" + reference + ")) }}",
             operand={"steps": {"fetch": {"result": value}}},
@@ -511,7 +511,7 @@ def test_template_input_selection_ignores_ancestor_key_sensitivity(
     }
     runtime = {**source, SECRET: source["${{ SECRETS.api.TOKEN }}"]}
     del runtime["${{ SECRETS.api.TOKEN }}"]
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(" + reference + ")) }}",
             operand={"inputs": {"payload": runtime}},
@@ -540,7 +540,7 @@ def test_public_projection_remains_public_across_nested_templates(
     value_expression = (
         "FN.serialize_json(inputs.child)" if container else "inputs.child"
     )
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(" + value_expression + ") }}",
             operand={"inputs": {"child": public}},
@@ -563,7 +563,7 @@ def test_selecting_secret_value_or_nested_secret_keys_retains_sensitivity(
     masks: SecretMaskCollector, reference: str
 ) -> None:
     masks.observe(SECRET)
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(" + reference + ")) }}",
             operand={
@@ -597,7 +597,7 @@ def test_mapping_key_transformations_are_masked(
     ctx_secret_masks.set(masks)
     masks.observe(SECRET)
 
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ int(FN.to_base64(" + transform + ")) }}",
             operand={"steps": {"fetch": {"result": value}}},
@@ -622,7 +622,7 @@ def test_decoded_secret_mapping_keys_are_masked(
     if nested:
         decoded += "['payload'][0]"
 
-    with pytest.raises(TracecatExpressionError) as caught:
+    with pytest.raises(AutoSecOpsExpressionError) as caught:
         eval_templated_object(
             "${{ FN.map_keys(" + decoded + ', {"dummy": "dummy"}) }}',
             operand={"SECRETS": {"api": {"TOKEN": secret_json}}},

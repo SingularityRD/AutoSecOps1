@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 if TYPE_CHECKING:
-    from autosecops_registry.sdk.client import TracecatClient
+    from autosecops_registry.sdk.client import AutoSecOpsClient
 
 type EvidenceOperation = Literal["list", "create_export", "download_export"]
 
@@ -14,7 +14,7 @@ type EvidenceOperation = Literal["list", "create_export", "download_export"]
 class RobotEdrClient:
     """Client for the RoboDR evidence endpoints of the action gateway."""
 
-    def __init__(self, client: TracecatClient) -> None:
+    def __init__(self, client: AutoSecOpsClient) -> None:
         self._client = client
 
     async def store_evidence(

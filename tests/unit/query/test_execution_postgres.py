@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.query.aggregations import AggregationSpec
 from autosecops.query.compiler import compile_aggregation
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.execution import query_execution_context
 
 
@@ -18,7 +18,7 @@ async def test_postgres_statement_timeout_maps_to_query_timeout(
     session: AsyncSession,
 ) -> None:
     await session.execute(text("SET LOCAL statement_timeout = '5min'"))
-    with pytest.raises(TracecatQueryTimeoutError) as exc_info:
+    with pytest.raises(AutoSecOpsQueryTimeoutError) as exc_info:
         async with session.begin_nested():
             async with query_execution_context(session, statement_timeout_ms=1):
                 await session.execute(text("SELECT pg_sleep(0.1)"))

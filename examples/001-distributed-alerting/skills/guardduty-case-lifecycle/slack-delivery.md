@@ -25,7 +25,7 @@ The card and the details panel show the same entity: one object in the shape Sla
 {
   "entity_type": "slack#/entities/incident",
   "url": "<case URL>",
-  "external_ref": { "id": "<case_id>", "type": "tracecat_case" },
+  "external_ref": { "id": "<case_id>", "type": "autosecops_case" },
   "entity_payload": {
     "attributes": {
       "title": { "text": "<case title>" },

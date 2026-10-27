@@ -21,11 +21,11 @@ from typing import BinaryIO, Literal, NotRequired, TypedDict
 
 LOGGER = logging.getLogger(__name__)
 
-INIT_PAYLOAD_ENV_VAR = "TRACECAT__AGENT_INIT_PAYLOAD_PATH"
-LLM_SOCKET_ENV_VAR = "TRACECAT__AGENT_LLM_SOCKET_PATH"
-MCP_SOCKET_ENV_VAR = "TRACECAT__AGENT_MCP_SOCKET_PATH"
-OTEL_SOCKET_ENV_VAR = "TRACECAT__AGENT_OTEL_SOCKET_PATH"
-DEFAULT_AGENT_RUNTIME_DIR = Path("/run/tracecat")
+INIT_PAYLOAD_ENV_VAR = "AUTOSECOPS__AGENT_INIT_PAYLOAD_PATH"
+LLM_SOCKET_ENV_VAR = "AUTOSECOPS__AGENT_LLM_SOCKET_PATH"
+MCP_SOCKET_ENV_VAR = "AUTOSECOPS__AGENT_MCP_SOCKET_PATH"
+OTEL_SOCKET_ENV_VAR = "AUTOSECOPS__AGENT_OTEL_SOCKET_PATH"
+DEFAULT_AGENT_RUNTIME_DIR = Path("/run/autosecops")
 DEFAULT_LLM_SOCKET_PATH = str(DEFAULT_AGENT_RUNTIME_DIR / "llm.sock")
 DEFAULT_MCP_SOCKET_PATH = str(DEFAULT_AGENT_RUNTIME_DIR / "mcp.sock")
 DEFAULT_OTEL_SOCKET_PATH = str(DEFAULT_AGENT_RUNTIME_DIR / "otel.sock")
@@ -508,8 +508,8 @@ async def run_sandboxed_claude_shim() -> int:
             **os.environ,
             **init_payload["env"],
         }
-        child_env["TRACECAT__LLM_BRIDGE_PORT"] = str(bridge_port)
-        child_env["TRACECAT__MCP_BRIDGE_PORT"] = str(mcp_bridge_port)
+        child_env["AUTOSECOPS__LLM_BRIDGE_PORT"] = str(bridge_port)
+        child_env["AUTOSECOPS__MCP_BRIDGE_PORT"] = str(mcp_bridge_port)
         child_env["ANTHROPIC_BASE_URL"] = f"http://{BRIDGE_HOST}:{bridge_port}"
 
         # Telemetry path: start the OTel bridge before spawning Claude so the
@@ -721,12 +721,12 @@ def _enforce_nproc_limit() -> None:
 
     nsjail cannot enforce rlimit_nproc when it creates a user namespace
     (clone_newuser), so the host injects the configured limit via
-    TRACECAT__SANDBOX_RLIMIT_NPROC and this trusted shim applies it before
+    AUTOSECOPS__SANDBOX_RLIMIT_NPROC and this trusted shim applies it before
     starting the Claude runtime. Lowering a hard rlimit is permitted for
     unprivileged processes, and the limit is enforced per real UID, which
     covers every process in the jail.
     """
-    raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+    raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
     if not raw:
         return
     try:

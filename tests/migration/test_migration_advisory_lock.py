@@ -23,7 +23,10 @@ from autosecops.db.migration_lock import (
 )
 from tests.database import TEST_DB_CONFIG
 
-EXPECTED_MIGRATION_ADVISORY_LOCK_ID = 5978149383827159724
+# The lock id is a contract between every migrator that can run against one
+# database. Changing the namespace changes the id, so pin both together.
+EXPECTED_MIGRATION_ADVISORY_LOCK_NAMESPACE = "autosecops:alembic:migrations:v1"
+EXPECTED_MIGRATION_ADVISORY_LOCK_ID = 2021503664252106272
 
 
 @pytest.fixture
@@ -71,7 +74,7 @@ def isolated_migration_db_url() -> Iterator[str]:
 
 def _run_alembic_command(db_url: str, *args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     return subprocess.run(
         ["uv", "run", "alembic", *args],
         env=env,
@@ -83,6 +86,9 @@ def _run_alembic_command(db_url: str, *args: str) -> subprocess.CompletedProcess
 
 def test_migration_advisory_lock_id_is_stable() -> None:
     """Lock id generation should be deterministic and in bigint range."""
+    assert (
+        MIGRATION_ADVISORY_LOCK_NAMESPACE == EXPECTED_MIGRATION_ADVISORY_LOCK_NAMESPACE
+    )
     lock_id = migration_advisory_lock_id(MIGRATION_ADVISORY_LOCK_NAMESPACE)
     assert lock_id == EXPECTED_MIGRATION_ADVISORY_LOCK_ID
     assert lock_id == MIGRATION_ADVISORY_LOCK_ID
@@ -174,7 +180,7 @@ def test_alembic_upgrade_waits_for_lock_release(
 
     engine = create_engine(isolated_migration_db_url, poolclass=NullPool)
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = isolated_migration_db_url
+    env["AUTOSECOPS__DB_URI"] = isolated_migration_db_url
 
     with engine.connect() as holder:
         acquired_by_holder = acquire_migration_advisory_lock(holder)

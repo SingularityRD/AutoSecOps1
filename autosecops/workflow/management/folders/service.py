@@ -19,7 +19,7 @@ from autosecops.db.models import (
     WorkflowDefinition,
     WorkflowFolder,
 )
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.identifiers import WorkflowID
 from autosecops.identifiers.workflow import WorkflowUUID
 from autosecops.service import BaseWorkspaceService
@@ -62,8 +62,8 @@ class WorkflowFolderService(BaseWorkspaceService):
         message: str,
         *,
         code: WorkflowFolderErrorCode,
-    ) -> TracecatValidationError:
-        return TracecatValidationError(message, detail={"code": code.value})
+    ) -> AutoSecOpsValidationError:
+        return AutoSecOpsValidationError(message, detail={"code": code.value})
 
     @staticmethod
     def _normalize_folder_name(name: str) -> str:
@@ -258,7 +258,7 @@ class WorkflowFolderService(BaseWorkspaceService):
         result = await self.session.execute(statement)
         workflow = result.scalar_one_or_none()
         if not workflow:
-            raise TracecatNotFoundError(f"Workflow {workflow_id} not found")
+            raise AutoSecOpsNotFoundError(f"Workflow {workflow_id} not found")
 
         workflow.folder_id = folder.id if folder else None
 
@@ -727,7 +727,7 @@ class WorkflowFolderService(BaseWorkspaceService):
         if path != "/":
             folder = await self.get_folder_by_path(path)
             if not folder:
-                raise TracecatNotFoundError(f"Folder {path} not found")
+                raise AutoSecOpsNotFoundError(f"Folder {path} not found")
             folder_id = folder.id
         else:
             folder_id = None

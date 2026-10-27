@@ -33,7 +33,7 @@ from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CasesService
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Case, Organization, RobotKey, Workspace
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.executor.action_gateway.app import create_app as create_gateway_app
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
@@ -63,7 +63,7 @@ FINDING_KEY = json.loads((VECTORS / "keys" / "finding.key.pub").read_text())
 
 @pytest.fixture(autouse=True)
 def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -96,7 +96,10 @@ def audit_capture(monkeypatch: pytest.MonkeyPatch) -> AuditCapture:
 @pytest.fixture
 async def storage(minio_bucket: str, monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setattr(
-        config, "TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS", minio_bucket, raising=False
+        config,
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS",
+        minio_bucket,
+        raising=False,
     )
     await blob.ensure_bucket_exists(minio_bucket)
     return minio_bucket
@@ -105,7 +108,7 @@ async def storage(minio_bucket: str, monkeypatch: pytest.MonkeyPatch) -> str:
 def _role(ws: Workspace, user_id: uuid.UUID | None = None) -> Role:
     return Role(
         type="user" if user_id else "service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         user_id=user_id,
@@ -221,42 +224,42 @@ async def test_verified_export_is_stored_and_reported(
     [
         (
             {"bundle_base64": base64.b64encode(BUNDLE[:-1] + b"\x00").decode()},
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             "does not match its manifest",
         ),
         (
             {"manifest_base64": base64.b64encode(MANIFEST + b" ").decode()},
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             "does not verify",
         ),
-        ({"export_id": "case-42:ev-2"}, TracecatValidationError, "export_id"),
+        ({"export_id": "case-42:ev-2"}, AutoSecOpsValidationError, "export_id"),
         (
             {
                 "manifest_signature": MANIFEST_SIG.replace(
                     "finding:ugv-007:1", "other:1"
                 )
             },
-            TracecatNotFoundError,
+            AutoSecOpsNotFoundError,
             "finding key",
         ),
         (
             {"manifest_signature": "ed25519;sig=00"},
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             "malformed",
         ),
-        ({"verification": {"verified": False}}, TracecatValidationError, "verified"),
-        ({"verification": {"verified": True}}, TracecatValidationError, "intact"),
+        ({"verification": {"verified": False}}, AutoSecOpsValidationError, "verified"),
+        ({"verification": {"verified": True}}, AutoSecOpsValidationError, "intact"),
         (
             {"verification": {"verified": True, "intact": False}},
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             "intact",
         ),
         (
             {"verification": {"verified": True, "intact": True, "x": "y" * 70_000}},
-            TracecatValidationError,
+            AutoSecOpsValidationError,
             "too large",
         ),
-        ({"bundle_base64": "not base64!"}, TracecatValidationError, "base64"),
+        ({"bundle_base64": "not base64!"}, AutoSecOpsValidationError, "base64"),
     ],
 )
 async def test_unverifiable_exports_are_refused(
@@ -286,7 +289,7 @@ async def test_a_revoked_finding_key_does_not_verify(
             .values(revoked_at=datetime.now(UTC))
         )
         await session.commit()
-    with pytest.raises(TracecatNotFoundError, match="finding key"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="finding key"):
         await _store(workspace, case, _request())
 
 
@@ -357,7 +360,7 @@ def _executor_token(
     ws: Workspace,
     *,
     user_id: uuid.UUID | None = None,
-    service_id: Any = "tracecat-executor",
+    service_id: Any = "autosecops-executor",
 ) -> str:
     """The token a workflow run's action gets, minted as the executor does."""
     return mint_executor_token(
@@ -380,7 +383,7 @@ async def gateway() -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.mark.parametrize(
-    "service_id", ["tracecat-executor", "tracecat-runner", "tracecat-mcp"]
+    "service_id", ["autosecops-executor", "autosecops-runner", "autosecops-mcp"]
 )
 async def test_the_executor_reaches_every_evidence_route(
     workspace: Workspace,
@@ -627,10 +630,10 @@ async def test_the_workspace_quota_is_enforced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__ROBOT_EDR_EVIDENCE_QUOTA_BYTES", len(BUNDLE) * 3 // 2
+        config, "AUTOSECOPS__ROBOT_EDR_EVIDENCE_QUOTA_BYTES", len(BUNDLE) * 3 // 2
     )
     await _store(workspace, case, _request())
-    with pytest.raises(TracecatValidationError, match="quota"):
+    with pytest.raises(AutoSecOpsValidationError, match="quota"):
         await _store(workspace, other_case, _request())
     assert await _list_attachments(workspace, other_case) == []
 
@@ -649,11 +652,11 @@ async def test_objects_are_removed_when_the_report_cannot_be_attached(
         await real_upload(data, key, *args, **kwargs)
 
     async def fail(*args: Any, **kwargs: Any) -> Any:
-        raise TracecatValidationError("attachment refused")
+        raise AutoSecOpsValidationError("attachment refused")
 
     monkeypatch.setattr(blob, "upload_file", upload)
     monkeypatch.setattr(CaseAttachmentService, "create_attachment", fail)
-    with pytest.raises(TracecatValidationError, match="attachment refused"):
+    with pytest.raises(AutoSecOpsValidationError, match="attachment refused"):
         await _store(workspace, case, _request())
     assert len(uploaded) == 3
     for key in uploaded:
@@ -725,7 +728,7 @@ async def test_the_platform_rechecks_the_records_against_the_manifest(
 ) -> None:
     # A correctly signed manifest that misstates the bundle's records.
     manifest_b64, signature = _signed(_manifest_for(BUNDLE, count=8))
-    with pytest.raises(TracecatValidationError, match="count differs"):
+    with pytest.raises(AutoSecOpsValidationError, match="count differs"):
         await _store(
             workspace,
             case,
@@ -742,7 +745,7 @@ async def test_the_platform_rechecks_the_bundle_structure(
     # manifest, but the record no longer hashes to its stored hash.
     tampered = BUNDLE[:-200] + bytes([BUNDLE[-200] ^ 1]) + BUNDLE[-199:]
     manifest_b64, signature = _signed(_manifest_for(tampered))
-    with pytest.raises(TracecatValidationError, match="does not verify"):
+    with pytest.raises(AutoSecOpsValidationError, match="does not verify"):
         await _store(
             workspace,
             case,
@@ -785,6 +788,6 @@ def test_bundle_base64_is_capped_before_decoding(
 ) -> None:
     field = EvidenceStoreRequest.model_fields["bundle_base64"]
     cap = next(m.max_length for m in field.metadata if hasattr(m, "max_length"))
-    assert cap == 4 * -(-config.TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3)
+    assert cap == 4 * -(-config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3)
     with pytest.raises(ValidationError):
         _request(bundle_base64="A" * (cap + 4))

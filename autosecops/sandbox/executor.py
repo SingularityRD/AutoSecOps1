@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import Literal
 
 from autosecops.config import (
-    TRACECAT__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
-    TRACECAT__SANDBOX_ADDRESS_SPACE_MB,
-    TRACECAT__SANDBOX_CACHE_DIR,
-    TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-    TRACECAT__SANDBOX_NSJAIL_PATH,
-    TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS,
-    TRACECAT__SANDBOX_PYPI_INDEX_URL,
-    TRACECAT__SANDBOX_ROOTFS_PATH,
+    AUTOSECOPS__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
+    AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB,
+    AUTOSECOPS__SANDBOX_CACHE_DIR,
+    AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+    AUTOSECOPS__SANDBOX_NSJAIL_PATH,
+    AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS,
+    AUTOSECOPS__SANDBOX_PYPI_INDEX_URL,
+    AUTOSECOPS__SANDBOX_ROOTFS_PATH,
 )
 from autosecops.logger import logger
 from autosecops.sandbox.exceptions import (
@@ -39,7 +39,7 @@ from autosecops.sandbox.types import (
     nsjail_rlimit_as,
 )
 
-RUN_PYTHON_ACTION_GATEWAY_SOCKET = Path("/var/run/tracecat/action-gateway.sock")
+RUN_PYTHON_ACTION_GATEWAY_SOCKET = Path("/var/run/autosecops/action-gateway.sock")
 """Path visible inside run_python nsjail for executor-owned SDK calls."""
 
 
@@ -53,7 +53,7 @@ class ActionSandboxConfig:
     Attributes:
         registry_paths: List of directories containing extracted registry tarballs.
             Mounted at /packages/0, /packages/1, etc. in deterministic order.
-        tracecat_app_dir: Directory containing autosecops package (not mounted in untrusted mode).
+        autosecops_app_dir: Directory containing autosecops package (not mounted in untrusted mode).
         site_packages_dir: Directory containing Python site-packages (not mounted in untrusted mode).
         env_vars: Environment variables to inject (SDK context, NOT DB credentials).
         action_gateway_socket: Optional host-side action gateway Unix socket to bind
@@ -65,12 +65,12 @@ class ActionSandboxConfig:
     """
 
     registry_paths: list[Path]
-    tracecat_app_dir: Path
+    autosecops_app_dir: Path
     site_packages_dir: Path | None = None
     env_vars: dict[str, str] = field(default_factory=dict)
     action_gateway_socket: Path | None = None
     action_gateway_socket_mount_path: Path = Path(
-        "/var/run/tracecat/action-gateway.sock"
+        "/var/run/autosecops/action-gateway.sock"
     )
     network: SandboxNetworkRequest | None = field(
         default_factory=lambda: SandboxNetworkRequest(SandboxNetworkPurpose.ACTION)
@@ -95,7 +95,7 @@ SANDBOX_BASE_ENV = {
     "LC_ALL": "C.UTF-8",
 }
 
-SANDBOX_PROTECTED_ENV_VARS = frozenset({"TRACECAT__SANDBOX_RLIMIT_NPROC"})
+SANDBOX_PROTECTED_ENV_VARS = frozenset({"AUTOSECOPS__SANDBOX_RLIMIT_NPROC"})
 """Host-injected sandbox environment variables users cannot override."""
 
 _NSJAIL_HINT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
@@ -150,8 +150,8 @@ _NSJAIL_RESOURCE_LIMIT_EXIT_CODES = {
     128 + signal.SIGXCPU,
     128 + signal.SIGXFSZ,
 }
-_WORKLOAD_LAUNCHER_NAME = ".tracecat-workload-launcher.py"
-_WORKLOAD_STARTED_MARKER = b"\x00tracecat-workload-started\x00"
+_WORKLOAD_LAUNCHER_NAME = ".autosecops-workload-launcher.py"
+_WORKLOAD_STARTED_MARKER = b"\x00autosecops-workload-started\x00"
 _FAILURE_STDERR_TAIL_CHARS = 8192
 _NSJAIL_LOG_LINE_PATTERN = re.compile(r"^\[[A-Z]\]\[")
 
@@ -184,7 +184,7 @@ import sys
 # guard failure classifies as infrastructure failure, not a workload fault.
 # Lowering the hard limit is irreversible for the unprivileged workload, so
 # enforcement here cannot be undone by jailed code.
-_guard_raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+_guard_raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
 if _guard_raw:
     try:
         _limit = int(_guard_raw)
@@ -341,9 +341,9 @@ class NsjailExecutor:
 
     def __init__(
         self,
-        nsjail_path: str = TRACECAT__SANDBOX_NSJAIL_PATH,
-        rootfs_path: str = TRACECAT__SANDBOX_ROOTFS_PATH,
-        cache_dir: str = TRACECAT__SANDBOX_CACHE_DIR,
+        nsjail_path: str = AUTOSECOPS__SANDBOX_NSJAIL_PATH,
+        rootfs_path: str = AUTOSECOPS__SANDBOX_ROOTFS_PATH,
+        cache_dir: str = AUTOSECOPS__SANDBOX_CACHE_DIR,
         cgroup_mount: Path | None = None,
     ):
         self.nsjail_path = Path(nsjail_path)
@@ -588,17 +588,19 @@ class NsjailExecutor:
         # this injected value before untrusted code runs. The install phase
         # needs this too: uv executes the arbitrary build backends of
         # user-selected source dependencies.
-        env_map["TRACECAT__SANDBOX_RLIMIT_NPROC"] = str(config.resources.max_processes)
+        env_map["AUTOSECOPS__SANDBOX_RLIMIT_NPROC"] = str(
+            config.resources.max_processes
+        )
 
         if phase == "install":
             # Keep uv's mutable cache inside this job's private bind mount. A
             # global writable cache would let one sandbox tamper with another.
             env_map["UV_CACHE_DIR"] = "/cache/uv-cache"
             # Pass PyPI index URLs to uv for package installation
-            env_map["UV_INDEX_URL"] = TRACECAT__SANDBOX_PYPI_INDEX_URL
-            if TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS:
+            env_map["UV_INDEX_URL"] = AUTOSECOPS__SANDBOX_PYPI_INDEX_URL
+            if AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS:
                 env_map["UV_EXTRA_INDEX_URL"] = ",".join(
-                    TRACECAT__SANDBOX_PYPI_EXTRA_INDEX_URLS
+                    AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS
                 )
         else:
             pythonpath_parts = []
@@ -696,7 +698,7 @@ class NsjailExecutor:
             log_label="sandbox",
             exit_code=returncode,
             execution_time_ms=execution_time_ms,
-            max_bytes=TRACECAT__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
+            max_bytes=AUTOSECOPS__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
             stream_source="envelope",
             include_error_code=True,
         )
@@ -778,8 +780,8 @@ class NsjailExecutor:
             network=SandboxNetworkRequest(SandboxNetworkPurpose.INSTALL),
             resources=ResourceLimits(
                 timeout_seconds=timeout_seconds,
-                memory_mb=TRACECAT__SANDBOX_DEFAULT_MEMORY_MB,
-                address_space_mb=TRACECAT__SANDBOX_ADDRESS_SPACE_MB,
+                memory_mb=AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB,
+                address_space_mb=AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB,
             ),
         )
 
@@ -871,7 +873,7 @@ class NsjailExecutor:
             _validate_path(self.cgroup_mount, "cgroup_mount")
         for i, registry_path in enumerate(config.registry_paths):
             _validate_path(registry_path, f"registry_path_{i}")
-        _validate_path(config.tracecat_app_dir, "tracecat_app_dir")
+        _validate_path(config.autosecops_app_dir, "autosecops_app_dir")
         if config.site_packages_dir:
             _validate_path(config.site_packages_dir, "site_packages_dir")
         if config.action_gateway_socket is not None:
@@ -1043,7 +1045,9 @@ class NsjailExecutor:
         # Enforce the process cap inside the jail: nsjail cannot apply
         # rlimit_nproc under clone_newuser, so the trusted minimal runner
         # applies this injected value before untrusted code runs.
-        env_map["TRACECAT__SANDBOX_RLIMIT_NPROC"] = str(config.resources.max_processes)
+        env_map["AUTOSECOPS__SANDBOX_RLIMIT_NPROC"] = str(
+            config.resources.max_processes
+        )
 
         return env_map
 
@@ -1072,7 +1076,7 @@ class NsjailExecutor:
             "Executing action in nsjail sandbox",
             job_dir=str(job_dir),
             registry_paths=config.registry_paths,
-            tracecat_app=str(config.tracecat_app_dir),
+            autosecops_app=str(config.autosecops_app_dir),
         )
         completed = await invoke_nsjail(
             nsjail_path=self.nsjail_path,
@@ -1109,7 +1113,7 @@ class NsjailExecutor:
             log_label="action",
             exit_code=returncode,
             execution_time_ms=execution_time_ms,
-            max_bytes=TRACECAT__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
+            max_bytes=AUTOSECOPS__EXECUTOR_PAYLOAD_MAX_SIZE_BYTES,
             stream_source="process",
             include_error_code=True,
         )

@@ -17,9 +17,9 @@ If no URL is provided, ask the user for the webhook URL before proceeding.
 2. **Check externalization is enabled**
    - Shell into the running API container and verify the environment variables:
    ```bash
-   just cluster attach api -- env | grep -E "TRACECAT__RESULT_EXTERNALIZATION_ENABLED|TRACECAT__RESULT_EXTERNALIZATION_SIZE_LIMIT"
+   just cluster attach api -- env | grep -E "AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED|AUTOSECOPS__RESULT_EXTERNALIZATION_SIZE_LIMIT"
    ```
-   - `TRACECAT__RESULT_EXTERNALIZATION_ENABLED` must be `true`
+   - `AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED` must be `true`
    - If externalization is disabled, warn the user and ask whether to proceed (payloads > ~2MB will fail with Temporal blob size errors)
 
 3. **Generate and send test payloads**

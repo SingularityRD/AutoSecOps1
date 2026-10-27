@@ -77,7 +77,7 @@ _REDACTED_HTTP_PATH: Final = "/[REDACTED]"
 _REDACTED_ATTRIBUTE_VALUE: Final = "[REDACTED]"
 _TRACE_CONTEXT_PROPAGATOR: Final = TraceContextTextMapPropagator()
 _TEMPORAL_FAILURE_TYPE: Final = "temporal.failure"
-_PLATFORM_INSTRUMENTATION_NAME: Final = "tracecat.platform"
+_PLATFORM_INSTRUMENTATION_NAME: Final = "autosecops.platform"
 
 type _TraceCarrier = dict[str, list[str] | str]
 # Platform span attributes; UUIDs and StrEnums are stringified on the way in.
@@ -158,7 +158,7 @@ def initialize_platform_tracing(
     """
     global _runtime
 
-    if not config.TRACECAT__PLATFORM_OTEL_ENABLED:
+    if not config.AUTOSECOPS__PLATFORM_OTEL_ENABLED:
         return None
 
     with _runtime_lock:
@@ -177,9 +177,9 @@ def initialize_platform_tracing(
                 resource=Resource.create(
                     {
                         "service.name": service_name,
-                        "service.namespace": "tracecat",
+                        "service.namespace": "autosecops",
                         "service.version": __version__,
-                        "deployment.environment.name": config.TRACECAT__APP_ENV,
+                        "deployment.environment.name": config.AUTOSECOPS__APP_ENV,
                     }
                 )
             )
@@ -359,7 +359,7 @@ class _TraceContextOnlyTracingInterceptor(TracingInterceptor):
         run_id = (params.attributes or {}).get(_TEMPORAL_RUN_ID_ATTRIBUTE)
         if not isinstance(run_id, str) or not run_id:
             return self.text_map_propagator.extract(params.context)
-        digest = hashlib.sha256(f"tracecat.temporal.run:{run_id}".encode()).digest()
+        digest = hashlib.sha256(f"autosecops.temporal.run:{run_id}".encode()).digest()
         trace_id = int.from_bytes(digest[:16], "big") or 1
         span_id = int.from_bytes(digest[16:24], "big") or 1
         # An explicit empty parent context forces a root decision; ``None``
@@ -454,7 +454,7 @@ def _sanitize_server_span(span: Span, scope: Scope) -> None:
     client = sentry_sdk.get_client()
     if span_context.is_valid and client.is_active() and client.options.get("dsn"):
         sentry_sdk.set_context(
-            "tracecat_otel",
+            "autosecops_otel",
             {
                 "trace_id": f"{span_context.trace_id:032x}",
                 "span_id": f"{span_context.span_id:016x}",

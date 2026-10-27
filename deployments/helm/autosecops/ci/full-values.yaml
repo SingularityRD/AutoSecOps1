@@ -1,0 +1,139 @@
+# Every optional feature enabled, with existing Secrets for all credentials.
+# Placeholders only: never put real values in this file.
+fullnameOverride: autosecops
+commonLabels:
+  team: security
+imagePullSecrets:
+  - name: ghcr-pull
+image:
+  tag: "1.0.0"
+urls:
+  publicApp: https://autosecops.example.com
+  allowOrigins: https://autosecops.example.com,https://admin.example.com
+autosecops:
+  logFormat: json
+  featureFlags: "agent-approvals"
+  auth:
+    types: oidc,basic
+    superadminEmail: admin@example.com
+    allowedDomains: example.com
+    oidc:
+      issuer: https://idp.example.com
+  smtp:
+    host: smtp.example.com
+    user: autosecops
+    emailFrom: "AutoSecOps <no-reply@example.com>"
+  agentSandboxTimeout: 14400
+  outboundAllowedPrivateCidrs: "10.96.0.0/12"
+  aws:
+    assumeRoleAccountId: "123456789012"
+    assumeRolePrincipalArn: arn:aws:iam::123456789012:role/autosecops-executor
+  temporal:
+    metrics:
+      enabled: true
+    payloadEncryption:
+      enabled: true
+  sandbox:
+    disableNsjail: false
+  otel:
+    enabled: true
+    endpoint: http://otel-collector.observability:4318
+  pangolin:
+    endpoint: https://pangolin.example.com
+    apiUrl: https://api.pangolin.example.com/v1
+    orgId: example-org
+    existingSecret: autosecops-pangolin-credentials
+  extraEnv:
+    - name: AUTOSECOPS__SANDBOX_DNS_ALLOWED_EGRESS_CIDRS
+      value: "10.96.0.10/32"
+secrets:
+  existingSecret: autosecops-secrets
+externalPostgres:
+  host: autosecops-postgres-rw.autosecops.svc
+  database: autosecops
+  sslMode: verify-full
+  auth:
+    existingSecret: autosecops-postgres-app
+  tls:
+    caCert: |
+      -----BEGIN CERTIFICATE-----
+      PLACEHOLDER
+      -----END CERTIFICATE-----
+externalRedis:
+  auth:
+    existingSecret: autosecops-redis-credentials
+externalS3:
+  endpoint: https://minio.example.com
+  presignedUrlEndpoint: https://s3.example.com
+  region: us-east-1
+  auth:
+    existingSecret: autosecops-s3-credentials
+externalTemporal:
+  clusterUrl: example.a1b2c.tmprl.cloud:7233
+  namespace: example.a1b2c
+  auth:
+    existingSecret: autosecops-temporal-credentials
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/autosecops-app
+migrations:
+  useHelmHooks: false
+api:
+  autoscaling:
+    enabled: true
+    targetMemoryUtilizationPercentage: 80
+  podDisruptionBudget:
+    enabled: true
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: api
+worker:
+  autoscaling:
+    enabled: true
+  podDisruptionBudget:
+    enabled: true
+executor:
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/autosecops-executor
+  autoscaling:
+    enabled: true
+agentExecutor:
+  backend: direct
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/autosecops-executor
+  podDisruptionBudget:
+    enabled: true
+litellm:
+  podDisruptionBudget:
+    enabled: true
+mcp:
+  autoscaling:
+    enabled: true
+ui:
+  podDisruptionBudget:
+    enabled: true
+ingress:
+  enabled: true
+  className: nginx
+  host: autosecops.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  tls:
+    - hosts: [autosecops.example.com]
+      secretName: autosecops-tls
+tunnels:
+  enabled: true
+  gateway:
+    imagePullSecrets:
+      - name: ghcr-pull
+    blockedCidrs:
+      - 10.0.0.0/16
+      - 10.96.0.0/12

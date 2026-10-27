@@ -161,7 +161,7 @@ describe("skill tool index", () => {
     expect(index.byKey.get("core.cases.get_case")).toMatchObject({
       title: "Get case",
       namespace: "core.cases",
-      section: "tracecat",
+      section: "autosecops",
     })
     expect(index.byKey.get("mcp.slack")).toMatchObject({
       title: "All tools",

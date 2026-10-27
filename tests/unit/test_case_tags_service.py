@@ -11,7 +11,7 @@ from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
 from autosecops.cases.service import CaseCreate, CasesService
 from autosecops.cases.tags.service import CaseTagsService
 from autosecops.db.models import Case, CaseTagLink, CaseTrigger, Workflow, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.tags.schemas import TagCreate, TagUpdate
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -305,7 +305,7 @@ class TestCaseTagsService:  # noqa: D101
 
         # Try to remove tag that was never added
         identifier = str(tag.id) if identifier_type == "id" else tag.ref
-        with pytest.raises(TracecatNotFoundError, match="not found on case"):
+        with pytest.raises(AutoSecOpsNotFoundError, match="not found on case"):
             await case_tags_service.remove_case_tag(case_id, identifier)
 
     @pytest.mark.anyio
@@ -335,7 +335,7 @@ class TestCaseTagsService:  # noqa: D101
         non_existent_case_id = uuid.uuid4()
 
         # This should fail because the case does not exist in the workspace
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await case_tags_service.add_case_tag(non_existent_case_id, str(tag.id))
 
     @pytest.mark.anyio

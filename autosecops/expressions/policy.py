@@ -19,7 +19,7 @@ from typing import Any, cast
 
 from lark import Token, Tree
 
-from autosecops.exceptions import TracecatExpressionError
+from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions import patterns
 from autosecops.expressions.common import eval_jsonpath
 from autosecops.expressions.eval import eval_templated_object
@@ -790,7 +790,7 @@ def _select_input(
             {"source": sources},
             strict=True,
         )
-    except TracecatExpressionError:
+    except AutoSecOpsExpressionError:
         return _InputSelection(False, None, root_dependencies.collapsed())
     return _InputSelection(True, source, dependencies)
 
@@ -859,7 +859,7 @@ def _is_safe_carrier(
         return False
     try:
         tree = _parse_expression(expression)
-    except TracecatExpressionError:
+    except AutoSecOpsExpressionError:
         return False
     return not _tree_dependencies(tree, provenance).secret
 
@@ -867,7 +867,7 @@ def _is_safe_carrier(
 def _parse_expression(expression: str) -> Tree[Token]:
     tree = parser.parse(expression)
     if tree is None:
-        raise TracecatExpressionError(
+        raise AutoSecOpsExpressionError(
             f"Parser returned None for expression {expression!r}"
         )
     return tree
@@ -923,7 +923,7 @@ def _direct_input_ref(tree: Tree[Token]) -> _InputRef | None:
         return None
     token = tree.children[0]
     if not isinstance(token, Token):
-        raise TracecatExpressionError("Expected template input path token")
+        raise AutoSecOpsExpressionError("Expected template input path token")
     return _parse_input_ref(str(token))
 
 
@@ -944,7 +944,7 @@ def _standalone_expression(value: str) -> str | None:
 
 
 def _raise_secret_key_error() -> None:
-    raise TracecatExpressionError(
+    raise AutoSecOpsExpressionError(
         "Secret expressions are not allowed in dictionary keys",
         detail={"code": "secret_expression_in_key"},
     )

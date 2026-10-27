@@ -21,7 +21,7 @@ def effective_limits_cache_key(org_id: OrganizationID) -> str:
 
 async def get_effective_limits_cached(org_id: OrganizationID) -> EffectiveLimits | None:
     """Read effective limits from Redis cache."""
-    ttl_seconds = config.TRACECAT__TIER_LIMITS_CACHE_TTL_SECONDS
+    ttl_seconds = config.AUTOSECOPS__TIER_LIMITS_CACHE_TTL_SECONDS
     if ttl_seconds <= 0:
         return None
 
@@ -48,7 +48,7 @@ async def set_effective_limits_cached(
     org_id: OrganizationID, limits: EffectiveLimits
 ) -> None:
     """Write effective limits to Redis cache."""
-    ttl_seconds = config.TRACECAT__TIER_LIMITS_CACHE_TTL_SECONDS
+    ttl_seconds = config.AUTOSECOPS__TIER_LIMITS_CACHE_TTL_SECONDS
     if ttl_seconds <= 0:
         return
 

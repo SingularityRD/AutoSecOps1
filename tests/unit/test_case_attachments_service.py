@@ -4,7 +4,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 from dotenv import dotenv_values
@@ -23,7 +23,7 @@ from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CaseEventsService, CasesService
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Case, CaseAttachment, CaseEvent, File
-from autosecops.exceptions import TracecatAuthorizationError, TracecatException
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsException
 from autosecops.storage.blob import ensure_bucket_exists
 from autosecops.storage.exceptions import (
     FileExtensionError,
@@ -31,6 +31,7 @@ from autosecops.storage.exceptions import (
     MaxAttachmentsExceededError,
     StorageLimitExceededError,
 )
+from tests.conftest import MINIO_PORT
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -81,7 +82,7 @@ async def attachments_service(
 
 @pytest.fixture
 def attachment_params() -> CaseAttachmentCreate:
-    content = b"hello tracecat"
+    content = b"hello autosecops"
     return CaseAttachmentCreate(
         file_name="hello.txt",
         content_type="text/plain",
@@ -136,12 +137,15 @@ async def configure_minio_for_attachments(
     # Point storage at the test MinIO instance and bucket
     monkeypatch.setattr(
         config,
-        "TRACECAT__BLOB_STORAGE_ENDPOINT",
-        "http://localhost:9000",
+        "AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
+        f"http://localhost:{MINIO_PORT}",
         raising=False,
     )
     monkeypatch.setattr(
-        config, "TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS", minio_bucket, raising=False
+        config,
+        "AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS",
+        minio_bucket,
+        raising=False,
     )
 
     # Set MinIO credentials for the client
@@ -271,6 +275,26 @@ async def test_preview_forces_download_for_non_image(
 
 
 @pytest.mark.anyio
+async def test_forced_download_uses_original_file_name(
+    configure_minio_for_attachments,
+    test_case: tuple,
+    attachments_service: CaseAttachmentService,
+    attachment_params: CaseAttachmentCreate,
+):
+    """The browser saves the uploaded name, not the content hash of the key."""
+    case, _ = test_case
+    created = await attachments_service.create_attachment(case, attachment_params)
+
+    url, fname, _ = await attachments_service.get_attachment_download_url(
+        case, created.id
+    )
+    disposition = parse_qs(urlparse(url).query)["response-content-disposition"][0]
+    assert f'filename="{fname}"' in disposition
+    assert f"filename*=UTF-8''{quote(fname, safe='')}" in disposition
+    assert created.storage_path.rsplit("/", 1)[-1] not in disposition
+
+
+@pytest.mark.anyio
 async def test_dedup_same_file_returns_existing_attachment(
     configure_minio_for_attachments,
     test_case: tuple,
@@ -330,7 +354,9 @@ async def test_max_attachments_limit_enforced(
     case, _ = test_case
 
     # Restrict to 1 attachment per case to trigger limit on second create
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENTS_PER_CASE", 1, raising=False)
+    monkeypatch.setattr(
+        config, "AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE", 1, raising=False
+    )
 
     # First attachment succeeds
     await attachments_service.create_attachment(case, attachment_params)
@@ -352,7 +378,7 @@ async def test_storage_limit_enforced(
     # Set max storage below file size to trigger limit
     monkeypatch.setattr(
         config,
-        "TRACECAT__MAX_CASE_STORAGE_BYTES",
+        "AUTOSECOPS__MAX_CASE_STORAGE_BYTES",
         max(1, attachment_params.size - 1),
         raising=False,
     )
@@ -411,7 +437,7 @@ async def test_integrity_check_failure_after_object_corruption(
         content_type="text/plain",
     )
 
-    with pytest.raises(TracecatException, match="File integrity check failed"):
+    with pytest.raises(AutoSecOpsException, match="File integrity check failed"):
         await attachments_service.download_attachment(case, created.id)
 
 
@@ -434,11 +460,11 @@ async def test_delete_authorization_basic_vs_admin(
         workspace_id=attachments_service.role.workspace_id,
         organization_id=attachments_service.role.organization_id,
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES,
     )
     other_svc = CaseAttachmentService(session=session, role=other_role)
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await other_svc.delete_attachment(case, created.id)
 
     # Admin role can delete
@@ -495,7 +521,7 @@ async def test_concurrent_uploads_cannot_exceed_attachment_limit(
     sessions (not the savepoint-bound test session) so each upload holds its
     own connection and transaction, like concurrent API requests do.
     """
-    monkeypatch.setattr(config, "TRACECAT__MAX_ATTACHMENTS_PER_CASE", 1)
+    monkeypatch.setattr(config, "AUTOSECOPS__MAX_ATTACHMENTS_PER_CASE", 1)
 
     now = datetime.now(UTC)
     case = Case(

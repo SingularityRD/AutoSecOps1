@@ -272,7 +272,7 @@ async def test_platform_admin_enforce_bypass_env(
     _set_client_ip("198.51.100.9")
     monkeypatch.setattr(
         ip_allowlist_enforcement.config,
-        "TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS",
+        "AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS",
         True,
     )
     await ip_allowlist_enforcement.enforce_platform_admin_ip_allowlist()

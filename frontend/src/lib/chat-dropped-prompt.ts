@@ -5,7 +5,7 @@ import { isUserPrompt, toUIMessage } from "@/lib/chat"
 import type { QueryClient } from "@/lib/query"
 
 function storageKey(chatId: string): string {
-  return `tracecat:chat:dropped-prompt:${chatId}`
+  return `autosecops:chat:dropped-prompt:${chatId}`
 }
 
 /** The reconnect endpoint for a chat's live turn. */

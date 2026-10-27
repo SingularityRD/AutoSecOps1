@@ -27,7 +27,7 @@ from autosecops.cases.rows.schemas import (
 from autosecops.cases.rows.service import CaseTableRowsService
 from autosecops.cases.schemas import CaseReadMinimal
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -42,9 +42,9 @@ async def list_case_rows(
     session: AsyncDBSession,
     case_id: uuid.UUID,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -89,7 +89,7 @@ async def list_case_rows(
             search_term=search_term,
             search_column=search_column,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -112,7 +112,7 @@ async def list_case_linked_tables(
     try:
         await service.get_case_or_raise(case_id)
         return await service.list_linked_tables(case_id=case_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
@@ -131,7 +131,7 @@ async def link_case_row(
         link = await service.link_row(case=case, params=params)
         hydrated = await service._hydrate_links([link], include_row_data=True)
         return hydrated[0]
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -154,7 +154,7 @@ async def insert_case_row(
         link = await service.insert_row_to_case(case=case, params=params)
         hydrated = await service._hydrate_links([link], include_row_data=True)
         return hydrated[0]
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -178,7 +178,7 @@ async def batch_link_case_rows(
             table_id=params.table_id,
             row_ids=params.row_ids,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -203,7 +203,7 @@ async def batch_unlink_case_rows(
             row_ids=params.row_ids,
         )
         return CaseTableRowBatchUnlinkResponse(unlinked_count=unlinked_count)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
@@ -225,7 +225,7 @@ async def unlink_case_row(
             raise HTTPException(
                 status_code=HTTP_404_NOT_FOUND, detail="Linked row not found"
             )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
@@ -238,9 +238,9 @@ async def list_linked_cases(
     table_id: uuid.UUID,
     row_id: uuid.UUID,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -273,7 +273,7 @@ async def list_linked_cases(
             order_by=order_by,
             sort=sort,
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

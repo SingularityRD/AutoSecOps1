@@ -45,7 +45,7 @@ async def test_spawn_direct_runtime_sets_explicit_agent_session_paths(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -71,11 +71,11 @@ async def test_spawn_direct_runtime_sets_explicit_agent_session_paths(
     assert cmd[0].endswith("python")
     assert cmd[1].endswith("autosecops/agent/sandbox/shim_entrypoint.py")
     env = create_subprocess_exec.await_args.kwargs["env"]
-    assert env["TRACECAT__EXECUTOR_BACKEND"] == "direct"
+    assert env["AUTOSECOPS__EXECUTOR_BACKEND"] == "direct"
     assert env["HOME"] == str(session_home_dir)
     expected_uv_env = build_agent_runtime_uv_env(tmp_path / "uv-state")
     assert {key: env[key] for key in expected_uv_env} == expected_uv_env
-    assert env["TRACECAT__AGENT_MCP_SOCKET_PATH"] == str(
+    assert env["AUTOSECOPS__AGENT_MCP_SOCKET_PATH"] == str(
         tmp_path / "sockets" / "mcp.sock"
     )
     assert create_subprocess_exec.await_args.kwargs["pass_fds"] == ()
@@ -94,7 +94,7 @@ async def test_spawn_direct_runtime_passes_inherited_fds(tmp_path: Path) -> None
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -130,7 +130,7 @@ async def test_spawn_direct_runtime_owns_implicit_job_directory(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -172,7 +172,7 @@ async def test_spawn_direct_runtime_cleans_implicit_job_directory_on_failure(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -216,7 +216,7 @@ async def test_spawn_nsjail_runtime_mounts_job_scoped_uv_state(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -244,10 +244,10 @@ async def test_spawn_nsjail_runtime_mounts_job_scoped_uv_state(
     assert result.job_dir is None
     assert create_subprocess_exec.await_args is not None
     env = create_subprocess_exec.await_args.kwargs["env"]
-    expected_uv_env = build_agent_runtime_uv_env(Path("/run/tracecat/uv-state"))
+    expected_uv_env = build_agent_runtime_uv_env(Path("/run/autosecops/uv-state"))
     assert {key: env[key] for key in expected_uv_env} == expected_uv_env
     assert (
-        f'src: "{uv_state_dir}" dst: "/run/tracecat/uv-state" is_bind: true rw: true'
+        f'src: "{uv_state_dir}" dst: "/run/autosecops/uv-state" is_bind: true rw: true'
     ) in (job_dir / "nsjail.cfg").read_text()
 
 
@@ -263,7 +263,7 @@ async def test_direct_runtime_isolates_uv_state_across_two_jobs(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -328,7 +328,7 @@ async def test_nsjail_runtime_isolates_two_jobs_by_uv_mount_source(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -383,7 +383,7 @@ async def test_spawn_creates_uv_state_with_owner_only_permissions(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -416,7 +416,7 @@ async def test_spawn_normalizes_preexisting_uv_state_permissions(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.DIRECT,
         ),
         patch(
@@ -515,7 +515,7 @@ async def test_spawn_nsjail_runtime_uses_mounted_otel_socket_path(
 
     with (
         patch(
-            "autosecops.agent.sandbox.nsjail.TRACECAT__EXECUTOR_BACKEND",
+            "autosecops.agent.sandbox.nsjail.AUTOSECOPS__EXECUTOR_BACKEND",
             ExecutorBackendType.NSJAIL,
         ),
         patch(
@@ -540,10 +540,10 @@ async def test_spawn_nsjail_runtime_uses_mounted_otel_socket_path(
     assert result.job_dir is None
     assert create_subprocess_exec.await_args is not None
     cmd = create_subprocess_exec.await_args.args
-    jailed_socket_env = f"TRACECAT__AGENT_OTEL_SOCKET_PATH={JAILED_OTEL_SOCKET_PATH}"
+    jailed_socket_env = f"AUTOSECOPS__AGENT_OTEL_SOCKET_PATH={JAILED_OTEL_SOCKET_PATH}"
     assert jailed_socket_env in cmd
     assert create_subprocess_exec.await_args.kwargs["env"][
-        "TRACECAT__AGENT_OTEL_SOCKET_PATH"
+        "AUTOSECOPS__AGENT_OTEL_SOCKET_PATH"
     ] == str(JAILED_OTEL_SOCKET_PATH)
     assert (
         f'mount {{ src: "{otel_socket_path}" dst: "{JAILED_OTEL_SOCKET_PATH}" '

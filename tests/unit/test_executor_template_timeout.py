@@ -46,13 +46,13 @@ def role() -> Role:
         type="service",
         organization_id=UUID(int=1),
         workspace_id=UUID(int=2),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
 
 
 @pytest.fixture(autouse=True)
 def deployment_cap(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 300.0)
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 300.0)
 
 
 def _template_input(timeout: int) -> RunActionInput:
@@ -231,7 +231,7 @@ async def test_template_steps_are_capped_but_share_the_unclamped_timeout(
     monkeypatch: pytest.MonkeyPatch, role: Role
 ) -> None:
     """Each step call is capped, but the template runs up to its own timeout."""
-    monkeypatch.setattr(service.config, "TRACECAT__EXECUTOR_CLIENT_TIMEOUT", 0.1)
+    monkeypatch.setattr(service.config, "AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT", 0.1)
     action_input = _template_input(timeout=1)
     _use_template(monkeypatch, role, action_input, steps=3)
     timeouts: list[float] = []
@@ -273,7 +273,7 @@ async def test_capped_template_step_timeout_names_the_cap(
     assert timeouts == [300.0]
     assert caught.value.info.message == (
         "Action execution timed out after 300s, this deployment's maximum action "
-        "timeout (TRACECAT__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
+        "timeout (AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT). The action's own timeout "
         "is 900s."
     )
 

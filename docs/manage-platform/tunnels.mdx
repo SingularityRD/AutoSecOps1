@@ -53,7 +53,7 @@ This guide takes you from nothing to a workflow that calls an internal URL, usin
     On the host inside your network, run the connector (Newt) with the values from the command. With Docker:
 
     ```bash
-    docker run -d --name tracecat-tunnel --restart unless-stopped \
+    docker run -d --name autosecops-tunnel --restart unless-stopped \
       -e PANGOLIN_ENDPOINT=https://app.pangolin.net \
       -e NEWT_ID=<site_id> \
       -e NEWT_SECRET=<site_secret> \
@@ -118,7 +118,7 @@ Integration actions that make HTTP requests, such as **Splunk: Search events** (
 
 | Symptom | Fix |
 | :------ | :-- |
-| The site stays offline. | Check that the connector is running and that the host can reach the Pangolin endpoint. Check the connector logs with `docker logs tracecat-tunnel`. |
+| The site stays offline. | Check that the connector is running and that the host can reach the Pangolin endpoint. Check the connector logs with `docker logs autosecops-tunnel`. |
 | Saving or publishing fails with a tunnel error. | Check that the tunnel name matches a tunnel in this workspace and that the action supports tunnels. |
 | The action fails with `403`. | Add the host and port to the tunnel's allowed targets. Managed tunnels can't change targets, so create a new tunnel. Use the same hostname in the URL as in the target. |
 | The action fails with `504`. | The connector host can't reach the target. From that host, check that the hostname resolves and the port is open. |
@@ -134,7 +134,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
     List every private host the workspace may reach, with its exact TCP ports:
 
     ```bash
-    curl -X POST "https://<tracecat-host>/api/tunnels/managed?workspace_id=<workspace_id>" \
+    curl -X POST "https://<autosecops-host>/api/tunnels/managed?workspace_id=<workspace_id>" \
       -H "Authorization: Bearer <api_key>" \
       -H "Content-Type: application/json" \
       -d '{
@@ -170,7 +170,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
     Run the connector on a host inside your network that can reach every target:
 
     ```bash
-    docker run -d --name tracecat-tunnel --restart unless-stopped \
+    docker run -d --name autosecops-tunnel --restart unless-stopped \
       -e PANGOLIN_ENDPOINT=<site_endpoint> \
       -e NEWT_ID=<site_id> \
       -e NEWT_SECRET=<site_secret> \
@@ -181,7 +181,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
   </Step>
   <Step title="Check the site status">
     ```bash
-    curl "https://<tracecat-host>/api/tunnels/<tunnel_id>/status?workspace_id=<workspace_id>" \
+    curl "https://<autosecops-host>/api/tunnels/<tunnel_id>/status?workspace_id=<workspace_id>" \
       -H "Authorization: Bearer <api_key>"
     ```
 
@@ -194,7 +194,7 @@ Call the API with a [service account API key](/api-reference/authentication) and
 If you already run Pangolin and manage the site, resources, and access yourself, create a machine client in Pangolin, grant it only the resources AutoSecOps needs, and register it:
 
 ```bash
-curl -X POST "https://<tracecat-host>/api/tunnels?workspace_id=<workspace_id>" \
+curl -X POST "https://<autosecops-host>/api/tunnels?workspace_id=<workspace_id>" \
   -H "Authorization: Bearer <api_key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -325,7 +325,7 @@ Only the listed tools use a tunnel. An action's `tunnel` field and the workflow'
 Each tunnel has one gateway that forwards traffic through Pangolin. The Helm chart runs gateways on Kubernetes; see [Tunnels](/self-hosting/kubernetes#tunnels).
 
 <Note>
-  Tunnels require Kubernetes. On Docker Compose and AWS ECS Fargate, `TRACECAT__TUNNEL_GATEWAY_BACKEND` is `none`. AutoSecOps rejects creating a tunnel or issuing a gateway key there. Any action, agent tool, or MCP server set to use a tunnel fails instead of connecting directly.
+  Tunnels require Kubernetes. On Docker Compose and AWS ECS Fargate, `AUTOSECOPS__TUNNEL_GATEWAY_BACKEND` is `none`. AutoSecOps rejects creating a tunnel or issuing a gateway key there. Any action, agent tool, or MCP server set to use a tunnel fails instead of connecting directly.
 </Note>
 
 ## Use TLS with private services
@@ -379,10 +379,10 @@ Managed tunnels provision Pangolin through its Integration API.
     Set these on the `api` service and restart it:
 
     ```bash
-    TRACECAT__PANGOLIN_ENDPOINT=https://pangolin.example.com
-    TRACECAT__PANGOLIN_API_URL=https://pangolin.example.com/v1
-    TRACECAT__PANGOLIN_ORG_ID=<pangolin-org-id>
-    TRACECAT__PANGOLIN_API_KEY=<pangolin-org-api-key>
+    AUTOSECOPS__PANGOLIN_ENDPOINT=https://pangolin.example.com
+    AUTOSECOPS__PANGOLIN_API_URL=https://pangolin.example.com/v1
+    AUTOSECOPS__PANGOLIN_ORG_ID=<pangolin-org-id>
+    AUTOSECOPS__PANGOLIN_API_KEY=<pangolin-org-api-key>
     ```
 
     Managed tunnels stay off until all four are set. See [Environment variables](/self-hosting/environment-variables).

@@ -36,12 +36,12 @@ dotenv_replace() {
 # Placeholder values shipped in .env.example. A .env that still contains one of
 # these must never be deployed. `your-*` values are placeholders from older
 # releases of .env.example.
-PLACEHOLDER_PATTERN='^[A-Za-z_][A-Za-z0-9_]*=["'"'"']?(change-me-|your-tracecat-|your-auth-secret)'
+PLACEHOLDER_PATTERN='^[A-Za-z_][A-Za-z0-9_]*=["'"'"']?(change-me-|your-autosecops-|your-tracecat-|your-auth-secret)'
 
 # Well-known credentials that older releases and developer setups use. They are
 # acceptable for local development only.
 WEAK_DEFAULTS=(
-    "TRACECAT__POSTGRES_PASSWORD=postgres"
+    "AUTOSECOPS__POSTGRES_PASSWORD=postgres"
     "TEMPORAL__POSTGRES_PASSWORD=temporal"
     "MINIO_ROOT_PASSWORD=password"
     "MINIO_ROOT_PASSWORD=minioadmin"
@@ -74,7 +74,7 @@ check_env_file() {
     fi
 
     local app_env
-    app_env=$(dotenv_get "TRACECAT__APP_ENV" "$file_path")
+    app_env=$(dotenv_get "AUTOSECOPS__APP_ENV" "$file_path")
     if [ "$app_env" = "production" ]; then
         local weak
         for weak in "${WEAK_DEFAULTS[@]}"; do
@@ -86,8 +86,8 @@ check_env_file() {
         if [ "$(dotenv_get "TEMPORAL__UI_VERSION" "$file_path")" = "latest" ]; then
             echo -e "${YELLOW}Warning: TEMPORAL__UI_VERSION=latest is not pinned. Set it to a specific Temporal UI release.${NC}"
         fi
-        if [ -z "$(dotenv_get "TRACECAT__AUTH_ALLOWED_DOMAINS" "$file_path")" ]; then
-            echo -e "${YELLOW}Note: TRACECAT__AUTH_ALLOWED_DOMAINS is blank, so any email domain can sign up. Set it to your organization's domains.${NC}"
+        if [ -z "$(dotenv_get "AUTOSECOPS__AUTH_ALLOWED_DOMAINS" "$file_path")" ]; then
+            echo -e "${YELLOW}Note: AUTOSECOPS__AUTH_ALLOWED_DOMAINS is blank, so any email domain can sign up. Set it to your organization's domains.${NC}"
         fi
     fi
 
@@ -150,10 +150,10 @@ db_fernet_key=$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')
 echo -e "${YELLOW}Creating new .env from .env.example...${NC}"
 cp .env.example .env
 
-# Replace existing values of TRACECAT__SERVICE_KEY and TRACECAT__SIGNING_SECRET
-dotenv_replace "TRACECAT__SERVICE_KEY" "$service_key" "$env_file"
-dotenv_replace "TRACECAT__SIGNING_SECRET" "$signing_secret" "$env_file"
-dotenv_replace "TRACECAT__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
+# Replace existing values of AUTOSECOPS__SERVICE_KEY and AUTOSECOPS__SIGNING_SECRET
+dotenv_replace "AUTOSECOPS__SERVICE_KEY" "$service_key" "$env_file"
+dotenv_replace "AUTOSECOPS__SIGNING_SECRET" "$signing_secret" "$env_file"
+dotenv_replace "AUTOSECOPS__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
 dotenv_replace "USER_AUTH_SECRET" "$user_auth_secret" "$env_file"
 
 # Prompt user for environment mode
@@ -194,7 +194,7 @@ else
     temporal_postgres_password=$(openssl rand -hex 24)
     minio_root_password=$(openssl rand -hex 24)
 fi
-dotenv_replace "TRACECAT__POSTGRES_PASSWORD" "$postgres_password" "$env_file"
+dotenv_replace "AUTOSECOPS__POSTGRES_PASSWORD" "$postgres_password" "$env_file"
 dotenv_replace "TEMPORAL__POSTGRES_PASSWORD" "$temporal_postgres_password" "$env_file"
 dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 
@@ -271,7 +271,7 @@ while true; do
 done
 
 # Update environment variables
-dotenv_replace "TRACECAT__APP_ENV" "$env_mode" "$env_file"
+dotenv_replace "AUTOSECOPS__APP_ENV" "$env_mode" "$env_file"
 dotenv_replace "NODE_ENV" "$env_mode" "$env_file"
 dotenv_replace "NEXT_PUBLIC_APP_ENV" "$env_mode" "$env_file"
 dotenv_replace "PUBLIC_API_URL" "$public_api_url" "$env_file"
@@ -280,12 +280,14 @@ dotenv_replace "PUBLIC_APP_URL" "$public_app_url" "$env_file"
 if [ -n "$app_port" ]; then
     dotenv_replace "PUBLIC_APP_PORT" "$app_port" "$env_file"
 fi
-dotenv_replace "TRACECAT__DB_SSLMODE" "$ssl_mode" "$env_file"
-dotenv_replace "TRACECAT__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
+dotenv_replace "AUTOSECOPS__DB_SSLMODE" "$ssl_mode" "$env_file"
+dotenv_replace "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
 
+# Allow the local frontend dev server and the public app URL.
+new_origins="http://localhost:3000,${public_app_url}"
 # Remove duplicate entries and leading/trailing commas
 new_origins=$(echo "$new_origins" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/^,//;s/,$//')
-dotenv_replace "TRACECAT__ALLOW_ORIGINS" "$new_origins" "$env_file"
+dotenv_replace "AUTOSECOPS__ALLOW_ORIGINS" "$new_origins" "$env_file"
 
 if ! check_env_file "$env_file"; then
     echo -e "${RED}Environment file is incomplete. Fix the values above before starting AutoSecOps.${NC}"

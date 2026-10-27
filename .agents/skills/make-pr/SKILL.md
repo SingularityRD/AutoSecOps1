@@ -119,7 +119,7 @@ change is genuinely repo-wide.
   match, so that example appears under Case management, not Core actions.
   Needing three scopes usually means the PR should be split.
 - Scopes that name two different things are rejected outright: `app`, `dev`,
-  `config`, `service`, `tracecat`, `ai`, `workflows`. `app` historically meant
+  `config`, `service`, `autosecops`, `ai`, `workflows`. `app` historically meant
   the backend, not the frontend.
 - `workflows` reads as GitHub Actions to one person and as the workflow engine
   to another. GitHub Actions work is a bare `ci:` with no scope, and

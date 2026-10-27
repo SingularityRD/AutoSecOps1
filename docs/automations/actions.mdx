@@ -166,19 +166,19 @@ Use `start_delay` to wait a fixed number of seconds before an action starts.
 ### Timeout
 
 Use `timeout` to cap how long the action's function call may run in each attempt.
-Defaults to 300 seconds. AutoSecOps also caps each function call at `TRACECAT__EXECUTOR_CLIENT_TIMEOUT`, which defaults to 300 seconds (see [Environment variables](/self-hosting/environment-variables)).
+Defaults to 300 seconds. AutoSecOps also caps each function call at `AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT`, which defaults to 300 seconds (see [Environment variables](/self-hosting/environment-variables)).
 
 The timeout covers only the function call. Platform work such as resolving secrets, loading the action's registry code, and starting the sandbox doesn't count toward it. An attempt that hits the timeout fails with `Action execution timed out after <timeout>s` and is retried if `max_attempts` allows it.
 
-A template action counts as one action: all its steps, including nested templates, share one timeout, which starts when the template starts running. Time between steps, such as starting each step's sandbox, counts toward it. When the timeout runs out, AutoSecOps stops the running step, skips the remaining steps, and fails the attempt. The `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` cap applies to each step's function call, not to the template as a whole.
+A template action counts as one action: all its steps, including nested templates, share one timeout, which starts when the template starts running. Time between steps, such as starting each step's sandbox, counts toward it. When the timeout runs out, AutoSecOps stops the running step, skips the remaining steps, and fails the attempt. The `AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT` cap applies to each step's function call, not to the template as a whole.
 
-For `core.script.run_python`, the shorter of `timeout` and the script's `timeout_seconds` applies. The `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` cap doesn't apply.
+For `core.script.run_python`, the shorter of `timeout` and the script's `timeout_seconds` applies. The `AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT` cap doesn't apply.
 
 Each `for_each` iteration gets the full timeout, but all iterations share one attempt that AutoSecOps caps at the timeout plus 600 seconds. A loop whose iterations run longer than that fails the attempt, and a retry runs every iteration again.
 
 For `ai.agent`, `ai.action`, and `ai.preset_agent`, `timeout` caps the agent's active runtime in seconds. Unset means 7200 seconds (2 hours). Chat turns use this default.
 
-AutoSecOps clamps an explicit value between 1800 seconds and `TRACECAT__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds (see [Environment variables](/self-hosting/environment-variables)). AutoSecOps stores the clamped value instead of rejecting the action. A lower ceiling caps both the default and the minimum.
+AutoSecOps clamps an explicit value between 1800 seconds and `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT`, which defaults to 10800 seconds (see [Environment variables](/self-hosting/environment-variables)). AutoSecOps stores the clamped value instead of rejecting the action. A lower ceiling caps both the default and the minimum.
 
 A pause for a tool approval does not count toward the timeout, and the resumed run gets the full timeout again.
 

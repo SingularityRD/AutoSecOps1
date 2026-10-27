@@ -1,37 +1,41 @@
-name: Helm chart
+name: Lint Helm chart
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
     paths:
       - deployments/helm/**
+      - tests/unit/test_helm_chart.py
       - .github/workflows/lint-helm.yml
   pull_request:
-    branches: ["main", "staging"]
+    branches: [ "main", "staging" ]
     paths:
       - deployments/helm/**
+      - tests/unit/test_helm_chart.py
       - .github/workflows/lint-helm.yml
 
 permissions:
   contents: read
 
 concurrency:
-  group: lint-helm-${{ github.event.pull_request.number || github.ref }}
+  group: lint-helm-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  CHART: deployments/helm/autosecops
   HELM_VERSION: v3.16.4
   HELM_SHA256: fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179
   KUBECONFORM_VERSION: v0.6.7
   KUBECONFORM_SHA256: 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
 
 jobs:
-  lint:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+  helm:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Install helm and kubeconform
@@ -39,24 +43,70 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"
           cd "$RUNNER_TEMP"
-          curl -fsSLo helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          curl -fsSL -o helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           echo "${HELM_SHA256}  helm.tgz" | sha256sum -c -
           tar -xzf helm.tgz linux-amd64/helm
-          mv linux-amd64/helm bin/helm
-          curl -fsSLo kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          install -m 0755 linux-amd64/helm bin/helm
+          curl -fsSL -o kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
           tar -xzf kubeconform.tgz kubeconform
-          mv kubeconform bin/kubeconform
+          install -m 0755 kubeconform bin/kubeconform
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: Lint, render, and validate
-        working-directory: deployments/helm/autosecops
+      - name: Lint
         run: |
           set -euo pipefail
-          for values in ci/*-values.yaml; do
-            echo "::group::$values"
-            helm lint . --strict -f "$values"
-            helm template autosecops . --namespace autosecops -f "$values" \
-              | kubeconform -strict -summary -kubernetes-version 1.30.0
+          for values in "$CHART"/ci/*-values.yaml; do
+            echo "::group::helm lint --strict ($values)"
+            helm lint --strict "$CHART" -f "$values"
             echo "::endgroup::"
           done
+
+      - name: Render and validate manifests
+        run: |
+          set -euo pipefail
+          for values in "$CHART"/ci/*-values.yaml; do
+            for k8s in 1.30.0 1.33.0; do
+              echo "::group::kubeconform $values (Kubernetes $k8s)"
+              helm template autosecops "$CHART" --namespace autosecops -f "$values" \
+                | kubeconform -strict -summary -kubernetes-version "$k8s"
+              echo "::endgroup::"
+            done
+          done
+
+      - name: Missing required values fail rendering
+        run: |
+          set -euo pipefail
+          expect_failure() {
+            local message=$1
+            shift
+            if output=$(helm template autosecops "$CHART" "$@" 2>&1); then
+              echo "expected rendering to fail with: $message" >&2
+              exit 1
+            fi
+            grep -qF -- "$message" <<< "$output" || { echo "$output" >&2; exit 1; }
+          }
+          minimal="$CHART/ci/minimal-values.yaml"
+          expect_failure "urls.publicApp is required"
+          expect_failure "secrets.serviceKey is required" -f "$minimal" --set secrets.serviceKey=
+          expect_failure "externalPostgres.host is required" -f "$minimal" --set externalPostgres.host=
+          expect_failure "externalRedis.auth.url is required" -f "$minimal" --set externalRedis.auth.url=
+          expect_failure "externalTemporal.clusterUrl is required" -f "$minimal" --set externalTemporal.clusterUrl=
+          expect_failure "tunnels.gateway.blockedCidrs is required" -f "$minimal" --set tunnels.enabled=true
+          expect_failure "Additional property tracecat is not allowed" -f "$minimal" --set tracecat.auth.types=basic
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.4"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            packages/*/pyproject.toml
+            uv.lock
+          cache-suffix: lint-helm
+
+      - name: Chart consistency tests
+        run: |
+          uv sync --frozen
+          uv run --no-sync pytest --noconftest tests/unit/test_helm_chart.py -ra

@@ -30,13 +30,13 @@ Allowed methods can be `GET`, `POST`, or both. Requests that use a method outsid
 
 ### API key authentication
 
-Webhook API keys are optional. If configured, the sender must include `x-tracecat-api-key`. The UI supports generate, rotate, revoke, and delete. A revoked key blocks requests until a new key is generated or API key protection is removed.
+Webhook API keys are optional. If configured, the sender must include `x-autosecops-api-key`. The UI supports generate, rotate, revoke, and delete. A revoked key blocks requests until a new key is generated or API key protection is removed.
 
 ### IP allowlist
 
 Requests can be restricted to specific IPs or CIDR ranges. The allowlist is IPv4-only.
 
-The sender address is resolved from `X-Forwarded-For` the same way as the [organization IP allowlist](/manage-platform/ip-allowlist), skipping hops in `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS`. Behind a Kubernetes ingress or load balancer, the load balancer must preserve the sender's source IP (for example `externalTrafficPolicy: Local` or PROXY protocol); otherwise AutoSecOps only sees a node or proxy address.
+The sender address is resolved from `X-Forwarded-For` the same way as the [organization IP allowlist](/manage-platform/ip-allowlist), skipping hops in `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`. Behind a Kubernetes ingress or load balancer, the load balancer must preserve the sender's source IP (for example `externalTrafficPolicy: Local` or PROXY protocol); otherwise AutoSecOps only sees a node or proxy address.
 
 ## Response
 
@@ -44,11 +44,13 @@ Default response:
 
 ```json
 {
-  "message": "Workflow execution created",
+  "message": "Workflow execution started",
   "wf_id": "wf_3mYp8JkL2nQr7sTu9vWx0Z",
   "wf_exec_id": "wf_3mYp8JkL2nQr7sTu9vWx0Z/exec_7aBcDeFgHiJkLmNoPqRsTu"
 }
 ```
+
+An NDJSON request returns `"message": "Workflow execution created"` with the `wf_exec_id` of the last run it started.
 
 Query parameters:
 

@@ -36,7 +36,7 @@ async def resolve_auth_organization_id(
         async with get_async_session_bypass_rls_context_manager() as local_session:
             return await resolve_auth_organization_id(request, session=local_session)
 
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return await get_default_organization_id(session)
 
     org_slug = request.query_params.get("org")

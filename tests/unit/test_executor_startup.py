@@ -26,8 +26,8 @@ def sandbox_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path
     python.write_text("#!/bin/sh\nexit 0\n")
     python.chmod(0o755)
     python.with_name("python3").symlink_to(python.name)
-    monkeypatch.setattr(config, "TRACECAT__SANDBOX_NSJAIL_PATH", str(nsjail))
-    monkeypatch.setattr(config, "TRACECAT__SANDBOX_ROOTFS_PATH", str(rootfs))
+    monkeypatch.setattr(config, "AUTOSECOPS__SANDBOX_NSJAIL_PATH", str(nsjail))
+    monkeypatch.setattr(config, "AUTOSECOPS__SANDBOX_ROOTFS_PATH", str(rootfs))
     return nsjail, rootfs
 
 
@@ -38,7 +38,7 @@ def test_valid_sandbox_prerequisites(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.from_config(backend)
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.from_config(backend)
     )
     validate_execution_backend()
 
@@ -50,13 +50,13 @@ def test_other_backends_do_not_require_sandbox(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.from_config(backend)
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.from_config(backend)
     )
     monkeypatch.setattr(
-        config, "TRACECAT__SANDBOX_NSJAIL_PATH", str(tmp_path / "missing")
+        config, "AUTOSECOPS__SANDBOX_NSJAIL_PATH", str(tmp_path / "missing")
     )
     monkeypatch.setattr(
-        config, "TRACECAT__SANDBOX_ROOTFS_PATH", str(tmp_path / "missing")
+        config, "AUTOSECOPS__SANDBOX_ROOTFS_PATH", str(tmp_path / "missing")
     )
     validate_execution_backend()
 
@@ -110,12 +110,12 @@ async def test_workers_reject_invalid_sandbox_before_starting_services(
         elif invalid == "file":
             path.write_text("not a directory")
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
     )
     initialize_tracing = Mock()
     monkeypatch.setattr(module, "initialize_platform_tracing", initialize_tracing)
     with pytest.raises(
-        RuntimeError, match="TRACECAT__EXECUTOR_BACKEND=nsjail requires"
+        RuntimeError, match="AUTOSECOPS__EXECUTOR_BACKEND=nsjail requires"
     ):
         await module.main()
     initialize_tracing.assert_not_called()

@@ -28,7 +28,7 @@ from autosecops.chat.schemas import (
     VercelChatRequest,
 )
 from autosecops.db.models import AgentSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 CHILD_TURN_REJECTION = (
     "Subagent sessions are read-only; message the parent session instead"
@@ -38,7 +38,7 @@ CHILD_TURN_REJECTION = (
 def _service() -> tuple[AgentSessionService, AsyncMock, Role]:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
     )
@@ -72,7 +72,7 @@ async def test_child_rejects_parent_outside_authorized_workspace() -> None:
     service, db, role = _service()
     assert role.workspace_id is not None
     with patch.object(service, "get_session", AsyncMock(return_value=None)):
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.create_session(
                 AgentSessionCreate(
                     entity_type=AgentSessionEntity.WORKSPACE_CHAT,
@@ -98,7 +98,7 @@ async def test_fork_read_rejects_source_outside_authorized_workspace() -> None:
         forked_from_session_id=uuid.uuid4(),
     )
     with patch.object(service, "get_session", AsyncMock(side_effect=[fork, None])):
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.list_messages(fork.id)
     db.execute.assert_not_awaited()
 
@@ -128,7 +128,7 @@ async def test_fork_creation_rejects_reference_outside_authorized_workspace(
     with patch.object(
         service, "get_session", AsyncMock(return_value=None)
     ) as get_session:
-        with pytest.raises(TracecatNotFoundError):
+        with pytest.raises(AutoSecOpsNotFoundError):
             await service.fork_session(source_id, spawned_by_session_id=parent_id)
     db.execute.assert_awaited_once()
     result.tuples.return_value.one_or_none.assert_called_once()

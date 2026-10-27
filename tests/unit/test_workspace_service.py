@@ -19,9 +19,9 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import (
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatAuthorizationError,
-    TracecatValidationError,
 )
 from autosecops.workspace_sync.enums import VcsProvider
 from autosecops.workspaces.schemas import (
@@ -122,7 +122,7 @@ class TestWorkspaceService:
         await session.commit()
         original_settings = dict(svc_workspace.settings)
 
-        with pytest.raises(TracecatValidationError, match="active preset"):
+        with pytest.raises(AutoSecOpsValidationError, match="active preset"):
             await service.update_workspace(
                 svc_workspace,
                 WorkspaceUpdate(default_agent_preset_id=preset_id),
@@ -280,7 +280,7 @@ class TestWorkspaceService:
                 workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 user_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=ADMIN_SCOPES,
             ),
         )
@@ -323,7 +323,7 @@ class TestWorkspaceService:
                 bound_workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
@@ -366,7 +366,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:workspace:read"}),
             ),
         )
@@ -386,12 +386,12 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
 
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await service.list_accessible_workspaces()
 
     async def test_list_accessible_workspaces_returns_empty_for_org_read_service_account(
@@ -412,7 +412,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:read"}),
             ),
         )
@@ -445,7 +445,7 @@ class TestWorkspaceService:
                 bound_workspace_id=workspace.id,
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"workspace:read"}),
             ),
         )
@@ -478,7 +478,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:workspace:read"}),
             ),
         )
@@ -505,7 +505,7 @@ class TestWorkspaceService:
                 type="service_account",
                 organization_id=svc_organization.id,
                 service_account_id=uuid.uuid4(),
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=frozenset({"org:read"}),
             ),
         )

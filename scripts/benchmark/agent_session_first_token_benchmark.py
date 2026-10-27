@@ -39,8 +39,8 @@ DEFAULT_READ_TIMEOUT = 300.0
 DEFAULT_WRITE_TIMEOUT = 30.0
 DEFAULT_POOL_TIMEOUT = 10.0
 DEFAULT_COOKIE_ENV_CANDIDATES = (
-    "TRACECAT_BENCHMARK_COOKIE_HEADER",
-    "TRACECAT_COOKIE_HEADER",
+    "AUTOSECOPS_BENCHMARK_COOKIE_HEADER",
+    "AUTOSECOPS_COOKIE_HEADER",
 )
 
 
@@ -99,7 +99,7 @@ def parse_args(argv: list[str]) -> BenchmarkConfig:
     )
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("TRACECAT_BENCHMARK_BASE_URL", DEFAULT_BASE_URL),
+        default=os.environ.get("AUTOSECOPS_BENCHMARK_BASE_URL", DEFAULT_BASE_URL),
         help="AutoSecOps base URL, e.g. http://localhost:80",
     )
     parser.add_argument(

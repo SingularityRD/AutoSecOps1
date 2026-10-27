@@ -58,13 +58,13 @@ class AgentActionArgs(BaseModel):
     max_tool_calls: int = Field(
         default=15,
         ge=1,
-        le=config.TRACECAT__AGENT_MAX_TOOL_CALLS,
+        le=config.AUTOSECOPS__AGENT_MAX_TOOL_CALLS,
         description="The maximum number of tool calls to make per agent run",
     )
     max_requests: int = Field(
         default=45,
         ge=1,
-        le=config.TRACECAT__AGENT_MAX_REQUESTS,
+        le=config.AUTOSECOPS__AGENT_MAX_REQUESTS,
         description="The maximum number of model requests to make per agent run",
     )
     retries: int = 3
@@ -99,12 +99,12 @@ class PresetAgentActionArgs(BaseModel):
     max_tool_calls: int = Field(
         default=15,
         ge=1,
-        le=config.TRACECAT__AGENT_MAX_TOOL_CALLS,
+        le=config.AUTOSECOPS__AGENT_MAX_TOOL_CALLS,
         description="The maximum number of tool calls to make per agent run",
     )
     max_requests: int = Field(
         default=45,
         ge=1,
-        le=config.TRACECAT__AGENT_MAX_REQUESTS,
+        le=config.AUTOSECOPS__AGENT_MAX_REQUESTS,
         description="The maximum number of model requests to make per agent run",
     )

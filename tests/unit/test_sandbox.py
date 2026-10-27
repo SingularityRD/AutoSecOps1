@@ -15,7 +15,7 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.contexts import ctx_role, get_env
 from autosecops.db.models import Secret
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.secrets import secrets_manager
 from autosecops.secrets.encryption import encrypt_keyvalues
 from autosecops.secrets.schemas import (
@@ -42,7 +42,7 @@ async def test_auth_sandbox_with_secrets(mocker: pytest_mock.MockFixture, test_r
         name="my_secret",
         workspace_id=role.workspace_id,
         encrypted_keys=encrypt_keyvalues(
-            mock_secret_keys, key=os.environ["TRACECAT__DB_ENCRYPTION_KEY"]
+            mock_secret_keys, key=os.environ["AUTOSECOPS__DB_ENCRYPTION_KEY"]
         ),
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -63,15 +63,15 @@ async def test_auth_sandbox_with_secrets(mocker: pytest_mock.MockFixture, test_r
 async def test_auth_sandbox_without_secrets(test_role, mock_user_id):
     # Auth sandbox has a different role.
     with TemporaryRole(
-        type="service", user_id=mock_user_id, service_id="tracecat-service"
+        type="service", user_id=mock_user_id, service_id="autosecops-service"
     ):
         async with AuthSandbox() as sandbox:
             assert sandbox.secrets == {}
             assert sandbox._role == Role(
                 type="service",
                 user_id=mock_user_id,
-                service_id="tracecat-service",
-                scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+                service_id="autosecops-service",
+                scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
             )
 
 
@@ -174,7 +174,7 @@ def _secret(name: str, workspace_id: UUID, keys: dict[str, str]) -> Secret:
         workspace_id=workspace_id,
         encrypted_keys=encrypt_keyvalues(
             [SecretKeyValue(key=k, value=SecretStr(v)) for k, v in keys.items()],
-            key=os.environ["TRACECAT__DB_ENCRYPTION_KEY"],
+            key=os.environ["AUTOSECOPS__DB_ENCRYPTION_KEY"],
         ),
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -234,7 +234,7 @@ async def test_auth_sandbox_optional_secrets(
 
     # Test that missing required secret still raises an error
     mock_secrets_service.search_secrets.return_value = []
-    with pytest.raises(TracecatCredentialsError) as exc_info:
+    with pytest.raises(AutoSecOpsCredentialsError) as exc_info:
         async with AuthSandbox(
             secrets=["required_secret", "optional_secret"],
             optional_secrets=["optional_secret"],

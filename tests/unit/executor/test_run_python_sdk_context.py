@@ -91,7 +91,7 @@ class _FakeCasesClient:
         return {"items": [{"id": "case-1"}], "limit": limit}
 
 
-class _FakeTracecatClient:
+class _FakeAutoSecOpsClient:
     @property
     def cases(self) -> _FakeCasesClient:
         return _FakeCasesClient()
@@ -184,7 +184,7 @@ def _make_run_python_input() -> RunActionInput:
 def _make_role() -> Role:
     return Role(
         type="service",
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
         workspace_id=uuid.UUID("38be3315-c172-4332-aea6-53fc4b93f053"),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -206,7 +206,7 @@ def _make_run_python_context() -> ResolvedContext:
             "script": "def main():\n    return 1",
             "env_vars": {
                 "CUSTOM_VALUE": "kept",
-                "TRACECAT__WORKSPACE_ID": "user-cannot-shadow-context",
+                "AUTOSECOPS__WORKSPACE_ID": "user-cannot-shadow-context",
             },
         },
         workspace_id=str(uuid.uuid4()),
@@ -218,8 +218,8 @@ def _make_run_python_context() -> ResolvedContext:
 
 
 def _run_python_nsjail_available() -> bool:
-    nsjail_path = Path(config.TRACECAT__SANDBOX_NSJAIL_PATH)
-    rootfs_path = Path(config.TRACECAT__SANDBOX_ROOTFS_PATH)
+    nsjail_path = Path(config.AUTOSECOPS__SANDBOX_NSJAIL_PATH)
+    rootfs_path = Path(config.AUTOSECOPS__SANDBOX_ROOTFS_PATH)
     return (
         platform.system() == "Linux"
         and nsjail_path.is_file()
@@ -230,7 +230,7 @@ def _run_python_nsjail_available() -> bool:
 
 def _docker_nsjail_fallback_enabled() -> bool:
     return (
-        os.environ.get("TRACECAT__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD") != "1"
+        os.environ.get("AUTOSECOPS__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD") != "1"
         and shutil.which("docker") is not None
     )
 
@@ -242,7 +242,7 @@ def _set_run_python_nsjail_mode(
 ) -> None:
     monkeypatch.setattr(
         sandbox_service_module,
-        "TRACECAT__EXECUTOR_BACKEND",
+        "AUTOSECOPS__EXECUTOR_BACKEND",
         ExecutorBackendType.DIRECT if disable_nsjail else ExecutorBackendType.NSJAIL,
     )
 
@@ -284,7 +284,7 @@ async def main():
 
     return {
         "gateway": await ctx.client.get("/health"),
-        "socket_path": os.environ.get("TRACECAT__ACTION_GATEWAY_SOCKET"),
+        "socket_path": os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET"),
         "outbound_status": outbound_status,
     }
 """
@@ -292,14 +292,14 @@ async def main():
 
 def _registry_ctx_env_vars() -> dict[str, str]:
     return {
-        "TRACECAT__ACTION_GATEWAY_SOCKET": str(ACTION_GATEWAY_SANDBOX_SOCKET),
-        "TRACECAT__API_URL": "http://api.test:8000",
-        "TRACECAT__WORKSPACE_ID": "workspace-id",
-        "TRACECAT__WORKFLOW_ID": "workflow-id",
-        "TRACECAT__RUN_ID": "run-id",
-        "TRACECAT__WF_EXEC_ID": "workflow-id/execution-id",
-        "TRACECAT__ENVIRONMENT": "testing",
-        "TRACECAT__EXECUTOR_TOKEN": "executor-token",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET": str(ACTION_GATEWAY_SANDBOX_SOCKET),
+        "AUTOSECOPS__API_URL": "http://api.test:8000",
+        "AUTOSECOPS__WORKSPACE_ID": "workspace-id",
+        "AUTOSECOPS__WORKFLOW_ID": "workflow-id",
+        "AUTOSECOPS__RUN_ID": "run-id",
+        "AUTOSECOPS__WF_EXEC_ID": "workflow-id/execution-id",
+        "AUTOSECOPS__ENVIRONMENT": "testing",
+        "AUTOSECOPS__EXECUTOR_TOKEN": "executor-token",
     }
 
 
@@ -369,16 +369,16 @@ class RegistryContext:
     @classmethod
     def from_env(cls):
         return cls(
-            workspace_id=os.environ["TRACECAT__WORKSPACE_ID"],
-            api_url=os.environ.get("TRACECAT__API_URL", "http://api:8000"),
-            token=os.environ.get("TRACECAT__EXECUTOR_TOKEN", ""),
+            workspace_id=os.environ["AUTOSECOPS__WORKSPACE_ID"],
+            api_url=os.environ.get("AUTOSECOPS__API_URL", "http://api:8000"),
+            token=os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", ""),
         )
 
     @property
     def client(self):
-        from autosecops_registry.sdk.client import TracecatClient
+        from autosecops_registry.sdk.client import AutoSecOpsClient
 
-        return TracecatClient(
+        return AutoSecOpsClient(
             api_url=self.api_url,
             token=self.token,
             workspace_id=self.workspace_id,
@@ -409,7 +409,7 @@ import os
 import httpx
 
 
-class TracecatClient:
+class AutoSecOpsClient:
     def __init__(
         self,
         *,
@@ -418,8 +418,8 @@ class TracecatClient:
         workspace_id=None,
         timeout=120.0,
     ):
-        self._api_url = (api_url or os.environ.get("TRACECAT__API_URL", "http://api:8000")).rstrip("/") + "/internal"
-        self._token = token or os.environ.get("TRACECAT__EXECUTOR_TOKEN", "")
+        self._api_url = (api_url or os.environ.get("AUTOSECOPS__API_URL", "http://api:8000")).rstrip("/") + "/internal"
+        self._token = token or os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", "")
         self._timeout = timeout
 
     def _get_headers(self):
@@ -512,7 +512,7 @@ async def _run_backend_registry_ctx_smoke(
     fake_runner = _FakeRunPythonRegistryPathRunner(_registry_python_path_dirs())
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     monkeypatch.setattr(
         executor_backend_module,
@@ -527,7 +527,7 @@ async def _run_backend_registry_ctx_smoke(
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__API_URL",
+        "AUTOSECOPS__API_URL",
         "http://api.test:8000",
     )
     input_data = _make_run_python_input()
@@ -555,7 +555,7 @@ async def _run_backend_registry_ctx_smoke(
         token=resolved_context.executor_token,
     )
     assert fake_runner.artifact_uris == [
-        "s3://tracecat-registry/test/site-packages.tar.gz"
+        "s3://autosecops-registry/test/site-packages.tar.gz"
     ]
     return result.result
 
@@ -572,7 +572,7 @@ async def _run_backend_registry_ctx_gateway_smoke(
     fake_runner = _FakeRunPythonRegistryPathRunner(registry_paths)
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     monkeypatch.setattr(
         executor_backend_module,
@@ -587,12 +587,12 @@ async def _run_backend_registry_ctx_gateway_smoke(
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__API_URL",
-        "http://tracecat-api:8000",
+        "AUTOSECOPS__API_URL",
+        "http://autosecops-api:8000",
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
 
@@ -619,7 +619,7 @@ async def _run_backend_registry_ctx_gateway_smoke(
         "outbound_status": "blocked: URLError",
     }
     assert fake_runner.artifact_uris == [
-        "s3://tracecat-registry/test/site-packages.tar.gz"
+        "s3://autosecops-registry/test/site-packages.tar.gz"
     ]
     return result.result
 
@@ -630,11 +630,11 @@ async def _run_backend_registry_ctx_smoke_matrix(
     cache_dir: Path,
 ) -> None:
     action_gateway_socket = (
-        Path("/tmp") / f"tracecat-run-python-gateway-{uuid.uuid4().hex}.sock"
+        Path("/tmp") / f"autosecops-run-python-gateway-{uuid.uuid4().hex}.sock"
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
     action_gateway = ActionGateway(socket_path=action_gateway_socket)
@@ -686,7 +686,7 @@ def _run_nsjail_harness_in_docker_or_skip(
     timeout: int,
     failure_message: str,
 ) -> None:
-    if os.environ.get("TRACECAT__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD") == "1":
+    if os.environ.get("AUTOSECOPS__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD") == "1":
         pytest.skip("run_python nsjail unavailable inside Docker fallback child")
     if not _docker_nsjail_fallback_enabled():
         pytest.skip("Docker CLI unavailable for run_python nsjail fallback")
@@ -704,16 +704,16 @@ def _run_nsjail_harness_in_docker_or_skip(
     repo_root = Path(__file__).resolve().parents[3]
     compose_env = os.environ.copy()
     compose_env.setdefault(
-        "TRACECAT__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
         str(repo_root / "packages"),
     )
-    compose_env.setdefault("TRACECAT__LOCAL_REPOSITORY_ENABLED", "false")
+    compose_env.setdefault("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "false")
     compose_env.setdefault("PUBLIC_APP_PORT", "80")
     compose_env.setdefault("BASE_DOMAIN", ":80")
     compose_env.setdefault("ADDRESS", "0.0.0.0")
     compose_env.setdefault("LOG_LEVEL", "INFO")
-    compose_env.setdefault("TRACECAT__APP_ENV", "development")
-    sandbox_image = os.environ.get("TRACECAT_TEST_SANDBOX_IMAGE")
+    compose_env.setdefault("AUTOSECOPS__APP_ENV", "development")
+    sandbox_image = os.environ.get("AUTOSECOPS_TEST_SANDBOX_IMAGE")
     tests_mount = f"{repo_root / 'tests'}:/app/tests:ro"
     fd, override_name = tempfile.mkstemp(
         prefix=override_prefix,
@@ -745,10 +745,10 @@ def _run_nsjail_harness_in_docker_or_skip(
                 "    volumes:",
                 f"      - {json.dumps(tests_mount)}",
                 "    environment:",
-                '      TRACECAT__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD: "1"',
-                '      TRACECAT__EXECUTOR_BACKEND: "nsjail"',
-                '      TRACECAT__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
-                '      TRACECAT__SANDBOX_ROOTFS_PATH: "/var/lib/tracecat/sandbox-rootfs"',
+                '      AUTOSECOPS__RUN_PYTHON_NSJAIL_DOCKER_FALLBACK_CHILD: "1"',
+                '      AUTOSECOPS__EXECUTOR_BACKEND: "nsjail"',
+                '      AUTOSECOPS__SANDBOX_NSJAIL_PATH: "/usr/local/bin/nsjail"',
+                '      AUTOSECOPS__SANDBOX_ROOTFS_PATH: "/var/lib/autosecops/sandbox-rootfs"',
                 '      PYTHONDONTWRITEBYTECODE: "1"',
                 "",
             ]
@@ -797,7 +797,7 @@ def _run_nsjail_harness_in_docker_or_skip(
 def _run_nsjail_sdk_context_harness_in_docker_or_skip() -> None:
     _run_nsjail_harness_in_docker_or_skip(
         cli_arg="--run-nsjail-sdk-context-smoke",
-        override_prefix="tracecat-run-python-nsjail-test-",
+        override_prefix="autosecops-run-python-nsjail-test-",
         timeout=600,
         failure_message="Dockerized run_python nsjail SDK-context fallback failed.",
     )
@@ -806,7 +806,7 @@ def _run_nsjail_sdk_context_harness_in_docker_or_skip() -> None:
 def _run_nsjail_sdk_gateway_harness_in_docker_or_skip() -> None:
     _run_nsjail_harness_in_docker_or_skip(
         cli_arg="--run-nsjail-sdk-gateway-smoke",
-        override_prefix="tracecat-run-python-nsjail-gateway-test-",
+        override_prefix="autosecops-run-python-nsjail-gateway-test-",
         timeout=240,
         failure_message="Dockerized run_python nsjail SDK-gateway fallback failed.",
     )
@@ -815,7 +815,7 @@ def _run_nsjail_sdk_gateway_harness_in_docker_or_skip() -> None:
 def _run_nsjail_sdk_context_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-run-python-nsjail-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-run-python-nsjail-"))
         try:
             _set_run_python_nsjail_mode(monkeypatch, disable_nsjail=False)
             await _run_backend_registry_ctx_smoke_matrix(
@@ -832,7 +832,7 @@ def _run_nsjail_sdk_context_smoke_from_cli() -> None:
 def _run_nsjail_sdk_gateway_smoke_from_cli() -> None:
     async def run() -> None:
         monkeypatch = pytest.MonkeyPatch()
-        tmp_path = Path(tempfile.mkdtemp(prefix="tracecat-run-python-gateway-"))
+        tmp_path = Path(tempfile.mkdtemp(prefix="autosecops-run-python-gateway-"))
         try:
             _set_run_python_nsjail_mode(monkeypatch, disable_nsjail=False)
             await _run_backend_registry_ctx_gateway_smoke_matrix(
@@ -934,7 +934,9 @@ async def test_run_python_nsjail_rejects_missing_action_gateway_socket(
     nsjail_executor = _CapturingNsjailExecutor()
     monkeypatch.setattr(service, "_nsjail_executor", nsjail_executor)
     monkeypatch.setattr(
-        sandbox_service_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.NSJAIL
+        sandbox_service_module,
+        "AUTOSECOPS__EXECUTOR_BACKEND",
+        ExecutorBackendType.NSJAIL,
     )
 
     with pytest.raises(SandboxInfrastructureError, match="socket is unavailable"):
@@ -993,12 +995,12 @@ def test_registry_pythonpaths_can_import_ctx_without_site_packages(
         env={
             "PYTHONPATH": env_vars["PYTHONPATH"],
             "PYTHONDONTWRITEBYTECODE": "1",
-            "TRACECAT__ACTION_GATEWAY_SOCKET": str(ACTION_GATEWAY_SANDBOX_SOCKET),
+            "AUTOSECOPS__ACTION_GATEWAY_SOCKET": str(ACTION_GATEWAY_SANDBOX_SOCKET),
         },
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "autosecops_registry.ctx TracecatClient"
+    assert result.stdout.strip() == "autosecops_registry.ctx AutoSecOpsClient"
 
 
 def test_unsafe_pid_pythonpath_uses_registry_paths(tmp_path: Path) -> None:
@@ -1077,14 +1079,14 @@ def main():
     assert result["output"] == {"ok": True}
 
 
-def test_tracecat_registry_ctx_runs_async_sdk_methods_synchronously() -> None:
+def test_autosecops_registry_ctx_runs_async_sdk_methods_synchronously() -> None:
     context = RegistryContext(
         workspace_id="workspace-id",
         workflow_id="workflow-id",
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1098,14 +1100,14 @@ def test_tracecat_registry_ctx_runs_async_sdk_methods_synchronously() -> None:
 
 
 @pytest.mark.anyio
-async def test_tracecat_registry_ctx_supports_typed_async_client_namespace() -> None:
+async def test_autosecops_registry_ctx_supports_typed_async_client_namespace() -> None:
     context = RegistryContext(
         workspace_id="workspace-id",
         workflow_id="workflow-id",
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1117,14 +1119,14 @@ async def test_tracecat_registry_ctx_supports_typed_async_client_namespace() -> 
         clear_context()
 
 
-def test_tracecat_registry_ctx_does_not_expose_modal_style_method_aio() -> None:
+def test_autosecops_registry_ctx_does_not_expose_modal_style_method_aio() -> None:
     context = RegistryContext(
         workspace_id="workspace-id",
         workflow_id="workflow-id",
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1134,14 +1136,14 @@ def test_tracecat_registry_ctx_does_not_expose_modal_style_method_aio() -> None:
 
 
 @pytest.mark.anyio
-async def test_tracecat_registry_ctx_rejects_sync_call_in_async_code() -> None:
+async def test_autosecops_registry_ctx_rejects_sync_call_in_async_code() -> None:
     context = RegistryContext(
         workspace_id="workspace-id",
         workflow_id="workflow-id",
         run_id="run-id",
         token="executor-token",
     )
-    context.__dict__["client"] = _FakeTracecatClient()
+    context.__dict__["client"] = _FakeAutoSecOpsClient()
     set_context(context)
 
     try:
@@ -1162,7 +1164,7 @@ async def test_run_python_backend_always_injects_sdk_context(
     fake_runner = _FakeRunPythonRegistryPathRunner([artifact_path])
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     class FakeSandboxService:
         async def run_python(self, **kwargs: Any) -> dict[str, bool]:
@@ -1174,7 +1176,7 @@ async def test_run_python_backend_always_injects_sdk_context(
         FakeSandboxService,
     )
     monkeypatch.setattr(
-        "autosecops.executor.backends.base.config.TRACECAT__API_URL",
+        "autosecops.executor.backends.base.config.AUTOSECOPS__API_URL",
         "http://api.test:8000",
     )
     backend = DirectBackend()
@@ -1196,17 +1198,17 @@ async def test_run_python_backend_always_injects_sdk_context(
     assert result.result == {"ok": True}
     assert captured["env_vars"] == {
         "CUSTOM_VALUE": "kept",
-        "TRACECAT__API_URL": "http://api.test:8000",
-        "TRACECAT__WORKSPACE_ID": resolved_context.workspace_id,
-        "TRACECAT__WORKFLOW_ID": resolved_context.workflow_id,
-        "TRACECAT__RUN_ID": resolved_context.run_id,
-        "TRACECAT__WF_EXEC_ID": str(input_data.run_context.wf_exec_id),
-        "TRACECAT__ENVIRONMENT": input_data.run_context.environment,
-        "TRACECAT__EXECUTOR_TOKEN": resolved_context.executor_token,
+        "AUTOSECOPS__API_URL": "http://api.test:8000",
+        "AUTOSECOPS__WORKSPACE_ID": resolved_context.workspace_id,
+        "AUTOSECOPS__WORKFLOW_ID": resolved_context.workflow_id,
+        "AUTOSECOPS__RUN_ID": resolved_context.run_id,
+        "AUTOSECOPS__WF_EXEC_ID": str(input_data.run_context.wf_exec_id),
+        "AUTOSECOPS__ENVIRONMENT": input_data.run_context.environment,
+        "AUTOSECOPS__EXECUTOR_TOKEN": resolved_context.executor_token,
     }
     assert captured["python_path_dirs"] == [artifact_path]
     assert fake_runner.artifact_uris == [
-        "s3://tracecat-registry/test/site-packages.tar.gz"
+        "s3://autosecops-registry/test/site-packages.tar.gz"
     ]
 
 
@@ -1222,7 +1224,7 @@ async def test_run_python_backend_holds_registry_lease_for_whole_sandbox_run(
     leased_during_run: list[bool] = []
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     class FakeSandboxService:
         async def run_python(self, **kwargs: Any) -> dict[str, bool]:
@@ -1271,7 +1273,7 @@ async def test_run_python_script_never_outlives_the_action_timeout(
     captured: dict[str, Any] = {}
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     class FakeSandboxService:
         async def run_python(self, **kwargs: Any) -> dict[str, bool]:
@@ -1311,7 +1313,7 @@ async def test_run_python_backend_fails_without_registry_artifacts(
         return []
 
     monkeypatch.setattr(
-        "autosecops.executor.backends.base.config.TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "autosecops.executor.backends.base.config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
         False,
     )
     backend = DirectBackend()
@@ -1372,17 +1374,17 @@ async def test_run_python_backend_uses_local_registry_paths(
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__LOCAL_REPOSITORY_ENABLED",
+        "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
         True,
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH",
+        "AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH",
         str(builtin_path),
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH",
         str(local_path),
     )
     monkeypatch.setenv("PYTHONUSERBASE", str(custom_target))
@@ -1415,7 +1417,9 @@ async def test_run_python_subprocess_can_import_registry_ctx(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        sandbox_service_module, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        sandbox_service_module,
+        "AUTOSECOPS__EXECUTOR_BACKEND",
+        ExecutorBackendType.DIRECT,
     )
 
     result = await _run_sandbox_registry_ctx_smoke(
@@ -1465,7 +1469,7 @@ async def test_run_python_nsjail_sdk_calls_use_action_gateway_without_network(
     disabled by default, but `autosecops_registry.ctx` calls are internal platform
     calls and should route through the worker-owned Unix socket. The matrix also
     uses a minimal pre-gateway registry package to catch cached legacy artifacts
-    whose `TracecatClient` does not natively read the gateway socket env var.
+    whose `AutoSecOpsClient` does not natively read the gateway socket env var.
     """
     if not _run_python_nsjail_available():
         _run_nsjail_sdk_gateway_harness_in_docker_or_skip()
@@ -1486,7 +1490,7 @@ async def test_run_python_pid_sdk_calls_use_action_gateway_with_legacy_registry(
     """Unsafe PID fallback should patch pre-gateway SDK artifacts too."""
     _set_run_python_nsjail_mode(monkeypatch, disable_nsjail=True)
     action_gateway_socket = (
-        Path("/tmp") / f"tracecat-run-python-gateway-{uuid.uuid4().hex}.sock"
+        Path("/tmp") / f"autosecops-run-python-gateway-{uuid.uuid4().hex}.sock"
     )
     action_gateway_socket.unlink(missing_ok=True)
     action_gateway = ActionGateway(socket_path=action_gateway_socket)
@@ -1496,7 +1500,7 @@ async def test_run_python_pid_sdk_calls_use_action_gateway_with_legacy_registry(
     )
 
     async def _get_artifact_uris(_input: RunActionInput, _role: Role) -> list[str]:
-        return ["s3://tracecat-registry/test/site-packages.tar.gz"]
+        return ["s3://autosecops-registry/test/site-packages.tar.gz"]
 
     monkeypatch.setattr(
         executor_backend_module,
@@ -1510,12 +1514,12 @@ async def test_run_python_pid_sdk_calls_use_action_gateway_with_legacy_registry(
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__API_URL",
-        "http://tracecat-api:8000",
+        "AUTOSECOPS__API_URL",
+        "http://autosecops-api:8000",
     )
     monkeypatch.setattr(
         executor_backend_module.config,
-        "TRACECAT__ACTION_GATEWAY_SOCKET",
+        "AUTOSECOPS__ACTION_GATEWAY_SOCKET",
         str(action_gateway_socket),
     )
 
@@ -1535,7 +1539,7 @@ async def main():
 
     return {
         "gateway": await ctx.client.get("/health"),
-        "socket_path": os.environ.get("TRACECAT__ACTION_GATEWAY_SOCKET"),
+        "socket_path": os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET"),
     }
 """,
             "allow_network": False,
@@ -1560,7 +1564,7 @@ async def main():
         "socket_path": str(action_gateway_socket),
     }
     assert fake_runner.artifact_uris == [
-        "s3://tracecat-registry/test/site-packages.tar.gz"
+        "s3://autosecops-registry/test/site-packages.tar.gz"
     ]
 
 

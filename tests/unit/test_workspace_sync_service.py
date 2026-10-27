@@ -24,10 +24,10 @@ from autosecops.cases.enums import CaseEventType
 from autosecops.dsl.common import DSLEntrypoint, DSLInput
 from autosecops.dsl.schemas import ActionStatement
 from autosecops.exceptions import (
+    AutoSecOpsSettingsError,
+    AutoSecOpsValidationError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatSettingsError,
-    TracecatValidationError,
 )
 from autosecops.feature_flags import FeatureFlag
 from autosecops.git.types import GitUrl
@@ -110,10 +110,10 @@ def workspace_sync_service() -> WorkspaceSyncService:
     session.begin_nested = Mock(return_value=transaction)
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-api"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-api"],
     )
     return WorkspaceSyncService(session=session, role=role)
 
@@ -129,7 +129,7 @@ async def test_pull_does_not_sync_schedules_by_default(
         definition=sample_dsl,
     )
     files = {
-        "tracecat.json": canonical_json_text(WorkspaceManifest()),
+        "autosecops.json": canonical_json_text(WorkspaceManifest()),
         workflow_source_path(spec.id): serialize_workflow_spec(spec),
     }
     transport = AsyncMock()
@@ -141,7 +141,7 @@ async def test_pull_does_not_sync_schedules_by_default(
     import_service = AsyncMock()
     import_service.validate_workflows.return_value = []
     workspace_sync_service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     workspace_sync_service._resolve_local_workflow_id = AsyncMock(
         return_value=WorkflowUUID.new_uuid4()
@@ -197,7 +197,7 @@ async def test_pull_dry_run_returns_resource_diffs_without_import(
     import_service = AsyncMock()
     import_service.validate_workflows.return_value = []
     workspace_sync_service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     workspace_sync_service._resolve_local_workflow_id = AsyncMock(
         return_value=WorkflowUUID.new_uuid4()
@@ -281,7 +281,7 @@ async def test_pull_dry_run_projects_current_workspace_by_target_resource_types(
     import_service = AsyncMock()
     import_service.validate_workflows.return_value = []
     workspace_sync_service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     workspace_sync_service.project_workspace = AsyncMock(
         return_value=WorkspaceProjection(
@@ -350,7 +350,7 @@ async def test_pull_dry_run_ignores_schedule_diff_when_schedule_sync_is_disabled
     import_service = AsyncMock()
     import_service.validate_workflows.return_value = []
     workspace_sync_service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     workspace_sync_service._resolve_local_workflow_id = AsyncMock(
         return_value=WorkflowUUID.new_uuid4()
@@ -694,7 +694,7 @@ async def test_preview_export_requires_scopes_for_projected_sensitive_metadata()
 ):
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync"}),
@@ -734,7 +734,7 @@ async def test_preview_export_requires_scopes_for_projected_sensitive_metadata()
 async def test_mcp_metadata_queries_require_integration_read_before_sql() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync", "agent:read"}),
@@ -758,7 +758,7 @@ async def test_mcp_metadata_queries_require_integration_read_before_sql() -> Non
 def test_workflow_export_scope_accepts_legacy_or_workspace_sync_grant() -> None:
     base_role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workflow:update", "workflow:sync"}),
@@ -769,7 +769,7 @@ def test_workflow_export_scope_accepts_legacy_or_workspace_sync_grant() -> None:
 
     service.role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=base_role.workspace_id,
         organization_id=base_role.organization_id,
         scopes=frozenset({"workflow:update", "workspace_sync:sync"}),
@@ -778,7 +778,7 @@ def test_workflow_export_scope_accepts_legacy_or_workspace_sync_grant() -> None:
 
     service.role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=base_role.workspace_id,
         organization_id=base_role.organization_id,
         scopes=frozenset({"workflow:update"}),
@@ -793,7 +793,7 @@ async def test_workflow_export_allows_projected_dependencies_with_publish_scope(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workflow:update", "workflow:sync"}),
@@ -837,7 +837,7 @@ async def test_workflow_export_allows_projected_dependencies_with_publish_scope(
         ),
     )
     service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     service.project_workspace = AsyncMock(return_value=projection)
     transport = AsyncMock()
@@ -883,7 +883,7 @@ async def test_workflow_export_allows_projected_dependencies_with_publish_scope(
 def test_sync_operation_scope_accepts_legacy_or_workspace_sync_grant() -> None:
     base_role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workflow:sync"}),
@@ -894,7 +894,7 @@ def test_sync_operation_scope_accepts_legacy_or_workspace_sync_grant() -> None:
 
     service.role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=base_role.workspace_id,
         organization_id=base_role.organization_id,
         scopes=frozenset({"workspace_sync:sync"}),
@@ -903,7 +903,7 @@ def test_sync_operation_scope_accepts_legacy_or_workspace_sync_grant() -> None:
 
     service.role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=base_role.workspace_id,
         organization_id=base_role.organization_id,
         scopes=frozenset(),
@@ -920,7 +920,7 @@ def test_pull_requires_workspace_update_only_for_explicit_default_metadata(
 ) -> None:
     role = Role(
         type="user",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         user_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -954,7 +954,7 @@ def test_pull_requires_form_write_scopes_only_to_apply_a_form_block(
     """Applying a workflow's ``form:`` block needs form:create and form:update."""
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset(
@@ -1005,7 +1005,7 @@ async def test_preview_export_rejects_missing_skill_head(
         )
     )
 
-    with pytest.raises(TracecatValidationError, match="missing skill slug"):
+    with pytest.raises(AutoSecOpsValidationError, match="missing skill slug"):
         await workspace_sync_service.preview_export_workspace(
             WorkspaceSyncExportPreviewRequest()
         )
@@ -1015,7 +1015,7 @@ async def test_preview_export_rejects_missing_skill_head(
 async def test_pull_dry_run_requires_read_scopes_for_incoming_resources() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync"}),
@@ -1048,7 +1048,7 @@ async def test_pull_dry_run_requires_read_scopes_for_incoming_resources() -> Non
         ),
     )
     service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
     service.project_workspace = AsyncMock()
 
@@ -1069,7 +1069,7 @@ async def test_pull_dry_run_requires_read_scopes_for_incoming_resources() -> Non
 async def test_pull_apply_requires_create_scopes_for_incoming_resources() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync", "secret:update", "variable:update"}),
@@ -1102,7 +1102,7 @@ async def test_pull_apply_requires_create_scopes_for_incoming_resources() -> Non
         ),
     )
     service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
 
     with (
@@ -1121,7 +1121,7 @@ async def test_pull_apply_requires_create_scopes_for_incoming_resources() -> Non
 async def test_pull_blocks_entitled_resource_without_entitlement() -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync", "case:update"}),
@@ -1146,7 +1146,7 @@ async def test_pull_blocks_entitled_resource_without_entitlement() -> None:
         ),
     )
     service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
 
     with (
@@ -1167,7 +1167,7 @@ async def test_pull_allows_workflow_case_trigger_without_entitlement(
 ) -> None:
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"workspace_sync:sync", "workflow:read"}),
@@ -1200,7 +1200,7 @@ async def test_pull_allows_workflow_case_trigger_without_entitlement(
         ),
     )
     service._workspace_git_url = AsyncMock(
-        return_value=GitUrl(host="github.com", org="tracecat", repo="sync")
+        return_value=GitUrl(host="github.com", org="autosecops", repo="sync")
     )
 
     with patch(
@@ -1223,7 +1223,7 @@ async def test_full_export_skips_unentitled_resource_types() -> None:
         session=AsyncMock(),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
             scopes=frozenset({"workspace_sync:sync"}),
@@ -1247,7 +1247,7 @@ async def test_selected_export_blocks_unentitled_resource_type() -> None:
         session=AsyncMock(),
         role=Role(
             type="service",
-            service_id="tracecat-api",
+            service_id="autosecops-api",
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
             scopes=frozenset({"workspace_sync:sync"}),
@@ -1494,7 +1494,7 @@ async def test_for_workspace_rejects_malformed_git_provider(
         "autosecops.workspace_sync.service.WorkspaceService",
         return_value=workspace_service,
     ):
-        with pytest.raises(TracecatSettingsError) as exc_info:
+        with pytest.raises(AutoSecOpsSettingsError) as exc_info:
             await WorkspaceSyncService.for_workspace(
                 session=workspace_sync_service.session,
                 role=workspace_sync_service.role,
@@ -1769,7 +1769,7 @@ async def test_github_write_files_rejects_pr_for_base_branch(
         ahead_by=0,
     )
 
-    with pytest.raises(TracecatValidationError, match="non-base branch"):
+    with pytest.raises(AutoSecOpsValidationError, match="non-base branch"):
         await _write_files_with_fake_repo(
             repo,
             service=workspace_sync_service,
@@ -2388,7 +2388,7 @@ async def _read_with_archive_repo(
 @pytest.fixture
 def github_archive_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS",
+        "autosecops.feature_flags.config.AUTOSECOPS__FEATURE_FLAGS",
         {FeatureFlag.WORKSPACE_SYNC_GITHUB_ARCHIVE},
     )
 
@@ -2399,7 +2399,7 @@ async def test_github_read_files_skips_archive_when_flag_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS", set()
+        "autosecops.feature_flags.config.AUTOSECOPS__FEATURE_FLAGS", set()
     )
     repo = _FakeGitHubArchiveRepo(_archive_repo_files())
 
@@ -2421,13 +2421,13 @@ async def test_github_read_files_archive_matches_blob_reads(
 ) -> None:
     files = _archive_repo_files()
     monkeypatch.setattr(
-        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS", set()
+        "autosecops.feature_flags.config.AUTOSECOPS__FEATURE_FLAGS", set()
     )
     blob_repo = _FakeGitHubArchiveRepo(files)
     blob_snapshot = await _read_with_archive_repo(blob_repo, workspace_sync_service)
 
     monkeypatch.setattr(
-        "autosecops.feature_flags.config.TRACECAT__FEATURE_FLAGS",
+        "autosecops.feature_flags.config.AUTOSECOPS__FEATURE_FLAGS",
         {FeatureFlag.WORKSPACE_SYNC_GITHUB_ARCHIVE},
     )
     archive_repo = _FakeGitHubArchiveRepo(files)

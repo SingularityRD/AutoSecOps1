@@ -32,8 +32,8 @@ from autosecops.db.models import (
     RobotKey,
 )
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
 )
 from autosecops.redis.client import get_redis_client
 from autosecops.robot_edr import fleet, fleet_replay
@@ -114,7 +114,7 @@ async def test_unverified_list_with_huge_serial_cannot_block_real_lists(
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         # No trust root configured: nothing can be published.
-        with pytest.raises(TracecatValidationError, match="trust root"):
+        with pytest.raises(AutoSecOpsValidationError, match="trust root"):
             await service.publish_revocation_list(
                 FleetRevocationCreate(revocation_list=revocation_list(root))
             )
@@ -122,7 +122,7 @@ async def test_unverified_list_with_huge_serial_cannot_block_real_lists(
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         # A list signed by anything else never sets the serial floor.
-        with pytest.raises(TracecatValidationError, match="trust root"):
+        with pytest.raises(AutoSecOpsValidationError, match="trust root"):
             await service.publish_revocation_list(
                 FleetRevocationCreate(
                     revocation_list=revocation_list(attacker, serial=MAX_STORED_INT)
@@ -142,12 +142,12 @@ async def test_trust_roots_need_robot_trust(soc: Soc) -> None:
     root = new_key()
     no_trust = soc.alice.model_copy(update={"scopes": FLEET_SCOPES - {"robot:trust"}})
     async with get_async_session_context_manager() as session:
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await soc.fleet(no_trust, session).add_trust_root(
                 FleetTrustRootCreate(public_key=root.public_key.hex())
             )
         # The contract vectors' test trust root is never trusted for real.
-        with pytest.raises(TracecatValidationError, match="test key"):
+        with pytest.raises(AutoSecOpsValidationError, match="test key"):
             await soc.fleet(soc.alice, session).add_trust_root(
                 FleetTrustRootCreate(
                     public_key=(VECTORS / "keys/trust-root.key.pub").read_text()
@@ -173,9 +173,9 @@ async def test_withdrawing_a_bad_list_takes_two_people(
             bad.id, FleetRevocationWithdraw(reason="published by mistake")
         )
         assert requested.withdrawal_requested_by == soc.alice.user_id
-        with pytest.raises(TracecatAuthorizationError, match="second person"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="second person"):
             await service.confirm_revocation_withdrawal(bad.id)
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await soc.fleet(soc.service, session).confirm_revocation_withdrawal(bad.id)
     path = "/robot-edr/v2/fleet/revocations/ugv-x1"
     assert json.loads((await signed_get(robot_api, sim, path)).content)["serial"] == 900
@@ -199,7 +199,7 @@ async def test_blackbox_keys_cannot_be_added_manually(soc: Soc) -> None:
     await add_robot(soc, "ugv-201")
     for role in (soc.alice, soc.service):
         async with get_async_session_context_manager() as session:
-            with pytest.raises(TracecatValidationError, match="enrollment"):
+            with pytest.raises(AutoSecOpsValidationError, match="enrollment"):
                 await RobotsService(session, role=role).create_key(
                     RobotKeyCreate(
                         role=RobotKeyRole.BLACKBOX,
@@ -230,7 +230,7 @@ async def test_evidence_keyring_is_newest_first_and_keeps_the_current_key(
     async with get_async_session_context_manager() as session:
         evidence = RobotEvidenceService(session, role=soc.service)
         # 18 keys are valid for an open range: refused, never truncated.
-        with pytest.raises(TracecatValidationError, match="16"):
+        with pytest.raises(AutoSecOpsValidationError, match="16"):
             await evidence.blackbox_key_files("ugv-101")
         # From now on only the current key signs records.
         current = await evidence.blackbox_key_files(
@@ -292,7 +292,7 @@ async def test_approval_key_secrets_cannot_be_imported(soc: Soc) -> None:
         }
     )
     async with get_async_session_context_manager() as session:
-        with pytest.raises(TracecatValidationError, match="never imported"):
+        with pytest.raises(AutoSecOpsValidationError, match="never imported"):
             await soc.fleet(soc.alice, session).create_approval_key(
                 FleetSocKeyCreate(
                     kind=FleetSocKeyKind.APPROVAL,
@@ -312,9 +312,9 @@ async def test_approval_key_activation_takes_a_second_platform_user(soc: Soc) ->
         )
         # Even the first approval key waits for a second person.
         assert created.status == FleetSocKeyStatus.PENDING.value
-        with pytest.raises(TracecatAuthorizationError, match="second person"):
+        with pytest.raises(AutoSecOpsAuthorizationError, match="second person"):
             await alice.activate_approval_key(created)
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             await soc.fleet(soc.service, session).activate_approval_key(created)
         active = await soc.fleet(soc.bob, session).activate_approval_key(created)
     assert active.status == FleetSocKeyStatus.ACTIVE.value
@@ -375,7 +375,7 @@ async def test_offline_approval_key_signs_a_prepared_approval(
     assert (await signed_get(robot_api, sim, path)).status_code == 404
     async with get_async_session_context_manager() as session:
         alice = soc.fleet(soc.alice, session)
-        with pytest.raises(TracecatValidationError, match="does not verify"):
+        with pytest.raises(AutoSecOpsValidationError, match="does not verify"):
             await alice.submit_approval_signature(
                 robot_uuid,
                 pending.id,
@@ -499,13 +499,13 @@ async def test_values_above_int64_are_refused_not_500(
     profile, sig = _locked_profile("ugv-101", version=MAX_STORED_INT + 1)
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
-        with pytest.raises(TracecatValidationError, match="2\\^63"):
+        with pytest.raises(AutoSecOpsValidationError, match="2\\^63"):
             await service.publish_revocation_list(
                 FleetRevocationCreate(
                     revocation_list=revocation_list(root, serial=2**64 - 1)
                 )
             )
-        with pytest.raises(TracecatValidationError, match="2\\^63"):
+        with pytest.raises(AutoSecOpsValidationError, match="2\\^63"):
             await service.set_offer(
                 robot_uuid, FleetOfferUpdate(profile=profile, signature=sig)
             )
@@ -598,7 +598,7 @@ async def test_401_audit_events_are_aggregated(
 async def test_drafts_per_robot_are_capped(
     soc: Soc, robot_api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__ROBOT_EDR_FLEET_MAX_DRAFTS", 3)
+    monkeypatch.setattr(config, "AUTOSECOPS__ROBOT_EDR_FLEET_MAX_DRAFTS", 3)
     robot_uuid, sim = await enrolled(soc, robot_api)
     draft = json.loads((VECTORS / "cases/13-distribution/8.body").read_text())
     digests: list[str] = []
@@ -633,7 +633,7 @@ async def test_ring_min_version_never_drops(
             robot_uuid, FleetRingUpdate(ring=0, min_version="0.10.0")
         )
         for lower in ("0.9.9", "0.10.0~rc1", None):
-            with pytest.raises(TracecatValidationError, match="min_version"):
+            with pytest.raises(AutoSecOpsValidationError, match="min_version"):
                 await service.set_ring(
                     robot_uuid, FleetRingUpdate(ring=1, min_version=lower)
                 )
@@ -649,14 +649,14 @@ async def test_ring_min_version_never_drops(
 async def test_contract_test_keys_are_never_real_soc_keys(soc: Soc) -> None:
     async with get_async_session_context_manager() as session:
         service = soc.fleet(soc.alice, session)
-        with pytest.raises(TracecatValidationError, match="test key"):
+        with pytest.raises(AutoSecOpsValidationError, match="test key"):
             await service.create_fleet_key(
                 FleetSocKeyCreate(
                     kind=FleetSocKeyKind.FLEET,
                     secret_key_file=(VECTORS / "keys/soc.key").read_text(),
                 )
             )
-        with pytest.raises(TracecatValidationError, match="test key"):
+        with pytest.raises(AutoSecOpsValidationError, match="test key"):
             await service.create_approval_key(
                 FleetSocKeyCreate(
                     kind=FleetSocKeyKind.APPROVAL,
@@ -708,13 +708,13 @@ async def test_enrollment_replays_and_refusals_are_audited(
 
 async def test_soc_key_rows_without_a_seed_are_offline_only(soc: Soc) -> None:
     async with get_async_session_context_manager() as session:
-        with pytest.raises(TracecatValidationError, match="public_key_file"):
+        with pytest.raises(AutoSecOpsValidationError, match="public_key_file"):
             await soc.fleet(soc.alice, session).create_approval_key(
                 FleetSocKeyCreate(
                     kind=FleetSocKeyKind.APPROVAL, custody=FleetSocKeyCustody.OFFLINE
                 )
             )
-        with pytest.raises(TracecatValidationError, match="online"):
+        with pytest.raises(AutoSecOpsValidationError, match="online"):
             await soc.fleet(soc.alice, session).create_fleet_key(
                 FleetSocKeyCreate(
                     kind=FleetSocKeyKind.FLEET,

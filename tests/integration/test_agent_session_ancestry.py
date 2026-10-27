@@ -24,7 +24,7 @@ from autosecops.db.models import (
     Organization,
     Workspace,
 )
-from autosecops.exceptions import EntitlementRequired, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError, EntitlementRequired
 from autosecops.tiers import defaults
 from tests.database import TEST_DB_CONFIG
 
@@ -40,7 +40,7 @@ async def test_fork_captures_committed_history_and_sdk_identity_together() -> No
     organization_id, workspace_id, source_id = (uuid.uuid4() for _ in range(3))
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         organization_id=organization_id,
         workspace_id=workspace_id,
     )
@@ -115,7 +115,7 @@ async def test_entitlement_loss_keeps_ancestry_readable_but_blocks_execution(
     relationship: str,
 ) -> None:
     svc_role = svc_role.model_copy(update={"type": "service", "user_id": None})
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -248,7 +248,7 @@ async def test_ancestry_rejects_references_to_existing_sessions_in_another_works
     service = AgentSessionService(session, svc_role)
     assert await service.get_session(other_source.id) is None
 
-    with pytest.raises(TracecatNotFoundError, match="Parent session not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Parent session not found"):
         await service.create_session(
             AgentSessionCreate(
                 entity_type=AgentSessionEntity.WORKSPACE_CHAT,
@@ -256,9 +256,9 @@ async def test_ancestry_rejects_references_to_existing_sessions_in_another_works
                 spawned_by_session_id=other_source.id,
             )
         )
-    with pytest.raises(TracecatNotFoundError, match="Source session"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Source session"):
         await service.fork_session(other_source.id)
-    with pytest.raises(TracecatNotFoundError, match="Parent session not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Parent session not found"):
         await service.fork_session(own_source.id, spawned_by_session_id=other_source.id)
     # Rejected creates and forks must not leave any child rows behind.
     assert set((await session.scalars(select(AgentSession.id))).all()) == {
@@ -277,6 +277,6 @@ async def test_ancestry_rejects_references_to_existing_sessions_in_another_works
     )
     session.add(malformed_fork)
     await session.commit()
-    with pytest.raises(TracecatNotFoundError, match="Fork source session not found"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="Fork source session not found"):
         await service.list_messages(malformed_fork.id)
     assert await service.get_workspace_chat_session_ids([malformed_fork.id]) == set()

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from autosecops import config
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +48,7 @@ def skill_file_limit_violation(
 ) -> SkillFileLimitViolation | None:
     """Return the first deterministic skill-tree limit violation."""
 
-    if len(files) > config.TRACECAT__MAX_SKILL_FILES_COUNT:
+    if len(files) > config.AUTOSECOPS__MAX_SKILL_FILES_COUNT:
         return SkillFileLimitViolation(
             code="skill_file_count_limit_exceeded",
             message="Skill draft contains too many files",
@@ -56,13 +56,13 @@ def skill_file_limit_violation(
             actual_field="file_count",
             actual_value=len(files),
             limit_field="max_file_count",
-            limit_value=config.TRACECAT__MAX_SKILL_FILES_COUNT,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_FILES_COUNT,
         )
 
     manifest = next((file for file in files if file.path == "SKILL.md"), None)
     if (
         manifest is not None
-        and manifest.size_bytes > config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES
+        and manifest.size_bytes > config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES
     ):
         return SkillFileLimitViolation(
             code="skill_manifest_size_limit_exceeded",
@@ -71,14 +71,14 @@ def skill_file_limit_violation(
             actual_field="size_bytes",
             actual_value=manifest.size_bytes,
             limit_field="max_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES,
         )
 
     oversized_file = max(
         (
             file
             for file in files
-            if file.size_bytes > config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES
+            if file.size_bytes > config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES
         ),
         key=lambda file: (file.size_bytes, file.path or ""),
         default=None,
@@ -91,12 +91,12 @@ def skill_file_limit_violation(
             actual_field="size_bytes",
             actual_value=oversized_file.size_bytes,
             limit_field="max_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES,
         )
 
     total_size_bytes = sum(file.size_bytes for file in files)
 
-    if total_size_bytes > config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES:
+    if total_size_bytes > config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES:
         return SkillFileLimitViolation(
             code="skill_total_size_limit_exceeded",
             message="Skill draft exceeds the aggregate size limit",
@@ -104,7 +104,7 @@ def skill_file_limit_violation(
             actual_field="total_size_bytes",
             actual_value=total_size_bytes,
             limit_field="max_total_size_bytes",
-            limit_value=config.TRACECAT__MAX_SKILL_TOTAL_SIZE_BYTES,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_TOTAL_SIZE_BYTES,
         )
     return None
 
@@ -119,17 +119,17 @@ def normalize_skill_path(path: str) -> str:
         The normalized relative POSIX path.
 
     Raises:
-        TracecatValidationError: If the path is empty, absolute, or escapes
+        AutoSecOpsValidationError: If the path is empty, absolute, or escapes
             the skill root.
     """
 
     if "\x00" in path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Skill paths cannot contain NUL bytes",
             detail={"code": "invalid_path", "path": path.replace("\x00", "")},
         )
     if "\\" in path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill paths must use POSIX separators: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )
@@ -137,17 +137,17 @@ def normalize_skill_path(path: str) -> str:
     path_obj = PurePosixPath(path)
     normalized = str(path_obj)
     if normalized in {"", "."}:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Skill path cannot be empty",
             detail={"code": "invalid_path", "path": path},
         )
     if path_obj.is_absolute() or ".." in path_obj.parts:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill path cannot escape the skill root: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )
     if normalized != path:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill path must already be normalized: {path!r}",
             detail={"code": "invalid_path", "path": path},
         )

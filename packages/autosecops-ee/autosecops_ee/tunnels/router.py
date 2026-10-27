@@ -12,7 +12,7 @@ from autosecops import config
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession, AsyncDBSessionBypass
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import Page, PageParams, PaginationError
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
@@ -76,9 +76,9 @@ async def list_tunnels(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[TunnelRead]:
@@ -171,7 +171,7 @@ async def get_tunnel_status(
     try:
         tunnel = await service.get_tunnel(tunnel_id)
         return await service.get_tunnel_status(tunnel)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
@@ -197,7 +197,7 @@ async def get_tunnel(
         referenced_by = service.readable_references(
             await service.list_tunnel_references(tunnel)
         )
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
@@ -220,7 +220,7 @@ async def update_tunnel(
     try:
         tunnel = await service.get_tunnel(tunnel_id)
         updated = await service.update_tunnel(tunnel, params)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
@@ -246,7 +246,7 @@ async def delete_tunnel(
     try:
         tunnel = await service.get_tunnel(tunnel_id)
         await service.delete_tunnel(tunnel)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
@@ -280,7 +280,7 @@ async def issue_tunnel_gateway_key(
     try:
         tunnel = await service.get_tunnel(tunnel_id)
         gateway_key = await service.issue_gateway_key(tunnel)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc

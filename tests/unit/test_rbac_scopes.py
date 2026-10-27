@@ -27,7 +27,7 @@ from autosecops.authz.scopes import (
     WORKSPACE_OPERATIONAL_SCOPES,
 )
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import ScopeDeniedError, TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, ScopeDeniedError
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +42,7 @@ def _reset_ctx_role():  # pyright: ignore[reportUnusedFunction]
 
 def _set_role_with_scopes(scopes: frozenset[str]) -> None:
     """Helper to set ctx_role with the given scopes."""
-    role = Role(type="user", service_id="tracecat-api", scopes=scopes)
+    role = Role(type="user", service_id="autosecops-api", scopes=scopes)
     ctx_role.set(role)
 
 
@@ -206,7 +206,7 @@ class TestEnsureCanGrantScopes:
 
     def test_concrete_granter_cannot_grant_wildcard_scope(self):
         with pytest.raises(
-            TracecatAuthorizationError,
+            AutoSecOpsAuthorizationError,
             match=r"Cannot grant scopes not held by the caller: org:\*",
         ):
             ensure_can_grant_scopes(
@@ -214,7 +214,7 @@ class TestEnsureCanGrantScopes:
             )
 
     def test_empty_granter_denied(self):
-        with pytest.raises(TracecatAuthorizationError):
+        with pytest.raises(AutoSecOpsAuthorizationError):
             ensure_can_grant_scopes(frozenset(), ["org:member:read"])
 
 
@@ -408,7 +408,7 @@ class TestServicePrincipalScopes:
 
     def test_llm_gateway_has_org_secret_read(self):
         """LLM gateway must have org:secret:read for provider credential lookup."""
-        assert "org:secret:read" in SERVICE_PRINCIPAL_SCOPES["tracecat-llm-gateway"]
+        assert "org:secret:read" in SERVICE_PRINCIPAL_SCOPES["autosecops-llm-gateway"]
 
     def test_all_service_principals_have_org_secret_read(self):
         """All service principals inherit org:secret:read from WORKSPACE_OPERATIONAL_SCOPES."""
@@ -420,8 +420,8 @@ class TestServicePrincipalScopes:
 
     def test_llm_gateway_has_agent_read(self):
         """LLM gateway needs agent:read for the get_provider_credentials call chain."""
-        assert "agent:read" in SERVICE_PRINCIPAL_SCOPES["tracecat-llm-gateway"]
+        assert "agent:read" in SERVICE_PRINCIPAL_SCOPES["autosecops-llm-gateway"]
 
     def test_llm_gateway_has_secret_read(self):
         """LLM gateway needs secret:read for workspace credential lookup (case chat path)."""
-        assert "secret:read" in SERVICE_PRINCIPAL_SCOPES["tracecat-llm-gateway"]
+        assert "secret:read" in SERVICE_PRINCIPAL_SCOPES["autosecops-llm-gateway"]

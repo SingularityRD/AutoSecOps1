@@ -177,11 +177,11 @@ NEW_PYTHON_VERSION=$(to_python_version "$NEW_VERSION") || {
     exit 1
 }
 
-# List of files to update
+# List of files to update. CONTRIBUTING.md is not listed: it documents version
+# formats with backticked examples, and no example there pins the release.
 FILES=(
     "autosecops/__init__.py"
     "packages/autosecops-registry/autosecops_registry/__init__.py"
-    "CONTRIBUTING.md"
     ".github/ISSUE_TEMPLATE/bug_report.md"
 )
 
@@ -238,7 +238,7 @@ tracked_candidate_files() {
 # version (autosecops-<version>).
 append_matching_files < <(
     tracked_candidate_files | xargs -0 -r grep -l -E -- \
-        "\\$\\{TRACECAT__IMAGE_TAG:-${VERSION_SEARCH_PATTERN}\\}|variable \"tracecat_image_tag\"|${AUTOSECOPS_IMAGE_PATTERN}:${VERSION_SEARCH_PATTERN}|autosecops-${VERSION_SEARCH_PATTERN}|TF_VAR_tracecat_image_tag=${VERSION_SEARCH_PATTERN}"
+        "\\$\\{AUTOSECOPS__IMAGE_TAG:-${VERSION_SEARCH_PATTERN}\\}|variable \"autosecops_image_tag\"|${AUTOSECOPS_IMAGE_PATTERN}:${VERSION_SEARCH_PATTERN}|autosecops-${VERSION_SEARCH_PATTERN}|TF_VAR_autosecops_image_tag=${VERSION_SEARCH_PATTERN}"
 )
 
 append_matching_files < <(
@@ -298,11 +298,11 @@ update_release_tag_file() {
     run_sed_in_place "/required_version/!s/(^|[^0-9A-Za-z.>@])$escaped_current_version/\\1$escaped_new_version/g" "$file" && \
     run_sed_in_place "s#(/blob/)${VERSION_SEARCH_PATTERN}/#\\1${escaped_new_version}/#g" "$file" && \
     run_sed_in_place "s/\`${VERSION_SEARCH_PATTERN}\`/\`${escaped_new_version}\`/g" "$file" && \
-    run_sed_in_place "s/(\\$\\{TRACECAT__IMAGE_TAG:-)${VERSION_SEARCH_PATTERN}(\\})/\\1${escaped_new_version}\\4/g" "$file" && \
-    run_sed_in_place '/variable "tracecat_image_tag"/,/\}/ s/(default[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$escaped_new_version"'"/' "$file" && \
+    run_sed_in_place "s/(\\$\\{AUTOSECOPS__IMAGE_TAG:-)${VERSION_SEARCH_PATTERN}(\\})/\\1${escaped_new_version}\\4/g" "$file" && \
+    run_sed_in_place '/variable "autosecops_image_tag"/,/\}/ s/(default[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$escaped_new_version"'"/' "$file" && \
     run_sed_in_place "s#(${AUTOSECOPS_IMAGE_PATTERN}:)${VERSION_SEARCH_PATTERN}#\\1${escaped_new_version}#g" "$file" && \
     run_sed_in_place "s#(autosecops-)${VERSION_SEARCH_PATTERN}#\\1${escaped_new_version}#g" "$file" && \
-    run_sed_in_place "s/(TF_VAR_tracecat_image_tag=)${VERSION_SEARCH_PATTERN}/\\1${escaped_new_version}/g" "$file" && \
+    run_sed_in_place "s/(TF_VAR_autosecops_image_tag=)${VERSION_SEARCH_PATTERN}/\\1${escaped_new_version}/g" "$file" && \
     echo "✓ Updated $file" || echo "✗ Failed to update $file"
 }
 

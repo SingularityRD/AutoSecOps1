@@ -23,7 +23,7 @@ def test_admin_role() -> Role:
         user_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
 

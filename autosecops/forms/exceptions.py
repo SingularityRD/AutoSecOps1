@@ -3,7 +3,7 @@
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.forms.enums import FormErrorCode
 from autosecops.forms.schemas import FormErrorDetail, FormFieldError, FormIssue
 
@@ -27,7 +27,7 @@ _STATUS_BY_CODE: dict[FormErrorCode, int] = {
 }
 
 
-class FormError(TracecatException):
+class FormError(AutoSecOpsException):
     """A forms request that cannot be served. ``code`` selects the response."""
 
     def __init__(

@@ -29,7 +29,7 @@ class TestEncryption:
 
     def test_encrypt_decrypt_object(self, env_sandbox):
         """Test encryption and decryption of complex objects."""
-        key = os.getenv("TRACECAT__DB_ENCRYPTION_KEY")
+        key = os.getenv("AUTOSECOPS__DB_ENCRYPTION_KEY")
         obj = {
             "client_id": "TEST_CLIENT_ID",
             "client_secret": "TEST_CLIENT_SECRET",

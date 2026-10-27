@@ -450,7 +450,9 @@ async def test_template_action_with_optional_oauth_both_ac_and_cc(
     session, db_repo_id = db_session_with_repo
 
     # Disable secrets masking for this test
-    monkeysession.setattr("autosecops.config.TRACECAT__UNSAFE_DISABLE_SM_MASKING", True)
+    monkeysession.setattr(
+        "autosecops.config.AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING", True
+    )
 
     # Test OAuth token values
     ac_token_value = "__TEST_AC_TOKEN__"
@@ -661,7 +663,7 @@ async def test_template_action_with_optional_oauth_both_ac_and_cc(
         await run_action_test(input_required, test_role)
 
     assert "Missing required OAuth integrations" in str(exc_info.value)
-    assert exc_info.value.info.type == "TracecatCredentialsError"
+    assert exc_info.value.info.type == "AutoSecOpsCredentialsError"
 
 
 @pytest.mark.integration
@@ -857,7 +859,7 @@ async def test_scatter_args_validation_matches_runtime_parse(
     with patch("autosecops.validation.service.RegistryActionsService", new=registry):
         result = await validate_registry_action_args(
             session=AsyncMock(),
-            role=Role(type="service", service_id="tracecat-runner"),
+            role=Role(type="service", service_id="autosecops-runner"),
             action_name="core.transform.scatter",
             action_ref="scatter",
             args={"collection": "${{ [1, 2] }}", "interval": interval},

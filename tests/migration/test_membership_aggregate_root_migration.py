@@ -20,7 +20,7 @@ PREVIOUS_REVISION = "a7c3e9f1b2d4"
 
 def _run_alembic(db_url: str, *args: str) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", *args],
         env=env,

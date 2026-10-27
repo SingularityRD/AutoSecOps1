@@ -18,7 +18,7 @@ from autosecops.db.models import (
     Table,
     TableColumn,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import paginate
 from autosecops.search.embeddings.schemas import EmbeddingConfigurationRead
 from autosecops.search.service import SearchStorage
@@ -65,7 +65,7 @@ class TableSearchService(SearchStorage):
             .execution_options(populate_existing=True)
         )
         if table is None:
-            raise TracecatNotFoundError("Table not found")
+            raise AutoSecOpsNotFoundError("Table not found")
         return table
 
     async def select_column(
@@ -79,7 +79,7 @@ class TableSearchService(SearchStorage):
             raise SearchError(SearchErrorCode.CONFIGURATION_CHANGED)
         column = next((c for c in table.columns if c.id == params.column_id), None)
         if column is None:
-            raise TracecatNotFoundError("Column not found")
+            raise AutoSecOpsNotFoundError("Column not found")
         if params.enabled and column.type != SqlType.TEXT:
             raise ValueError("Only TEXT columns support semantic search")
         selected = set(collection.selected_column_ids if collection else [])

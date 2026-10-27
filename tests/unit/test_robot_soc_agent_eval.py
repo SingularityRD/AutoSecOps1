@@ -71,7 +71,7 @@ def _registered_robodr_tools() -> set[str]:
         for value in vars(module).values():
             # The registry decorator stores the action key under this
             # attribute with setattr; there is no typed accessor for it.
-            key = getattr(value, "__tracecat_udf_key", None)
+            key = getattr(value, "__autosecops_udf_key", None)
             if isinstance(key, str):
                 keys.add(key)
     return keys
@@ -511,7 +511,7 @@ async def test_case_chat_context_uses_untrusted_blocks(injection: str) -> None:
     )
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         scopes=frozenset({"agent:execute"}),

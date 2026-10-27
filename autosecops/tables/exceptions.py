@@ -2,7 +2,7 @@
 
 from typing import Literal, TypedDict
 
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 
 type TableRowErrorCode = Literal[
     "missing_required_column",
@@ -20,7 +20,7 @@ class TableRowErrorDetail(TypedDict):
     message: str
 
 
-class TableRowError(TracecatException):
+class TableRowError(AutoSecOpsException):
     """A row rejected by its table schema or a uniqueness constraint."""
 
     def __init__(

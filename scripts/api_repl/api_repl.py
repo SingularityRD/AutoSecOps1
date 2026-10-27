@@ -65,9 +65,9 @@ def create_authenticated_session() -> tuple[requests.Session, str, dict[str, Any
     Returns:
         Tuple of (session, base_url, user_info)
     """
-    base_url = os.environ.get("TRACECAT__PUBLIC_API_URL", "http://localhost/api")
-    email = os.environ.get("TRACECAT__TEST_USER_EMAIL", "test@autosecops.example")
-    password = os.environ.get("TRACECAT__TEST_USER_PASSWORD", "password1234")
+    base_url = os.environ.get("AUTOSECOPS__PUBLIC_API_URL", "http://localhost/api")
+    email = os.environ.get("AUTOSECOPS__TEST_USER_EMAIL", "test@autosecops.example")
+    password = os.environ.get("AUTOSECOPS__TEST_USER_PASSWORD", "password1234")
 
     console.print("[yellow]Initializing session...[/yellow]")
     session = requests.Session()
@@ -119,7 +119,7 @@ def start_repl(
     """Start the interactive REPL with authenticated session."""
 
     # Get service key if available
-    service_key = os.environ.get("TRACECAT__SERVICE_KEY")
+    service_key = os.environ.get("AUTOSECOPS__SERVICE_KEY")
 
     print_banner(base_url, user_info.get("email", "unknown"))
 

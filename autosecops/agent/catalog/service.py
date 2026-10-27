@@ -26,7 +26,7 @@ from autosecops.agent.catalog.types import ModelKey
 from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import AgentCatalog, AgentCustomProvider
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
 from autosecops.service import BaseService
 from autosecops.sync import CatalogMappingCandidate
@@ -121,7 +121,7 @@ class AgentCatalogService(BaseService):
         ``org_id``; all other rows surface as not found.
 
         Raises:
-            TracecatNotFoundError: No matching row.
+            AutoSecOpsNotFoundError: No matching row.
         """
         stmt = select(AgentCatalog).where(
             and_(
@@ -134,7 +134,7 @@ class AgentCatalogService(BaseService):
         )
         row = (await self.session.execute(stmt)).scalar_one_or_none()
         if row is None:
-            raise TracecatNotFoundError(f"Catalog entry {catalog_id} not found")
+            raise AutoSecOpsNotFoundError(f"Catalog entry {catalog_id} not found")
         return row
 
     async def is_catalog_id_enabled(
@@ -508,7 +508,7 @@ class AgentCatalogService(BaseService):
         """Create a new org-scoped catalog entry.
 
         Raises:
-            TracecatValidationError: A row already exists for
+            AutoSecOpsValidationError: A row already exists for
                 ``(org_id, model_provider, model_name)``.
         """
         now = datetime.now(UTC)
@@ -525,7 +525,7 @@ class AgentCatalogService(BaseService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Catalog entry for provider {model_provider!r} and model "
                 f"{model_name!r} already exists"
             ) from err
@@ -550,9 +550,9 @@ class AgentCatalogService(BaseService):
         and rows from other orgs are rejected.
         """
         if row.organization_id is None or row.organization_id != org_id:
-            raise TracecatNotFoundError(f"Catalog entry {row.id} not found")
+            raise AutoSecOpsNotFoundError(f"Catalog entry {row.id} not found")
         if row.model_provider != expected_provider:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"model_provider mismatch: expected {row.model_provider!r}, "
                 f"got {expected_provider!r}"
             )
@@ -585,7 +585,7 @@ class AgentCatalogService(BaseService):
         are rejected.
         """
         if row.organization_id is None or row.organization_id != org_id:
-            raise TracecatNotFoundError(f"Catalog entry {row.id} not found")
+            raise AutoSecOpsNotFoundError(f"Catalog entry {row.id} not found")
         await self.session.delete(row)
         await self.session.commit()
 

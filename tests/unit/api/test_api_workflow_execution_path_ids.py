@@ -667,7 +667,7 @@ async def test_get_workflow_execution_compact_accepts_slash_id(
     mock_execution.close_time = None
     mock_execution.status = WorkflowExecutionStatus.RUNNING
     mock_execution.workflow_type = "DSLWorkflow"
-    mock_execution.task_queue = "tracecat-task-queue"
+    mock_execution.task_queue = "autosecops-task-queue"
     mock_execution.history_length = 0
     mock_execution.typed_search_attributes = {}
 
@@ -937,7 +937,7 @@ async def test_draft_execution_returns_400_when_dsl_validation_fails(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     payload = response.json()
-    assert payload["detail"]["type"] == "TracecatValidationError"
+    assert payload["detail"]["type"] == "AutoSecOpsValidationError"
     assert "validation failed with 1 error" in payload["detail"]["message"].lower()
     assert isinstance(payload["detail"]["detail"], list)
     assert payload["detail"]["detail"][0]["type"] == "dsl"

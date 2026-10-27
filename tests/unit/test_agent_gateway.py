@@ -28,7 +28,7 @@ from starlette.requests import Request
 
 from autosecops.agent.diagnostics import MAX_LLM_ERROR_BODY_BYTES
 from autosecops.agent.gateway import (
-    TracecatCallbackHandler,
+    AutoSecOpsCallbackHandler,
     _filter_allowed_model_settings,
     _inject_provider_credentials,
     _resolve_bedrock_runtime_credentials,
@@ -38,7 +38,10 @@ from autosecops.agent.gateway import (
 from autosecops.agent.gateway_providers import GATEWAY_PROVIDER_SPECS
 from autosecops.agent.sandbox.llm_proxy import _http_error_classification
 from autosecops.agent.tokens import verify_llm_token
-from autosecops.exceptions import AgentModelNotEnabledError, TracecatAuthorizationError
+from autosecops.exceptions import (
+    AgentModelNotEnabledError,
+    AutoSecOpsAuthorizationError,
+)
 from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorKind,
@@ -255,7 +258,7 @@ async def test_bedrock_resolves_assumed_role_credentials(
         {
             "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role",
             "AWS_ROLE_SESSION_NAME": "custom-audit-session",
-            "TRACECAT_AWS_EXTERNAL_ID": "ws-external-id",
+            "AUTOSECOPS_AWS_EXTERNAL_ID": "ws-external-id",
             "AWS_REGION": "us-west-2",
             "AWS_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
             "AWS_BEARER_TOKEN_BEDROCK": "ignored-bearer-token",
@@ -401,7 +404,7 @@ async def test_user_api_key_auth_rejects_invalid_token(
             api_key="bad-token",
         )
     assert exc_info.value.message == "Invalid or expired token"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_token_invalid"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_token_invalid"
     assert exc_info.value.code == "401"
 
 
@@ -423,7 +426,7 @@ def test_missing_provider_credentials_have_distinct_wire_code(provider: str) -> 
         _inject_provider_credentials({"model": "synthetic-model"}, provider, {})
 
     assert exc_info.value.code == "401"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_provider_auth_failed"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_provider_auth_failed"
     classification = _http_error_classification(
         int(exc_info.value.code),
         route_is_direct=False,
@@ -469,7 +472,7 @@ async def test_disabled_catalog_model_has_distinct_wire_code(
         )
 
     assert exc_info.value.code == "403"
-    assert exc_info.value.to_dict()["type"] == "tracecat_llm_model_not_enabled"
+    assert exc_info.value.to_dict()["type"] == "autosecops_llm_model_not_enabled"
     classification = _http_error_classification(
         int(exc_info.value.code),
         route_is_direct=False,
@@ -485,10 +488,10 @@ async def test_other_catalog_authorization_errors_are_not_model_not_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_catalog_credentials_error(
-        monkeypatch, TracecatAuthorizationError("Synthetic authorization failure")
+        monkeypatch, AutoSecOpsAuthorizationError("Synthetic authorization failure")
     )
 
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         await get_provider_credentials(
             workspace_id=uuid.uuid4(),
             organization_id=uuid.uuid4(),
@@ -652,7 +655,7 @@ async def test_pre_call_hook_filters_model_settings(
         },
     )
 
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     result = await handler.async_pre_call_hook(
         user_api_key_dict=user_api_key_dict,
         cache=cast(DualCache, object()),
@@ -698,7 +701,7 @@ async def test_pre_call_hook_logs_proxy_trace_request_id(
     log = Mock()
     monkeypatch.setattr("autosecops.agent.gateway.logger", log)
 
-    await TracecatCallbackHandler().async_pre_call_hook(
+    await AutoSecOpsCallbackHandler().async_pre_call_hook(
         user_api_key_dict=UserAPIKeyAuth(
             api_key="llm-token",
             metadata={
@@ -758,7 +761,7 @@ async def test_pre_call_hook_uses_request_model_route_claim(
         },
     )
 
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     result = await handler.async_pre_call_hook(
         user_api_key_dict=user_api_key_dict,
         cache=cast(DualCache, object()),
@@ -796,7 +799,7 @@ async def test_pre_call_hook_does_not_inject_reasoning_effort_without_model_sett
         },
     )
 
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     result = await handler.async_pre_call_hook(
         user_api_key_dict=user_api_key_dict,
         cache=cast(DualCache, object()),
@@ -831,7 +834,7 @@ async def test_pre_call_hook_strips_anthropic_beta_payload_fields_for_non_anthro
         },
     )
 
-    handler = TracecatCallbackHandler()
+    handler = AutoSecOpsCallbackHandler()
     result = await handler.async_pre_call_hook(
         user_api_key_dict=user_api_key_dict,
         cache=cast(DualCache, object()),
@@ -866,7 +869,7 @@ async def test_provider_auth_signal_survives_litellm_serialization(
         model="synthetic-model",
         response=response,
     )
-    callback = TracecatCallbackHandler()
+    callback = AutoSecOpsCallbackHandler()
     proxy_logging = AsyncMock(spec=ProxyLogging)
     proxy_logging.post_call_failure_hook.side_effect = (
         callback.async_post_call_failure_hook
@@ -881,7 +884,7 @@ async def test_provider_auth_signal_survives_litellm_serialization(
 
     assert exc_info.value.code == str(status_code)
     wire_error = exc_info.value.to_dict()
-    assert wire_error["type"] == "tracecat_llm_provider_auth_failed"
+    assert wire_error["type"] == "autosecops_llm_provider_auth_failed"
     assert "synthetic-sensitive-detail" not in json.dumps(wire_error)
 
 
@@ -894,17 +897,17 @@ async def test_provider_auth_signal_survives_litellm_serialization(
             "BedrockException - not authorized to perform the required AWS "
             "Marketplace actions (aws-marketplace:ViewSubscriptions, "
             "aws-marketplace:Subscribe) synthetic-sensitive-detail",
-            "tracecat_llm_provider_subscription_required",
+            "autosecops_llm_provider_subscription_required",
         ),
         (
             "bedrock",
             "BedrockException - AccessDenied synthetic-sensitive-detail",
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
         ),
         (
             "openai",
             "aws-marketplace:Subscribe synthetic-sensitive-detail",
-            "tracecat_llm_provider_auth_failed",
+            "autosecops_llm_provider_auth_failed",
         ),
     ],
 )
@@ -923,7 +926,7 @@ async def test_bedrock_marketplace_denial_survives_litellm_serialization(
         model="synthetic-model",
         response=response,
     )
-    callback = TracecatCallbackHandler()
+    callback = AutoSecOpsCallbackHandler()
     proxy_logging = AsyncMock(spec=ProxyLogging)
     proxy_logging.post_call_failure_hook.side_effect = (
         callback.async_post_call_failure_hook
@@ -946,7 +949,7 @@ async def test_bedrock_marketplace_denial_survives_litellm_serialization(
 async def test_failure_hook_preserves_budget_exception_for_litellm_auth_handler() -> (
     None
 ):
-    result = await TracecatCallbackHandler().async_post_call_failure_hook(
+    result = await AutoSecOpsCallbackHandler().async_post_call_failure_hook(
         request_data={},
         original_exception=BudgetExceededError(current_cost=2, max_budget=1),
         user_api_key_dict=UserAPIKeyAuth(),
@@ -1009,7 +1012,7 @@ async def test_provider_quota_survives_litellm_request_and_serialization(
     # The SDK code is gone from the outer error by the time the callback runs.
     assert provider_failure.value.type == "throttling_error"
     assert provider_failure.value.code == "429"
-    callback = TracecatCallbackHandler()
+    callback = AutoSecOpsCallbackHandler()
     proxy_logging = AsyncMock(spec=ProxyLogging)
     proxy_logging.post_call_failure_hook.side_effect = (
         callback.async_post_call_failure_hook
@@ -1065,7 +1068,7 @@ async def test_throttling_callback_uses_safe_message_without_provider_response(
     error.__cause__ = httpx.HTTPStatusError(
         "synthetic-sensitive-detail", request=response.request, response=response
     )
-    result = await TracecatCallbackHandler().async_post_call_failure_hook(
+    result = await AutoSecOpsCallbackHandler().async_post_call_failure_hook(
         request_data={},
         original_exception=error,
         user_api_key_dict=UserAPIKeyAuth(),

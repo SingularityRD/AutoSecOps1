@@ -90,7 +90,7 @@ def _raw(payload_overrides: dict[str, object], algorithm: str = "HS256") -> str:
     "payload",
     [
         {"exp": int((datetime.now(UTC) - timedelta(seconds=5)).timestamp())},
-        {"aud": "tracecat-api"},
+        {"aud": "autosecops-api"},
         {"iss": "someone-else"},
         {"workspace_id": None},
         {"sub": "not-a-uuid"},

@@ -138,7 +138,7 @@ def test_dynamic_workspace_rls_targets_workspace_scoped_schemas() -> None:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=None,
-        service_id="tracecat-service",
+        service_id="autosecops-service",
     )
 
     tables_service = TablesService(session=session, role=role)

@@ -275,7 +275,7 @@ class ScenarioConfig:
     submit_concurrency: int
     max_connections: int
     artifact_dir: str
-    tracecat_commit: str
+    autosecops_commit: str
     started_at: str
     auth_mode: Literal["password", "api_key"]
     abort_stops_polling: bool
@@ -514,8 +514,8 @@ class CollectorManifest(TypedDict):
     sample_count: int
     temporal_sample_count: int
     resource_sample_count: int
-    tracecat_commit: str
-    tracecat_commit_dirty: bool
+    autosecops_commit: str
+    autosecops_commit_dirty: bool
     cluster_num: int
     public_api_url: str
     workspace_fingerprint: str

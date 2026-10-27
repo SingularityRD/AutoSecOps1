@@ -23,7 +23,7 @@ from autosecops.db.models import (
     WatchtowerAgentToolCall,
     Workspace,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import BaseCursorPaginator
 from autosecops.service import BaseOrgService
 from autosecops.tiers.access import is_org_entitled
@@ -375,7 +375,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower session not found")
+            raise AutoSecOpsNotFoundError("Watchtower session not found")
         await self.session.commit()
 
     async def disable_agent(self, agent_id: uuid.UUID, reason: str | None) -> None:
@@ -396,7 +396,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
         await self.session.commit()
 
     async def enable_agent(self, agent_id: uuid.UUID) -> None:
@@ -415,7 +415,7 @@ class WatchtowerService(BaseOrgService):
         )
         updated_id = await self.session.scalar(stmt)
         if updated_id is None:
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
         await self.session.commit()
 
     async def _assert_agent_exists(self, agent_id: uuid.UUID) -> None:
@@ -428,7 +428,7 @@ class WatchtowerService(BaseOrgService):
             .exists()
         )
         if not await self.session.scalar(stmt):
-            raise TracecatNotFoundError("Watchtower agent not found")
+            raise AutoSecOpsNotFoundError("Watchtower agent not found")
 
     async def _assert_session_exists(self, session_id: uuid.UUID) -> None:
         stmt = select(
@@ -440,7 +440,7 @@ class WatchtowerService(BaseOrgService):
             .exists()
         )
         if not await self.session.scalar(stmt):
-            raise TracecatNotFoundError("Watchtower session not found")
+            raise AutoSecOpsNotFoundError("Watchtower session not found")
 
 
 def _apply_desc_cursor_filter(
@@ -681,7 +681,7 @@ async def maybe_create_oauth_provisional_session(
     # user_agent from the OAuth callback is the browser's UA, not the MCP
     # client's — discard it to avoid misleading fingerprints.
     del user_agent
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return
 
     async with get_async_session_context_manager() as session:
@@ -789,7 +789,7 @@ async def ingest_watchtower_initialize_event(
     Returns a ``WatchtowerAgentCallContext`` that the middleware caches for
     subsequent tool-call telemetry within the same MCP session.
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return None
 
     async with get_async_session_context_manager() as session:
@@ -989,7 +989,7 @@ async def get_watchtower_tool_call_context(
     single-tenant, unresolvable user/org, missing entitlement, or no
     matching session).
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return None, None
 
     async with get_async_session_context_manager() as session:
@@ -1100,7 +1100,7 @@ async def record_watchtower_tool_call(
     3. Inserts a ``WatchtowerAgentToolCall`` row with redacted arguments
        and an optional truncated error summary.
     """
-    if not config.TRACECAT__EE_MULTI_TENANT:
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
         return
 
     async with get_async_session_context_manager() as session:

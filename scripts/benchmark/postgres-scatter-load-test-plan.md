@@ -26,7 +26,7 @@ itself.
 
 The current controls apply at different scopes:
 
-- `TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS` defaults to 64 and limits pending
+- `AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS` defaults to 64 and limits pending
   tasks inside one workflow execution. Concurrent workflow executions each get
   their own allowance.
 - Self-hosted deployments default the organization-scoped
@@ -39,7 +39,7 @@ The current controls apply at different scopes:
   per-process control and is multiplied by executor replicas.
 - Each process that creates the shared async SQLAlchemy engine can currently
   grow from a pool size of 10 to 70 connections after overflow.
-- `TRACECAT__DB_POOL_TIMEOUT` is passed to SQLAlchemy, and each service labels
+- `AUTOSECOPS__DB_POOL_TIMEOUT` is passed to SQLAlchemy, and each service labels
   its PostgreSQL sessions through `application_name`.
 - The development Compose stack has several database-capable services, while
   `postgres_db` has no CPU or memory limit and uses PostgreSQL's default
@@ -125,7 +125,7 @@ Current implementation references:
 
 Run this only in a fresh numbered cluster owned by the load-test worktree.
 
-- Check `docker compose ls --filter name=tracecat` and `just cluster list`
+- Check `docker compose ls --filter name=autosecops` and `just cluster list`
   before starting.
 - Allocate a new Compose project, ports, PostgreSQL volume, Temporal database,
   and synthetic AutoSecOps workspace.
@@ -274,21 +274,21 @@ The primary throughput controls are:
 
 | Process | Experiment variable | Baseline | Meaning |
 | --- | --- | ---: | --- |
-| worker | `TRACECAT__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS` | 64 | In-flight scheduler coroutines per workflow |
-| worker | `TRACECAT__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW` | 16 | Concurrent child-workflow dispatches; valid range 8-128 |
-| worker | `TRACECAT__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS` | 100 | Worker activity thread-pool size |
-| worker | `TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES` | 100 | Worker activity slots |
-| worker | `TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS` | 100 | Worker workflow-task slots |
-| executor | `TRACECAT__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES` | 2 | Executor activity slots in the constrained baseline |
-| executor | `TRACECAT__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY` | 4 | Per-action `for_each` fan-out |
-| executor | `TRACECAT__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS` | backend default | Executor activity thread pool |
+| worker | `AUTOSECOPS__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS` | 64 | In-flight scheduler coroutines per workflow |
+| worker | `AUTOSECOPS__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW` | 16 | Concurrent child-workflow dispatches; valid range 8-128 |
+| worker | `AUTOSECOPS__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS` | 100 | Worker activity thread-pool size |
+| worker | `AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES` | 100 | Worker activity slots |
+| worker | `AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS` | 100 | Worker workflow-task slots |
+| executor | `AUTOSECOPS__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES` | 2 | Executor activity slots in the constrained baseline |
+| executor | `AUTOSECOPS__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY` | 4 | Per-action `for_each` fan-out |
+| executor | `AUTOSECOPS__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS` | backend default | Executor activity thread pool |
 
 Database pools are configured per database-capable service with
-`TRACECAT__LOADTEST_<SERVICE>_DB_POOL_SIZE` and
-`TRACECAT__LOADTEST_<SERVICE>_DB_MAX_OVERFLOW`. Pool timeout and recycle are
+`AUTOSECOPS__LOADTEST_<SERVICE>_DB_POOL_SIZE` and
+`AUTOSECOPS__LOADTEST_<SERVICE>_DB_MAX_OVERFLOW`. Pool timeout and recycle are
 deployment-wide experiment variables:
-`TRACECAT__LOADTEST_DB_POOL_TIMEOUT` and
-`TRACECAT__LOADTEST_DB_POOL_RECYCLE`. The product defaults are 10 pool
+`AUTOSECOPS__LOADTEST_DB_POOL_TIMEOUT` and
+`AUTOSECOPS__LOADTEST_DB_POOL_RECYCLE`. The product defaults are 10 pool
 connections, 60 overflow connections, a 30-second timeout, and a 600-second
 recycle interval; the example file deliberately preserves the smaller
 deployment-wide load-test budget described below.
@@ -358,7 +358,7 @@ retained cluster without the matrix's temporary environment.
 
    Store run artifacts in a configurable directory outside tracked source by
    default, for example
-   `/tmp/tracecat-load-test/<run-id-fingerprint>/`. Capture:
+   `/tmp/autosecops-load-test/<run-id-fingerprint>/`. Capture:
 
    - the resolved Compose configuration;
    - effective container limits and restart/OOM state;
@@ -400,7 +400,7 @@ retained cluster without the matrix's temporary environment.
    Connect the collector to the exact numbered-cluster Temporal frontend.
    Sample `TEMPORAL__CLUSTER_QUEUE` as both a workflow queue and an activity
    queue because the DSL worker handles both partitions, and sample
-   `TRACECAT__EXECUTOR_QUEUE` as an activity queue for action execution.
+   `AUTOSECOPS__EXECUTOR_QUEUE` as an activity queue for action execution.
    Capture their approximate backlog count and age plus add/dispatch rates at
    the same cadence as PostgreSQL, writing `temporal_backlog.jsonl` through the
    recovery period. If either sampler takes longer than the requested interval,
@@ -524,9 +524,9 @@ Before choosing pool values:
    `postgres` superuser — so either run the test with a non-superuser
    application role or treat the built-in reserve as advisory and verify the
    operator can still connect at saturation.
-4. Set `TRACECAT__DB_POOL_SIZE` and `TRACECAT__DB_MAX_OVERFLOW` on every
+4. Set `AUTOSECOPS__DB_POOL_SIZE` and `AUTOSECOPS__DB_MAX_OVERFLOW` on every
    applicable service in the load-test override.
-5. Wire and test `TRACECAT__DB_POOL_TIMEOUT` so exhaustion fails within a known
+5. Wire and test `AUTOSECOPS__DB_POOL_TIMEOUT` so exhaustion fails within a known
    bound.
 
 With `max_connections=50`, do not simply give each service a pool of 40.
@@ -737,7 +737,7 @@ Phase 1 is characterization and may fail. Its result is useful only if the
 failure boundary and primary failure mode are observable and repeatable.
 
 Phase 2 passes if pool exhaustion surfaces as application pool-timeout failures
-within the configured `TRACECAT__DB_POOL_TIMEOUT` bound, with no PostgreSQL
+within the configured `AUTOSECOPS__DB_POOL_TIMEOUT` bound, with no PostgreSQL
 connection-slot errors and application connections within the calculated
 budget. Workflow failures are acceptable in phase 2; unbounded waits and
 database-side slot errors are not.

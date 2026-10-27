@@ -104,23 +104,29 @@ class Role(BaseModel):
 
     def to_headers(self) -> dict[str, str]:
         headers = {
-            "x-tracecat-role-type": self.type,
-            "x-tracecat-role-service-id": self.service_id,
+            "x-autosecops-role-type": self.type,
+            "x-autosecops-role-service-id": self.service_id,
         }
         if self.user_id is not None:
-            headers["x-tracecat-role-user-id"] = str(self.user_id)
+            headers["x-autosecops-role-user-id"] = str(self.user_id)
         if self.workspace_id is not None:
-            headers["x-tracecat-role-workspace-id"] = str(self.workspace_id)
+            headers["x-autosecops-role-workspace-id"] = str(self.workspace_id)
         if self.bound_workspace_id is not None:
-            headers["x-tracecat-role-bound-workspace-id"] = str(self.bound_workspace_id)
+            headers["x-autosecops-role-bound-workspace-id"] = str(
+                self.bound_workspace_id
+            )
         if self.organization_id is not None:
-            headers["x-tracecat-role-organization-id"] = str(self.organization_id)
+            headers["x-autosecops-role-organization-id"] = str(self.organization_id)
         if self.scopes:
-            headers["x-tracecat-role-scopes"] = ",".join(sorted(self.scopes))
+            headers["x-autosecops-role-scopes"] = ",".join(sorted(self.scopes))
         if self.service_account_id is not None:
-            headers["x-tracecat-role-service-account-id"] = str(self.service_account_id)
+            headers["x-autosecops-role-service-account-id"] = str(
+                self.service_account_id
+            )
         if self.scim_connection_id is not None:
-            headers["x-tracecat-role-scim-connection-id"] = str(self.scim_connection_id)
+            headers["x-autosecops-role-scim-connection-id"] = str(
+                self.scim_connection_id
+            )
         return headers
 
 
@@ -152,6 +158,6 @@ def system_role() -> Role:
     """Role for system actions with platform superuser privileges."""
     return Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )

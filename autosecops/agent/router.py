@@ -15,7 +15,7 @@ from autosecops.agent.service import AgentManagementService
 from autosecops.auth.dependencies import OrgUserRole, WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 workspace_router = APIRouter(prefix="/agent", tags=["agent"])
@@ -81,7 +81,7 @@ async def get_provider_credential_config(
     service = AgentManagementService(session, role=role)
     try:
         return await service.get_provider_credential_config(provider)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Provider {provider} not found",
@@ -122,7 +122,7 @@ async def update_provider_credentials(
     try:
         await service.update_provider_credentials(provider, params)
         return {"message": f"Credentials for {provider} updated successfully"}
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Credentials for provider {provider} not found",
@@ -149,7 +149,7 @@ async def refresh_provider_models(
             count = await service.refresh_bedrock_catalog()
         else:
             count = await service.refresh_gateway_provider_catalog(provider)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -174,7 +174,7 @@ async def subscribe_bedrock_model(
     service = AgentManagementService(session, role=role)
     try:
         subscription = await service.subscribe_bedrock_model(catalog_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -231,7 +231,7 @@ async def set_default_model(
     service = AgentManagementService(session, role=role)
     try:
         return await service.set_default_model(params.catalog_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -262,7 +262,7 @@ async def set_default_model_selection(
     service = AgentManagementService(session, role=role)
     try:
         return await service.set_default_model(params.catalog_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),

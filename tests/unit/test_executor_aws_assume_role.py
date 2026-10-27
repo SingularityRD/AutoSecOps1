@@ -14,7 +14,7 @@ from botocore.exceptions import ClientError
 
 from autosecops.auth.types import Role
 from autosecops.dsl.schemas import RunContext
-from autosecops.exceptions import TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.executor.secret_preprocessors import (
     _AWS_ROLE_ARN_PATTERN,
     AwsAssumeRoleSecretPreprocessor,
@@ -45,7 +45,7 @@ def role() -> Role:
         workspace_id=_WORKSPACE_ID,
         user_id=UUID("00000000-0000-0000-0000-000000000001"),
         organization_id=UUID("00000000-0000-0000-0000-000000000099"),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
 
 
@@ -68,7 +68,7 @@ def _base_aws_secrets(
             "AWS_ROLE_ARN": role_arn,
             "AWS_REGION": "us-east-1",
         },
-        "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+        "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
     }
 
 
@@ -94,7 +94,7 @@ def test_aws_role_arn_pattern(arn: str, valid: bool) -> None:
 class TestAssumeRoleViaIrsa:
     @pytest.mark.anyio
     async def test_sts_client_error_raises_credentials_error(self) -> None:
-        """STS ClientError should be wrapped in TracecatCredentialsError."""
+        """STS ClientError should be wrapped in AutoSecOpsCredentialsError."""
         mock_sts_client = AsyncMock()
         mock_sts_client.assume_role = AsyncMock(
             side_effect=ClientError(
@@ -107,7 +107,9 @@ class TestAssumeRoleViaIrsa:
             patch(
                 "autosecops.executor.secret_preprocessors.aioboto3.Session"
             ) as mock_session_cls,
-            pytest.raises(TracecatCredentialsError, match="Failed to assume AWS role"),
+            pytest.raises(
+                AutoSecOpsCredentialsError, match="Failed to assume AWS role"
+            ),
         ):
             mock_session = mock_session_cls.return_value
             mock_session.client.return_value.__aenter__.return_value = mock_sts_client
@@ -228,7 +230,7 @@ class TestProjectSecretEnv:
         """Invalid role ARN values should fail before AssumeRole is attempted."""
         secrets = _base_aws_secrets(role_arn="not-a-valid-arn")
 
-        with pytest.raises(TracecatCredentialsError, match="Invalid AWS role ARN"):
+        with pytest.raises(AutoSecOpsCredentialsError, match="Invalid AWS role ARN"):
             await project_secret_env(
                 secrets=secrets,
                 role=role,
@@ -247,7 +249,7 @@ class TestProjectSecretEnv:
             }
         }
 
-        with pytest.raises(TracecatCredentialsError, match="Missing runtime AWS"):
+        with pytest.raises(AutoSecOpsCredentialsError, match="Missing runtime AWS"):
             await project_secret_env(
                 secrets=secrets,
                 role=role,
@@ -265,10 +267,12 @@ class TestProjectSecretEnv:
             patch(
                 _IRSA_PATCH,
                 AsyncMock(
-                    side_effect=TracecatCredentialsError("Failed to assume AWS role")
+                    side_effect=AutoSecOpsCredentialsError("Failed to assume AWS role")
                 ),
             ),
-            pytest.raises(TracecatCredentialsError, match="Failed to assume AWS role"),
+            pytest.raises(
+                AutoSecOpsCredentialsError, match="Failed to assume AWS role"
+            ),
         ):
             await project_secret_env(
                 secrets=secrets,
@@ -286,11 +290,11 @@ class TestProjectSecretEnv:
                 "AWS_PROFILE": "customer-profile",
                 "AWS_REGION": "us-east-1",
             },
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
         with pytest.raises(
-            TracecatCredentialsError, match="AWS_PROFILE is not supported"
+            AutoSecOpsCredentialsError, match="AWS_PROFILE is not supported"
         ):
             await project_secret_env(
                 secrets=secrets,
@@ -317,7 +321,7 @@ class TestProjectSecretEnv:
                 "AWS_SECRET_ACCESS_KEY": "static_secret",
                 "AWS_REGION": "us-west-2",
             },
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
         projection = await project_secret_env(
@@ -330,7 +334,7 @@ class TestProjectSecretEnv:
             "AWS_ACCESS_KEY_ID": "AKIA_STATIC",
             "AWS_SECRET_ACCESS_KEY": "static_secret",
             "AWS_REGION": "us-west-2",
-            "TRACECAT_AWS_EXTERNAL_ID": _EXTERNAL_ID,
+            "AUTOSECOPS_AWS_EXTERNAL_ID": _EXTERNAL_ID,
         }
 
     @pytest.mark.anyio
@@ -410,7 +414,7 @@ class TestSecretValuesNeverEchoed:
 
     def test_invalid_role_arn_error_omits_the_value(self) -> None:
         padded = "  SUPERSECRET-not-an-arn  "
-        with pytest.raises(TracecatCredentialsError) as exc_info:
+        with pytest.raises(AutoSecOpsCredentialsError) as exc_info:
             AwsAssumeRoleSecretPreprocessor()._get_role_arn(
                 {"AWS_ROLE_ARN": padded}, "aws"
             )
@@ -435,7 +439,7 @@ class TestSecretValuesNeverEchoed:
             patch(
                 "autosecops.executor.secret_preprocessors.aioboto3.Session"
             ) as mock_session_cls,
-            pytest.raises(TracecatCredentialsError) as exc_info,
+            pytest.raises(AutoSecOpsCredentialsError) as exc_info,
         ):
             mock_session = mock_session_cls.return_value
             mock_session.client.return_value.__aenter__.return_value = fake_sts

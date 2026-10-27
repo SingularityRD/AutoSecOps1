@@ -10,7 +10,7 @@ from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
 from autosecops.contexts import ctx_role, ctx_run
 from autosecops.db.models import WorkspaceVariable
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.identifiers import VariableID
 from autosecops.service import BaseWorkspaceService
 from autosecops.variables.schemas import (
@@ -83,7 +83,7 @@ class VariablesService(BaseWorkspaceService):
                 return await service.get_variable_value(
                     name, key, environment=environment
                 )
-        except TracecatAuthorizationError:
+        except AutoSecOpsAuthorizationError:
             return None
 
     async def get_variable(self, variable_id: VariableID) -> WorkspaceVariable:
@@ -100,7 +100,7 @@ class VariablesService(BaseWorkspaceService):
                 variable_id=variable_id,
                 workspace=self.workspace_id,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Multiple variables found when searching by ID"
             ) from exc
         except NoResultFound as exc:
@@ -109,7 +109,7 @@ class VariablesService(BaseWorkspaceService):
                 variable_id=variable_id,
                 workspace=self.workspace_id,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Variable not found when searching by ID. Please check that the ID was correctly input."
             ) from exc
 
@@ -132,7 +132,7 @@ class VariablesService(BaseWorkspaceService):
                 workspace=self.workspace_id,
                 environment=environment,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Multiple variables found when searching by name."
                 f" Expected one variable {name!r} (env: {environment!r}) only."
             ) from exc
@@ -143,7 +143,7 @@ class VariablesService(BaseWorkspaceService):
                 workspace=self.workspace_id,
                 environment=environment,
             )
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Variable {name!r} (env: {environment!r}) not found when searching by name."
                 " Please double check that the name was correctly input."
             ) from exc

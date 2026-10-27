@@ -39,7 +39,7 @@ from autosecops_registry.core.cases import (
     upload_attachment_from_url,
 )
 from autosecops_registry.sdk.exceptions import (
-    TracecatValidationError,
+    AutoSecOpsValidationError,
 )
 from pydantic import TypeAdapter
 
@@ -120,12 +120,12 @@ async def test_aggregate_cases_forwards_options(mock_cases_client: AsyncMock) ->
 async def test_aggregate_cases_preserves_validation_error(
     mock_cases_client: AsyncMock,
 ) -> None:
-    error = TracecatValidationError(
+    error = AutoSecOpsValidationError(
         detail={"code": "query_timeout", "message": "Narrow the filters"},
         status_code=422,
     )
     mock_cases_client.aggregate_cases.side_effect = error
-    with pytest.raises(TracecatValidationError) as exc:
+    with pytest.raises(AutoSecOpsValidationError) as exc:
         await aggregate_cases(group_by=[])
     assert exc.value is error
 
@@ -721,10 +721,10 @@ class TestCoreListCases:
         from autosecops_registry import config
 
         with pytest.raises(
-            TracecatValidationError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            AutoSecOpsValidationError,
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
-            await list_cases(limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1)
+            await list_cases(limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1)
 
 
 @pytest.mark.anyio
@@ -882,10 +882,10 @@ class TestCoreSearchCases:
         from autosecops_registry import config
 
         with pytest.raises(
-            TracecatValidationError,
-            match=f"Limit cannot be greater than {config.TRACECAT__LIMIT_CURSOR_MAX}",
+            AutoSecOpsValidationError,
+            match=f"Limit cannot be greater than {config.AUTOSECOPS__LIMIT_CURSOR_MAX}",
         ):
-            await search_cases(limit=config.TRACECAT__LIMIT_CURSOR_MAX + 1)
+            await search_cases(limit=config.AUTOSECOPS__LIMIT_CURSOR_MAX + 1)
 
 
 @pytest.mark.anyio
@@ -1102,7 +1102,7 @@ class TestCoreAttachments:
         """Test upload attachment with invalid base64."""
         case_id = mock_case_dict["id"]
 
-        with pytest.raises(TracecatValidationError, match="Invalid base64 encoding"):
+        with pytest.raises(AutoSecOpsValidationError, match="Invalid base64 encoding"):
             await upload_attachment(
                 case_id=case_id,
                 file_name="test.pdf",
@@ -1213,7 +1213,7 @@ class TestCoreAttachments:
         case_id = mock_case_dict["id"]
 
         with pytest.raises(
-            TracecatValidationError, match="Expiry must be a positive number"
+            AutoSecOpsValidationError, match="Expiry must be a positive number"
         ):
             await get_attachment_download_url(
                 case_id=case_id,
@@ -1229,7 +1229,7 @@ class TestCoreAttachments:
         case_id = mock_case_dict["id"]
 
         with pytest.raises(
-            TracecatValidationError, match="Expiry cannot exceed 24 hours"
+            AutoSecOpsValidationError, match="Expiry cannot exceed 24 hours"
         ):
             await get_attachment_download_url(
                 case_id=case_id,
@@ -1332,7 +1332,7 @@ class TestCoreUploadAttachmentFromURL:
         mock_httpx_client.return_value.__aenter__.return_value = mock_client
 
         case_id = mock_case_dict["id"]
-        with pytest.raises(TracecatValidationError, match="No content found"):
+        with pytest.raises(AutoSecOpsValidationError, match="No content found"):
             await upload_attachment_from_url(
                 case_id=case_id,
                 url="https://example.com/docs/empty.pdf",
@@ -1354,7 +1354,7 @@ class TestCoreUploadAttachmentFromURL:
         mock_httpx_client.return_value.__aenter__.return_value = mock_client
 
         case_id = mock_case_dict["id"]
-        with pytest.raises(TracecatValidationError, match="No content type found"):
+        with pytest.raises(AutoSecOpsValidationError, match="No content type found"):
             await upload_attachment_from_url(
                 case_id=case_id,
                 url="https://example.com/docs/report.pdf",
@@ -1403,7 +1403,7 @@ async def test_list_cases_by_row_paginate_returns_response(
 
 @pytest.mark.anyio
 async def test_list_cases_by_row_rejects_large_limit() -> None:
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await list_cases_by_row(table_id="t", row_id="r", limit=10_000)
 
 

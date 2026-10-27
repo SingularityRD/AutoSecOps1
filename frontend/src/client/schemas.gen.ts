@@ -6791,11 +6791,11 @@ export const $AuthDiscoveryMethod = {
 
 export const $AwsAssumeRoleAccessRead = {
   properties: {
-    tracecat_aws_account_id: {
+    autosecops_aws_account_id: {
       type: "string",
       title: "AutoSecOps AWS Account ID",
     },
-    tracecat_aws_principal_arn: {
+    autosecops_aws_principal_arn: {
       type: "string",
       title: "AutoSecOps AWS Principal ARN",
     },
@@ -6806,8 +6806,8 @@ export const $AwsAssumeRoleAccessRead = {
   },
   type: "object",
   required: [
-    "tracecat_aws_account_id",
-    "tracecat_aws_principal_arn",
+    "autosecops_aws_account_id",
+    "autosecops_aws_principal_arn",
     "external_id",
   ],
   title: "AwsAssumeRoleAccessRead",
@@ -23546,9 +23546,20 @@ export const $LibrarySkillSourceRead = {
 
 export const $LicenseErrorCode = {
   type: "string",
-  enum: ["malformed", "bad_signature", "invalid_claims"],
+  enum: ["malformed", "bad_signature", "invalid_claims", "not_yet_valid"],
   title: "LicenseErrorCode",
   description: "Why a license key failed verification.",
+} as const
+
+export const $LicenseGrant = {
+  type: "string",
+  enum: ["multi_tenant"],
+  title: "LicenseGrant",
+  description: `Deployment-wide capabilities a license can grant.
+
+These are not organization entitlements: they never appear in tiers or in
+\`\`EffectiveEntitlements\`\`. A license lists them in \`\`entitlements\`\` next to
+organization entitlement keys.`,
 } as const
 
 export const $LicenseRead = {
@@ -23627,6 +23638,15 @@ export const $LicenseRead = {
       type: "array",
       title: "Entitlements",
       description: "Paid entitlements the license grants right now",
+    },
+    grants: {
+      items: {
+        $ref: "#/components/schemas/LicenseGrant",
+      },
+      type: "array",
+      title: "Grants",
+      description:
+        "Deployment-wide grants the license applies right now, such as multi_tenant",
     },
     included_entitlements: {
       items: {
@@ -31290,19 +31310,20 @@ export const $Role = {
     service_id: {
       type: "string",
       enum: [
-        "tracecat-api",
-        "tracecat-bootstrap",
-        "tracecat-cli",
-        "tracecat-executor",
-        "tracecat-agent-executor",
-        "tracecat-case-duration-sync",
-        "tracecat-case-triggers",
-        "tracecat-llm-gateway",
-        "tracecat-mcp",
-        "tracecat-runner",
-        "tracecat-schedule-runner",
-        "tracecat-service",
-        "tracecat-ui",
+        "autosecops-admin-cli",
+        "autosecops-api",
+        "autosecops-bootstrap",
+        "autosecops-cli",
+        "autosecops-executor",
+        "autosecops-agent-executor",
+        "autosecops-case-duration-sync",
+        "autosecops-case-triggers",
+        "autosecops-llm-gateway",
+        "autosecops-mcp",
+        "autosecops-runner",
+        "autosecops-schedule-runner",
+        "autosecops-service",
+        "autosecops-ui",
       ],
       title: "Service Id",
     },
@@ -34079,7 +34100,7 @@ export const $SecretStoreRead = {
       type: "boolean",
       title: "All Workspaces",
     },
-    tracecat_aws_account_id: {
+    autosecops_aws_account_id: {
       anyOf: [
         {
           type: "string",
@@ -34090,7 +34111,7 @@ export const $SecretStoreRead = {
       ],
       title: "AutoSecOps AWS Account ID",
     },
-    tracecat_aws_principal_arn: {
+    autosecops_aws_principal_arn: {
       anyOf: [
         {
           type: "string",

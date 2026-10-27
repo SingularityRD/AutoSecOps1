@@ -13,7 +13,7 @@ from autosecops.auth.dependencies import OrgActorRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import OrganizationSecretStore
-from autosecops.exceptions import TracecatConflictError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.identifiers import WorkspaceID
 from autosecops.pagination import Page, PageParams, PaginationError
 from autosecops.secrets.schemas import (
@@ -49,8 +49,8 @@ def _store_read(
         store,
         authorized_workspace_ids=[a.workspace_id for a in store.authorizations],
         workspace_usage=usage.get(store.id, []),
-        tracecat_aws_account_id=config.TRACECAT__AWS_ASSUME_ROLE_ACCOUNT_ID or None,
-        tracecat_aws_principal_arn=config.TRACECAT__AWS_ASSUME_ROLE_PRINCIPAL_ARN
+        autosecops_aws_account_id=config.AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID or None,
+        autosecops_aws_principal_arn=config.AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN
         or None,
     )
 
@@ -69,9 +69,9 @@ async def list_secret_stores(
     role: OrgActorRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[SecretStoreRead]:
@@ -130,7 +130,7 @@ async def get_secret_store(
     service = SecretStoresService(session, role=role)
     try:
         store = await service.get_store(store_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret store not found"
         ) from e
@@ -159,9 +159,9 @@ async def update_secret_store(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret store not found"
         ) from e
@@ -185,11 +185,11 @@ async def delete_secret_store(
     try:
         store = await service.get_store(store_id)
         await service.delete_store(store)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret store not found"
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
@@ -207,7 +207,7 @@ async def authorize_secret_store_workspace(
     try:
         store = await service.get_store(store_id)
         authorization = await service.authorize_workspace(store, params.workspace_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     return SecretStoreAuthorizationRead.from_database(authorization)
 
@@ -229,7 +229,7 @@ async def revoke_secret_store_workspace(
     try:
         store = await service.get_store(store_id)
         await service.revoke_workspace(store, workspace_id)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e

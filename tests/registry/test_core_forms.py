@@ -11,7 +11,7 @@ import orjson
 import pytest
 from autosecops_registry.context import RegistryContext, clear_context, set_context
 from autosecops_registry.core import forms as core_forms
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 
 FILE_ID = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b"
 FORM_ID = "0b0c8f8e-0d0b-4d3a-9a57-3d0f2a3e6b11"
@@ -87,7 +87,7 @@ async def requests(
         return httpx.MockTransport(handle)
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
-    client = TracecatClient(action_gateway_socket="/tmp/forms-test.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/forms-test.sock")
     set_context(
         RegistryContext(workspace_id="", workflow_id="", run_id="", _client=client)
     )
@@ -112,8 +112,8 @@ async def test_action_is_gated_and_calls_its_exact_internal_route(
 ) -> None:
     # The decorator stores its arguments under a mangled-looking name, so
     # plain attribute access is not possible.
-    registered = getattr(action, "__tracecat_udf_kwargs")
-    assert getattr(action, "__tracecat_udf_key") == f"core.forms.{action.__name__}"
+    registered = getattr(action, "__autosecops_udf_kwargs")
+    assert getattr(action, "__autosecops_udf_key") == f"core.forms.{action.__name__}"
     assert registered["required_entitlements"] == ["forms"]
 
     result = await action(**arguments)
@@ -121,7 +121,7 @@ async def test_action_is_gated_and_calls_its_exact_internal_route(
     [request] = requests
     assert request.method == method
     assert str(request.url.copy_with(query=None)) == (
-        f"http://tracecat-action-gateway/internal{path}"
+        f"http://autosecops-action-gateway/internal{path}"
     )
     assert dict(request.url.params) == query
     assert (orjson.loads(request.content) if request.content else None) == body

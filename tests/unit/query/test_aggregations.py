@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.aggregations import (
     MAX_AGGREGATIONS,
     MAX_GROUP_BY_FIELDS,
@@ -300,7 +300,7 @@ def test_rejects_timezone_on_date_bucket() -> None:
         group_by=[GroupBySpec(field="event_date", bucket="day", timezone="UTC")]
     )
 
-    with pytest.raises(TracecatValidationError, match="timezone.*DATE"):
+    with pytest.raises(AutoSecOpsValidationError, match="timezone.*DATE"):
         _compile(
             spec,
             {"event_date": _field("event_date", sa.Date(), FieldKind.TEMPORAL)},
@@ -332,7 +332,7 @@ def test_rejects_invalid_group_bucket_combinations(
     field: ResolvedAggregationField,
     message: str,
 ) -> None:
-    with pytest.raises(TracecatValidationError, match=message):
+    with pytest.raises(AutoSecOpsValidationError, match=message):
         _compile(spec, {spec.group_by[0].field: field})
 
 
@@ -428,7 +428,7 @@ def test_aggregate_function_type_matrix(
         aggs=[AggSpec(function=function, field="value")],
     )
     if not allowed:
-        with pytest.raises(TracecatValidationError, match="not allowed"):
+        with pytest.raises(AutoSecOpsValidationError, match="not allowed"):
             _compile(spec, {"value": _field("value", column_type, kind)})
         return
 
@@ -533,7 +533,7 @@ def test_multi_valued_group_rejects_additive_aggregates(
         aggs=[AggSpec(function=function, field="value")],
     )
 
-    with pytest.raises(TracecatValidationError, match="multi-valued"):
+    with pytest.raises(AutoSecOpsValidationError, match="multi-valued"):
         _compile(
             spec,
             {
@@ -549,7 +549,7 @@ def test_multi_valued_group_rejects_additive_aggregates(
 def test_multi_valued_group_requires_entity_id() -> None:
     spec = AggregationSpec(group_by=[GroupBySpec(field="tags")])
 
-    with pytest.raises(TracecatValidationError, match="requires an entity id"):
+    with pytest.raises(AutoSecOpsValidationError, match="requires an entity id"):
         _compile(
             spec,
             {
@@ -569,7 +569,7 @@ def test_multi_valued_aggregate_target_protects_other_aggregates_from_fanout() -
         ],
     )
 
-    with pytest.raises(TracecatValidationError, match="multi-valued field"):
+    with pytest.raises(AutoSecOpsValidationError, match="multi-valued field"):
         _compile(
             spec,
             {
@@ -713,7 +713,7 @@ def test_compiler_rejects_base_distinct(distinct_on: bool) -> None:
     else:
         statement = statement.distinct()
 
-    with pytest.raises(TracecatValidationError, match="must not use DISTINCT"):
+    with pytest.raises(AutoSecOpsValidationError, match="must not use DISTINCT"):
         compile_aggregation(
             statement,
             AggregationSpec(group_by=[]),
@@ -733,7 +733,7 @@ def test_compiler_rejects_grouped_or_having_base(clause: str) -> None:
         statement = statement.having(sa.func.count() > 1)
 
     with pytest.raises(
-        TracecatValidationError, match="must not use GROUP BY or HAVING"
+        AutoSecOpsValidationError, match="must not use GROUP BY or HAVING"
     ):
         compile_aggregation(
             statement,
@@ -761,7 +761,7 @@ def test_base_multi_valued_join_rejects_additive_aggregates() -> None:
         aggs=[AggSpec(function=AggFunction.SUM, field="amount")],
     )
 
-    with pytest.raises(TracecatValidationError, match="multi-valued field"):
+    with pytest.raises(AutoSecOpsValidationError, match="multi-valued field"):
         _compile(
             spec,
             {"amount": _field("amount", sa.Integer(), FieldKind.NUMBER)},
@@ -771,7 +771,7 @@ def test_base_multi_valued_join_rejects_additive_aggregates() -> None:
 
 
 def test_compiler_rejects_row_locking_base() -> None:
-    with pytest.raises(TracecatValidationError, match="must not use row locking"):
+    with pytest.raises(AutoSecOpsValidationError, match="must not use row locking"):
         compile_aggregation(
             _base_statement().with_for_update(),
             AggregationSpec(group_by=[]),
@@ -784,10 +784,10 @@ def test_compiler_rejects_row_locking_base() -> None:
 def test_unknown_aggregation_field_is_a_semantic_error() -> None:
     spec = AggregationSpec(group_by=[GroupBySpec(field="missing")])
 
-    with pytest.raises(TracecatValidationError, match="Unknown.*'missing'"):
+    with pytest.raises(AutoSecOpsValidationError, match="Unknown.*'missing'"):
         _compile(spec, {})
 
 
 def test_limit_must_be_positive() -> None:
-    with pytest.raises(TracecatValidationError, match="at least 1"):
+    with pytest.raises(AutoSecOpsValidationError, match="at least 1"):
         _compile(AggregationSpec(group_by=[]), {}, limit=0)

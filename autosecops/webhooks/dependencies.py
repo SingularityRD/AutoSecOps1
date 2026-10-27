@@ -24,7 +24,7 @@ from autosecops.db.engine import (
 )
 from autosecops.db.models import Webhook, WorkflowDefinition, Workspace
 from autosecops.dsl.schemas import TriggerInputs
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import AnyWorkflowIDPath
 from autosecops.logger import logger
 from autosecops.middleware.request import resolve_client_ip
@@ -36,7 +36,7 @@ from autosecops.workflow.management.management import WorkflowsManagementService
 if TYPE_CHECKING:
     from autosecops.dsl.common import DSLInput
 
-API_KEY_HEADER = "x-tracecat-api-key"
+API_KEY_HEADER = "x-autosecops-api-key"
 
 
 def _ip_allowed(client_ip: str, cidr_list: Sequence[str]) -> bool:
@@ -80,7 +80,8 @@ async def validate_incoming_webhook(
                 detail="Unauthorized webhook request",
             ) from e
 
-        if not secrets.compare_digest(secret, webhook.secret):
+        # Compare bytes: compare_digest rejects non-ASCII str input with TypeError.
+        if not secrets.compare_digest(secret.encode(), webhook.secret.encode()):
             logger.warning("Secret does not match")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -196,8 +197,8 @@ async def validate_incoming_webhook(
                 type="service",
                 workspace_id=webhook.workspace_id,
                 organization_id=workspace.organization_id,
-                service_id="tracecat-runner",
-                scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+                service_id="autosecops-runner",
+                scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
             )
         )
 
@@ -341,11 +342,11 @@ async def validate_draft_workflow(
             # Draft executions use None for registry_lock to resolve at runtime (latest registry)
             # This avoids stale locks when actions are edited in the UI
             return DraftWorkflowContext(dsl=dsl, registry_lock=None)
-        except TracecatValidationError as e:
+        except AutoSecOpsValidationError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "type": "TracecatValidationError",
+                    "type": "AutoSecOpsValidationError",
                     "message": str(e),
                     "detail": e.detail,
                 },

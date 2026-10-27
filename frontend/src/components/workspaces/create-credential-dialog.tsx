@@ -133,7 +133,7 @@ function isValidOktaPrivateKey(value: string | undefined) {
 }
 
 function buildAwsTrustPolicy(args: {
-  tracecatAwsPrincipalArn: string
+  autosecopsAwsPrincipalArn: string
   externalId: string
 }) {
   return JSON.stringify(
@@ -143,7 +143,7 @@ function buildAwsTrustPolicy(args: {
         {
           Effect: "Allow",
           Principal: {
-            AWS: args.tracecatAwsPrincipalArn,
+            AWS: args.autosecopsAwsPrincipalArn,
           },
           Action: "sts:AssumeRole",
           Condition: {
@@ -634,7 +634,8 @@ export function CreateCredentialDialog({
       ?.value?.trim() ?? ""
   const awsTrustPolicy = awsAssumeRoleAccess
     ? buildAwsTrustPolicy({
-        tracecatAwsPrincipalArn: awsAssumeRoleAccess.tracecat_aws_principal_arn,
+        autosecopsAwsPrincipalArn:
+          awsAssumeRoleAccess.autosecops_aws_principal_arn,
         externalId: awsAssumeRoleAccess.external_id,
       })
     : ""
@@ -1453,7 +1454,7 @@ export function CreateCredentialDialog({
                                       </dt>
                                       <dd className="break-all font-mono text-foreground">
                                         {
-                                          awsAssumeRoleAccess.tracecat_aws_account_id
+                                          awsAssumeRoleAccess.autosecops_aws_account_id
                                         }
                                       </dd>
                                       <dt className="text-muted-foreground">
@@ -1461,7 +1462,7 @@ export function CreateCredentialDialog({
                                       </dt>
                                       <dd className="break-all font-mono text-foreground">
                                         {
-                                          awsAssumeRoleAccess.tracecat_aws_principal_arn
+                                          awsAssumeRoleAccess.autosecops_aws_principal_arn
                                         }
                                       </dd>
                                       <dt className="text-muted-foreground">

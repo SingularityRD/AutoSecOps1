@@ -69,7 +69,7 @@ from autosecops.cases.types import CreatedCase
 from autosecops.cases.versions.service import CaseVersionsService
 from autosecops.contexts import ctx_run
 from autosecops.db.models import Base, Case, CaseVersion, Workspace
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.service import BaseWorkspaceService
 from autosecops.tables.common import coerce_to_date, coerce_to_utc_datetime
 
@@ -156,7 +156,7 @@ class BulkCasesService(BaseWorkspaceService):
             .returning(Workspace.last_case_number)
         )
         if last is None:
-            raise TracecatNotFoundError("Workspace not found")
+            raise AutoSecOpsNotFoundError("Workspace not found")
         return list(range(last - count + 1, last + 1))
 
     async def _insert_cases(

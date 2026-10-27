@@ -19,7 +19,7 @@ from autosecops.db.models import (
     PlatformRegistryVersion,
     RegistryRepository,
 )
-from autosecops.exceptions import TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.registry.actions.schemas import (
     RegistryActionCreate,
     RegistryActionOptions,
@@ -103,7 +103,7 @@ async def test_sync_creates_collision_version_for_manifest_changes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Sync should stay idempotent, but handle same-version content changes."""
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
 
     session.add(
         Organization(
@@ -120,7 +120,7 @@ async def test_sync_creates_collision_version_for_manifest_changes(
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
 
     repos_service = RegistryReposService(session, role)
@@ -198,7 +198,7 @@ async def test_custom_sync_rejects_actions_that_shadow_builtin_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A custom registry cannot redefine an action name the builtin registry owns."""
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
 
     session.add(
         Organization(
@@ -241,7 +241,7 @@ async def test_custom_sync_rejects_actions_that_shadow_builtin_registry(
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
     custom_origin = "git+ssh://git@example.com/acme/custom-registry.git"
     repos_service = RegistryReposService(session, role)
@@ -320,12 +320,12 @@ def test_local_origin_type_requires_enabled_local_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = RegistrySyncService(mocker.Mock(spec=AsyncSession), role=mocker.Mock())
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", False)
 
     with pytest.raises(RegistrySyncError, match="Local repository is not enabled"):
         service._get_origin_type(DEFAULT_LOCAL_REGISTRY_ORIGIN)
 
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True)
 
     assert service._get_origin_type(DEFAULT_LOCAL_REGISTRY_ORIGIN) == "local"
 
@@ -335,8 +335,8 @@ async def test_platform_builtin_sync_reuses_existing_artifact_objects(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True)
 
     ensure_bucket_exists = mocker.patch(
         "autosecops.registry.sync.base_service.blob.ensure_bucket_exists",
@@ -382,7 +382,7 @@ async def test_platform_builtin_sync_uploads_squashfs_artifact(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
     artifact_result = _make_artifact_result(tmp_path)
 
     mocker.patch(
@@ -435,11 +435,11 @@ async def test_platform_builtin_sync_uses_prebuilt_manifest_or_falls_back(
     monkeypatch: pytest.MonkeyPatch,
     conversion_fails: bool,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
     monkeypatch.setattr(
         config,
-        "TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
 
@@ -515,11 +515,11 @@ async def test_platform_builtin_sync_can_create_pending_version(
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY", "registry")
     monkeypatch.setattr(
         config,
-        "TRACECAT__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
+        "AUTOSECOPS__REGISTRY_SYNC_PREBUILT_ARTIFACTS_DIR",
         str(tmp_path),
     )
 
@@ -577,7 +577,7 @@ async def test_sync_via_temporal_reads_validation_classification_through_activit
     mocker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", True)
 
     session.add(
         Organization(
@@ -594,7 +594,7 @@ async def test_sync_via_temporal_reads_validation_classification_through_activit
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
 
     repos_service = RegistryReposService(session, role)
@@ -651,7 +651,7 @@ async def test_sync_via_temporal_git_requires_registry_ssh_key_before_workflow(
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
 
     session = mocker.Mock(spec=AsyncSession)
@@ -670,7 +670,7 @@ async def test_sync_via_temporal_git_requires_registry_ssh_key_before_workflow(
     )
     get_org_secret_by_name = mocker.patch(
         "autosecops.registry.sync.base_service.SecretsService.get_org_secret_by_name",
-        mocker.AsyncMock(side_effect=TracecatNotFoundError("missing")),
+        mocker.AsyncMock(side_effect=AutoSecOpsNotFoundError("missing")),
     )
     get_ssh_key = mocker.patch(
         "autosecops.registry.sync.base_service.SecretsService.get_ssh_key",
@@ -698,7 +698,7 @@ async def test_sync_via_temporal_git_preserves_unexpected_secret_check_error(
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=uuid.uuid4(),
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
     )
 
     session = mocker.Mock(spec=AsyncSession)

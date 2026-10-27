@@ -10,7 +10,7 @@ from autosecops import config
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.pagination import Page, PageParams, PaginationError
 from autosecops.robot_edr.schemas import (
     RobotCreate,
@@ -37,9 +37,9 @@ router = APIRouter(
 )
 
 _LIMIT = Query(
-    config.TRACECAT__LIMIT_DEFAULT,
-    ge=config.TRACECAT__LIMIT_MIN,
-    le=config.TRACECAT__LIMIT_CURSOR_MAX,
+    config.AUTOSECOPS__LIMIT_DEFAULT,
+    ge=config.AUTOSECOPS__LIMIT_MIN,
+    le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
 )
 _CURSOR = Query(None, max_length=8192)
 
@@ -165,7 +165,7 @@ async def create_robot_key(
         key = await service.create_key(params)
     except RobotConflictError as exc:
         raise _conflict(exc) from exc
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc

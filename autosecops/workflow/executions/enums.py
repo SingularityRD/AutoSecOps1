@@ -148,25 +148,25 @@ WORKFLOW_RUN_EXCLUDED_WORKFLOW_TYPES = frozenset(
 class TemporalSearchAttr(StrEnum):
     """Temporal search attribute keys."""
 
-    TRIGGER_TYPE = "TracecatTriggerType"
+    TRIGGER_TYPE = "AutoSecOpsTriggerType"
     """The `Keyword` Search Attribute for the trigger type of the workflow execution."""
 
-    TRIGGERED_BY_USER_ID = "TracecatTriggeredByUserId"
+    TRIGGERED_BY_USER_ID = "AutoSecOpsTriggeredByUserId"
     """The `Keyword` Search Attribute for the user ID that triggered the workflow execution."""
 
-    WORKSPACE_ID = "TracecatWorkspaceId"
+    WORKSPACE_ID = "AutoSecOpsWorkspaceId"
     """The `Keyword` Search Attribute for the workspace that owns the workflow execution."""
 
-    ALIAS = "TracecatAlias"
+    ALIAS = "AutoSecOpsAlias"
     """The `Keyword` Search Attribute for a human-friendly workflow alias (e.g., workflow or agent slugs)."""
 
-    CORRELATION_ID = "TracecatCorrelationId"
+    CORRELATION_ID = "AutoSecOpsCorrelationId"
     """The `Keyword` Search Attribute for grouping related workflow executions."""
 
-    EXECUTION_TYPE = "TracecatExecutionType"
+    EXECUTION_TYPE = "AutoSecOpsExecutionType"
     """The `Keyword` Search Attribute for the execution type (draft or published)."""
 
-    ERROR_OWNER = "TracecatErrorOwner"
+    ERROR_OWNER = "AutoSecOpsErrorOwner"
     """The `Keyword` Search Attribute for terminal runtime error ownership."""
 
     @cached_property

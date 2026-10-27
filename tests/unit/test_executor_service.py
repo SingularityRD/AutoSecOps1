@@ -21,7 +21,7 @@ from autosecops.dsl.schemas import (
     RunActionInput,
     RunContext,
 )
-from autosecops.exceptions import ExecutionError, TracecatCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError, ExecutionError
 from autosecops.executor import service as executor_service
 from autosecops.executor.schemas import (
     ActionImplementation,
@@ -44,22 +44,22 @@ def test_flatten_secrets_supports_runtime_scalar_entries() -> None:
     flattened = secrets_manager.flatten_secrets(
         {
             "aws": {"AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role"},
-            "TRACECAT_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
+            "AUTOSECOPS_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
         }
     )
 
     assert flattened == {
         "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/customer-role",
-        "TRACECAT_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
+        "AUTOSECOPS_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
     }
 
 
 def test_flatten_secrets_rejects_runtime_scalar_key_collisions() -> None:
-    with pytest.raises(ValueError, match="TRACECAT_AWS_EXTERNAL_ID"):
+    with pytest.raises(ValueError, match="AUTOSECOPS_AWS_EXTERNAL_ID"):
         secrets_manager.flatten_secrets(
             {
-                "aws": {"TRACECAT_AWS_EXTERNAL_ID": "customer-value"},
-                "TRACECAT_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
+                "aws": {"AUTOSECOPS_AWS_EXTERNAL_ID": "customer-value"},
+                "AUTOSECOPS_AWS_EXTERNAL_ID": "11111111111111111111111111111111",
             }
         )
 
@@ -146,14 +146,14 @@ async def test_get_action_secrets_injects_runtime_aws_external_id(
     mocker.patch("autosecops.secrets.secrets_manager.AuthSandbox", return_value=sandbox)
     mocker.patch(
         "autosecops.secrets.secrets_manager.build_workspace_external_id",
-        return_value="tracecat-ws-deadbeef",
+        return_value="autosecops-ws-deadbeef",
     )
 
     token = secrets_manager.ctx_role.set(
         Role(
             type="service",
             workspace_id=UUID("11111111-1111-1111-1111-111111111111"),
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
         )
     )
     try:
@@ -163,7 +163,7 @@ async def test_get_action_secrets_injects_runtime_aws_external_id(
     finally:
         secrets_manager.ctx_role.reset(token)
 
-    assert secrets["TRACECAT_AWS_EXTERNAL_ID"] == "tracecat-ws-deadbeef"
+    assert secrets["AUTOSECOPS_AWS_EXTERNAL_ID"] == "autosecops-ws-deadbeef"
 
 
 _AZURE_OAUTH_SECRETS: set[RegistrySecretType] = {
@@ -257,7 +257,7 @@ async def test_get_action_secrets_missing_required_oauth_raises(mocker):
     """Required OAuth integrations should surface a credentials error."""
     _patch_oauth_secret_env(mocker, [])
 
-    with pytest.raises(TracecatCredentialsError):
+    with pytest.raises(AutoSecOpsCredentialsError):
         await secrets_manager.get_action_secrets(
             secret_exprs=set(),
             action_secrets={
@@ -274,7 +274,7 @@ async def test_invoke_once_offloads_root_secret_masking(mocker):
     role = Role(
         type="service",
         organization_id=UUID(int=1),
-        service_id="tracecat-executor",
+        service_id="autosecops-executor",
     )
     action_input = mocker.Mock()
     action_input.task.action = "core.transform.reshape"
@@ -408,7 +408,7 @@ def _patch_expression_policy_resolution(
     return get_action_secrets, get_workspace_variables, project_secret_env
 
 
-@pytest.mark.parametrize("service_id", ["tracecat-executor", "tracecat-mcp"])
+@pytest.mark.parametrize("service_id", ["autosecops-executor", "autosecops-mcp"])
 @pytest.mark.parametrize(
     ("action_name", "preserved_parameter", "runtime_parameter"),
     [
@@ -468,7 +468,7 @@ async def test_prepare_resolved_context_preserves_only_mapped_parameter(
     )
     mocker.patch.object(
         executor_service.config,
-        "TRACECAT__UNSAFE_DISABLE_SM_MASKING",
+        "AUTOSECOPS__UNSAFE_DISABLE_SM_MASKING",
         False,
     )
 
@@ -493,7 +493,7 @@ async def test_prepare_resolved_context_preserves_only_mapped_parameter(
     assert prepared.mask_values == {"runtime-secret", "declared-secret"}
 
 
-@pytest.mark.parametrize("service_id", ["tracecat-executor", "tracecat-mcp"])
+@pytest.mark.parametrize("service_id", ["autosecops-executor", "autosecops-mcp"])
 @pytest.mark.anyio
 async def test_prepare_resolved_context_redacts_secrets_before_collection(
     mocker,
@@ -573,7 +573,7 @@ async def test_prepare_resolved_context_resolves_unmapped_parameters(
 
     prepared = await prepare_resolved_context(
         input=_expression_policy_input(action_name, args),
-        role=_expression_policy_role("tracecat-executor"),
+        role=_expression_policy_role("autosecops-executor"),
     )
 
     assert prepared.resolved_context.evaluated_args == {parameter: "runtime-secret"}
@@ -609,7 +609,7 @@ async def test_prepare_resolved_context_resolves_explicit_parameters(
 
     prepared = await prepare_resolved_context(
         input=_expression_policy_input(action_name, args),
-        role=_expression_policy_role("tracecat-executor"),
+        role=_expression_policy_role("autosecops-executor"),
     )
 
     assert prepared.resolved_context.evaluated_args == {parameter: "runtime-secret"}
@@ -711,7 +711,7 @@ async def test_template_step_applies_target_action_expression_policy(
         template_action,
         {"value": source_value},
     )
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     parent_resolved = ResolvedContext(
         secrets={"runtime": {"TOKEN": "runtime-secret"}},
         variables={"runtime": {"host": "api.example.com"}},
@@ -780,7 +780,7 @@ async def test_template_step_result_stays_runtime_data_for_field_policy(mocker):
         "testing.policy_wrapper",
         {"value": source_value},
     )
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     parent_resolved = _policy_wrapper_resolved(
         action_input,
         role,
@@ -852,7 +852,7 @@ async def test_compound_secret_dependency_reaches_nested_template_sink(mocker):
         "testing.policy_wrapper",
         {"value": source_value},
     )
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     inner_template = ActionImplementation(
         type="template",
         action_name="testing.inner_wrapper",
@@ -970,7 +970,7 @@ def _policy_wrapper_resolved(
 async def test_template_step_result_stays_inert_in_redact_parameter(mocker):
     """Materialized step results are grafted as data, never re-expanded as source."""
     action_input = _expression_policy_input("testing.policy_wrapper", {})
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     parent_resolved = _policy_wrapper_resolved(
         action_input,
         role,
@@ -1038,7 +1038,7 @@ async def test_omitted_template_default_seeds_preserve_provenance(mocker):
         }
     ]
     action_input = _expression_policy_input("testing.policy_wrapper", {})
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     parent_resolved = _policy_wrapper_resolved(
         action_input,
         role,
@@ -1100,7 +1100,7 @@ async def test_invoke_once_returns_none_result_as_success(mocker):
     check that regresses to `is None`), a successful `core.cases.delete_case`
     is reported as a failure and retried after its side effect landed.
     """
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     action_input = _expression_policy_input("core.cases.delete_case", {})
     resolved_context = mocker.Mock(logical_time=mocker.sentinel.logical_time)
     prepared_context = executor_service.PreparedContext(
@@ -1139,7 +1139,7 @@ async def test_invoke_once_keeps_unknown_carrier_error_without_chain(mocker):
     from autosecops.exceptions import ExecutionError
 
     canary = "SUPERSECRET-chain-canary"
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     action_input = _expression_policy_input(
         "core.probe", {"value": "${{ ACTIONS.fetch.result }}"}
     )
@@ -1190,7 +1190,7 @@ async def test_invoke_once_keeps_unknown_carrier_error_without_chain(mocker):
 async def test_invoke_once_selectively_masks_all_error_fields(mocker):
     """Diagnostics retain useful text while masking known values in all fields."""
     canary = "secret-error-info-canary"
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     action_input = _expression_policy_input(
         "core.probe", {"value": "${{ ACTIONS.fetch.result }}"}
     )
@@ -1280,7 +1280,7 @@ async def test_invoke_once_masks_template_expression_errors(
     if encoded:
         operand = f"FN.to_base64({operand})"
     expression = "${{ int(" + operand + ") }}"
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     action_input = _expression_policy_input("testing.error_details", {})
     template_definition = {
         "name": "error_details",
@@ -1390,7 +1390,7 @@ async def test_invoke_once_masks_template_expression_errors(
     assert "ValueError in int(***)" in error.info.message
     assert MASK_VALUE in error.info.message
     assert "Details withheld" not in error.info.message
-    assert error.info.type == "TracecatExpressionError"
+    assert error.info.type == "AutoSecOpsExpressionError"
     assert error.info.loop_iteration == 2
     assert error.__cause__ is None
     assert error.__context__ is None
@@ -1411,7 +1411,7 @@ async def test_template_expects_validation_leaves_no_plaintext_in_chain(mocker):
 
     canary = "SUPERSECRET-expects-canary"
     action_input = _expression_policy_input("testing.typed", {"count": canary})
-    role = _expression_policy_role("tracecat-executor")
+    role = _expression_policy_role("autosecops-executor")
     resolved = ResolvedContext(
         secrets={},
         variables={},

@@ -185,7 +185,7 @@ async def verify_auth_type(
     """
 
     # 1. Check that this auth type is allowed
-    if auth_type not in config.TRACECAT__AUTH_TYPES:
+    if auth_type not in config.AUTOSECOPS__AUTH_TYPES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Auth type not allowed",
@@ -243,7 +243,7 @@ def require_any_auth_type_enabled(auth_types: Sequence[AuthType]) -> Any:
 
     async def _check_any_auth_type_enabled() -> None:
         for auth_type in candidate_types:
-            if auth_type in config.TRACECAT__AUTH_TYPES:
+            if auth_type in config.AUTOSECOPS__AUTH_TYPES:
                 await verify_auth_type(auth_type)
                 return
         raise HTTPException(

@@ -84,7 +84,7 @@ _AGENT_SESSION_ID = uuid.UUID(int=7)
         ],
         pytest.param(
             {
-                "service_id": "tracecat-mcp",
+                "service_id": "autosecops-mcp",
                 "execution_origin": "agent",
                 "agent_session_id": _AGENT_SESSION_ID,
             },
@@ -92,8 +92,8 @@ _AGENT_SESSION_ID = uuid.UUID(int=7)
             id="agent-session-id",
         ),
         pytest.param(
-            {"service_id": "tracecat-schedule-runner"},
-            {"service_id": "tracecat-schedule-runner"},
+            {"service_id": "autosecops-schedule-runner"},
+            {"service_id": "autosecops-schedule-runner"},
             id="service-id",
         ),
     ],
@@ -103,7 +103,7 @@ def test_mint_and_verify_executor_token_roundtrip(
     claims: dict[str, Any],
     expected: dict[str, Any],
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -131,7 +131,7 @@ def test_verify_executor_token_without_service_id_claim_is_compatible(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service_key = "test-service-key"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", service_key)
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", service_key)
 
     token = _mint_legacy_executor_token_without_service_id(
         service_key=service_key, workspace_id=uuid.uuid4()
@@ -145,8 +145,8 @@ def test_verify_executor_token_without_service_id_claim_is_compatible(
 @pytest.mark.parametrize(
     ("service_id", "execution_origin"),
     [
-        pytest.param("tracecat-mcp", "workflow", id="workflow-origin"),
-        pytest.param("tracecat-executor", "agent", id="non-mcp-service"),
+        pytest.param("autosecops-mcp", "workflow", id="workflow-origin"),
+        pytest.param("autosecops-executor", "agent", id="non-mcp-service"),
     ],
 )
 def test_executor_token_rejects_untrusted_agent_session_origin(
@@ -154,11 +154,11 @@ def test_executor_token_rejects_untrusted_agent_session_origin(
     service_id: InternalServiceID,
     execution_origin: ExecutionOrigin,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     with pytest.raises(
         ValueError,
-        match="agent_session_id requires the tracecat-mcp agent execution origin",
+        match="agent_session_id requires the autosecops-mcp agent execution origin",
     ):
         mint_executor_token(
             workspace_id=uuid.uuid4(),
@@ -175,16 +175,16 @@ def test_verify_executor_token_rejects_inconsistent_agent_session_claims(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service_key = "test-service-key"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", service_key)
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", service_key)
     now = datetime.now(UTC)
     payload = {
         "iss": EXECUTOR_TOKEN_ISSUER,
         "aud": EXECUTOR_TOKEN_AUDIENCE,
-        "sub": "tracecat-executor",
+        "sub": "autosecops-executor",
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=60)).timestamp()),
         "workspace_id": str(uuid.uuid4()),
-        "service_id": "tracecat-executor",
+        "service_id": "autosecops-executor",
         "execution_origin": "agent",
         "agent_session_id": str(uuid.uuid4()),
         "wf_id": "wf-1",
@@ -197,7 +197,7 @@ def test_verify_executor_token_rejects_inconsistent_agent_session_claims(
 
 
 def test_verify_executor_token_expired(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     token = mint_executor_token(
         workspace_id=uuid.uuid4(),
@@ -214,7 +214,7 @@ def test_verify_executor_token_expired(monkeypatch: pytest.MonkeyPatch):
 def test_verify_executor_token_invalid_subject(monkeypatch: pytest.MonkeyPatch):
     """Verify that tokens with incorrect subject claim are rejected."""
     service_key = "test-service-key"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", service_key)
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", service_key)
 
     workspace_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -240,7 +240,7 @@ def test_verify_executor_token_invalid_subject(monkeypatch: pytest.MonkeyPatch):
 
 def test_verify_executor_token_with_null_user_id(monkeypatch: pytest.MonkeyPatch):
     """Verify that tokens with null user_id are valid (system/anonymous executions)."""
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     token = mint_executor_token(
@@ -263,7 +263,7 @@ def test_verify_executor_token_with_null_user_id(monkeypatch: pytest.MonkeyPatch
 async def test_role_dependency_executor_token_populates_org_context(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -273,7 +273,7 @@ async def test_role_dependency_executor_token_populates_org_context(
     token = mint_executor_token(
         workspace_id=workspace_id,
         user_id=user_id,
-        service_id="tracecat-mcp",
+        service_id="autosecops-mcp",
         execution_origin="agent",
         agent_session_id=agent_session_id,
         wf_id="wf-1",
@@ -297,7 +297,7 @@ async def test_role_dependency_executor_token_populates_org_context(
     )
 
     assert resolved.type == "service"
-    assert resolved.service_id == "tracecat-mcp"
+    assert resolved.service_id == "autosecops-mcp"
     assert resolved.workspace_id == workspace_id
     assert resolved.user_id == user_id
     assert resolved.organization_id == organization_id
@@ -308,7 +308,7 @@ async def test_role_dependency_executor_token_populates_org_context(
 async def test_role_dependency_workflow_token_clears_agent_session_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
     workspace_id = uuid.uuid4()
     _patch_workspace_org(monkeypatch, workspace_id)
     token = mint_executor_token(
@@ -346,7 +346,7 @@ async def test_role_dependency_executor_token_defaults_to_basic_user(
     user_id: uuid.UUID | None,
 ) -> None:
     """Executor roles resolve without DB user context, including system runs."""
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     workspace_id = uuid.uuid4()
     organization_id = _patch_workspace_org(monkeypatch, workspace_id)
@@ -385,7 +385,7 @@ async def test_role_dependency_executor_uses_jwt_workspace(
     The workspace_id query param is no longer validated - the Role's
     workspace_id comes entirely from the JWT token.
     """
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", "test-service-key")
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
 
     jwt_workspace_id = uuid.uuid4()
     organization_id = _patch_workspace_org(monkeypatch, jwt_workspace_id)
@@ -417,7 +417,7 @@ async def test_role_dependency_executor_uses_jwt_workspace(
     # The resolved role should have workspace_id from the JWT
     assert resolved.workspace_id == jwt_workspace_id
     assert resolved.type == "service"
-    assert resolved.service_id == "tracecat-executor"
+    assert resolved.service_id == "autosecops-executor"
     assert resolved.organization_id == organization_id
 
 
@@ -425,8 +425,8 @@ async def test_role_dependency_executor_uses_jwt_workspace(
 @pytest.mark.parametrize(
     ("legacy_token", "expected_service_id"),
     [
-        pytest.param(True, "tracecat-executor", id="claim_missing_defaults"),
-        pytest.param(False, "tracecat-schedule-runner", id="claim_present"),
+        pytest.param(True, "autosecops-executor", id="claim_missing_defaults"),
+        pytest.param(False, "autosecops-schedule-runner", id="claim_present"),
     ],
 )
 async def test_authenticate_executor_service_id(
@@ -435,7 +435,7 @@ async def test_authenticate_executor_service_id(
     expected_service_id: str,
 ) -> None:
     service_key = "test-service-key"
-    monkeypatch.setattr(config, "TRACECAT__SERVICE_KEY", service_key)
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", service_key)
     workspace_id = uuid.uuid4()
     organization_id = _patch_workspace_org(monkeypatch, workspace_id)
 
@@ -447,7 +447,7 @@ async def test_authenticate_executor_service_id(
         token = mint_executor_token(
             workspace_id=workspace_id,
             user_id=None,
-            service_id="tracecat-schedule-runner",
+            service_id="autosecops-schedule-runner",
             wf_id="wf-1",
             wf_exec_id="run-1",
         )

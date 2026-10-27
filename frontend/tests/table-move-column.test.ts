@@ -3,7 +3,7 @@ import { TableHeader } from "@tiptap/extension-table-header"
 import { TableRow } from "@tiptap/extension-table-row"
 import { Editor } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
-import { TracecatTable } from "@/components/tiptap-node/table-node/table-node-extension"
+import { AutoSecOpsTable } from "@/components/tiptap-node/table-node/table-node-extension"
 
 /** A cell as the assertions read it: content, persisted width, and node type. */
 type CellSnapshot = {
@@ -53,7 +53,7 @@ function createEditor(content: string): {
     element,
     extensions: [
       StarterKit,
-      TracecatTable.configure({
+      AutoSecOpsTable.configure({
         resizable: false,
       }),
       TableRow,

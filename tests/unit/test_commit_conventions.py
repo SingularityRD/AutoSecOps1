@@ -537,8 +537,8 @@ def test_audit_script_has_no_top_level_yaml_import() -> None:
             # 373 releases of history behind that cutoff. The quoted type is
             # discarded, the scope is kept, and the description reaches the
             # capitalizer -- which is the whole reason the rule sits above it.
-            '- Revert "fix(agents): stopgap resolution of tracecat registry alias" (#2376)',
-            "- revert(agents): Stopgap resolution of tracecat registry alias (#2376)",
+            '- Revert "fix(agents): stopgap resolution of autosecops registry alias" (#2376)',
+            "- revert(agents): Stopgap resolution of autosecops registry alias (#2376)",
             id="github-revert-wrapper-gets-a-type",
         ),
         pytest.param(
@@ -744,7 +744,7 @@ CORPUS: Final = (
     "feat(splunk+ui): add saved search export",
     "[codex] chore(deps): bump orjson",
     'Revert "feat(mcp): add internal OIDC issuer"',
-    "revert(agents): stopgap resolution of tracecat registry alias",
+    "revert(agents): stopgap resolution of autosecops registry alias",
     "release: 1.0.0-beta.49",
     "deprecation(integrations): x in favour of y",
     "build(deps): patch dependabot alerts",

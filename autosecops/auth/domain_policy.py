@@ -18,7 +18,7 @@ from autosecops.settings.service import get_setting_from_bypass_session
 def env_allowed_domains() -> set[str]:
     """Return normalized env-domain allowlist for SAML checks."""
     normalized_domains: set[str] = set()
-    for raw_domain in config.TRACECAT__AUTH_ALLOWED_DOMAINS:
+    for raw_domain in config.AUTOSECOPS__AUTH_ALLOWED_DOMAINS:
         domain = raw_domain.strip().lower()
         if not domain:
             continue
@@ -38,7 +38,7 @@ def is_domain_allowed_for_org(
     if active_domains:
         return normalized_domain in active_domains
 
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return False
 
     allowed = env_allowed_domains()
@@ -51,7 +51,7 @@ async def is_org_saml_enforced(
     session: SupportsExecute, organization_id: OrganizationID
 ) -> bool:
     """Whether SAML is the organization's only way in."""
-    if AuthType.SAML not in config.TRACECAT__AUTH_TYPES:
+    if AuthType.SAML not in config.AUTOSECOPS__AUTH_TYPES:
         return False
     if not await get_setting_from_bypass_session(
         "saml_enabled", organization_id=organization_id, session=session, default=True

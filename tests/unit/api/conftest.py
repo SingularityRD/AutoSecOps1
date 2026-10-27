@@ -150,7 +150,7 @@ def test_admin_role(
         user_id=uuid.uuid4(),
         organization_id=mock_org_id,
         workspace_id=test_workspace.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
     token = ctx_role.set(role)
@@ -173,8 +173,8 @@ def test_role(
         user_id=mock_org_id,
         organization_id=mock_org_id,
         workspace_id=test_workspace.id,
-        service_id="tracecat-runner",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        service_id="autosecops-runner",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
     token = ctx_role.set(role)
     previous_role = _FALLBACK_ROLE

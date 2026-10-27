@@ -4,12 +4,12 @@ This worker listens on the 'shared-action-queue' and executes:
 - Actions dispatched from DSL workflows
 - Registry sync operations (when sandboxed sync is enabled)
 
-Supported backends (via TRACECAT__EXECUTOR_BACKEND):
+Supported backends (via AUTOSECOPS__EXECUTOR_BACKEND):
 - nsjail (ephemeral alias): Cold nsjail subprocess per action (multitenant, full isolation)
 - direct: Direct subprocess execution
 
 Architecture:
-    DSLWorkflow (tracecat-task-queue)
+    DSLWorkflow (autosecops-task-queue)
         |
         v
     workflow.execute_activity("execute_action_activity", task_queue="shared-action-queue")
@@ -125,22 +125,22 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
         if shutdown_event is None:
             shutdown_event = asyncio.Event()
 
-        if config.TRACECAT__EXECUTOR_BACKEND.uses_nsjail:
+        if config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
             sandbox_cgroup()
 
         # Get configuration
-        task_queue = config.TRACECAT__EXECUTOR_QUEUE
-        max_concurrent = config.TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES
-        threadpool_max_workers = config.TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS
+        task_queue = config.AUTOSECOPS__EXECUTOR_QUEUE
+        max_concurrent = config.AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES
+        threadpool_max_workers = config.AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS
 
         logger.info(
             "Starting ExecutorWorker",
             task_queue=task_queue,
             max_concurrent_activities=max_concurrent,
             threadpool_max_workers=threadpool_max_workers,
-            executor_backend=config.TRACECAT__EXECUTOR_BACKEND,
+            executor_backend=config.AUTOSECOPS__EXECUTOR_BACKEND,
         )
-        initialize_platform_tracing("tracecat-executor")
+        initialize_platform_tracing("autosecops-executor")
         initialize_executor_sentry_from_environment()
         action_gateway = ActionGateway()
 

@@ -240,7 +240,7 @@ def freeze_startup_heap() -> None:
     Module reloads: the start-up registry sync loads the registry in a
     subprocess (``autosecops.registry.sync.subprocess``), so it reloads
     nothing here and leaks nothing. The API process reloads registry modules
-    in-process only with ``TRACECAT__LOCAL_REPOSITORY_ENABLED`` (development)
+    in-process only with ``AUTOSECOPS__LOCAL_REPOSITORY_ENABLED`` (development)
     or on an import-recovery path; a reload after the freeze keeps the old
     module's classes (cyclic) alive. Measured on the full start-up heap
     (about 1.3 million frozen objects): reloading every imported
@@ -268,7 +268,7 @@ async def freeze_startup_heap_after(
         await asyncio.wait(tasks)
     if supervisor.draining:
         return
-    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
         logger.info("Local registry repository enabled; start-up heap not frozen")
         return
     freeze_startup_heap()

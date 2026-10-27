@@ -20,7 +20,7 @@ from autosecops.db.models import (
     User,
     Workspace,
 )
-from autosecops.exceptions import TracecatAuthorizationError, TracecatNotFoundError
+from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.mcp.personal_access_tokens.constants import MCP_PAT_PREFIX
 from autosecops.mcp.personal_access_tokens.service import (
     MCPPersonalAccessTokenService,
@@ -82,7 +82,7 @@ def _role_for(user: User, organization: Organization, workspace: Workspace) -> R
         user_id=user.id,
         workspace_id=workspace.id,
         organization_id=organization.id,
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset({"workspace:read"}),
     )
 
@@ -215,7 +215,7 @@ async def test_create_mcp_personal_access_token_rejects_workspace_in_other_org(
     )
 
     with pytest.raises(
-        TracecatAuthorizationError, match="User cannot access workspace"
+        AutoSecOpsAuthorizationError, match="User cannot access workspace"
     ):
         await service.create_token(
             name="Claude Desktop",
@@ -246,7 +246,7 @@ async def test_revoke_mcp_personal_access_token_rejects_other_workspace_token(
     )
 
     with pytest.raises(
-        TracecatNotFoundError, match="MCP personal access token not found"
+        AutoSecOpsNotFoundError, match="MCP personal access token not found"
     ):
         await service.revoke_token(token.id)
 

@@ -64,24 +64,76 @@ class SearchMigration(Protocol):
     def downgrade(self) -> None: ...
 
 
-def load_search_migration() -> SearchMigration:
-    """Load the unmerged revision for disposable migration/transport fixtures."""
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "alembic/versions/e2018a1b2c3d_add_case_text_search_indexes.py"
-    )
-    spec = importlib.util.spec_from_file_location("case_text_search_migration", path)
+class RenameMigration(Protocol):
+    _RENAMES: tuple[tuple[str, str, str], ...]
+
+    def upgrade(self) -> None: ...
+    def downgrade(self) -> None: ...
+
+
+def _load_revision(filename: str, module_name: str) -> object:
+    path = Path(__file__).resolve().parents[2] / "alembic/versions" / filename
+    spec = importlib.util.spec_from_file_location(module_name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return cast(SearchMigration, module)
+    return module
+
+
+def load_search_migration() -> SearchMigration:
+    """Load the unmerged revision for disposable migration/transport fixtures."""
+    return cast(
+        SearchMigration,
+        _load_revision(
+            "e2018a1b2c3d_add_case_text_search_indexes.py",
+            "case_text_search_migration",
+        ),
+    )
+
+
+def load_rename_migration() -> RenameMigration:
+    """Load the revision that gives the helpers their AutoSecOps names."""
+    return cast(
+        RenameMigration,
+        _load_revision(
+            "07c9a895bd57_rename_case_text_search_helpers.py",
+            "case_text_search_rename_migration",
+        ),
+    )
+
+
+def renamed_helper_sql(sql: str) -> str:
+    """Rewrite e2018a1b2c3d helper references to the names 07c9a895bd57 sets.
+
+    The application only calls the renamed helpers, so fixtures that install
+    the functions or indexes directly must use the post-rename names.
+    """
+    for old_name, new_name, _ in load_rename_migration()._RENAMES:
+        sql = sql.replace(f"public.{old_name}(", f"public.{new_name}(")
+    return sql
+
+
+def _helpers_renamed(conn: Connection) -> bool:
+    return bool(
+        conn.scalar(
+            sa.text(
+                "SELECT to_regprocedure('public.autosecops_case_safe_vector_v1(text)')"
+                " IS NOT NULL"
+            )
+        )
+    )
 
 
 def apply_search_migration(
     engine: Engine, *, downgrade: bool = False, search_path: str | None = None
 ) -> None:
-    """Apply only this additive revision to the isolated minimal source table."""
+    """Apply the search revision and its helper rename to the minimal table.
+
+    Upgrade runs e2018a1b2c3d and then 07c9a895bd57, which is the state the
+    application expects. Downgrade first reverts the rename when it is applied.
+    """
     migration = load_search_migration()
+    rename = load_rename_migration()
     with engine.connect() as conn:
         context = MigrationContext.configure(conn)
         with context.begin_transaction(), Operations.context(context):
@@ -90,10 +142,13 @@ def apply_search_migration(
                     sa.text("SELECT set_config('search_path', :search_path, false)"),
                     {"search_path": search_path},
                 )
+            if _helpers_renamed(conn):
+                rename.downgrade()
             if downgrade:
                 migration.downgrade()
             else:
                 migration.upgrade()
+                rename.upgrade()
 
 
 @pytest.fixture
@@ -516,7 +571,7 @@ async def test_migration_is_retryable_and_downgrade_preserves_source_and_extensi
             )
             assert len(expressions) == 2
             assert all(
-                value.startswith("public.tracecat_case_safe_vector_v1(")
+                value.startswith("public.autosecops_case_safe_vector_v1(")
                 for value in expressions
             )
             await ensure_case_text_indexes(session)
@@ -544,10 +599,12 @@ def test_migration_rebuilds_an_invalid_concurrent_index(
 ) -> None:
     """Cancel a real guarded build, then retry without deleting source data."""
     migration = load_search_migration()
-    expression = next(
-        expression
-        for name, expression in migration._INDEXES
-        if name == "ix_case_description_fts"
+    expression = renamed_helper_sql(
+        next(
+            expression
+            for name, expression in migration._INDEXES
+            if name == "ix_case_description_fts"
+        )
     )
     with search_database.begin() as conn:
         conn.execute(
@@ -647,15 +704,13 @@ async def test_private_same_named_helper_indexes_cannot_spoof_readiness(
         seed_case(conn, 1, "preserved synthetic source")
         conn.execute(sa.text("CREATE SCHEMA synthetic_search"))
         conn.execute(
-            sa.text("""CREATE FUNCTION synthetic_search.tracecat_case_safe_vector_v1(text)
+            sa.text("""CREATE FUNCTION synthetic_search.autosecops_case_safe_vector_v1(text)
                 RETURNS tsvector LANGUAGE sql IMMUTABLE STRICT AS $$
                 SELECT pg_catalog.to_tsvector('pg_catalog.simple'::regconfig, $1) $$""")
         )
         conn.execute(sa.text("SET search_path=synthetic_search,pg_catalog"))
         conn.execute(sa.text(f"DROP INDEX public.{name}"))
-        expression = (
-            "synthetic_search.tracecat_case_safe_vector_v1(coalesce(summary::text, ''))"
-        )
+        expression = "synthetic_search.autosecops_case_safe_vector_v1(coalesce(summary::text, ''))"
         if kind == "fts":
             sql = f'CREATE INDEX {name} ON public."case" USING gin ({expression})'
         else:
@@ -669,7 +724,7 @@ async def test_private_same_named_helper_indexes_cannot_spoof_readiness(
             {"name": f"public.{name}"},
         ).one()
         assert "synthetic_search." not in before[2]
-        assert "tracecat_case_safe_vector_v1(" in before[2]
+        assert "autosecops_case_safe_vector_v1(" in before[2]
     engine = create_async_engine(
         search_database.url.set(drivername="postgresql+asyncpg"),
         poolclass=NullPool,
@@ -812,7 +867,7 @@ def test_native_stream_matches_supported_parser_positions(
         query = "phraseto_tsquery" if phrase else "plainto_tsquery"
         native, fallback = conn.execute(
             sa.text(
-                f"SELECT to_tsvector('pg_catalog.simple', :source) @@ {query}('pg_catalog.simple', :term), public.tracecat_case_text_matches_v1(:source,:term,:phrase)"
+                f"SELECT to_tsvector('pg_catalog.simple', :source) @@ {query}('pg_catalog.simple', :term), public.autosecops_case_text_matches_v1(:source,:term,:phrase)"
             ),
             {"source": source, "term": term, "phrase": phrase},
         ).one()
@@ -836,14 +891,18 @@ def test_guarded_old_writes_migration_and_full_source_recall(
     with search_database.begin() as conn:
         assert (
             conn.scalar(
-                sa.text("SELECT public.tracecat_case_safe_vector_v1(:source) IS NULL"),
+                sa.text(
+                    "SELECT public.autosecops_case_safe_vector_v1(:source) IS NULL"
+                ),
                 {"source": large},
             )
             is True
         )
         assert (
             conn.scalar(
-                sa.text("SELECT public.tracecat_case_safe_vector_v1(:source) IS NULL"),
+                sa.text(
+                    "SELECT public.autosecops_case_safe_vector_v1(:source) IS NULL"
+                ),
                 {"source": normalized_overflow},
             )
             is True
@@ -920,14 +979,14 @@ def test_safe_vector_exception_boundary_disables_parallel_operations(
         conn.execute(sa.text("SET LOCAL min_parallel_table_scan_size=0"))
         conn.execute(sa.text("SET LOCAL parallel_setup_cost=0"))
         conn.execute(sa.text("SET LOCAL parallel_tuple_cost=0"))
-        statement = 'SELECT sum(octet_length(public.tracecat_case_safe_vector_v1(description)::text)) FROM public."case"'
+        statement = 'SELECT sum(octet_length(public.autosecops_case_safe_vector_v1(description)::text)) FROM public."case"'
         plan = "\n".join(conn.execute(sa.text("EXPLAIN " + statement)).scalars())
         assert "Gather" not in plan
         assert conn.scalar(sa.text(statement)) > 0
         assert (
             conn.scalar(
                 sa.text(
-                    "SELECT proparallel FROM pg_proc WHERE oid='public.tracecat_case_safe_vector_v1(text)'::regprocedure"
+                    "SELECT proparallel FROM pg_proc WHERE oid='public.autosecops_case_safe_vector_v1(text)'::regprocedure"
                 )
             )
             == "u"

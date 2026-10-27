@@ -90,8 +90,8 @@ from tests.database import TEST_DB_CONFIG
 # MinIO test configuration - uses docker-compose services (port 9000)
 # Credentials are read from env to match docker-compose/.env in CI and local dev.
 MINIO_ENDPOINT = f"localhost:{os.environ.get('MINIO_PORT') or '9000'}"
-TEST_BUCKET = "test-tracecat-registry"
-_SYNC_ARTIFACT_SANDBOX_CHILD_ENV = "TRACECAT__SYNC_ARTIFACT_SANDBOX_CHILD"
+TEST_BUCKET = "test-autosecops-registry"
+_SYNC_ARTIFACT_SANDBOX_CHILD_ENV = "AUTOSECOPS__SYNC_ARTIFACT_SANDBOX_CHILD"
 _SYNC_ARTIFACT_SANDBOX_RESULT = "TRACE_CAT_SYNC_ARTIFACT_SANDBOX_RESULT:"
 
 
@@ -159,37 +159,41 @@ def _run_sync_artifact_sandbox_smoke_in_docker_or_skip(
 
     compose_env = os.environ.copy()
     compose_env.setdefault(
-        "TRACECAT__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
         str(repo_root / "packages"),
     )
-    compose_env.setdefault("TRACECAT__LOCAL_REPOSITORY_ENABLED", "false")
+    compose_env.setdefault("AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", "false")
     compose_env.setdefault("PUBLIC_APP_PORT", "80")
     compose_env.setdefault("BASE_DOMAIN", ":80")
     compose_env.setdefault("ADDRESS", "0.0.0.0")
     compose_env["LOG_LEVEL"] = "INFO"
-    compose_env["TRACECAT__APP_ENV"] = "development"
-    compose_env["TRACECAT__SERVICE_KEY"] = "test-service-key"
-    compose_env["TRACECAT__DB_URI"] = docker_db_uri
-    compose_env["TRACECAT__BLOB_STORAGE_ENDPOINT"] = docker_minio_endpoint
-    compose_env["TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY"] = bucket
+    compose_env["AUTOSECOPS__APP_ENV"] = "development"
+    compose_env["AUTOSECOPS__SERVICE_KEY"] = "test-service-key"
+    compose_env["AUTOSECOPS__DB_URI"] = docker_db_uri
+    compose_env["AUTOSECOPS__BLOB_STORAGE_ENDPOINT"] = docker_minio_endpoint
+    compose_env["AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY"] = bucket
     compose_env["AWS_ACCESS_KEY_ID"] = access_key
     compose_env["AWS_SECRET_ACCESS_KEY"] = secret_key
     compose_env[_SYNC_ARTIFACT_SANDBOX_CHILD_ENV] = "1"
-    compose_env["TRACECAT__LOCAL_REPOSITORY_ENABLED"] = "false"
-    compose_env["TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED"] = "false"
-    compose_env["TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED"] = "true"
-    compose_env["TRACECAT__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES"] = "true"
-    compose_env["TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"] = "true"
-    compose_env["TRACECAT__EXECUTOR_BACKEND"] = "nsjail"
-    compose_env["TRACECAT__SANDBOX_NSJAIL_PATH"] = "/usr/local/bin/nsjail"
-    compose_env["TRACECAT__SANDBOX_ROOTFS_PATH"] = "/var/lib/tracecat/sandbox-rootfs"
-    compose_env["TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH"] = (
+    compose_env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "false"
+    compose_env["AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED"] = "false"
+    compose_env["AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED"] = "true"
+    compose_env["AUTOSECOPS__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES"] = (
+        "true"
+    )
+    compose_env["AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED"] = "true"
+    compose_env["AUTOSECOPS__EXECUTOR_BACKEND"] = "nsjail"
+    compose_env["AUTOSECOPS__SANDBOX_NSJAIL_PATH"] = "/usr/local/bin/nsjail"
+    compose_env["AUTOSECOPS__SANDBOX_ROOTFS_PATH"] = (
+        "/var/lib/autosecops/sandbox-rootfs"
+    )
+    compose_env["AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH"] = (
         "/app/packages/autosecops-registry"
     )
     compose_env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     override_path = Path(
-        tempfile.mkstemp(prefix="tracecat-sync-artifact-sandbox-", suffix=".yml")[1]
+        tempfile.mkstemp(prefix="autosecops-sync-artifact-sandbox-", suffix=".yml")[1]
     )
     override_path.write_text(
         "\n".join(
@@ -206,22 +210,22 @@ def _run_sync_artifact_sandbox_smoke_in_docker_or_skip(
                 '      - "host.docker.internal:host-gateway"',
                 "    environment:",
                 f"      - {_SYNC_ARTIFACT_SANDBOX_CHILD_ENV}",
-                "      - TRACECAT__DB_URI",
-                "      - TRACECAT__BLOB_STORAGE_ENDPOINT",
-                "      - TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY",
+                "      - AUTOSECOPS__DB_URI",
+                "      - AUTOSECOPS__BLOB_STORAGE_ENDPOINT",
+                "      - AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY",
                 "      - AWS_ACCESS_KEY_ID",
                 "      - AWS_SECRET_ACCESS_KEY",
-                "      - TRACECAT__APP_ENV",
-                "      - TRACECAT__SERVICE_KEY",
-                "      - TRACECAT__LOCAL_REPOSITORY_ENABLED",
-                "      - TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED",
-                "      - TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED",
-                "      - TRACECAT__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES",
-                "      - TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
-                "      - TRACECAT__EXECUTOR_BACKEND",
-                "      - TRACECAT__SANDBOX_NSJAIL_PATH",
-                "      - TRACECAT__SANDBOX_ROOTFS_PATH",
-                "      - TRACECAT__BUILTIN_REGISTRY_SOURCE_PATH",
+                "      - AUTOSECOPS__APP_ENV",
+                "      - AUTOSECOPS__SERVICE_KEY",
+                "      - AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
+                "      - AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED",
+                "      - AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED",
+                "      - AUTOSECOPS__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES",
+                "      - AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED",
+                "      - AUTOSECOPS__EXECUTOR_BACKEND",
+                "      - AUTOSECOPS__SANDBOX_NSJAIL_PATH",
+                "      - AUTOSECOPS__SANDBOX_ROOTFS_PATH",
+                "      - AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH",
                 "      - PYTHONDONTWRITEBYTECODE",
                 "",
             ]
@@ -329,8 +333,8 @@ def module_test_role(mock_org_id) -> Role:
         user_id=mock_org_id,
         workspace_id=STATIC_WORKSPACE_ID,
         organization_id=STATIC_ORGANIZATION_ID,
-        service_id="tracecat-runner",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        service_id="autosecops-runner",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
 
 
@@ -361,7 +365,7 @@ def subprocess_db_env(monkeypatch):
     """Configure environment for subprocesses to connect to test database.
 
     The subprocess inherits environment variables, so we need to set
-    TRACECAT__DB_URI to point to the test database instead of the main
+    AUTOSECOPS__DB_URI to point to the test database instead of the main
     postgres database.
 
     Also resets the cached async engine so that _prepare_resolved_context
@@ -371,8 +375,8 @@ def subprocess_db_env(monkeypatch):
 
     # Convert asyncpg URL to psycopg URL for subprocess
     test_db_url = TEST_DB_CONFIG.test_url.replace("+asyncpg", "+psycopg")
-    monkeypatch.setenv("TRACECAT__DB_URI", test_db_url)
-    monkeypatch.setattr(config, "TRACECAT__DB_URI", test_db_url)
+    monkeypatch.setenv("AUTOSECOPS__DB_URI", test_db_url)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", test_db_url)
 
     # Reset the cached async engine so new sessions use the test database
     # This is needed because get_async_engine() caches the engine globally
@@ -402,21 +406,21 @@ def configure_minio_for_tests(monkeypatch):
     """Configure blob storage to use test MinIO instance."""
     access_key, secret_key = _minio_credentials()
     monkeypatch.setattr(
-        config, "TRACECAT__BLOB_STORAGE_ENDPOINT", f"http://{MINIO_ENDPOINT}"
+        config, "AUTOSECOPS__BLOB_STORAGE_ENDPOINT", f"http://{MINIO_ENDPOINT}"
     )
-    monkeypatch.setattr(config, "TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY", TEST_BUCKET)
+    monkeypatch.setattr(config, "AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY", TEST_BUCKET)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", access_key)
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", secret_key)
 
     # Disable nsjail for all tests (use subprocess mode for macOS/CI)
-    monkeypatch.setenv("TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT)
+    monkeypatch.setenv("AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT)
     monkeypatch.setattr(
-        config, "TRACECAT__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
+        config, "AUTOSECOPS__EXECUTOR_BACKEND", ExecutorBackendType.DIRECT
     )
 
     # Disable registry sync sandbox to use subprocess mode instead of Temporal workflow.
     # This ensures sync activities run in the same process and see the monkeypatched config.
-    monkeypatch.setattr(config, "TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
 
     # Reload blob module to pick up new config
     importlib.reload(blob)
@@ -428,7 +432,7 @@ async def registry_sync_worker(temporal_client):
     with ThreadPoolExecutor(max_workers=4) as executor:
         async with Worker(
             temporal_client,
-            task_queue=config.TRACECAT__EXECUTOR_QUEUE,
+            task_queue=config.AUTOSECOPS__EXECUTOR_QUEUE,
             workflows=[RegistrySyncWorkflow],
             activities=RegistrySyncActivities.get_activities(),
             activity_executor=executor,
@@ -890,7 +894,7 @@ class TestExecuteWithSyncedRegistry:
     ):
         """Verify action execution through EphemeralBackend with synced registry.
 
-        Note: This test runs with TRACECAT__EXECUTOR_BACKEND=direct to use subprocess
+        Note: This test runs with AUTOSECOPS__EXECUTOR_BACKEND=direct to use subprocess
         mode instead of real nsjail, making it runnable on macOS/CI.
         We mock the ActionRunner's execute_action to use use_sandbox=False.
 
@@ -1215,11 +1219,11 @@ class TestMultitenantWorkloads:
         def _create(workspace_id: uuid.UUID | None = None) -> Role:
             return Role(
                 type="service",
-                service_id="tracecat-runner",
+                service_id="autosecops-runner",
                 workspace_id=workspace_id or uuid.uuid4(),
                 organization_id=uuid.uuid4(),
                 user_id=uuid.UUID("00000000-0000-4444-aaaa-000000000000"),
-                scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+                scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
             )
 
         return _create
@@ -1704,11 +1708,11 @@ async def _run_sync_artifact_sandbox_smoke_child() -> None:
     )
     from autosecops.storage import blob as blob_module
 
-    config.TRACECAT__REGISTRY_SYNC_SANDBOX_ENABLED = False
-    config.TRACECAT__REGISTRY_SYNC_SQUASHFS_ENABLED = True
-    config.TRACECAT__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES = True
-    config.TRACECAT__EXECUTOR_REGISTRY_SQUASHFS_ENABLED = True
-    config.TRACECAT__EXECUTOR_BACKEND = config.ExecutorBackendType.NSJAIL
+    config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED = False
+    config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED = True
+    config.AUTOSECOPS__REGISTRY_SYNC_BUILTIN_USE_INSTALLED_SITE_PACKAGES = True
+    config.AUTOSECOPS__EXECUTOR_REGISTRY_SQUASHFS_ENABLED = True
+    config.AUTOSECOPS__EXECUTOR_BACKEND = config.ExecutorBackendType.NSJAIL
     reset_async_engine()
     importlib.reload(blob_module)
 
@@ -1738,11 +1742,11 @@ async def _run_sync_artifact_sandbox_smoke_child() -> None:
     wf_id = WorkflowUUID.new_uuid4()
     role = Role(
         type="service",
-        service_id="tracecat-runner",
+        service_id="autosecops-runner",
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-runner"],
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-runner"],
     )
     input_data = RunActionInput(
         task=ActionStatement(

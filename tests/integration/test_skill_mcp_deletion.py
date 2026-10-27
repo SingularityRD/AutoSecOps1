@@ -12,7 +12,7 @@ from autosecops.agent.skill.service import ManifestValidationResult, SkillServic
 from autosecops.agent.skill.types import ResolvedSkillMcpTool, SkillToolProjection
 from autosecops.auth.types import Role
 from autosecops.db.models import MCPIntegration, Skill, SkillVersionMcpTool, Workspace
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.enums import MCPAuthType
 from autosecops.integrations.service import IntegrationService
 from tests.database import TEST_DB_CONFIG
@@ -98,7 +98,7 @@ async def test_deletion_rechecks_references_after_concurrent_publication(
                             pytest.fail("Deletion did not wait for publication")
                         await asyncio.sleep(0.01)
                 await publishing.commit()
-                with pytest.raises(TracecatValidationError) as exc_info:
+                with pytest.raises(AutoSecOpsValidationError) as exc_info:
                     await asyncio.wait_for(deletion, timeout=10)
                 assert exc_info.value.detail is not None
                 assert (
@@ -210,7 +210,7 @@ async def test_publication_reports_integration_deleted_after_validation(
                 assert await IntegrationService(
                     session=deleting, role=role
                 ).delete_mcp_integration(mcp_integration_id=integration.id)
-                with pytest.raises(TracecatValidationError) as exc_info:
+                with pytest.raises(AutoSecOpsValidationError) as exc_info:
                     await asyncio.wait_for(publication, timeout=10)
                 assert exc_info.value.detail == {
                     "code": "skill_publish_validation_failed",

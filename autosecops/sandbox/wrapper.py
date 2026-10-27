@@ -28,7 +28,7 @@ import uuid
 from pathlib import Path
 
 def _install_action_gateway_sdk_transport():
-    socket_path = os.environ.get("TRACECAT__ACTION_GATEWAY_SOCKET")
+    socket_path = os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET")
     if not socket_path:
         return
 
@@ -39,14 +39,14 @@ def _install_action_gateway_sdk_transport():
     except ImportError:
         return
 
-    tracecat_client_cls = getattr(sdk_client, "TracecatClient", None)
-    if tracecat_client_cls is None:
+    autosecops_client_cls = getattr(sdk_client, "AutoSecOpsClient", None)
+    if autosecops_client_cls is None:
         return
 
-    if hasattr(tracecat_client_cls, "_request_url_and_transport"):
+    if hasattr(autosecops_client_cls, "_request_url_and_transport"):
         return
 
-    if getattr(tracecat_client_cls, "_tracecat_action_gateway_transport", False):
+    if getattr(autosecops_client_cls, "_autosecops_action_gateway_transport", False):
         return
 
     async def request(
@@ -68,7 +68,7 @@ def _install_action_gateway_sdk_transport():
         ) as client:
             response = await client.request(
                 method,
-                f"http://tracecat-action-gateway/internal{path}",
+                f"http://autosecops-action-gateway/internal{path}",
                 params=params,
                 json=json,
                 headers=request_headers,
@@ -82,10 +82,10 @@ def _install_action_gateway_sdk_transport():
 
         return response.json()
 
-    tracecat_client_cls.request = request
-    tracecat_client_cls._tracecat_action_gateway_transport = True
+    autosecops_client_cls.request = request
+    autosecops_client_cls._autosecops_action_gateway_transport = True
 
-def _init_tracecat_context():
+def _init_autosecops_context():
     _install_action_gateway_sdk_transport()
     try:
         from autosecops_registry.context import init_context_from_env
@@ -137,7 +137,7 @@ def _enforce_nproc_limit() -> None:
 
     nsjail cannot enforce rlimit_nproc when it creates a user namespace
     (clone_newuser), so the host injects the configured limit via
-    TRACECAT__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
+    AUTOSECOPS__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
     before any untrusted code runs. Lowering a hard rlimit is permitted for
     unprivileged processes, and the limit is enforced per real UID, which
     covers every process in the jail.
@@ -146,7 +146,7 @@ def _enforce_nproc_limit() -> None:
     run untrusted code rather than continuing uncapped. A missing cap
     (direct/dev mode) is not an enforcement failure.
     """
-    raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+    raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
     if not raw:
         return
     try:
@@ -217,7 +217,7 @@ def _execute_script(inputs):
     """Keep workload locals in a frame that can unwind before recovery."""
     script_path = Path("/work/script.py")
     script_code = script_path.read_text()
-    _init_tracecat_context()
+    _init_autosecops_context()
 
     script_globals = {"__name__": "__main__", "__file__": str(script_path)}
     exec(script_code, script_globals)
@@ -336,11 +336,11 @@ def _enforce_nproc_limit() -> None:
     #
     # nsjail cannot enforce rlimit_nproc when it creates a user namespace
     # (clone_newuser), so the host injects the configured limit via
-    # TRACECAT__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
+    # AUTOSECOPS__SANDBOX_RLIMIT_NPROC and this trusted entrypoint applies it
     # before any untrusted build backend runs. uv inherits the rlimit and
     # passes it to build-backend child processes, containing fork bombs from
     # malicious or broken source packages to this install's process cap.
-    raw = os.environ.get("TRACECAT__SANDBOX_RLIMIT_NPROC")
+    raw = os.environ.get("AUTOSECOPS__SANDBOX_RLIMIT_NPROC")
     if not raw:
         return
     try:

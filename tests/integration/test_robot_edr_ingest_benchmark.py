@@ -8,19 +8,19 @@ are compact (about 3.7 KiB, the optional ROS names dropped) so that 1000 of
 them fit the 4 MiB body cap.
 
 Acceptance (Gate 1): p95 below 2 s per batch at 10 000 findings per hour, for
-both sizes. Set TRACECAT_ROBOT_EDR_BENCHMARK_ASSERT=1 to fail when a phase's
+both sizes. Set AUTOSECOPS_ROBOT_EDR_BENCHMARK_ASSERT=1 to fail when a phase's
 p95 exceeds that budget; by default the benchmark only reports.
 
 Run with:
 
-    TRACECAT_RUN_ROBOT_EDR_BENCHMARK=1 \
+    AUTOSECOPS_RUN_ROBOT_EDR_BENCHMARK=1 \
     uv run pytest tests/integration/test_robot_edr_ingest_benchmark.py -s
 
-Tune with TRACECAT_ROBOT_EDR_BENCHMARK_BATCH_SIZES (comma-separated, default
-``50,1000``) and TRACECAT_ROBOT_EDR_BENCHMARK_FINDINGS (findings per size,
+Tune with AUTOSECOPS_ROBOT_EDR_BENCHMARK_BATCH_SIZES (comma-separated, default
+``50,1000``) and AUTOSECOPS_ROBOT_EDR_BENCHMARK_FINDINGS (findings per size,
 default 10 000). The benchmark calls ``freeze_startup_heap()`` first, as the
 API lifespan does after start-up, so full collections skip the start-up
-objects; TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 measures without it (full
+objects; AUTOSECOPS_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 measures without it (full
 collections then cost about 0.45 s each, every few 1000-line batches).
 """
 
@@ -57,18 +57,18 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.usefixtures("db"),
     pytest.mark.skipif(
-        os.environ.get("TRACECAT_RUN_ROBOT_EDR_BENCHMARK") != "1",
-        reason="set TRACECAT_RUN_ROBOT_EDR_BENCHMARK=1 to run",
+        os.environ.get("AUTOSECOPS_RUN_ROBOT_EDR_BENCHMARK") != "1",
+        reason="set AUTOSECOPS_RUN_ROBOT_EDR_BENCHMARK=1 to run",
     ),
 ]
 
 BATCH_SIZES = [
     int(size)
     for size in (
-        os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_BATCH_SIZES") or "50,1000"
+        os.environ.get("AUTOSECOPS_ROBOT_EDR_BENCHMARK_BATCH_SIZES") or "50,1000"
     ).split(",")
 ]
-FINDINGS = int(os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_FINDINGS") or 10_000)
+FINDINGS = int(os.environ.get("AUTOSECOPS_ROBOT_EDR_BENCHMARK_FINDINGS") or 10_000)
 P95_BUDGET_SECONDS = 2.0
 ROBOTS = [f"ugv-{i:03d}" for i in range(10)]
 
@@ -95,9 +95,9 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
 def gc_frozen() -> Iterator[None]:
     """``gc.freeze()`` as the API lifespan does after start-up.
 
-    Set TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 to measure without it.
+    Set AUTOSECOPS_ROBOT_EDR_BENCHMARK_GC_FREEZE=0 to measure without it.
     """
-    if os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_GC_FREEZE") == "0":
+    if os.environ.get("AUTOSECOPS_ROBOT_EDR_BENCHMARK_GC_FREEZE") == "0":
         yield
         return
     freeze_startup_heap()
@@ -133,7 +133,7 @@ def _batch_body(size: int, batch: int, count: int) -> bytes:
 async def test_ingest_latency(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     monkeypatch.setattr(
         tier_defaults,
         "DEFAULT_ENTITLEMENTS",
@@ -146,7 +146,7 @@ async def test_ingest_latency(
     signer = key(f"bench-relay-{workspace.id}")
     role = Role(
         type="service",
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         workspace_id=workspace.id,
         organization_id=workspace.organization_id,
         scopes=ADMIN_SCOPES,
@@ -190,6 +190,6 @@ async def test_ingest_latency(
             f"p95 {_p95(latencies):.3f}s max {max(latencies):.3f}s "
             f"({size / statistics.median(latencies):.0f} findings/s)"
         )
-    if os.environ.get("TRACECAT_ROBOT_EDR_BENCHMARK_ASSERT") == "1":
+    if os.environ.get("AUTOSECOPS_ROBOT_EDR_BENCHMARK_ASSERT") == "1":
         for (size, phase), latencies in results.items():
             assert _p95(latencies) < P95_BUDGET_SECONDS, (size, phase)

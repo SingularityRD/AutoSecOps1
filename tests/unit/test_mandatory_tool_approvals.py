@@ -158,9 +158,9 @@ def runtime() -> ClaudeAgentRuntime:
 @pytest.mark.parametrize(
     "tool_name",
     [
-        "mcp__tracecat-registry__tools__robodr__request_action",
-        "mcp__tracecat-registry__tools__robodr__revert_action",
-        "mcp.tracecat-registry.tools.robodr.request_action",
+        "mcp__autosecops-registry__tools__robodr__request_action",
+        "mcp__autosecops-registry__tools__robodr__revert_action",
+        "mcp.autosecops-registry.tools.robodr.request_action",
     ],
 )
 def test_runtime_requires_approval_for_robot_actions(
@@ -176,7 +176,7 @@ def test_runtime_requires_approval_for_robot_actions(
 def test_runtime_leaves_other_tools_to_their_rules(
     runtime: ClaudeAgentRuntime,
 ) -> None:
-    tool_name = "mcp__tracecat-registry__tools__robodr__get_robot"
+    tool_name = "mcp__autosecops-registry__tools__robodr__get_robot"
     runtime.tool_approvals = None
     assert not runtime._tool_call_requires_approval(_hook_input(tool_name), tool_name)
     runtime.tool_approvals = {"tools.robodr.get_robot": True}
@@ -192,7 +192,9 @@ async def test_hook_denies_and_requests_approval_for_disabled_robot_action(
     runtime.client = MagicMock(interrupt=interrupt)
     runtime.tool_approvals = {REQUEST: False}
     result = await runtime._pre_tool_use_hook(
-        input_data=_hook_input("mcp__tracecat-registry__tools__robodr__request_action"),
+        input_data=_hook_input(
+            "mcp__autosecops-registry__tools__robodr__request_action"
+        ),
         tool_use_id="call-1",
         context=HookContext(signal=None),
     )
@@ -208,8 +210,8 @@ def test_runtime_requires_approval_inside_explicit_subagents(
     """Subagent tool calls skip root approvals, but never for robot actions."""
     runtime._explicit_subagent_aliases = {"helper"}
     runtime.tool_approvals = None
-    robot = "mcp__tracecat-registry__tools__robodr__request_action"
-    other = "mcp__tracecat-registry__core__http_request"
+    robot = "mcp__autosecops-registry__tools__robodr__request_action"
+    other = "mcp__autosecops-registry__core__http_request"
     assert runtime._tool_call_requires_approval(
         _hook_input(robot, agent_type="helper"), robot
     )

@@ -87,7 +87,7 @@ def filter_workspace_chat_tools_for_scopes(
     """Drop chat tools the caller's RBAC does not authorize them to execute.
 
     Chat tools run through the executor, which authorizes the underlying action
-    against the ``tracecat-executor`` service principal (whose allowlist includes
+    against the ``autosecops-executor`` service principal (whose allowlist includes
     ``action:*:execute``), NOT against the chat user's RBAC. The user only passes
     one scope gate -- ``agent:execute`` at session start -- so without this filter
     ``agent:execute`` would implicitly let the agent run any action on the user's

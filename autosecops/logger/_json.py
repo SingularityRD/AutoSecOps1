@@ -13,7 +13,7 @@ import orjson
 if TYPE_CHECKING:
     from loguru import Record
 
-LOG_SCHEMA = "tracecat.log.v1"
+LOG_SCHEMA = "autosecops.log.v1"
 
 
 class LogException(TypedDict):
@@ -139,7 +139,7 @@ def _encode_payload(payload: StructuredLog) -> str:
 def serialize_log_record(record: "Record", formatted_message: str | None = None) -> str:
     """Serialize one Loguru record into the collector-facing schema."""
     attributes: dict[str, object] = dict(record["extra"])
-    service = attributes.pop("process_service", "tracecat")
+    service = attributes.pop("process_service", "autosecops")
     environment = attributes.pop("environment", "development")
 
     payload: StructuredLog = {

@@ -18,9 +18,9 @@ from pydantic import SecretStr
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatNotFoundError,
-    TracecatValidationError,
 )
 from autosecops.git.types import GitUrl
 from autosecops.secrets.schemas import SecretKeyValue
@@ -293,7 +293,7 @@ class _MockGitLabTransport(GitLabWorkspaceSyncTransport):
                 workspace_id=uuid.uuid4(),
                 organization_id=uuid.uuid4(),
                 user_id=None,
-                service_id="tracecat-api",
+                service_id="autosecops-api",
                 scopes=ADMIN_SCOPES,
             ),
         )
@@ -362,7 +362,7 @@ def _gitlab_settings_role(*scopes: str) -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(scopes),
     )
 
@@ -475,7 +475,7 @@ async def test_gitlab_transport_rejects_repo_host_mismatch(url: GitUrl) -> None:
     )
     transport = _MockGitLabTransport(api=api)
 
-    with pytest.raises(TracecatValidationError):
+    with pytest.raises(AutoSecOpsValidationError):
         await transport.read_files(url=url, ref="main")
 
 
@@ -758,7 +758,7 @@ async def test_gitlab_token_save_creates_org_secret_with_settings_scope() -> Non
             self, secret_name: str, environment: str | None = None
         ) -> Any:
             del secret_name, environment
-            raise TracecatNotFoundError("missing")
+            raise AutoSecOpsNotFoundError("missing")
 
         async def _create_org_secret(self, params: Any) -> None:
             created_params.append(params)

@@ -24,9 +24,9 @@ from autosecops_benchmark import provision_monitor as provision_monitor_module
 from autosecops_benchmark import runner as runner_module
 from autosecops_benchmark.activity_metrics import ActivityMetricsCaptureError
 from autosecops_benchmark.client import (
+    AutoSecOpsClient,
     ExecutionFailureDiagnostic,
     ExecutionStatusRefreshError,
-    TracecatClient,
 )
 from autosecops_benchmark.collector import (
     ACTIVITY_SQL,
@@ -147,7 +147,7 @@ def test_activity_metrics_require_ids_for_possibly_accepted_admissions(
 ) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -412,7 +412,7 @@ def test_row_correctness_sets_transaction_local_workspace_rls_context() -> None:
                 return {"total": 3, "distinct_keys": 3}
             return {"total": 5, "distinct_keys": 4}
 
-    sampler = PgSampler("postgresql://monitor@localhost/tracecat", ())
+    sampler = PgSampler("postgresql://monitor@localhost/autosecops", ())
     sampler._conn = cast(asyncpg.Connection, FakeConnection())
 
     correctness = asyncio.run(
@@ -464,10 +464,10 @@ def test_failed_status_refresh_is_throttled() -> None:
             requested_workflow_ids.append(request.url.params.get("workflow_id"))
             return httpx.Response(503)
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         client._status_cache = {
@@ -522,13 +522,13 @@ def test_execution_status_refresh_uses_configured_poll_interval(
             "autosecops_benchmark.client.time.monotonic",
             monotonic,
         )
-        client = TracecatClient(
-            "http://tracecat.test/api",
+        client = AutoSecOpsClient(
+            "http://autosecops.test/api",
             execution_poll_interval_seconds=0.25,
         )
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -580,10 +580,10 @@ def test_execution_status_refresh_pages_past_snapshot_limit() -> None:
                 },
             )
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -622,10 +622,10 @@ def test_successful_submission_requires_a_nonempty_execution_id(
         async def handler(_request: httpx.Request) -> httpx.Response:
             return httpx.Response(202, json=payload)
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -662,10 +662,10 @@ def test_running_execution_check_uses_filtered_search(
             assert request.url.params["limit"] == "1"
             return httpx.Response(200, json={"items": items})
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -696,10 +696,10 @@ def test_execution_snapshot_retains_event_count() -> None:
                 },
             )
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -745,10 +745,10 @@ def test_execution_failure_diagnostics_exclude_free_form_messages() -> None:
                 },
             )
 
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -797,7 +797,7 @@ def test_submission_is_bounded_by_the_run_timeout(tmp_path: Path) -> None:
     async def exercise() -> tuple[LoadRunner, ExecutionRecord]:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, StalledAdmissionClient()),
+            cast(AutoSecOpsClient, StalledAdmissionClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -853,7 +853,7 @@ def test_submission_without_execution_id_retires_ambiguous_2xx_slot(
     async def exercise() -> tuple[LoadRunner, ExecutionRecord]:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, MissingExecutionIdClient()),
+            cast(AutoSecOpsClient, MissingExecutionIdClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -890,7 +890,7 @@ def test_runner_records_terminal_history_length(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, FakeClient()),
+            cast(AutoSecOpsClient, FakeClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -959,7 +959,7 @@ def test_poll_timeout_classification_uses_polling_history(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, HistoryClient()),
+            cast(AutoSecOpsClient, HistoryClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1029,7 +1029,7 @@ def test_execution_polling_subtracts_request_duration(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, SlowPollClient()),
+            cast(AutoSecOpsClient, SlowPollClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1100,7 +1100,7 @@ def test_execution_timeout_prevents_late_poll(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, client),
+            cast(AutoSecOpsClient, client),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1170,7 +1170,7 @@ def test_execution_response_after_deadline_is_timed_out(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, SlowTerminalClient()),
+            cast(AutoSecOpsClient, SlowTerminalClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -1213,7 +1213,7 @@ def _scenario_config(
 ) -> ScenarioConfig:
     return ScenarioConfig(
         run_id="scatter-test",
-        base_url="http://tracecat.test/api",
+        base_url="http://autosecops.test/api",
         cluster_num=1,
         workspace_id="workspace-1",
         load_type=LoadType.SCATTER,
@@ -1230,7 +1230,7 @@ def _scenario_config(
         submit_concurrency=workflow_count,
         max_connections=1,
         artifact_dir=str(artifact_dir),
-        tracecat_commit="test-commit",
+        autosecops_commit="test-commit",
         started_at="2026-07-29T00:00:00+00:00",
         auth_mode="api_key",
         abort_stops_polling=False,
@@ -1262,7 +1262,7 @@ def test_measured_timing_starts_after_warmup(
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         scenario = _scenario_config(
             tmp_path,
             warmup=True,
@@ -1311,7 +1311,7 @@ def test_unresolved_warmup_aborts_before_measured_load(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = UnresolvedWarmupRunner(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             _scenario_config(
                 tmp_path,
                 warmup=True,
@@ -1337,7 +1337,7 @@ def test_unresolved_warmup_aborts_before_measured_load(tmp_path: Path) -> None:
 def test_sustained_summary_targets_actual_submissions(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -1376,7 +1376,7 @@ def test_sustained_summary_targets_actual_submissions(tmp_path: Path) -> None:
 def test_runner_only_summary_does_not_claim_row_correctness(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         replace(
             _scenario_config(
                 tmp_path,
@@ -1402,7 +1402,7 @@ def test_runner_only_summary_does_not_claim_row_correctness(tmp_path: Path) -> N
 def test_noop_summary_expects_no_fixture_rows(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         replace(
             _scenario_config(
                 tmp_path,
@@ -1441,7 +1441,7 @@ def test_noop_summary_expects_no_fixture_rows(tmp_path: Path) -> None:
 def test_timeout_summary_includes_every_deadline_expiry_mode(tmp_path: Path) -> None:
     writer = JsonLinesWriter(tmp_path / "runner.jsonl")
     runner = LoadRunner(
-        cast(TracecatClient, object()),
+        cast(AutoSecOpsClient, object()),
         _scenario_config(
             tmp_path,
             warmup=False,
@@ -1493,7 +1493,7 @@ def test_one_shot_worker_does_not_replenish_completed_work(tmp_path: Path) -> No
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         runner = OneShotRunner(
             client,
             _scenario_config(
@@ -1531,7 +1531,7 @@ def test_staggered_worker_wakes_immediately_on_abort(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = StaggeredRunner(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1575,7 +1575,7 @@ def test_worker_does_not_replenish_timed_out_in_flight_work(
             )
 
     async def exercise() -> None:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = TimedOutRunner(
             client,
@@ -1635,7 +1635,7 @@ def test_failure_diagnostics_are_captured_after_measured_time(
         )
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, DiagnosticClient()),
+            cast(AutoSecOpsClient, DiagnosticClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -1715,7 +1715,7 @@ def test_failure_diagnostics_capture_error_invalidates_run(
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, DiagnosticClient()),
+            cast(AutoSecOpsClient, DiagnosticClient()),
             _scenario_config(
                 tmp_path,
                 warmup=False,
@@ -2014,15 +2014,15 @@ def test_temporal_sampler_captures_workflow_and_activity_backlog() -> None:
         sampler = TemporalSampler(
             "localhost:7233",
             "default",
-            ("tracecat-task-queue",),
-            ("tracecat-task-queue", "shared-action-queue"),
+            ("autosecops-task-queue",),
+            ("autosecops-task-queue", "shared-action-queue"),
         )
         sampler._client = cast(TemporalClient, client)
 
         sample = await sampler.sample()
 
         assert len(client.workflow_service.requests) == 3
-        workflow_queue_key = deployment_value_fingerprint("tracecat-task-queue")
+        workflow_queue_key = deployment_value_fingerprint("autosecops-task-queue")
         activity_queue_key = deployment_value_fingerprint("shared-action-queue")
         assert sample["workflow_task_queues"][workflow_queue_key] == {
             "approximate_backlog_count": 7,
@@ -2066,7 +2066,7 @@ def test_resource_sampler_captures_container_and_host_pressure(
             json.dumps(
                 {
                     "ID": "container-1",
-                    "Name": "tracecat-affected-customer-postgres_db-1",
+                    "Name": "autosecops-affected-customer-postgres_db-1",
                     "CPUPerc": "12.50%",
                     "MemUsage": "256MiB / 1GiB",
                     "MemPerc": "25.00%",
@@ -2091,13 +2091,13 @@ def test_resource_sampler_captures_container_and_host_pressure(
     monkeypatch.setattr(collector_module, "_run_command", fake_run_command)
     monkeypatch.setattr(collector_module, "_host_resource_usage", lambda: host)
 
-    sample = asyncio.run(DockerResourceSampler("tracecat-test").sample())
+    sample = asyncio.run(DockerResourceSampler("autosecops-test").sample())
 
     assert commands[0][-2:] == [
         "--format",
         '{{.ID}}\t{{.Label "com.docker.compose.service"}}',
     ]
-    assert "label=com.docker.compose.project=tracecat-test" in commands[0]
+    assert "label=com.docker.compose.project=autosecops-test" in commands[0]
     assert commands[1][-1] == "container-1"
     assert sample["host"]["memory_used_percent"] == 50.0
     assert sample["containers"] == [
@@ -2119,17 +2119,17 @@ def test_resource_sampler_captures_container_and_host_pressure(
 
 def test_compose_config_redacts_sensitive_environment_values() -> None:
     rendered = """
-name: tracecat-affected-customer-1
+name: autosecops-affected-customer-1
 networks:
   default:
-    name: tracecat-affected-customer-1_default
+    name: autosecops-affected-customer-1_default
 volumes:
   core-db:
-    name: tracecat-affected-customer-1_core-db
+    name: autosecops-affected-customer-1_core-db
 services:
   api:
     container_name: affected-customer-api
-    image: private.affected-customer.test/tracecat:affected-customer-tag
+    image: private.affected-customer.test/autosecops:affected-customer-tag
     build:
       context: /Users/affected-customer/repo
       dockerfile: /Users/affected-customer/repo/Dockerfile
@@ -2143,24 +2143,24 @@ services:
       - /Users/affected-customer/repo/scripts:/app/scripts:ro
       - /Users/affected-customer/external:/external:ro
     environment:
-      TRACECAT__DB_URI: sensitive-mapping-test-value
-      TRACECAT__AUTH_SUPERADMIN_EMAIL: sensitive-email-test-value
+      AUTOSECOPS__DB_URI: sensitive-mapping-test-value
+      AUTOSECOPS__AUTH_SUPERADMIN_EMAIL: sensitive-email-test-value
       OIDC_CLIENT_ID: sensitive-client-id-test-value
       OIDC_ISSUER: sensitive-issuer-test-value
       SAML_IDP_METADATA_URL: sensitive-metadata-url-test-value
       AWS_ACCOUNT_ID: sensitive-account-test-value
-      TRACECAT__ALLOW_ORIGINS: sensitive-origin-list-test-value
+      AUTOSECOPS__ALLOW_ORIGINS: sensitive-origin-list-test-value
       TEMPORAL__CLUSTER_NAMESPACE: sensitive-namespace-test-value
       TEMPORAL__CLUSTER_QUEUE: sensitive-queue-test-value
-      TRACECAT__AUTH_MIN_PASSWORD_LENGTH: "12"
+      AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH: "12"
   worker:
     environment:
       - OAUTH_CLIENT_SECRET=sensitive-list-test-value
-      - PUBLIC_URL=https://tracecat.test
+      - PUBLIC_URL=https://autosecops.test
       - TEMPORAL_CORS_ORIGINS=sensitive-temporal-origin-test-value
   pgdog:
     environment:
-      PGDOG_DATABASE_URL_1: postgresql://benchmark-user:sensitive-pgdog-password@postgres_db/tracecat_worker
+      PGDOG_DATABASE_URL_1: postgresql://benchmark-user:sensitive-pgdog-password@postgres_db/autosecops_worker
 """
 
     redacted = _redact_compose_config(
@@ -2168,7 +2168,7 @@ services:
         repo_root=Path("/Users/affected-customer/repo"),
     )
 
-    assert "tracecat-affected-customer-1" not in redacted
+    assert "autosecops-affected-customer-1" not in redacted
     assert "affected-customer-api" not in redacted
     assert "private.affected-customer.test" not in redacted
     assert "affected-customer-tag" not in redacted
@@ -2176,16 +2176,18 @@ services:
     assert "<repo>/Dockerfile" in redacted
     assert "<repo>/scripts:/app/scripts:ro" in redacted
     assert REDACTED_PATH_VALUE in redacted
-    assert compose_project_fingerprint("tracecat-affected-customer-1") in redacted
+    assert compose_project_fingerprint("autosecops-affected-customer-1") in redacted
     assert (
-        deployment_value_fingerprint("tracecat-affected-customer-1_default") in redacted
+        deployment_value_fingerprint("autosecops-affected-customer-1_default")
+        in redacted
     )
     assert (
-        deployment_value_fingerprint("tracecat-affected-customer-1_core-db") in redacted
+        deployment_value_fingerprint("autosecops-affected-customer-1_core-db")
+        in redacted
     )
     assert (
         deployment_value_fingerprint(
-            "private.affected-customer.test/tracecat:affected-customer-tag"
+            "private.affected-customer.test/autosecops:affected-customer-tag"
         )
         in redacted
     )
@@ -2203,9 +2205,9 @@ services:
     assert "sensitive-pgdog-password" not in redacted
     assert "sensitive-build-api-url" not in redacted
     assert "sensitive-build-app-url" not in redacted
-    assert "https://tracecat.test" not in redacted
+    assert "https://autosecops.test" not in redacted
     assert redacted.count(REDACTED_ENV_VALUE) == 16
-    assert "TRACECAT__AUTH_MIN_PASSWORD_LENGTH: '12'" in redacted
+    assert "AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH: '12'" in redacted
     assert "NODE_ENV: development" in redacted
 
 
@@ -2216,7 +2218,7 @@ def _collector_config(
         run_id="scatter-test",
         workspace_id="00000000-0000-4000-8000-000000000000",
         artifact_dir=str(artifact_dir),
-        dsn="postgresql://monitor@localhost/tracecat",
+        dsn="postgresql://monitor@localhost/autosecops",
         sample_interval_seconds=0.5,
         readiness_timeout_seconds=1.0,
         cluster_num=1,
@@ -2224,15 +2226,15 @@ def _collector_config(
         compose_public_app_url="http://localhost:80",
         compose_public_api_url="http://localhost:80/api",
         ee_multi_tenant=True,
-        compose_project="tracecat-test-1",
+        compose_project="autosecops-test-1",
         compose_files=("docker-compose.dev.yml",),
         log_services=log_services,
         recovery_seconds=0.01,
         temporal_target="localhost:7233",
         temporal_namespace="default",
-        temporal_workflow_task_queues=("tracecat-task-queue",),
+        temporal_workflow_task_queues=("autosecops-task-queue",),
         temporal_activity_task_queues=(
-            "tracecat-task-queue",
+            "autosecops-task-queue",
             "shared-action-queue",
         ),
         case_id="unit-scatter",
@@ -2298,7 +2300,7 @@ def _patch_successful_auxiliary_captures(
 def test_collector_requires_explicit_monitoring_dsn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("TRACECAT_LOADTEST_MONITOR_DSN", raising=False)
+    monkeypatch.delenv("AUTOSECOPS_LOADTEST_MONITOR_DSN", raising=False)
 
     exit_code = asyncio.run(
         collector_amain(
@@ -2320,7 +2322,7 @@ def test_collector_requires_explicit_monitoring_dsn(
                 "--temporal-namespace",
                 "default",
                 "--temporal-workflow-task-queue",
-                "tracecat-task-queue",
+                "autosecops-task-queue",
                 "--temporal-activity-task-queue",
                 "shared-action-queue",
             ]
@@ -2365,7 +2367,7 @@ def test_collector_preflight_timeout_publishes_failed_manifest(
                 "--artifact-root",
                 str(tmp_path),
                 "--dsn",
-                "postgresql://monitor@localhost/tracecat",
+                "postgresql://monitor@localhost/autosecops",
                 "--readiness-timeout-seconds",
                 "0.03",
                 "--cluster-num",
@@ -2438,7 +2440,7 @@ def test_collector_startup_signal_publishes_failed_manifest(
         def interrupt_preflight(*_args: object, **_kwargs: object) -> str:
             callback = cast(Callable[[], None], callbacks[signal.SIGTERM])
             callback()
-            return "tracecat-1"
+            return "autosecops-1"
 
         monkeypatch.setattr(
             collector_module,
@@ -2494,7 +2496,7 @@ def test_collector_startup_signal_publishes_failed_manifest(
                 "--artifact-root",
                 str(tmp_path),
                 "--dsn",
-                "postgresql://monitor@localhost/tracecat",
+                "postgresql://monitor@localhost/autosecops",
                 "--cluster-num",
                 "1",
                 "--public-api-url",
@@ -2508,7 +2510,7 @@ def test_collector_startup_signal_publishes_failed_manifest(
                 "--temporal-namespace",
                 "default",
                 "--temporal-workflow-task-queue",
-                "tracecat-task-queue",
+                "autosecops-task-queue",
                 "--temporal-activity-task-queue",
                 "shared-action-queue",
             ]
@@ -2712,7 +2714,7 @@ def test_existing_deployment_commit_never_falls_back_to_runner_checkout(
     monkeypatch.setattr(runner_module, "_git_commit", lambda _repo_root: "local-head")
 
     assert (
-        runner_module._tracecat_commit_for_target(
+        runner_module._autosecops_commit_for_target(
             tmp_path,
             existing_deployment=True,
             deployed_commit=None,
@@ -2720,7 +2722,7 @@ def test_existing_deployment_commit_never_falls_back_to_runner_checkout(
         == "unknown"
     )
     assert (
-        runner_module._tracecat_commit_for_target(
+        runner_module._autosecops_commit_for_target(
             tmp_path,
             existing_deployment=True,
             deployed_commit="deployed-head",
@@ -2728,7 +2730,7 @@ def test_existing_deployment_commit_never_falls_back_to_runner_checkout(
         == "deployed-head"
     )
     assert (
-        runner_module._tracecat_commit_for_target(
+        runner_module._autosecops_commit_for_target(
             tmp_path,
             existing_deployment=False,
             deployed_commit=None,
@@ -2860,7 +2862,7 @@ def test_noop_runner_omits_runtime_branch_count_input(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, RejectingClient()),
+            cast(AutoSecOpsClient, RejectingClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -2901,7 +2903,7 @@ def test_static_warmup_uses_its_small_fixture_workflow(tmp_path: Path) -> None:
     async def exercise() -> None:
         writer = JsonLinesWriter(tmp_path / "runner.jsonl")
         runner = LoadRunner(
-            cast(TracecatClient, RejectingClient()),
+            cast(AutoSecOpsClient, RejectingClient()),
             replace(
                 _scenario_config(
                     tmp_path,
@@ -2976,7 +2978,7 @@ def test_kubernetes_adapter_defaults_to_orbstack_public_api() -> None:
 
     assert arguments[:2] == [
         "--base-url",
-        "https://tracecat.k8s.orb.local/api",
+        "https://autosecops.k8s.orb.local/api",
     ]
     assert arguments[-1] == "--existing-deployment"
 
@@ -3005,7 +3007,7 @@ def test_kubernetes_adapter_requires_exact_current_context(
         kubernetes_module.KubernetesPreflightError,
         match="expected 'orbstack'",
     ):
-        kubernetes_module.verify_kubernetes_target("orbstack", "tracecat")
+        kubernetes_module.verify_kubernetes_target("orbstack", "autosecops")
 
 
 def test_kubernetes_adapter_checks_core_deployments(
@@ -3019,13 +3021,13 @@ def test_kubernetes_adapter_checks_core_deployments(
 
     monkeypatch.setattr(kubernetes_module, "_run_kubectl", fake_kubectl)
 
-    kubernetes_module.verify_kubernetes_target("orbstack", "tracecat")
+    kubernetes_module.verify_kubernetes_target("orbstack", "autosecops")
 
     assert calls[0] == ("config", "current-context")
     assert [call[-2] for call in calls[1:]] == [
-        "deployment/tracecat-api",
-        "deployment/tracecat-worker",
-        "deployment/tracecat-executor",
+        "deployment/autosecops-api",
+        "deployment/autosecops-worker",
+        "deployment/autosecops-executor",
     ]
 
 
@@ -3134,7 +3136,7 @@ def test_workspace_bootstrap_prints_resolved_id(
         assert workspace_name == "load-test"
         return "00000000-0000-4000-8000-000000000001"
 
-    monkeypatch.setattr(runner_module, "TracecatClient", FakeClient)
+    monkeypatch.setattr(runner_module, "AutoSecOpsClient", FakeClient)
     monkeypatch.setattr(
         runner_module,
         "resolve_workspace",
@@ -3179,7 +3181,7 @@ def test_fixture_reset_mode_runs_without_collector(
         assert workspace_id == "00000000-0000-4000-8000-000000000001"
         return "scatter_load_rows"
 
-    monkeypatch.setattr(runner_module, "TracecatClient", FakeClient)
+    monkeypatch.setattr(runner_module, "AutoSecOpsClient", FakeClient)
     monkeypatch.setattr(
         runner_module,
         "reset_fixture_table",
@@ -3233,7 +3235,7 @@ def test_collector_rejects_nonpositive_or_nonfinite_intervals(interval: str) -> 
                 "--workspace-id",
                 "00000000-0000-4000-8000-000000000000",
                 "--dsn",
-                "postgresql://monitor@localhost/tracecat",
+                "postgresql://monitor@localhost/autosecops",
                 "--sample-interval-seconds",
                 interval,
                 "--cluster-num",
@@ -3249,7 +3251,7 @@ def test_collector_rejects_nonpositive_or_nonfinite_intervals(interval: str) -> 
                 "--temporal-namespace",
                 "default",
                 "--temporal-workflow-task-queue",
-                "tracecat-task-queue",
+                "autosecops-task-queue",
                 "--temporal-activity-task-queue",
                 "shared-action-queue",
             ]
@@ -3276,7 +3278,7 @@ def test_collector_rejects_invalid_recovery_windows(
                 "--workspace-id",
                 "00000000-0000-4000-8000-000000000000",
                 "--dsn",
-                "postgresql://monitor@localhost/tracecat",
+                "postgresql://monitor@localhost/autosecops",
                 "--recovery-seconds",
                 recovery,
                 "--cluster-num",
@@ -3292,7 +3294,7 @@ def test_collector_rejects_invalid_recovery_windows(
                 "--temporal-namespace",
                 "default",
                 "--temporal-workflow-task-queue",
-                "tracecat-task-queue",
+                "autosecops-task-queue",
                 "--temporal-activity-task-queue",
                 "shared-action-queue",
             ]
@@ -3375,45 +3377,45 @@ def test_loadtest_override_exposes_resource_and_throughput_dimensions() -> None:
     assert isinstance(worker_environment, dict)
     assert isinstance(executor_environment, dict)
     assert {
-        "TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS",
-        "TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW",
+        "AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS",
+        "AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW",
         "TEMPORAL__THREADPOOL_MAX_WORKERS",
         "TEMPORAL__MAX_CONCURRENT_ACTIVITIES",
         "TEMPORAL__MAX_CONCURRENT_WORKFLOW_TASKS",
     } <= worker_environment.keys()
     assert worker_environment["TEMPORAL__THREADPOOL_MAX_WORKERS"] == (
-        "${TRACECAT__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS:-100}"
+        "${AUTOSECOPS__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS:-100}"
     )
     assert worker_environment["TEMPORAL__MAX_CONCURRENT_ACTIVITIES"] == (
-        "${TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES:-100}"
+        "${AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES:-100}"
     )
     assert worker_environment["TEMPORAL__MAX_CONCURRENT_WORKFLOW_TASKS"] == (
-        "${TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS:-100}"
+        "${AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS:-100}"
     )
-    assert worker_environment["TRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS"] == (
-        "${TRACECAT__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS:-64}"
+    assert worker_environment["AUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS"] == (
+        "${AUTOSECOPS__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS:-64}"
     )
-    assert worker_environment["TRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW"] == (
-        "${TRACECAT__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW:-16}"
+    assert worker_environment["AUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW"] == (
+        "${AUTOSECOPS__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW:-16}"
     )
     assert {
-        "TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES",
-        "TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY",
-        "TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS",
+        "AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES",
+        "AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY",
+        "AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS",
     } <= executor_environment.keys()
     assert (
-        executor_environment["TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY"]
-        == "${TRACECAT__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY:-4}"
+        executor_environment["AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY"]
+        == "${AUTOSECOPS__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY:-4}"
     )
-    assert executor_environment["TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS:-}"
+    assert executor_environment["AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS:-}"
     )
     litellm = services["litellm"]
     assert isinstance(litellm, dict)
     litellm_environment = litellm.get("environment")
     assert isinstance(litellm_environment, dict)
-    assert litellm_environment["TRACECAT__LITELLM_NUM_WORKERS"] == (
-        "${TRACECAT__LOADTEST_LITELLM_NUM_WORKERS:-1}"
+    assert litellm_environment["AUTOSECOPS__LITELLM_NUM_WORKERS"] == (
+        "${AUTOSECOPS__LOADTEST_LITELLM_NUM_WORKERS:-1}"
     )
 
     for service_name in {
@@ -3430,32 +3432,32 @@ def test_loadtest_override_exposes_resource_and_throughput_dimensions() -> None:
         environment = service.get("environment")
         assert isinstance(environment, dict)
         assert {
-            "TRACECAT__DB_POOL_SIZE",
-            "TRACECAT__DB_MAX_OVERFLOW",
-            "TRACECAT__DB_AUTH_POOL_SIZE",
-            "TRACECAT__DB_AUTH_MAX_OVERFLOW",
-            "TRACECAT__DB_POOL_TIMEOUT",
-            "TRACECAT__DB_POOL_RECYCLE",
+            "AUTOSECOPS__DB_POOL_SIZE",
+            "AUTOSECOPS__DB_MAX_OVERFLOW",
+            "AUTOSECOPS__DB_AUTH_POOL_SIZE",
+            "AUTOSECOPS__DB_AUTH_MAX_OVERFLOW",
+            "AUTOSECOPS__DB_POOL_TIMEOUT",
+            "AUTOSECOPS__DB_POOL_RECYCLE",
         } <= environment.keys()
 
     example = matrix_module.EXPERIMENT_ENV_PATH.read_text(encoding="utf-8")
-    assert "TRACECAT__LOADTEST_API_CPUS=0" in example
-    assert "TRACECAT__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS=64" in example
-    assert "TRACECAT__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW=16" in example
-    assert "\nTRACECAT__DSL_SCHEDULER_MAX_PENDING_TASKS=" not in example
-    assert "\nTRACECAT__CHILD_WORKFLOW_DISPATCH_WINDOW=" not in example
-    assert "TRACECAT__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS=100" in example
-    assert "TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES=100" in example
-    assert "TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS=100" in example
+    assert "AUTOSECOPS__LOADTEST_API_CPUS=0" in example
+    assert "AUTOSECOPS__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS=64" in example
+    assert "AUTOSECOPS__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW=16" in example
+    assert "\nAUTOSECOPS__DSL_SCHEDULER_MAX_PENDING_TASKS=" not in example
+    assert "\nAUTOSECOPS__CHILD_WORKFLOW_DISPATCH_WINDOW=" not in example
+    assert "AUTOSECOPS__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS=100" in example
+    assert "AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES=100" in example
+    assert "AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS=100" in example
     assert "\nTEMPORAL__THREADPOOL_MAX_WORKERS=" not in example
-    assert "TRACECAT__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY=4" in example
-    assert "TRACECAT__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS=" in example
-    assert "TRACECAT__LOADTEST_LITELLM_NUM_WORKERS=1" in example
-    assert "\nTRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY=" not in example
-    assert "\nTRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS=" not in example
-    assert "TRACECAT__LOADTEST_DB_POOL_RECYCLE=600" in example
-    assert "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE=5" in example
-    assert "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW=0" in example
+    assert "AUTOSECOPS__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY=4" in example
+    assert "AUTOSECOPS__LOADTEST_EXECUTOR_THREADPOOL_MAX_WORKERS=" in example
+    assert "AUTOSECOPS__LOADTEST_LITELLM_NUM_WORKERS=1" in example
+    assert "\nAUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY=" not in example
+    assert "\nAUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS=" not in example
+    assert "AUTOSECOPS__LOADTEST_DB_POOL_RECYCLE=600" in example
+    assert "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE=5" in example
+    assert "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW=0" in example
 
 
 def test_scatter_fixture_materializes_static_actions_without_for_each() -> None:
@@ -3504,12 +3506,12 @@ def test_static_fixture_setup_materializes_a_dedicated_small_warmup(
     ensured_workflows: list[WorkflowFixture] = []
 
     async def fake_ensure_table(
-        _client: TracecatClient, _workspace_id: str, _fixture: object
+        _client: AutoSecOpsClient, _workspace_id: str, _fixture: object
     ) -> tuple[str, str]:
         return "table-1", "scatter_load_rows"
 
     async def fake_ensure_workflow(
-        _client: TracecatClient,
+        _client: AutoSecOpsClient,
         _workspace_id: str,
         fixture: WorkflowFixture,
     ) -> str:
@@ -3521,7 +3523,7 @@ def test_static_fixture_setup_materializes_a_dedicated_small_warmup(
 
     handles = asyncio.run(
         fixtures_module.ensure_fixtures(
-            cast(TracecatClient, object()),
+            cast(AutoSecOpsClient, object()),
             "workspace-1",
             (LoadType.SCATTER,),
             branch_count=256,
@@ -3671,11 +3673,11 @@ def test_new_cluster_number_skips_stopped_projects_and_retained_volumes(
     fake_docker.write_text(
         """#!/bin/sh
 if [ "$1" = "compose" ] && [ "$3" = "--all" ]; then
-  printf '%s\\n' '[{"Name":"tracecat-stopped-project-1"}]'
+  printf '%s\\n' '[{"Name":"autosecops-stopped-project-1"}]'
 elif [ "$1" = "compose" ]; then
   printf '%s\\n' '[]'
 elif [ "$1" = "volume" ]; then
-  printf '%s\\n' 'tracecat-retained-volume-2'
+  printf '%s\\n' 'autosecops-retained-volume-2'
 fi
 """,
         encoding="utf-8",
@@ -3920,10 +3922,10 @@ def test_existing_fixture_workflow_is_replaced_from_yaml(tmp_path: Path) -> None
         )
 
     async def exercise() -> str:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         fixture = WorkflowFixture(
@@ -3984,7 +3986,7 @@ def test_existing_fixture_workflow_is_not_replaced_while_running() -> None:
         )
         with pytest.raises(fixtures_module.FixtureError, match="still has running"):
             await fixtures_module._ensure_workflow(
-                cast(TracecatClient, client), "workspace-1", fixture
+                cast(AutoSecOpsClient, client), "workspace-1", fixture
             )
         return client
 
@@ -4026,10 +4028,10 @@ def test_same_title_without_fixture_alias_is_not_deleted(tmp_path: Path) -> None
         )
 
     async def exercise() -> str:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         fixture = WorkflowFixture(
@@ -4080,10 +4082,10 @@ def test_reused_fixture_table_requires_the_complete_schema() -> None:
         )
 
     async def exercise() -> None:
-        client = TracecatClient("http://tracecat.test/api")
+        client = AutoSecOpsClient("http://autosecops.test/api")
         await client._client.aclose()
         client._client = httpx.AsyncClient(
-            base_url="http://tracecat.test/api",
+            base_url="http://autosecops.test/api",
             transport=httpx.MockTransport(handler),
         )
         try:
@@ -4162,7 +4164,7 @@ def test_fixture_reset_recreates_only_the_checked_in_table() -> None:
     async def exercise() -> FakeClient:
         client = FakeClient()
         table_name = await fixtures_module.reset_fixture_table(
-            cast(TracecatClient, client),
+            cast(AutoSecOpsClient, client),
             "workspace-1",
         )
         assert table_name == "scatter_load_rows"
@@ -4216,7 +4218,7 @@ def test_fixture_reset_refuses_while_a_fixture_child_is_running() -> None:
             match="fixture workflows must be quiescent",
         ):
             await fixtures_module.reset_fixture_table(
-                cast(TracecatClient, client),
+                cast(AutoSecOpsClient, client),
                 "workspace-1",
             )
         return client
@@ -4342,10 +4344,10 @@ class SuccessfulTemporalSampler(TemporalSampler):
             sampled_at="2026-07-29T00:00:00+00:00",
             monotonic=0.0,
             workflow_task_queues={
-                deployment_value_fingerprint("tracecat-task-queue"): queue_stats
+                deployment_value_fingerprint("autosecops-task-queue"): queue_stats
             },
             activity_task_queues={
-                deployment_value_fingerprint("tracecat-task-queue"): queue_stats,
+                deployment_value_fingerprint("autosecops-task-queue"): queue_stats,
                 deployment_value_fingerprint("shared-action-queue"): queue_stats,
             },
         )
@@ -5041,15 +5043,15 @@ def test_compose_capture_runs_through_cluster_wrapper(
         run_id="scatter-test",
         workspace_id="00000000-0000-4000-8000-000000000000",
         artifact_dir=str(tmp_path),
-        dsn="postgresql://monitor@localhost/tracecat",
+        dsn="postgresql://monitor@localhost/autosecops",
         sample_interval_seconds=0.5,
         readiness_timeout_seconds=1.0,
         cluster_num=2,
         public_api_url="http://localhost:180/api",
-        compose_public_app_url="https://c2.tracecat.localhost",
-        compose_public_api_url="https://c2.tracecat.localhost/api",
+        compose_public_app_url="https://c2.autosecops.localhost",
+        compose_public_api_url="https://c2.autosecops.localhost/api",
         ee_multi_tenant=True,
-        compose_project="tracecat-test-2",
+        compose_project="autosecops-test-2",
         compose_files=(
             "docker-compose.dev.yml",
             "docker-compose.sandbox.yml",
@@ -5059,9 +5061,9 @@ def test_compose_capture_runs_through_cluster_wrapper(
         recovery_seconds=30.0,
         temporal_target="localhost:7333",
         temporal_namespace="default",
-        temporal_workflow_task_queues=("tracecat-task-queue",),
+        temporal_workflow_task_queues=("autosecops-task-queue",),
         temporal_activity_task_queues=(
-            "tracecat-task-queue",
+            "autosecops-task-queue",
             "shared-action-queue",
         ),
     )
@@ -5080,10 +5082,10 @@ def test_compose_capture_runs_through_cluster_wrapper(
     ]
     assert "--compose-override" in recorded_args
     assert recorded_env["CLUSTER_PUBLIC_API_URL_OVERRIDE"] == (
-        "https://c2.tracecat.localhost/api"
+        "https://c2.autosecops.localhost/api"
     )
     assert recorded_env["CLUSTER_PUBLIC_APP_URL_OVERRIDE"] == (
-        "https://c2.tracecat.localhost"
+        "https://c2.autosecops.localhost"
     )
     assert (tmp_path / "compose_config.yml").read_text() == "services: {}\n"
 
@@ -5108,7 +5110,7 @@ def test_running_compose_project_matches_files_and_service_hashes(
         "docker-compose.sandbox.yml",
         "packages/autosecops-benchmark/docker-compose.loadtest.yml",
     )
-    compose_project = "tracecat-test-2"
+    compose_project = "autosecops-test-2"
     required_services = (
         "api",
         "caddy",
@@ -5129,7 +5131,7 @@ def test_running_compose_project_matches_files_and_service_hashes(
     deployed_instances = list(deployed_services)
     if mismatch == "replica-hash":
         deployed_instances.append("executor")
-    deployed_app_url = "https://c2.tracecat.localhost"
+    deployed_app_url = "https://c2.autosecops.localhost"
     deployed_api_url = f"{deployed_app_url}/api"
     expected_files = [str((REPO_ROOT / path).resolve()) for path in compose_files]
     deployed_files = list(expected_files)
@@ -5176,8 +5178,8 @@ def test_running_compose_project_matches_files_and_service_hashes(
         if args[:2] == ["docker", "inspect"]:
             environment = json.dumps(
                 [
-                    f"TRACECAT__PUBLIC_APP_URL={deployed_app_url}",
-                    f"TRACECAT__PUBLIC_API_URL={deployed_api_url}",
+                    f"AUTOSECOPS__PUBLIC_APP_URL={deployed_app_url}",
+                    f"AUTOSECOPS__PUBLIC_API_URL={deployed_api_url}",
                 ]
             )
             records = [
@@ -5234,11 +5236,11 @@ services:
   worker:
     environment:
       TEMPORAL__CLUSTER_NAMESPACE: default
-      TEMPORAL__CLUSTER_QUEUE: tracecat-task-queue
+      TEMPORAL__CLUSTER_QUEUE: autosecops-task-queue
   executor:
     environment:
       TEMPORAL__CLUSTER_NAMESPACE: default
-      TRACECAT__EXECUTOR_QUEUE: shared-action-queue
+      AUTOSECOPS__EXECUTOR_QUEUE: shared-action-queue
 """
 
 
@@ -5410,8 +5412,8 @@ def test_temporal_context_must_match_selected_cluster(
     validate_temporal_context(
         "127.0.0.1:7333",
         "default",
-        ("tracecat-task-queue",),
-        ("tracecat-task-queue", "shared-action-queue"),
+        ("autosecops-task-queue",),
+        ("autosecops-task-queue", "shared-action-queue"),
         cluster_ports,
         tmp_path,
         2,
@@ -5435,13 +5437,13 @@ def test_temporal_context_must_match_selected_cluster(
         (
             "localhost:7233",
             "default",
-            ("tracecat-task-queue",),
+            ("autosecops-task-queue",),
             ("shared-action-queue",),
         ),
         (
             "localhost:7333",
             "another-namespace",
-            ("tracecat-task-queue",),
+            ("autosecops-task-queue",),
             ("shared-action-queue",),
         ),
         (
@@ -5453,13 +5455,13 @@ def test_temporal_context_must_match_selected_cluster(
         (
             "localhost:7333",
             "default",
-            ("tracecat-task-queue",),
+            ("autosecops-task-queue",),
             ("another-activity-queue",),
         ),
         (
             "localhost:7333",
             "default",
-            ("tracecat-task-queue",),
+            ("autosecops-task-queue",),
             ("shared-action-queue",),
         ),
     ],
@@ -5554,7 +5556,7 @@ def test_table_drift_is_a_required_artifact(
 ) -> None:
     _patch_successful_auxiliary_captures(monkeypatch)
     raw_run_id = "scatter-test"
-    raw_compose_project = "tracecat-affected-customer-1"
+    raw_compose_project = "autosecops-affected-customer-1"
     artifact_dir = tmp_path / run_id_fingerprint(raw_run_id)
 
     manifest = asyncio.run(
@@ -5586,7 +5588,7 @@ def test_table_drift_is_a_required_artifact(
     )
     assert (
         temporal_sample["workflow_task_queues"][
-            deployment_value_fingerprint("tracecat-task-queue")
+            deployment_value_fingerprint("autosecops-task-queue")
         ]["approximate_backlog_count"]
         == 3
     )
@@ -5687,7 +5689,7 @@ def test_container_state_retains_service_and_image_id_without_project_names(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw_project = "tracecat-affected-customer-1"
+    raw_project = "autosecops-affected-customer-1"
 
     def fake_run_command(
         args: list[str],
@@ -5934,4 +5936,4 @@ def test_commit_capture_failure_marks_manifest_failed(
 
     assert manifest["status"] == "observability_failed"
     assert manifest["observability_failure"] == "CommitCaptureError"
-    assert manifest["tracecat_commit"] == "unknown"
+    assert manifest["autosecops_commit"] == "unknown"

@@ -25,7 +25,7 @@ After activation, AutoSecOps applies IdP changes as they arrive. Mapping changes
 
 In Organization settings > SCIM, select `Generate token`. The `Copy SCIM credentials` dialog shows two values:
 
-- `SCIM base URL`: `https://<your-tracecat-instance>/api/scim/v2`
+- `SCIM base URL`: `https://<your-autosecops-instance>/api/scim/v2`
 - `Bearer token`: shown once. Copy it before you close the dialog.
 
 Your IdP sends the token as `Authorization: Bearer <token>` on every request. If your organization enforces an [IP allowlist](/manage-platform/ip-allowlist), add your IdP's egress addresses to it; AutoSecOps rejects SCIM requests from other addresses with `403`.

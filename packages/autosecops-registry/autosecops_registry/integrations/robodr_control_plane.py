@@ -122,7 +122,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from typing_extensions import Doc
 
 from autosecops_registry import RegistrySecret, registry, secrets
-from autosecops_registry.config import TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES
+from autosecops_registry.config import AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES
 from autosecops_registry.context import get_context
 from autosecops_registry.integrations.robodr import (
     DISPLAY_GROUP,
@@ -156,9 +156,11 @@ REQUEST_TIMEOUT_S = 35.0
 HANDSHAKE_TIMEOUT_S = 5.0
 MAX_ANSWER_BYTES = 256 * 1024
 MAX_ANSWER_HEAD_BYTES = 16 * 1024
-MAX_STORED_BUNDLE_BYTES = min(TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES, MAX_EXPORT_BYTES)
+MAX_STORED_BUNDLE_BYTES = min(
+    AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES, MAX_EXPORT_BYTES
+)
 """Largest export downloaded and stored: the platform's
-`TRACECAT__ROBOT_EDR_MAX_EVIDENCE_BYTES` (default 64 MiB, the robot's default
+`AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES` (default 64 MiB, the robot's default
 `max_export_bytes`), so a bundle the platform would refuse is never fetched,
 and never more than 256 MiB, the robot's largest export (§11.7)."""
 CHUNK_ATTEMPTS = 5

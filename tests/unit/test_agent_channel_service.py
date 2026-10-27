@@ -29,7 +29,7 @@ from autosecops.agent.channels.service import (
 )
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentPreset, Workspace
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -38,10 +38,10 @@ pytestmark = pytest.mark.usefixtures("db")
 def set_db_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         channel_service_module.config,
-        "TRACECAT__DB_ENCRYPTION_KEY",
+        "AUTOSECOPS__DB_ENCRYPTION_KEY",
         Fernet.generate_key().decode(),
     )
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ async def test_to_read_preserves_pending_bot_token_placeholder(
                 slack_bot_token=PENDING_SLACK_BOT_TOKEN,
                 slack_client_id="12345.67890",
                 slack_client_secret="client-secret",
-                slack_signing_secret="__tracecat_pending_signing_secret__placeholder",
+                slack_signing_secret="__autosecops_pending_signing_secret__placeholder",
             ),
             is_active=False,
         )
@@ -172,7 +172,7 @@ async def test_update_token_rejects_null_is_active(
         )
     )
 
-    with pytest.raises(TracecatValidationError, match="is_active cannot be null"):
+    with pytest.raises(AutoSecOpsValidationError, match="is_active cannot be null"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(is_active=None),
@@ -189,7 +189,7 @@ async def test_create_token_rejects_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.create_token(
             AgentChannelTokenCreate(
                 agent_preset_id=agent_preset.id,
@@ -274,7 +274,7 @@ async def test_update_token_rejects_reactivating_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(is_active=True),
@@ -304,7 +304,7 @@ async def test_update_token_rejects_config_update_for_soft_deleted_preset(
     agent_channel_service.session.add(agent_preset)
     await agent_channel_service.session.commit()
 
-    with pytest.raises(TracecatNotFoundError, match="not found in workspace"):
+    with pytest.raises(AutoSecOpsNotFoundError, match="not found in workspace"):
         await agent_channel_service.update_token(
             token,
             AgentChannelTokenUpdate(
@@ -441,7 +441,7 @@ async def test_update_token_rejects_pending_bot_token_when_token_remains_active(
     )
 
     with pytest.raises(
-        TracecatValidationError,
+        AutoSecOpsValidationError,
         match="Cannot activate token without Slack bot token",
     ):
         await agent_channel_service.update_token(
@@ -458,7 +458,7 @@ async def test_update_token_rejects_pending_bot_token_when_token_remains_active(
 
 
 def _set_signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
 
 
 def _build_legacy_state(
@@ -539,7 +539,7 @@ def test_parse_slack_oauth_state_v2_rejects_tampering(
     ciphertext[0] ^= 0x01
     tampered_state = f"{version}.{nonce_b64}.{_b64url_encode(bytes(ciphertext))}"
 
-    with pytest.raises(TracecatValidationError, match="Invalid OAuth state"):
+    with pytest.raises(AutoSecOpsValidationError, match="Invalid OAuth state"):
         AgentChannelService.parse_slack_oauth_state(tampered_state)
 
 
@@ -560,7 +560,7 @@ def test_parse_slack_oauth_state_v2_rejects_expired_state(
         lambda: 1_000_000 + SLACK_OAUTH_STATE_TTL_SECONDS + 1,
     )
 
-    with pytest.raises(TracecatValidationError, match="OAuth state expired"):
+    with pytest.raises(AutoSecOpsValidationError, match="OAuth state expired"):
         AgentChannelService.parse_slack_oauth_state(state)
 
 
@@ -568,7 +568,7 @@ def test_parse_slack_oauth_state_accepts_legacy_signed_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     signing_secret = "test-signing-secret"
-    monkeypatch.setattr(config, "TRACECAT__SIGNING_SECRET", signing_secret)
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", signing_secret)
     monkeypatch.setattr(
         "autosecops.agent.channels.service.time.time", lambda: 1_000_000
     )

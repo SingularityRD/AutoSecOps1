@@ -25,7 +25,7 @@ def sample_status() -> dict:
         "repositories": [
             {
                 "id": str(uuid.uuid4()),
-                "name": "tracecat-registry",
+                "name": "autosecops-registry",
                 "origin": "https://github.com/TracecatHQ/tracecat",
                 "last_synced_at": datetime.now(UTC).isoformat(),
                 "commit_sha": "abc123def456",
@@ -50,7 +50,7 @@ def sample_sync_result() -> dict:
         "repositories": [
             {
                 "repository_id": str(uuid.uuid4()),
-                "repository_name": "tracecat-registry",
+                "repository_name": "autosecops-registry",
                 "success": True,
                 "error": None,
                 "version": "1.0.0",
@@ -98,7 +98,7 @@ class TestRegistryStatus:
 
         assert result.exit_code == 0
         assert "Total repositories: 2" in result.stdout
-        assert "tracecat-registry" in result.stdout
+        assert "autosecops-registry" in result.stdout
 
     @respx.mock
     def test_status_json_output(self, mock_env: None, sample_status: dict) -> None:
@@ -127,7 +127,7 @@ class TestRegistrySync:
 
         assert result.exit_code == 0
         assert "Success" in result.stdout
-        assert "tracecat-registry" in result.stdout
+        assert "autosecops-registry" in result.stdout
 
     @respx.mock
     def test_sync_specific_repo(self, mock_env: None, sample_sync_result: dict) -> None:

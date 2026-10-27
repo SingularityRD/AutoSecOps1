@@ -48,7 +48,7 @@ def _workspace_schema(prefix: str, workspace_id: uuid.UUID) -> str:
 
 def _run_alembic_upgrade(db_url: str, revision: str = MIGRATION_REVISION) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", "upgrade", revision],
         env=env,
@@ -64,7 +64,7 @@ def _run_alembic_upgrade(db_url: str, revision: str = MIGRATION_REVISION) -> Non
 
 def _run_alembic_downgrade(db_url: str, revision: str = PREVIOUS_REVISION) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", "downgrade", revision],
         env=env,
@@ -80,7 +80,7 @@ def _run_alembic_downgrade(db_url: str, revision: str = PREVIOUS_REVISION) -> No
 
 def _run_alembic_stamp(db_url: str, revision: str) -> None:
     env = os.environ.copy()
-    env["TRACECAT__DB_URI"] = db_url
+    env["AUTOSECOPS__DB_URI"] = db_url
     result = subprocess.run(
         ["uv", "run", "alembic", "stamp", revision],
         env=env,

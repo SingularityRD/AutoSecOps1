@@ -253,8 +253,8 @@ async def persist_agent_work_dir(
         state_stats = await asyncio.to_thread(
             compute_work_dir_state,
             work_dir,
-            max_uncompressed_bytes=config.TRACECAT__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
-            max_file_count=config.TRACECAT__AGENT_FS_MAX_FILE_COUNT,
+            max_uncompressed_bytes=config.AUTOSECOPS__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
+            max_file_count=config.AUTOSECOPS__AGENT_FS_MAX_FILE_COUNT,
         )
 
         async with AgentFilesystemService.with_session(role=role) as service:
@@ -285,10 +285,10 @@ async def persist_agent_work_dir(
             create_work_dir_archive,
             work_dir,
             temp_archive,
-            max_uncompressed_bytes=config.TRACECAT__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
-            max_file_count=config.TRACECAT__AGENT_FS_MAX_FILE_COUNT,
+            max_uncompressed_bytes=config.AUTOSECOPS__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
+            max_file_count=config.AUTOSECOPS__AGENT_FS_MAX_FILE_COUNT,
         )
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_AGENT
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_AGENT
         key = build_agent_fs_snapshot_key(sha256=archive_stats.sha256)
         await blob.upload_file_from_path(
             temp_archive,
@@ -372,7 +372,7 @@ def compute_work_dir_state(
     """Compute a stable logical state hash for regular files and directories."""
     work_dir = work_dir.resolve()
     state_hasher = hashlib.blake2b(digest_size=_STATE_HASH_DIGEST_SIZE)
-    _hash_state_field(state_hasher, b"tracecat-agent-fs-state-v1")
+    _hash_state_field(state_hasher, b"autosecops-agent-fs-state-v1")
     total_bytes = 0
     file_count = 0
     dir_count = 0
@@ -570,8 +570,8 @@ def _extract_archive_to_work_dir(archive_path: Path, work_dir: Path) -> None:
         extract_work_dir_archive(
             archive_path,
             temp_dir,
-            max_uncompressed_bytes=config.TRACECAT__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
-            max_file_count=config.TRACECAT__AGENT_FS_MAX_FILE_COUNT,
+            max_uncompressed_bytes=config.AUTOSECOPS__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
+            max_file_count=config.AUTOSECOPS__AGENT_FS_MAX_FILE_COUNT,
         )
         _remove_existing_work_dir(work_dir)
         temp_dir.rename(work_dir)
@@ -605,7 +605,7 @@ def _chmod_and_retry_remove(
 
 
 def _staging_dir() -> Path:
-    staging_dir = Path(config.TRACECAT__AGENT_FS_CACHE_DIR) / "staging"
+    staging_dir = Path(config.AUTOSECOPS__AGENT_FS_CACHE_DIR) / "staging"
     staging_dir.mkdir(parents=True, exist_ok=True)
     return staging_dir
 
@@ -767,8 +767,8 @@ def _work_dir_matches_snapshot(
     try:
         state_stats = compute_work_dir_state(
             work_dir,
-            max_uncompressed_bytes=config.TRACECAT__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
-            max_file_count=config.TRACECAT__AGENT_FS_MAX_FILE_COUNT,
+            max_uncompressed_bytes=config.AUTOSECOPS__AGENT_FS_MAX_UNCOMPRESSED_BYTES,
+            max_file_count=config.AUTOSECOPS__AGENT_FS_MAX_FILE_COUNT,
         )
     except Exception as e:
         logger.debug(

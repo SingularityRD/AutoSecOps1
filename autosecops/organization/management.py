@@ -38,7 +38,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.models import Role as DBRole
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.settings.service import SettingsService
@@ -70,7 +70,7 @@ async def ensure_organization_defaults(
     """
     org_role = Role(
         type="service",
-        service_id="tracecat-service",
+        service_id="autosecops-service",
         organization_id=org_id,
         is_platform_superuser=True,
         scopes=frozenset({"*"}),
@@ -175,7 +175,7 @@ def validate_organization_delete_confirmation(
 ) -> None:
     """Validate the operator confirmation text for destructive org deletion."""
     if confirmation is None or confirmation.strip() != organization.name:
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Confirmation text must exactly match the organization name."
         )
 
@@ -214,7 +214,7 @@ async def delete_organization_with_cleanup(
         bootstrap_role = Role(
             type="service",
             user_id=operator_user_id,
-            service_id="tracecat-service",
+            service_id="autosecops-service",
             organization_id=organization.id,
             workspace_id=workspace.id,
         )
@@ -362,7 +362,7 @@ async def ensure_single_tenant_user_defaults(
     paths. Self-service callers keep the default, so registration leaves
     membership to provisioning or invitation acceptance.
     """
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return None
 
     organization_id = await ensure_default_organization()
@@ -395,7 +395,7 @@ async def ensure_single_tenant_user_defaults_for_session(
     paths. Under the default, existing members are repaired without granting
     new memberships.
     """
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return SingleTenantUserDefaultsResult(organization_id=None, changed=False)
 
     if organization_id is None:

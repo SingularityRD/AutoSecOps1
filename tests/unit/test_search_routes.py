@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-from autosecops_registry.sdk.client import TracecatClient
+from autosecops_registry.sdk.client import AutoSecOpsClient
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -47,11 +47,11 @@ async def test_semantic_route_registered_on_both_internal_surfaces():
             )
             assert response.status_code in {401, 403}
 
-    client = TracecatClient(action_gateway_socket="/tmp/synthetic.sock")
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/synthetic.sock")
     url, _ = client._request_url_and_transport("/tables/synthetic/rows/semantic-search")
     assert (
         url
-        == "http://tracecat-action-gateway/internal/tables/synthetic/rows/semantic-search"
+        == "http://autosecops-action-gateway/internal/tables/synthetic/rows/semantic-search"
     )
 
 

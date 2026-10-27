@@ -15,7 +15,7 @@ from tests.database import TEST_DB_CONFIG
 def run_alembic(
     url: str, *arguments: str, role: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "TRACECAT__DB_URI": url}
+    env = {**os.environ, "AUTOSECOPS__DB_URI": url}
     if role is not None:
         env["PGOPTIONS"] = f"-c role={role}"
     return subprocess.run(

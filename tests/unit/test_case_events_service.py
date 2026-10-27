@@ -27,7 +27,7 @@ from autosecops.cases.schemas import (
 )
 from autosecops.cases.service import CaseEventsService, CasesService
 from autosecops.db.models import CaseDurationDefinition, CaseEvent
-from autosecops.exceptions import TracecatAuthorizationError
+from autosecops.exceptions import AutoSecOpsAuthorizationError
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -62,12 +62,12 @@ async def test_events_service_initialization_requires_workspace(
         user_id=uuid.uuid4(),
         workspace_id=None,
         organization_id=uuid.uuid4(),
-        service_id="tracecat-service",
-        scopes=SERVICE_PRINCIPAL_SCOPES["tracecat-service"],
+        service_id="autosecops-service",
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
 
     # Attempt to create service without workspace should raise error
-    with pytest.raises(TracecatAuthorizationError):
+    with pytest.raises(AutoSecOpsAuthorizationError):
         CaseEventsService(session=session, role=role_without_workspace)
 
 

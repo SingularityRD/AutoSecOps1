@@ -35,11 +35,11 @@ def test_validate_connection_url_blocks_internal_endpoint(
 
     monkeypatch.setattr(
         registry_config,
-        "TRACECAT__DB_URI",
-        "postgresql+psycopg://tracecat:secret@internal-db:5432/tracecat",
+        "AUTOSECOPS__DB_URI",
+        "postgresql+psycopg://autosecops:secret@internal-db:5432/autosecops",
     )
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_ENDPOINT", "internal-db")
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_PORT", "5432")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_ENDPOINT", "internal-db")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_PORT", "5432")
 
     connection_url = make_url(
         "postgresql+psycopg://user:pass@internal-db:5432/external_db"
@@ -61,11 +61,11 @@ def test_validate_connection_url_allows_external_endpoint(
 
     monkeypatch.setattr(
         registry_config,
-        "TRACECAT__DB_URI",
-        "postgresql+psycopg://tracecat:secret@internal-db:5432/tracecat",
+        "AUTOSECOPS__DB_URI",
+        "postgresql+psycopg://autosecops:secret@internal-db:5432/autosecops",
     )
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_ENDPOINT", "internal-db")
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_PORT", "5432")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_ENDPOINT", "internal-db")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_PORT", "5432")
 
     connection_url = make_url(
         "postgresql+psycopg://user:pass@external-db:5432/external_db"
@@ -77,16 +77,16 @@ def test_validate_connection_url_allows_external_endpoint(
 def test_validate_connection_url_uses_internal_uri_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Fallback to TRACECAT__DB_URI when TRACECAT__DB_ENDPOINT is unset."""
+    """Fallback to AUTOSECOPS__DB_URI when AUTOSECOPS__DB_ENDPOINT is unset."""
     from autosecops_registry import config as registry_config
 
     monkeypatch.setattr(
         registry_config,
-        "TRACECAT__DB_URI",
-        "postgresql+psycopg://tracecat:secret@postgres_db:6432/tracecat",
+        "AUTOSECOPS__DB_URI",
+        "postgresql+psycopg://autosecops:secret@postgres_db:6432/autosecops",
     )
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_ENDPOINT", None)
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_PORT", None)
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_ENDPOINT", None)
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_PORT", None)
 
     connection_url = make_url(
         "postgresql+psycopg://user:pass@postgres_db:6432/external_db"
@@ -110,11 +110,11 @@ def setup_sql_test_table(db, monkeypatch: pytest.MonkeyPatch):  # noqa: ARG001
     # This allows the test database on localhost:5432 to pass validation
     monkeypatch.setattr(
         registry_config,
-        "TRACECAT__DB_URI",
-        "postgresql+psycopg://tracecat:secret@internal-db:5432/tracecat",
+        "AUTOSECOPS__DB_URI",
+        "postgresql+psycopg://autosecops:secret@internal-db:5432/autosecops",
     )
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_ENDPOINT", "internal-db")
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_PORT", "5432")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_ENDPOINT", "internal-db")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_PORT", "5432")
 
     # Create test table and insert sample data
     engine = create_engine(TEST_DB_CONFIG.test_url_sync)
@@ -351,11 +351,11 @@ async def test_execute_query_invalid_connection_url(monkeypatch: pytest.MonkeyPa
     # Mock internal database config to avoid validation issues
     monkeypatch.setattr(
         registry_config,
-        "TRACECAT__DB_URI",
-        "postgresql+psycopg://tracecat:secret@internal-db:5432/tracecat",
+        "AUTOSECOPS__DB_URI",
+        "postgresql+psycopg://autosecops:secret@internal-db:5432/autosecops",
     )
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_ENDPOINT", "internal-db")
-    monkeypatch.setattr(registry_config, "TRACECAT__DB_PORT", "5432")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_ENDPOINT", "internal-db")
+    monkeypatch.setattr(registry_config, "AUTOSECOPS__DB_PORT", "5432")
 
     # The error will be NoSuchModuleError from SQLAlchemy
     from sqlalchemy.exc import NoSuchModuleError

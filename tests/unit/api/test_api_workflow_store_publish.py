@@ -8,7 +8,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from autosecops.auth.types import Role
-from autosecops.exceptions import TracecatSettingsError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsSettingsError, AutoSecOpsValidationError
 from autosecops.vcs.github.app import GitHubAppError
 from autosecops.vcs.gitlab.app import GitLabError
 
@@ -33,7 +33,7 @@ def _sample_dsl_content() -> dict[str, object]:
     ("error", "payload", "detail_fragment"),
     [
         pytest.param(
-            TracecatValidationError(
+            AutoSecOpsValidationError(
                 "branch must be a short branch name, not a full ref (refs/...)"
             ),
             {"branch": "refs/heads/feature/shared-workflow", "create_pr": False},
@@ -141,7 +141,7 @@ async def test_publish_workflow_invalid_create_pr_type_returns_422(
     ("error", "detail_fragment"),
     [
         pytest.param(
-            TracecatSettingsError(
+            AutoSecOpsSettingsError(
                 "Git repository URL not configured for this workspace."
             ),
             "Git repository URL not configured",
@@ -198,7 +198,7 @@ async def test_workspace_sync_export_routes_map_service_construction_errors_to_4
         "autosecops.workflow.store.router.WorkspaceSyncService"
     ) as mock_sync_cls:
         mock_sync_cls.for_workspace = AsyncMock(
-            side_effect=TracecatSettingsError(
+            side_effect=AutoSecOpsSettingsError(
                 "Unsupported Git provider configured for this workspace: unknown"
             )
         )

@@ -30,7 +30,7 @@ import {
 import { AgGridColumnHeader } from "@/components/tables/ag-grid-column-header"
 import { AgGridContextMenu } from "@/components/tables/ag-grid-context-menu"
 import { AgGridPagination } from "@/components/tables/ag-grid-pagination"
-import { tracecatTheme } from "@/components/tables/ag-grid-theme"
+import { autosecopsTheme } from "@/components/tables/ag-grid-theme"
 import {
   type TableRowQuery,
   TableRowQueryContext,
@@ -282,7 +282,7 @@ export function AgGridTable({
         >
           <TableRowQueryContext.Provider value={rowQuery}>
             <AgGridReact
-              theme={tracecatTheme}
+              theme={autosecopsTheme}
               rowData={rowData}
               columnDefs={columnDefs}
               getRowId={getRowId}

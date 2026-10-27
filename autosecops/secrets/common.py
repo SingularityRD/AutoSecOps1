@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.secrets.constants import MASK_VALUE
 
 
@@ -114,7 +114,7 @@ class CapturedFailure:
         )
 
 
-class MaskedSecretError(TracecatException):
+class MaskedSecretError(AutoSecOpsException):
     """An error whose message has had secret values masked out."""
 
     captured: CapturedFailure | None = None

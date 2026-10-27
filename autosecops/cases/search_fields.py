@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
 from autosecops.cases.query import CaseFieldResolver
 from autosecops.cases.search_schemas import CaseFilterField, CaseFilterMetadata
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.filters import MAX_FILTER_CONDITIONS, MAX_FILTER_DEPTH
 from autosecops.query.resolver import FieldKind
 
@@ -61,7 +61,7 @@ def case_filter_metadata(
     for address in addresses:
         try:
             resolved = resolver.resolve(address)
-        except TracecatValidationError:
+        except AutoSecOpsValidationError:
             # Generic JSON and multi-select custom fields are deliberately not
             # advertised. Existing saved conditions still reach validation.
             continue

@@ -54,7 +54,7 @@ async def other_workspace(
 
 @pytest.fixture(autouse=True)
 def kubernetes_gateways(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "kubernetes")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "kubernetes")
     monkeypatch.setattr(tunnels_service_module, "sync_gateway", AsyncMock())
     monkeypatch.setattr(tunnels_service_module, "delete_gateway", AsyncMock())
 
@@ -288,7 +288,7 @@ def fake_pangolin(monkeypatch: pytest.MonkeyPatch) -> type:
     settings = PangolinSettings(
         api_url="https://pangolin-api.example.com/v1",
         endpoint="https://pangolin.example.com",
-        org_id="tracecat",
+        org_id="autosecops",
         api_key="org-api-key",
     )
 
@@ -388,7 +388,7 @@ async def test_tunnels_without_gateway_backend_are_unavailable(
 ) -> None:
     assert (await client.get("/tunnels/availability")).json() == {"available": True}
     tunnel_id = (await client.post("/tunnels", json=CREATE_BODY)).json()["id"]
-    monkeypatch.setattr(config, "TRACECAT__TUNNEL_GATEWAY_BACKEND", "none")
+    monkeypatch.setattr(config, "AUTOSECOPS__TUNNEL_GATEWAY_BACKEND", "none")
 
     assert (await client.get("/tunnels/availability")).json() == {"available": False}
     created = await client.post("/tunnels", json={**CREATE_BODY, "name": "another"})

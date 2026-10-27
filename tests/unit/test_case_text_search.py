@@ -16,7 +16,7 @@ from autosecops.cases.text_search import (
     parse_case_text_query,
 )
 from autosecops.db.models import Case
-from autosecops.query.errors import TracecatQueryTimeoutError
+from autosecops.query.errors import AutoSecOpsQueryTimeoutError
 from autosecops.query.lexical_types import SearchMode
 
 
@@ -99,7 +99,7 @@ def test_identifiers_match_exact_columns_and_indexed_text_mentions(value: str) -
     sql = str(statement.compile(dialect=postgresql.dialect()))
     assert "case_number =" in sql
     assert "LIKE" not in sql
-    assert "tracecat_case_safe_vector_v1" in sql
+    assert "autosecops_case_safe_vector_v1" in sql
     assert "@@" in sql
 
 
@@ -147,9 +147,10 @@ def test_phrase_sql_uses_separate_source_vectors() -> None:
         .compile(dialect=postgresql.dialect())
     )
     assert sql.count("phraseto_tsquery(") == 2
-    assert 'tracecat_case_safe_vector_v1(coalesce(CAST("case".summary AS TEXT)' in sql
+    assert 'autosecops_case_safe_vector_v1(coalesce(CAST("case".summary AS TEXT)' in sql
     assert (
-        'tracecat_case_safe_vector_v1(coalesce(CAST("case".description AS TEXT)' in sql
+        'autosecops_case_safe_vector_v1(coalesce(CAST("case".description AS TEXT)'
+        in sql
     )
     assert "pg_catalog.simple" in sql
     assert "||" not in sql
@@ -272,10 +273,10 @@ async def test_timeout_message_is_specific_to_case_search_and_retains_error_code
     session = AsyncMock()
     session.scalar.side_effect = ["0", "0.5"]
     with pytest.raises(
-        TracecatQueryTimeoutError, match="Case search timed out"
+        AutoSecOpsQueryTimeoutError, match="Case search timed out"
     ) as error:
         async with case_search_execution_context(session):
-            raise TracecatQueryTimeoutError()
+            raise AutoSecOpsQueryTimeoutError()
     assert error.value.code.value == "query_timeout"
 
 

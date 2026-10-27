@@ -1077,7 +1077,7 @@ export function WebhookControls({
           </AlertDialogContent>
         </AlertDialog>
         <p className="text-xs text-muted-foreground">
-          Webhook senders must pass the key in the x-tracecat-api-key header.
+          Webhook senders must pass the key in the x-autosecops-api-key header.
         </p>
       </div>
 

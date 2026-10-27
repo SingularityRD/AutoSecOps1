@@ -28,8 +28,8 @@ COPY docker/loop-device-sync.cc /tmp/loop-device-sync.cc
 RUN g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wformat=2 \
         -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie \
         -Wl,-z,relro,-z,now \
-        /tmp/loop-device-sync.cc -o /usr/local/bin/tracecat-loop-device-sync && \
-    strip /usr/local/bin/tracecat-loop-device-sync && \
+        /tmp/loop-device-sync.cc -o /usr/local/bin/autosecops-loop-device-sync && \
+    strip /usr/local/bin/autosecops-loop-device-sync && \
     rm /tmp/loop-device-sync.cc
 
 # ====================
@@ -100,10 +100,10 @@ RUN set -eu; \
         "LOAD httpfs;" \
         "LOAD inet;" \
         "LOAD fts;" \
-        > /usr/local/share/duckdb/tracecat-init.sql; \
+        > /usr/local/share/duckdb/autosecops-init.sql; \
     printf '%s\n' \
         '#!/bin/sh' \
-        'exec /usr/local/bin/duckdb.real -init /usr/local/share/duckdb/tracecat-init.sql "$@"' \
+        'exec /usr/local/bin/duckdb.real -init /usr/local/share/duckdb/autosecops-init.sql "$@"' \
         > /usr/local/bin/duckdb; \
     chmod 0755 /usr/local/bin/duckdb; \
     jq --version; \
@@ -154,55 +154,55 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # through symlinks created right after that copy, so the large extension
 # binaries are not stored twice in the image. The Python package loads
 # extensions from this directory instead of autoinstalling over the network.
-ENV TRACECAT__DUCKDB_EXTENSION_DIRECTORY=/usr/local/lib/duckdb/extensions
+ENV AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY=/usr/local/lib/duckdb/extensions
 
 # Copy sandbox rootfs. --chmod=755 normalizes every copied path and drops
 # setuid/setgid bits at copy time; a recursive chmod after the copy would store
 # a second full copy of the rootfs in its own layer.
-COPY --from=sandbox-rootfs --chmod=755 /usr /var/lib/tracecat/sandbox-rootfs/usr
+COPY --from=sandbox-rootfs --chmod=755 /usr /var/lib/autosecops/sandbox-rootfs/usr
 
 # Expose the single rootfs DuckDB copy to the executor host via symlinks, so the
 # host CLI and the in-process DuckDB Python package work without a second copy
 # of the extension binaries. The nsjail sandbox uses its own (physical) rootfs
 # copy and is unaffected by these host-side links.
-RUN ln -s /var/lib/tracecat/sandbox-rootfs/usr/local/lib/duckdb /usr/local/lib/duckdb && \
-    ln -s /var/lib/tracecat/sandbox-rootfs/usr/local/share/duckdb /usr/local/share/duckdb && \
-    ln -s /var/lib/tracecat/sandbox-rootfs/usr/local/bin/duckdb.real /usr/local/bin/duckdb.real && \
-    ln -s /var/lib/tracecat/sandbox-rootfs/usr/local/bin/duckdb /usr/local/bin/duckdb && \
+RUN ln -s /var/lib/autosecops/sandbox-rootfs/usr/local/lib/duckdb /usr/local/lib/duckdb && \
+    ln -s /var/lib/autosecops/sandbox-rootfs/usr/local/share/duckdb /usr/local/share/duckdb && \
+    ln -s /var/lib/autosecops/sandbox-rootfs/usr/local/bin/duckdb.real /usr/local/bin/duckdb.real && \
+    ln -s /var/lib/autosecops/sandbox-rootfs/usr/local/bin/duckdb /usr/local/bin/duckdb && \
     jq --version && duckdb --version
 
-COPY --from=sandbox-rootfs --chmod=755 /lib /var/lib/tracecat/sandbox-rootfs/lib
-COPY --from=sandbox-rootfs --chmod=755 /bin /var/lib/tracecat/sandbox-rootfs/bin
-COPY --from=sandbox-rootfs --chmod=755 /sbin /var/lib/tracecat/sandbox-rootfs/sbin
-COPY --from=sandbox-rootfs --chmod=755 /etc/passwd /var/lib/tracecat/sandbox-rootfs/etc/passwd
-COPY --from=sandbox-rootfs --chmod=755 /etc/group /var/lib/tracecat/sandbox-rootfs/etc/group
-COPY --from=sandbox-rootfs --chmod=755 /etc/ssl /var/lib/tracecat/sandbox-rootfs/etc/ssl
-COPY --from=sandbox-rootfs --chmod=755 /etc/ca-certificates /var/lib/tracecat/sandbox-rootfs/etc/ca-certificates
-RUN install -m 0644 /dev/null /var/lib/tracecat/sandbox-rootfs/etc/resolv.conf && \
-    install -m 0644 /dev/null /var/lib/tracecat/sandbox-rootfs/etc/hosts && \
-    install -m 0644 /dev/null /var/lib/tracecat/sandbox-rootfs/etc/nsswitch.conf
+COPY --from=sandbox-rootfs --chmod=755 /lib /var/lib/autosecops/sandbox-rootfs/lib
+COPY --from=sandbox-rootfs --chmod=755 /bin /var/lib/autosecops/sandbox-rootfs/bin
+COPY --from=sandbox-rootfs --chmod=755 /sbin /var/lib/autosecops/sandbox-rootfs/sbin
+COPY --from=sandbox-rootfs --chmod=755 /etc/passwd /var/lib/autosecops/sandbox-rootfs/etc/passwd
+COPY --from=sandbox-rootfs --chmod=755 /etc/group /var/lib/autosecops/sandbox-rootfs/etc/group
+COPY --from=sandbox-rootfs --chmod=755 /etc/ssl /var/lib/autosecops/sandbox-rootfs/etc/ssl
+COPY --from=sandbox-rootfs --chmod=755 /etc/ca-certificates /var/lib/autosecops/sandbox-rootfs/etc/ca-certificates
+RUN install -m 0644 /dev/null /var/lib/autosecops/sandbox-rootfs/etc/resolv.conf && \
+    install -m 0644 /dev/null /var/lib/autosecops/sandbox-rootfs/etc/hosts && \
+    install -m 0644 /dev/null /var/lib/autosecops/sandbox-rootfs/etc/nsswitch.conf
 
 # Handle lib64 for amd64
-RUN if [ -d /var/lib/tracecat/sandbox-rootfs/lib64 ] || [ "$(uname -m)" = "x86_64" ]; then \
-        mkdir -p /var/lib/tracecat/sandbox-rootfs/lib64 && \
-        cp -a /lib64/. /var/lib/tracecat/sandbox-rootfs/lib64/ 2>/dev/null || true; \
+RUN if [ -d /var/lib/autosecops/sandbox-rootfs/lib64 ] || [ "$(uname -m)" = "x86_64" ]; then \
+        mkdir -p /var/lib/autosecops/sandbox-rootfs/lib64 && \
+        cp -a /lib64/. /var/lib/autosecops/sandbox-rootfs/lib64/ 2>/dev/null || true; \
     fi
 
 # Create sandbox directories
-RUN mkdir -p /var/lib/tracecat/sandbox-rootfs/tmp \
-    /var/lib/tracecat/sandbox-rootfs/proc \
-    /var/lib/tracecat/sandbox-rootfs/dev \
-    /var/lib/tracecat/sandbox-rootfs/work \
-    /var/lib/tracecat/sandbox-rootfs/cache \
-    /var/lib/tracecat/sandbox-rootfs/packages \
-    /var/lib/tracecat/sandbox-rootfs/home/sandbox \
-    /var/lib/tracecat/sandbox-cache/packages \
-    /var/lib/tracecat/sandbox-cache/uv-cache && \
-    chown -R 1000:1000 /var/lib/tracecat/sandbox-rootfs/work \
-        /var/lib/tracecat/sandbox-rootfs/cache \
-        /var/lib/tracecat/sandbox-rootfs/packages \
-        /var/lib/tracecat/sandbox-rootfs/home/sandbox && \
-    chmod 1777 /var/lib/tracecat/sandbox-rootfs/tmp
+RUN mkdir -p /var/lib/autosecops/sandbox-rootfs/tmp \
+    /var/lib/autosecops/sandbox-rootfs/proc \
+    /var/lib/autosecops/sandbox-rootfs/dev \
+    /var/lib/autosecops/sandbox-rootfs/work \
+    /var/lib/autosecops/sandbox-rootfs/cache \
+    /var/lib/autosecops/sandbox-rootfs/packages \
+    /var/lib/autosecops/sandbox-rootfs/home/sandbox \
+    /var/lib/autosecops/sandbox-cache/packages \
+    /var/lib/autosecops/sandbox-cache/uv-cache && \
+    chown -R 1000:1000 /var/lib/autosecops/sandbox-rootfs/work \
+        /var/lib/autosecops/sandbox-rootfs/cache \
+        /var/lib/autosecops/sandbox-rootfs/packages \
+        /var/lib/autosecops/sandbox-rootfs/home/sandbox && \
+    chmod 1777 /var/lib/autosecops/sandbox-rootfs/tmp
 
 # Create apiuser for the non-root runtime.
 RUN groupadd -g 1001 apiuser && useradd -m -u 1001 -g apiuser apiuser && \
@@ -210,17 +210,17 @@ RUN groupadd -g 1001 apiuser && useradd -m -u 1001 -g apiuser apiuser && \
     chown -R apiuser:apiuser /home/apiuser
 
 # Create MCP socket directory for apiuser
-RUN mkdir -p /var/run/tracecat && chown 1001:1001 /var/run/tracecat
+RUN mkdir -p /var/run/autosecops && chown 1001:1001 /var/run/autosecops
 
 # Allow the non-root executor process to invoke mount/umount and synchronize
 # kernel-confirmed loop nodes when the runtime grants the needed bounding
 # capabilities. The fixed-purpose sync helper cannot create arbitrary devices.
-COPY --from=nsjail-builder /usr/local/bin/tracecat-loop-device-sync /usr/local/bin/tracecat-loop-device-sync
+COPY --from=nsjail-builder /usr/local/bin/autosecops-loop-device-sync /usr/local/bin/autosecops-loop-device-sync
 
 RUN chmod u-s /usr/bin/mount /usr/bin/umount && \
     setcap cap_sys_admin,cap_dac_override+ep /usr/bin/mount && \
     setcap cap_sys_admin,cap_dac_override+ep /usr/bin/umount && \
-    setcap cap_mknod,cap_dac_override,cap_setuid+ep /usr/local/bin/tracecat-loop-device-sync
+    setcap cap_mknod,cap_dac_override,cap_setuid+ep /usr/local/bin/autosecops-loop-device-sync
 
 WORKDIR /app
 
@@ -238,9 +238,9 @@ COPY ./autosecops/agent/skill/builtin/skills /tmp/platform-skills
 RUN set -eux; \
     mkdir -p /skills; \
     for skill in \
-        tracecat-workspace-chat \
-        tracecat-automation-best-practices \
-        tracecat-slackbot-best-practices; do \
+        autosecops-workspace-chat \
+        autosecops-automation-best-practices \
+        autosecops-slackbot-best-practices; do \
         source="/tmp/platform-skills/${skill}"; \
         test -d "${source}"; \
         test -f "${source}/SKILL.md"; \
@@ -251,11 +251,11 @@ RUN set -eux; \
 
 # Workspace Chat reads platform guidance from docs built from this same commit.
 # Keep source structure so docs.json and MDX imports remain useful navigation.
-COPY ./docs /tmp/tracecat-docs
+COPY ./docs /tmp/autosecops-docs
 
 RUN set -eux; \
-    docs_source=/tmp/tracecat-docs; \
-    docs_target=/skills/tracecat-workspace-chat/references/docs; \
+    docs_source=/tmp/autosecops-docs; \
+    docs_target=/skills/autosecops-workspace-chat/references/docs; \
     mkdir -p "${docs_target}"; \
     cd "${docs_source}"; \
     find . -type f \( \
@@ -300,8 +300,8 @@ FROM base AS development-app
 ENV TMPDIR="/home/apiuser/.cache/tmp" TEMP="/home/apiuser/.cache/tmp" TMP="/home/apiuser/.cache/tmp"
 
 # Set sandbox cache permissions for apiuser
-RUN chown -R 1001:1001 /var/lib/tracecat/sandbox-cache && \
-    chmod -R 755 /var/lib/tracecat/sandbox-cache
+RUN chown -R 1001:1001 /var/lib/autosecops/sandbox-cache && \
+    chmod -R 755 /var/lib/autosecops/sandbox-cache
 
 RUN chown apiuser:apiuser /app
 
@@ -318,7 +318,7 @@ RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
     uv sync --frozen --no-install-workspace --no-dev --no-editable
 
 COPY --from=development-source --chown=apiuser:apiuser /source/ /app/
-COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/tracecat/copilot-skills/
+COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/autosecops/copilot-skills/
 
 RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 uv sync --locked --no-dev
 
@@ -364,8 +364,8 @@ FROM base AS production-app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Set sandbox cache permissions for apiuser
-RUN chown -R 1001:1001 /var/lib/tracecat/sandbox-cache && \
-    chmod -R 755 /var/lib/tracecat/sandbox-cache
+RUN chown -R 1001:1001 /var/lib/autosecops/sandbox-cache && \
+    chmod -R 755 /var/lib/autosecops/sandbox-cache
 
 ENV PYTHONUSERBASE="/home/apiuser/.local"
 ENV UV_CACHE_DIR="/home/apiuser/.cache/uv"
@@ -388,7 +388,7 @@ RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
 
 COPY --chown=apiuser:apiuser ./autosecops /app/autosecops
 COPY --chown=apiuser:apiuser ./packages /app/packages
-COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/tracecat/copilot-skills/
+COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/autosecops/copilot-skills/
 COPY --chown=apiuser:apiuser ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
 COPY --chown=apiuser:apiuser ./alembic /app/alembic
 

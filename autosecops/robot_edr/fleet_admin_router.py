@@ -11,9 +11,9 @@ from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.pagination import Page, PageParams, PaginationError
 from autosecops.robot_edr.fleet_service import RobotFleetService, soc_key_read
@@ -61,9 +61,9 @@ def _http(exc: Exception) -> HTTPException:
     match exc:
         case RobotConflictError():
             return HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
-        case TracecatNotFoundError():
+        case AutoSecOpsNotFoundError():
             return HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc))
-        case TracecatAuthorizationError():
+        case AutoSecOpsAuthorizationError():
             return HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc))
         case _:
             return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -71,9 +71,9 @@ def _http(exc: Exception) -> HTTPException:
 
 _HANDLED = (
     RobotConflictError,
-    TracecatNotFoundError,
-    TracecatAuthorizationError,
-    TracecatValidationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsValidationError,
 )
 
 
@@ -147,9 +147,9 @@ async def list_fleet_revocation_lists(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(None, max_length=8192),
 ) -> Page[FleetRevocationRead]:

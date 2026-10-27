@@ -6,42 +6,42 @@
 | `PUBLIC_APP_URL` | `http://localhost:${PUBLIC_APP_PORT}` | Public URL users visit to reach the AutoSecOps UI. |
 | `PUBLIC_API_URL` | `${PUBLIC_APP_URL}/api` | Public URL for the AutoSecOps API, used by the browser and for webhook callbacks. |
 | `INTERNAL_API_URL` | `http://api:8000` | Internal URL that other services use to reach the API container. |
-| `TRACECAT__TRUSTED_PROXY_CIDRS` | `127.0.0.1/32` | Space-separated proxy CIDRs that Caddy trusts when deriving the client address from `X-Forwarded-For`. Set this when another proxy or load balancer runs in front of Caddy. |
-| `TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS` | | Comma-separated IPs or CIDRs, e.g. `10.0.12.34/32,10.42.0.0/16`, that custom LLM providers (LiteLLM, vLLM, Ollama, custom sources) and remote MCP servers may resolve to. AutoSecOps rejects private, loopback, and link-local destinations with `Host is not allowed` unless they are listed here. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Private endpoints](/agents/llm-providers#private-endpoints). |
-| `TRACECAT__OUTBOUND_PROXY_URL` | | HTTP or HTTPS forward proxy that LLM provider, model discovery, and remote MCP requests go through, e.g. `http://proxy.example.internal:3128` or `http://user:password@10.0.0.8:3128`. Percent-encode special characters in credentials. AutoSecOps still resolves each target locally and rejects private destinations before it uses the proxy. `HTTP_PROXY` and `HTTPS_PROXY` have no effect on these requests. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Corporate proxy](/agents/llm-providers#corporate-proxy). |
-| `TRACECAT__OUTBOUND_NO_PROXY` | | Comma-separated hostnames, IPs, or CIDRs that skip `TRACECAT__OUTBOUND_PROXY_URL` and connect directly, e.g. `vllm.example.internal,10.0.12.0/24`. A hostname also matches its subdomains. |
-| `TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS` | loopback + private ranges | Comma-separated CIDRs of proxies behind which the API runs (Caddy, the UI container, a load balancer). `X-Forwarded-For` entries from these hops are skipped when resolving the client IP for audit logs. |
-| `TRACECAT__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS` | `false` | Break-glass override for the API service. When `true`, AutoSecOps skips the [platform admin IP allowlist](/manage-platform/ip-allowlist#platform-admin-ip-allowlist) so a locked-out platform admin can recover. Organization allowlists still apply. Remove it after recovery. |
+| `AUTOSECOPS__TRUSTED_PROXY_CIDRS` | `127.0.0.1/32` | Space-separated proxy CIDRs that Caddy trusts when deriving the client address from `X-Forwarded-For`. Set this when another proxy or load balancer runs in front of Caddy. |
+| `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` | | Comma-separated IPs or CIDRs, e.g. `10.0.12.34/32,10.42.0.0/16`, that custom LLM providers (LiteLLM, vLLM, Ollama, custom sources) and remote MCP servers may resolve to. AutoSecOps rejects private, loopback, and link-local destinations with `Host is not allowed` unless they are listed here. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Private endpoints](/agents/llm-providers#private-endpoints). |
+| `AUTOSECOPS__OUTBOUND_PROXY_URL` | | HTTP or HTTPS forward proxy that LLM provider, model discovery, and remote MCP requests go through, e.g. `http://proxy.example.internal:3128` or `http://user:password@10.0.0.8:3128`. Percent-encode special characters in credentials. AutoSecOps still resolves each target locally and rejects private destinations before it uses the proxy. `HTTP_PROXY` and `HTTPS_PROXY` have no effect on these requests. Set it on `api`, `agent-worker`, `litellm`, and `agent-executor`. See [Corporate proxy](/agents/llm-providers#corporate-proxy). |
+| `AUTOSECOPS__OUTBOUND_NO_PROXY` | | Comma-separated hostnames, IPs, or CIDRs that skip `AUTOSECOPS__OUTBOUND_PROXY_URL` and connect directly, e.g. `vllm.example.internal,10.0.12.0/24`. A hostname also matches its subdomains. |
+| `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS` | loopback + private ranges | Comma-separated CIDRs of proxies behind which the API runs (Caddy, the UI container, a load balancer). `X-Forwarded-For` entries from these hops are skipped when resolving the client IP for audit logs. |
+| `AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS` | `false` | Break-glass override for the API service. When `true`, AutoSecOps skips the [platform admin IP allowlist](/manage-platform/ip-allowlist#platform-admin-ip-allowlist) so a locked-out platform admin can recover. Organization allowlists still apply. Remove it after recovery. |
 
 ### Application
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__APP_ENV` | `production` | One of `development`, `staging`, or `production`. Controls logging detail and debug behavior. |
-| `TRACECAT__API_URL` | `${INTERNAL_API_URL}` | API URL used by backend services. Normally matches `INTERNAL_API_URL`. |
-| `TRACECAT__API_ROOT_PATH` | `/api` | Path prefix the API registers behind the reverse proxy. |
-| `TRACECAT__PUBLIC_APP_URL` | `${PUBLIC_APP_URL}` | Public frontend URL used for links in emails and notifications. |
-| `TRACECAT__PUBLIC_API_URL` | `${PUBLIC_API_URL}` | Public API URL used for incoming webhooks. If you expose webhooks through a tunnel (e.g. ngrok), set this to the tunnel URL. |
-| `TRACECAT__ALLOW_ORIGINS` | `http://localhost:3000,${PUBLIC_APP_URL}` | Comma-separated list of allowed CORS origins. |
-| `TRACECAT__LICENSE_KEY` | | Signed license key that unlocks paid entitlements on single-tenant deployments. See [License key](/self-hosting/license). |
+| `AUTOSECOPS__APP_ENV` | `production` | One of `development`, `staging`, or `production`. Controls logging detail and debug behavior. |
+| `AUTOSECOPS__API_URL` | `${INTERNAL_API_URL}` | API URL used by backend services. Normally matches `INTERNAL_API_URL`. |
+| `AUTOSECOPS__API_ROOT_PATH` | `/api` | Path prefix the API registers behind the reverse proxy. |
+| `AUTOSECOPS__PUBLIC_APP_URL` | `${PUBLIC_APP_URL}` | Public frontend URL used for links in emails and notifications. |
+| `AUTOSECOPS__PUBLIC_API_URL` | `${PUBLIC_API_URL}` | Public API URL used for incoming webhooks. If you expose webhooks through a tunnel (e.g. ngrok), set this to the tunnel URL. |
+| `AUTOSECOPS__ALLOW_ORIGINS` | `http://localhost:3000,${PUBLIC_APP_URL}` | Comma-separated list of allowed CORS origins. |
+| `AUTOSECOPS__LICENSE_KEY` | | Signed license key that unlocks paid entitlements on single-tenant deployments. See [License key](/self-hosting/license). |
 
 ### PostgreSQL
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__POSTGRES_USER` | `postgres` | PostgreSQL username. |
-| `TRACECAT__POSTGRES_PASSWORD` | Generated by `env.sh` | PostgreSQL password. `.env.example` ships a `change-me-` placeholder; development mode uses `postgres`. |
-| `TRACECAT__DB_URI` | `postgresql+psycopg://${TRACECAT__POSTGRES_USER}:${TRACECAT__POSTGRES_PASSWORD}@postgres_db:5432/postgres` | Full database connection URI. Override this when using an external database. |
-| `TRACECAT__DB_SSLMODE` | `disable` | PostgreSQL SSL mode. Set to `require` or `verify-full` for remote databases. |
+| `AUTOSECOPS__POSTGRES_USER` | `postgres` | PostgreSQL username. |
+| `AUTOSECOPS__POSTGRES_PASSWORD` | Generated by `env.sh` | PostgreSQL password. `.env.example` ships a `change-me-` placeholder; development mode uses `postgres`. |
+| `AUTOSECOPS__DB_URI` | `postgresql+psycopg://${AUTOSECOPS__POSTGRES_USER}:${AUTOSECOPS__POSTGRES_PASSWORD}@postgres_db:5432/postgres` | Full database connection URI. Override this when using an external database. |
+| `AUTOSECOPS__DB_SSLMODE` | `disable` | PostgreSQL SSL mode. Set to `require` or `verify-full` for remote databases. |
 
 ### Authentication
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__AUTH_SUPERADMIN_EMAIL` | | Email promoted to superadmin when that account is created. Set it before the first user registers; until then, nobody can register. |
-| `TRACECAT__AUTH_TYPES` | `basic` | Comma-separated list of enabled auth methods: `basic`, `oidc`, `saml`. |
-| `TRACECAT__AUTH_ALLOWED_DOMAINS` | | Comma-separated email domains allowed to create an account and to sign in through OIDC, e.g. `example.com,example.org`. Leave blank to allow all. SAML uses the organization's configured domains when set; without them, single-tenant deployments fall back to this list and multi-tenant deployments reject the sign-in. Membership in an organization still comes from an invitation or admin provisioning. |
-| `TRACECAT__AUTH_MIN_PASSWORD_LENGTH` | `12` | Minimum password length for basic auth. |
+| `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` | | Email promoted to superadmin when that account is created. Set it before the first user registers; until then, nobody can register. |
+| `AUTOSECOPS__AUTH_TYPES` | `basic` | Comma-separated list of enabled auth methods: `basic`, `oidc`, `saml`. |
+| `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` | | Comma-separated email domains allowed to create an account and to sign in through OIDC, e.g. `example.com,example.org`. Leave blank to allow all. SAML uses the organization's configured domains when set; without them, single-tenant deployments fall back to this list and multi-tenant deployments reject the sign-in. Membership in an organization still comes from an invitation or admin provisioning. |
+| `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` | `12` | Minimum password length for basic auth. |
 
 ### OIDC / OAuth
 
@@ -68,7 +68,7 @@
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
 | `TEMPORAL__CLUSTER_URL` | `temporal:7233` | Temporal cluster gRPC endpoint. |
-| `TEMPORAL__CLUSTER_QUEUE` | `tracecat-task-queue` | Temporal task queue name. |
+| `TEMPORAL__CLUSTER_QUEUE` | `autosecops-task-queue` | Temporal task queue name. |
 | `TEMPORAL__CLUSTER_NAMESPACE` | `default` | Temporal namespace. |
 | `TEMPORAL__API_KEY` | | API key for Temporal Cloud. Leave empty for self-hosted Temporal. |
 
@@ -76,15 +76,15 @@
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__EXECUTOR_BACKEND` | `direct` | Execution mode for actions, agents, registry sync, and Python scripts. `direct` runs without nsjail; `nsjail` requires nsjail isolation. `ephemeral` is a compatibility alias for `nsjail`. |
-| `TRACECAT__EXECUTOR_CLIENT_TIMEOUT` | `300` | Maximum seconds one action function call may run. The `executor` service caps each call at this value and uses it as the action's timeout when `timeout` is `0`. A template action's total runtime and `core.script.run_python` scripts follow the action's own `timeout` instead. The Compose files and the Fargate module do not pass this variable to the `executor` service, so set it on that container directly to raise the cap. |
-| `TRACECAT__SANDBOX_DEFAULT_MEMORY_MB` | `2048` | Aggregate cgroup v2 memory limit in MiB per `core.script.run_python`, dependency-install, and custom action sandbox, shared by its processes. Applied by the nsjail backend. Exceeding it during script or action execution fails as `sandbox.resource_limit_exceeded`; an over-budget dependency installation fails as a package installation failure. The container memory limit still applies on top. See [Resource limits](/self-hosting/security#resource-limits). |
-| `TRACECAT__SANDBOX_ADDRESS_SPACE_MB` | Uncapped | Per-process virtual address-space cap in MiB for action, Python, and dependency-install sandboxes. Requires nsjail. The cgroup memory budget bounds RAM; set a positive integer to also cap address space. |
-| `TRACECAT__RESULT_EXTERNALIZATION_ENABLED` | `true` | Store large action results in blob storage instead of Temporal history. |
-| `TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES` | `128000` | Byte threshold above which payloads are externalized to blob storage. |
-| `TRACECAT__WORKFLOW_ARTIFACT_RETENTION_DAYS` | `30` | Retention period in days for workflow artifacts. Objects older than this are automatically deleted via S3 lifecycle rules. Set to `0` to disable. |
-| `TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT` | `60` | Seconds Temporal waits for a heartbeat from an executor activity before failing it and retrying on a healthy worker. Set to `0` to disable. Read by the `worker` service. The Compose files and the Fargate module do not pass this variable through, so set it on that container directly. To disable heartbeats, set this and `TRACECAT__ACTIVITY_HEARTBEAT_INTERVAL` to `0` together. |
-| `TRACECAT__ACTIVITY_HEARTBEAT_INTERVAL` | `30` | Seconds between heartbeats from executor activities. A value at or above `TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT` lets Temporal fail the activity between two heartbeats. Set to `0` to disable heartbeats. Read by the `executor` service and not passed through by the Compose files or the Fargate module, so set it on that container directly. `0` alone stops the executor heartbeating while the worker still expects one every `TRACECAT__ACTIVITY_HEARTBEAT_TIMEOUT` seconds, which fails actions that run longer than that. |
+| `AUTOSECOPS__EXECUTOR_BACKEND` | `direct` | Execution mode for actions, agents, registry sync, and Python scripts. `direct` runs without nsjail; `nsjail` requires nsjail isolation. `ephemeral` is a compatibility alias for `nsjail`. |
+| `AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT` | `300` | Maximum seconds one action function call may run. The `executor` service caps each call at this value and uses it as the action's timeout when `timeout` is `0`. A template action's total runtime and `core.script.run_python` scripts follow the action's own `timeout` instead. The Compose files and the Fargate module do not pass this variable to the `executor` service, so set it on that container directly to raise the cap. |
+| `AUTOSECOPS__SANDBOX_DEFAULT_MEMORY_MB` | `2048` | Aggregate cgroup v2 memory limit in MiB per `core.script.run_python`, dependency-install, and custom action sandbox, shared by its processes. Applied by the nsjail backend. Exceeding it during script or action execution fails as `sandbox.resource_limit_exceeded`; an over-budget dependency installation fails as a package installation failure. The container memory limit still applies on top. See [Resource limits](/self-hosting/security#resource-limits). |
+| `AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB` | Uncapped | Per-process virtual address-space cap in MiB for action, Python, and dependency-install sandboxes. Requires nsjail. The cgroup memory budget bounds RAM; set a positive integer to also cap address space. |
+| `AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED` | `true` | Store large action results in blob storage instead of Temporal history. |
+| `AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES` | `128000` | Byte threshold above which payloads are externalized to blob storage. |
+| `AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS` | `30` | Retention period in days for workflow artifacts. Objects older than this are automatically deleted via S3 lifecycle rules. Set to `0` to disable. |
+| `AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT` | `60` | Seconds Temporal waits for a heartbeat from an executor activity before failing it and retrying on a healthy worker. Set to `0` to disable. Read by the `worker` service. The Compose files and the Fargate module do not pass this variable through, so set it on that container directly. To disable heartbeats, set this and `AUTOSECOPS__ACTIVITY_HEARTBEAT_INTERVAL` to `0` together. |
+| `AUTOSECOPS__ACTIVITY_HEARTBEAT_INTERVAL` | `30` | Seconds between heartbeats from executor activities. A value at or above `AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT` lets Temporal fail the activity between two heartbeats. Set to `0` to disable heartbeats. Read by the `executor` service and not passed through by the Compose files or the Fargate module, so set it on that container directly. `0` alone stops the executor heartbeating while the worker still expects one every `AUTOSECOPS__ACTIVITY_HEARTBEAT_TIMEOUT` seconds, which fails actions that run longer than that. |
 
 ### Tunnels
 
@@ -92,44 +92,44 @@ Set all four on the `api` service to enable [managed tunnels](/manage-platform/t
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__PANGOLIN_ENDPOINT` | | Pangolin server URL that site connectors and machine clients connect to, e.g. `https://app.pangolin.net` or `https://pangolin.example.com`. |
-| `TRACECAT__PANGOLIN_API_URL` | | Pangolin Integration API base URL ending in `/v1`, e.g. `https://api.pangolin.net/v1`. |
-| `TRACECAT__PANGOLIN_ORG_ID` | | Pangolin organization ID that holds every managed site, client, and resource. |
-| `TRACECAT__PANGOLIN_API_KEY` | | Pangolin organization API key with site, client, and private resource permissions. Store it in your secrets manager. |
-| `TRACECAT__PANGOLIN_API_KEY__ARN` | | AWS Secrets Manager ARN of the Pangolin API key, used instead of `TRACECAT__PANGOLIN_API_KEY`. Read by the `api` service only. |
+| `AUTOSECOPS__PANGOLIN_ENDPOINT` | | Pangolin server URL that site connectors and machine clients connect to, e.g. `https://app.pangolin.net` or `https://pangolin.example.com`. |
+| `AUTOSECOPS__PANGOLIN_API_URL` | | Pangolin Integration API base URL ending in `/v1`, e.g. `https://api.pangolin.net/v1`. |
+| `AUTOSECOPS__PANGOLIN_ORG_ID` | | Pangolin organization ID that holds every managed site, client, and resource. |
+| `AUTOSECOPS__PANGOLIN_API_KEY` | | Pangolin organization API key with site, client, and private resource permissions. Store it in your secrets manager. |
+| `AUTOSECOPS__PANGOLIN_API_KEY__ARN` | | AWS Secrets Manager ARN of the Pangolin API key, used instead of `AUTOSECOPS__PANGOLIN_API_KEY`. Read by the `api` service only. |
 
-These settings control the [tunnel gateways](/self-hosting/kubernetes#tunnels) that the `api` service runs on Kubernetes. Executors read `TRACECAT__TUNNEL_GATEWAY_HOST_TEMPLATE` and `TRACECAT__TUNNEL_GATEWAY_PORT` to find a tunnel's gateway.
+These settings control the [tunnel gateways](/self-hosting/kubernetes#tunnels) that the `api` service runs on Kubernetes. Executors read `AUTOSECOPS__TUNNEL_GATEWAY_HOST_TEMPLATE` and `AUTOSECOPS__TUNNEL_GATEWAY_PORT` to find a tunnel's gateway.
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__TUNNEL_GATEWAY_BACKEND` | `none` | `kubernetes` to have the `api` service create and reconcile one gateway per tunnel. `none` disables tunnels: they can't be created and tunneled traffic fails. |
-| `TRACECAT__TUNNEL_GATEWAY_NAMESPACE` | `tracecat-tunnels` | Kubernetes namespace for gateway Secrets, Deployments, and Services. |
-| `TRACECAT__TUNNEL_GATEWAY_IMAGE` | `ghcr.io/singularityrd/autosecops-tunnel-gateway:<version>` | Gateway image. Defaults to the running AutoSecOps version; set `repository@sha256:<digest>` to pin an immutable image. |
-| `TRACECAT__TUNNEL_GATEWAY_BLOCKED_CIDRS` | | Comma-separated CIDRs gateways never dial, such as the cluster's pod and service ranges. |
-| `TRACECAT__TUNNEL_GATEWAY_API_URL` | `TRACECAT__API_URL` | Internal API URL that gateways load their policy from. |
-| `TRACECAT__TUNNEL_GATEWAY_HOST_TEMPLATE` | `tunnel-{tunnel_id}.<TRACECAT__TUNNEL_GATEWAY_NAMESPACE>.svc.cluster.local` | Gateway hostname, with `{tunnel_id}` filled in per tunnel. |
-| `TRACECAT__TUNNEL_GATEWAY_PORT` | `8080` | Gateway proxy port. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_BACKEND` | `none` | `kubernetes` to have the `api` service create and reconcile one gateway per tunnel. `none` disables tunnels: they can't be created and tunneled traffic fails. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_NAMESPACE` | `autosecops-tunnels` | Kubernetes namespace for gateway Secrets, Deployments, and Services. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_IMAGE` | `ghcr.io/singularityrd/autosecops-tunnel-gateway:<version>` | Gateway image. Defaults to the running AutoSecOps version; set `repository@sha256:<digest>` to pin an immutable image. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_BLOCKED_CIDRS` | | Comma-separated CIDRs gateways never dial, such as the cluster's pod and service ranges. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_API_URL` | `AUTOSECOPS__API_URL` | Internal API URL that gateways load their policy from. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_HOST_TEMPLATE` | `tunnel-{tunnel_id}.<AUTOSECOPS__TUNNEL_GATEWAY_NAMESPACE>.svc.cluster.local` | Gateway hostname, with `{tunnel_id}` filled in per tunnel. |
+| `AUTOSECOPS__TUNNEL_GATEWAY_PORT` | `8080` | Gateway proxy port. |
 
 ### Agents
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__AGENT_SANDBOX_TIMEOUT` | `10800` | Ceiling in seconds for the `timeout` of `ai.agent`, `ai.action`, and `ai.preset_agent`. AutoSecOps clamps explicit values between `1800` and this value, and unset means `7200`. A lower ceiling caps both the default and the minimum. Agent chat turns use the `7200` default, capped by this value. |
-| `TRACECAT__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT` | `10860` | Seconds the agent executor worker waits for running agent activities to finish during a planned shutdown. Defaults to `TRACECAT__AGENT_SANDBOX_TIMEOUT` plus `60`. |
-| `TRACECAT__LLM_PROXY_READ_TIMEOUT` | `600` | Seconds the sandbox LLM proxy waits for the next byte from the model gateway before failing the request with `504`. Separate from the agent timeout. |
-| `TRACECAT__AGENT_SANDBOX_MEMORY_MB` | `4096` | Cgroup v2 memory budget in MiB shared by an agent sandbox and its child processes. Requires nsjail and cgroup delegation. The outer container memory limit still applies. See [Resource limits](/self-hosting/security#resource-limits). |
-| `TRACECAT__AGENT_SANDBOX_ADDRESS_SPACE_MB` | Uncapped | Per-process virtual address-space cap in MiB for agent sandboxes. Requires nsjail; this cap is not enforced in direct mode. The cgroup memory budget bounds RAM; set a positive integer to also cap address space. |
+| `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT` | `10800` | Ceiling in seconds for the `timeout` of `ai.agent`, `ai.action`, and `ai.preset_agent`. AutoSecOps clamps explicit values between `1800` and this value, and unset means `7200`. A lower ceiling caps both the default and the minimum. Agent chat turns use the `7200` default, capped by this value. |
+| `AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT` | `10860` | Seconds the agent executor worker waits for running agent activities to finish during a planned shutdown. Defaults to `AUTOSECOPS__AGENT_SANDBOX_TIMEOUT` plus `60`. |
+| `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` | `600` | Seconds the sandbox LLM proxy waits for the next byte from the model gateway before failing the request with `504`. Separate from the agent timeout. |
+| `AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB` | `4096` | Cgroup v2 memory budget in MiB shared by an agent sandbox and its child processes. Requires nsjail and cgroup delegation. The outer container memory limit still applies. See [Resource limits](/self-hosting/security#resource-limits). |
+| `AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB` | Uncapped | Per-process virtual address-space cap in MiB for agent sandboxes. Requires nsjail; this cap is not enforced in direct mode. The cgroup memory budget bounds RAM; set a positive integer to also cap address space. |
 
 ### Blob storage
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
-| `TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW` | `tracecat-workflow` | S3 bucket for workflow artifacts. |
-| `TRACECAT__BLOB_STORAGE_BUCKET_ATTACHMENTS` | `tracecat-attachments` | S3 bucket for case attachments. |
-| `TRACECAT__BLOB_STORAGE_BUCKET_REGISTRY` | `tracecat-registry` | S3 bucket for registry packages. |
-| `TRACECAT__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT` | | Public base URL substituted for `TRACECAT__BLOB_STORAGE_ENDPOINT` in presigned URLs. Leave unset for AWS S3. A proxy in front of the store must forward the `Host` of `TRACECAT__BLOB_STORAGE_ENDPOINT`, as the bundled Caddy does. |
-| `TRACECAT__BLOB_STORAGE_SSL_VERIFY` | `true` | Verify TLS certificates when connecting to blob storage. Set to `false` for self-hosted S3-compatible storage with a self-signed or unverifiable certificate. When `true`, botocore CA bundle settings such as `AWS_CA_BUNDLE` still apply. |
-| `TRACECAT__CSP_CONNECT_SRC_ORIGINS` | | Space- or comma-separated origins added to the UI's CSP `connect-src`. Set on the `ui` service to the presigned S3 bucket origins when the browser uploads or fetches blobs cross-origin. Compose defaults it to the presigned endpoint. |
+| `AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW` | `autosecops-workflow` | S3 bucket for workflow artifacts. |
+| `AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS` | `autosecops-attachments` | S3 bucket for case attachments. |
+| `AUTOSECOPS__BLOB_STORAGE_BUCKET_REGISTRY` | `autosecops-registry` | S3 bucket for registry packages. |
+| `AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT` | | Public base URL substituted for `AUTOSECOPS__BLOB_STORAGE_ENDPOINT` in presigned URLs. Leave unset for AWS S3. A proxy in front of the store must forward the `Host` of `AUTOSECOPS__BLOB_STORAGE_ENDPOINT`, as the bundled Caddy does. |
+| `AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY` | `true` | Verify TLS certificates when connecting to blob storage. Set to `false` for self-hosted S3-compatible storage with a self-signed or unverifiable certificate. When `true`, botocore CA bundle settings such as `AWS_CA_BUNDLE` still apply. |
+| `AUTOSECOPS__CSP_CONNECT_SRC_ORIGINS` | | Space- or comma-separated origins added to the UI's CSP `connect-src`. Set on the `ui` service to the presigned S3 bucket origins when the browser uploads or fetches blobs cross-origin. Compose defaults it to the presigned endpoint. |
 
 ### MinIO
 

@@ -6,11 +6,11 @@ from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsNotFoundError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsSettingsError,
+    AutoSecOpsValidationError,
     ScopeDeniedError,
-    TracecatCredentialsNotFoundError,
-    TracecatNotFoundError,
-    TracecatSettingsError,
-    TracecatValidationError,
 )
 from autosecops.identifiers.workflow import AnyWorkflowIDPath
 from autosecops.logger import logger
@@ -71,17 +71,17 @@ async def publish_workflow(
             params=params,
             workflow=defn.workflow,
         )
-    except TracecatSettingsError as e:
+    except AutoSecOpsSettingsError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except TracecatCredentialsNotFoundError as e:
+    except AutoSecOpsCredentialsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -132,10 +132,10 @@ async def list_workflow_commits(
         max_length=255,
     ),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_COMMITS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_COMMITS_DEFAULT,
         description="Maximum number of commits to return",
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[GitCommitInfo]:
     """Get commit list for the configured workspace repository.
@@ -159,14 +159,14 @@ async def list_workflow_commits(
         )
     except HTTPException:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     except (
-        TracecatSettingsError,
-        TracecatValidationError,
+        AutoSecOpsSettingsError,
+        AutoSecOpsValidationError,
         VcsProviderError,
     ) as e:
         logger.error("Git sync error fetching commits", exc_info=True)
@@ -191,10 +191,10 @@ async def list_workflow_branches(
     role: WorkspaceActorRouteRole,
     session: AsyncDBSession,
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_COMMITS_DEFAULT,
+        default=config.AUTOSECOPS__LIMIT_COMMITS_DEFAULT,
         description="Maximum number of branches to return",
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
 ) -> list[GitBranchInfo]:
     """Get branch list for the configured workspace repository."""
@@ -211,14 +211,14 @@ async def list_workflow_branches(
         return await sync_service.list_branches(limit=limit)
     except HTTPException:
         raise
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     except (
-        TracecatSettingsError,
-        TracecatValidationError,
+        AutoSecOpsSettingsError,
+        AutoSecOpsValidationError,
         VcsProviderError,
     ) as e:
         logger.error("Git sync error fetching branches", exc_info=True)
@@ -255,14 +255,14 @@ async def export_workspace_sync(
             session=session, role=role
         )
         return await sync_service.export_workspace(params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     except (
-        TracecatSettingsError,
-        TracecatValidationError,
+        AutoSecOpsSettingsError,
+        AutoSecOpsValidationError,
         VcsProviderError,
     ) as e:
         raise HTTPException(
@@ -289,14 +289,14 @@ async def preview_export_workspace_sync(
             session=session, role=role
         )
         return await sync_service.preview_export_workspace(params)
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     except (
-        TracecatSettingsError,
-        TracecatValidationError,
+        AutoSecOpsSettingsError,
+        AutoSecOpsValidationError,
         VcsProviderError,
     ) as e:
         raise HTTPException(
@@ -356,14 +356,14 @@ async def pull_workflows(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid parameters: {str(e)}",
         ) from e
-    except TracecatNotFoundError as e:
+    except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
     except (
-        TracecatSettingsError,
-        TracecatValidationError,
+        AutoSecOpsSettingsError,
+        AutoSecOpsValidationError,
         VcsProviderError,
     ) as e:
         logger.error("Git sync error during workflow pull", exc_info=True)

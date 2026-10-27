@@ -40,8 +40,9 @@ import { copyToClipboard } from "@/lib/utils"
 
 type SetupMethod = "existing" | "new"
 type DialogStage = "choose" | "guide" | "connect"
-const PROVISIONAL_BOT_TOKEN = "__tracecat_pending_bot_token__"
-const PROVISIONAL_SIGNING_SECRET_PREFIX = "__tracecat_pending_signing_secret__"
+const PROVISIONAL_BOT_TOKEN = "__autosecops_pending_bot_token__"
+const PROVISIONAL_SIGNING_SECRET_PREFIX =
+  "__autosecops_pending_signing_secret__"
 type SlackChannelConfig = {
   slack_bot_token: string
   slack_signing_secret: string

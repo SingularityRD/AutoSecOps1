@@ -81,19 +81,21 @@ class FileSecurityValidator:
         allowed_mime_types: Sequence[str] | None = None,
         validate_magic_number: bool = True,
     ):
-        self.max_file_size = max_file_size or config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES
+        self.max_file_size = (
+            max_file_size or config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES
+        )
         self.max_filename_length = (
-            max_filename_length or config.TRACECAT__MAX_ATTACHMENT_FILENAME_LENGTH
+            max_filename_length or config.AUTOSECOPS__MAX_ATTACHMENT_FILENAME_LENGTH
         )
         # Normalize extensions: trim whitespace and lowercase for robust comparison
         raw_exts = list(
-            allowed_extensions or config.TRACECAT__ALLOWED_ATTACHMENT_EXTENSIONS
+            allowed_extensions or config.AUTOSECOPS__ALLOWED_ATTACHMENT_EXTENSIONS
         )
         self.allowed_extensions = [
             e.strip().lower() for e in raw_exts if str(e).strip()
         ]
         self.allowed_mime_types = list(
-            allowed_mime_types or config.TRACECAT__ALLOWED_ATTACHMENT_MIME_TYPES
+            allowed_mime_types or config.AUTOSECOPS__ALLOWED_ATTACHMENT_MIME_TYPES
         )
         self.validate_magic_number = validate_magic_number
 

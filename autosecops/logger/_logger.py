@@ -28,9 +28,11 @@ _CONSOLE_FORMAT = (
 def _add_process_context(record: "Record") -> None:
     """Attach trusted process identity and active trace identifiers."""
     record["extra"]["process_service"] = os.environ.get(
-        "TRACECAT__SERVICE_NAME", "tracecat"
+        "AUTOSECOPS__SERVICE_NAME", "autosecops"
     )
-    record["extra"]["environment"] = os.environ.get("TRACECAT__APP_ENV", "development")
+    record["extra"]["environment"] = os.environ.get(
+        "AUTOSECOPS__APP_ENV", "development"
+    )
     _add_trace_context(record)
 
 

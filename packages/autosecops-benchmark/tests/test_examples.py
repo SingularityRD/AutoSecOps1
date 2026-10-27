@@ -12,26 +12,26 @@ def test_loadtest_override_bounds_executor_database_fanout() -> None:
     compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
     executor_environment = compose["services"]["executor"]["environment"]
 
-    assert executor_environment["TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES:-8}"
+    assert executor_environment["AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES:-8}"
     )
-    assert executor_environment["TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY:-4}"
+    assert executor_environment["AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_FOR_EACH_MAX_CONCURRENCY:-4}"
     )
-    assert executor_environment["TRACECAT__DB_POOL_SIZE"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_DB_POOL_SIZE:-9}"
+    assert executor_environment["AUTOSECOPS__DB_POOL_SIZE"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_DB_POOL_SIZE:-9}"
     )
-    assert executor_environment["TRACECAT__DB_MAX_OVERFLOW"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW:-0}"
+    assert executor_environment["AUTOSECOPS__DB_MAX_OVERFLOW"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW:-0}"
     )
-    assert executor_environment["TRACECAT__DB_AUTH_POOL_SIZE"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE:-5}"
+    assert executor_environment["AUTOSECOPS__DB_AUTH_POOL_SIZE"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE:-5}"
     )
-    assert executor_environment["TRACECAT__DB_AUTH_MAX_OVERFLOW"] == (
-        "${TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW:-0}"
+    assert executor_environment["AUTOSECOPS__DB_AUTH_MAX_OVERFLOW"] == (
+        "${AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW:-0}"
     )
     assert compose["services"]["temporal"]["environment"]["NUM_HISTORY_SHARDS"] == (
-        "${TRACECAT__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS:-512}"
+        "${AUTOSECOPS__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS:-512}"
     )
     assert compose["services"]["api"]["ports"] == [
         "127.0.0.1:${API_DB_POOL_METRICS_PORT:-9440}:9091"
@@ -46,13 +46,13 @@ def test_loadtest_override_bounds_executor_database_fanout() -> None:
     ]
     for service_name in ("api", "worker", "executor"):
         environment = compose["services"][service_name]["environment"]
-        assert environment["TRACECAT_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT"] == 9091
+        assert environment["AUTOSECOPS_BENCHMARK_INTERNAL_DB_POOL_METRICS_PORT"] == 9091
         assert environment["PYTHONPATH"].startswith(
             "/app/packages/autosecops-benchmark/bootstrap:"
         )
     for service_name in ("executor", "agent-executor"):
         sandbox_cache = compose["services"][service_name]["volumes"][0]
-        assert sandbox_cache["target"] == "/var/lib/tracecat/sandbox-cache"
+        assert sandbox_cache["target"] == "/var/lib/autosecops/sandbox-cache"
         assert sandbox_cache["volume"]["nocopy"] is False
 
 
@@ -68,22 +68,22 @@ def test_pgdog_override_routes_long_lived_services_through_transaction_pool() ->
         "sha256:f1787473b62d0a5cfd18a67477dda24a549eeca9a81f5fa7ee670a1699299419"
     )
     assert pgdog["command"][-2:] == ["--session-mode", "false"]
-    assert "${TRACECAT__LOADTEST_PGDOG_POOL_SIZE:-16}" in pgdog["command"]
+    assert "${AUTOSECOPS__LOADTEST_PGDOG_POOL_SIZE:-16}" in pgdog["command"]
     assert pgdog["depends_on"]["postgres_db"]["condition"] == "service_healthy"
 
     proxied_services = {
-        "worker": "tracecat_worker",
-        "executor": "tracecat_executor",
-        "agent-worker": "tracecat_aux",
-        "mcp": "tracecat_aux",
-        "litellm": "tracecat_aux",
-        "agent-executor": "tracecat_aux",
+        "worker": "autosecops_worker",
+        "executor": "autosecops_executor",
+        "agent-worker": "autosecops_aux",
+        "mcp": "autosecops_aux",
+        "litellm": "autosecops_aux",
+        "agent-executor": "autosecops_aux",
     }
     for service_name, logical_database in proxied_services.items():
         service = services[service_name]
         assert (
             f"@pgdog:6432/{logical_database}"
-            in service["environment"]["TRACECAT__DB_URI"]
+            in service["environment"]["AUTOSECOPS__DB_URI"]
         )
         assert service["depends_on"]["pgdog"]["condition"] == "service_healthy"
     assert "migrations" not in services
@@ -92,16 +92,16 @@ def test_pgdog_override_routes_long_lived_services_through_transaction_pool() ->
     pgdog_environment = pgdog["environment"]
     expected_backend_pools = {
         "PGDOG_DATABASE_URL_1": (
-            "tracecat_worker",
-            "${TRACECAT__LOADTEST_PGDOG_WORKER_POOL_SIZE:-6}",
+            "autosecops_worker",
+            "${AUTOSECOPS__LOADTEST_PGDOG_WORKER_POOL_SIZE:-6}",
         ),
         "PGDOG_DATABASE_URL_2": (
-            "tracecat_executor",
-            "${TRACECAT__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE:-16}",
+            "autosecops_executor",
+            "${AUTOSECOPS__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE:-16}",
         ),
         "PGDOG_DATABASE_URL_3": (
-            "tracecat_aux",
-            "${TRACECAT__LOADTEST_PGDOG_AUX_POOL_SIZE:-2}",
+            "autosecops_aux",
+            "${AUTOSECOPS__LOADTEST_PGDOG_AUX_POOL_SIZE:-2}",
         ),
     }
     for variable, (logical_database, pool_size) in expected_backend_pools.items():
@@ -138,58 +138,58 @@ def test_pgdog_matrix_holds_load_constant_across_db_and_pool_calibrations() -> N
         case.process_environment() for case in cases
     )
     held_constant = {
-        "TRACECAT__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES": "8",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_POOL_SIZE": "9",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE": "5",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_API_DB_POOL_SIZE": "5",
-        "TRACECAT__LOADTEST_API_DB_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_API_DB_AUTH_POOL_SIZE": "2",
-        "TRACECAT__LOADTEST_API_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_WORKER_DB_POOL_SIZE": "5",
-        "TRACECAT__LOADTEST_WORKER_DB_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_WORKER_DB_AUTH_POOL_SIZE": "4",
-        "TRACECAT__LOADTEST_WORKER_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS": "512",
-        "TRACECAT__LOADTEST_PGDOG_CPUS": "1",
-        "TRACECAT__LOADTEST_PGDOG_MEMORY": "512m",
-        "TRACECAT__LOADTEST_PGDOG_POOL_SIZE": "16",
-        "TRACECAT__LOADTEST_PGDOG_MIN_POOL_SIZE": "1",
-        "TRACECAT__LOADTEST_PGDOG_WORKER_POOL_SIZE": "6",
-        "TRACECAT__LOADTEST_PGDOG_AUX_POOL_SIZE": "2",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES": "8",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_POOL_SIZE": "9",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE": "5",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_API_DB_POOL_SIZE": "5",
+        "AUTOSECOPS__LOADTEST_API_DB_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_API_DB_AUTH_POOL_SIZE": "2",
+        "AUTOSECOPS__LOADTEST_API_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_POOL_SIZE": "5",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_AUTH_POOL_SIZE": "4",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_NUM_HISTORY_SHARDS": "512",
+        "AUTOSECOPS__LOADTEST_PGDOG_CPUS": "1",
+        "AUTOSECOPS__LOADTEST_PGDOG_MEMORY": "512m",
+        "AUTOSECOPS__LOADTEST_PGDOG_POOL_SIZE": "16",
+        "AUTOSECOPS__LOADTEST_PGDOG_MIN_POOL_SIZE": "1",
+        "AUTOSECOPS__LOADTEST_PGDOG_WORKER_POOL_SIZE": "6",
+        "AUTOSECOPS__LOADTEST_PGDOG_AUX_POOL_SIZE": "2",
     }
     for environment in (large_db, small_db, pool8, pool12, doubled, pool32):
         assert {name: environment[name] for name in held_constant} == held_constant
     assert [
-        environment["TRACECAT__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE"]
+        environment["AUTOSECOPS__LOADTEST_PGDOG_EXECUTOR_POOL_SIZE"]
         for environment in (large_db, small_db, pool8, pool12, doubled, pool32)
     ] == ["16", "16", "8", "12", "24", "32"]
     assert all(
-        environment["TRACECAT__LOADTEST_EXECUTOR_REPLICAS"] == "3"
+        environment["AUTOSECOPS__LOADTEST_EXECUTOR_REPLICAS"] == "3"
         for environment in (large_db, small_db, pool8, pool12, pool32)
     )
     assert (
-        large_db["TRACECAT__LOADTEST_POSTGRES_DB_CPUS"],
-        large_db["TRACECAT__LOADTEST_POSTGRES_DB_MEMORY"],
-        large_db["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
+        large_db["AUTOSECOPS__LOADTEST_POSTGRES_DB_CPUS"],
+        large_db["AUTOSECOPS__LOADTEST_POSTGRES_DB_MEMORY"],
+        large_db["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
     ) == ("2", "4g", "100")
     assert (
-        small_db["TRACECAT__LOADTEST_POSTGRES_DB_CPUS"],
-        small_db["TRACECAT__LOADTEST_POSTGRES_DB_MEMORY"],
-        small_db["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
+        small_db["AUTOSECOPS__LOADTEST_POSTGRES_DB_CPUS"],
+        small_db["AUTOSECOPS__LOADTEST_POSTGRES_DB_MEMORY"],
+        small_db["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
     ) == ("1", "1g", "50")
     assert all(
-        environment["TRACECAT__LOADTEST_POSTGRES_DB_CPUS"] == "1"
-        and environment["TRACECAT__LOADTEST_POSTGRES_DB_MEMORY"] == "1g"
-        and environment["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"] == "50"
+        environment["AUTOSECOPS__LOADTEST_POSTGRES_DB_CPUS"] == "1"
+        and environment["AUTOSECOPS__LOADTEST_POSTGRES_DB_MEMORY"] == "1g"
+        and environment["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"] == "50"
         for environment in (pool8, pool12, doubled)
     )
-    assert doubled["TRACECAT__LOADTEST_EXECUTOR_REPLICAS"] == "6"
+    assert doubled["AUTOSECOPS__LOADTEST_EXECUTOR_REPLICAS"] == "6"
     assert (
-        pool32["TRACECAT__LOADTEST_POSTGRES_DB_CPUS"],
-        pool32["TRACECAT__LOADTEST_POSTGRES_DB_MEMORY"],
-        pool32["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
+        pool32["AUTOSECOPS__LOADTEST_POSTGRES_DB_CPUS"],
+        pool32["AUTOSECOPS__LOADTEST_POSTGRES_DB_MEMORY"],
+        pool32["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"],
     ) == ("1", "1g", "64")
 
 
@@ -214,7 +214,7 @@ def test_orchestration_overhead_matrix_is_a_matched_noop_control() -> None:
     environment = insert_case.process_environment()
 
     def pool_ceiling(service: str) -> int:
-        prefix = f"TRACECAT__LOADTEST_{service}_DB_"
+        prefix = f"AUTOSECOPS__LOADTEST_{service}_DB_"
         return sum(
             int(environment[f"{prefix}{suffix}"])
             for suffix in (
@@ -237,12 +237,12 @@ def test_orchestration_overhead_matrix_is_a_matched_noop_control() -> None:
         )
     )
     executor_budget = int(
-        environment["TRACECAT__LOADTEST_EXECUTOR_REPLICAS"]
+        environment["AUTOSECOPS__LOADTEST_EXECUTOR_REPLICAS"]
     ) * pool_ceiling("EXECUTOR")
 
     assert fixed_service_budget + executor_budget == 40
     assert fixed_service_budget + executor_budget < int(
-        environment["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"]
+        environment["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"]
     )
 
 
@@ -341,28 +341,28 @@ def test_scatter_burst_matrix_defines_independent_action_profile() -> None:
         ),
     )
     fixed_environment: dict[str, str] = {
-        "TRACECAT__LOADTEST_API_CPUS": "2",
-        "TRACECAT__LOADTEST_API_MEMORY": "2g",
-        "TRACECAT__LOADTEST_WORKER_CPUS": "4",
-        "TRACECAT__LOADTEST_WORKER_MEMORY": "4g",
-        "TRACECAT__LOADTEST_EXECUTOR_CPUS": "4",
-        "TRACECAT__LOADTEST_EXECUTOR_MEMORY": "4g",
-        "TRACECAT__LOADTEST_TEMPORAL_CPUS": "2",
-        "TRACECAT__LOADTEST_TEMPORAL_MEMORY": "4g",
-        "TRACECAT__LOADTEST_TEMPORAL_POSTGRES_DB_CPUS": "2",
-        "TRACECAT__LOADTEST_TEMPORAL_POSTGRES_DB_MEMORY": "4g",
-        "TRACECAT__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS": "64",
-        "TRACECAT__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW": "16",
-        "TRACECAT__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS": "100",
-        "TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES": "100",
-        "TRACECAT__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS": "100",
-        "TRACECAT__LOADTEST_API_DB_AUTH_POOL_SIZE": "2",
-        "TRACECAT__LOADTEST_API_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_WORKER_DB_AUTH_POOL_SIZE": "4",
-        "TRACECAT__LOADTEST_WORKER_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE": "5",
-        "TRACECAT__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW": "0",
-        "TRACECAT__LOADTEST_DB_POOL_TIMEOUT": "60",
+        "AUTOSECOPS__LOADTEST_API_CPUS": "2",
+        "AUTOSECOPS__LOADTEST_API_MEMORY": "2g",
+        "AUTOSECOPS__LOADTEST_WORKER_CPUS": "4",
+        "AUTOSECOPS__LOADTEST_WORKER_MEMORY": "4g",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_CPUS": "4",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_MEMORY": "4g",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_CPUS": "2",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_MEMORY": "4g",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_POSTGRES_DB_CPUS": "2",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_POSTGRES_DB_MEMORY": "4g",
+        "AUTOSECOPS__LOADTEST_DSL_SCHEDULER_MAX_PENDING_TASKS": "64",
+        "AUTOSECOPS__LOADTEST_CHILD_WORKFLOW_DISPATCH_WINDOW": "16",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_THREADPOOL_MAX_WORKERS": "100",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_ACTIVITIES": "100",
+        "AUTOSECOPS__LOADTEST_TEMPORAL_MAX_CONCURRENT_WORKFLOW_TASKS": "100",
+        "AUTOSECOPS__LOADTEST_API_DB_AUTH_POOL_SIZE": "2",
+        "AUTOSECOPS__LOADTEST_API_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_AUTH_POOL_SIZE": "4",
+        "AUTOSECOPS__LOADTEST_WORKER_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_POOL_SIZE": "5",
+        "AUTOSECOPS__LOADTEST_EXECUTOR_DB_AUTH_MAX_OVERFLOW": "0",
+        "AUTOSECOPS__LOADTEST_DB_POOL_TIMEOUT": "60",
     }
 
     assert len(cases) == len(expected_profiles)
@@ -400,28 +400,32 @@ def test_scatter_burst_matrix_defines_independent_action_profile() -> None:
         assert {
             name: environment[name] for name in fixed_environment
         } == fixed_environment
-        assert environment["TRACECAT__LOADTEST_POSTGRES_DB_CPUS"] == postgres_cpus
-        assert environment["TRACECAT__LOADTEST_POSTGRES_DB_MEMORY"] == postgres_memory
+        assert environment["AUTOSECOPS__LOADTEST_POSTGRES_DB_CPUS"] == postgres_cpus
+        assert environment["AUTOSECOPS__LOADTEST_POSTGRES_DB_MEMORY"] == postgres_memory
         assert (
-            environment["TRACECAT__LOADTEST_POSTGRES_MAX_CONNECTIONS"]
+            environment["AUTOSECOPS__LOADTEST_POSTGRES_MAX_CONNECTIONS"]
             == postgres_max_connections
         )
         assert (
-            environment["TRACECAT__LOADTEST_POSTGRES_SHARED_BUFFERS"]
+            environment["AUTOSECOPS__LOADTEST_POSTGRES_SHARED_BUFFERS"]
             == postgres_shared_buffers
         )
-        assert environment["TRACECAT__LOADTEST_API_DB_POOL_SIZE"] == api_pool_size
-        assert environment["TRACECAT__LOADTEST_API_DB_MAX_OVERFLOW"] == api_max_overflow
-        assert environment["TRACECAT__LOADTEST_EXECUTOR_REPLICAS"] == executor_replicas
+        assert environment["AUTOSECOPS__LOADTEST_API_DB_POOL_SIZE"] == api_pool_size
         assert (
-            environment["TRACECAT__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES"]
+            environment["AUTOSECOPS__LOADTEST_API_DB_MAX_OVERFLOW"] == api_max_overflow
+        )
+        assert (
+            environment["AUTOSECOPS__LOADTEST_EXECUTOR_REPLICAS"] == executor_replicas
+        )
+        assert (
+            environment["AUTOSECOPS__LOADTEST_EXECUTOR_MAX_CONCURRENT_ACTIVITIES"]
             == executor_max_concurrent_activities
         )
         assert (
-            environment["TRACECAT__LOADTEST_EXECUTOR_DB_POOL_SIZE"]
+            environment["AUTOSECOPS__LOADTEST_EXECUTOR_DB_POOL_SIZE"]
             == executor_pool_size
         )
         assert (
-            environment["TRACECAT__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW"]
+            environment["AUTOSECOPS__LOADTEST_EXECUTOR_DB_MAX_OVERFLOW"]
             == executor_max_overflow
         )

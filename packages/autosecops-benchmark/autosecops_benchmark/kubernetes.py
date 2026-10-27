@@ -18,12 +18,12 @@ from typing import Final
 from . import runner
 
 DEFAULT_CONTEXT: Final = "orbstack"
-DEFAULT_NAMESPACE: Final = "tracecat"
-DEFAULT_API_URL: Final = "https://tracecat.k8s.orb.local/api"
+DEFAULT_NAMESPACE: Final = "autosecops"
+DEFAULT_API_URL: Final = "https://autosecops.k8s.orb.local/api"
 CORE_DEPLOYMENTS: Final = (
-    "tracecat-api",
-    "tracecat-worker",
-    "tracecat-executor",
+    "autosecops-api",
+    "autosecops-worker",
+    "autosecops-executor",
 )
 ORBSTACK_CA_NAME: Final = "OrbStack Development Root CA"
 

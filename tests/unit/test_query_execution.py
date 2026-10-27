@@ -11,9 +11,9 @@ from sqlalchemy.exc import DataError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.query.errors import (
+    AutoSecOpsQueryOverflowError,
+    AutoSecOpsQueryTimeoutError,
     QueryErrorCode,
-    TracecatQueryOverflowError,
-    TracecatQueryTimeoutError,
 )
 from autosecops.query.execution import query_execution_context
 
@@ -42,7 +42,7 @@ async def test_query_execution_reads_configured_default_at_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.query.execution.config.TRACECAT__AGG_STATEMENT_TIMEOUT_MS",
+        "autosecops.query.execution.config.AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS",
         4321,
     )
     session = AsyncMock(spec=AsyncSession)
@@ -85,7 +85,7 @@ async def test_query_execution_maps_query_cancellation_by_type(
     sqlalchemy_error = OperationalError("SELECT pg_sleep(1)", {}, orig)
     session = AsyncMock(spec=AsyncSession)
 
-    with pytest.raises(TracecatQueryTimeoutError) as exc_info:
+    with pytest.raises(AutoSecOpsQueryTimeoutError) as exc_info:
         async with query_execution_context(session):
             raise sqlalchemy_error
 
@@ -111,7 +111,7 @@ async def test_query_execution_maps_numeric_overflow_by_type(
     sqlalchemy_error = DataError("SELECT value::bigint", {}, orig)
     session = AsyncMock(spec=AsyncSession)
 
-    with pytest.raises(TracecatQueryOverflowError) as exc_info:
+    with pytest.raises(AutoSecOpsQueryOverflowError) as exc_info:
         async with query_execution_context(session):
             raise sqlalchemy_error
 

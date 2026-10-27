@@ -8,7 +8,7 @@ variable "aws_region" {
 variable "name_prefix" {
   type        = string
   description = "Prefix for same-account/regional AWS resource names."
-  default     = "tracecat"
+  default     = "autosecops"
 
   validation {
     condition     = length(var.name_prefix) <= 23 && can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.name_prefix))
@@ -18,8 +18,8 @@ variable "name_prefix" {
 
 variable "iam_name_prefix" {
   type        = string
-  description = "Prefix for IAM role and policy names and ECS task definition families. Keep \"Tracecat\" on existing stacks; changing it replaces those resources. New installs may set it to \"AutoSecOps\"."
-  default     = "Tracecat"
+  description = "Prefix for IAM role and policy names and ECS task definition families."
+  default     = "AutoSecOps"
 }
 
 variable "core_db_identifier" {
@@ -43,7 +43,7 @@ variable "temporal_db_parameter_group_name" {
 variable "redis_default_user_id" {
   type        = string
   description = "ElastiCache Redis default ACL user ID."
-  default     = "default-user-tracecat"
+  default     = "default-user-autosecops"
 }
 
 variable "waf_attachments_endpoint_pattern_name" {
@@ -99,7 +99,9 @@ variable "hosted_zone_id" {
 ### Security
 
 variable "auth_types" {
-  type    = string
+  type = string
+  # SAML, not basic like Compose and Helm: this stack is public by default, so
+  # sign-in goes through the identity provider. See docs/self-hosting/aws-fargate.mdx.
   default = "saml"
 }
 
@@ -123,30 +125,36 @@ variable "auth_superadmin_email" {
 
 ### Images and Versions
 
-variable "tracecat_image" {
+variable "autosecops_image" {
   type    = string
   default = "ghcr.io/singularityrd/autosecops"
 }
 
-variable "tracecat_ui_image" {
+variable "autosecops_ui_image" {
   type    = string
   default = "ghcr.io/singularityrd/autosecops-ui"
 }
 
-variable "tracecat_image_tag" {
+variable "autosecops_image_tag" {
   type    = string
   default = "1.0.0"
 }
 
-variable "tracecat_migrations_image" {
+variable "autosecops_migrations_image" {
   type        = string
-  description = "Docker image repository for the AutoSecOps migrations init container. Defaults to tracecat_image."
+  description = "Docker image repository for the AutoSecOps migrations init container. Defaults to autosecops_image."
   default     = null
 }
 
-variable "tracecat_migrations_image_tag" {
+variable "autosecops_migrations_image_tag" {
   type        = string
-  description = "Docker image tag for the AutoSecOps migrations init container. Defaults to tracecat_image_tag."
+  description = "Docker image tag for the AutoSecOps migrations init container. Defaults to autosecops_image_tag."
+  default     = null
+}
+
+variable "autosecops_registry_credentials_arn" {
+  type        = string
+  description = "Optional Secrets Manager secret ARN with {\"username\", \"password\"} for a private registry that hosts the AutoSecOps images, such as GHCR (a GitHub username and a personal access token with read:packages). ECS uses it to pull the API, worker, executor, LiteLLM, MCP, migrations, and UI images. Leave null for public images or ECR."
   default     = null
 }
 
@@ -212,7 +220,7 @@ variable "temporal_namespace" {
 # NOTE: sensitive variables are stored in secrets manager
 # and specified directly in the task definition via a secret reference
 
-variable "tracecat_app_env" {
+variable "autosecops_app_env" {
   type        = string
   description = "The environment of the AutoSecOps application"
   default     = "production"
@@ -226,7 +234,7 @@ variable "outbound_allowed_private_cidrs" {
 
 variable "outbound_proxy_url" {
   type        = string
-  description = "Corporate HTTP(S) forward proxy for outbound MCP and LLM requests, e.g. http://user:password@proxy.internal:3128. Empty connects directly. Credentials land in the task definition environment."
+  description = "Corporate HTTP(S) forward proxy for outbound MCP and LLM requests, e.g. http://user:password@proxy.internal:3128. Empty connects directly. Stored in a Terraform-managed Secrets Manager secret and injected through ECS secrets."
   default     = ""
   sensitive   = true
 }
@@ -274,7 +282,7 @@ variable "feature_flags" {
 
 variable "license_key" {
   type        = string
-  description = "Signed AutoSecOps license key. Enables paid entitlements on single-tenant installs."
+  description = "Signed AutoSecOps license key. Enables paid entitlements on single-tenant installs. Stored in a Terraform-managed Secrets Manager secret and injected through ECS secrets."
   default     = null
   sensitive   = true
 }
@@ -344,7 +352,7 @@ variable "db_pool_timeout" {
 variable "db_pool_recycle" {
   type        = string
   description = "The time in seconds after which pool connections are recycled"
-  default     = "300"
+  default     = "600"
 }
 
 variable "db_auth_max_overflow" {
@@ -376,7 +384,7 @@ variable "db_pool_size_executor" {
 variable "context_compression_enabled" {
   type        = bool
   description = "Enable compression of large action results in workflow contexts"
-  default     = true
+  default     = false
 }
 
 variable "context_compression_threshold_kb" {
@@ -400,22 +408,22 @@ variable "temporal_payload_encryption_cache_ttl_seconds" {
 variable "temporal_payload_encryption_cache_max_items" {
   type        = number
   description = "Maximum number of cached Temporal encryption keys"
-  default     = 128
+  default     = 4096
 }
 
 ### Secret ARNs
 
-variable "tracecat_db_encryption_key_arn" {
+variable "autosecops_db_encryption_key_arn" {
   type        = string
   description = "The ARN of the secret containing the AutoSecOps database encryption key"
 }
 
-variable "tracecat_service_key_arn" {
+variable "autosecops_service_key_arn" {
   type        = string
   description = "The ARN of the secret containing the AutoSecOps service key"
 }
 
-variable "tracecat_signing_secret_arn" {
+variable "autosecops_signing_secret_arn" {
   type        = string
   description = "The ARN of the secret containing the AutoSecOps signing secret"
 }
@@ -634,7 +642,7 @@ variable "agent_worker_desired_count" {
 
 variable "agent_worker_max_concurrent_activities" {
   type        = number
-  description = "Max concurrent activities per agent-worker task (TRACECAT__AGENT_MAX_CONCURRENT_ACTIVITIES)."
+  description = "Max concurrent activities per agent-worker task (AUTOSECOPS__AGENT_MAX_CONCURRENT_ACTIVITIES)."
   default     = 100
 
   validation {
@@ -667,7 +675,7 @@ variable "executor_desired_count" {
 
 variable "executor_client_timeout" {
   type    = string
-  default = "900"
+  default = "300"
 }
 
 variable "agent_sandbox_timeout" {
@@ -684,7 +692,7 @@ variable "executor_queue" {
 
 variable "executor_registry_cache_max_entries" {
   type        = number
-  description = "Maximum number of entries in the executor-local registry artifact cache (TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES). Set to 0 to disable entry-count eviction."
+  description = "Maximum number of entries in the executor-local registry artifact cache (AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_ENTRIES). Set to 0 to disable entry-count eviction."
   default     = 64
 
   validation {
@@ -695,7 +703,7 @@ variable "executor_registry_cache_max_entries" {
 
 variable "executor_registry_cache_max_bytes" {
   type        = number
-  description = "Maximum executor-local registry artifact cache size in bytes (TRACECAT__EXECUTOR_REGISTRY_CACHE_MAX_BYTES). Set to 0 to disable size-based limits."
+  description = "Maximum executor-local registry artifact cache size in bytes (AUTOSECOPS__EXECUTOR_REGISTRY_CACHE_MAX_BYTES). Set to 0 to disable size-based limits."
   default     = 10737418240
 
   validation {
@@ -706,7 +714,7 @@ variable "executor_registry_cache_max_bytes" {
 
 variable "executor_max_concurrent_activities" {
   type        = number
-  description = "Max concurrent activities per executor task (TRACECAT__EXECUTOR_MAX_CONCURRENT_ACTIVITIES)."
+  description = "Max concurrent activities per executor task (AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES)."
   default     = 16
 
   validation {
@@ -717,7 +725,7 @@ variable "executor_max_concurrent_activities" {
 
 variable "executor_threadpool_max_workers" {
   type        = number
-  description = "Activity thread-pool size per executor task (TRACECAT__EXECUTOR_THREADPOOL_MAX_WORKERS). Bounds concurrent CPU-bound sync activities competing for the GIL."
+  description = "Activity thread-pool size per executor task (AUTOSECOPS__EXECUTOR_THREADPOOL_MAX_WORKERS). Bounds concurrent CPU-bound sync activities competing for the GIL."
   default     = 16
 
   validation {
@@ -728,7 +736,7 @@ variable "executor_threadpool_max_workers" {
 
 variable "executor_for_each_max_concurrency" {
   type        = number
-  description = "Max concurrent iterations within a single action's for_each loop (TRACECAT__EXECUTOR_FOR_EACH_MAX_CONCURRENCY)."
+  description = "Max concurrent iterations within a single action's for_each loop (AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY)."
   default     = 4
 
   validation {
@@ -761,7 +769,7 @@ variable "agent_executor_queue" {
 
 variable "agent_executor_max_concurrent_activities" {
   type        = number
-  description = "Maximum concurrent activities per agent-executor task"
+  description = "Maximum concurrent activities per agent-executor task. Lower than the Compose and Helm default of 8 so that concurrent agent sandboxes (up to 4 GiB each by default) fit the default 16 GiB agent_executor_memory."
   default     = 3
 }
 
@@ -896,7 +904,7 @@ variable "litellm_desired_count" {
 variable "litellm_num_workers" {
   type        = string
   description = "Number of uvicorn workers for the LiteLLM service"
-  default     = "4"
+  default     = "2"
 }
 
 ### MCP Service
@@ -944,7 +952,7 @@ variable "mcp_tool_timeout_seconds" {
 variable "mcp_max_input_size_bytes" {
   type        = string
   description = "Maximum size in bytes for any single string argument to an MCP tool call"
-  default     = "524288"
+  default     = "4194304"
 }
 
 variable "mcp_startup_max_attempts" {
@@ -959,7 +967,7 @@ variable "mcp_startup_retry_delay_seconds" {
   default     = "2"
 }
 
-variable "tracecat_db_instance_class" {
+variable "autosecops_db_instance_class" {
   type        = string
   description = "Instance class for the AutoSecOps application RDS instance."
   default     = null
@@ -971,7 +979,7 @@ variable "temporal_db_instance_class" {
   default     = null
 }
 
-variable "tracecat_db_allocated_storage" {
+variable "autosecops_db_allocated_storage" {
   type        = number
   description = "Allocated storage in GiB for the AutoSecOps application RDS instance."
   default     = null
@@ -985,13 +993,13 @@ variable "temporal_db_allocated_storage" {
 
 variable "db_instance_class" {
   type        = string
-  description = "Deprecated shared fallback for both RDS instance classes. Prefer tracecat_db_instance_class and temporal_db_instance_class."
+  description = "Deprecated shared fallback for both RDS instance classes. Prefer autosecops_db_instance_class and temporal_db_instance_class."
   default     = null
 }
 
 variable "db_allocated_storage" {
   type        = number
-  description = "Deprecated shared fallback for both RDS storage sizes in GiB. Prefer tracecat_db_allocated_storage and temporal_db_allocated_storage."
+  description = "Deprecated shared fallback for both RDS storage sizes in GiB. Prefer autosecops_db_allocated_storage and temporal_db_allocated_storage."
   default     = null
 }
 

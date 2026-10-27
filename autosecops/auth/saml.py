@@ -20,7 +20,7 @@ Security and policy gates:
   one-time SAML request record with expiry.
 - RelayState embeds org ID so ACS can select org-scoped configuration without
   trusting query/body parameters.
-- `/acs` requires the `tracecat-ui` service role, validates RelayState exists
+- `/acs` requires the `autosecops-ui` service role, validates RelayState exists
   and is not expired, validates `InResponseTo`, and deletes used request rows to
   prevent replay.
 - Assertion email is selected from known claims and then validated against the
@@ -70,6 +70,9 @@ from autosecops.auth.users import (
     auth_backend,
 )
 from autosecops.config import (
+    AUTOSECOPS__AUTH_SUPERADMIN_EMAIL,
+    AUTOSECOPS__EE_MULTI_TENANT,
+    AUTOSECOPS__PUBLIC_API_URL,
     SAML_ACCEPTED_TIME_DIFF,
     SAML_ALLOW_UNSOLICITED,
     SAML_AUTHN_REQUESTS_SIGNED,
@@ -78,9 +81,6 @@ from autosecops.config import (
     SAML_PUBLIC_ACS_URL,
     SAML_VERIFY_SSL_ENTITY,
     SAML_VERIFY_SSL_METADATA,
-    TRACECAT__AUTH_SUPERADMIN_EMAIL,
-    TRACECAT__EE_MULTI_TENANT,
-    TRACECAT__PUBLIC_API_URL,
     XMLSEC_BINARY_PATH,
 )
 from autosecops.db.dependencies import AsyncDBSession, AsyncDBSessionBypass
@@ -296,12 +296,14 @@ async def get_org_saml_metadata_url(
     """
     # Single-tenant self-hosting compatibility:
     # prefer explicit env config to avoid forcing DB settings during bootstrap.
-    if not TRACECAT__EE_MULTI_TENANT and SAML_IDP_METADATA_URL:
+    if not AUTOSECOPS__EE_MULTI_TENANT and SAML_IDP_METADATA_URL:
         return SAML_IDP_METADATA_URL
 
     # Multi-tenant hardening:
     # do not inherit global env metadata defaults across organizations.
-    default_metadata_url = None if TRACECAT__EE_MULTI_TENANT else SAML_IDP_METADATA_URL
+    default_metadata_url = (
+        None if AUTOSECOPS__EE_MULTI_TENANT else SAML_IDP_METADATA_URL
+    )
     value = await get_setting(
         "saml_idp_metadata_url",
         role=bootstrap_role(organization_id),
@@ -420,7 +422,7 @@ async def _select_authorized_email(
 
 
 def _is_superadmin_bootstrap_email(email: str) -> bool:
-    superadmin_email = TRACECAT__AUTH_SUPERADMIN_EMAIL
+    superadmin_email = AUTOSECOPS__AUTH_SUPERADMIN_EMAIL
     return bool(superadmin_email and email == superadmin_email)
 
 
@@ -478,13 +480,13 @@ async def create_saml_client(
     # Handle SSL certificate configuration for self-signed certificates
     saml_settings = {
         "strict": True,
-        "entityid": TRACECAT__PUBLIC_API_URL,
+        "entityid": AUTOSECOPS__PUBLIC_API_URL,
         "xmlsec_binary": XMLSEC_BINARY_PATH,
         "verify_ssl_cert": SAML_VERIFY_SSL_ENTITY,
         "disable_ssl_certificate_validation": not SAML_VERIFY_SSL_METADATA,
         "service": {
             "sp": {
-                "name": "tracecat_saml_sp",
+                "name": "autosecops_saml_sp",
                 "description": "AutoSecOps SAML SSO Service Provider",
                 "endpoints": {
                     "assertion_consumer_service": [
@@ -651,10 +653,10 @@ async def sso_acs(
 ) -> Response:
     """Handle the SAML SSO response from the IdP post-authentication."""
 
-    if role.service_id != "tracecat-ui":
+    if role.service_id != "autosecops-ui":
         logger.warning(
             f"SAML ACS accessed by unexpected service: '{role.service_id}'. "
-            f"Expected 'tracecat-ui' for enhanced security."
+            f"Expected 'autosecops-ui' for enhanced security."
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

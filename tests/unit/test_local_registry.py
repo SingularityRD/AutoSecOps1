@@ -77,10 +77,10 @@ async def test_local_registry(
     monkeypatch.syspath_prepend(str(local_package_path))
 
     # The rest of your test remains the same
-    monkeypatch.setattr(config, "TRACECAT__LOCAL_REPOSITORY_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED", True)
     monkeypatch.setattr(
         config,
-        "TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH",
         str(local_package_path),
     )
 
@@ -93,7 +93,7 @@ async def test_local_registry(
     # Initialize repository
     repository = Repository(origin=DEFAULT_LOCAL_REGISTRY_ORIGIN, role=svc_role)
 
-    repo_path = Path(config.TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH)
+    repo_path = Path(config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH)
 
     assert repo_path.exists()
 
@@ -141,7 +141,7 @@ async def test_local_registry_invalid_package(
 ) -> None:
     """Test handling of invalid local package."""
     invalid_path = tmp_path / "nonexistent_package"
-    monkeypatch.setenv("TRACECAT__LOCAL_REPOSITORY_CONTAINER_PATH", str(invalid_path))
+    monkeypatch.setenv("AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH", str(invalid_path))
 
     repo_service = RegistryReposService(session, role=svc_role)
     await repo_service.create_repository(
@@ -153,7 +153,7 @@ async def test_local_registry_invalid_package(
     with pytest.raises(
         Exception,
         match="Local repository is not enabled on this instance."
-        " Please set TRACECAT__LOCAL_REPOSITORY_ENABLED=true and ensure"
-        " TRACECAT__LOCAL_REPOSITORY_PATH points to a valid Python package.",
+        " Please set AUTOSECOPS__LOCAL_REPOSITORY_ENABLED=true and ensure"
+        " AUTOSECOPS__LOCAL_REPOSITORY_PATH points to a valid Python package.",
     ):
         await repository.load_from_origin()

@@ -92,8 +92,8 @@ def test_main_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
             raise ValueError("missing oidc config")
 
     monkeypatch.setattr(mcp_main, "_run_mcp_server", _run_mcp_server)
-    monkeypatch.setattr(mcp_main, "TRACECAT_MCP__STARTUP_MAX_ATTEMPTS", 3)
-    monkeypatch.setattr(mcp_main, "TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS", 3)
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS", 0.0)
     monkeypatch.setattr(mcp_main.time, "sleep", lambda _: None)
 
     mcp_main.main()
@@ -109,8 +109,8 @@ def test_main_exits_after_max_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ValueError("missing oidc config")
 
     monkeypatch.setattr(mcp_main, "_run_mcp_server", _run_mcp_server)
-    monkeypatch.setattr(mcp_main, "TRACECAT_MCP__STARTUP_MAX_ATTEMPTS", 3)
-    monkeypatch.setattr(mcp_main, "TRACECAT_MCP__STARTUP_RETRY_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS", 3)
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_RETRY_DELAY_SECONDS", 0.0)
     monkeypatch.setattr(mcp_main.time, "sleep", lambda _: None)
 
     with pytest.raises(SystemExit, match="1"):
@@ -127,7 +127,7 @@ def test_main_stops_on_keyboard_interrupt(monkeypatch: pytest.MonkeyPatch) -> No
         raise KeyboardInterrupt
 
     monkeypatch.setattr(mcp_main, "_run_mcp_server", _run_mcp_server)
-    monkeypatch.setattr(mcp_main, "TRACECAT_MCP__STARTUP_MAX_ATTEMPTS", 3)
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS", 3)
 
     mcp_main.main()
 

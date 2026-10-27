@@ -16,7 +16,7 @@ from autosecops.cases.search_schemas import CaseQuery
 from autosecops.cases.service import CasesService
 from autosecops.cases.tags.search import resolve_case_tag_filters
 from autosecops.db.models import CaseTag, Organization, Workspace
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.query.filters import Condition
 
 pytestmark = pytest.mark.anyio
@@ -61,7 +61,7 @@ async def tag_search_service(
         session,
         Role(
             type="service",
-            service_id="tracecat-executor",
+            service_id="autosecops-executor",
             workspace_id=workspace.id,
             organization_id=workspace.organization_id,
             scopes=frozenset({"case:read"}),
@@ -157,7 +157,7 @@ async def test_uuid_identifiers_never_fall_back_to_refs(
     )
     with (
         capture_tag_queries(service.session) as queries,
-        pytest.raises(TracecatValidationError) as error,
+        pytest.raises(AutoSecOpsValidationError) as error,
     ):
         await resolve_case_tag_filters(
             session=service.session,
@@ -194,7 +194,9 @@ async def test_missing_and_foreign_tags_reject_the_whole_filter_in_one_query(
     )
     inputs = [known.ref, identifier] if include_known else [identifier]
     for entry in ("batch", "canonical", "legacy"):
-        expected_error = HTTPException if entry == "legacy" else TracecatValidationError
+        expected_error = (
+            HTTPException if entry == "legacy" else AutoSecOpsValidationError
+        )
         with (
             capture_tag_queries(service.session) as queries,
             pytest.raises(expected_error) as error,
@@ -248,7 +250,7 @@ async def test_unknown_identifiers_report_first_input_after_known_aliases(
     tag_search_service: CasesService,
 ) -> None:
     service = tag_search_service
-    with pytest.raises(TracecatValidationError) as error:
+    with pytest.raises(AutoSecOpsValidationError) as error:
         await resolve_case_tag_filters(
             session=service.session,
             workspace_id=service.workspace_id,
@@ -263,7 +265,9 @@ async def test_null_tag_identifiers_fail_before_any_lookup(
 ) -> None:
     service = tag_search_service
     for entry in ("batch", "canonical", "legacy"):
-        expected_error = HTTPException if entry == "legacy" else TracecatValidationError
+        expected_error = (
+            HTTPException if entry == "legacy" else AutoSecOpsValidationError
+        )
         with (
             capture_tag_queries(service.session) as queries,
             pytest.raises(expected_error) as error,

@@ -42,13 +42,13 @@ class RaisingSpanExporter(SpanExporter):
 @pytest.fixture(autouse=True)
 def reset_platform_tracing(monkeypatch: pytest.MonkeyPatch):
     shutdown_platform_tracing()
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", False)
     yield
     shutdown_platform_tracing()
 
 
 def test_platform_tracing_is_disabled_by_default() -> None:
-    assert initialize_platform_tracing("tracecat-api") is None
+    assert initialize_platform_tracing("autosecops-api") is None
     assert get_platform_tracing() is None
     assert temporal_tracing_interceptor() is None
 
@@ -72,11 +72,11 @@ def test_platform_relay_reads_only_credential_free_endpoint_routing(
 def test_platform_tracing_initialization_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
 
-    first = initialize_platform_tracing("tracecat-api", exporter=exporter)
-    second = initialize_platform_tracing("tracecat-api", exporter=exporter)
+    first = initialize_platform_tracing("autosecops-api", exporter=exporter)
+    second = initialize_platform_tracing("autosecops-api", exporter=exporter)
 
     assert first is not None
     assert second is first
@@ -87,9 +87,9 @@ def test_platform_tracing_initialization_is_idempotent(
 def test_current_trace_id_matches_active_span(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     runtime = initialize_platform_tracing(
-        "tracecat-api", exporter=InMemorySpanExporter()
+        "autosecops-api", exporter=InMemorySpanExporter()
     )
     assert runtime is not None
 
@@ -104,9 +104,9 @@ def test_current_trace_id_matches_active_span(
 def test_active_trace_context_is_added_to_log_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     runtime = initialize_platform_tracing(
-        "tracecat-api", exporter=InMemorySpanExporter()
+        "autosecops-api", exporter=InMemorySpanExporter()
     )
     assert runtime is not None
     record: Any = {
@@ -129,7 +129,7 @@ def test_fastapi_headers_are_omitted_when_platform_tracing_is_disabled() -> None
     app = FastAPI()
     app.add_api_route("/items", lambda: {"status": "ok"})
 
-    assert instrument_fastapi_app(app, service_name="tracecat-api") is None
+    assert instrument_fastapi_app(app, service_name="autosecops-api") is None
 
     with TestClient(app) as client:
         response = client.get("/items")
@@ -142,13 +142,13 @@ def test_fastapi_headers_are_omitted_when_platform_tracing_is_disabled() -> None
 def test_fastapi_request_emits_sanitized_span_and_trace_headers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-api", exporter=exporter)
+    initialize_platform_tracing("autosecops-api", exporter=exporter)
     app = FastAPI()
     app.add_api_route("/items", lambda: {"status": "ok"})
 
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     with TestClient(app) as client:
         response = client.get(
@@ -169,7 +169,7 @@ def test_fastapi_request_emits_sanitized_span_and_trace_headers(
     assert span.context is not None
     assert span.attributes is not None
     assert f"{span.context.trace_id:032x}" == response.headers[TRACE_ID_HEADER]
-    assert span.resource.attributes["service.name"] == "tracecat-api"
+    assert span.resource.attributes["service.name"] == "autosecops-api"
     assert span.attributes["url.full"] == "/items"
     assert span.attributes["url.query"] == "[REDACTED]"
     assert span.attributes["http.user_agent"] == "[REDACTED]"
@@ -183,17 +183,17 @@ def test_fastapi_request_emits_sanitized_span_and_trace_headers(
 def test_fastapi_span_uses_route_template_instead_of_path_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     monkeypatch.setenv("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-api", exporter=exporter)
+    initialize_platform_tracing("autosecops-api", exporter=exporter)
     app = FastAPI()
     app.add_api_route(
         "/webhooks/{workflow_id}/{secret}",
         lambda workflow_id, secret: {"status": "ok"},
         methods=["POST"],
     )
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     with TestClient(app) as client:
         response = client.post(
@@ -216,13 +216,13 @@ def test_fastapi_span_uses_route_template_instead_of_path_credentials(
 def test_fastapi_header_capture_cannot_be_enabled_by_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     monkeypatch.setenv("OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST", ".*")
     monkeypatch.setenv(
         "OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE", ".*"
     )
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-api", exporter=exporter)
+    initialize_platform_tracing("autosecops-api", exporter=exporter)
     app = FastAPI()
 
     def get_items(response: Response) -> dict[str, str]:
@@ -230,7 +230,7 @@ def test_fastapi_header_capture_cannot_be_enabled_by_environment(
         return {"status": "ok"}
 
     app.add_api_route("/items", get_items, methods=["GET"])
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     with TestClient(app) as client:
         response = client.get(
@@ -257,16 +257,16 @@ def test_fastapi_probe_routes_are_excluded(
     monkeypatch: pytest.MonkeyPatch,
     path: str,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-api", exporter=exporter)
+    initialize_platform_tracing("autosecops-api", exporter=exporter)
     app = FastAPI()
     app.add_api_route(
         "/{probe_path:path}",
         lambda probe_path: {"path": probe_path},
     )
 
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     with TestClient(app) as client:
         response = client.get(path)
@@ -280,12 +280,12 @@ def test_fastapi_probe_routes_are_excluded(
 def test_exporter_exception_does_not_change_fastapi_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
-    initialize_platform_tracing("tracecat-api", exporter=RaisingSpanExporter())
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
+    initialize_platform_tracing("autosecops-api", exporter=RaisingSpanExporter())
     app = FastAPI()
     app.add_api_route("/items", lambda: {"status": "ok"})
 
-    instrument_fastapi_app(app, service_name="tracecat-api")
+    instrument_fastapi_app(app, service_name="autosecops-api")
 
     with TestClient(app) as client:
         response = client.get("/items")
@@ -341,9 +341,9 @@ def test_headerless_workflow_run_spans_share_one_deterministic_trace(
     is derived from the run ID, so the trace stays intact across replays, and a
     different run gets a different trace.
     """
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-worker", exporter=exporter)
+    initialize_platform_tracing("autosecops-worker", exporter=exporter)
     interceptor = _headerless_interceptor()
 
     for name in (
@@ -380,10 +380,10 @@ def test_headerless_workflow_run_follows_the_configured_sampler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The sampler decides once per run, so an unsampled run exports nothing."""
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     monkeypatch.setenv("OTEL_TRACES_SAMPLER", "always_off")
     exporter = InMemorySpanExporter()
-    initialize_platform_tracing("tracecat-worker", exporter=exporter)
+    initialize_platform_tracing("autosecops-worker", exporter=exporter)
     interceptor = _headerless_interceptor()
 
     traceparent = _complete_headerless_span(interceptor, "RunWorkflow:Traced", "run-1")
@@ -401,10 +401,10 @@ def test_headerless_workflow_run_sampling_ignores_ambient_span(
     A parent-based sampler would otherwise inherit the sampled flag of whatever
     span is active on the worker thread instead of deciding for the run.
     """
-    monkeypatch.setattr(config, "TRACECAT__PLATFORM_OTEL_ENABLED", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__PLATFORM_OTEL_ENABLED", True)
     monkeypatch.setenv("OTEL_TRACES_SAMPLER", "parentbased_always_off")
     exporter = InMemorySpanExporter()
-    runtime = initialize_platform_tracing("tracecat-worker", exporter=exporter)
+    runtime = initialize_platform_tracing("autosecops-worker", exporter=exporter)
     assert runtime is not None
     interceptor = _headerless_interceptor()
 

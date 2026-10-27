@@ -81,7 +81,7 @@ async def _get_org_role_assignment_slug(
 async def test_single_tenant_defaults_noop_in_multi_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     organization_id = await ensure_single_tenant_user_defaults(
         user_id=uuid.uuid4(),
@@ -97,7 +97,7 @@ async def test_single_tenant_defaults_for_session_noop_in_multi_tenant(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
 
     result = await ensure_single_tenant_user_defaults_for_session(
         session=session,
@@ -115,7 +115,7 @@ async def test_single_tenant_defaults_for_session_resolves_default_org(
     session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config, "TRACECAT__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
     user = await _create_user(session)
 
     result = await ensure_single_tenant_user_defaults_for_session(

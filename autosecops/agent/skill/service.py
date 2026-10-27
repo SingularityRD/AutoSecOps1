@@ -95,7 +95,7 @@ from autosecops.db.models import (
     SkillUpload as SkillUploadModel,
 )
 from autosecops.db.soft_delete import with_deleted
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.integrations.schemas import MCPToolSummary
 from autosecops.integrations.service import IntegrationService
 from autosecops.logger import logger
@@ -376,12 +376,12 @@ class SkillService(SkillBindingService):
         parts = [part.strip().lower() for part in content_type.split(";")]
         normalized = "; ".join(part for part in parts if part)
         if not normalized:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill file content type cannot be empty",
                 detail={"code": "invalid_content_type", "reason": "empty"},
             )
         if len(normalized) > MAX_CONTENT_TYPE_LENGTH:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill file content type must be 255 characters or fewer",
                 detail={
                     "code": "invalid_content_type",
@@ -398,7 +398,7 @@ class SkillService(SkillBindingService):
         """Enforce file-count and byte-size limits for a complete skill tree."""
 
         if violation := SkillService._skill_file_limit_violation(files):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 violation.message,
                 detail=violation.exception_detail(),
             )
@@ -407,7 +407,7 @@ class SkillService(SkillBindingService):
     def _validate_skill_transfer_file_count(file_count: int) -> None:
         """Bound synchronous staged transfers before object-store work begins."""
 
-        if file_count <= config.TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT:
+        if file_count <= config.AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT:
             return
         violation = SkillFileLimitViolation(
             code="skill_transfer_file_count_limit_exceeded",
@@ -416,9 +416,9 @@ class SkillService(SkillBindingService):
             actual_field="file_count",
             actual_value=file_count,
             limit_field="max_file_count",
-            limit_value=config.TRACECAT__MAX_SKILL_TRANSFER_FILES_COUNT,
+            limit_value=config.AUTOSECOPS__MAX_SKILL_TRANSFER_FILES_COUNT,
         )
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             violation.message,
             detail=violation.exception_detail(),
         )
@@ -589,7 +589,7 @@ class SkillService(SkillBindingService):
     def _raise_missing_draft_name(*, operation: str) -> Never:
         """Raise a validation error when a draft is missing a required manifest name."""
 
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             f"Skill draft is missing a required name during {operation}",
             detail={"code": "missing_skill_name", "operation": operation},
         )
@@ -636,12 +636,12 @@ class SkillService(SkillBindingService):
         if blob_id is not None:
             blob_row = await self.get_blob(blob_id)
             if blob_row is None:
-                raise TracecatNotFoundError(f"Skill blob '{blob_id}' not found")
+                raise AutoSecOpsNotFoundError(f"Skill blob '{blob_id}' not found")
             return SkillBlobPublicationClaim(blob=blob_row, is_owner=True)
 
         existing = await self._get_blob_by_identity(sha256=normalized_sha256)
         if existing is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 "Skill blob row was not found after a concurrent insert"
             )
         return SkillBlobPublicationClaim(blob=existing, is_owner=False)
@@ -689,7 +689,7 @@ class SkillService(SkillBindingService):
             The deduplicated blob rows, in the order of ``contents``.
         """
 
-        bucket = config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS
+        bucket = config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS
         digests = [self._compute_sha256(content) for content in contents]
         rows_by_sha256: dict[str, SkillBlob] = {}
         uploads: list[tuple[SkillBlob, bytes]] = []
@@ -801,7 +801,7 @@ class SkillService(SkillBindingService):
             content_length,
         ):
             if content_length is not None and content_length > expected_size_bytes:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Uploaded blob size mismatch",
                     detail=error_detail,
                 )
@@ -812,18 +812,18 @@ class SkillService(SkillBindingService):
                     continue
                 actual_size_bytes += len(chunk)
                 if actual_size_bytes > expected_size_bytes:
-                    raise TracecatValidationError(
+                    raise AutoSecOpsValidationError(
                         "Uploaded blob size mismatch",
                         detail=error_detail,
                     )
                 hasher.update(chunk)
         if hasher.hexdigest() != expected_sha256:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Uploaded blob SHA-256 mismatch",
                 detail=error_detail,
             )
         if actual_size_bytes != expected_size_bytes:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Uploaded blob size mismatch",
                 detail=error_detail,
             )
@@ -846,7 +846,9 @@ class SkillService(SkillBindingService):
         if upload.completed_at is not None and upload.blob_id is not None:
             blob_row = await self.get_blob(upload.blob_id)
             if blob_row is None:
-                raise TracecatNotFoundError(f"Skill blob '{upload.blob_id}' not found")
+                raise AutoSecOpsNotFoundError(
+                    f"Skill blob '{upload.blob_id}' not found"
+                )
             return blob_row
 
         if upload.expires_at < datetime.now(UTC):
@@ -855,7 +857,7 @@ class SkillService(SkillBindingService):
                     upload,
                     reason="upload_expired",
                 )
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill upload session has expired",
                 detail={"code": "upload_expired", "upload_id": str(upload.id)},
             )
@@ -864,7 +866,7 @@ class SkillService(SkillBindingService):
             bucket=upload.bucket,
             redact_log_identifiers=True,
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Uploaded blob was not found in object storage",
                 detail={"code": "upload_missing", "upload_id": str(upload.id)},
             )
@@ -1197,7 +1199,7 @@ class SkillService(SkillBindingService):
         for path, blob_row in rows:
             try:
                 normalized = self._normalize_path(path)
-            except TracecatValidationError as exc:
+            except AutoSecOpsValidationError as exc:
                 result.errors.append(
                     SkillValidationErrorDetail(
                         code="invalid_path",
@@ -1230,8 +1232,8 @@ class SkillService(SkillBindingService):
                 )
             )
             if skill_md_blob is not None and skill_md_blob.size_bytes > min(
-                config.TRACECAT__MAX_SKILL_MANIFEST_SIZE_BYTES,
-                config.TRACECAT__MAX_SKILL_FILE_SIZE_BYTES,
+                config.AUTOSECOPS__MAX_SKILL_MANIFEST_SIZE_BYTES,
+                config.AUTOSECOPS__MAX_SKILL_FILE_SIZE_BYTES,
             ):
                 return result
 
@@ -1359,7 +1361,7 @@ class SkillService(SkillBindingService):
             try:
                 content = base64.b64decode(file_payload.content_base64, validate=True)
             except ValueError as exc:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Invalid base64 content for skill path {path!r}",
                     detail={"code": "invalid_base64", "path": path},
                 ) from exc
@@ -1400,7 +1402,7 @@ class SkillService(SkillBindingService):
         prepared_files = self._prepare_upload_files(params.files)
         validation = await self._validate_prepared_upload_files(prepared_files)
         if validation.errors:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Uploaded skill draft failed validation",
                 detail={
                     "code": "skill_upload_validation_failed",
@@ -1410,7 +1412,7 @@ class SkillService(SkillBindingService):
                 },
             )
         if validation.name != params.name:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Uploaded skill name must match the root SKILL.md frontmatter name",
                 detail={
                     "code": "skill_name_mismatch",
@@ -1497,7 +1499,7 @@ class SkillService(SkillBindingService):
                 .limit(1)
             )
         if conflict is not None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Published Skill name '{conflict}' is already in use for this workspace",
                 detail={"code": "skill_name_conflict", "name": conflict},
             )
@@ -1555,7 +1557,7 @@ class SkillService(SkillBindingService):
                 ),
                 path="SKILL.md",
             )
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill draft failed validation",
                 detail={
                     "code": "skill_publish_validation_failed",
@@ -1578,12 +1580,12 @@ class SkillService(SkillBindingService):
         if not skill_locked:
             locked_skill = await self._get_skill_for_update(skill.id)
             if locked_skill is None:
-                raise TracecatNotFoundError(f"Skill '{skill.id}' not found")
+                raise AutoSecOpsNotFoundError(f"Skill '{skill.id}' not found")
             skill = locked_skill
         if validation.name is None:
             self._raise_missing_draft_name(operation="publish")
         if validation.tool_projection is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill tool declarations were not projected",
                 detail={"code": "skill_tools_not_projected"},
             )
@@ -1785,7 +1787,7 @@ class SkillService(SkillBindingService):
         """
 
         if await self._skill_slug_exists(slug):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Skill slug '{slug}' is already in use for this workspace",
                 detail={"code": "skill_slug_conflict", "slug": slug},
             )
@@ -1893,7 +1895,7 @@ class SkillService(SkillBindingService):
                 await self.session.refresh(skill)
                 return skill
 
-        raise TracecatValidationError(
+        raise AutoSecOpsValidationError(
             "Could not allocate a unique skill slug after concurrent writes",
             detail={"code": "skill_slug_conflict", "name": name},
         )
@@ -2015,7 +2017,7 @@ class SkillService(SkillBindingService):
         # Binding one silently would be a silent substitution; fail loud. This
         # edge self-extinguishes at contract when slugs are backfilled NOT NULL.
         if len(skills) > 1:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill identifier is ambiguous",
                 detail={"code": "ambiguous_skill_id"},
             ) from None
@@ -2131,7 +2133,7 @@ class SkillService(SkillBindingService):
 
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
 
         prepared_draft = await self._prepare_validated_upload_draft(params)
         await self._replace_draft_with_blob_map(
@@ -2166,10 +2168,10 @@ class SkillService(SkillBindingService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError("Invalid cursor for skills") from err
+                raise AutoSecOpsValidationError("Invalid cursor for skills") from err
             cursor_updated_at = cursor_data.sort_value
             if not isinstance(cursor_updated_at, datetime):
-                raise TracecatValidationError("Invalid cursor for skills")
+                raise AutoSecOpsValidationError("Invalid cursor for skills")
             predicate = sa.or_(
                 Skill.updated_at < cursor_updated_at,
                 sa.and_(Skill.updated_at == cursor_updated_at, Skill.id < cursor_id),
@@ -2485,7 +2487,7 @@ class SkillService(SkillBindingService):
                             if error.code in SKILL_TOOL_ERROR_CODES
                         ]
                         if tool_errors:
-                            raise TracecatValidationError(
+                            raise AutoSecOpsValidationError(
                                 "Skill draft tool declarations failed validation",
                                 detail={
                                     "code": "skill_draft_tool_validation_failed",
@@ -2508,7 +2510,7 @@ class SkillService(SkillBindingService):
                     normalized_path = self._normalize_path(operation.path)
                     upload = uploads_by_id.get(operation.upload_id)
                     if upload is None:
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             f"Skill upload '{operation.upload_id}' not found",
                             detail={"code": "upload_not_found"},
                         )
@@ -2528,7 +2530,7 @@ class SkillService(SkillBindingService):
                     from_path = self._normalize_path(operation.from_path)
                     to_path = self._normalize_path(operation.to_path)
                     if from_path == to_path:
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             "Move source and destination must differ",
                             detail={
                                 "code": "invalid_move",
@@ -2537,7 +2539,7 @@ class SkillService(SkillBindingService):
                             },
                         )
                     if from_path == "SKILL.md":
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             "Root SKILL.md cannot be moved",
                             detail={
                                 "code": "skill_md_immovable",
@@ -2545,7 +2547,7 @@ class SkillService(SkillBindingService):
                             },
                         )
                     if to_path == "SKILL.md":
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             "Cannot overwrite root SKILL.md via move",
                             detail={
                                 "code": "skill_md_immovable",
@@ -2624,7 +2626,7 @@ class SkillService(SkillBindingService):
                 case PreparedDraftMoveFileOp():
                     source_size = path_to_size.get(operation.from_path)
                     if source_size is None:
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             f"Cannot move missing draft file '{operation.from_path}'",
                             detail={
                                 "code": "move_source_not_found",
@@ -2632,7 +2634,7 @@ class SkillService(SkillBindingService):
                             },
                         )
                     if operation.to_path in path_to_size:
-                        raise TracecatValidationError(
+                        raise AutoSecOpsValidationError(
                             f"Move target '{operation.to_path}' already exists",
                             detail={
                                 "code": "move_target_exists",
@@ -2657,9 +2659,9 @@ class SkillService(SkillBindingService):
 
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         if skill.draft_revision != params.base_revision:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Draft revision conflict",
                 detail={
                     "code": "draft_revision_conflict",
@@ -2756,7 +2758,7 @@ class SkillService(SkillBindingService):
         """Validate a complete upload-session batch before database writes."""
 
         if not params:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill upload must include at least one file",
                 detail={"code": "skill_upload_empty"},
             )
@@ -2778,7 +2780,7 @@ class SkillService(SkillBindingService):
         """Create and sign upload rows without committing their transaction."""
 
         if url_expiry_seconds <= 0:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill upload URL expiry must be positive",
                 detail={"code": "invalid_upload_url_expiry"},
             )
@@ -2802,7 +2804,7 @@ class SkillService(SkillBindingService):
                 sha256=normalized_sha256,
                 size_bytes=upload_params.size_bytes,
                 content_type=normalized_content_type,
-                bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_SKILLS,
+                bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_SKILLS,
                 key=storage_key,
                 expires_at=expires_at,
                 created_by=self.role.user_id if self.role.type == "user" else None,
@@ -2853,7 +2855,7 @@ class SkillService(SkillBindingService):
         self._validate_upload_session_batch(params)
         skill = await self.get_skill(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         expired_uploads = await self._reap_expired_incomplete_uploads()
         try:
             uploads = await self._prepare_draft_upload_rows(
@@ -2952,7 +2954,7 @@ class SkillService(SkillBindingService):
         await self.lock_publications()
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         rows = await self._list_draft_rows(skill.id)
         self._validate_skill_file_limits(
             [
@@ -2967,7 +2969,7 @@ class SkillService(SkillBindingService):
             [(draft_file.path, blob_row) for draft_file, blob_row in rows]
         )
         if validation.errors:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill draft failed validation",
                 detail={
                     "code": "skill_publish_validation_failed",
@@ -3000,9 +3002,9 @@ class SkillService(SkillBindingService):
         await self.lock_publications()
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         if skill.current_version_id != params.base_version_id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill version conflict",
                 detail={
                     "code": "skill_version_conflict",
@@ -3017,7 +3019,7 @@ class SkillService(SkillBindingService):
         prepared_files = self._prepare_upload_files(params.files)
         validation = await self._validate_prepared_upload_files(prepared_files)
         if validation.errors:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Skill version failed validation",
                 detail={
                     "code": "skill_version_validation_failed",
@@ -3050,12 +3052,12 @@ class SkillService(SkillBindingService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for skill versions"
                 ) from err
             cursor_version = cursor_data.sort_value
             if not isinstance(cursor_version, int):
-                raise TracecatValidationError("Invalid cursor for skill versions")
+                raise AutoSecOpsValidationError("Invalid cursor for skill versions")
             predicate = sa.or_(
                 SkillVersion.version < cursor_version,
                 sa.and_(
@@ -3131,7 +3133,7 @@ class SkillService(SkillBindingService):
             skill_id=skill_id, version_id=version_id
         )
         if version is None:
-            raise TracecatNotFoundError(f"Skill version '{version_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill version '{version_id}' not found")
         rows = await self._list_version_rows(version.id)
         return SkillVersionRead(
             id=version.id,
@@ -3166,7 +3168,7 @@ class SkillService(SkillBindingService):
             skill_id=skill_id, version_id=version_id
         )
         if version is None:
-            raise TracecatNotFoundError(f"Skill version '{version_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill version '{version_id}' not found")
         rows = await self._list_version_rows(version.id)
         files: list[SkillVersionFileContent] = []
         for version_file, blob_row in rows:
@@ -3209,10 +3211,10 @@ class SkillService(SkillBindingService):
         await self.lock_publications()
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         version = await self.get_version(version_id)
         if version is None or version.skill_id != skill.id:
-            raise TracecatNotFoundError(f"Skill version '{version_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill version '{version_id}' not found")
         if version.name is None:
             self._raise_missing_version_name(skill_version_id=version.id)
         rows = await self._list_version_rows(version.id)
@@ -3266,7 +3268,7 @@ class SkillService(SkillBindingService):
         )
         refreshed = await self.get_skill(skill.id)
         if refreshed is None:
-            raise TracecatNotFoundError(f"Skill '{skill.id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill.id}' not found")
         if restored.id != refreshed.current_version_id:
             raise RuntimeError("Restored skill version was not selected as current")
         return self._build_skill_read_minimal(refreshed)
@@ -3280,7 +3282,7 @@ class SkillService(SkillBindingService):
 
         skill = await self._get_skill_for_update(skill_id)
         if skill is None:
-            raise TracecatNotFoundError(f"Skill '{skill_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Skill '{skill_id}' not found")
         # Binding writers lock the Skill first too, so no concurrent save can
         # reattach it after this cleanup. Include soft-deleted parents/history.
         for model in (AgentPresetSkill, AgentPresetVersionSkill):
@@ -3315,7 +3317,7 @@ class SkillService(SkillBindingService):
         )
         row = (await self.session.execute(with_deleted(stmt))).tuples().first()
         if row is None:
-            raise TracecatNotFoundError(
+            raise AutoSecOpsNotFoundError(
                 f"Skill version '{skill_version_id}' not found for skill '{skill_id}'"
             )
         resolved_skill_id, skill_name, resolved_version_id, manifest_sha256 = row

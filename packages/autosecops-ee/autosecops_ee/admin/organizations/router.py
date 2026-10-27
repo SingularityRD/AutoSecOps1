@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from autosecops import config
 from autosecops.auth.credentials import SuperuserRole
 from autosecops.db.dependencies import AsyncDBSessionBypass
-from autosecops.exceptions import TracecatConflictError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 from autosecops_ee.admin.organizations.schemas import (
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/organizations", tags=["admin:organizations"])
 
 
 def _require_multi_tenant() -> None:
-    if config.TRACECAT__EE_MULTI_TENANT:
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
         return
     raise HTTPException(
         status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -124,7 +124,7 @@ async def delete_organization(
     service = AdminOrgService(session, role)
     try:
         await service.delete_organization(org_id, confirmation=confirm)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -150,7 +150,7 @@ async def create_organization_invitation(
     service = AdminOrgService(session, role)
     try:
         return await service.create_organization_invitation(org_id, params)
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -175,9 +175,9 @@ async def list_organization_invitations(
     org_id: uuid.UUID,
     invitation_status: InvitationStatus | None = Query(None, alias="status"),
     limit: int = Query(
-        default=config.TRACECAT__LIMIT_DEFAULT,
-        ge=config.TRACECAT__LIMIT_MIN,
-        le=config.TRACECAT__LIMIT_CURSOR_MAX,
+        default=config.AUTOSECOPS__LIMIT_DEFAULT,
+        ge=config.AUTOSECOPS__LIMIT_MIN,
+        le=config.AUTOSECOPS__LIMIT_CURSOR_MAX,
     ),
     cursor: str | None = Query(default=None),
     reverse: bool = Query(default=False),
@@ -194,7 +194,7 @@ async def list_organization_invitations(
                 reverse=reverse,
             ),
         )
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
@@ -242,7 +242,7 @@ async def revoke_organization_invitation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invitation not found",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -270,12 +270,12 @@ async def resend_organization_invitation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invitation not found",
         ) from e
-    except TracecatConflictError as e:
+    except AutoSecOpsConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Invitation email was sent less than a minute ago",
         ) from e
-    except TracecatValidationError as e:
+    except AutoSecOpsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

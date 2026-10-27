@@ -93,7 +93,7 @@ async def test_discovery_deadline_with_real_fastmcp_http_client(
     port = runner.addresses[0][1]
     monkeypatch.setattr(
         config,
-        "TRACECAT__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
+        "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS",
         [ipaddress.ip_network("127.0.0.0/8")],
     )
     monkeypatch.setattr(
@@ -481,7 +481,7 @@ def test_create_transport_lowercased_headers_survive_inbound_merge() -> None:
     )
     assert isinstance(transport, StreamableHttpTransport)
 
-    simulated_inbound = {"authorization": "Bearer tracecat-inbound-jwt"}
+    simulated_inbound = {"authorization": "Bearer autosecops-inbound-jwt"}
     merged = simulated_inbound | transport.headers
 
     assert merged.get("authorization") == "Bearer notion-real"
@@ -531,7 +531,7 @@ def test_create_transport_strips_forwarded_auth_for_non_authorization_credential
     """A server authenticating via custom headers must not receive our JWT."""
     headers = _outbound_headers(
         dict(WIZ_CLIENT_CREDENTIALS),
-        {"authorization": "Bearer tracecat-session-jwt"},
+        {"authorization": "Bearer autosecops-session-jwt"},
     )
 
     assert "authorization" not in headers
@@ -545,7 +545,9 @@ def test_create_transport_strips_forwarded_auth_when_no_credentials_configured()
     None
 ):
     """Servers configured with no auth must not receive an Authorization header."""
-    headers = _outbound_headers(None, {"authorization": "Bearer tracecat-session-jwt"})
+    headers = _outbound_headers(
+        None, {"authorization": "Bearer autosecops-session-jwt"}
+    )
 
     # Not merely emptied: the header must be absent, since httpx transmits
     # empty-valued headers rather than dropping them.
@@ -556,7 +558,7 @@ def test_create_transport_preserves_configured_authorization_credential() -> Non
     """OAuth-backed servers must still receive their own bearer token."""
     headers = _outbound_headers(
         {"Authorization": "Bearer wiz-oauth-token"},
-        {"authorization": "Bearer tracecat-session-jwt"},
+        {"authorization": "Bearer autosecops-session-jwt"},
     )
 
     assert headers["authorization"] == "Bearer wiz-oauth-token"
@@ -574,7 +576,7 @@ def test_sse_transport_also_strips_forwarded_auth() -> None:
     factory = transport.httpx_client_factory
     assert factory is not None
 
-    merged = {"authorization": "Bearer tracecat-session-jwt"} | transport.headers
+    merged = {"authorization": "Bearer autosecops-session-jwt"} | transport.headers
     client = factory(headers=merged, timeout=None, auth=None)
 
     assert "authorization" not in client.headers

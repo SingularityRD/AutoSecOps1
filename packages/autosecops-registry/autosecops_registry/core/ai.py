@@ -4,7 +4,7 @@ from typing import Any
 
 LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE = "Use `model` instead."
 LEGACY_MODEL_FIELD_SCHEMA_EXTRA: dict[str, Any] = {
-    "x-tracecat-deprecation-message": LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE
+    "x-autosecops-deprecation-message": LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE
 }
 MCP_MODEL_SELECTION_FIELD_DOC = (
     "Model to use. Pick from the list of models enabled for this workspace. "

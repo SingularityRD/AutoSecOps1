@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from autosecops_registry.sdk.exceptions import (
-    TracecatAPIError,
-    TracecatAuthError,
-    TracecatConflictError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAPIError,
+    AutoSecOpsAuthError,
+    AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 
 if TYPE_CHECKING:
@@ -26,16 +26,16 @@ if TYPE_CHECKING:
     from autosecops_registry.sdk.workflows import WorkflowsClient
 
 
-class TracecatClient:
+class AutoSecOpsClient:
     """HTTP client for the executor-local Action Gateway.
 
     This client is used by registry actions to communicate with the
     executor-local Action Gateway when running in a sandboxed environment.
 
     Configuration is read from environment variables:
-    - TRACECAT__ACTION_GATEWAY_SOCKET: Local gateway Unix socket
-    - TRACECAT__EXECUTOR_TOKEN: JWT token for authentication
-    - TRACECAT__WORKSPACE_ID: Current workspace ID (added to requests)
+    - AUTOSECOPS__ACTION_GATEWAY_SOCKET: Local gateway Unix socket
+    - AUTOSECOPS__EXECUTOR_TOKEN: JWT token for authentication
+    - AUTOSECOPS__WORKSPACE_ID: Current workspace ID (added to requests)
     """
 
     def __init__(
@@ -50,22 +50,22 @@ class TracecatClient:
 
         Args:
             action_gateway_socket: Executor-local gateway socket. Defaults to
-                TRACECAT__ACTION_GATEWAY_SOCKET and is required.
-            token: JWT token for authentication. Defaults to TRACECAT__EXECUTOR_TOKEN env var.
-            workspace_id: Workspace ID. Defaults to TRACECAT__WORKSPACE_ID env var.
+                AUTOSECOPS__ACTION_GATEWAY_SOCKET and is required.
+            token: JWT token for authentication. Defaults to AUTOSECOPS__EXECUTOR_TOKEN env var.
+            workspace_id: Workspace ID. Defaults to AUTOSECOPS__WORKSPACE_ID env var.
             timeout: Request timeout in seconds.
         """
         self._action_gateway_socket = action_gateway_socket or os.environ.get(
-            "TRACECAT__ACTION_GATEWAY_SOCKET"
+            "AUTOSECOPS__ACTION_GATEWAY_SOCKET"
         )
         if not self._action_gateway_socket:
             raise RuntimeError(
-                "TRACECAT__ACTION_GATEWAY_SOCKET is required for AutoSecOps SDK calls"
+                "AUTOSECOPS__ACTION_GATEWAY_SOCKET is required for AutoSecOps SDK calls"
             )
 
-        self._token = token or os.environ.get("TRACECAT__EXECUTOR_TOKEN", "")
+        self._token = token or os.environ.get("AUTOSECOPS__EXECUTOR_TOKEN", "")
         self._workspace_id = workspace_id or os.environ.get(
-            "TRACECAT__WORKSPACE_ID", ""
+            "AUTOSECOPS__WORKSPACE_ID", ""
         )
         self._timeout = timeout
 
@@ -85,7 +85,7 @@ class TracecatClient:
     ) -> tuple[str, httpx.AsyncHTTPTransport]:
         """Return the Action Gateway URL and Unix socket transport."""
         return (
-            f"http://tracecat-action-gateway/internal{path}",
+            f"http://autosecops-action-gateway/internal{path}",
             httpx.AsyncHTTPTransport(uds=self._action_gateway_socket),
         )
 
@@ -196,17 +196,17 @@ class TracecatClient:
         detail = self._extract_error_detail(response)
 
         if status_code == 401:
-            raise TracecatAuthError(detail=detail, status_code=401)
+            raise AutoSecOpsAuthError(detail=detail, status_code=401)
         elif status_code == 403:
-            raise TracecatAuthError(detail=detail, status_code=403)
+            raise AutoSecOpsAuthError(detail=detail, status_code=403)
         elif status_code == 404:
-            raise TracecatNotFoundError(detail=detail)
+            raise AutoSecOpsNotFoundError(detail=detail)
         elif status_code == 409:
-            raise TracecatConflictError(detail=detail)
+            raise AutoSecOpsConflictError(detail=detail)
         elif status_code in (400, 422):
-            raise TracecatValidationError(detail=detail, status_code=status_code)
+            raise AutoSecOpsValidationError(detail=detail, status_code=status_code)
         else:
-            raise TracecatAPIError(
+            raise AutoSecOpsAPIError(
                 message="API request failed",
                 status_code=status_code,
                 detail=detail,
@@ -234,10 +234,10 @@ class TracecatClient:
             Parsed JSON response, or None if response has no content.
 
         Raises:
-            TracecatAuthError: For 401/403 responses
-            TracecatNotFoundError: For 404 responses
-            TracecatValidationError: For 400/422 responses
-            TracecatAPIError: For other error responses
+            AutoSecOpsAuthError: For 401/403 responses
+            AutoSecOpsNotFoundError: For 404 responses
+            AutoSecOpsValidationError: For 400/422 responses
+            AutoSecOpsAPIError: For other error responses
         """
         url, transport = self._request_url_and_transport(path)
         request_headers = self._get_headers()

@@ -305,7 +305,7 @@ def get_object_storage_for(stored: StoredObject) -> ObjectStorage:
 
                     return S3ObjectStorage(
                         bucket=ref.bucket,
-                        threshold_bytes=config.TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
+                        threshold_bytes=config.AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
                     )
                 case _:
                     raise ValueError(
@@ -334,7 +334,7 @@ def get_object_storage() -> ObjectStorage:
     """Get the configured object storage backend.
 
     Returns InlineObjectStorage by default (no externalization).
-    Returns S3ObjectStorage when TRACECAT__RESULT_EXTERNALIZATION_ENABLED=true.
+    Returns S3ObjectStorage when AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED=true.
     """
     global _object_storage
     if _object_storage is not None:
@@ -343,15 +343,15 @@ def get_object_storage() -> ObjectStorage:
     # Import here to avoid circular imports
     from autosecops.storage.backends import InlineObjectStorage, S3ObjectStorage
 
-    if config.TRACECAT__RESULT_EXTERNALIZATION_ENABLED:
+    if config.AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED:
         storage = S3ObjectStorage(
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW,
-            threshold_bytes=config.TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW,
+            threshold_bytes=config.AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
         )
         logger.info(
             "Using S3ObjectStorage for result externalization",
-            bucket=config.TRACECAT__BLOB_STORAGE_BUCKET_WORKFLOW,
-            threshold_bytes=config.TRACECAT__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
+            bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW,
+            threshold_bytes=config.AUTOSECOPS__RESULT_EXTERNALIZATION_THRESHOLD_BYTES,
         )
     else:
         storage = InlineObjectStorage()

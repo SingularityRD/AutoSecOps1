@@ -1801,8 +1801,8 @@ export type AuthDiscoveryMethod = "basic" | "oidc" | "saml"
  * Workspace-scoped AWS AssumeRole details shown in the credentials UI.
  */
 export type AwsAssumeRoleAccessRead = {
-  tracecat_aws_account_id: string
-  tracecat_aws_principal_arn: string
+  autosecops_aws_account_id: string
+  autosecops_aws_principal_arn: string
   external_id: string
 }
 
@@ -7243,7 +7243,20 @@ export type kind = "upstream" | "local"
 /**
  * Why a license key failed verification.
  */
-export type LicenseErrorCode = "malformed" | "bad_signature" | "invalid_claims"
+export type LicenseErrorCode =
+  | "malformed"
+  | "bad_signature"
+  | "invalid_claims"
+  | "not_yet_valid"
+
+/**
+ * Deployment-wide capabilities a license can grant.
+ *
+ * These are not organization entitlements: they never appear in tiers or in
+ * ``EffectiveEntitlements``. A license lists them in ``entitlements`` next to
+ * organization entitlement keys.
+ */
+export type LicenseGrant = "multi_tenant"
 
 /**
  * License status for the platform admin.
@@ -7263,6 +7276,10 @@ export type LicenseRead = {
    * Paid entitlements the license grants right now
    */
   entitlements?: Array<Entitlement>
+  /**
+   * Deployment-wide grants the license applies right now, such as multi_tenant
+   */
+  grants?: Array<LicenseGrant>
   /**
    * Free entitlements every single-tenant install gets without a license
    */
@@ -9489,19 +9506,20 @@ export type Role = {
   service_account_id?: string | null
   scim_connection_id?: string | null
   service_id:
-    | "tracecat-api"
-    | "tracecat-bootstrap"
-    | "tracecat-cli"
-    | "tracecat-executor"
-    | "tracecat-agent-executor"
-    | "tracecat-case-duration-sync"
-    | "tracecat-case-triggers"
-    | "tracecat-llm-gateway"
-    | "tracecat-mcp"
-    | "tracecat-runner"
-    | "tracecat-schedule-runner"
-    | "tracecat-service"
-    | "tracecat-ui"
+    | "autosecops-admin-cli"
+    | "autosecops-api"
+    | "autosecops-bootstrap"
+    | "autosecops-cli"
+    | "autosecops-executor"
+    | "autosecops-agent-executor"
+    | "autosecops-case-duration-sync"
+    | "autosecops-case-triggers"
+    | "autosecops-llm-gateway"
+    | "autosecops-mcp"
+    | "autosecops-runner"
+    | "autosecops-schedule-runner"
+    | "autosecops-service"
+    | "autosecops-ui"
   is_platform_superuser?: boolean
   scopes?: Array<string> | null
   [key: string]: unknown | string | boolean
@@ -9510,19 +9528,20 @@ export type Role = {
 export type type5 = "user" | "service" | "service_account" | "scim"
 
 export type service_id =
-  | "tracecat-api"
-  | "tracecat-bootstrap"
-  | "tracecat-cli"
-  | "tracecat-executor"
-  | "tracecat-agent-executor"
-  | "tracecat-case-duration-sync"
-  | "tracecat-case-triggers"
-  | "tracecat-llm-gateway"
-  | "tracecat-mcp"
-  | "tracecat-runner"
-  | "tracecat-schedule-runner"
-  | "tracecat-service"
-  | "tracecat-ui"
+  | "autosecops-admin-cli"
+  | "autosecops-api"
+  | "autosecops-bootstrap"
+  | "autosecops-cli"
+  | "autosecops-executor"
+  | "autosecops-agent-executor"
+  | "autosecops-case-duration-sync"
+  | "autosecops-case-triggers"
+  | "autosecops-llm-gateway"
+  | "autosecops-mcp"
+  | "autosecops-runner"
+  | "autosecops-schedule-runner"
+  | "autosecops-service"
+  | "autosecops-ui"
 
 /**
  * Assignment identity and value observed when editing began.
@@ -10338,8 +10357,8 @@ export type SecretStoreRead = {
   config: AwsSecretsManagerStoreConfig
   enabled: boolean
   all_workspaces: boolean
-  tracecat_aws_account_id?: string | null
-  tracecat_aws_principal_arn?: string | null
+  autosecops_aws_account_id?: string | null
+  autosecops_aws_principal_arn?: string | null
   /**
    * AWS partition of the store region, when botocore knows it.
    */
@@ -15207,6 +15226,13 @@ export type SchedulesCreateScheduleData = {
 
 export type SchedulesCreateScheduleResponse = ScheduleRead
 
+export type SchedulesSearchSchedulesData = {
+  requestBody: ScheduleSearch
+  workspaceId: string
+}
+
+export type SchedulesSearchSchedulesResponse = Array<ScheduleRead>
+
 export type SchedulesGetScheduleData = {
   scheduleId: string
   workspaceId: string
@@ -15228,13 +15254,6 @@ export type SchedulesDeleteScheduleData = {
 }
 
 export type SchedulesDeleteScheduleResponse = void
-
-export type SchedulesSearchSchedulesData = {
-  requestBody: ScheduleSearch
-  workspaceId: string
-}
-
-export type SchedulesSearchSchedulesResponse = Array<ScheduleRead>
 
 export type TagsListTagsData = {
   workspaceId: string
@@ -21561,6 +21580,21 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/workspaces/{workspace_id}/schedules/search": {
+    get: {
+      req: SchedulesSearchSchedulesData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Array<ScheduleRead>
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
   "/workspaces/{workspace_id}/schedules/{schedule_id}": {
     get: {
       req: SchedulesGetScheduleData
@@ -21595,21 +21629,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         204: void
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/schedules/search": {
-    get: {
-      req: SchedulesSearchSchedulesData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: Array<ScheduleRead>
         /**
          * Validation Error
          */

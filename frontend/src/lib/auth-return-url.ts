@@ -1,7 +1,8 @@
-export const POST_AUTH_RETURN_URL_COOKIE_NAME = "tracecat_post_auth_return_url"
+export const POST_AUTH_RETURN_URL_COOKIE_NAME =
+  "autosecops_post_auth_return_url"
 export const POST_AUTH_RETURN_URL_COOKIE_MAX_AGE_SECONDS = 60 * 15
 
-const APP_URL_PLACEHOLDER = "https://tracecat.local"
+const APP_URL_PLACEHOLDER = "https://autosecops.local"
 const BLOCKED_POST_AUTH_RETURN_URL_PREFIXES = [
   "/auth",
   "/sign-in",

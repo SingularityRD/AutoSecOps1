@@ -22,7 +22,7 @@ _TEST_BODY: dict[str, Any] = {
     "audit_webhook_url": "https://audit.example.test/ingest",
     "audit_webhook_custom_headers": {
         "X-Custom-Audit": "secret-value",
-        "x-tracecat-test": "false",
+        "x-autosecops-test": "false",
     },
     "audit_webhook_custom_payload": {"customer_field": "customer-value"},
     "audit_webhook_verify_ssl": False,
@@ -145,8 +145,8 @@ async def test_org_audit_webhook_test_posts_marked_event_from_submitted_config(
     assert call["verify"] is False
     assert call["timeout"] == 5.0
     assert call["headers"]["X-Custom-Audit"] == "secret-value"
-    assert "x-tracecat-test" not in call["headers"]
-    assert call["headers"]["X-Tracecat-Test"] == "true"
+    assert "x-autosecops-test" not in call["headers"]
+    assert call["headers"]["X-AutoSecOps-Test"] == "true"
     event = call["json"]["event"]
     assert event["organization_id"] == str(test_admin_role.organization_id)
     assert event["actor_id"] == str(test_admin_role.user_id)
@@ -224,7 +224,7 @@ async def test_org_audit_webhook_test_enforces_wall_clock_timeout(
         "error_category": "timeout",
     }
     assert len(HangingAuditWebhookClient.calls) == 1
-    assert HangingAuditWebhookClient.calls[0]["headers"]["X-Tracecat-Test"] == "true"
+    assert HangingAuditWebhookClient.calls[0]["headers"]["X-AutoSecOps-Test"] == "true"
 
 
 @pytest.mark.anyio

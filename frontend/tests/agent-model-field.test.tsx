@@ -53,7 +53,7 @@ function TestField({ value }: { value: Record<string, string> }) {
         fieldName="inputs.model"
         fieldDefn={{
           type: ["object", "null"],
-          "x-tracecat-component": [{ component_id: "agent-model" }],
+          "x-autosecops-component": [{ component_id: "agent-model" }],
         }}
       />
       <output data-testid="value">

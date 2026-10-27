@@ -17,9 +17,9 @@ from pydantic import SecretStr
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES, ORG_ADMIN_SCOPES
 from autosecops.exceptions import (
+    AutoSecOpsNotFoundError,
     EntitlementRequired,
     ScopeDeniedError,
-    TracecatNotFoundError,
 )
 from autosecops.git.types import GitUrl
 from autosecops.secrets.schemas import SecretKeyValue
@@ -47,7 +47,7 @@ def role(*scopes: str) -> Role:
         workspace_id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
-        service_id="tracecat-api",
+        service_id="autosecops-api",
         scopes=frozenset(scopes) if scopes else ADMIN_SCOPES | ORG_ADMIN_SCOPES,
     )
 
@@ -359,7 +359,7 @@ async def test_saved_bitbucket_binding_resolves_through_workspace_service():
 async def test_credential_lifecycle_and_status_never_returns_token():
     service = BitbucketTokenService(session=AsyncMock(), role=role())
     secrets = AsyncMock(spec=SecretsService)
-    secrets._get_org_secret_by_name.side_effect = TracecatNotFoundError("missing")
+    secrets._get_org_secret_by_name.side_effect = AutoSecOpsNotFoundError("missing")
     with (
         patch.object(service, "require_entitlement", new=AsyncMock()),
         patch("autosecops.vcs.bitbucket.app.SecretsService", return_value=secrets),

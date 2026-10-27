@@ -20,13 +20,13 @@ from autosecops_registry.sdk.agents import OutputType
 LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE = "Use `model` instead."
 """Deprecation message for raw model selection fields."""
 LEGACY_MODEL_FIELD_SCHEMA_EXTRA: dict[str, Any] = {
-    "x-tracecat-deprecation-message": LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE
+    "x-autosecops-deprecation-message": LEGACY_MODEL_FIELD_DEPRECATION_MESSAGE
 }
 LEGACY_PRESET_VERSION_DEPRECATION_MESSAGE = (
     "Preset agents always resolve the current head."
 )
 LEGACY_PRESET_VERSION_SCHEMA_EXTRA: dict[str, Any] = {
-    "x-tracecat-deprecation-message": LEGACY_PRESET_VERSION_DEPRECATION_MESSAGE
+    "x-autosecops-deprecation-message": LEGACY_PRESET_VERSION_DEPRECATION_MESSAGE
 }
 
 

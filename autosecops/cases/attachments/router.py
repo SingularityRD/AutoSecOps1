@@ -91,7 +91,7 @@ async def create_attachment(
 
     # Read file content with bounded memory to avoid DoS via large uploads
     try:
-        max_size = config.TRACECAT__MAX_ATTACHMENT_SIZE_BYTES
+        max_size = config.AUTOSECOPS__MAX_ATTACHMENT_SIZE_BYTES
         chunk_size = 1024 * 1024  # 1 MB chunks
 
         # Reset file pointer to beginning to ensure we read the full content

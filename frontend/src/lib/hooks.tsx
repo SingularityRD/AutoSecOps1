@@ -395,11 +395,11 @@ import {
 import { invalidateCaseActivityQueries } from "@/lib/cases/invalidation"
 import type { ModelInfo } from "@/lib/chat"
 import {
+  type AutoSecOpsApiError,
   getApiErrorDetail,
   getMcpOAuthConnectErrorDetail,
   retryHandler,
   sanitizeUrlsInText,
-  type TracecatApiError,
 } from "@/lib/errors"
 import type { WorkflowExecutionReadCompact } from "@/lib/event-history"
 import { getPendingStdioMcpVerificationIds } from "@/lib/integrations"
@@ -872,7 +872,7 @@ export function useWorkflowManager(
         description: "Your workflow has been created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -916,7 +916,7 @@ export function useWorkflowManager(
           description: "Your workflow has been deleted successfully.",
         })
       },
-      onError: (error: TracecatApiError) => {
+      onError: (error: AutoSecOpsApiError) => {
         switch (error.status) {
           case 400:
             toast({
@@ -942,7 +942,7 @@ export function useWorkflowManager(
       queryClient.invalidateQueries({ queryKey: ["workflows"] })
       queryClient.invalidateQueries({ queryKey: ["directory-items"] })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to add tag to workflow:", error)
       toast({
         title: "Couldn't add tag to workflow",
@@ -958,7 +958,7 @@ export function useWorkflowManager(
       queryClient.invalidateQueries({ queryKey: ["workflows"] })
       queryClient.invalidateQueries({ queryKey: ["directory-items"] })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to remove tag from workflow:", error)
       toast({
         title: "Couldn't remove tag from workflow",
@@ -975,7 +975,7 @@ export function useWorkflowManager(
       queryClient.invalidateQueries({ queryKey: ["directory-items"] })
       queryClient.invalidateQueries({ queryKey: ["workflows"] })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to move workflow:", error)
       toast({
         title: "Error moving workflow",
@@ -998,7 +998,7 @@ export function useWorkflowManager(
           queryKey: ["agent-preset-workflow-references", workspaceId],
         })
       },
-      onError: (error: TracecatApiError) => {
+      onError: (error: AutoSecOpsApiError) => {
         // Transport failures rethrow a raw error with no `body`, so read the
         // detail defensively; dereferencing it here would throw before the
         // toast renders and leave the user with no feedback at all.
@@ -1076,7 +1076,7 @@ export function useWorkspaceManager() {
         description: "Your workspace has been created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           console.log(
@@ -1108,7 +1108,7 @@ export function useWorkspaceManager() {
         description: "Your workspace has been deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -1129,18 +1129,18 @@ export function useWorkspaceManager() {
 
   // Cookies
   const getLastWorkspaceId = useCallback(
-    () => Cookies.get("__tracecat:workspaces:last-viewed"),
+    () => Cookies.get("__autosecops:workspaces:last-viewed"),
     []
   )
   const setLastWorkspaceId = useCallback((id?: string) => {
     if (!id) {
-      Cookies.set("__tracecat:workspaces:last-viewed", "")
+      Cookies.set("__autosecops:workspaces:last-viewed", "")
       return
     }
-    Cookies.set("__tracecat:workspaces:last-viewed", id)
+    Cookies.set("__autosecops:workspaces:last-viewed", id)
   }, [])
   const clearLastWorkspaceId = useCallback(() => {
-    Cookies.remove("__tracecat:workspaces:last-viewed")
+    Cookies.remove("__autosecops:workspaces:last-viewed")
   }, [])
 
   return {
@@ -1298,7 +1298,7 @@ export function useCreateManualWorkflowExecution(workflowId: string) {
         queryKey: ["case-task-workflow-runs"],
       })
     },
-    onError: (error: TracecatApiError<Record<string, string>>) => {
+    onError: (error: AutoSecOpsApiError<Record<string, string>>) => {
       switch (error.status) {
         case 400:
           console.error("Invalid workflow trigger inputs", error)
@@ -1358,7 +1358,7 @@ export function useCreateDraftWorkflowExecution(workflowId: string) {
         queryKey: ["compact-workflow-execution", wf_exec_id],
       })
     },
-    onError: (error: TracecatApiError<Record<string, string>>) => {
+    onError: (error: AutoSecOpsApiError<Record<string, string>>) => {
       switch (error.status) {
         case 400:
           console.error("Workflow validation failed", error)
@@ -1403,7 +1403,7 @@ export function useLastExecution({
     data: lastExecution,
     isLoading: lastExecutionIsLoading,
     error: lastExecutionError,
-  } = useQuery<WorkflowExecutionReadMinimal | null, TracecatApiError>({
+  } = useQuery<WorkflowExecutionReadMinimal | null, AutoSecOpsApiError>({
     enabled: !!workflowId,
     queryKey: ["last-execution", workflowId, triggerTypes?.sort().join(",")],
     queryFn: async () => {
@@ -1557,7 +1557,7 @@ export function useWorkspaceSecrets(
         queryKey: ["workspace-secrets", workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -1604,7 +1604,7 @@ export function useWorkspaceSecrets(
         queryKey: ["workspace-secrets", workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -1634,7 +1634,7 @@ export function useWorkspaceSecrets(
         description: "Secret deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -1742,7 +1742,7 @@ export function useWorkspaceVariables(
         queryKey: ["workspace-variables", workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -1788,7 +1788,7 @@ export function useWorkspaceVariables(
         queryKey: ["workspace-variables", workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -1821,7 +1821,7 @@ export function useWorkspaceVariables(
         description: "Variable deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -2137,7 +2137,7 @@ export function useRegistryRepositories() {
         queryKey: ["repository_commits", repositoryId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           return toast({
@@ -2197,8 +2197,8 @@ export function useRegistryRepositories() {
         description: "Registry repository deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
-      const apiError = error as TracecatApiError
+    onError: (error: AutoSecOpsApiError) => {
+      const apiError = error as AutoSecOpsApiError
       switch (apiError.status) {
         case 403:
           toast({
@@ -2295,8 +2295,8 @@ export function useOrgMembers() {
         description: "Organization member updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
-      const apiError = error as TracecatApiError
+    onError: (error: AutoSecOpsApiError) => {
+      const apiError = error as AutoSecOpsApiError
       switch (apiError.status) {
         case 403:
           toast({
@@ -2328,8 +2328,8 @@ export function useOrgMembers() {
         description: "Organization access removed and sessions revoked.",
       })
     },
-    onError: (error: TracecatApiError) => {
-      const apiError = error as TracecatApiError
+    onError: (error: AutoSecOpsApiError) => {
+      const apiError = error as AutoSecOpsApiError
       switch (apiError.status) {
         case 403:
           toast({
@@ -2362,8 +2362,8 @@ export function useOrgMembers() {
         description: "Invitation sent successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
-      const apiError = error as TracecatApiError
+    onError: (error: AutoSecOpsApiError) => {
+      const apiError = error as AutoSecOpsApiError
       const detail = apiError.body?.detail
       toast({
         title: "Failed to create invitation",
@@ -2386,8 +2386,8 @@ export function useOrgMembers() {
         description: "Invitation has been revoked.",
       })
     },
-    onError: (error: TracecatApiError) => {
-      const apiError = error as TracecatApiError
+    onError: (error: AutoSecOpsApiError) => {
+      const apiError = error as AutoSecOpsApiError
       const detail = apiError.body?.detail
       toast({
         title: "Failed to revoke invitation",
@@ -2507,7 +2507,7 @@ export function useWorkflowTags(
       })
     },
 
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           console.error("Error creating tag", error)
@@ -2548,7 +2548,7 @@ export function useWorkflowTags(
         description: "Tag updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           console.error("Error updating tag", error)
@@ -2577,7 +2577,7 @@ export function useWorkflowTags(
         description: "Tag deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -2649,7 +2649,7 @@ export function useCaseTagCatalog(
         ),
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -2691,7 +2691,7 @@ export function useCaseTagCatalog(
         description: "Case tag updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -2727,7 +2727,7 @@ export function useCaseTagCatalog(
         description: "Case tag deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -2783,7 +2783,7 @@ export function useOrgGitSettings() {
         description: "Git settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3047,7 +3047,7 @@ export function useOrgAgentSettings() {
         description: "Agent settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3105,7 +3105,7 @@ export function useOrgSamlSettings() {
         description: "SAML settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3166,7 +3166,7 @@ export function useOrgAppSettings() {
         description: "Application settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3224,7 +3224,7 @@ export function useOrgAuditSettings() {
         description: "Audit settings updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3245,7 +3245,7 @@ export function useOrgAuditSettings() {
   const { mutate: testAuditWebhook, isPending: testAuditWebhookIsPending } =
     useMutation<
       AuditWebhookTestResult,
-      TracecatApiError,
+      AutoSecOpsApiError,
       SettingsTestAuditWebhookData
     >({
       mutationFn: settingsTestAuditWebhook,
@@ -3256,7 +3256,7 @@ export function useOrgAuditSettings() {
           variant: result.ok ? "default" : "destructive",
         })
       },
-      onError: (error: TracecatApiError) => {
+      onError: (error: AutoSecOpsApiError) => {
         switch (error.status) {
           case 403:
             toast({
@@ -3360,7 +3360,7 @@ export function useCreateTable() {
     error: createTableError,
   } = useMutation<
     TablesCreateTableResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     TablesCreateTableData
   >({
     mutationFn: async (params: TablesCreateTableData) =>
@@ -3370,7 +3370,7 @@ export function useCreateTable() {
         queryKey: ["tables", variables.workspaceId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error creating table", error)
     },
   })
@@ -3429,7 +3429,7 @@ export function useDeleteTable() {
         variables.tableId
       )
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -3480,7 +3480,7 @@ export function useInsertColumn() {
         queryKey: ["rows", variables.tableId],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -3521,7 +3521,7 @@ export function useUpdateColumn() {
         variables.tableId
       )
     },
-    onError: (error: TracecatApiError, variables) => {
+    onError: (error: AutoSecOpsApiError, variables) => {
       const requestedIsIndex = variables.requestBody?.is_index
       const isIndexOperation = typeof requestedIsIndex === "boolean"
       const indexErrorTitle =
@@ -3634,7 +3634,7 @@ export function useBatchInsertRows() {
         description: "The data has been imported into the table.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error batch inserting rows:", error)
       toast({
         title: "Failed to import rows",
@@ -3688,7 +3688,7 @@ export function useInsertRow() {
         variables.tableId
       )
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       if (error.status === 409) {
         toast({
           title: "Duplicate value error",
@@ -3739,7 +3739,7 @@ export function useUpdateRow() {
         ],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Error updating row",
         description: error.message || "An unexpected error occurred",
@@ -3912,7 +3912,7 @@ export function useImportTableFromCsv() {
     error: importTableError,
   } = useMutation<
     TablesImportTableFromCsvResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     TablesImportTableFromCsvData
   >({
     mutationFn: async (params) => await tablesImportTableFromCsv(params),
@@ -3944,7 +3944,7 @@ export function useSearchCases(params: CasesSearchCasesData) {
     data: cases,
     isLoading: casesIsLoading,
     error: casesError,
-  } = useQuery<CaseReadMinimal[], TracecatApiError>({
+  } = useQuery<CaseReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["cases", "search", params],
     queryFn: async () => {
       const response = await casesSearchCases(params)
@@ -3970,7 +3970,7 @@ export function useGetCase(
     data: caseData,
     isLoading: caseDataIsLoading,
     error: caseDataError,
-  } = useQuery<CaseRead, TracecatApiError>({
+  } = useQuery<CaseRead, AutoSecOpsApiError>({
     queryKey: ["case", caseId],
     queryFn: async () => {
       const response = await apiClient.get<CaseRead>(`/cases/${caseId}`, {
@@ -4010,7 +4010,7 @@ export function useCreateCase(workspaceId: string) {
         description: "New case created successfully",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       toast({
         title: "Error creating case",
         description: `An error occurred while creating the case: ${getApiErrorDetail(error) ?? "Please try again."}`,
@@ -4057,7 +4057,7 @@ export function useUpdateCase({
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -4102,7 +4102,7 @@ export function useDeleteCase({ workspaceId }: { workspaceId: string }) {
         exact: false,
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           return toast({
@@ -4216,7 +4216,7 @@ export function useCaseDurations({
     data: caseDurations,
     isLoading: caseDurationsIsLoading,
     error: caseDurationsError,
-  } = useQuery<CaseDurationRead[], TracecatApiError>({
+  } = useQuery<CaseDurationRead[], AutoSecOpsApiError>({
     queryKey: ["case-durations", caseId, workspaceId],
     queryFn: async () => await listCaseDurations(workspaceId, caseId),
     enabled: Boolean(caseId && workspaceId) && enabled,
@@ -4262,7 +4262,7 @@ export function useCaseFields(workspaceId: string, enabled = true) {
     isLoading: caseFieldsIsLoading,
     isFetching: caseFieldsIsFetching,
     error: caseFieldsError,
-  } = useQuery<CaseFieldReadMinimal[], TracecatApiError>({
+  } = useQuery<CaseFieldReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["case-fields", workspaceId],
     queryFn: async () => await casesListFields({ workspaceId }),
     enabled: Boolean(workspaceId) && enabled,
@@ -4284,7 +4284,7 @@ export function useCaseComments({
     data: caseComments,
     isLoading: caseCommentsIsLoading,
     error: caseCommentsError,
-  } = useQuery<CaseCommentRead[], TracecatApiError>({
+  } = useQuery<CaseCommentRead[], AutoSecOpsApiError>({
     queryKey: caseCommentQueryKeys.comments(caseId, workspaceId),
     queryFn: async () => await casesListComments({ caseId, workspaceId }),
     enabled,
@@ -4310,7 +4310,7 @@ export function useCaseCommentThreads({
     data: caseCommentThreads,
     isLoading: caseCommentThreadsIsLoading,
     error: caseCommentThreadsError,
-  } = useQuery<CaseCommentThreadRead[], TracecatApiError>({
+  } = useQuery<CaseCommentThreadRead[], AutoSecOpsApiError>({
     queryKey: caseCommentQueryKeys.threads(caseId, workspaceId),
     queryFn: async () => await casesListCommentThreads({ caseId, workspaceId }),
     enabled,
@@ -4347,7 +4347,7 @@ export function useCreateCaseComment({
     onSuccess: () => {
       invalidateCaseCommentQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error creating comment", error)
       toast({
         title: "Error creating comment",
@@ -4390,7 +4390,7 @@ export function useUpdateCaseComment({
     onSuccess: () => {
       invalidateCaseCommentQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error updating comment", error)
       toast({
         title: "Error updating comment",
@@ -4432,7 +4432,7 @@ export function useDeleteCaseComment({
     onSuccess: () => {
       invalidateCaseCommentQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error deleting comment", error)
       toast({
         title: "Error deleting comment",
@@ -4459,7 +4459,7 @@ export function useCaseTasks({
     isLoading: caseTasksIsLoading,
     error: caseTasksError,
     refetch: refetchCaseTasks,
-  } = useQuery<CaseTaskRead[], TracecatApiError>({
+  } = useQuery<CaseTaskRead[], AutoSecOpsApiError>({
     queryKey: ["case-tasks", caseId, workspaceId],
     queryFn: async () => await casesListTasks({ caseId, workspaceId }),
     // Tasks are gated behind the `case_addons` entitlement; callers outside
@@ -4496,7 +4496,7 @@ export function useCreateCaseTask({ caseId, workspaceId }: CasesListTasksData) {
       })
       invalidateCaseActivityQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error creating task", error)
       toast({
         title: "Error creating task",
@@ -4541,7 +4541,7 @@ export function useUpdateCaseTask({
       })
       invalidateCaseActivityQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error updating task", error)
       toast({
         title: "Error updating task",
@@ -4585,7 +4585,7 @@ export function useDeleteCaseTask({
       })
       invalidateCaseActivityQueries(queryClient, caseId, workspaceId)
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error deleting task", error)
       toast({
         title: "Error deleting task",
@@ -4657,7 +4657,7 @@ export function useFolders(
         ),
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           console.error("Error creating folder", error)
@@ -4707,7 +4707,7 @@ export function useFolders(
         description: "Folder updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 409:
           console.error("Error updating folder", error)
@@ -4754,7 +4754,7 @@ export function useFolders(
         description: "Folder moved successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Error moving folder", error)
       toast({
         title: "Error moving folder",
@@ -4792,7 +4792,7 @@ export function useFolders(
         description: "Folder deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -4884,7 +4884,7 @@ export function useCaseEvents({
     data: caseEvents,
     isLoading: caseEventsIsLoading,
     error: caseEventsError,
-  } = useQuery<CaseEventsWithUsers, TracecatApiError>({
+  } = useQuery<CaseEventsWithUsers, AutoSecOpsApiError>({
     queryKey: ["case-events", caseId, workspaceId],
     queryFn: async () =>
       await casesListEventsWithUsers({ caseId, workspaceId }),
@@ -4902,7 +4902,7 @@ export function useCaseTags({ caseId, workspaceId }: CasesListTagsData) {
     data: caseTags,
     isLoading: caseTagsIsLoading,
     error: caseTagsError,
-  } = useQuery<CaseTagRead[], TracecatApiError>({
+  } = useQuery<CaseTagRead[], AutoSecOpsApiError>({
     queryKey: ["case-tags", caseId, workspaceId],
     queryFn: async () => await casesListTags({ caseId, workspaceId }),
   })
@@ -4980,7 +4980,7 @@ export function useIntegrations(workspaceId: string) {
     data: integrations,
     isLoading: integrationsIsLoading,
     error: integrationsError,
-  } = useQuery<IntegrationReadMinimal[], TracecatApiError>({
+  } = useQuery<IntegrationReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["integrations", workspaceId],
     queryFn: async () => await integrationsListIntegrations({ workspaceId }),
     enabled: Boolean(workspaceId),
@@ -4993,7 +4993,7 @@ export function useIntegrations(workspaceId: string) {
     data: providers,
     isLoading: providersIsLoading,
     error: providersError,
-  } = useQuery<ProviderReadMinimal[], TracecatApiError>({
+  } = useQuery<ProviderReadMinimal[], AutoSecOpsApiError>({
     queryKey: ["providers", workspaceId],
     queryFn: async () => await providersListProviders({ workspaceId }),
     enabled: Boolean(workspaceId),
@@ -5054,7 +5054,7 @@ export function useCreateCustomProvider(workspaceId: string) {
         description: `Added ${provider.name}`,
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to create custom provider:", error)
       toast({
         title: "Failed to create provider",
@@ -5111,7 +5111,7 @@ export function useConnectMcpIntegration(workspaceId: string) {
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to connect MCP integration:", error)
       toast({
         title: "Failed to connect MCP integration",
@@ -5164,7 +5164,7 @@ export function useCreateMcpIntegration(workspaceId: string) {
           : `Added ${integration.name}`,
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to create MCP integration:", error)
       toast({
         title: "Failed to create MCP integration",
@@ -5199,7 +5199,7 @@ export function useListMcpIntegrations(
     data: mcpIntegrations,
     isLoading: mcpIntegrationsIsLoading,
     error: mcpIntegrationsError,
-  } = useQuery<MCPIntegrationRead[], TracecatApiError>({
+  } = useQuery<MCPIntegrationRead[], AutoSecOpsApiError>({
     queryKey: ["mcp-integrations", workspaceId, source],
     queryFn: async () =>
       await mcpIntegrationsListMcpIntegrations({ workspaceId, source }),
@@ -5233,7 +5233,7 @@ export function useGetMcpIntegration(
     data: mcpIntegration,
     isLoading: mcpIntegrationIsLoading,
     error: mcpIntegrationError,
-  } = useQuery<MCPIntegrationRead, TracecatApiError>({
+  } = useQuery<MCPIntegrationRead, AutoSecOpsApiError>({
     queryKey: ["mcp-integration", workspaceId, mcpIntegrationId],
     queryFn: async () =>
       await mcpIntegrationsGetMcpIntegration({
@@ -5292,7 +5292,7 @@ export function useUpdateMcpIntegration(workspaceId: string) {
         description: `Updated ${integration.name}`,
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to update MCP integration:", error)
       toast({
         title: "Failed to update MCP integration",
@@ -5356,7 +5356,7 @@ export function useUpdateMcpIntegrationToolPolicies(workspaceId: string) {
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to update MCP tool policy:", error)
       toast({
         title: "Failed to update tool policy",
@@ -5428,7 +5428,7 @@ export function useTestMcpConnectionConfig(workspaceId: string) {
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       // The server URI is caller-controlled and may carry credentials in its
       // userinfo/query; strip those from any URLs before logging or surfacing.
       const detail = sanitizeUrlsInText(
@@ -5495,7 +5495,7 @@ export function useTestMcpIntegrationConnection(workspaceId: string) {
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       const detail = sanitizeUrlsInText(
         getApiErrorDetail(error) ?? error.message
       )
@@ -5546,7 +5546,7 @@ export function useDeleteMcpIntegration(workspaceId: string) {
         description: "The integration has been removed",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to delete MCP integration:", error)
       toast({
         title: "Failed to delete MCP integration",
@@ -5579,7 +5579,7 @@ export function useIntegrationProvider({
     data: integration,
     isLoading: integrationIsLoading,
     error: integrationError,
-  } = useQuery<IntegrationRead | null, TracecatApiError>({
+  } = useQuery<IntegrationRead | null, AutoSecOpsApiError>({
     queryKey: ["integration", providerId, workspaceId, grantType],
     queryFn: async () => {
       try {
@@ -5607,7 +5607,7 @@ export function useIntegrationProvider({
     data: provider,
     isLoading: providerIsLoading,
     error: providerError,
-  } = useQuery<ProviderRead, TracecatApiError>({
+  } = useQuery<ProviderRead, AutoSecOpsApiError>({
     queryKey: ["provider-schema", providerId, workspaceId, grantType],
     queryFn: async () =>
       await providersGetProvider({ providerId, workspaceId, grantType }),
@@ -5640,7 +5640,7 @@ export function useIntegrationProvider({
         queryKey: ["provider-schema", providerId, workspaceId, grantType],
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to update integration:", error)
       toast({
         title: "Failed to update",
@@ -5661,7 +5661,7 @@ export function useIntegrationProvider({
       // Redirect to OAuth provider if auth_url is returned
       window.location.href = result.auth_url
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to connect provider:", error)
       toast({
         title: "Failed to connect",
@@ -5693,7 +5693,7 @@ export function useIntegrationProvider({
         description: "Successfully disconnected from provider",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to disconnect provider:", error)
       toast({
         title: "Failed to disconnect",
@@ -5729,7 +5729,7 @@ export function useIntegrationProvider({
         description: "Removed integration configuration",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to delete integration:", error)
       toast({
         title: "Failed to delete",
@@ -5770,7 +5770,7 @@ export function useIntegrationProvider({
         })
       }
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       console.error("Failed to test connection:", error)
       toast({
         title: "Test failed",
@@ -5834,7 +5834,7 @@ export function useAgentSessions(
     (
       query: Query<
         AgentSessionsListSessionsResponse,
-        TracecatApiError,
+        AutoSecOpsApiError,
         AgentSessionsListSessionsResponse,
         readonly unknown[]
       >
@@ -5883,7 +5883,7 @@ export function useAgentSessions(
     refetch: refetchSessions,
   } = useQuery<
     AgentSessionsListSessionsResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     AgentSessionWithStatus[]
   >({
     queryKey: ["agent-sessions", workspaceId],
@@ -6469,7 +6469,7 @@ export function useRbacScopes(options?: {
         description: "Custom scope created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6516,7 +6516,7 @@ export function useRbacScopes(options?: {
         description: "Custom scope deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6608,7 +6608,7 @@ export function useRbacRoles(options: { enabled?: boolean } = {}) {
         description: "Custom role created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6660,7 +6660,7 @@ export function useRbacRoles(options: { enabled?: boolean } = {}) {
         description: "Role updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6708,7 +6708,7 @@ export function useRbacRoles(options: { enabled?: boolean } = {}) {
         description: "Role deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6760,7 +6760,7 @@ export function useRbacRoles(options: { enabled?: boolean } = {}) {
 
 /** Short reason for a failed add of one user to an RBAC group. */
 function getAddGroupMemberFailureReason(error: unknown): string {
-  const apiError = error as Partial<TracecatApiError>
+  const apiError = error as Partial<AutoSecOpsApiError>
   const detail = apiError.body?.detail
   if (typeof detail === "string") {
     return detail
@@ -6811,7 +6811,7 @@ export function useRbacGroups() {
         description: "Group created successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -6863,7 +6863,7 @@ export function useRbacGroups() {
         description: "Group updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -6905,7 +6905,7 @@ export function useRbacGroups() {
         description: "Group deleted successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -7004,7 +7004,7 @@ export function useRbacGroups() {
         description: "Member removed from the group successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -7110,7 +7110,7 @@ export function useRbacAssignments(options?: {
         description: "Role assigned to group successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -7170,7 +7170,7 @@ export function useRbacAssignments(options?: {
         description: "Assignment updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -7213,7 +7213,7 @@ export function useRbacAssignments(options?: {
         description: "Assignment removed successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -7308,7 +7308,7 @@ export function useRbacUserAssignments(options?: {
         description: "Role assigned to user successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 400:
           toast({
@@ -7367,7 +7367,7 @@ export function useRbacUserAssignments(options?: {
         description: "User assignment updated successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({
@@ -7409,7 +7409,7 @@ export function useRbacUserAssignments(options?: {
         description: "User assignment removed successfully.",
       })
     },
-    onError: (error: TracecatApiError) => {
+    onError: (error: AutoSecOpsApiError) => {
       switch (error.status) {
         case 403:
           toast({

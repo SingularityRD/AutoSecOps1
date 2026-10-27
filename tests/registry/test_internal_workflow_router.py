@@ -201,14 +201,14 @@ class TestInternalWorkflowCreateRequest:
         req = InternalWorkflowCreateRequest(definition_yaml="definition:\n  title: T\n")
         assert req.definition_yaml == "definition:\n  title: T\n"
 
-    def test_invalid_dsl_raises_raw_tracecat_error_not_pydantic(self):
-        """DSLInput validators raise raw TracecatDSLError, not ValidationError.
+    def test_invalid_dsl_raises_raw_autosecops_error_not_pydantic(self):
+        """DSLInput validators raise raw AutoSecOpsDSLError, not ValidationError.
 
-        Why the create handler must catch TracecatValidationError (else 500).
+        Why the create handler must catch AutoSecOpsValidationError (else 500).
         """
         from pydantic import ValidationError as PydanticValidationError
 
-        from autosecops.exceptions import TracecatDSLError
+        from autosecops.exceptions import AutoSecOpsDSLError
         from autosecops.workflow.management.schemas import ExternalWorkflowDefinition
 
         import_data = {
@@ -222,7 +222,7 @@ class TestInternalWorkflowCreateRequest:
                 ],
             }
         }
-        with pytest.raises(TracecatDSLError) as exc:
+        with pytest.raises(AutoSecOpsDSLError) as exc:
             ExternalWorkflowDefinition.model_validate(import_data)
         assert not isinstance(exc.value, PydanticValidationError)
 
@@ -456,7 +456,7 @@ class TestInvalidPatchApplicationRaisesToolError:
 class TestInternalRouterCoversSdkPaths:
     """The internal router must expose every path the workflows SDK calls.
 
-    ``TracecatClient`` sends SDK paths to the Action Gateway under ``/internal``,
+    ``AutoSecOpsClient`` sends SDK paths to the Action Gateway under ``/internal``,
     so any missing route 404s when a registry action invokes it. These
     assertions lock the webhook and
     case-trigger routes (added alongside the chat tools that drive them) into

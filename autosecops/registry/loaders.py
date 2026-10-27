@@ -42,8 +42,8 @@ def get_bound_action_impl(
     ]
     if impl.type == "udf":
         fn = load_udf_impl(impl)
-        key = getattr(fn, "__tracecat_udf_key")
-        kwargs = getattr(fn, "__tracecat_udf_kwargs")
+        key = getattr(fn, "__autosecops_udf_key")
+        kwargs = getattr(fn, "__autosecops_udf_kwargs")
         logger.trace("Binding UDF", key=key, name=action.name, kwargs=kwargs)
         # Add validators to the function
         validated_kwargs = RegisterKwargs.model_validate(kwargs)
@@ -127,8 +127,8 @@ def get_bound_action_from_manifest(
 
     if impl.type == "udf":
         fn = load_udf_impl(impl)
-        key = getattr(fn, "__tracecat_udf_key")
-        kwargs = getattr(fn, "__tracecat_udf_kwargs")
+        key = getattr(fn, "__autosecops_udf_key")
+        kwargs = getattr(fn, "__autosecops_udf_kwargs")
         logger.trace(
             "Binding UDF from manifest",
             key=key,
@@ -198,7 +198,7 @@ def load_udf_impl(impl: RegistryActionUDFImpl) -> F:
     module_path = impl.module
     function_name = impl.name
 
-    if config.TRACECAT__LOCAL_REPOSITORY_ENABLED:
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
         logger.warning(
             "Force reloading local registry. You should only use this for development and not in production. "
             "In production, you should use a remote git repository."

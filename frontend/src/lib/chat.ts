@@ -646,19 +646,19 @@ function isToolResultPart(part: AnyToolPart): part is ToolResultPart {
 
 /**
  * The denial recorded on a tool call's result, or null. AutoSecOps tags a denied
- * call's result with `callProviderMetadata.tracecat.approval = "rejected"`,
+ * call's result with `callProviderMetadata.autosecops.approval = "rejected"`,
  * since the result itself is error text written for the model.
  */
 export function getToolDenial(part: AnyToolPart): ToolDenial | null {
   if (!isToolResultPart(part)) {
     return null
   }
-  const tracecat = part.callProviderMetadata?.tracecat
-  if (!tracecat || tracecat.approval !== "rejected") {
+  const autosecops = part.callProviderMetadata?.autosecops
+  if (!autosecops || autosecops.approval !== "rejected") {
     return null
   }
   const reason =
-    typeof tracecat.reason === "string" ? tracecat.reason.trim() : ""
+    typeof autosecops.reason === "string" ? autosecops.reason.trim() : ""
   return { reason: reason || null }
 }
 
@@ -748,7 +748,7 @@ export function markLiveDenials(
         ...result,
         callProviderMetadata: {
           ...part.callProviderMetadata,
-          tracecat: {
+          autosecops: {
             approval: "rejected",
             reason: reasons.get(part.toolCallId) ?? "",
           },

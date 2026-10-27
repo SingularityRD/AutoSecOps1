@@ -123,12 +123,12 @@ import {
   removeOptionalField,
   withoutFoldedFields,
 } from "@/lib/agent-tools-folding"
-import type { RequestValidationError, TracecatApiError } from "@/lib/errors"
+import type { AutoSecOpsApiError, RequestValidationError } from "@/lib/errors"
 import { useAction, useGetRegistryAction, useOrgAppSettings } from "@/lib/hooks"
 import {
-  getTracecatComponents,
-  isTracecatJsonSchema,
-  type TracecatJsonSchema,
+  type AutoSecOpsJsonSchema,
+  getAutoSecOpsComponents,
+  isAutoSecOpsJsonSchema,
 } from "@/lib/schema"
 import { cn, slugifyActionRef } from "@/lib/utils"
 import {
@@ -285,8 +285,8 @@ function shouldShowOptionalFieldByDefault(
 ): boolean {
   return (
     fieldName === "model" &&
-    isTracecatJsonSchema(fieldDefn) &&
-    getTracecatComponents(fieldDefn).some(
+    isAutoSecOpsJsonSchema(fieldDefn) &&
+    getAutoSecOpsComponents(fieldDefn).some(
       (component) => component.component_id === "agent-model"
     )
   )
@@ -651,7 +651,7 @@ function ActionPanelContent({
         setTimeout(() => setSaveState(SaveState.SAVED), 300)
       } catch (error) {
         if (error instanceof ApiError) {
-          const apiError = error as TracecatApiError
+          const apiError = error as AutoSecOpsApiError
           console.error("Application failed to validate action", apiError.body)
 
           // Set form errors from API validation errors
@@ -1089,8 +1089,8 @@ function ActionPanelContent({
                                 fieldName,
                                 toolsFolding
                               )
-                              if (!isTracecatJsonSchema(fieldDefn)) {
-                                // For non-TracecatJsonSchema, we can't extract type information
+                              if (!isAutoSecOpsJsonSchema(fieldDefn)) {
+                                // For non-AutoSecOpsJsonSchema, we can't extract type information
                                 return (
                                   <ControlledYamlField
                                     key={fieldName}
@@ -1124,8 +1124,8 @@ function ActionPanelContent({
                                 fieldName,
                                 toolsFolding
                               )
-                              if (!isTracecatJsonSchema(fieldDefn)) {
-                                // For non-TracecatJsonSchema, we can't extract type information
+                              if (!isAutoSecOpsJsonSchema(fieldDefn)) {
+                                // For non-AutoSecOpsJsonSchema, we can't extract type information
                                 return (
                                   <ControlledYamlField
                                     key={fieldName}
@@ -1173,12 +1173,11 @@ function ActionPanelContent({
                                       )
                                       const isVisible =
                                         visibleOptionalFields.has(fieldName)
-                                      const description = isTracecatJsonSchema(
-                                        fieldDefn
-                                      )
-                                        ? fieldDefn.description
-                                        : null
-                                      const deprecated = isTracecatJsonSchema(
+                                      const description =
+                                        isAutoSecOpsJsonSchema(fieldDefn)
+                                          ? fieldDefn.description
+                                          : null
+                                      const deprecated = isAutoSecOpsJsonSchema(
                                         fieldDefn
                                       )
                                         ? fieldDefn.deprecated === true
@@ -1301,7 +1300,7 @@ function ActionPanelContent({
                         <JSONSchemaTable
                           schema={
                             registryAction.interface
-                              .expects as TracecatJsonSchema
+                              .expects as AutoSecOpsJsonSchema
                           }
                         />
                       </div>

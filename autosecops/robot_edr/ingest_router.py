@@ -56,7 +56,7 @@ def _is_trusted_proxy(value: str | None) -> bool:
         address = ip_address(value)
     except ValueError:
         return False
-    return any(address in net for net in config.TRACECAT__AUDIT_TRUSTED_PROXY_CIDRS)
+    return any(address in net for net in config.AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS)
 
 
 def arrived_over_tls(request: Request) -> bool:
@@ -147,7 +147,7 @@ async def ingest_robodr_findings(request: Request) -> ORJSONResponse:
                 f"Content-Type must be the media type {NDJSON_MEDIA_TYPE} "
                 "without parameters",
             )
-        if config.TRACECAT__ROBOT_EDR_REQUIRE_TLS and not arrived_over_tls(request):
+        if config.AUTOSECOPS__ROBOT_EDR_REQUIRE_TLS and not arrived_over_tls(request):
             raise IngestRejectedError(
                 403, IngestErrorCode.TLS_REQUIRED, "TLS is required"
             )

@@ -28,8 +28,8 @@ from autosecops.agent.cancellation import (
     read_turn_cancel_signal,
 )
 from autosecops.agent.common.config import (
-    TRACECAT__AGENT_SANDBOX_MEMORY_MB,
-    TRACECAT__EXECUTOR_BACKEND,
+    AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB,
+    AUTOSECOPS__EXECUTOR_BACKEND,
 )
 from autosecops.agent.common.exceptions import (
     AgentSandboxExecutionError,
@@ -108,10 +108,10 @@ from autosecops.agent.types import AgentConfig, clamp_agent_timeout_seconds
 from autosecops.auth.types import Role
 from autosecops.chat.schemas import ChatMessage
 from autosecops.config import (
-    TRACECAT__AGENT_SKILL_CACHE_DIR,
-    TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS,
+    AUTOSECOPS__AGENT_SKILL_CACHE_DIR,
+    AUTOSECOPS__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS,
 )
-from autosecops.exceptions import TracecatException
+from autosecops.exceptions import AutoSecOpsException
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.integrations.mcp_validation import MCPSecretResolutionError
 from autosecops.integrations.service import IntegrationService
@@ -303,10 +303,10 @@ def _record_failure(
 def _agent_correlation_attributes(input: AgentExecutorInput) -> dict[str, str]:
     """Build the single trusted correlation mapping for an agent turn."""
     values: dict[str, uuid.UUID | None] = {
-        "tracecat.organization.id": input.role.organization_id,
-        "tracecat.workspace.id": input.workspace_id,
-        "tracecat.agent.session.id": input.session_id,
-        "tracecat.agent.run.id": input.curr_run_id,
+        "autosecops.organization.id": input.role.organization_id,
+        "autosecops.workspace.id": input.workspace_id,
+        "autosecops.agent.session.id": input.session_id,
+        "autosecops.agent.run.id": input.curr_run_id,
     }
     return {key: str(value) for key, value in values.items() if value is not None}
 
@@ -395,7 +395,7 @@ class SandboxedAgentExecutor:
     timeout_seconds: int = field(
         default_factory=lambda: clamp_agent_timeout_seconds(None)
     )
-    memory_mb: int = field(default_factory=lambda: TRACECAT__AGENT_SANDBOX_MEMORY_MB)
+    memory_mb: int = field(default_factory=lambda: AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
 
     # Internal state
     _job_dir: Path | None = field(default=None, init=False, repr=False)
@@ -419,7 +419,7 @@ class SandboxedAgentExecutor:
             phase=phase,
             elapsed_ms=round((perf_counter() - self._turn_started_at) * 1000, 2),
             session_id=self.input.session_id,
-            sandbox_mode=TRACECAT__EXECUTOR_BACKEND.value,
+            sandbox_mode=AUTOSECOPS__EXECUTOR_BACKEND.value,
             **extra,
         )
 
@@ -858,7 +858,7 @@ class SandboxedAgentExecutor:
                         else:
                             path_mapping = build_agent_sandbox_path_mapping(
                                 session_id=str(self.input.session_id),
-                                disable_nsjail=not TRACECAT__EXECUTOR_BACKEND.uses_nsjail,
+                                disable_nsjail=not AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail,
                             )
                             await self._persist_agent_filesystem(
                                 path_mapping.host_work_dir
@@ -1023,7 +1023,7 @@ class SandboxedAgentExecutor:
         """Create a temporary job directory with socket subdirectory."""
         job_id = str(self.input.session_id)[:12]
         # Hardcoded job socket directory for per-job control sockets
-        base_dir = Path("/tmp/tracecat-agent-jobs")
+        base_dir = Path("/tmp/autosecops-agent-jobs")
         base_dir.mkdir(parents=True, exist_ok=True)
 
         job_dir = Path(tempfile.mkdtemp(prefix=f"agent-job-{job_id}-", dir=base_dir))
@@ -1133,7 +1133,7 @@ class SandboxedAgentExecutor:
         await asyncio.to_thread(
             stage_platform_skill_plugin,
             asset_names=config.builtin_skills or [],
-            vendored_root=Path(app_config.TRACECAT__COPILOT_SKILLS_DIR),
+            vendored_root=Path(app_config.AUTOSECOPS__COPILOT_SKILLS_DIR),
             plugin_root=plugin_dir,
             library_skills=library_skills,
         )
@@ -1147,7 +1147,7 @@ class SandboxedAgentExecutor:
     ) -> Path:
         """Populate the worker-local extracted skill cache if needed."""
 
-        cache_root = Path(TRACECAT__AGENT_SKILL_CACHE_DIR)
+        cache_root = Path(AUTOSECOPS__AGENT_SKILL_CACHE_DIR)
         cache_root.mkdir(parents=True, exist_ok=True)
         cache_dir = cache_root / manifest_sha256
         if cache_dir.exists():
@@ -1169,7 +1169,7 @@ class SandboxedAgentExecutor:
                 1,
                 min(
                     len(version_files),
-                    TRACECAT__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS,
+                    AUTOSECOPS__AGENT_SKILL_CACHE_MAX_CONCURRENT_DOWNLOADS,
                 ),
             )
             semaphore = asyncio.Semaphore(max_concurrent_downloads)
@@ -1289,7 +1289,7 @@ async def _resolve_and_probe_stdio_config(
                 mcp_integration_id=mcp_integration_id,
                 mcp_integration_slug=mcp_integration_slug,
             )
-        except (TracecatException, ValueError) as exc:
+        except (AutoSecOpsException, ValueError) as exc:
             return StdioMCPProbeResult(
                 success=False,
                 message="MCP integration stdio environment could not be resolved",
@@ -1371,7 +1371,7 @@ async def run_agent_activity(input: AgentExecutorInput) -> AgentExecutorResult:
     3. Returns runtime status, approval state, usage, and terminal output
 
     The broker-owned transport decides whether the runtime shim runs with nsjail
-    or as a direct subprocess based on TRACECAT__EXECUTOR_BACKEND.
+    or as a direct subprocess based on AUTOSECOPS__EXECUTOR_BACKEND.
 
     The activity is designed to be retryable - if it fails due to transient
     errors, Temporal will retry it. Session state is persisted on success
@@ -1393,11 +1393,11 @@ async def run_agent_activity(input: AgentExecutorInput) -> AgentExecutorResult:
     )
 
     activity.heartbeat(
-        f"Starting agent execution ({TRACECAT__EXECUTOR_BACKEND.value} mode): "
+        f"Starting agent execution ({AUTOSECOPS__EXECUTOR_BACKEND.value} mode): "
         f"{input.session_id}"
     )
 
-    with platform_span("tracecat.agent.prepare"):
+    with platform_span("autosecops.agent.prepare"):
         input = await _hydrate_sdk_session_history(input)
 
         # Stdio MCP servers are spawned directly by the runtime; unlike HTTP
@@ -1430,13 +1430,13 @@ async def run_agent_activity(input: AgentExecutorInput) -> AgentExecutorResult:
         )
 
     with platform_span(
-        "tracecat.agent.runtime",
-        attributes={"tracecat.agent.harness": "claude_code"},
+        "autosecops.agent.runtime",
+        attributes={"autosecops.agent.harness": "claude_code"},
     ) as runtime_span:
         result = await executor.run()
         outcome = _agent_runtime_outcome(result)
         if runtime_span is not None:
-            runtime_span.set_attribute("tracecat.agent.outcome", outcome)
+            runtime_span.set_attribute("autosecops.agent.outcome", outcome)
             if outcome is AgentRuntimeOutcome.FAILURE:
                 runtime_span.set_status(Status(status_code=StatusCode.ERROR))
 

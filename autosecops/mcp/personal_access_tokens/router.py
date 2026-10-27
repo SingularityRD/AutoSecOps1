@@ -8,9 +8,9 @@ from autosecops.auth.dependencies import WorkspaceUserPathRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import (
-    TracecatAuthorizationError,
-    TracecatNotFoundError,
-    TracecatValidationError,
+    AutoSecOpsAuthorizationError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
 )
 from autosecops.mcp.personal_access_tokens.schemas import (
     IssuedMCPPersonalAccessToken,
@@ -42,11 +42,11 @@ async def list_mcp_personal_access_tokens(
         page = await service.list_tokens(
             CursorPaginationParams(limit=limit, cursor=cursor, reverse=reverse)
         )
-    except TracecatValidationError as exc:
+    except AutoSecOpsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    except TracecatAuthorizationError as exc:
+    except AutoSecOpsAuthorizationError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
         ) from exc
@@ -82,7 +82,7 @@ async def create_mcp_personal_access_token(
             name=params.name,
             expires_at=params.expires_at,
         )
-    except TracecatAuthorizationError as exc:
+    except AutoSecOpsAuthorizationError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
         ) from exc
@@ -109,11 +109,11 @@ async def revoke_mcp_personal_access_token(
     service = MCPPersonalAccessTokenService(session, role=role)
     try:
         await service.revoke_token(token_id)
-    except TracecatNotFoundError as exc:
+    except AutoSecOpsNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except TracecatAuthorizationError as exc:
+    except AutoSecOpsAuthorizationError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
         ) from exc

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
 from autosecops.db.models import Skill, SkillVersion
-from autosecops.exceptions import TracecatValidationError
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.workspace_sync.importer import WorkspaceResourceImportService
 from autosecops.workspace_sync.schemas import (
     SkillFileSpec,
@@ -41,7 +41,7 @@ async def test_metadata_mismatch_cannot_publish_a_skill(
 ) -> None:
     spec = _skill_spec().model_copy(update={field: "different-value"})
     importer = WorkspaceResourceImportService(session=session, role=svc_role)
-    with pytest.raises(TracecatValidationError) as exc_info:
+    with pytest.raises(AutoSecOpsValidationError) as exc_info:
         async with session.begin_nested():
             await importer.import_non_workflow_resources(
                 WorkspaceSpec(skills={spec.id: spec})

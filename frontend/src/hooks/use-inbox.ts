@@ -17,7 +17,7 @@ import {
   getAgentStatusMetadata,
   type InboxSessionItem,
 } from "@/lib/agents"
-import { retryHandler, type TracecatApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, retryHandler } from "@/lib/errors"
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -262,7 +262,7 @@ function useInboxGroupQuery({
   const entityTypeParam = entityType === "all" ? null : entityType
   return useInfiniteQuery<
     InboxListItemsResponse,
-    TracecatApiError,
+    AutoSecOpsApiError,
     InfiniteData<InboxListItemsResponse>,
     readonly unknown[],
     string | null

@@ -9,11 +9,11 @@ import {
 const agentProperties: Record<string, unknown> = {
   actions: {
     type: ["array", "null"],
-    "x-tracecat-component": [{ component_id: "action-type", multiple: true }],
+    "x-autosecops-component": [{ component_id: "action-type", multiple: true }],
   },
   mcp_integrations: {
     type: ["array", "null"],
-    "x-tracecat-component": [{ component_id: "mcp-integration" }],
+    "x-autosecops-component": [{ component_id: "mcp-integration" }],
   },
   tool_approvals: { type: ["object", "null"] },
   instructions: { type: ["string", "null"] },
@@ -56,7 +56,7 @@ describe("getAgentToolsFolding", () => {
       ...agentProperties,
       actions: {
         type: "string",
-        "x-tracecat-component": [{ component_id: "action-type" }],
+        "x-autosecops-component": [{ component_id: "action-type" }],
       },
     }
     expect(getAgentToolsFolding(single, {})).toEqual({
@@ -69,7 +69,7 @@ describe("getAgentToolsFolding", () => {
       ...agentProperties,
       actions: {
         type: "string",
-        "x-tracecat-component": [
+        "x-autosecops-component": [
           { component_id: "action-type", multiple: false },
         ],
       },

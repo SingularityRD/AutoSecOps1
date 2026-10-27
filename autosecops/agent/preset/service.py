@@ -26,7 +26,7 @@ from autosecops.agent.common.types import (
     MCPServerToolSummary,
     MCPStdioServerConfig,
 )
-from autosecops.agent.mcp.utils import is_tracecat_registry_server_name
+from autosecops.agent.mcp.utils import is_autosecops_registry_server_name
 from autosecops.agent.preset.resolver import resolve_agents_config
 from autosecops.agent.preset.schemas import (
     AgentPresetCreate,
@@ -93,7 +93,7 @@ from autosecops.db.models import (
 )
 from autosecops.db.soft_delete import with_deleted
 from autosecops.dsl.common import create_default_execution_context
-from autosecops.exceptions import TracecatNotFoundError, TracecatValidationError
+from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.executor.secret_preprocessors import collect_mask_values
 from autosecops.executor.service import get_workspace_variables
 from autosecops.expressions.eval import collect_expressions, eval_templated_object
@@ -298,8 +298,8 @@ class AgentPresetService(BaseWorkspaceService):
         return AgentPresetToolPolicyRead(
             actions=list(policy.actions),
             skill_actions=list(policy.skill_actions),
-            max_tools=config.TRACECAT__AGENT_MAX_TOOLS
-            if config.TRACECAT__AGENT_MAX_TOOLS > 0
+            max_tools=config.AUTOSECOPS__AGENT_MAX_TOOLS
+            if config.AUTOSECOPS__AGENT_MAX_TOOLS > 0
             else None,
             requires_internet_access=policy.requires_internet_access,
             has_approvals=has_manual_tool_approvals(policy.tool_approvals),
@@ -379,9 +379,9 @@ class AgentPresetService(BaseWorkspaceService):
 
     @staticmethod
     def _validate_effective_tool_count(policy: EffectivePresetTools) -> None:
-        max_tools = config.TRACECAT__AGENT_MAX_TOOLS
+        max_tools = config.AUTOSECOPS__AGENT_MAX_TOOLS
         if max_tools > 0 and len(policy.actions) > max_tools:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Cannot request more than {max_tools} tools",
                 detail={
                     "code": "agent_tool_limit_exceeded",
@@ -656,7 +656,7 @@ class AgentPresetService(BaseWorkspaceService):
         if mcp_tools := sorted(
             name for name in tool_tunnels if name.startswith(("mcp.", "mcp__"))
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Tunnels for MCP tools are set on the MCP integration, not per tool: "
                 f"{mcp_tools}"
             )
@@ -666,7 +666,7 @@ class AgentPresetService(BaseWorkspaceService):
         if not await is_org_entitled(
             self.session, self.organization_id, Entitlement.TUNNELS
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Tunnels are not available on your current plan"
             )
         names = set(kept.values())
@@ -677,7 +677,7 @@ class AgentPresetService(BaseWorkspaceService):
             )
         )
         if missing := names - set(result.scalars().all()):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Tunnels not found in this workspace: {sorted(missing)}"
             )
         return kept
@@ -699,7 +699,7 @@ class AgentPresetService(BaseWorkspaceService):
             f"{entry.namespace}.{entry.name}" for entry, _ in index_entries
         }
         if missing_actions := actions_set - available_identifiers:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"{len(missing_actions)} actions were not found in the registry: {sorted(missing_actions)}"
             )
 
@@ -710,7 +710,7 @@ class AgentPresetService(BaseWorkspaceService):
             catalog_id,
             workspace_id=self.workspace_id,
         ):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Catalog entry {catalog_id} is not enabled for this workspace"
             )
         stmt = select(AgentCatalog).where(
@@ -722,7 +722,7 @@ class AgentPresetService(BaseWorkspaceService):
         )
         catalog_entry = (await self.session.execute(stmt)).scalar_one_or_none()
         if catalog_entry is None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Catalog entry {catalog_id} is not enabled for this workspace"
             )
         return catalog_entry
@@ -1052,7 +1052,7 @@ class AgentPresetService(BaseWorkspaceService):
 
         if preset is None and (preset_id is not None or slug is not None):
             detail = slug if slug is not None else str(preset_id)
-            raise TracecatNotFoundError(f"Agent preset '{detail}' not found")
+            raise AutoSecOpsNotFoundError(f"Agent preset '{detail}' not found")
 
         if preset_version_id is not None:
             version = (
@@ -1061,17 +1061,17 @@ class AgentPresetService(BaseWorkspaceService):
                 else await self.get_active_version(version_id=preset_version_id)
             )
             if version is None:
-                raise TracecatNotFoundError(
+                raise AutoSecOpsNotFoundError(
                     f"Agent preset version with ID '{preset_version_id}' not found"
                 )
             if preset is not None and version.preset_id != preset.id:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Preset version does not belong to the selected preset"
                 )
             return version
 
         if preset is None:
-            raise TracecatNotFoundError("Agent preset not found")
+            raise AutoSecOpsNotFoundError("Agent preset not found")
 
         # ``preset_version`` is retained as a compatibility-only input for old
         # workflow definitions and SDK callers. Fresh executions always follow
@@ -1106,7 +1106,7 @@ class AgentPresetService(BaseWorkspaceService):
             try:
                 mcp_integration_ids.add(uuid.UUID(mcp_id))
             except ValueError as err:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Invalid MCP integration ID format: {mcp_id}"
                 ) from err
 
@@ -1118,7 +1118,7 @@ class AgentPresetService(BaseWorkspaceService):
         if missing_ids := mcp_integration_ids - available_mcp_integration_ids:
             missing_str = sorted(str(mcp_id) for mcp_id in missing_ids)
             if raise_on_missing:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"{len(missing_ids)} MCP integrations were not found in this workspace: {missing_str}"
                 )
             logger.warning(
@@ -1193,7 +1193,7 @@ class AgentPresetService(BaseWorkspaceService):
                     if subagent.preset_id in missing_ids
                 }
             )
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Cannot save preset because it references soft-deleted or missing "
                 f"subagent presets: {missing_refs}"
             )
@@ -1386,7 +1386,7 @@ class AgentPresetService(BaseWorkspaceService):
             mcp_servers.append(http_config)
 
         if not mcp_servers:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "No matching MCP integrations found for this preset in the workspace"
             )
 
@@ -1404,7 +1404,7 @@ class AgentPresetService(BaseWorkspaceService):
         Safe to serialize across Temporal boundaries.
 
         Returns ``None`` when ``mcp_integrations`` is empty. Raises
-        ``TracecatValidationError`` when at least one integration was
+        ``AutoSecOpsValidationError`` when at least one integration was
         requested but none could be resolved — mirrors the behavior of
         :meth:`resolve_mcp_integrations`.
         """
@@ -1523,8 +1523,8 @@ class AgentPresetService(BaseWorkspaceService):
                     },
                 )
                 continue
-            if is_tracecat_registry_server_name(mcp_integration.slug):
-                raise TracecatValidationError(
+            if is_autosecops_registry_server_name(mcp_integration.slug):
+                raise AutoSecOpsValidationError(
                     "MCP integration slug conflicts with the built-in registry. "
                     "Recreate the integration to assign a safe slug.",
                     detail={
@@ -1546,7 +1546,7 @@ class AgentPresetService(BaseWorkspaceService):
             refs.append(http_ref)
 
         if not refs:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "No matching MCP integrations found in the workspace"
             )
 
@@ -1615,7 +1615,7 @@ class AgentPresetService(BaseWorkspaceService):
         for grant in grants:
             config = resolved_by_id.get(grant.mcp_integration_id)
             if config is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Selected MCP integration could not be resolved",
                     detail={
                         "code": "skill_mcp_integrations_unavailable",
@@ -1752,7 +1752,7 @@ class AgentPresetService(BaseWorkspaceService):
             masks=collect_mask_values([secrets]),
         )
         if not isinstance(resolved, dict):
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Resolved stdio_env must be a JSON object with string values"
             )
 
@@ -1763,7 +1763,7 @@ class AgentPresetService(BaseWorkspaceService):
             if not isinstance(value, str)
         ]
         if non_string_entries:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Resolved stdio_env values must be strings "
                 f"(invalid entries: {non_string_entries})"
             )
@@ -1790,7 +1790,7 @@ class AgentPresetService(BaseWorkspaceService):
         base = proposed_slug or fallback_name
         slug = slugify(base, separator="-")
         if not slug:
-            raise TracecatValidationError("Agent preset slug cannot be empty")
+            raise AutoSecOpsValidationError("Agent preset slug cannot be empty")
 
         stmt = select(AgentPreset).where(
             AgentPreset.workspace_id == self.workspace_id,
@@ -1802,7 +1802,7 @@ class AgentPresetService(BaseWorkspaceService):
 
         result = await self.session.execute(stmt)
         if result.scalars().first() is not None:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Agent preset slug '{slug}' is already in use for this workspace",
             )
         return slug
@@ -1877,12 +1877,12 @@ class AgentPresetService(BaseWorkspaceService):
                 cursor_data = paginator.decode_cursor(params.cursor)
                 cursor_id = uuid.UUID(cursor_data.id)
             except ValueError as err:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for agent preset versions"
                 ) from err
             cursor_version = cursor_data.sort_value
             if not isinstance(cursor_version, int):
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     "Invalid cursor for agent preset versions"
                 )
             cursor_predicate = sa.or_(
@@ -2085,7 +2085,7 @@ class AgentPresetService(BaseWorkspaceService):
         }
         missing = [str(skill_id) for skill_id in skill_ids if skill_id not in skills]
         if missing:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 f"Some skills were not found in this workspace: {sorted(missing)}",
                 detail={"code": "skill_not_found", "missing_skill_ids": missing},
             )
@@ -2094,7 +2094,7 @@ class AgentPresetService(BaseWorkspaceService):
         for skill_id in skill_ids:
             skill = skills[skill_id]
             if skill.current_version_id is None:
-                raise TracecatValidationError(
+                raise AutoSecOpsValidationError(
                     f"Skill '{skill.name}' has no published version",
                     detail={"code": "skill_not_published", "skill_id": str(skill.id)},
                 )
@@ -2148,7 +2148,7 @@ class AgentPresetService(BaseWorkspaceService):
             if name is not None
         )
         if duplicate_names:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Agent preset version cannot include duplicate skill names",
                 detail={
                     "code": "duplicate_skill_names",
@@ -2305,7 +2305,7 @@ class AgentPresetService(BaseWorkspaceService):
             .with_for_update()
         )
         if (await self.session.execute(stmt)).scalar_one_or_none() is None:
-            raise TracecatNotFoundError(f"Agent preset '{preset_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Agent preset '{preset_id}' not found")
 
     async def _lock_preset_update_dependencies(
         self,
@@ -2340,7 +2340,7 @@ class AgentPresetService(BaseWorkspaceService):
         )
         locked_ids = set((await self.session.execute(stmt)).scalars().all())
         if preset_id not in locked_ids:
-            raise TracecatNotFoundError(f"Agent preset '{preset_id}' not found")
+            raise AutoSecOpsNotFoundError(f"Agent preset '{preset_id}' not found")
 
     async def get_current_version_for_preset(
         self, preset: AgentPreset
@@ -2368,7 +2368,7 @@ class AgentPresetService(BaseWorkspaceService):
         result = await self.session.execute(stmt)
         if version := result.scalars().first():
             return version
-        raise TracecatNotFoundError(
+        raise AutoSecOpsNotFoundError(
             f"Agent preset version for preset '{preset.id}' not found"
         )
 
@@ -2379,7 +2379,7 @@ class AgentPresetService(BaseWorkspaceService):
     ) -> AgentPreset:
         """Restore a historical version as the current preset head."""
         if version.preset_id != preset.id:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Preset version does not belong to the selected preset"
             )
 
@@ -2431,7 +2431,7 @@ class AgentPresetService(BaseWorkspaceService):
     ) -> AgentPresetVersionDiff:
         """Return a structured diff between two preset versions."""
         if base_version.preset_id != compare_version.preset_id:
-            raise TracecatValidationError("Can only compare versions for one preset")
+            raise AutoSecOpsValidationError("Can only compare versions for one preset")
 
         scalar_changes: list[ScalarFieldChange] = []
         for field in (
@@ -2575,7 +2575,7 @@ class AgentPresetService(BaseWorkspaceService):
             if count > 1
         )
         if duplicate_skill_names:
-            raise TracecatValidationError(
+            raise AutoSecOpsValidationError(
                 "Resolved preset version contains duplicate skill names",
                 detail={
                     "code": "duplicate_skill_names",

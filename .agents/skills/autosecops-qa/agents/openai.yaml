@@ -1,0 +1,4 @@
+interface:
+  display_name: "AutoSecOps QA"
+  short_description: "QA AutoSecOps features locally."
+  default_prompt: "Use $autosecops-qa to QA the current AutoSecOps feature in a local cluster."
