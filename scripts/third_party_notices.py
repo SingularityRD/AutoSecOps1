@@ -459,7 +459,10 @@ def _dockerfile_value(dockerfile: str, pattern: str) -> str:
 def api_programs() -> list[Program]:
     """Binaries the API and tunnel-gateway images add outside uv."""
     python = _dockerfile_value("Dockerfile", r"^FROM python:([0-9.]+)-slim")
-    node = _dockerfile_value("Dockerfile", r"^FROM node:([0-9.]+)-slim AS node-bin")
+    node = _dockerfile_value(
+        "Dockerfile", r"^FROM node:([0-9.]+)-slim(?:@sha256:[0-9a-f]+)? AS node-bin"
+    )
+    npm = _dockerfile_value("Dockerfile", r"npm install --global [^\n]*npm@([0-9.]+)")
     nsjail = _dockerfile_value("Dockerfile", r"^ENV NSJAIL_COMMIT=([0-9a-f]+)")
     uv = _dockerfile_value("Dockerfile", r"ghcr\.io/astral-sh/uv:([0-9.]+) /uv")
     duckdb = _dockerfile_value("Dockerfile", r"^ARG DUCKDB_VERSION=([0-9.]+)")
@@ -487,12 +490,13 @@ def api_programs() -> list[Program]:
         ),
         Program(
             name="npm",
-            version=f"bundled with Node.js {node}",
+            version=npm,
             license="Artistic-2.0",
             source="https://github.com/npm/cli",
             images="api",
-            note="License file in `/usr/local/lib/node_modules/npm/` in the "
-            "image, with npm's own dependencies under its `node_modules`.",
+            note="Installed over the npm that the `node` base image bundles. "
+            "License file in `/usr/local/lib/node_modules/npm/` in the image, "
+            "with npm's own dependencies under its `node_modules`.",
         ),
         Program(
             name="corepack",
@@ -551,7 +555,8 @@ def api_programs() -> list[Program]:
 def ui_programs() -> list[Program]:
     """Binaries the UI image adds outside pnpm."""
     node = _dockerfile_value(
-        "frontend/Dockerfile.prod", r"^FROM node:([0-9.]+)-alpine AS runner"
+        "frontend/Dockerfile.prod",
+        r"^FROM node:([0-9.]+)-alpine(?:@sha256:[0-9a-f]+)? AS runner",
     )
     return [
         Program(

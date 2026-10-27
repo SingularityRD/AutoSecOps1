@@ -6,6 +6,7 @@ settings. Platform services export to the operator-controlled OTLP endpoint.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import logging
 import os
@@ -17,6 +18,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, Final, Protocol
 from uuid import UUID
 
+import nexusrpc.handler
 import sentry_sdk
 from opentelemetry import context as otel_context
 from opentelemetry import trace
@@ -86,6 +88,10 @@ type _PlatformAttributes = Mapping[str, str | int | bool | UUID | StrEnum | None
 
 class _TemporalInputWithHeaders(Protocol):
     headers: Mapping[str, Payload]
+
+
+class _TemporalInputWithOperationContext(Protocol):
+    ctx: nexusrpc.handler.OperationContext
 
 
 class _CompletedWorkflowSpanInput(Protocol):
@@ -276,7 +282,8 @@ class _TraceContextOnlyTracingInterceptor(TracingInterceptor):
         name: str,
         *,
         attributes: Attributes,
-        input: _TemporalInputWithHeaders | None = None,
+        input_with_headers: _TemporalInputWithHeaders | None = None,
+        input_with_ctx: _TemporalInputWithOperationContext | None = None,
         kind: SpanKind,
         context: otel_context.Context | None = None,
     ) -> Iterator[None]:
@@ -291,8 +298,22 @@ class _TraceContextOnlyTracingInterceptor(TracingInterceptor):
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
-                if input:
-                    input.headers = self._context_to_headers(input.headers)
+                if input_with_headers:
+                    input_with_headers.headers = self._context_to_headers(
+                        input_with_headers.headers
+                    )
+                if input_with_ctx:
+                    # Nexus handlers carry trace context in string headers.
+                    carrier: _TraceCarrier = {}
+                    self.text_map_propagator.inject(carrier)
+                    headers = dict(input_with_ctx.ctx.headers)
+                    for key, value in carrier.items():
+                        headers[key] = (
+                            ",".join(value) if isinstance(value, list) else value
+                        )
+                    input_with_ctx.ctx = dataclasses.replace(
+                        input_with_ctx.ctx, headers=headers
+                    )
                 try:
                     yield None
                 except Exception as exc:

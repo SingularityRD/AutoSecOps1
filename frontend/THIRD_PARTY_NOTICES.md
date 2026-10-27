@@ -29221,9 +29221,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 | Program | Version | License | Images |
 |---|---|---|---|
-| Node.js | 22 | MIT | ui |
+| Node.js | 22.23.4 | MIT | ui |
 
-### Node.js 22
+### Node.js 22.23.4
 
 - License: MIT
 - Source: https://github.com/nodejs/node

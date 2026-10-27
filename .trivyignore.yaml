@@ -1,0 +1,23 @@
+# Trivy ignore rules for the image scan (.github/workflows/image-scan.yml).
+#
+# Only for HIGH/CRITICAL findings that have no fix in a release we can ship
+# yet. Every entry names the advisory, the exact paths it applies to, why the
+# risk is accepted, and an expiry date. After `expired_at` Trivy reports the
+# finding again and the scan fails, so the entry must be re-reviewed. Record
+# each entry in the "Accepted image scan findings" section of SECURITY.md.
+vulnerabilities:
+  - id: CVE-2026-109869
+    # undici 6.29.0 bundled inside npm 11.21.1 (the latest npm 11 and npm 12
+    # releases bundle the same undici). Fixed in undici 6.29.1; no npm release
+    # ships it yet. The API image needs npm/npx for stdio MCP servers and the
+    # sandbox rootfs.
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+      - "var/lib/autosecops/sandbox-rootfs/usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    statement: >-
+      Within npm, only node-gyp's Node.js header download calls undici fetch().
+      The flaw lets a malicious HTTP server crash that short-lived npm process
+      (denial of service); it does not affect the AutoSecOps API process, which
+      does not load npm's undici. Remove once an npm release bundles undici
+      >= 6.29.1.
+    expired_at: 2026-12-31

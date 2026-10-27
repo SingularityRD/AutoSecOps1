@@ -13,6 +13,7 @@ on:
       - frontend/package.json
       - frontend/pnpm-lock.yaml
       - .github/workflows/image-scan.yml
+      - .trivyignore.yaml
   pull_request:
     branches: ["main", "staging"]
     paths:
@@ -23,6 +24,7 @@ on:
       - frontend/package.json
       - frontend/pnpm-lock.yaml
       - .github/workflows/image-scan.yml
+      - .trivyignore.yaml
   schedule:
     - cron: "41 5 * * 1"
 
@@ -88,9 +90,13 @@ jobs:
           IMAGE_REF: autosecops-scan/${{ matrix.image }}:${{ github.sha }}
         run: |
           set -euo pipefail
+          # .trivyignore.yaml holds path-scoped, expiring ignores for fixes no
+          # shippable release contains yet; SECURITY.md documents each one.
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE/.trivyignore.yaml:/trivy/.trivyignore.yaml:ro" \
             "$TRIVY_IMAGE" image \
+            --ignorefile /trivy/.trivyignore.yaml \
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \

@@ -186,7 +186,7 @@ hand.
 | msgraph-core | 1.5.1 | MIT |
 | multidict | 6.9.1 | Apache License 2.0 |
 | networkx | 3.6.1 | BSD-3-Clause |
-| nexus-rpc | 1.2.0 | MIT |
+| nexus-rpc | 1.4.0 | MIT |
 | nh3 | 0.2.18 | MIT |
 | numpy | 2.5.2 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 |
 | oauthlib | 4.0.0 | BSD-3-Clause |
@@ -287,7 +287,7 @@ hand.
 | starlette | 1.3.1 | BSD-3-Clause |
 | std-uritemplate | 2.0.12 | Apache Software License |
 | tavily-python | 0.7.6 | MIT License |
-| temporalio | 1.20.0 | MIT |
+| temporalio | 1.34.0 | MIT |
 | tenacity | 8.3.0 | Apache Software License |
 | text-unidecode | 1.3 | Artistic License / GNU General Public License (GPL) / GNU General Public License v2 or later (GPLv2+) |
 | tiktoken | 0.14.0 | MIT License |
@@ -14724,7 +14724,7 @@ NetworkX is distributed with the 3-clause BSD license.
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### nexus-rpc 1.2.0
+### nexus-rpc 1.4.0
 
 - License: MIT
 
@@ -30627,7 +30627,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### temporalio 1.20.0
+### temporalio 1.34.0
 
 - License: MIT
 - Homepage: https://github.com/temporalio/sdk-python
@@ -33222,7 +33222,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 |---|---|---|---|
 | CPython | 3.12 | PSF-2.0 | api, tunnel-gateway |
 | Node.js | 22.23.4 | MIT | api |
-| npm | bundled with Node.js 22.23.4 | Artistic-2.0 | api |
+| npm | 11.21.1 | Artistic-2.0 | api |
 | corepack | bundled with Node.js 22.23.4 | MIT | api |
 | nsjail | commit 388b9655a696e88df3185d09e36c0378a8532904 | Apache-2.0 | api |
 | kafel | submodule of nsjail 388b9655a696e88df3185d09e36c0378a8532904 | Apache-2.0 | api |
@@ -33242,11 +33242,11 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Source: https://github.com/nodejs/node
 - Node.js bundles third-party code; see its `LICENSE` (https://github.com/nodejs/node/blob/main/LICENSE).
 
-### npm bundled with Node.js 22.23.4
+### npm 11.21.1
 
 - License: Artistic-2.0
 - Source: https://github.com/npm/cli
-- License file in `/usr/local/lib/node_modules/npm/` in the image, with npm's own dependencies under its `node_modules`.
+- Installed over the npm that the `node` base image bundles. License file in `/usr/local/lib/node_modules/npm/` in the image, with npm's own dependencies under its `node_modules`.
 
 ### corepack bundled with Node.js 22.23.4
 
