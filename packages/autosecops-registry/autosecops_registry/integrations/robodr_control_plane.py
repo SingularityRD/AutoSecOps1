@@ -12,7 +12,11 @@ hold): a `verified` action held after a robot reboot
 (`state.executor_state: "held"`) is reported as held, not enforced, and a
 `verified` action whose revert is still pending (`state.revert.result:
 "pending"`, e.g. a revert the executor refused) as revert pending, never as
-reverted. A refusal code this module does not know is reported as not
+reverted. A `quarantine_node` in force is reported contained only with
+`containment: "full"` backed by its `state.quarantine`; `partial`,
+`guid_only` (GUID-prefix drop only, not IP-contained) and an absent or
+`unknown` scope are reported as such, never as contained (§6a "Quarantine
+scope", §10). A refusal code this module does not know is reported as not
 applied. The executor's own `soc_request_stale` / `soc_nonce_replayed`
 refusals are never resent: the same `request_id` only answers the stored
 refusal, so trying again takes a new prepared, signed-off request.
@@ -99,6 +103,7 @@ fails verification is stored.
 import asyncio
 import base64
 import hashlib
+import ipaddress
 import json
 import math
 import os
@@ -1555,15 +1560,289 @@ FAILURE_EXPLANATIONS: dict[str, str] = {
 """What each `state.error.code` of a `failed` request means (§5, §6a)."""
 
 
+# --------------------------------------------------------------------------- #
+# Quarantine scope (§6a "Quarantine scope", §10)
+# --------------------------------------------------------------------------- #
+
+CONTAINMENT_VALUES = ("unknown", "guid_only", "partial", "full")
+"""`containment` values, weakest first: the weaker of two readings wins."""
+
+CONTAINMENT_LABELS: dict[str, str] = {
+    "full": "contained",
+    "partial": "partially contained",
+    "guid_only": "partially contained: GUID-prefix drop only, not IP-contained",
+    "unknown": "scope unknown (the robot did not report how far the quarantine reaches)",
+}
+"""How each `containment` is shown (§6a client requirements)."""
+
+SCOPE_BOUNDS = {
+    "addresses": 16,
+    "excluded_addresses": 32,
+    "locators": 16,
+    "excluded": 64,
+}
+"""The most entries §6a allows per `state.quarantine` list."""
+
+MAX_SCOPE_REASON = 200
+
+SHARED_HOST_CAVEAT = (
+    "Shared-host caveat: an address drop cuts every DDS participant on that "
+    "host, a legitimate process that is not in the robot's profile included, "
+    "and source addresses are not authenticated (a decoy that spoofs its "
+    "discovery to a host's address gets that host cut); confirm that no "
+    "legitimate robot process runs on {addresses}."
+)
+
+ISOLATE_NEXT_STEP = (
+    "Next: consider robot_isolate_network (with a TTL; on a humanoid or "
+    "quadruped only when its balance loop is not networked) or on-site action."
+)
+
+
+class _ScopeError(ValueError):
+    """A `state.quarantine` that is not what §6a describes."""
+
+
+def _scope_ip(value: object) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    if not isinstance(value, str) or "%" in value:
+        raise _ScopeError("not an IP address")
+    try:
+        return ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise _ScopeError("not an IP address") from exc
+
+
+def _scope_locator(
+    value: object,
+) -> tuple[ipaddress.IPv4Address | ipaddress.IPv6Address, str]:
+    """An `"ip:port"` (IPv6 `"[addr]:port"`) locator and its canonical form."""
+    if not isinstance(value, str):
+        raise _ScopeError("not a locator")
+    host, sep, port = value.rpartition(":")
+    if not sep or not port.isascii() or not port.isdigit() or len(port) > 5:
+        raise _ScopeError("not a locator")
+    if not 0 < int(port) <= 65535:
+        raise _ScopeError("locator port out of range")
+    if host.startswith("[") and host.endswith("]"):
+        ip = _scope_ip(host[1:-1])
+        if ip.version != 6:
+            raise _ScopeError("bracketed IPv4 locator")
+        return ip, f"[{ip.compressed}]:{int(port)}"
+    ip = _scope_ip(host)
+    if ip.version != 4:
+        raise _ScopeError("unbracketed IPv6 locator")
+    return ip, f"{ip.compressed}:{int(port)}"
+
+
+def _scope_reason(value: object) -> str:
+    """A robot-reported reason: tainted text, display only (§6a).
+
+    Kept to printable ASCII without backticks, at most 200 characters, so it
+    cannot break out of a code span or carry control sequences.
+    """
+    if not isinstance(value, str):
+        raise _ScopeError("reason is not a string")
+    clean = "".join(
+        ch if ch.isascii() and ch.isprintable() and ch != "`" else "?" for ch in value
+    )
+    return clean[:MAX_SCOPE_REASON]
+
+
+def _scope_list(raw: dict[str, Any], key: str) -> list[Any]:
+    value = raw.get(key, [])
+    if not isinstance(value, list) or len(value) > SCOPE_BOUNDS[key]:
+        raise _ScopeError(f"{key} is not a list within its bound")
+    return value
+
+
+def _scope_entry(entry: object, key: str) -> tuple[str, str]:
+    if not isinstance(entry, dict) or set(entry) != {key, "reason"}:
+        raise _ScopeError(f"left-out entry without {key} and reason")
+    return entry[key], _scope_reason(entry["reason"])
+
+
+def _parse_scope(raw: object) -> dict[str, Any]:
+    """`state.quarantine`, checked and canonical (§6a table).
+
+    `addresses`, `excluded_addresses` and `evidence_truncated` are absent in a
+    scope journalled before revision R3-1 and read as empty / false (§9).
+    """
+    if not isinstance(raw, dict):
+        raise _ScopeError("state.quarantine is not an object")
+    addresses = [_scope_ip(a).compressed for a in _scope_list(raw, "addresses")]
+    excluded_addresses = []
+    for entry in _scope_list(raw, "excluded_addresses"):
+        address, reason = _scope_entry(entry, "address")
+        excluded_addresses.append(
+            {"address": _scope_ip(address).compressed, "reason": reason}
+        )
+    if "locators" not in raw:
+        raise _ScopeError("state.quarantine has no locators")
+    locators = [_scope_locator(loc)[1] for loc in _scope_list(raw, "locators")]
+    excluded = []
+    for entry in _scope_list(raw, "excluded"):
+        locator, reason = _scope_entry(entry, "locator")
+        excluded.append({"locator": _scope_locator(locator)[1], "reason": reason})
+    truncated = raw.get("evidence_truncated", False)
+    if not isinstance(truncated, bool):
+        raise _ScopeError("evidence_truncated is not a boolean")
+    return {
+        "addresses": addresses,
+        "excluded_addresses": excluded_addresses,
+        "evidence_truncated": truncated,
+        "locators": locators,
+        "excluded": excluded,
+    }
+
+
+def _uncovered_locators(scope: dict[str, Any]) -> list[str]:
+    """Locators cut by ip:port only: their address is not cut whole."""
+    cut = {ipaddress.ip_address(a) for a in scope["addresses"]}
+    return [loc for loc in scope["locators"] if _scope_locator(loc)[0] not in cut]
+
+
+def containment_of(scope: dict[str, Any]) -> str:
+    """RoboDR's `robodr_executor::decision::containment_of` over a checked scope.
+
+    `full` needs a non-empty address drop that covers every announced
+    locator, with nothing left out or forgotten; no address and no locator
+    is `guid_only`; anything else is `partial`.
+    """
+    if not scope["addresses"] and not scope["locators"]:
+        return "guid_only"
+    left_out = bool(
+        scope["excluded"] or scope["excluded_addresses"] or scope["evidence_truncated"]
+    )
+    if scope["addresses"] and not left_out and not _uncovered_locators(scope):
+        return "full"
+    return "partial"
+
+
+def _weaker(a: str, b: str) -> str:
+    return min(a, b, key=CONTAINMENT_VALUES.index)
+
+
+def _containment_detail(containment: str, scope: dict[str, Any] | None) -> str:
+    """What a quarantine cuts and leaves out, and what to do next (§6a, §10)."""
+    addresses = ", ".join(scope["addresses"]) if scope else ""
+    caveat = SHARED_HOST_CAVEAT.format(addresses=addresses) if addresses else ""
+    if containment == "unknown" or scope is None:
+        return (
+            "Scope unknown, not fully contained: the robot did not report how "
+            "far the quarantine reaches (an executor older than RoboDR revision "
+            "R2-3, or a scope this integration cannot read). Treat the "
+            "participant as not contained. " + ISOLATE_NEXT_STEP + " Upgrade "
+            "robodr-executor (before robodr-agentd) to get the scope reported."
+        )
+    if containment == "full":
+        return (
+            "Contained: every source address the participant was seen sending "
+            f"from is cut whole ({addresses}; any source port, to and from the "
+            "robot's DDS ports), covering every locator it announced, plus its "
+            f"GUID-prefix drop. {caveat}"
+        )
+    parts: list[str] = []
+    if containment == "guid_only":
+        parts.append(
+            "Partially contained, not fully contained: GUID-prefix drop only, "
+            "not IP-contained. No address or locator of the participant is "
+            "cut; it can evade the GUID-prefix drop by re-attributing its "
+            "messages (INFO_SRC) or restarting under a new GUID prefix."
+        )
+    else:
+        parts.append(
+            "Partially contained, not fully contained: "
+            + (f"cut whole: {addresses}." if addresses else "no address is cut whole.")
+        )
+        if uncovered := _uncovered_locators(scope):
+            parts.append(
+                "Cut by announced ip:port only (a sender using ephemeral ports, "
+                "the ROS 2 default, evades these inbound): "
+                + ", ".join(uncovered)
+                + "."
+            )
+    left_out = [
+        f'{entry["address"]} (address: "{entry["reason"]}")'
+        for entry in scope["excluded_addresses"]
+    ] + [
+        f'{entry["locator"]} (locator: "{entry["reason"]}")'
+        for entry in scope["excluded"]
+    ]
+    if left_out:
+        parts.append(
+            "Left out (robot-reported reasons, display only): "
+            + "; ".join(left_out)
+            + "."
+        )
+    if scope["evidence_truncated"]:
+        parts.append(
+            "The robot forgot some observed source addresses or announced "
+            "locators of the participant (evidence truncated): more may be uncut."
+        )
+    if containment == "partial":
+        parts.append(
+            "From a left-out address the participant still reaches the robot "
+            "from any port it did not announce, and by INFO_SRC re-attribution."
+        )
+    parts.append(ISOLATE_NEXT_STEP)
+    if scope["excluded_addresses"]:
+        parts.append(
+            "An address left out because a profiled participant was learned "
+            "there can be pinned (participant_ips) or commissioned on the robot."
+        )
+    if caveat:
+        parts.append(caveat)
+    return " ".join(parts)
+
+
+def _quarantine_outcome(
+    data: dict[str, Any], state: dict[str, Any], action: str | None
+) -> tuple[str | None, dict[str, Any] | None]:
+    """The `containment` to report and the checked `state.quarantine`.
+
+    `containment` applies to a `quarantine_node` request that is `verified`
+    or `applied` (held or not); `None` otherwise. It is the weaker of the
+    robot's own word and what `containment_of` derives from the scope: an
+    absent, unknown or unreadable value, or a scope that does not back the
+    robot's word, is never read as contained.
+    """
+    stored_action = state.get("action")
+    quarantine = (
+        action == "quarantine_node"
+        or stored_action == "quarantine_node"
+        or "containment" in data
+        or "quarantine" in state
+    )
+    if not quarantine:
+        return None, None
+    scope: dict[str, Any] | None = None
+    if "quarantine" in state:
+        try:
+            scope = _parse_scope(state["quarantine"])
+        except _ScopeError:
+            scope = None
+    if data.get("status") not in ("verified", "applied"):
+        return None, scope
+    reported = data.get("containment")
+    word = reported if reported in CONTAINMENT_VALUES else "unknown"
+    derived = containment_of(scope) if scope is not None else "unknown"
+    return _weaker(word, derived), scope
+
+
 def _explain(table: dict[str, str], code: object, fallback: str) -> str:
     return table.get(code, fallback) if isinstance(code, str) else fallback
 
 
-def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
+def _outcome(
+    data: dict[str, Any], *, revert: bool = False, action: str | None = None
+) -> dict[str, Any]:
     """Report a request state as the contract requires (§5, §6a, §10).
 
     "In force" is the robot's own top-level `in_force`, never inferred from
-    the status: true only for `verified` / `applied` that is not held.
+    the status: true only for `verified` / `applied` that is not held. A
+    `quarantine_node` in force is "contained" only with `containment: full`
+    backed by its `state.quarantine` (§6a "Quarantine scope"). `action` is
+    the catalog action when the caller knows it (a submit or a revert).
     """
     status = data.get("status")
     executed = data.get("executed") is True
@@ -1579,6 +1858,16 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
     in_force = (
         reported_in_force is True and status in ("verified", "applied") and not held
     )
+    containment, scope = _quarantine_outcome(data, state, action)
+    contained = None if containment is None else (in_force and containment == "full")
+    containment_report = None
+    if containment is not None:
+        containment_report = _containment_detail(containment, scope)
+        if not in_force:
+            containment_report = (
+                "Not in force now; scope reported for when it is: " + containment_report
+            )
+    scope_label = CONTAINMENT_LABELS[containment] if containment else None
     raw_revert = state.get("revert")
     revert_state: dict[str, Any] = raw_revert if isinstance(raw_revert, dict) else {}
     # A revert the executor has not carried out (or refused: an unsigned or
@@ -1659,6 +1948,8 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
                 if held
                 else "not reported in force"
             )
+            if scope_label:
+                enforcement += f" ({scope_label})"
             report = (
                 f"Revert pending, not reverted: the action is {enforcement}. The "
                 "robot recorded the revert but its executor has not lifted the "
@@ -1672,6 +1963,14 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
                 "Held, not enforced: the robot rebooted and its executor holds the "
                 "action until it re-validated it (it turns reverted if not re-armed "
                 "before its TTL). Keep polling get_action_status."
+            )
+            if scope_label:
+                report += f" Quarantine scope once re-armed: {scope_label}."
+        case "verified" | "applied" if in_force and scope_label:
+            report = (
+                f"In force, {scope_label}: the robot's executor applied the "
+                "quarantine; it stays until revert or its TTL expires. See "
+                "containment_report for what is cut and left out."
             )
         case "verified" if in_force:
             report = (
@@ -1708,6 +2007,10 @@ def _outcome(data: dict[str, Any], *, revert: bool = False) -> dict[str, Any]:
         "refusal_hint": refusal_hint,
         "new_request_id_required": new_request_id_required,
         "revert_pending": revert_pending,
+        "containment": containment,
+        "contained": contained,
+        "containment_report": containment_report,
+        "quarantine_scope": scope,
         "error": state.get("error"),
         "error_explanation": error_explanation,
         "report": report,
@@ -1894,7 +2197,10 @@ def prepare_action_request(
         "exact request. The robot judges it against its safety state and may "
         "refuse it. recorded_not_executed, refused and failed are reported as "
         "not applied; pending is not yet in force; in_force is the robot's own "
-        "word (verified and not held after a reboot)."
+        "word (verified and not held after a reboot). A robot_quarantine_node in "
+        "force reports containment: full (contained), partial, guid_only "
+        "(GUID-prefix drop only, not IP-contained) or unknown; only full is "
+        "contained."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2015,7 +2321,7 @@ async def request_action(
         "approved_by": [a.as_dict() for a in approvers],
         "robot_safety_state": snap.get("safety_state"),
         "robot_executor": snap.get("executor"),
-        **_outcome(data),
+        **_outcome(data, action=spec.name),
         "answer_signature_verified": True,
         "answer": data,
     }
@@ -2028,7 +2334,9 @@ async def request_action(
         "recorded_not_executed, refused, failed and reverted are terminal: never "
         "poll them. Poll pending until it becomes verified, refused or failed, "
         "and a held verified action until it is re-armed (in_force true) or "
-        "reverted."
+        "reverted. A verified robot_quarantine_node reports containment (full, "
+        "partial, guid_only or unknown) and what it cut and left out; only full "
+        "is contained."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2188,7 +2496,7 @@ async def revert_action(
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
-        **_outcome(data, revert=True),
+        **_outcome(data, revert=True, action=spec.name),
         "answer_signature_verified": True,
         "answer": data,
     }

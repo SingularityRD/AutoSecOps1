@@ -182,6 +182,24 @@ def test_containment_request_needs_platform_signoff() -> None:
     assert actions["policy"].action == "tools.robodr.check_action_policy"
 
 
+def test_containment_request_comments_the_quarantine_scope() -> None:
+    actions = _actions("robot-containment-request.yml")
+    shown = actions["shown_containment"]
+    # The scope quotes the robot's reasons: rendered as untrusted text.
+    assert shown.action == "tools.robodr.render_untrusted"
+    assert shown.args["value"] == "${{ ACTIONS.send.result.containment_report }}"
+    assert shown.args["mode"] == "markdown"
+    content = str(actions["record"].args["content"])
+    assert "ACTIONS.send.result.containment }}" in content
+    assert "ACTIONS.send.result.contained }}" in content
+    assert "ACTIONS.shown_containment.result" in content
+    assert "containment_report }}" not in content
+    returns = _load(WORKFLOWS_DIR / "robot-containment-request.yml").definition.returns
+    assert isinstance(returns, dict)
+    assert returns["containment"] == "${{ ACTIONS.send.result.containment }}"
+    assert returns["contained"] == "${{ ACTIONS.send.result.contained }}"
+
+
 def test_signoff_workflow_collects_the_bound_answers() -> None:
     dsl = _load(WORKFLOWS_DIR / "robot-action-sign-off.yml").definition
     expects = dsl.entrypoint.expects or {}

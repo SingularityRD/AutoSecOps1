@@ -34,6 +34,9 @@
 # `tools.robodr.get_action_status` for a pending one. "In force" is the
 # robot's own `in_force` answer, never the status alone: a `verified` action
 # the executor holds after a robot reboot is reported as held, not enforced.
+# A `robot_quarantine_node` in force is contained only with containment
+# `full`; `partial`, `guid_only` (GUID-prefix drop only, not IP-contained)
+# and `unknown` are commented as such, with what was cut and left out.
 # A busy robot (503 `busy`) is asked again with the same request_id; a robot
 # that has just created its replay store refuses requests for its clock skew
 # window (`stale_timestamp`) and is asked again after it.
@@ -260,10 +263,21 @@ definition:
         mode: markdown
         max_length: 600
 
+    # The quarantine scope quotes the robot's reasons: render it as a code span.
+    - ref: shown_containment
+      action: tools.robodr.render_untrusted
+      depends_on:
+        - send
+      args:
+        value: ${{ ACTIONS.send.result.containment_report }}
+        mode: markdown
+        max_length: 2000
+
     - ref: record
       action: core.cases.create_comment
       depends_on:
         - shown_report
+        - shown_containment
       args:
         case_id: ${{ TRIGGER.case_id }}
         content: |
@@ -276,6 +290,8 @@ definition:
           - Approved by (platform users): `${{ FN.serialize_json(ACTIONS.send.result.approved_by) }}`
           - Status: `${{ ACTIONS.send.result.status }}` (in force: `${{ ACTIONS.send.result.in_force }}`, held after a reboot: `${{ ACTIONS.send.result.held }}`, final: `${{ ACTIONS.send.result.terminal }}`)
           - Report: ${{ ACTIONS.shown_report.result }}
+          - Quarantine containment (quarantine only): `${{ ACTIONS.send.result.containment }}` (contained: `${{ ACTIONS.send.result.contained }}`)
+          - Quarantine scope: ${{ ACTIONS.shown_containment.result }}
 
   returns:
     allowed: ${{ ACTIONS.policy.result.allowed }}
@@ -285,3 +301,5 @@ definition:
     status: ${{ ACTIONS.send.result.status }}
     in_force: ${{ ACTIONS.send.result.in_force }}
     held: ${{ ACTIONS.send.result.held }}
+    containment: ${{ ACTIONS.send.result.containment }}
+    contained: ${{ ACTIONS.send.result.contained }}

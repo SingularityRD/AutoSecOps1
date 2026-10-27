@@ -1,7 +1,8 @@
 """The shared `robodr.control-plane` v2 contract vectors (§12).
 
 `tests/data/robodr_control_plane_v2/` is a copy of RoboDR's
-`docs/contracts/fixtures/control-plane-v2/` (RoboDR commit d48e8b0), generated
+`docs/contracts/fixtures/control-plane-v2/` (RoboDR commit d48e8b0; unchanged
+through b730370, the quarantine scope revisions R2-3 and R3-1), generated
 by `cargo run -p robodr-agentd --example control_plane_vectors` and checked
 against the reference implementation by RoboDR's
 `tests/control_plane_vectors.rs`. Copied byte for byte (the pre-commit text

@@ -186,7 +186,7 @@ JSON answers larger than 256 KiB are refused while they are read.
 
 ### Results
 
-Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `held`, `executor_state`, `terminal`, `duplicate`, `refusal`, `refusal_explanation`, `refusal_hint`, `new_request_id_required`, `revert_pending`, `error`, `error_explanation`, and a `report` sentence.
+Every action result carries `status`, `executed`, `in_force`, `applied` (same as `in_force`), `held`, `executor_state`, `terminal`, `duplicate`, `refusal`, `refusal_explanation`, `refusal_hint`, `new_request_id_required`, `revert_pending`, `containment`, `contained`, `containment_report`, `quarantine_scope`, `error`, `error_explanation`, and a `report` sentence.
 
 `in_force` is the robot's own top-level `in_force` answer, never inferred from the status: it is `true` only for a `verified` (or `applied`) action that the robot's executor does not hold. After a robot reboot the executor holds an action in force until it re-validated it; the answer then keeps `status: verified` with `in_force: false` and `state.executor_state: "held"`, and AutoSecOps reports it as held, not enforced (`held: true`). Keep polling `get_action_status` until it is re-armed (`in_force: true`) or `reverted`.
 
@@ -199,6 +199,26 @@ Every action result carries `status`, `executed`, `in_force`, `applied` (same as
 | `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot; `revert_pending` while a revert has not lifted it | No |
 | `reverted` | No longer in force | Yes |
 | `not_applied` | Revert of a request that never took effect | Yes |
+
+#### Quarantine scope
+
+A `robot_quarantine_node` that is `verified` also reports how far it reaches.
+RoboDR cuts the source addresses the participant was seen sending from (any source port), its announced `ip:port` locators, and its DDS GUID prefix.
+
+| `containment` | Shown as | Next step |
+| --- | --- | --- |
+| `full` | Contained: every observed address and announced locator is cut whole, plus the GUID prefix | Check that no legitimate process runs on the cut addresses |
+| `partial` | Partially contained: `containment_report` lists what was cut, what was left out, and the robot's reason for each | Consider `robot_isolate_network` or on-site action; pin or commission addresses the reasons name |
+| `guid_only` | Partially contained: GUID-prefix drop only, not IP-contained. The participant can evade it | Consider `robot_isolate_network` or on-site action |
+| `unknown` | Scope unknown: the robot did not report the scope, or AutoSecOps could not read it | Treat as not contained; upgrade `robodr-executor` |
+
+`contained` is `true` only for an action in force with `containment: full`.
+AutoSecOps re-derives the containment from `state.quarantine` and reports the weaker of that and the robot's own `containment`, so a missing, unknown, or unbacked value never reads as contained.
+`quarantine_scope` holds the checked `addresses`, `excluded_addresses`, `locators`, `excluded`, and `evidence_truncated`; the reasons are robot-reported display text.
+
+<Warning>
+An address drop cuts every DDS participant on that host, including a legitimate process that is not in the robot's profile. Source addresses are not authenticated, so a decoy can spoof its discovery to get a legitimate host cut.
+</Warning>
 
 Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
 A revert of a `pending` or `verified` request answers `pending`; the action may stay in force until `get_action_status` shows `reverted`.
