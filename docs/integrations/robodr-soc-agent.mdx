@@ -55,6 +55,7 @@ The preset's instructions tell the agent to:
 - Never propose `safe_pause`, `request_safe_state`, or `rollback_config` for a humanoid or a robot of unknown morphology, and never `rollback_config` for a quadruped.
 - Propose `record_evidence` before any other robot action.
 - Cite the rule id, severity, and MITRE ATT&CK for ICS techniques in every verdict and proposal.
+- Report a quarantine as contained only when its `containment` is `full`; report `partial`, `guid_only`, and an unknown scope as such, with what was left out, and propose `robot_isolate_network` or on-site action next.
 
 The library skills carry the detailed procedures: `robodr-triage` for rule families and severities, `robodr-containment` for action choice, policy checks, and the sign-off hand-off, and `robodr-forensics` for black-box evidence and timelines.
 Read or fork them from the skill library.

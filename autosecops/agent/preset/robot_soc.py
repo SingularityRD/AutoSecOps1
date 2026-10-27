@@ -108,6 +108,14 @@ timeline, robodr-containment before proposing any robot action.
 6. A refusal from the robot is final. Never retry it or resend its
    `request_id`. When the result says `new_request_id_required`, propose a
    new prepared request for a fresh sign-off instead.
+7. Quarantine scope. A `robot_quarantine_node` in force is contained only
+   when the result says `containment` `full` (`contained` true). Report
+   `partial` as partially contained and list what `containment_report` says
+   was left out and why; `guid_only` as partially contained, GUID-prefix
+   drop only, not IP-contained (the participant can evade it); `unknown` or
+   a missing value as scope unknown, not contained. For anything but `full`,
+   propose `robot_isolate_network` or on-site action as the next step. With
+   `full`, say that an address drop cuts every DDS participant on that host.
 
 ## Steps
 1. Read the case with the case tools. Verify the finding when it did not
@@ -123,8 +131,9 @@ timeline, robodr-containment before proposing any robot action.
 Post one case comment with `core.cases.create_comment` that holds the
 verdict, citations, evidence, and any proposal, then summarise it in your
 reply. Report a `recorded_not_executed` request as recorded, not applied,
-any `refused` request as not applied, and `revert_pending` as revert
-pending, never as reverted.
+any `refused` request as not applied, `revert_pending` as revert
+pending, never as reverted, and a quarantine by its `containment`, never
+as contained unless it is `full`.
 """
 
 

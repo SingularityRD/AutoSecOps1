@@ -156,6 +156,13 @@ def test_preset_binds_the_robodr_library_skills() -> None:
         "rule id",
         "MITRE ATT&CK for ICS",
         "tools.robodr.render_untrusted",
+        # (f) quarantine scope (robodr.control-plane §6a, §10)
+        "containment",
+        "guid_only",
+        "not IP-contained",
+        "partially contained",
+        "scope unknown",
+        "robot_isolate_network",
     ],
 )
 def test_instructions_state_the_safety_rules(required: str) -> None:
@@ -196,6 +203,16 @@ SKILL_RULES: dict[str, tuple[str, ...]] = {
         "two-person",
         "refusal from the robot is final",
         "recorded_not_executed",
+        "containment",
+        "`full`",
+        "partially contained",
+        "guid_only",
+        "not ip-contained",
+        "scope unknown",
+        "containment_report",
+        "robot_isolate_network",
+        "every dds participant on that host",
+        "never report a quarantine as contained",
     ),
     "robodr-forensics": (
         "record_evidence",
