@@ -318,7 +318,7 @@ def test_action_token_carries_the_execution_and_its_trigger(
 
     assert claims.execution_id == str(run_context.wf_exec_id)
     assert claims.wf_exec_id == str(run_context.wf_run_id)
-    assert claims.trigger_type is TriggerType.SCHEDULED
+    assert claims.trigger_type == TriggerType.SCHEDULED.value
 
 
 @pytest.fixture(scope="function")

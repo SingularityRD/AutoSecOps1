@@ -36,7 +36,7 @@ from autosecops.auth.api_keys import (
     parse_managed_api_key,
     verify_api_key,
 )
-from autosecops.auth.executor_tokens import verify_executor_token
+from autosecops.auth.executor_tokens import known_trigger_type, verify_executor_token
 from autosecops.auth.ip_allowlist_enforcement import (
     enforce_org_ip_allowlist,
     enforce_platform_admin_ip_allowlist,
@@ -767,11 +767,7 @@ async def _authenticate_executor(
             workflow_id=token_payload.wf_id,
             run_id=token_payload.wf_exec_id,
             execution_id=token_payload.execution_id,
-            trigger_type=(
-                token_payload.trigger_type.value
-                if token_payload.trigger_type is not None
-                else None
-            ),
+            trigger_type=known_trigger_type(token_payload.trigger_type),
             execution_origin=token_payload.execution_origin,
             root_action=token_payload.root_action,
             agent_session_id=token_payload.agent_session_id,

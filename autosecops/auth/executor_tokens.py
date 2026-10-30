@@ -43,8 +43,13 @@ class ExecutorTokenPayload(BaseModel):
     wf_exec_id: str
     execution_id: str | None = None
     """The workflow execution id; ``wf_exec_id`` carries the run id."""
-    trigger_type: TriggerType | None = None
-    """How the execution started, for audit attribution."""
+    trigger_type: str | None = None
+    """How the execution started, for audit attribution.
+
+    Kept as the raw claim, not a ``TriggerType``: an executor that knows a
+    newer trigger type must not invalidate the whole token on an API that
+    does not (a rolling deploy). :func:`known_trigger_type` reads it.
+    """
 
     @model_validator(mode="after")
     def validate_agent_session_provenance(self) -> Self:
@@ -56,6 +61,28 @@ class ExecutorTokenPayload(BaseModel):
                 "agent_session_id requires the autosecops-mcp agent execution origin"
             )
         return self
+
+
+UNKNOWN_TRIGGER_TYPE = "unknown"
+"""What :func:`known_trigger_type` reports for a trigger type it does not know."""
+
+
+def known_trigger_type(claim: str | None) -> str | None:
+    """The token's trigger type, or ``"unknown"`` for a value this API lacks.
+
+    Args:
+        claim: The verified token's ``trigger_type`` claim.
+
+    Returns:
+        A ``TriggerType`` value, ``"unknown"``, or ``None`` when the token
+        names none.
+    """
+    if claim is None:
+        return None
+    try:
+        return TriggerType(claim).value
+    except ValueError:
+        return UNKNOWN_TRIGGER_TYPE
 
 
 def mint_executor_token(

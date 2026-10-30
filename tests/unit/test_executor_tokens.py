@@ -18,6 +18,7 @@ from autosecops.auth.executor_tokens import (
     EXECUTOR_TOKEN_ISSUER,
     EXECUTOR_TOKEN_SUBJECT,
     ExecutionOrigin,
+    known_trigger_type,
     mint_executor_token,
     verify_executor_token,
 )
@@ -485,7 +486,62 @@ def test_executor_token_carries_execution_id_and_trigger_type(
     verified = verify_executor_token(token)
 
     assert verified.execution_id == "wf-1/exec-1"
-    assert verified.trigger_type is TriggerType.SCHEDULED
+    assert verified.trigger_type == "scheduled"
+
+
+def _resigned(token: str, **claims: Any) -> str:
+    """The token re-signed with the service key and some claims replaced."""
+    payload = jwt.decode(token, options={"verify_signature": False})
+    return jwt.encode(payload | claims, "test-service-key", algorithm="HS256")
+
+
+def test_an_unknown_trigger_type_does_not_invalidate_the_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A newer executor during a rolling deploy can mint a trigger type this
+    # API does not know: the token must still verify, or every executor call
+    # of that run is refused.
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    token = mint_executor_token(
+        workspace_id=uuid.uuid4(), user_id=None, wf_id="wf-1", wf_exec_id="run-1"
+    )
+
+    verified = verify_executor_token(_resigned(token, trigger_type="chatops"))
+
+    assert verified.trigger_type == "chatops"
+    assert known_trigger_type(verified.trigger_type) == "unknown"
+    assert known_trigger_type("webhook") == "webhook"
+    assert known_trigger_type(None) is None
+
+
+@pytest.mark.anyio
+async def test_an_unknown_trigger_type_is_recorded_as_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    workspace_id = uuid.uuid4()
+    _patch_workspace_org(monkeypatch, workspace_id)
+    token = mint_executor_token(
+        workspace_id=workspace_id, user_id=None, wf_id="wf-1", wf_exec_id="run-1"
+    )
+    context_token = ctx_executor_provenance.set(None)
+    try:
+        await _role_dependency(
+            request=_make_request(_resigned(token, trigger_type="chatops")),
+            session=AsyncMock(),
+            workspace_id=workspace_id,
+            user=None,
+            api_key=None,
+            allow_user=False,
+            allow_service=False,
+            allow_executor=True,
+            require_workspace="yes",
+        )
+        provenance = ctx_executor_provenance.get()
+        assert provenance is not None
+        assert provenance.trigger_type == "unknown"
+    finally:
+        ctx_executor_provenance.reset(context_token)
 
 
 @pytest.mark.anyio
