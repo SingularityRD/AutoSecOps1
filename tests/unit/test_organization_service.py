@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.auth.api_keys import ORG_API_KEY_PREFIX, generate_managed_api_key
-from autosecops.auth.schemas import UserRole
+from autosecops.auth.schemas import UserRole, UserUpdate
 from autosecops.auth.types import Role
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.authz.membership import ensure_member
@@ -27,6 +27,7 @@ from autosecops.authz.seeding import (
     seed_system_roles_for_org,
     seed_system_scopes,
 )
+from autosecops.contexts import ctx_role
 from autosecops.db.models import (
     AccessToken,
     ExternalGroupMapping,
@@ -964,6 +965,80 @@ class TestOrganizationServiceDeleteMember:
 
         with pytest.raises(NoResultFound):
             await service.delete_member(uuid.uuid4())
+
+
+class TestOrganizationServiceUpdateMember:
+    @pytest.fixture
+    async def owner_in_org1(
+        self, session: AsyncSession, user_in_org1: User, org1_owner_role: DBRole
+    ) -> User:
+        await session.execute(
+            update(UserRoleAssignment)
+            .where(
+                UserRoleAssignment.organization_id == org1_owner_role.organization_id,
+                UserRoleAssignment.user_id == user_in_org1.id,
+                UserRoleAssignment.workspace_id.is_(None),
+            )
+            .values(role_id=org1_owner_role.id)
+        )
+        await session.commit()
+        return user_in_org1
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            pytest.param(
+                UserUpdate(password="Chosen-By-Admin-Passw0rd!"), id="password"
+            ),
+            pytest.param(UserUpdate(email="takeover@example.com"), id="email"),
+        ],
+    )
+    async def test_admin_cannot_change_member_credentials(
+        self,
+        session: AsyncSession,
+        org1: Organization,
+        owner_in_org1: User,
+        admin_in_org1: User,
+        changes: UserUpdate,
+    ):
+        """Credentials belong to the account, not the organization.
+
+        An admin setting an owner's password or email would take the account
+        over, in this organization and every other one the user belongs to.
+        """
+        role = create_admin_role(org1.id, admin_in_org1.id)
+        token = ctx_role.set(role)
+        try:
+            service = OrgService(session, role=role)
+            before = (owner_in_org1.hashed_password, owner_in_org1.email)
+            with pytest.raises(AutoSecOpsAuthorizationError):
+                await service.update_member(owner_in_org1.id, changes)
+        finally:
+            ctx_role.reset(token)
+
+        await session.refresh(owner_in_org1)
+        assert (owner_in_org1.hashed_password, owner_in_org1.email) == before
+
+    @pytest.mark.anyio
+    async def test_admin_can_still_rename_a_member(
+        self,
+        session: AsyncSession,
+        org1: Organization,
+        owner_in_org1: User,
+        admin_in_org1: User,
+    ):
+        role = create_admin_role(org1.id, admin_in_org1.id)
+        token = ctx_role.set(role)
+        try:
+            service = OrgService(session, role=role)
+            updated = await service.update_member(
+                owner_in_org1.id, UserUpdate(first_name="Renamed")
+            )
+        finally:
+            ctx_role.reset(token)
+
+        assert updated.first_name == "Renamed"
 
 
 class TestOrganizationServiceDeleteOrganization:

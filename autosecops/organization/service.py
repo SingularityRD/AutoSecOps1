@@ -874,11 +874,21 @@ class OrgService(BaseOrgService):
             User: The updated user object.
 
         Raises:
-            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be updated.
+            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be
+                updated, or a caller other than a platform superuser sets the
+                member's password or email.
         """
         user = await self.get_member(user_id)
         if user.is_superuser:
             raise AutoSecOpsAuthorizationError("Cannot update superuser")
+        # Credentials belong to the account, which can span organizations, so
+        # an organization admin setting them would take the account over.
+        if not self.role.is_platform_superuser and (
+            params.model_fields_set & {"password", "email"}
+        ):
+            raise AutoSecOpsAuthorizationError(
+                "Cannot change another member's password or email"
+            )
         async with self._manager() as user_manager:
             updated_user = await user_manager.update(
                 user_update=params, user=user, safe=True
