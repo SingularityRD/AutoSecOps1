@@ -91,7 +91,7 @@ def test_cookie_secure_derived_from_public_api_url(
     # as InvalidEmailException) with new objects. Restore the original
     # namespace afterwards so later tests on this worker see the same classes
     # they imported.
-    original_namespace = dict(vars(users_mod))
+    original_namespace = dict(users_mod.__dict__)
     try:
         monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", public_api_url)
         reloaded = importlib.reload(users_mod)
@@ -101,5 +101,5 @@ def test_cookie_secure_derived_from_public_api_url(
         reloaded = importlib.reload(users_mod)
         assert reloaded.cookie_transport.cookie_secure is expected
     finally:
-        vars(users_mod).clear()
-        vars(users_mod).update(original_namespace)
+        users_mod.__dict__.clear()
+        users_mod.__dict__.update(original_namespace)
