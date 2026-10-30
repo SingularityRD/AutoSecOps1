@@ -120,6 +120,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             is_unprivileged and any(field in set_fields for field in denylist)
         ):
             raise PermissionsException("Operation not permitted")
+        # NOTE(security): The email is the identity that invitations, SSO
+        # account linking and domain policy trust, and there is no flow that
+        # verifies a new address. Self-service (safe) updates may not change
+        # it; the superuser-only `PATCH /users/{id}` route passes safe=False.
+        changes_email = "email" in set_fields and user_update.email != user.email
+        if safe and changes_email and not role.is_platform_superuser:
+            raise PermissionsException("Operation not permitted")
 
         return await super().update(user_update, user, safe=True, request=request)
 
