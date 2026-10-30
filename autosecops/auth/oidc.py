@@ -35,12 +35,16 @@ class OIDCProviderConfig:
 def _is_explicitly_unverified(email_verified: Any) -> bool:
     """Whether the provider says the email is unverified.
 
-    Some providers send the claim as a string; providers that omit it (for
-    example Microsoft Entra ID) are trusted as before.
+    Some providers send the claim as a string or a number; providers that
+    omit it (for example Microsoft Entra ID) are trusted as before.
     """
+    if isinstance(email_verified, bool):
+        return email_verified is False
     if isinstance(email_verified, str):
-        return email_verified.strip().lower() == "false"
-    return email_verified is False
+        return email_verified.strip().lower() in {"false", "0"}
+    if isinstance(email_verified, int | float):
+        return email_verified == 0
+    return False
 
 
 class PlatformOpenID(OpenID):
