@@ -256,6 +256,7 @@ from autosecops.workflow.management.router import router as workflow_management_
 from autosecops.workflow.schedules.router import router as schedules_router
 from autosecops.workflow.store.router import router as workflow_store_router
 from autosecops.workflow.tags.router import router as workflow_tags_router
+from autosecops.workspace_sync.operations.router import router as sync_operations_router
 from autosecops.workspaces.router import router as workspaces_router
 from autosecops.workspaces.service import WorkspaceService
 
@@ -764,6 +765,7 @@ def create_app(**kwargs) -> FastAPI:
     _include_workspace_scoped_router(app, workflow_actions_router)
     _include_workspace_scoped_router(app, workflow_tags_router)
     _include_workspace_scoped_router(app, workflow_store_router)
+    _include_workspace_scoped_router(app, sync_operations_router)
     # EE references register first so POST /secrets/aws wins over /secrets/{secret_id}.
     _include_workspace_scoped_router(app, external_secrets_router)
     _include_workspace_scoped_router(app, workspace_secret_stores_router)
