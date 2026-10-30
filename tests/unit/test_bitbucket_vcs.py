@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from typing import Literal
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -21,13 +22,14 @@ from autosecops.exceptions import (
     EntitlementRequired,
     ScopeDeniedError,
 )
+from autosecops.git.plumbing import validate_path
 from autosecops.git.types import GitUrl
 from autosecops.secrets.schemas import SecretKeyValue
 from autosecops.secrets.service import SecretsService
 from autosecops.sync import PushStatus
 from autosecops.tiers.enums import Entitlement
 from autosecops.vcs.bitbucket.app import BitbucketError, BitbucketTokenService
-from autosecops.vcs.bitbucket.git import BitbucketGit, repository_path, validate_path
+from autosecops.vcs.bitbucket.git import BitbucketGit, repository_path
 from autosecops.vcs.bitbucket.types import BitbucketBranch
 from autosecops.workspace_sync.enums import VcsProvider
 from autosecops.workspace_sync.service import WorkspaceSyncService
@@ -79,8 +81,14 @@ class LocalGit(BitbucketGit):
             GIT_CONFIG_VALUE_5="always",
         )
 
-    async def fetch(self, remote: str, ref: str) -> str:
-        return await super().fetch(str(self.remote), ref)
+    async def fetch(
+        self,
+        remote: str,
+        ref: str,
+        *,
+        ref_kind: Literal["branch", "commit"] | None = None,
+    ) -> str:
+        return await super().fetch(str(self.remote), ref, ref_kind=ref_kind)
 
     async def push(self, remote: str, sha: str, branch: str) -> None:
         await super().push(str(self.remote), sha, branch)
@@ -307,7 +315,7 @@ async def test_pagination_checks_origin_before_sending_credentials():
 )
 def test_unsafe_paths_rejected(path: str):
     with pytest.raises(BitbucketError):
-        validate_path(path)
+        validate_path(path, BitbucketError)
 
 
 @pytest.mark.anyio

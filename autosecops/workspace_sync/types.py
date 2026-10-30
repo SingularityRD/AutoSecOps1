@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
+from autosecops.exceptions import AutoSecOpsValidationError
+
 if TYPE_CHECKING:
     from autosecops.agent.catalog.types import ModelKey
     from autosecops.sync import (
@@ -128,3 +130,7 @@ type WorkflowExportCode = Literal[
     "invalid_definition",
     "missing_child_workflow",
 ]
+
+
+class SyncCommitConflictError(AutoSecOpsValidationError):
+    """The target Git ref moved after the reviewed revision was checked."""
