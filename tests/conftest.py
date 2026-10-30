@@ -368,16 +368,16 @@ IN_DOCKER = os.path.exists("/.dockerenv")
 
 
 def _minio_credentials() -> tuple[str, str]:
-    load_dotenv()
-    access_key = (
-        os.environ.get("AWS_ACCESS_KEY_ID")
-        or os.environ.get("MINIO_ROOT_USER")
-        or "minio"
-    )
+    # Read .env without load_dotenv(): loading it into os.environ here would
+    # restore variables env_sandbox removed, such as the runtime DB password.
+    dotenv = dotenv_values(Path(__file__).resolve().parents[1] / ".env")
+
+    def lookup(name: str) -> str | None:
+        return os.environ.get(name) or dotenv.get(name)
+
+    access_key = lookup("AWS_ACCESS_KEY_ID") or lookup("MINIO_ROOT_USER") or "minio"
     secret_key = (
-        os.environ.get("AWS_SECRET_ACCESS_KEY")
-        or os.environ.get("MINIO_ROOT_PASSWORD")
-        or "password"
+        lookup("AWS_SECRET_ACCESS_KEY") or lookup("MINIO_ROOT_PASSWORD") or "password"
     )
     return access_key, secret_key
 
