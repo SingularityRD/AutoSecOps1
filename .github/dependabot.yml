@@ -1,0 +1,89 @@
+# Dependabot version updates.
+#
+# Supply-chain policy: nothing newer than 7 days is proposed. This mirrors
+# `exclude-newer = "7 days"` in pyproject.toml and `minimum-release-age` in
+# frontend/.npmrc, so a bump Dependabot opens is one the lockfile tooling will
+# also accept. Security updates (Dependabot alerts) are not subject to the
+# cooldown and still open immediately.
+#
+# Commit messages follow .github/commit-conventions.toml: dependency bumps are
+# `build(deps): ...`, and GitHub Actions bumps are a bare `ci: ...`.
+#
+# Base images are pinned as `name:tag@sha256:<digest>` in every Dockerfile.
+# Dependabot refreshes the digest (and the tag, within the same release line)
+# so OS security patches still reach the images.
+version: 2
+
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      frontend-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /frontend
+      - /.devcontainer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      # A major base-image move (for example Node 22 to 24) changes the
+      # runtime and needs a deliberate, tested migration PR instead.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
