@@ -341,6 +341,7 @@ async def test_scope_assignment_is_limited_to_held_and_assignable_scopes(
     assert "workflow:delete" in escalation.json()["detail"]
 
     # Org scopes cannot be granted to a workspace account, even by an owner.
+    assert caller.role.scopes is not None
     caller.role = caller.role.model_copy(
         update={"scopes": caller.role.scopes | {"org:member:read"}}
     )

@@ -53,12 +53,14 @@ class FakeSamlClient:
 
 
 def _assertion(email: str) -> Assertion:
-    return assertion_from_string(
+    assertion = assertion_from_string(
         '<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">'
         '<saml2:AttributeStatement><saml2:Attribute Name="email">'
         f"<saml2:AttributeValue>{email}</saml2:AttributeValue>"
         "</saml2:Attribute></saml2:AttributeStatement></saml2:Assertion>"
     )
+    assert assertion is not None
+    return assertion
 
 
 def _request() -> Request:
@@ -458,6 +460,7 @@ async def test_saml_client_with_ca_bundle_removes_the_temp_file(
 
     client = await saml.create_saml_client("https://idp.test/metadata")
 
+    assert client.metadata is not None
     assert list(client.metadata) == ["https://idp.test"]
     assert seen and not os.path.exists(seen[0])
 

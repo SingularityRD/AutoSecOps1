@@ -141,6 +141,7 @@ async def test_submit_forwards_decisions_from_the_inbox(
     )
 
     assert response.status_code == 204, response.text
+    assert run_turn.await_args is not None
     session_id, continuation = run_turn.await_args.args
     assert session_id == agent_session.id
     assert isinstance(continuation, ContinueRunRequest)
@@ -233,6 +234,7 @@ async def test_dismiss_denies_only_pending_approvals_through_the_workflow(
     response = await client.delete(f"/approvals/{agent_session.id}")
 
     assert response.status_code == 204
+    assert run_turn.await_args is not None
     continuation = run_turn.await_args.args[1]
     assert [(d.tool_call_id, d.action) for d in continuation.decisions] == [
         ("p-1", "deny")
@@ -321,11 +323,12 @@ async def test_legacy_session_view_skips_other_backends_and_bad_parent_ids(
     handle = SimpleNamespace(
         describe=AsyncMock(return_value=_Description("not-an-exec-id", None))
     )
-    monkeypatch.setattr(service, "handle", AsyncMock(return_value=handle))
+    get_handle = AsyncMock(return_value=handle)
+    monkeypatch.setattr(service, "handle", get_handle)
 
     remote = await _agent_session(session, svc_role.workspace_id, backend_id="ee")
     assert await service.get_session(remote.id) is None
-    service.handle.assert_not_awaited()
+    get_handle.assert_not_awaited()
 
     oss = await _agent_session(session, svc_role.workspace_id)
     description = await service.get_session(oss.id)

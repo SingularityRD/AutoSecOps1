@@ -332,6 +332,7 @@ async def test_replace_assignments_rejects_stale_edits_and_missing_scopes(
         (str(viewer_id), None)
     ]
 
+    assert caller.role.scopes is not None
     removal_without_delete = caller.role.scopes - {"org:rbac:delete"}
     caller.role = caller.role.model_copy(update={"scopes": removal_without_delete})
     remove = await client.put(
