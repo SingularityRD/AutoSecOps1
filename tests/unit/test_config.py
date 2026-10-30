@@ -29,8 +29,12 @@ SANDBOX_POLICY_COMPOSE_ENV_FILES = (
 COMPOSE_ENV_FILES = (
     *SANDBOX_POLICY_COMPOSE_ENV_FILES,
     REPO_ROOT / "docker-compose.sandbox.yml",
+    REPO_ROOT / "deployments" / "lab" / "docker-compose.lab.yml",
 )
-ENV_EXAMPLE_FILES = (REPO_ROOT / ".env.example",)
+ENV_EXAMPLE_FILES = (
+    REPO_ROOT / ".env.example",
+    REPO_ROOT / "deployments" / "lab" / ".env.lab.example",
+)
 DEPLOYMENT_ENV_FILES = (*COMPOSE_ENV_FILES, *ENV_EXAMPLE_FILES)
 TRACED_COMPOSE_ENV_FILES = SANDBOX_POLICY_COMPOSE_ENV_FILES
 TRACED_COMPOSE_SERVICES = (
