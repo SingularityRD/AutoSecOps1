@@ -53,7 +53,7 @@ Only the 8 actions/s row is measured, on three 4 vCPU executors that admitted 8 
 The benchmark also showed that admitting more per replica did not raise throughput, so the rows keep the default 32 and change only the replica count: three executors per 8 actions per second, doubling with each tier.
 The in-flight column is the burst the tier can hold, not its sustained rate.
 The rows assume the reference action mix and that every replica gets its own physical cores.
-Validate any tier above 16 actions/s with a load test on the target hardware before you commit to it. Contact [support@singularityrd.com](mailto:support@singularityrd.com) for the AutoSecOps benchmark suite.
+Validate any tier above 16 actions/s with a load test on the target hardware before you commit to it. Contact [info@singularityrd.com](mailto:info@singularityrd.com) for the AutoSecOps benchmark suite.
 
 The default settings row is deliberately conservative.
 A single executor with 32 admitted activities could reach 32 / 2.6 ≈ 12 actions per second, but on an 8-core host shared with every other service it has roughly 4 cores available, which caps it at 0.8 × 4 / 1.21 ≈ 2.6 actions per second for the reference workload.

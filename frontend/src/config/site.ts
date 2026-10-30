@@ -13,8 +13,8 @@ export const siteConfig: SiteConfig = {
   },
   links: {
     docs: "https://docs.singularityrd.com",
-    support: "mailto:support@singularityrd.com",
-    sales: "mailto:sales@singularityrd.com",
+    support: "mailto:info@singularityrd.com?subject=AutoSecOps%20support",
+    sales: "mailto:info@singularityrd.com?subject=AutoSecOps%20sales",
   },
   ogImage: `${env.NEXT_PUBLIC_APP_URL}/og.jpg`,
 }

@@ -39,7 +39,7 @@ from autosecops.licensing.types import (
 )
 from autosecops.logger import logger
 
-LICENSE_CONTACT = "sales@singularityrd.com"
+LICENSE_CONTACT = "info@singularityrd.com"
 
 LICENSE_EXPIRY_WARNING_DAYS = 30
 """Warn administrators this many days before a license expires."""
