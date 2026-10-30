@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid, parseaddr
 from typing import Final
 
 import aiosmtplib
@@ -17,6 +19,8 @@ OPERATION_TIMEOUT_SECONDS: Final = 20
 # Bounds the whole send. Must stay under the invitation resend cooldown: a
 # claim younger than that may still be in flight, and resending double-sends.
 SEND_DEADLINE_SECONDS: Final = 30
+# Message-ID domain when the sender has none; RFC 2606 reserves `.invalid`.
+MESSAGE_ID_FALLBACK_DOMAIN: Final = "autosecops.invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +77,16 @@ class SMTPTransport:
             mime["From"] = self.from_addr
             mime["To"] = ", ".join(message.to)
             mime["Subject"] = message.subject
+            # Neither EmailMessage nor aiosmtplib adds these, and relays such
+            # as Gmail reject mail without a Message-ID. The ID's domain comes
+            # from the sender: make_msgid's default would name the pod.
+            mime["Date"] = format_datetime(datetime.now(UTC))
+            _, at, sender_domain = parseaddr(self.from_addr)[1].rpartition("@")
+            mime["Message-ID"] = make_msgid(
+                domain=sender_domain
+                if at and sender_domain
+                else MESSAGE_ID_FALLBACK_DOMAIN
+            )
             mime.set_content(message.text)
             mime.add_alternative(message.html, subtype="html")
         except ValueError as error:
