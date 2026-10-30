@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from autosecops import config
 from autosecops.cases.text_search import case_search_execution_context
 from autosecops.cases.text_search_indexes import ensure_case_text_indexes
 from autosecops.query.errors import AutoSecOpsQueryTimeoutError
@@ -124,8 +125,12 @@ async def test_readiness_rejects_a_missing_simple_token_mapping(
 @pytest.mark.anyio
 @pytest.mark.parametrize("use_trigram_threshold", [False, True])
 async def test_live_timeout_and_settings_restore_on_rollback(
-    search_database: Engine, use_trigram_threshold: bool
+    search_database: Engine,
+    use_trigram_threshold: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # A short budget keeps the forced timeout fast.
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_SEARCH_STATEMENT_TIMEOUT_MS", 1500)
     url = search_database.url.set(drivername="postgresql+asyncpg")
     engine = create_async_engine(url, poolclass=NullPool)
     try:
@@ -155,7 +160,10 @@ async def test_live_timeout_and_settings_restore_on_rollback(
 @pytest.mark.anyio
 async def test_nested_fuzzy_timeout_preserves_outer_settings_and_recovers(
     search_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # A short budget keeps the forced timeout fast.
+    monkeypatch.setattr(config, "AUTOSECOPS__CASE_SEARCH_STATEMENT_TIMEOUT_MS", 1500)
     engine = create_async_engine(
         search_database.url.set(drivername="postgresql+asyncpg"), poolclass=NullPool
     )
