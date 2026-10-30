@@ -1,0 +1,95 @@
+# Lab: LLM tool-calling check.
+#
+# Proves the configured model can call a tool through AutoSecOps. An
+# `ai.agent` run must call tools.first_epss.lookup_cve_scores (free, no API
+# key) to learn the CVE's current EPSS score; the workflow then fetches the
+# same score directly and compares. A model that answers without calling the
+# tool cannot know today's score, so `passed` is false.
+definition:
+  title: "Lab: LLM tool-calling check"
+  description: Check that the configured model calls a registry tool and reports its result.
+  config:
+    environment: default
+    timeout: 1800
+  entrypoint:
+    expects:
+      cve:
+        type: str
+        description: CVE to look up.
+        default: CVE-2021-44228
+      model_name:
+        type: str
+        description: Model ID as listed in Organization settings > Agent, e.g. qwen3:8b for Ollama.
+        default: "qwen3:8b"
+      model_provider:
+        type: str
+        description: Model provider slug, e.g. ollama, openai, anthropic, gemini.
+        default: ollama
+  actions:
+    - ref: agent
+      action: ai.agent
+      args:
+        model:
+          model_name: ${{ TRIGGER.model_name }}
+          model_provider: ${{ TRIGGER.model_provider }}
+        enable_thinking: false
+        actions:
+          - tools.first_epss.lookup_cve_scores
+        max_tool_calls: 3
+        max_requests: 8
+        instructions: |
+          You look up vulnerability scores. Always call the lookup tool; never
+          answer from memory. Report the epss and percentile values exactly as
+          the tool returns them, as decimal numbers.
+        user_prompt: What are the current EPSS score and percentile of ${{ TRIGGER.cve }}?
+        output_type:
+          type: object
+          properties:
+            cve:
+              type: string
+            epss:
+              type: number
+            percentile:
+              type: number
+          required:
+            - cve
+            - epss
+            - percentile
+
+    - ref: reference
+      action: tools.first_epss.lookup_cve_scores
+      args:
+        cve: ${{ TRIGGER.cve }}
+
+    - ref: compare
+      action: core.script.run_python
+      depends_on:
+        - agent
+        - reference
+      args:
+        inputs:
+          agent_output: ${{ ACTIONS.agent.result.output }}
+          reference: ${{ ACTIONS.reference.result.data }}
+        script: |
+          def main(agent_output=None, reference=None):
+              rows = (reference or {}).get("data") or []
+              if not rows:
+                  return {"passed": False, "reason": "EPSS API returned no score for this CVE"}
+              expected = float(rows[0]["epss"])
+              try:
+                  reported = float((agent_output or {}).get("epss"))
+              except (TypeError, ValueError):
+                  return {"passed": False, "reason": "agent output has no numeric epss", "agent_output": agent_output}
+              passed = abs(reported - expected) < 0.0005
+              return {
+                  "passed": passed,
+                  "expected_epss": expected,
+                  "reported_epss": reported,
+                  "reason": "matches the tool result" if passed else "does not match: the model likely skipped the tool",
+              }
+
+  returns:
+    passed: ${{ ACTIONS.compare.result.passed }}
+    comparison: ${{ ACTIONS.compare.result }}
+    agent_output: ${{ ACTIONS.agent.result.output }}
+    session_id: ${{ ACTIONS.agent.result.session_id }}
