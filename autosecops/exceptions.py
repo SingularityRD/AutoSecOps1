@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from pydantic_core import ValidationError
 
     from autosecops.executor.schemas import ExecutorActionErrorInfo
+    from autosecops.licensing.types import LicenseLimitName
     from autosecops.observability.types import PlatformErrorCapture
     from autosecops.registry.actions.schemas import RegistryActionValidationErrorInfo
     from autosecops.registry.sync.schemas import SyncErrorCode
@@ -336,6 +337,33 @@ class RateLimitExceeded(ExecutorClientError):
 
 class PayloadSizeExceeded(AutoSecOpsException):
     """Error raised when a payload exceeds a size limit."""
+
+
+class LicenseLimitExceeded(AutoSecOpsException):
+    """Raised when creating a resource would exceed a license limit.
+
+    Existing resources are never removed; only new ones are blocked.
+    """
+
+    def __init__(
+        self,
+        limit: LicenseLimitName,
+        *,
+        current: int,
+        maximum: int,
+        contact: str,
+    ) -> None:
+        self.limit = limit
+        self.current = current
+        self.maximum = maximum
+        message = (
+            f"License limit '{limit.value}' reached: {current} of {maximum} in use."
+            f" Contact {contact} to upgrade your license."
+        )
+        super().__init__(
+            message,
+            detail={"limit": limit.value, "current": current, "maximum": maximum},
+        )
 
 
 class EntitlementRequired(AutoSecOpsException):

@@ -1,0 +1,11 @@
+AutoSecOps container images and the Helm chart are private packages on GitHub Container Registry (GHCR). SingularityRD grants Read access to one GitHub account per customer: your own account, or a machine user you create for the deployment. Send SingularityRD the account's username, `<github-username>`, and wait for confirmation before you pull.
+
+Sign in to GitHub as that account and create a [personal access token (classic)](https://github.com/settings/tokens/new?scopes=read:packages) with only the `read:packages` scope. GitHub Packages accepts only classic tokens, not fine-grained tokens. See [Working with the Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic).
+
+Log Docker in to GHCR with the token:
+
+```bash
+echo "<read-packages-token>" | docker login ghcr.io -u <github-username> --password-stdin
+```
+
+Pulls fail with `denied` or `unauthorized` until SingularityRD grants access, after the token expires, and after SingularityRD revokes access. To rotate the token, create a new one, log in again, and delete the old token in GitHub.

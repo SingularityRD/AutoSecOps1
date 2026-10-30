@@ -168,6 +168,12 @@ autosecops:
     defaultMemoryMb: 2048
     # -- Memory limit in MiB for agent sandboxes (agent-executor).
     agentMemoryMb: 4096
+    # -- PyPI index for sandbox package installs (Python script dependencies
+    # and custom registry sync), e.g. `https://pypi.example.internal/simple`.
+    # Empty uses `https://pypi.org/simple`.
+    pypiIndexUrl: ""
+    # -- Comma-separated extra PyPI index URLs for sandbox package installs.
+    pypiExtraIndexUrls: ""
 
   # OpenTelemetry export of platform traces.
   otel:

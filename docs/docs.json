@@ -368,6 +368,7 @@
             "icon": "server",
             "pages": [
               "self-hosting/docker-compose",
+              "self-hosting/local-evaluation",
               "self-hosting/scaling",
               "self-hosting/aws-fargate",
               "self-hosting/kubernetes",

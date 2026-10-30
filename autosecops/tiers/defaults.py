@@ -81,6 +81,40 @@ def get_single_tenant_entitlements() -> EffectiveEntitlements:
     return baseline.model_copy(update=dict.fromkeys((e.value for e in granted), True))
 
 
+def get_single_tenant_limits() -> EffectiveLimits:
+    """Resolve execution limits for a single-tenant install.
+
+    Starts from ``DEFAULT_LIMITS`` and applies the concurrency and execution
+    limits of a valid (or in-grace) license, so the tier permit machinery
+    enforces them. A license value never loosens a stricter default.
+    """
+    limits = get_license_state(log=False).limits
+    defaults = DEFAULT_LIMITS
+    return defaults.model_copy(
+        update={
+            "max_concurrent_workflows": _stricter(
+                defaults.max_concurrent_workflows, limits.max_concurrent_workflows
+            ),
+            "max_concurrent_actions": _stricter(
+                defaults.max_concurrent_actions, limits.max_concurrent_actions
+            ),
+            "max_action_executions_per_workflow": _stricter(
+                defaults.max_action_executions_per_workflow,
+                limits.max_action_executions_per_workflow,
+            ),
+        }
+    )
+
+
+def _stricter(default: int | None, licensed: int | None) -> int | None:
+    """Return the lower of two optional limits, where ``None`` is unlimited."""
+    if default is None:
+        return licensed
+    if licensed is None:
+        return default
+    return min(default, licensed)
+
+
 def _parse_feature_flags(feature_flags_env: str) -> set[str]:
     return {
         raw_flag.strip().lower().replace("_", "-")

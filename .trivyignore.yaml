@@ -21,3 +21,33 @@ vulnerabilities:
       does not load npm's undici. Remove once an npm release bundles undici
       >= 6.29.1.
     expired_at: 2026-12-31
+  - id: CVE-2026-109383
+    # Same undici 6.29.0 inside npm 11.21.1 as above; fixed in undici 6.29.1,
+    # which no npm 11 or npm 12 release bundles yet.
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+      - "var/lib/autosecops/sandbox-rootfs/usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    statement: >-
+      Certificate validation bypass when undici's Agent drops TLS options.
+      Within npm, only node-gyp's Node.js header download (lib/download.js)
+      uses undici, and it runs only when npm builds a native addon from source.
+      An attacker who can intercept that download could serve tampered Node.js
+      headers to that build. The image has no C/C++ toolchain, so such builds
+      fail anyway. npm's registry and tarball fetches do not use undici, and
+      the AutoSecOps API process does not load npm's undici. Remove once an
+      npm release bundles undici >= 6.29.1.
+    expired_at: 2026-12-31
+  - id: CVE-2026-87018
+    # Same undici 6.29.0 inside npm 11.21.1 as above; fixed in undici 6.29.1,
+    # which no npm 11 or npm 12 release bundles yet.
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+      - "var/lib/autosecops/sandbox-rootfs/usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    statement: >-
+      TLS renegotiation with a mismatched certificate can crash the undici
+      client (denial of service). Within npm, only node-gyp's Node.js header
+      download uses undici, so the impact is a crash of that short-lived npm
+      process when it talks to a malicious server. The AutoSecOps API process
+      does not load npm's undici. Remove once an npm release bundles undici
+      >= 6.29.1.
+    expired_at: 2026-12-31

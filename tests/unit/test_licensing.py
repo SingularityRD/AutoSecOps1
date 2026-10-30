@@ -26,7 +26,9 @@ from cryptography.hazmat.primitives.serialization import (
 from pydantic import ValidationError
 
 from autosecops import config
+from autosecops.admin.license import router as admin_license_router
 from autosecops.admin.license.router import get_license
+from autosecops.admin.license.schemas import LicenseRead
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import Tier
 from autosecops.licensing import keys
@@ -115,6 +117,37 @@ def single_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _install(monkeypatch: pytest.MonkeyPatch, token: str | None) -> None:
     monkeypatch.setattr(config, "AUTOSECOPS__LICENSE_KEY", token)
+
+
+TEST_DEPLOYMENT_ID = "dep_00000000000000000000000000000001"
+
+
+async def _get_license(
+    monkeypatch: pytest.MonkeyPatch,
+    role: PlatformRole,
+    *,
+    users: int = 3,
+    workspaces: int = 2,
+    organizations: int = 1,
+) -> LicenseRead:
+    """Call the admin endpoint with the database lookups stubbed out."""
+    monkeypatch.setattr(
+        admin_license_router,
+        "ensure_deployment_id",
+        AsyncMock(return_value=TEST_DEPLOYMENT_ID),
+    )
+    monkeypatch.setattr(
+        admin_license_router, "count_active_users", AsyncMock(return_value=users)
+    )
+    monkeypatch.setattr(
+        admin_license_router, "count_workspaces", AsyncMock(return_value=workspaces)
+    )
+    monkeypatch.setattr(
+        admin_license_router,
+        "count_organizations",
+        AsyncMock(return_value=organizations),
+    )
+    return await get_license(role, AsyncMock())
 
 
 # --- Token sign/verify -------------------------------------------------------
@@ -529,7 +562,7 @@ async def test_admin_license_endpoint_reports_status(
     _install(monkeypatch, encode_license(claims, embedded_key))
     role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
-    result = await get_license(role)
+    result = await _get_license(monkeypatch, role)
 
     assert result.status == LicenseStatus.GRACE
     assert result.enforced is (not multi_tenant)
@@ -546,7 +579,7 @@ async def test_admin_license_endpoint_reports_missing(
     _install(monkeypatch, None)
     role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
-    result = await get_license(role)
+    result = await _get_license(monkeypatch, role)
 
     assert result.status == LicenseStatus.MISSING
     assert result.customer is None
@@ -941,7 +974,7 @@ async def test_admin_license_endpoint_reports_grants(
     )
     role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
 
-    result = await get_license(role)
+    result = await _get_license(monkeypatch, role)
 
     assert result.entitlements == [Entitlement.FORMS]
     assert result.grants == [LicenseGrant.MULTI_TENANT]

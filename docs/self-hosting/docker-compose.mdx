@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps using Docker Compose: bring up the A
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import GhcrAccess from "/snippets/ghcr-access.mdx";
 
 <Warning>
   Docker Compose deployments default to basic email / password authentication.
@@ -18,6 +19,13 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 - [Docker](https://docs.docker.com/engine/install/) version 26.0.0+
 - [Docker Compose](https://docs.docker.com/compose/install/) version 2.29.0+
 - [openssl](https://www.openssl.org/source/)
+- Read access to the AutoSecOps packages on GHCR, granted by SingularityRD
+
+## Registry access
+
+<GhcrAccess />
+
+`docker compose pull` and `docker compose up` reuse this login to pull `ghcr.io/singularityrd/autosecops`, `autosecops-ui`, and `autosecops-postgres`.
 
 ## Core secrets
 
@@ -39,8 +47,6 @@ id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
 docker cp "$id":/opt/autosecops/install/. .
 docker rm "$id"
 ```
-
-If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
 
 AutoSecOps uses Caddy as a reverse proxy, configured by the extracted `Caddyfile`.
 
@@ -114,7 +120,7 @@ Once deployed, access your instance at:
   Losing these secrets will break your credentials and webhooks.
 </Warning>
 
-Replace `<version>` with the AutoSecOps version you are upgrading to. The commands extract the new install files into a separate directory first, so nothing in your deployment directory changes until you copy a file over.
+Replace `<version>` with the AutoSecOps version you are upgrading to. If `docker pull` fails with `denied` or `unauthorized`, log in again as described in [Registry access](#registry-access). The commands extract the new install files into a separate directory first, so nothing in your deployment directory changes until you copy a file over.
 
 ```bash
 # 1. Pull the new image and extract its install files into ./autosecops-<version>
