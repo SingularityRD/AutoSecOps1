@@ -27,9 +27,12 @@ See [Architecture](/self-hosting/architecture) for how the services fit together
 
 ### Docker Compose quickstart
 
-Follow the full [Docker Compose guide](/self-hosting/docker-compose) or run the commands below.
+Follow the full [Docker Compose guide](/self-hosting/docker-compose) or run the commands below. The AutoSecOps images are private: first get Read access from SingularityRD and create a token as described in [Registry access](/self-hosting/docker-compose#registry-access).
 
 ```bash
+# Log in to GHCR with your read:packages token
+echo "<read-packages-token>" | docker login ghcr.io -u <github-username> --password-stdin
+
 # Extract the install files from the AutoSecOps image
 docker pull ghcr.io/singularityrd/autosecops:1.0.0
 id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
