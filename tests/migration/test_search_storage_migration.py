@@ -40,8 +40,10 @@ def test_search_migration_enables_vector_and_preserves_source_data(
     engine = create_engine(url, poolclass=NullPool)
     try:
         with admin.connect() as conn:
-            conn.execute(text(f'CREATE DATABASE "{name}"'))
-        previous = run_alembic(url, "upgrade", "a7c3e9f1b2d4")
+            conn.execute(text(f'CREATE DATABASE "{name}" TEMPLATE template0'))
+        # Start from the direct parent so the restricted role only meets the
+        # vector migration; later revisions were inserted before it.
+        previous = run_alembic(url, "upgrade", "bc3124ad3437")
         assert previous.returncode == 0, previous.stderr
         with engine.begin() as conn:
             conn.execute(
@@ -95,7 +97,7 @@ def test_search_migration_enables_vector_and_preserves_source_data(
         with engine.connect() as conn:
             assert (
                 conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "a7c3e9f1b2d4"
+                == "bc3124ad3437"
             )
         upgraded = run_alembic(url, "upgrade", "9680c861644a")
         assert upgraded.returncode == 0, upgraded.stderr
@@ -156,7 +158,7 @@ def test_search_migration_enables_vector_and_preserves_source_data(
             assert (
                 conn.scalar(text("SELECT count(*) FROM search_embedding_config")) == 1
             )
-        downgraded = run_alembic(url, "downgrade", "a7c3e9f1b2d4")
+        downgraded = run_alembic(url, "downgrade", "bc3124ad3437")
         assert downgraded.returncode == 0, downgraded.stderr
         with engine.begin() as conn:
             assert conn.scalar(text("SELECT count(*) FROM synthetic_source")) == 2

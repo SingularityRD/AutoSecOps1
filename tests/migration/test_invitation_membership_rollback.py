@@ -244,6 +244,12 @@ def test_downgrade_restores_current_direct_memberships(
                        true, false, true, 'BASIC'
                 FROM unnest(ARRAY['org-only', 'workspace-only', 'both',
                                   'revoked', 'existing', 'group-only']) AS label;
+                -- Since fa922accd060 the org membership row is the aggregate
+                -- root: assignments and group members require it.
+                INSERT INTO organization_membership (user_id, organization_id)
+                SELECT md5(label)::uuid, md5('rollback-org')::uuid
+                FROM unnest(ARRAY['org-only', 'workspace-only', 'both',
+                                  'revoked', 'existing', 'group-only']) AS label;
                 INSERT INTO role (id, organization_id, name, slug)
                 VALUES (md5('rollback-role')::uuid, md5('rollback-org')::uuid,
                         'Rollback role', 'rollback-role');
@@ -258,8 +264,6 @@ def test_downgrade_restores_current_direct_memberships(
                        md5(label)::uuid, md5('rollback-workspace')::uuid,
                        md5('rollback-role')::uuid
                 FROM unnest(ARRAY['workspace-only', 'both', 'existing', 'revoked']) AS label;
-                INSERT INTO organization_membership (user_id, organization_id)
-                VALUES (md5('existing')::uuid, md5('rollback-org')::uuid);
                 INSERT INTO membership (user_id, workspace_id)
                 VALUES (md5('existing')::uuid, md5('rollback-workspace')::uuid);
                 INSERT INTO "group" (id, organization_id, name)
@@ -290,7 +294,7 @@ def test_downgrade_restores_current_direct_memberships(
             assert conn.scalar(sa.text("SELECT count(*) FROM membership")) == 1
             assert (
                 conn.scalar(sa.text("SELECT count(*) FROM organization_membership"))
-                == 1
+                == 6
             )
             assignments_before = conn.execute(
                 sa.text(
@@ -308,9 +312,14 @@ def test_downgrade_restores_current_direct_memberships(
                     JOIN "user" u ON u.id = m.user_id ORDER BY u.email
                 """)
                 ).scalars().all() == [
+                    # Every member keeps their org membership: revoking access
+                    # or downgrading never removes the aggregate root.
                     "both@example.com",
                     "existing@example.com",
+                    "group-only@example.com",
                     "org-only@example.com",
+                    "revoked@example.com",
+                    "workspace-only@example.com",
                 ]
                 assert conn.execute(
                     sa.text("""
