@@ -317,6 +317,17 @@ variable "platform_admin_ip_allowlist_bypass" {
   default     = false
 }
 
+variable "db_encryption_algorithm" {
+  type        = string
+  description = "Cipher for new encrypted database writes: fernet or aes256gcm. Reads accept both. See the database encryption docs before switching."
+  default     = "fernet"
+
+  validation {
+    condition     = contains(["fernet", "aes256gcm"], var.db_encryption_algorithm)
+    error_message = "db_encryption_algorithm must be fernet or aes256gcm."
+  }
+}
+
 variable "platform_admin_mfa_bypass" {
   type        = bool
   description = "Break-glass override that skips security key (MFA) sign-in and step-up checks for platform admins. Remove after recovery."
@@ -434,6 +445,12 @@ variable "temporal_payload_encryption_cache_max_items" {
 variable "autosecops_db_encryption_key_arn" {
   type        = string
   description = "The ARN of the secret containing the AutoSecOps database encryption key"
+}
+
+variable "autosecops_db_encryption_previous_keys_arn" {
+  type        = string
+  description = "The ARN of the secret containing retired database encryption keys, comma-separated, used for reads only during key rotation (optional)"
+  default     = null
 }
 
 variable "autosecops_service_key_arn" {

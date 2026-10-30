@@ -12,6 +12,7 @@ data:
   LOG_LEVEL: {{ $a.logLevel | quote }}
   AUTOSECOPS__APP_ENV: {{ $a.appEnv | quote }}
   AUTOSECOPS__LOG_FORMAT: {{ $a.logFormat | quote }}
+  AUTOSECOPS__DB_ENCRYPTION_ALGORITHM: {{ $a.dbEncryptionAlgorithm | quote }}
   AUTOSECOPS__FEATURE_FLAGS: {{ $a.featureFlags | quote }}
   AUTOSECOPS__EE_MULTI_TENANT: {{ $a.eeMultiTenant | toString | quote }}
   AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: {{ $a.agentSandboxTimeout | toString | quote }}

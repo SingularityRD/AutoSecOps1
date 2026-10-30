@@ -77,6 +77,11 @@ data "aws_secretsmanager_secret" "temporal_auth_client_secret" {
   arn   = var.temporal_auth_client_secret_arn
 }
 
+data "aws_secretsmanager_secret" "autosecops_db_encryption_previous_keys" {
+  count = var.autosecops_db_encryption_previous_keys_arn != null ? 1 : 0
+  arn   = var.autosecops_db_encryption_previous_keys_arn
+}
+
 data "aws_secretsmanager_secret" "temporal_api_key" {
   count = var.temporal_api_key_arn != null ? 1 : 0
   arn   = var.temporal_api_key_arn
@@ -138,6 +143,11 @@ data "aws_secretsmanager_secret_version" "temporal_auth_client_id" {
 data "aws_secretsmanager_secret_version" "temporal_auth_client_secret" {
   count     = var.temporal_auth_client_secret_arn != null ? 1 : 0
   secret_id = data.aws_secretsmanager_secret.temporal_auth_client_secret[0].id
+}
+
+data "aws_secretsmanager_secret_version" "autosecops_db_encryption_previous_keys" {
+  count     = var.autosecops_db_encryption_previous_keys_arn != null ? 1 : 0
+  secret_id = data.aws_secretsmanager_secret.autosecops_db_encryption_previous_keys[0].id
 }
 
 data "aws_secretsmanager_secret_version" "temporal_api_key" {
@@ -267,6 +277,15 @@ locals {
     },
   ]
 
+  # Every service that receives AUTOSECOPS__DB_ENCRYPTION_KEY also needs the
+  # retired keys during a rotation.
+  db_encryption_previous_keys_secret = var.autosecops_db_encryption_previous_keys_arn != null ? [
+    {
+      name      = "AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_db_encryption_previous_keys[0].arn
+    }
+  ] : []
+
   temporal_api_key_secret = var.temporal_api_key_arn != null ? [
     {
       name      = "TEMPORAL__API_KEY"
@@ -285,6 +304,7 @@ locals {
 
   autosecops_base_secrets = concat(
     local.required_autosecops_base_secrets,
+    local.db_encryption_previous_keys_secret,
     local.autosecops_common_secrets,
   )
 

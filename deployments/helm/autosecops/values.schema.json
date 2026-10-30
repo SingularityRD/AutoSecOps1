@@ -107,6 +107,12 @@
             "console"
           ]
         },
+        "dbEncryptionAlgorithm": {
+          "enum": [
+            "fernet",
+            "aes256gcm"
+          ]
+        },
         "featureFlags": {
           "type": "string"
         },
@@ -427,6 +433,9 @@
           "type": "string"
         },
         "licenseKey": {
+          "type": "string"
+        },
+        "dbEncryptionPreviousKeys": {
           "type": "string"
         },
         "oidcClientId": {

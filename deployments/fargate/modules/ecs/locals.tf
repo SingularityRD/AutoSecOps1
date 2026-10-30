@@ -57,6 +57,7 @@ locals {
 
   autosecops_common_env = {
     AUTOSECOPS__BACKGROUND_QUEUE                        = var.background_queue
+    AUTOSECOPS__DB_ENCRYPTION_ALGORITHM                 = var.db_encryption_algorithm
     LOG_LEVEL                                           = var.log_level
     TEMPORAL__CLUSTER_NAMESPACE                         = local.temporal_namespace
     TEMPORAL__CLUSTER_URL                               = local.temporal_cluster_url

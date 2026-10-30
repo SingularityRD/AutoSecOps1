@@ -81,7 +81,11 @@ The setting controls writes only. AutoSecOps reads both formats whatever the set
 
 `AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS` takes a comma-separated list of retired keys. AutoSecOps decrypts with `AUTOSECOPS__DB_ENCRYPTION_KEY` first, then each previous key, and always encrypts with `AUTOSECOPS__DB_ENCRYPTION_KEY`. Each AES-256-GCM value carries a key ID derived from its key, so AutoSecOps picks the right key without trying each one.
 
-Set both variables on every service that receives `AUTOSECOPS__DB_ENCRYPTION_KEY`. The bundled Compose file, Helm chart, and Fargate module do not pass them through, so add them to each service's environment, for example in a `docker-compose.override.yml`.
+Set both variables on every service that receives `AUTOSECOPS__DB_ENCRYPTION_KEY`. The bundled deployments pass them to every such service:
+
+- Docker Compose: set them in `.env`.
+- Kubernetes: set `autosecops.dbEncryptionAlgorithm`, and put the retired keys in the core Secret's `dbEncryptionPreviousKeys` key.
+- AWS Fargate: set the `db_encryption_algorithm` variable, and store the retired keys in a Secrets Manager secret whose ARN goes in `autosecops_db_encryption_previous_keys_arn`.
 
 <Warning>
   Once any service writes with `aes256gcm`, AutoSecOps versions without this setting cannot read those rows. To downgrade, set `AUTOSECOPS__DB_ENCRYPTION_ALGORITHM=fernet`, run the re-encrypt command below, and only then deploy the older version.

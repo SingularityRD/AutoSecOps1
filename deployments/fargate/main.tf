@@ -94,6 +94,7 @@ module "ecs" {
   result_externalization_threshold_bytes        = var.result_externalization_threshold_bytes
   platform_admin_ip_allowlist_bypass            = var.platform_admin_ip_allowlist_bypass
   platform_admin_mfa_bypass                     = var.platform_admin_mfa_bypass
+  db_encryption_algorithm                       = var.db_encryption_algorithm
   unsafe_disable_secret_error_withholding       = var.unsafe_disable_secret_error_withholding
   workflow_artifact_retention_days              = var.workflow_artifact_retention_days
 
@@ -116,10 +117,11 @@ module "ecs" {
   temporal_db_snapshot_name        = var.temporal_db_snapshot_name
 
   # Secrets from AWS Secrets Manager
-  autosecops_db_encryption_key_arn        = var.autosecops_db_encryption_key_arn
-  autosecops_service_key_arn              = var.autosecops_service_key_arn
-  autosecops_signing_secret_arn           = var.autosecops_signing_secret_arn
-  temporal_payload_encryption_keyring_arn = var.temporal_payload_encryption_keyring_arn
+  autosecops_db_encryption_key_arn           = var.autosecops_db_encryption_key_arn
+  autosecops_db_encryption_previous_keys_arn = var.autosecops_db_encryption_previous_keys_arn
+  autosecops_service_key_arn                 = var.autosecops_service_key_arn
+  autosecops_signing_secret_arn              = var.autosecops_signing_secret_arn
+  temporal_payload_encryption_keyring_arn    = var.temporal_payload_encryption_keyring_arn
 
   # Authentication
   auth_types               = var.auth_types

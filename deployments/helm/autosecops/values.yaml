@@ -59,6 +59,10 @@ autosecops:
   logLevel: INFO
   # -- `json` or `console`.
   logFormat: json
+  # -- Cipher for new encrypted database writes: `fernet` or `aes256gcm`.
+  # Reads accept both. Retired keys go in the core Secret's
+  # `dbEncryptionPreviousKeys` key during a rotation.
+  dbEncryptionAlgorithm: fernet
   # -- Comma-separated feature flags. Flags never grant paid entitlements.
   featureFlags: ""
   # -- Enable multi-tenant enterprise mode.
@@ -224,6 +228,8 @@ secrets:
   userAuthSecret: ""
   # Optional keys. Empty values are left out of the chart-created Secret.
   licenseKey: ""
+  # -- Comma-separated retired DB encryption keys, read-only during rotation.
+  dbEncryptionPreviousKeys: ""
   oidcClientId: ""
   oidcClientSecret: ""
   oauthClientId: ""
