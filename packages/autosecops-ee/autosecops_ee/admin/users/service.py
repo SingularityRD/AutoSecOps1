@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped
 from autosecops.audit.logger import audit_log
 from autosecops.auth.schemas import UserCreate, UserRole
 from autosecops.auth.users import get_user_db_context, get_user_manager_context
+from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     Approval,
@@ -173,6 +174,10 @@ class AdminUserService(BasePlatformService):
             if superuser_count <= 1:
                 raise ValueError("Cannot delete the last superuser")
 
+        # The user delete cascades to refresh tokens and memberships. Take the
+        # MCP token lock before any write so it precedes every row lock, as
+        # member removal and token rotation do.
+        await lock_mcp_refresh_token_users(self.session, [user_id])
         await self.session.execute(
             delete(AccessToken).where(
                 cast(Mapped[uuid.UUID], AccessToken.user_id) == user_id

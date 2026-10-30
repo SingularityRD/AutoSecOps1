@@ -19,6 +19,7 @@ from autosecops.authz.membership import ensure_member
 from autosecops.authz.seeding import seed_system_roles_for_org
 from autosecops.cases.service import CaseFieldsService
 from autosecops.db.engine import get_async_session_bypass_rls_context_manager
+from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     MCPRefreshToken,
@@ -202,6 +203,17 @@ async def delete_organization_with_cleanup(
     org_member_user_ids = select(OrganizationMembership.user_id).where(
         OrganizationMembership.organization_id == organization.id
     )
+    # The membership cascade fires the MCP token-revocation trigger, which
+    # locks each member. Take every lock this cleanup needs, in one sorted
+    # pass, before locking any membership or token row.
+    locked_user_ids = await session.scalars(
+        org_member_user_ids.union(
+            select(MCPRefreshToken.user_id).where(
+                MCPRefreshToken.organization_id == organization.id
+            )
+        )
+    )
+    await lock_mcp_refresh_token_users(session, locked_user_ids)
     await session.execute(
         delete(AccessToken).where(
             type_cast(Any, AccessToken.user_id).in_(org_member_user_ids)
