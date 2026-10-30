@@ -58,7 +58,7 @@ curl https://<host>/api/users/me \
 
 Wrong credentials fail at login with `400` and `LOGIN_BAD_CREDENTIALS`. A password shorter than `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` fails with `400` and the code `UPDATE_USER_INVALID_PASSWORD`.
 
-A superadmin resets another account's password with the same body at `PATCH /users/{user_id}`, and a non-superadmin session gets `403`. Accounts created by OIDC or SAML sign-in hold a generated password and authenticate at the identity provider, so reset those there.
+A superadmin resets another account's password with the same body at `PATCH /users/{user_id}`, and a non-superadmin session gets `403`. Organization admins can't set a member's password or email either: `PATCH /organization/members/{user_id}` returns `403` for those fields. Accounts created by OIDC or SAML sign-in hold a generated password and authenticate at the identity provider, so reset those there.
 
 ## Related pages
 

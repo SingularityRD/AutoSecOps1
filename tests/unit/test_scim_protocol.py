@@ -1747,3 +1747,115 @@ async def test_user_update_accepts_unchanged_username_case_insensitively(
     )
     assert response.status_code == 200
     assert response.json()["userName"] == email
+
+
+@pytest.mark.anyio
+async def test_okta_group_rename_echoes_the_group_id(
+    client: httpx.AsyncClient,
+) -> None:
+    """Okta renames a pushed group with its own id in the PatchOp value."""
+    group = (
+        await client.post("/scim/v2/Groups", json={"displayName": "Before"})
+    ).json()
+
+    response = await client.patch(
+        f"/scim/v2/Groups/{group['id']}",
+        json={
+            "schemas": [ScimSchema.PATCH_OP],
+            "Operations": [
+                {
+                    "op": "replace",
+                    "value": {"id": group["id"], "displayName": "After"},
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == group["id"]
+    assert response.json()["displayName"] == "After"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("resource", ["Users", "Groups"])
+async def test_patch_rejects_changing_the_read_only_id(
+    client: httpx.AsyncClient, resource: str
+) -> None:
+    """An echoed id is accepted only when it is the resource's own."""
+    if resource == "Users":
+        created = await _post_user(client, f"id-{uuid.uuid4().hex}@example.com")
+    else:
+        created = await client.post("/scim/v2/Groups", json={"displayName": "Fixed"})
+    resource_id = created.json()["id"]
+
+    response = await client.patch(
+        f"/scim/v2/{resource}/{resource_id}",
+        json={"Operations": [{"op": "replace", "value": {"id": str(uuid.uuid4())}}]},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["scimType"] == "invalidValue"
+    assert (await client.get(f"/scim/v2/{resource}/{resource_id}")).json()[
+        "id"
+    ] == resource_id
+
+
+@pytest.mark.anyio
+async def test_user_patch_accepts_default_entra_profile_attributes(
+    client: httpx.AsyncClient, session: AsyncSession, org: Organization
+) -> None:
+    """Entra's default user mapping PATCHes attributes AutoSecOps never stores.
+
+    PUT already ignores them; failing PATCH would quarantine the provisioning job.
+    """
+    email = f"entra-{uuid.uuid4().hex}@example.com"
+    created = (await _post_user(client, email, externalId="entra-object")).json()
+    enterprise = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+
+    response = await client.patch(
+        f"/scim/v2/Users/{created['id']}",
+        json={
+            "schemas": [ScimSchema.PATCH_OP],
+            "Operations": [
+                {"op": "Add", "path": "title", "value": "Analyst"},
+                {
+                    "op": "Replace",
+                    "path": 'phoneNumbers[type eq "work"].value',
+                    "value": "+1 555 0100",
+                },
+                {"op": "Add", "path": "preferredLanguage", "value": "en-US"},
+                {"op": "Add", "path": f"{enterprise}:department", "value": "SecOps"},
+                {
+                    "op": "Replace",
+                    "value": {f"{enterprise}:employeeNumber": "42"},
+                },
+                {"op": "Remove", "path": f"{enterprise}:manager"},
+                {"op": "Remove", "path": "displayName"},
+            ],
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["userName"] == email
+    assert body["externalId"] == "entra-object"
+    assert body["active"] is True
+    assert await _resource_is_member(
+        session, resource_id=uuid.UUID(created["id"]), organization_id=org.id
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("path", ["active", "userName", "externalId", "emails"])
+async def test_user_patch_still_rejects_removing_stored_attributes(
+    client: httpx.AsyncClient, path: str
+) -> None:
+    """Ignoring profile attributes must not let removal reach stored ones."""
+    created = await _post_user(client, f"keep-{uuid.uuid4().hex}@example.com")
+
+    response = await client.patch(
+        f"/scim/v2/Users/{created.json()['id']}",
+        json={"Operations": [{"op": "remove", "path": path}]},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
