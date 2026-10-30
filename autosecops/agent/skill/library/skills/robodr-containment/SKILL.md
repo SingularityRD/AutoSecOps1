@@ -49,13 +49,25 @@ two-person actions. Your job is to prepare the proposal, not to decide it.
    changes nothing on the robot.
 5. Hand off. Post a case comment with the proposal (below) and ask a human
    to submit the sign-off form. Stop there.
-6. After approval, track the request with `tools.robodr.get_action_status`.
-   Report `recorded_not_executed` as "recorded, not applied": nothing is
-   executed on the robot in the current release. Report every `refused`
-   status, including a code you do not know, as not applied, and give the
-   result's `refusal_hint` to the human. Report `revert_pending` as "revert
-   pending", never as reverted: the action stays in force until it is
-   reverted or its TTL expires.
+6. After approval, track the request with `tools.robodr.get_action_status`
+   (poll only `pending`, and a held `verified` action). Report the status
+   as the result's `report` says:
+   - `recorded_not_executed`: "recorded, not applied"; the robot executed
+     nothing (no executor, or no motion adapter for the action).
+   - `verified` with `in_force` true: in force until revert or TTL. With
+     the robot's motion adapters, `restrict_motion` and `safe_pause` reach
+     `verified` too; a paused robot stays paused until a revert or the
+     executor's pause TTL.
+   - `applied` (`request_safe_state`, or `rollback_config` with `config:
+     program`, carried out by the platform's adapter): final and not
+     reversible; an operator restores the robot.
+   - `reverted`: no longer in force. Reverting a `safe_pause` releases the
+     pause and never resumes a mission; say that an operator restarts it.
+   - every `refused` status, including a code you do not know, and `failed`:
+     not applied. Give the result's `refusal_explanation` and
+     `refusal_hint` to the human.
+   - `revert_pending`: "revert pending", never reverted; the action stays
+     in force until it is reverted or its TTL expires.
 7. For a `quarantine_node`, report the scope as the result's `containment`
    says (below). Never report a quarantine as contained unless
    `containment` is `full`.
@@ -93,9 +105,14 @@ quadruped caveat applies to `robot_isolate_network` as to quarantine.
 | `restrict_motion` | Out-of-envelope or hijacked motion; cap speed or zone with a TTL | single | yes, time-limited |
 | `quarantine_node` | A rogue DDS participant (GUID) or ROS 2 node | single | yes |
 | `isolate_network` | Host compromise with an outbound channel, with a TTL | single | yes, time-limited |
-| `safe_pause` | Wheeled, arm, aerial robots only | two-person | yes |
-| `request_safe_state` | Wheeled, arm, aerial robots only; plan only | two-person | no |
-| `rollback_config` | Wheeled, arm, aerial robots only; robot must be idle | two-person | no |
+| `safe_pause` | Wheeled, arm, aerial robots only; executed only through the robot's OEM-validated motion adapter | two-person | yes (two approvers; releases the pause, never resumes a mission) |
+| `request_safe_state` | Wheeled, arm, aerial robots only; plan only unless the robot has an OEM-validated adapter | two-person | no |
+| `rollback_config` | Wheeled, arm, aerial robots only; robot must be idle; only `config: program` is executed (through the site's adapter), a `profile` rollback never | two-person | no |
+
+On a robot with motion adapters, `restrict_motion` is enforced by speed
+caps only: propose `max_linear_speed` or `max_joint_speed`, not
+`workspace_zone` (the executor refuses a zone it cannot enforce,
+`invalid_order`).
 
 On a humanoid or quadruped, `restrict_motion` must stay above the policy's
 minimum motion factor: a near-stop envelope also stops balance corrections.
@@ -108,6 +125,30 @@ The robot refuses requests while the safety system is engaged
 (`estop_active`, `safe_state_active`), in observe mode, while a human is in
 command (teleop or manual), and during take-off or landing. Do not propose a
 request you expect to be refused; say why instead.
+
+## Two-person actions and motion adapters
+
+The robot's executor carries out `safe_pause`, `request_safe_state`, and
+`rollback_config`, and lifts a `safe_pause`, only when the signed request
+names two approvers other than the requester (`approved_by`). AutoSecOps
+sends the platform users who approved the sign-off, by their user ids, to a
+robot whose snapshot reports `executes_actions: true`. Ask for two
+approvers who are different people from the requester. An agentd that
+answers `unknown_field` predates this and needs an upgrade (executor first,
+then agentd) before it can carry out these actions.
+
+The executor's motion adapters add their own refusals; report them with the
+result's `refusal_hint` and propose what it says, never a resend:
+
+| Code | Meaning |
+| --- | --- |
+| `no_adapter` | no adapter is configured for the action on the robot |
+| `adapter_not_validated` | the site has not marked the adapter OEM-validated |
+| `safety_state_not_allowed` | not allowed in the current safety state (by default `safe_pause` and `request_safe_state` not while `moving_fast`) |
+| `requires_idle` | `rollback_config` needs the robot idle |
+| `behaviour_unsupported` | the policy's safe behaviour is not one the adapter can carry out |
+| `approval_missing` | the signed request did not name two approvers other than the requester |
+| `not_executor_action` | no motion section on the robot, or a `profile` rollback |
 
 ## Proposal format
 

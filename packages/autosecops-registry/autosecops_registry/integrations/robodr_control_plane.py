@@ -6,7 +6,11 @@ request against its current safety state and may refuse it. Without executor
 v1 nothing is executed: an accepted request answers `recorded_not_executed`
 with `executed: false`, which these actions report as not applied. With
 executor v1 a request may answer `pending`, then `verified` or `reverted`;
-`refused` and `failed` are never applied. "In force" is taken only from the
+`refused` and `failed` are never applied. With the executor's motion
+adapters (its `motion` section) `restrict_motion` and `safe_pause` also
+reach `verified` / `reverted`, and `request_safe_state` / `rollback_config`
+(`config: program`) the terminal `applied` (carried out by the platform's
+adapter, not reversible). "In force" is taken only from the
 answer's own `in_force` (true for a `verified` action the executor does not
 hold): a `verified` action held after a robot reboot
 (`state.executor_state: "held"`) is reported as held, not enforced, and a
@@ -66,21 +70,47 @@ run's executor token:
    source; for a revert: robot id, request id, reason).
 2. The requester submits the sign-off form with `robodr_decision: request`;
    each approver submits it with `robodr_decision: approve`. Every
-   submission carries `robodr_request_id` and `robodr_request_digest`.
+   submission carries `robodr_request_id`, `robodr_request_digest` and
+   `robodr_robot_id`, and a request's also `robodr_action` (the catalog wire
+   name): the `signoff_answers` the prepare action returns.
 3. `request_action` / `revert_action` take the submission ids, fetch each
    submission from the platform (`ctx.forms.get_submission`) and require:
    submitted by a platform user (`submitted_by.type == "user"`, never a
    service account; workflows, agents and the executor have no
    `form:submit` scope, so they cannot create one), the same form for all, the
-   same request id and digest as the request being sent, the right decision,
-   and at most 24 hours old. People are identified only by the platform user
+   same request id, digest, robot id (and action) as the request being sent,
+   the right decision, and at most 24 hours old. People are identified only by the platform user
    ids on those records; no action input names a person. An approver must
    differ from the requester and from every other approver: one approval, or
    two for `safe_pause`, `request_safe_state`, `rollback_config` and the
    revert of any of them (the robot's stored request says which action a
-   revert undoes).
+   revert undoes). The body of a two-person request or revert names those
+   approvers to the robot (`approved_by`, motion adapters revision) when the
+   robot's signed snapshot says its executor carries out actions
+   (`executes_actions: true`): each approver as `user-<platform user id>`
+   (immutable, unlike an email), never the requester, and only names
+   RoboDR's grammar `[A-Za-z0-9._%+@-]{1,100}` accepts that it counts as
+   different people (case-insensitively); otherwise nothing is sent. The
+   robot's executor carries out a two-person action only with two such
+   approvers; a robot without one only records the request as a plan, and
+   an older agentd would refuse the unknown field. The platform audit
+   records the `requested_by` and `approved_by` names sent and checks them
+   against the sign-off submitters.
 4. Any failure (no platform context, unreadable submission, mismatch) raises
    `SignoffError` before a request is signed, and nothing reaches the robot.
+5. Each request and revert is then recorded by the platform
+   (`ctx.robot_edr.record_robot_action`) before it is signed: the platform
+   re-checks the sign-off submissions itself (same form, age, request,
+   digest, robot and action), names the run that acted (workflow or agent
+   session, run, execution and trigger) and the requester and approvers, and
+   stores the attempt. With an audit sink configured, the call goes ahead
+   only once the sink confirmed the event (`audit_log: written`); a refusal,
+   a sink error or no answer in time raises `ActionAuditError` and nothing
+   reaches the robot. With no audit sink configured the platform only logs
+   the event (`audit_log: no_sink`, `audit_logged: false`). The robot's
+   answer, or the failure (also a cancelled call), is recorded after it
+   against the stored attempt, once (best effort: the robot has acted;
+   `outcome_audit_log` says what became of it).
 
 `requires_approval=True` additionally pauses an agent's tool call in the
 inbox, but that gate is not relied on: a workflow step calling the action
@@ -93,9 +123,12 @@ Evidence (contract §11)
 
 `list_evidence`, `create_evidence_export` and `download_evidence_export`
 read black-box evidence. Exporting changes nothing on the robot (it is
-recorded in its black box), so these need no sign-off; each call is written
-to the platform audit log first, and a call it cannot audit-log is refused
-before anything is read. A download verifies the export as §11.6 requires
+recorded in its black box), so these need no sign-off; each call is recorded
+by the platform first (`attempt`: refused before anything is read when the
+platform refuses it or the configured audit sink does not confirm it), and
+its end after (`succeeded` or `failed`, also a cancelled call; best effort).
+`delete_after_download` records the delete the same way before it is sent;
+a delete the platform does not record is not sent (`deleted: false`). A download verifies the export as §11.6 requires
 (`robodr_evidence`) before the bundle is stored for the case; nothing that
 fails verification is stored.
 """
@@ -146,7 +179,7 @@ from autosecops_registry.integrations.robodr_evidence import (
     verify_bundle,
     verify_manifest_signature,
 )
-from autosecops_registry.sdk.robot_edr import EvidenceOperation
+from autosecops_registry.sdk.robot_edr import EvidenceOperation, RobotActionOperation
 
 API_VERSION = "robodr-control-plane/v2"
 ANSWER_DOMAIN = f"{API_VERSION} answer"
@@ -292,11 +325,17 @@ _EMAIL_RE = re.compile(
     r"[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,8}"
 )
 _MAX_IDENTITY_CHARS = 100
+_APPROVER_NAME_RE = re.compile(r"[A-Za-z0-9._%+@-]{1,100}")
+"""RoboDR's `approved_by` name grammar (§4; `approver_name_ok`)."""
+MAX_APPROVER_NAMES = 4
+"""Most names an `approved_by` list may carry (§4)."""
 
 # Sign-off form (see the module docstring).
 SIGNOFF_REQUEST_ID = "robodr_request_id"
 SIGNOFF_DIGEST = "robodr_request_digest"
 SIGNOFF_DECISION = "robodr_decision"
+SIGNOFF_ROBOT_ID = "robodr_robot_id"
+SIGNOFF_ACTION = "robodr_action"
 MAX_SIGNOFF_AGE = timedelta(hours=24)
 MAX_SIGNOFF_CLOCK_SKEW = timedelta(minutes=5)
 MAX_APPROVAL_SUBMISSIONS = 4
@@ -308,6 +347,10 @@ class ControlPlaneError(RuntimeError):
 
 class SignoffError(PermissionError):
     """The platform does not prove the sign-off this request needs."""
+
+
+class ActionAuditError(PermissionError):
+    """The platform did not audit-log a robot action, so it was not sent."""
 
 
 def _full(pattern: re.Pattern[str], text: object) -> bool:
@@ -503,8 +546,13 @@ def _build_parameters(
         given.setdefault("config", "profile")
         if given["config"] not in ("profile", "program"):
             raise ValueError("config must be profile or program")
-        if "to_version" in given and not _full(_NAME64_RE, given["to_version"]):
-            raise ValueError("to_version must match [A-Za-z0-9._-]{1,64}")
+        if "to_version" in given and (
+            not _full(_NAME64_RE, given["to_version"])
+            or given["to_version"].startswith("-")
+        ):
+            raise ValueError(
+                "to_version must match [A-Za-z0-9._-]{1,64} and not start with '-'"
+            )
     return given
 
 
@@ -634,6 +682,18 @@ class Person:
             return self.email
         return f"user:{self.user_id}"
 
+    @property
+    def approver_name(self) -> str:
+        """The name the robot's `approved_by` carries for this person (§4).
+
+        Always ``user-<user id>``: the platform user id cannot change, while
+        a user can change their own email, so the robot's black box and the
+        platform audit name the approver the same way for good. RoboDR's
+        approver grammar ``[A-Za-z0-9._%+@-]{1,100}`` has no ``:``, hence not
+        the ``user:`` spelling of :attr:`identifier`.
+        """
+        return f"user-{self.user_id}"
+
     def as_dict(self) -> dict[str, str]:
         return {"user_id": self.user_id, "id": self.identifier}
 
@@ -663,10 +723,16 @@ async def _collect_signoff(
     *,
     request_id: str,
     digest: str,
+    robot_id: str,
+    action: str | None,
     request_submission_id: object,
     approval_submission_ids: object,
 ) -> tuple[Person, list[Person]]:
     """Read the sign-off submissions from the platform and check them.
+
+    ``action`` is the catalog wire name a request's sign-off names; ``None``
+    for a revert, whose sign-off names the robot only (the action it undoes
+    is the robot's stored request).
 
     Returns the requester and the approvers (distinct platform users, none of
     them the requester). The number of approvals is checked by the caller.
@@ -729,6 +795,10 @@ async def _collect_signoff(
                 f"submission {sid} does not carry this request's digest: the "
                 "request differs from what was signed off"
             )
+        if answers.get(SIGNOFF_ROBOT_ID) != robot_id:
+            raise SignoffError(f"submission {sid} does not sign off robot {robot_id}")
+        if action is not None and answers.get(SIGNOFF_ACTION) != action:
+            raise SignoffError(f"submission {sid} does not sign off {action}")
         if answers.get(SIGNOFF_DECISION) != decision:
             raise SignoffError(
                 f"submission {sid} must have {SIGNOFF_DECISION}={decision!r}"
@@ -757,6 +827,192 @@ def _require_approvals(label: str, required: int, approvers: list[Person]) -> No
             f"{label} needs {required} approval(s) from platform users other "
             f"than the requester; got {len(approvers)}"
         )
+
+
+def approved_by_names(requester: Person, approvers: list[Person]) -> list[str]:
+    """The `approved_by` names of a two-person request or revert body (§4).
+
+    The executor carries out `safe_pause`, `request_safe_state` and
+    `rollback_config` (and lifts a `safe_pause`) only when the signed body
+    names at least two different people, neither the requester, comparing
+    names ASCII case-insensitively (the requester's trimmed `requested_by`
+    too). The names come from the sign-off submitters only. A name the robot
+    would refuse, or two people the robot would count as one, refuse the
+    call here, before the request or revert is signed.
+
+    Raises:
+        SignoffError: A name does not fit RoboDR's grammar, two approvers
+            share a name, or an approver's name is the requester's.
+    """
+    if len(approvers) > MAX_APPROVER_NAMES:
+        raise SignoffError(
+            f"the robot takes at most {MAX_APPROVER_NAMES} approvers (approved_by)"
+        )
+    names = [person.approver_name for person in approvers]
+    for person, name in zip(approvers, names, strict=True):
+        if not _full(_APPROVER_NAME_RE, name):
+            raise SignoffError(
+                f"approver {person.user_id} has no name the robot accepts "
+                "(approved_by: 1-100 characters of [A-Za-z0-9._%+@-])"
+            )
+    folded = [name.lower() for name in names]
+    if requester.identifier.strip().lower() in folded:
+        raise SignoffError(
+            "an approver's name equals the requester's (compared "
+            "case-insensitively): the robot would not count that approval"
+        )
+    if len(set(folded)) != len(folded):
+        raise SignoffError(
+            "two approvers have the same name compared case-insensitively: the "
+            "robot would count them as one person"
+        )
+    return names
+
+
+def _robot_approvers(
+    spec: ActionSpec,
+    snapshot: dict[str, Any],
+    requester: Person,
+    approvers: list[Person],
+) -> list[str]:
+    """The `approved_by` names this body carries; empty when it carries none.
+
+    Only a two-person action names its approvers, and only to a robot whose
+    signed snapshot says its executor carries out actions
+    (`executes_actions: true`): without an executor the robot records the
+    request as a plan, and an agentd older than the motion adapters
+    revision refuses the field (strict bodies). Single-approval bodies are
+    unchanged.
+    """
+    if not spec.two_person or snapshot.get("executes_actions") is not True:
+        return []
+    return approved_by_names(requester, approvers)
+
+
+_AUDIT_OUTCOME_RE = re.compile(r"[a-z_]{1,64}")
+_AUDIT_LOG_RESULTS = frozenset({"written", "no_sink", "queued", "failed"})
+
+# Strong refs to outcome records that must outlive a cancelled call.
+_RECORDS_IN_FLIGHT: set[asyncio.Task[Any]] = set()
+
+
+def _audit_log(answer: object) -> str:
+    """What the platform says became of an audit event.
+
+    ``written``: the configured audit sink confirmed it. ``no_sink``: no sink
+    is configured, so only the platform's own log has it. ``queued`` or
+    ``failed``: a best-effort event was handed to delivery, or was not.
+    ``unconfirmed``: the platform did not say (an older API version).
+    """
+    if isinstance(answer, dict) and answer.get("audit_log") in _AUDIT_LOG_RESULTS:
+        return str(answer["audit_log"])
+    return "unconfirmed"
+
+
+async def _record_shielded(coro: Any) -> str:
+    """Await an outcome record that a cancellation of the caller cannot stop.
+
+    The record runs on its own task; if the caller is cancelled (again)
+    while waiting, the record still completes and the cancellation goes on.
+    """
+    task: asyncio.Task[str] = asyncio.ensure_future(coro)
+    _RECORDS_IN_FLIGHT.add(task)
+    task.add_done_callback(_RECORDS_IN_FLIGHT.discard)
+    return await asyncio.shield(task)
+
+
+@dataclass
+class _ActionAudit:
+    """What the platform audit log records for one robot action call."""
+
+    robot_id: str
+    request_id: str
+    operation: RobotActionOperation
+    robot_action: str
+    request_digest: str
+    request_submission_id: str
+    approval_submission_ids: list[str]
+    requested_by_name: str
+    """The `requested_by` the body sends; the platform checks and records it."""
+    approved_by_names: list[str]
+    """The `approved_by` the body sends (empty: none); checked and recorded."""
+    attempt_id: str | None = None
+    """The platform's stored attempt, which the outcome event cites."""
+
+    async def attempt(self) -> str:
+        """Record the call before the request is signed and sent.
+
+        Fails closed: a robot action the platform does not record (no run
+        context, the route refused, the audit sink did not confirm it) is
+        not sent. The platform checks the sign-off submissions itself, names
+        the run that acted and reads the requester and approvers from them.
+
+        Returns:
+            The audit log result (see :func:`_audit_log`).
+        """
+        try:
+            answer = await self._record(
+                phase="attempt",
+                requested_by_name=self.requested_by_name,
+                approved_by_names=self.approved_by_names,
+            )
+        except Exception as exc:
+            raise ActionAuditError(
+                f"the platform did not audit-log this {self.operation} "
+                f"({type(exc).__name__}: {exc}); nothing was sent to the robot"
+            ) from exc
+        if isinstance(answer, dict) and isinstance(answer.get("attempt_id"), str):
+            self.attempt_id = answer["attempt_id"]
+        return _audit_log(answer)
+
+    async def answered(self, outcome: dict[str, Any]) -> str:
+        """Record the robot's answer; best effort, as the robot already acted."""
+        status = outcome.get("status")
+        applied = outcome.get("applied")
+        return await self._after(
+            phase="answered",
+            outcome=status if _full(_AUDIT_OUTCOME_RE, status) else None,
+            applied=applied if isinstance(applied, bool) else None,
+        )
+
+    async def failed(self, exc: BaseException) -> str:
+        """Record that the call failed after the attempt; best effort.
+
+        Completes even when the call was cancelled: the request may have
+        reached the robot.
+        """
+        return await _record_shielded(
+            self._after(phase="failed", failure_reason=type(exc).__name__)
+        )
+
+    async def _after(self, **fields: Any) -> str:
+        try:
+            return _audit_log(await self._record(**fields))
+        except Exception:
+            return "failed"
+
+    async def _record(self, **fields: Any) -> Any:
+        return await get_context().robot_edr.record_robot_action(
+            robot_id=self.robot_id,
+            request_id=self.request_id,
+            operation=self.operation,
+            robot_action=self.robot_action,
+            request_digest=self.request_digest,
+            request_submission_id=self.request_submission_id,
+            approval_submission_ids=self.approval_submission_ids,
+            attempt_id=self.attempt_id,
+            **fields,
+        )
+
+
+def _audit_fields(attempt_log: str, outcome_log: str) -> dict[str, Any]:
+    """The audit results a robot action reports."""
+    return {
+        "audit_logged": attempt_log == "written",
+        "audit_log": attempt_log,
+        "outcome_audit_logged": outcome_log == "written",
+        "outcome_audit_log": outcome_log,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -1154,6 +1410,17 @@ ERROR_EXPLANATIONS: dict[str, str] = {
     "evidence_gap": "the selection spans a gap in the robot's black box",
     "evidence_mismatch": "the evidence links do not match the robot's records",
     "answer_signing_failed": "the robot could not sign its answer; nothing in it is used",
+    "unknown_field": (
+        "the robot refused a body field it does not know; nothing was judged. "
+        "An agentd older than the motion adapters revision does not take "
+        "approved_by, which AutoSecOps sends for safe_pause, "
+        "request_safe_state, rollback_config and their reverts: upgrade the "
+        "robot's executor, then its agentd"
+    ),
+    "invalid_field": (
+        "the robot refused a body field (reason, requested_by, source or "
+        "approved_by) as malformed; nothing was judged"
+    ),
 }
 """What each robot error code means for the person running the action (§7)."""
 
@@ -1426,8 +1693,11 @@ async def _call_retrying(
 # --------------------------------------------------------------------------- #
 
 TERMINAL_STATUSES = frozenset(
-    {"recorded_not_executed", "refused", "failed", "not_applied", "reverted"}
+    {"recorded_not_executed", "refused", "failed", "not_applied", "reverted", "applied"}
 )
+"""Statuses that never change again (§5, §6a): `applied` is the terminal
+result of `request_safe_state` / `rollback_config` carried out by a platform
+adapter (motion adapters revision)."""
 
 REFUSAL_EXPLANATIONS: dict[str, str] = {
     # The robot's judgment (§4.1).
@@ -1442,14 +1712,25 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "morphology_mismatch": "the robot's morphology differs from its response policy's",
     "human_in_command": "a person is driving the robot (teleop or manual)",
     "transient_phase": "the robot is taking off or landing",
-    "fall_hazard": "the action could make the robot fall or collapse",
-    "requires_idle": "the action needs the robot to be idle",
+    "fall_hazard": (
+        "the action could make the robot fall or collapse (also: a motion "
+        "restriction below the policy's min_motion_factor on a robot that "
+        "balances)"
+    ),
+    "requires_idle": (
+        "the action needs the robot to be idle (rollback_config; the robot's "
+        "judgment or its executor at the moment of apply)"
+    ),
     "above_policy": "the robot's response policy does not allow this step now",
     "not_a_restriction": "the cap is above the robot's current envelope",
     "invariant_violation": "the plan fails the robot's response invariants",
     "not_reversible": "this action cannot be reverted; an operator restores the robot",
     # The executor's own checks (§6a).
-    "not_executor_action": "the robot's executor never carries out this action",
+    "not_executor_action": (
+        "the robot's executor does not carry out this action: it has no motion "
+        "section (safe_pause, request_safe_state, rollback_config), or it is a "
+        "rollback_config of the profile, which the anti-rollback chain refuses"
+    ),
     "needs_approval": "the robot's executor policy needs an approval it did not get",
     "motion_path": "the action would cut a motion path",
     "locators_required": (
@@ -1469,7 +1750,10 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "already_active": "the same action is already active",
     "ttl_out_of_range": "the TTL is outside the executor's limits",
     "replay": "the executor already received this order",
-    "invalid_order": "the executor received an invalid order",
+    "invalid_order": (
+        "the executor received an invalid order (also: a restrict_motion with "
+        "workspace_zone, which no motion adapter enforces)"
+    ),
     "id_conflict": "the executor holds another order under this id",
     "evidence_elsewhere": "the evidence is recorded elsewhere",
     # The executor's trust boundary (§6a, executor M1).
@@ -1482,8 +1766,17 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "soc_replay_store_unavailable": (
         "the executor's SOC replay store is full or could not record the request"
     ),
-    "order_mismatch": "the order does not match the request the SOC signed",
-    "approval_missing": "the executor found no SOC approval for the order",
+    "order_mismatch": (
+        "the order does not match the request the SOC signed (request id, "
+        "action, TTL, target, restriction or rollback parameters, key id or "
+        "requested_by)"
+    ),
+    "approval_missing": (
+        "the executor found no SOC approval for the order: the signed body "
+        "lacks the approval evidence, or a two-person action (or the revert "
+        "of a safe_pause) does not name two approvers other than the "
+        "requester in approved_by"
+    ),
     "soc_keys_unavailable": (
         "the executor's SOC key configuration cannot be trusted; it refuses "
         "every control-plane order until it is fixed"
@@ -1496,6 +1789,21 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
         "the participant's network locators lie outside the executor's quarantine scope"
     ),
     "executor_refused": "the executor refused it for a reason this agent does not know",
+    # The executor's motion adapters (§6a, motion adapters revision).
+    "no_adapter": "the robot's executor has no motion adapter configured for this action",
+    "adapter_not_validated": (
+        "the robot's motion adapter for this action is not marked OEM-validated "
+        "by the site"
+    ),
+    "safety_state_not_allowed": (
+        "the robot's safety state is not one the motion adapter allows this "
+        "action in (by default safe_pause and request_safe_state not while "
+        "moving_fast)"
+    ),
+    "behaviour_unsupported": (
+        "the response policy's safe behaviour for this action is not one the "
+        "robot's motion adapter can carry out"
+    ),
 }
 """What each refusal code means (§4.1, §6a); refusals are final."""
 
@@ -1526,12 +1834,52 @@ REFUSAL_HINTS: dict[str, str] = {
         "(executor state directory); then prepare a new request."
     ),
     "order_mismatch": (
-        "The order agentd forwarded differs from what the SOC signed: check "
-        "the robot's agentd for tampering."
+        "The order agentd forwarded differs from what the SOC signed (for a "
+        "restrict_motion or rollback_config also its parameters): check the "
+        "robot's agentd for tampering, and that its executor was upgraded "
+        "together with agentd."
     ),
     "approval_missing": (
-        "The signed request lacks the approval evidence the contract "
-        "requires (authority, requested_by, source, reason)."
+        "safe_pause, request_safe_state and rollback_config (and the revert of "
+        "a safe_pause) need two sign-off approvers other than the requester, "
+        "which AutoSecOps sends as approved_by: prepare a new request and have "
+        "two other platform users approve it. Otherwise the signed request "
+        "lacks the approval evidence the contract requires (authority, "
+        "requested_by, source, reason)."
+    ),
+    "not_executor_action": (
+        "Without a motion section in the robot's executor.json these actions "
+        "are never executed (act on site). rollback_config of the profile is "
+        "never executed: the anti-rollback chain refuses an older profile; "
+        "only config program is rolled back by the site's adapter."
+    ),
+    "invalid_order": (
+        "A robot with motion adapters enforces no workspace_zone: request "
+        "restrict_motion with max_linear_speed or max_joint_speed instead."
+    ),
+    "no_adapter": (
+        "An operator configures a motion adapter for this action in the "
+        "robot's executor.json (motion section), or the action is taken on "
+        "site."
+    ),
+    "adapter_not_validated": (
+        "The site sets the adapter's oem_validated flag in the robot's "
+        "executor.json once the OEM validated it; until then the executor "
+        "refuses the action."
+    ),
+    "safety_state_not_allowed": (
+        "This request stays refused; once the robot is in a safety state the "
+        "adapter allows, a new, newly signed-off request is judged in that "
+        "state."
+    ),
+    "requires_idle": (
+        "rollback_config runs only while the robot is idle; this request stays "
+        "refused. Once it is idle, a new, newly signed-off request is judged "
+        "then."
+    ),
+    "behaviour_unsupported": (
+        "The OEM response policy's safe behaviour and the robot's adapter "
+        "configuration must agree; fix them on the robot."
     ),
     "soc_keys_unavailable": (
         "An operator fixes soc.keys in the robot's executor.json (an "
@@ -1831,6 +2179,44 @@ def _quarantine_outcome(
     return _weaker(word, derived), scope
 
 
+REVERT_PENDING_DEFAULT = (
+    "If it stays verified, the executor refused the revert (for example its "
+    "SOC signature did not verify) and the action stays until its TTL "
+    "expires (state.expires_at_ms)."
+)
+"""Why a revert may stay pending, for an action without its own note."""
+
+REVERT_PENDING_NOTES: dict[str, str] = {
+    "safe_pause": (
+        "If it stays verified, the executor refused the revert: lifting a "
+        "safe_pause needs two approvers other than the requester in the signed "
+        "revert (approval_missing) as well as a valid SOC signature. The pause "
+        "stays until the executor's motion.safe_pause_ttl_s releases it."
+    ),
+}
+"""Why a revert of a motion action may stay pending (§6a, motion adapters)."""
+
+IN_FORCE_NOTES: dict[str, str] = {
+    "restrict_motion": (
+        "The robot's motion adapters enforce the restriction (in-path gateway "
+        "or the platform's speed level)."
+    ),
+    "safe_pause": (
+        "The robot is paused. A revert (two approvers) releases the pause and "
+        "never resumes a mission; the executor also releases it after its "
+        "motion.safe_pause_ttl_s."
+    ),
+}
+"""What a `verified` motion action in force means (§6a, motion adapters)."""
+
+REVERTED_NOTES: dict[str, str] = {
+    "safe_pause": (
+        "The pause was released; no mission was resumed (an operator restarts it)."
+    ),
+}
+"""What a `reverted` motion action means (§6a, motion adapters)."""
+
+
 def _explain(table: dict[str, str], code: object, fallback: str) -> str:
     return table.get(code, fallback) if isinstance(code, str) else fallback
 
@@ -1955,10 +2341,13 @@ def _outcome(
             report = (
                 f"Revert pending, not reverted: the action is {enforcement}. The "
                 "robot recorded the revert but its executor has not lifted the "
-                "action; if it stays verified, the executor refused the revert "
-                "(a revert of a SOC-approved action must carry the SOC's valid "
-                "signature) and the action stays until its TTL expires "
-                "(state.expires_at_ms). Keep polling get_action_status."
+                "action. "
+                + _explain(
+                    REVERT_PENDING_NOTES,
+                    action if action is not None else state.get("action"),
+                    REVERT_PENDING_DEFAULT,
+                )
+                + " Keep polling get_action_status."
             )
         case "verified" if held:
             report = (
@@ -1992,9 +2381,26 @@ def _outcome(
                     f" {refusal_hint}" if refusal_hint else ""
                 )
         case "applied" if in_force:
-            report = "In force: applied and executed by the robot."
+            report = (
+                "Applied: the robot's executor carried out the action through its "
+                "platform adapter. Final and not reversible: the platform owns the "
+                "result and an operator restores the robot."
+            )
+        case "applied":
+            report = (
+                "Applied by the robot's adapter, but the robot does not report it "
+                "in force (in_force missing or false); final, not reversible."
+            )
         case _:
             report = f"Not applied (status {_shown(status)})."
+    acted = action if action is not None else state.get("action")
+    note = ""
+    if status == "verified" and in_force and not revert_pending:
+        note = _explain(IN_FORCE_NOTES, acted, "")
+    elif status == "reverted":
+        note = _explain(REVERTED_NOTES, acted, "")
+    if note:
+        report += f" {note}"
     return {
         "status": status,
         "executed": executed,
@@ -2154,7 +2560,11 @@ def prepare_action_request(
         str | None, Doc("rollback_config: profile (default) or program.")
     ] = None,
     to_version: Annotated[
-        str | None, Doc("rollback_config: target version, [A-Za-z0-9._-]{1,64}.")
+        str | None,
+        Doc(
+            "rollback_config: target version, [A-Za-z0-9._-]{1,64}, not "
+            "starting with '-'."
+        ),
     ] = None,
 ) -> dict[str, Any]:
     prepared = _prepare_action(
@@ -2183,6 +2593,8 @@ def prepare_action_request(
         "signoff_answers": {
             SIGNOFF_REQUEST_ID: prepared.request_id,
             SIGNOFF_DIGEST: digest,
+            SIGNOFF_ROBOT_ID: prepared.robot_id,
+            SIGNOFF_ACTION: wire_name(spec.name),
         },
     }
 
@@ -2190,19 +2602,19 @@ def prepare_action_request(
 @registry.register(
     default_title="Request RoboDR robot action",
     description=(
-        "Send one signed-off catalog action request (robot_restrict_motion, "
-        "robot_quarantine_node, robot_isolate_network, robot_record_evidence, "
-        "robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a "
-        "robot's control plane over mutual TLS. Refuses unless platform form "
-        "submissions prove the requester and one approver (two for the "
-        "two-person actions), all different platform users, signed off this "
-        "exact request. The robot judges it against its safety state and may "
-        "refuse it. recorded_not_executed, refused and failed are reported as "
-        "not applied; pending is not yet in force; in_force is the robot's own "
-        "word (verified and not held after a reboot). A robot_quarantine_node in "
-        "force reports containment: full (contained), partial, guid_only "
-        "(GUID-prefix drop only, not IP-contained) or unknown; only full is "
-        "contained."
+        "Send one signed-off catalog action request to a robot's control "
+        "plane over mutual TLS. Refuses unless platform form submissions "
+        "prove the requester and one approver (two for safe_pause, "
+        "request_safe_state and rollback_config), all different platform "
+        "users, signed off this exact request; two-person actions name their "
+        "approvers to the robot (approved_by). The robot judges it against "
+        "its safety state and may refuse it. recorded_not_executed, refused "
+        "and failed are not applied; pending is not yet in force; applied is "
+        "final and not reversible; in_force is the robot's own word. A "
+        "quarantine in force reports containment: full, partial, guid_only "
+        "or unknown; only full is contained. Recorded by the platform before "
+        "it is sent and refused if the audit sink does not confirm it; "
+        "audit_log says written or no_sink."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2247,7 +2659,11 @@ async def request_action(
         str | None, Doc("rollback_config: profile (default) or program.")
     ] = None,
     to_version: Annotated[
-        str | None, Doc("rollback_config: target version, [A-Za-z0-9._-]{1,64}.")
+        str | None,
+        Doc(
+            "rollback_config: target version, [A-Za-z0-9._-]{1,64}, not "
+            "starting with '-'."
+        ),
     ] = None,
     robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
@@ -2280,9 +2696,12 @@ async def request_action(
 
     # 2. The platform sign-off for exactly this request.
     required = 2 if spec.two_person else 1
+    digest = request_digest("action", prepared.digest_fields())
     requester, approvers = await _collect_signoff(
         request_id=prepared.request_id,
-        digest=request_digest("action", prepared.digest_fields()),
+        digest=digest,
+        robot_id=robot.robot_id,
+        action=wire_name(spec.name),
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2293,6 +2712,7 @@ async def request_action(
     reasons = _policy_reasons(spec, snap.get("morphology"), snap.get("actions"))
     if reasons:
         raise ValueError("request refused by the SOC policy: " + "; ".join(reasons))
+    robot_approvers = _robot_approvers(spec, snap, requester, approvers)
 
     body_obj: dict[str, Any] = {
         "request_id": prepared.request_id,
@@ -2305,15 +2725,38 @@ async def request_action(
     }
     if prepared.ttl_seconds is not None:
         body_obj["ttl_seconds"] = prepared.ttl_seconds
+    if robot_approvers:
+        body_obj["approved_by"] = robot_approvers
+
+    # 4. The platform audit log, before anything is signed or sent.
+    audit = _ActionAudit(
+        robot_id=robot.robot_id,
+        request_id=prepared.request_id,
+        operation="request_action",
+        robot_action=wire_name(spec.name),
+        request_digest=digest,
+        request_submission_id=_submission_uuid(request_submission_id),
+        approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+        requested_by_name=requester.identifier,
+        approved_by_names=robot_approvers,
+    )
+    attempt_log = await audit.attempt()
     # A `busy` submission is resent unchanged (same request_id and body, a
     # fresh nonce): the robot judges it once or answers it as a duplicate (§7).
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "action-requests"),
-        body_bytes(body_obj),
-    )
-    data = answer.json()
+    # Every way out after the attempt closes it: a cancelled call, or an
+    # answer that cannot be read, may still have reached the robot.
+    try:
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "action-requests"),
+            body_bytes(body_obj),
+        )
+        data = answer.json()
+        outcome = _outcome(data, action=spec.name)
+    except BaseException as exc:
+        await audit.failed(exc)
+        raise
     return {
         "request_id": prepared.request_id,
         "action": spec.name,
@@ -2321,10 +2764,12 @@ async def request_action(
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
+        "robot_approved_by": robot_approvers,
         "robot_safety_state": snap.get("safety_state"),
         "robot_executor": snap.get("executor"),
-        **_outcome(data, action=spec.name),
+        **outcome,
         "answer_signature_verified": True,
+        **_audit_fields(attempt_log, await audit.answered(outcome)),
         "answer": data,
     }
 
@@ -2333,8 +2778,9 @@ async def request_action(
     default_title="Get RoboDR action status",
     description=(
         "Read the stored state of a robot action request (signed answer). "
-        "recorded_not_executed, refused, failed and reverted are terminal: never "
-        "poll them. Poll pending until it becomes verified, refused or failed, "
+        "recorded_not_executed, refused, failed, applied and reverted are "
+        "terminal: never poll them. Poll pending until it becomes verified, "
+        "applied (request_safe_state, rollback_config), refused or failed, "
         "and a held verified action until it is re-armed (in_force true) or "
         "reverted. A verified robot_quarantine_node reports containment (full, "
         "partial, guid_only or unknown) and what it cut and left out; only full "
@@ -2403,7 +2849,11 @@ def prepare_revert_request(
             "1, or 2 when the stored request is robot_safe_pause, "
             "robot_request_safe_state or robot_rollback_config"
         ),
-        "signoff_answers": {SIGNOFF_REQUEST_ID: request_id, SIGNOFF_DIGEST: digest},
+        "signoff_answers": {
+            SIGNOFF_REQUEST_ID: request_id,
+            SIGNOFF_DIGEST: digest,
+            SIGNOFF_ROBOT_ID: fields["robot_id"],
+        },
     }
 
 
@@ -2412,10 +2862,15 @@ def prepare_revert_request(
     description=(
         "Ask a robot to revert a signed-off action request. Needs the same "
         "platform sign-off as a request (two approvers to revert a two-person "
-        "action such as robot_safe_pause). request_safe_state, rollback_config "
+        "action such as robot_safe_pause; their names are sent as approved_by). "
+        "Reverting a safe_pause releases the pause and never resumes a "
+        "mission. request_safe_state, rollback_config "
         "and record_evidence are not reversible (refused, not_reversible); a "
         "request that never took effect answers not_applied; an executed one "
-        "answers pending, then reverted."
+        "answers pending, then reverted. Recorded by the platform before it is "
+        "sent; refused if the configured audit sink does not confirm it. "
+        "audit_log says written (sink confirmed) or no_sink (no audit sink "
+        "configured: platform log only)."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2449,9 +2904,12 @@ async def revert_action(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
+    digest = request_digest("revert", fields)
     requester, approvers = await _collect_signoff(
         request_id=request_id,
-        digest=request_digest("revert", fields),
+        digest=digest,
+        robot_id=robot.robot_id,
+        action=None,
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2478,28 +2936,54 @@ async def revert_action(
     reasons = _policy_reasons(spec, snap.get("morphology"))
     if reasons:
         raise ValueError("revert refused by the SOC policy: " + "; ".join(reasons))
+    # The executor lifts a `safe_pause` it carried out only with two
+    # approvers in the signed revert body (§6, §6a).
+    robot_approvers = _robot_approvers(spec, snap, requester, approvers)
 
-    body = body_bytes(
-        {"reason": fields["reason"], "requested_by": requester.identifier}
+    revert_body: dict[str, Any] = {
+        "reason": fields["reason"],
+        "requested_by": requester.identifier,
+    }
+    if robot_approvers:
+        revert_body["approved_by"] = robot_approvers
+    body = body_bytes(revert_body)
+    audit = _ActionAudit(
+        robot_id=robot.robot_id,
+        request_id=request_id,
+        operation="revert_action",
+        robot_action=wire_name(spec.name),
+        request_digest=digest,
+        request_submission_id=_submission_uuid(request_submission_id),
+        approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+        requested_by_name=requester.identifier,
+        approved_by_names=robot_approvers,
     )
+    attempt_log = await audit.attempt()
     # Resent only when the robot did nothing (fenced, rate limited); after
     # `busy` the revert may be recorded: read get_action_status first.
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
-        body,
-        busy_codes=(),
-    )
-    data = answer.json()
+    try:
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
+            body,
+            busy_codes=(),
+        )
+        data = answer.json()
+        outcome = _outcome(data, revert=True, action=spec.name)
+    except BaseException as exc:
+        await audit.failed(exc)
+        raise
     return {
         "request_id": request_id,
         "action": spec.name,
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
-        **_outcome(data, revert=True, action=spec.name),
+        "robot_approved_by": robot_approvers,
+        **outcome,
         "answer_signature_verified": True,
+        **_audit_fields(attempt_log, await audit.answered(outcome)),
         "answer": data,
     }
 
@@ -2536,25 +3020,67 @@ def _check_export_id(export_id: object) -> str:
     return export_id
 
 
-async def _record_access(
-    robot_id: str, operation: EvidenceOperation, export_id: str | None = None
-) -> bool:
-    """Write the platform audit event for an evidence read, before the read.
+@dataclass
+class _AccessAudit:
+    """What the platform audit log records for one evidence read or delete."""
 
-    Fails closed: an evidence read the platform cannot audit-log (the audit
-    route refused or failed) is refused, never done unaudited. Returns True.
-    """
-    try:
-        await get_context().robot_edr.record_evidence_access(
-            robot_id=robot_id, operation=operation, export_id=export_id
+    robot_id: str
+    operation: EvidenceOperation
+    export_id: str | None = None
+
+    async def attempt(self) -> str:
+        """Record the access before the robot is contacted.
+
+        Fails closed: an evidence access the platform does not record (the
+        route refused, the audit sink did not confirm it) is refused, never
+        done unaudited.
+
+        Returns:
+            The audit log result (see :func:`_audit_log`).
+        """
+        try:
+            answer = await self._record()
+        except Exception as exc:
+            raise EvidenceError(
+                f"the platform did not audit-log this evidence access "
+                f"({self.operation}: {type(exc).__name__}: {exc}); nothing was "
+                "sent to the robot. Check that the workflow's executor may "
+                "record evidence access"
+            ) from exc
+        return _audit_log(answer)
+
+    async def succeeded(self) -> str:
+        """Record that the access completed; best effort."""
+        return await self._after(phase="succeeded")
+
+    async def failed(self, exc: BaseException) -> str:
+        """Record that the access failed; best effort, also when cancelled."""
+        return await _record_shielded(
+            self._after(phase="failed", failure_reason=type(exc).__name__)
         )
-    except Exception as exc:
-        raise EvidenceError(
-            f"the platform did not audit-log this evidence read ({operation}: "
-            f"{type(exc).__name__}: {exc}); nothing was read from the robot. "
-            "Check that the workflow's executor may record evidence access"
-        ) from exc
-    return True
+
+    async def _after(self, **fields: Any) -> str:
+        try:
+            return _audit_log(await self._record(**fields))
+        except Exception:
+            return "failed"
+
+    async def _record(self, **fields: Any) -> Any:
+        return await get_context().robot_edr.record_evidence_access(
+            robot_id=self.robot_id,
+            operation=self.operation,
+            export_id=self.export_id,
+            **fields,
+        )
+
+
+def _access_fields(attempt_log: str, outcome_log: str) -> dict[str, Any]:
+    """The audit results an evidence access reports."""
+    return {
+        "audit_logged": attempt_log == "written",
+        "audit_log": attempt_log,
+        "outcome_audit_log": outcome_log,
+    }
 
 
 async def _registered_blackbox_keys(
@@ -2607,14 +3133,20 @@ async def list_evidence(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
-    audit_logged = await _record_access(robot.robot_id, "list")
-    answer = await _call_retrying(
-        robot, "GET", _robot_target(robot.robot_id, "evidence")
-    )
+    access = _AccessAudit(robot.robot_id, "list")
+    attempt_log = await access.attempt()
+    try:
+        answer = await _call_retrying(
+            robot, "GET", _robot_target(robot.robot_id, "evidence")
+        )
+        data = answer.json()
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
     return {
         "answer_signature_verified": True,
-        "audit_logged": audit_logged,
-        "data": answer.json(),
+        **_access_fields(attempt_log, await access.succeeded()),
+        "data": data,
     }
 
 
@@ -2724,7 +3256,8 @@ async def create_evidence_export(
         from_ms,
         to_ms,
     )
-    audit_logged = await _record_access(robot.robot_id, "create_export", export_id)
+    access = _AccessAudit(robot.robot_id, "create_export", export_id)
+    attempt_log = await access.attempt()
     body = body_bytes(
         {
             "export_id": export_id,
@@ -2733,17 +3266,21 @@ async def create_evidence_export(
             "reason": reason,
         }
     )
-    # The same export_id and selector answer the same export (200), so a
-    # busy robot is asked again.
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "evidence", "exports"),
-        body,
-        ok=(200, 201),
-        busy_codes=("busy", "evidence_busy"),
-    )
-    verified = _verified_manifest(robot, answer, export_id, selector)
+    try:
+        # The same export_id and selector answer the same export (200), so a
+        # busy robot is asked again.
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "evidence", "exports"),
+            body,
+            ok=(200, 201),
+            busy_codes=("busy", "evidence_busy"),
+        )
+        verified = _verified_manifest(robot, answer, export_id, selector)
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
     return {
         "export_id": export_id,
         "created": answer.status == 201,
@@ -2751,7 +3288,7 @@ async def create_evidence_export(
         "manifest_signature_verified": True,
         "manifest_signature": verified.manifest_signature,
         "manifest_sha256": hashlib.sha256(verified.manifest_bytes).hexdigest(),
-        "audit_logged": audit_logged,
+        **_access_fields(attempt_log, await access.succeeded()),
         "manifest": verified.manifest.raw,
     }
 
@@ -2822,7 +3359,8 @@ def _verification_report(
         "black-box record's hash, signature and chain under the robot's "
         "black-box keyring, and the result against the manifest) and store the "
         "verified bundle for the case. Nothing that fails verification is "
-        "stored. Read-only for the robot; audit-logged."
+        "stored. Read-only for the robot unless delete_after_download; "
+        "audit-logged."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2887,72 +3425,108 @@ async def download_evidence_export(
     )
     if not isinstance(case_id, str) or not case_id:
         raise ValueError("case_id is required")
-    audit_logged = await _record_access(robot.robot_id, "download_export", export_id)
-
-    # Step 1-2: the manifest (signed answer, signed manifest, the selector).
-    export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
-    verified = _verified_manifest(
-        robot,
-        await _call_retrying(robot, "GET", export_target),
-        export_id,
-        selector,
-    )
-    manifest = verified.manifest
-    if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
-        raise EvidenceError(
-            f"the export is {manifest.bundle_bytes} bytes; at most "
-            f"{MAX_STORED_BUNDLE_BYTES} are downloaded and stored (export a "
-            "smaller selection)"
+    access = _AccessAudit(robot.robot_id, "download_export", export_id)
+    attempt_log = await access.attempt()
+    try:
+        # Step 1-2: the manifest (signed answer, signed manifest, the selector).
+        export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
+        verified = _verified_manifest(
+            robot,
+            await _call_retrying(robot, "GET", export_target),
+            export_id,
+            selector,
         )
-
-    # Step 3: every chunk (signed answer, length, SHA-256), then the bundle.
-    chunks: dict[int, bytes] = {}
-    for spec in manifest.chunks:
-        data = await _fetch_chunk(robot, export_id, spec.index, spec.size)
-        check_chunk(spec, data)
-        chunks[spec.index] = data
-    bundle = assemble_bundle(manifest, chunks)
-
-    # Step 4-5: the records under the black-box keyring, against the manifest.
-    report = verify_bundle(
-        bundle,
-        keyring,
-        robot_id=robot.robot_id,
-        signing_key_id=manifest.signing_key_id,
-    )
-    problems = report.problems or check_report_against_manifest(report, manifest)
-    if problems:
-        raise EvidenceError(
-            "the evidence does not verify: "
-            + "; ".join(problems[:5])
-            + (
-                ""
-                if all(UNVERIFIABLE in p for p in problems)
-                else " (the robot's black box or the transfer reports a problem: "
-                "investigate before relying on this robot's evidence)"
+        manifest = verified.manifest
+        if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
+            raise EvidenceError(
+                f"the export is {manifest.bundle_bytes} bytes; at most "
+                f"{MAX_STORED_BUNDLE_BYTES} are downloaded and stored (export a "
+                "smaller selection)"
             )
-        )
-    verification = _verification_report(verified, report.as_dict())
 
-    stored = await get_context().robot_edr.store_evidence(
-        case_id,
-        robot_id=robot.robot_id,
-        export_id=export_id,
-        manifest_base64=base64.b64encode(verified.manifest_bytes).decode("ascii"),
-        manifest_signature=verified.manifest_signature,
-        bundle_base64=base64.b64encode(bundle).decode("ascii"),
-        verification=verification,
-    )
+        # Step 3: every chunk (signed answer, length, SHA-256), then the bundle.
+        chunks: dict[int, bytes] = {}
+        for spec in manifest.chunks:
+            data = await _fetch_chunk(robot, export_id, spec.index, spec.size)
+            check_chunk(spec, data)
+            chunks[spec.index] = data
+        bundle = assemble_bundle(manifest, chunks)
+
+        # Step 4-5: the records under the black-box keyring, against the manifest.
+        report = verify_bundle(
+            bundle,
+            keyring,
+            robot_id=robot.robot_id,
+            signing_key_id=manifest.signing_key_id,
+        )
+        problems = report.problems or check_report_against_manifest(report, manifest)
+        if problems:
+            raise EvidenceError(
+                "the evidence does not verify: "
+                + "; ".join(problems[:5])
+                + (
+                    ""
+                    if all(UNVERIFIABLE in p for p in problems)
+                    else " (the robot's black box or the transfer reports a problem: "
+                    "investigate before relying on this robot's evidence)"
+                )
+            )
+        verification = _verification_report(verified, report.as_dict())
+
+        stored = await get_context().robot_edr.store_evidence(
+            case_id,
+            robot_id=robot.robot_id,
+            export_id=export_id,
+            manifest_base64=base64.b64encode(verified.manifest_bytes).decode("ascii"),
+            manifest_signature=verified.manifest_signature,
+            bundle_base64=base64.b64encode(bundle).decode("ascii"),
+            verification=verification,
+        )
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
+    outcome_log = await access.succeeded()
+
     deleted = False
+    delete_audit_log: str | None = None
     if delete_after_download:
-        await _call_retrying(robot, "DELETE", export_target)
-        deleted = True
+        deleted, delete_audit_log = await _delete_export(
+            robot, export_id, export_target
+        )
     return {
         "export_id": export_id,
         "verified": True,
         "verification": verification,
         "stored": stored,
         "deleted": deleted,
-        "audit_logged": audit_logged,
+        "delete_audit_log": delete_audit_log,
+        **_access_fields(attempt_log, outcome_log),
         "manifest": manifest.raw,
     }
+
+
+async def _delete_export(
+    robot: _Robot, export_id: str, export_target: str
+) -> tuple[bool, str]:
+    """Delete a stored export on the robot, recorded by the platform first.
+
+    The evidence is already stored, so a delete the platform does not record
+    is skipped and reported (``deleted: false``) instead of failing the
+    download. A failed delete raises after it is recorded.
+
+    Returns:
+        Whether the export was deleted, and the delete's audit log result
+        (``refused`` when the platform did not record it).
+    """
+    access = _AccessAudit(robot.robot_id, "delete_export", export_id)
+    try:
+        attempt_log = await access.attempt()
+    except EvidenceError:
+        return False, "refused"
+    try:
+        await _call_retrying(robot, "DELETE", export_target)
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
+    await access.succeeded()
+    return True, attempt_log

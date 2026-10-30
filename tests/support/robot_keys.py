@@ -2,23 +2,28 @@
 
 The registry keeps every registered key forever (``key_registry``), while
 several suites register the same fixed contract-vector keys in a fresh
-workspace per test. Those suites forget their fixed keys right before they
-register them; suites that test uniqueness use fresh random keys.
-
-Because the registry is shared, two pytest-xdist workers cannot hold the same
-fixed key at once. Tests that register fixed keys run under
-``fixed_robot_keys_lock`` so they take turns across workers.
+workspace per test. Those suites hold :func:`exclusive_vector_keys` while a
+fixed key is registered: it forgets the keys right before they are
+registered and serializes every such test across pytest-xdist workers (and
+concurrent test runs), which share the service database. Suites that test
+uniqueness use fresh random keys and need no lock.
 """
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import AsyncIterator, Iterable
-from contextlib import asynccontextmanager
+from typing import Final
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import get_async_engine, get_async_session_context_manager
 from autosecops.db.models import RobotKeyRegistry
+
+VECTOR_KEY_LOCK: Final = "autosecops-tests:robot-vector-keys"
+"""Advisory lock name held while a test has fixed vector keys registered."""
 
 
 async def forget_registered_keys(public_keys: Iterable[bytes]) -> None:
@@ -33,25 +38,29 @@ async def forget_registered_keys(public_keys: Iterable[bytes]) -> None:
         await session.commit()
 
 
-_FIXED_ROBOT_KEYS_LOCK_ID = 0x524F424F544B4559
-"""Postgres advisory lock key ("ROBOTKEY") for tests that use fixed keys."""
+@contextlib.asynccontextmanager
+async def exclusive_vector_keys(public_keys: Iterable[bytes]) -> AsyncIterator[None]:
+    """Own the fixed vector keys for the duration of the block.
 
-
-@asynccontextmanager
-async def fixed_robot_keys_lock() -> AsyncIterator[None]:
-    """Hold a cross-process lock while a test uses fixed contract-vector keys.
-
-    The lock is a session-level advisory lock on its own connection, so it
-    serializes these tests across pytest-xdist workers sharing one database.
+    Takes a PostgreSQL session advisory lock on a dedicated connection (not
+    the service pool), so tests on other xdist workers that register the
+    same fixed keys wait, then forgets the keys. Register the keys and
+    remove the workspaces holding them inside the block: the lock is
+    released only after that. A crashed worker's connection closes, which
+    releases its lock.
     """
-    async with get_async_session_context_manager() as session:
-        await session.execute(
-            text("SELECT pg_advisory_lock(:key)"), {"key": _FIXED_ROBOT_KEYS_LOCK_ID}
-        )
-        try:
-            yield
-        finally:
-            await session.execute(
-                text("SELECT pg_advisory_unlock(:key)"),
-                {"key": _FIXED_ROBOT_KEYS_LOCK_ID},
-            )
+    keys = list(public_keys)
+    lock_id = func.hashtext(VECTOR_KEY_LOCK)
+    engine = create_async_engine(get_async_engine().url, poolclass=NullPool)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(func.pg_advisory_lock(lock_id)))
+            await conn.commit()
+            try:
+                await forget_registered_keys(keys)
+                yield
+            finally:
+                await conn.execute(select(func.pg_advisory_unlock(lock_id)))
+                await conn.commit()
+    finally:
+        await engine.dispose()

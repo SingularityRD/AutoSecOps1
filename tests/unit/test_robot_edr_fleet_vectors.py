@@ -114,8 +114,9 @@ def _vector_key_ids() -> list[str]:
 
 def _admin(ws: Workspace) -> Role:
     return Role(
-        type="service",
+        type="service_account",
         service_id="autosecops-api",
+        service_account_id=uuid.uuid4(),
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,

@@ -36,9 +36,19 @@ Pass the value verbatim: re-serialising, pretty-printing, or reordering keys bre
 Set `robot_id` to require that the finding names the robot the key belongs to.
 
 `parse_finding` applies the contract's consumer parsing rules for catalog constants.
-`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0, 2.1, or 2.2 and later), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
+`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0, 2.1, 2.2, or 2.3 and later), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
 A finding that carries anything else is refused with `catalog_mismatch`, so these fields carry only catalog text.
-Contract 2.2 adds the secure-delivery rules `robot.deliver.*` (data source `robodr_delivery`, no ATT&CK techniques); a 2.0 or 2.1 finding for those rule ids carries the generic entry.
+Each contract minor adds rules, and a finding of an earlier minor carries the generic entry for them:
+
+| Minor | Rules | Data source |
+| --- | --- | --- |
+| 2.2 | `robot.deliver.*`: secure delivery | `robodr_delivery` |
+| 2.3 | `robot.gateway.*`: the in-path motion gateway | `ros2_motion_commands` |
+| 2.3 | `robot.seal.*`: sealed delivered software | `robodr_delivery` |
+| 2.3 | `robot.unitree.webrtc_*`: Unitree Go2 WebRTC control sessions | `ros2_motion_commands` |
+| 2.3 | `robot.depot.*`: the site depot (the finding's robot id is the depot's id), and `robot.seal.erase_deferred` | `robodr_delivery` |
+
+None of these rules carries ATT&CK techniques.
 The case summary and the first line of the case description come from that catalog text. The robot model, site, and other trusted labels appear only as escaped table cells.
 
 Severity maps one-to-one: `low`, `medium`, `high`, and `critical` become the case severity and priority of the same name and OCSF `severity_id` 2 to 5.
@@ -110,7 +120,7 @@ The robot judges every request against its current safety state and may refuse i
 | `tools.robodr.revert_action` | Yes | Platform sign-off, enforced by the action |
 | `tools.robodr.list_evidence` | No | None. Audit-logged |
 | `tools.robodr.create_evidence_export` | No (the robot records the export in its black box) | None. Audit-logged |
-| `tools.robodr.download_evidence_export` | No | None. Audit-logged |
+| `tools.robodr.download_evidence_export` | Only with `delete_after_download`, which deletes the export on the robot | None. Audit-logged |
 
 ### How "no robot action is autonomous" is enforced
 
@@ -119,22 +129,53 @@ The proof is submissions of a sign-off form, which the action reads back from Au
 No action input names a person.
 
 1. `prepare_action_request` (or `prepare_revert_request`) validates the request and returns its `request_id` and `request_digest`: a SHA-256 over the robot id, request id, action, parameters, `ttl_seconds`, `reason`, and `source` (for a revert: robot id, request id, and `reason`).
-2. The requester submits the "Robot action sign-off" [form](/automations/triggers/forms) with that `robodr_request_id` and `robodr_request_digest` and `robodr_decision` = `request`.
+2. The requester submits the "Robot action sign-off" [form](/automations/triggers/forms) with the `signoff_answers` the prepare action returned (`robodr_request_id`, `robodr_request_digest`, `robodr_robot_id`, and for a request `robodr_action`) and `robodr_decision` = `request`.
 3. Each approver submits the same form with `robodr_decision` = `approve`.
 4. You call `request_action` (or `revert_action`) with the same request inputs, the `request_id`, `request_submission_id`, and `approval_submission_ids`.
 
 The action fetches every submission and refuses with `SignoffError`, before it signs anything, unless:
 
 - a platform user submitted each one (a service account submission does not count, and workflows and agents cannot submit forms);
-- all come from the same form, carry this request's `request_id` and `request_digest` and the right `robodr_decision`, and are at most 24 hours old;
+- all come from the same form, carry this request's `request_id`, `request_digest`, robot id (and, for a request, action) and the right `robodr_decision`, and are at most 24 hours old;
 - no approver is the requester, and every approver is a different platform user, compared by user id;
 - there is one approver, or two for `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and the revert of any of them. `revert_action` reads the stored request from the robot to learn which action it reverts.
 
 The result reports `requested_by` and `approved_by` as platform user ids, with an ASCII identifier: the user's email when it is a plain ASCII address, otherwise `user:<user id>`.
 The request sent to the robot carries the requester's identifier as `requested_by`.
 
+For `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and their reverts, the request also names the approvers as `approved_by` when the robot's signed snapshot reports `executes_actions: true`.
+Each approver is named `user-<user id>`, which stays the same when the user changes their email.
+RoboDR's executor carries out these actions, and lifts a `robot_safe_pause`, only when the signed request names two approvers other than the requester, compared case-insensitively.
+A robot without an executor records these requests as plans, so AutoSecOps sends it no `approved_by`.
+The result reports the names it sent as `robot_approved_by`; other actions send no `approved_by`.
+
+`requested_by` is the requester's email at the time of sending; AutoSecOps stores it with the requester's `user_id`, so a later email change does not break the link.
+AutoSecOps checks both names against the users' records when it records the attempt, stores them with it, and sends nothing if they differ. The `robot_action` audit event carries `has_approved_by` and `is_requested_by_email` instead of the names, since audit events never carry emails.
+
+Upgrade the robot before you use these actions with an executor: RoboDR's agentd rejects a request with `approved_by` (`400 unknown_field`) until it runs the control plane's motion adapters revision. Upgrade `robodr-executor` first, then `robodr-agentd`.
+
 The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
 Both actions need the forms feature.
+
+AutoSecOps records every request and revert as a `robot_action` [audit event](/audit-logs/organization) (`request` or `revert`) before the action signs it.
+AutoSecOps checks the sign-off submissions again itself (same form, at most 24 hours old, this request, digest, robot and action, different people), names the run that sent it, reads the requester and approvers from those submissions, and stores the attempt.
+If AutoSecOps refuses the call, or your audit webhook does not answer with a 2xx within 15 seconds, the action raises `ActionAuditError` and sends nothing to the robot.
+After the robot answers, a `SUCCESS` event records its status, or a `FAILURE` event records the error type, also when the call was cancelled or the answer could not be read.
+That event must cite the stored attempt and come from the same run, and it is accepted once.
+
+The result reports what became of the events:
+
+| Field | Values |
+| --- | --- |
+| `audit_log` | `written` (your audit webhook confirmed the event), `no_sink` (no audit webhook is configured, so the event is only in the AutoSecOps service log), `unconfirmed` (an older AutoSecOps API that does not say) |
+| `audit_logged` | `true` only when `audit_log` is `written` |
+| `outcome_audit_log` | The same for the closing event, or `failed` when it could not be recorded (the robot has already acted) |
+
+Without an audit webhook, AutoSecOps still sends robot actions and writes their events only to its service log.
+Configure an [audit webhook](/audit-logs/organization) to keep an audit trail you control; `audit_log` then reads `written`.
+
+Evidence reads work the same way: `list_evidence`, `create_evidence_export` and `download_evidence_export` record the read before they contact the robot and refuse when it is not recorded, then record its end (`SUCCESS` or `FAILURE`) on a best-effort basis.
+`download_evidence_export` with `delete_after_download` records the delete (a `robot_evidence` `delete` event) before it sends it; if AutoSecOps does not record it, the export stays on the robot and the result reports `deleted: false` with `delete_audit_log: refused`.
 
 `request_action` accepts these catalog actions and validates their parameters before it reads a sign-off or sends anything:
 
@@ -146,7 +187,7 @@ Both actions need the forms feature.
 | `robot_record_evidence` | None | Not allowed | One |
 | `robot_safe_pause` | None | Not allowed | Two |
 | `robot_request_safe_state` | None | Not allowed | Two |
-| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` | Not allowed | Two |
+| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` (`[A-Za-z0-9._-]{1,64}`, not starting with `-`) | Not allowed | Two |
 
 After the sign-off check, `request_action` reads the robot's signed snapshot and refuses an action the robot does not advertise or the morphology rules forbid.
 
@@ -198,7 +239,8 @@ Every action result carries `status`, `executed`, `in_force`, `applied` (same as
 | `failed` | Not taken (`error.code`); nothing is in force. A new request is judged anew | Yes |
 | `pending` | Handed to RoboDR's executor; not in force yet. Poll `get_action_status` | No |
 | `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot; `revert_pending` while a revert has not lifted it | No |
-| `reverted` | No longer in force | Yes |
+| `applied` | `robot_request_safe_state` or `robot_rollback_config` carried out by the robot's platform adapter. Final and not reversible: an operator restores the robot | Yes |
+| `reverted` | No longer in force. A reverted `robot_safe_pause` releases the pause and never resumes a mission | Yes |
 | `not_applied` | Revert of a request that never took effect | Yes |
 
 #### Quarantine scope
@@ -222,6 +264,10 @@ An address drop cuts every DDS participant on that host, including a legitimate 
 </Warning>
 
 Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
+
+RoboDR's executor carries out the motion actions only through the motion adapters in its `motion` section; without one, `robot_restrict_motion` answers `recorded_not_executed` and the two-person actions are refused with `not_executor_action`.
+With adapters, `robot_restrict_motion` and `robot_safe_pause` reach `verified` and later `reverted`, and `robot_request_safe_state` and `robot_rollback_config` with `config: program` reach `applied`.
+A `profile` rollback is never executed, and the adapters enforce no `workspace_zone`: request speed caps instead.
 A revert of a `pending` or `verified` request answers `pending`; the action may stay in force until `get_action_status` shows `reverted`.
 The executor lifts an action the SOC approved only with the SOC's signed revert, which `revert_action` always sends. If the executor refuses the revert, the request keeps reading `verified` with `state.revert.result: "pending"` until its TTL expires. AutoSecOps reports that as revert pending (`revert_pending: true`), never as reverted.
 
@@ -234,13 +280,25 @@ The executor verifies the SOC's signed request itself and refuses with these cod
 | `soc_request_stale` | Prepare a new request (new `request_id`), get it signed off, and send it. Check NTP if it persists |
 | `soc_nonce_replayed` | Prepare a new request (new `request_id`), get it signed off, and send it |
 | `soc_replay_store_unavailable` | An operator fixes the executor's replay store on the robot |
-| `order_mismatch` | Check the robot's agentd: the order it forwarded differs from what the SOC signed |
-| `approval_missing` | The signed request lacks the required approval fields |
+| `order_mismatch` | Check the robot's agentd: the order it forwarded, including restriction or rollback parameters, differs from what the SOC signed |
+| `approval_missing` | Get two approvers other than the requester for a two-person action, then prepare a new request. Otherwise the signed request lacks the required approval fields |
 | `soc_keys_unavailable` | An operator fixes `soc.keys` on the robot; the executor refuses every order until then |
 | `approval_key_removed` | Keep old and new SOC keys listed during a rotation until the old key's actions expire |
 | `locator_out_of_scope` | Set `network.quarantine.cidrs` in the executor's configuration; every quarantine is refused until then |
 
 The executor can refuse `soc_request_stale` or `soc_nonce_replayed` after agentd accepted the request. Sending the same `request_id` again only returns the stored refusal, so AutoSecOps never resends it and sets `new_request_id_required`.
+The executor's motion adapters refuse with these codes:
+
+| Code | What to do |
+| --- | --- |
+| `no_adapter` | Configure a motion adapter for the action in the executor's `motion` section, or act on site |
+| `adapter_not_validated` | Set the adapter's `oem_validated` flag once the OEM validated it |
+| `safety_state_not_allowed` | Wait for a safety state the adapter allows (by default not `moving_fast` for `robot_safe_pause` and `robot_request_safe_state`), then prepare a new request |
+| `requires_idle` | Wait until the robot is idle, then prepare a new `robot_rollback_config` request |
+| `behaviour_unsupported` | Align the OEM policy's safe behaviour with the adapter configuration on the robot |
+| `not_executor_action` | Act on site, or use `config: program` for a rollback |
+| `invalid_order` | Use `max_linear_speed` or `max_joint_speed` instead of `workspace_zone` |
+
 AutoSecOps reports a refusal code it does not know as not applied, with an unknown refusal code. Every other refusal is final.
 
 ### Errors and retries
@@ -275,7 +333,8 @@ The bundle sits outside the case attachment limits; `AUTOSECOPS__ROBOT_EDR_MAX_E
 
 Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
 AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.
-AutoSecOps records the call before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+AutoSecOps records the call, naming the run that made it, before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+Storing evidence for a case is recorded the same way before anything is stored.
 A workflow run may read evidence and store it in a case; a run that a person started reads it only when that person has the `robot:read` scope.
 
 ## Humanoid and quadruped safety

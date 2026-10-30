@@ -1,7 +1,7 @@
 """RoboDR trusted rule catalog (`robodr_ocsf::builder`), as data.
 
 Generated from `crates/robodr-ocsf/src/builder.rs` through
-`rule_info_for_contract` for contract 2.0.0, 2.1.0 and 2.2.0. Do not edit by hand:
+`rule_info_for_contract` for contract 2.0.0 through 2.3.0. Do not edit by hand:
 `tests/registry/test_robodr.py::test_python_catalog_matches_rust_source`
 compares it with the Rust source when that source is available
 (`ROBODR_SOURCE_DIR`).
@@ -804,11 +804,230 @@ findings of `robodr-deliverd`, data source `robodr_delivery`, no techniques."""
 CATALOG_2_2_MINOR = 2
 
 
+CATALOG_2_3_SEAL: dict[str, RuleInfo] = {
+    "robot.seal.unseal_failed": RuleInfo(
+        "Unit could not unseal delivered software",
+        "The unit's TPM refused to release the key of a sealed (encrypted) delivered package: the boot measurements do not match the signed PCR policy, the policy was revoked, or the unit's sealing keys were crypto-erased. The package stays unreadable on the unit; RoboDR detection keeps running.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.seal.lease_expired": RuleInfo(
+        "Site lease expired",
+        "The unit's site lease for unsealing delivered software expired: sealed packages become unavailable after its next reboot until a fresh lease is issued.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.seal.erased": RuleInfo(
+        "Crypto-erase of delivered software executed",
+        "The unit's sealing keys were cryptographically erased (the TPM erase epoch moved on, or the fallback key and volume keyslots were destroyed), with the trigger named in the finding. Every sealed package on the unit is permanently unreadable; recovery is re-enrolment and re-delivery.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.seal.tamper": RuleInfo(
+        "Enclosure tamper or erase trigger fired",
+        "An enclosure tamper input or another crypto-erase trigger fired on the unit; a crypto-erase of its sealing keys follows.",
+        "robodr_delivery",
+        (),
+    ),
+}
+"""Contract 2.3 sealing block (`catalog_2_3_seal`, robodr.findings §3c):
+`robot.seal.*` of `robodr-deliverd`, data source `robodr_delivery`, no
+techniques."""
+
+CATALOG_2_3_GATEWAY: dict[str, RuleInfo] = {
+    "robot.gateway.trajectory_rejected": RuleInfo(
+        "Joint trajectory blocked by the in-path gateway",
+        "The in-path motion gateway suppressed a ROS 2 joint trajectory or FollowJointTrajectory goal that was outside the channel's bounds: an unknown or repeated joint name, a non-finite value, time not increasing, too many points or too long, or a position, velocity, acceleration or effort beyond its joint limit. It never reached the robot.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.trajectory_time_scaled": RuleInfo(
+        "Joint trajectory slowed down by the in-path gateway",
+        "The in-path motion gateway forwarded a ROS 2 joint trajectory slowed down in place, because its velocities or accelerations exceeded the channel's limits; the path is unchanged.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.undecodable_command": RuleInfo(
+        "Undecodable motion command blocked by the in-path gateway",
+        "The in-path motion gateway could not decode a sample of an enforced motion channel strictly (truncated, non-canonical or unsupported encoding) and decided it as an integrity failure: it was suppressed or replaced by the firewall's substitute.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.fragmented_command": RuleInfo(
+        "Fragmented motion command blocked by the in-path gateway",
+        "The in-path motion gateway suppressed a fragmented, key-only or non-standard RTPS sample of an enforced motion channel, or of a writer it could not classify; such a sample cannot be decided in place.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.writer_binding_conflict": RuleInfo(
+        "Authorised motion writer seen from another address",
+        "The in-path motion gateway received samples under an authorised writer's GUID from another source address or MAC than the one the writer's stream is bound to, while the bound side was live: a spoofing attempt, suppressed.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.sequence_jump": RuleInfo(
+        "Motion command sequence jump held back",
+        "The in-path motion gateway held back a sample whose RTPS sequence number jumped far past the writer's stream until the writer confirmed it: a forged high sequence number could otherwise make the robot drop the genuine commands.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.port_bypass_risk": RuleInfo(
+        "Motion traffic may bypass the in-path gateway",
+        "DDS discovery announced a locator on a UDP port the in-path motion gateway does not inspect: commands sent there would reach the robot unchecked until the gateway's port ranges are fixed.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.restriction_changed": RuleInfo(
+        "Motion restriction changed on the in-path gateway",
+        "A restrict_motion restriction was applied, changed, lifted or expired on the in-path motion gateway. Informational: the evidence trail of the robot's effective motion limits.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.gateway.findings_dropped": RuleInfo(
+        "In-path gateway findings lost",
+        "The in-path motion gateway had more distinct findings in one reporting period than it can hold; some were counted but not reported individually.",
+        "ros2_motion_commands",
+        (),
+    ),
+}
+"""Contract 2.3 in-path gateway block (`catalog_2_3_gateway`, robodr.findings
+§3b): `robot.gateway.*` of `robodr-firewall-gw`, data source
+`ros2_motion_commands`, no techniques."""
+
+CATALOG_2_3_UNITREE: dict[str, RuleInfo] = {
+    "robot.unitree.webrtc_unknown_controller": RuleInfo(
+        "WebRTC control session from an unlisted host",
+        "A host that is not a listed controller signalled, started or established a WebRTC session with the robot (Go2 app channel). The session content is encrypted and not inspected; the finding names the peer and its flows so the session can be quarantined.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_new_peer": RuleInfo(
+        "New WebRTC peer of the robot",
+        "A host opened a WebRTC session with the robot for the first time while no controller list is configured. Informational for learning the controllers; list them to turn unlisted peers into unknown-controller findings.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_controller_mac_mismatch": RuleInfo(
+        "Listed WebRTC controller seen with another link-layer address",
+        "WebRTC traffic to the robot came from a listed controller's IP address but with another source MAC than the one it is bound to: another host may be using the controller's address.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_session_in_denied_window": RuleInfo(
+        "WebRTC control session during a denied window",
+        "A WebRTC session with the robot was attempted or active during a time window in which the site policy allows none.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_concurrent_sessions": RuleInfo(
+        "More concurrent WebRTC control sessions than allowed",
+        "More WebRTC sessions with the robot were established at the same time than the site allows: a second controller next to the operator's.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_relayed_session": RuleInfo(
+        "Remote WebRTC session through a relay",
+        "The robot exchanges WebRTC traffic through a TURN relay or with a peer outside the local networks: a remote control path (for example a cloud relay) that bypasses the local controller list.",
+        "ros2_motion_commands",
+        (),
+    ),
+    "robot.unitree.webrtc_media_without_signalling": RuleInfo(
+        "WebRTC session without observed signalling",
+        "A WebRTC session with the robot was established without any signalling on the watched link: it was signalled over another path (Wi-Fi, a relay) or by an unknown method.",
+        "ros2_motion_commands",
+        (),
+    ),
+}
+"""Contract 2.3 Unitree block (`catalog_2_3_unitree`, robodr.findings §3d):
+Go2 WebRTC control sessions `robot.unitree.webrtc_*`, data source
+`ros2_motion_commands`, no techniques."""
+
+CATALOG_2_3_DEPOT: dict[str, RuleInfo] = {
+    "robot.depot.import_refused": RuleInfo(
+        "Depot refused a release bundle",
+        "The site depot refused to import a release bundle: no passing entry-station report for exactly that bundle, a signature, quorum, chain, revocation, floor or hash check failed. Nothing of the bundle can be deployed.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.enrolment_refused": RuleInfo(
+        "Depot refused a unit enrolment",
+        "The site depot refused to enrol a unit: its EK certificate does not chain to a TPM vendor CA the site trusts, the attestation key or a certified key is not resident in that TPM, the unit's keys are not bound to the site's policy, its boot measurements do not match the signed policy, or the credential challenge was not answered by the unit's TPM. No key is wrapped for it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.unit_enrolled": RuleInfo(
+        "Unit enrolled at the depot",
+        "A unit was enrolled at the site depot after TPM credential activation and the operator quorum; the depot may now deliver and wrap keys for it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.rollout_halted": RuleInfo(
+        "Staged rollout halted",
+        "A unit of the current ring reported a failed health gate or a refusal beyond the rollout's failure threshold; the site depot halted the rollout and serves nothing more of it until operators resume it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.locked": RuleInfo(
+        "Depot database failed its anti-rollback check",
+        "The site depot's database is older than its TPM anti-rollback counter says, or the counter was recreated: the database was restored or replaced. The depot signs, serves and imports nothing until operators re-anchor it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.seal.erase_deferred": RuleInfo(
+        "Crypto-erase deferred by the safety state",
+        "A crypto-erase trigger fired, and the responder deferred the erase because the robot is moving (or its safety state is unknown); it runs as soon as the robot is idle or its safety system holds it.",
+        "robodr_delivery",
+        (),
+    ),
+}
+"""Contract 2.3 depot block (`catalog_2_3_depot`, robodr.findings §3e): the
+site depot's `robot.depot.*` findings and `robot.seal.erase_deferred`, data
+source `robodr_delivery`, no techniques."""
+
+CATALOG_2_3_BLOCKS: dict[str, dict[str, RuleInfo]] = {
+    "catalog_2_3_seal": CATALOG_2_3_SEAL,
+    "catalog_2_3_gateway": CATALOG_2_3_GATEWAY,
+    "catalog_2_3_unitree": CATALOG_2_3_UNITREE,
+    "catalog_2_3_depot": CATALOG_2_3_DEPOT,
+}
+"""The contract 2.3 blocks, keyed by their `builder.rs` function.
+
+RoboDR keeps each 2.3 feature in its own `catalog_2_3_*` function chained
+into `catalog_2_3`; a new block (for example `catalog_2_3_depot`) is one more
+dict here, and the parity test compares every block that the RoboDR source
+defines.
+"""
+
+
+def _merge_blocks(blocks: dict[str, dict[str, RuleInfo]]) -> dict[str, RuleInfo]:
+    """Union of a minor's blocks; a rule id may appear in one block only."""
+    merged: dict[str, RuleInfo] = {}
+    for name, entries in blocks.items():
+        if duplicate := merged.keys() & entries.keys():
+            raise ValueError(f"{name} repeats rule ids {sorted(duplicate)}")
+        merged |= entries
+    return merged
+
+
+CATALOG_2_3 = _merge_blocks(CATALOG_2_3_BLOCKS)
+"""Entries added in contract 2.3 (`catalog_2_3`): every 2.3 block."""
+
+CATALOG_2_3_MINOR = 3
+
+CATALOGS_BY_MINOR: tuple[tuple[int, dict[str, RuleInfo]], ...] = (
+    (CATALOG_2_1_MINOR, CATALOG_2_1),
+    (CATALOG_2_2_MINOR, CATALOG_2_2),
+    (CATALOG_2_3_MINOR, CATALOG_2_3),
+)
+"""The 2.x additions after the base catalog, by the minor that added them."""
+
+
 def rule_info_for_contract(rule_id: str, major: int, minor: int) -> RuleInfo:
     """The catalog entry a 2.x message of this minor must carry for `rule_id`.
 
-    2.0 is the base catalog, 2.1 adds `CATALOG_2_1`, 2.2 (and later 2.x)
-    adds `CATALOG_2_2`; an entry of a later minor than the message's is not
+    2.0 is the base catalog; each later minor adds its entries of
+    `CATALOGS_BY_MINOR` (2.1 `CATALOG_2_1`, 2.2 `CATALOG_2_2`, 2.3 and later
+    2.x `CATALOG_2_3`). An entry of a later minor than the message's is not
     used (its producer reported the generic entry).
     """
     if major != 2:
@@ -817,8 +1036,22 @@ def rule_info_for_contract(rule_id: str, major: int, minor: int) -> RuleInfo:
         return info
     if rule_id.startswith("robot.correlate."):
         return CORRELATE_GENERIC
-    if minor >= CATALOG_2_1_MINOR and (info := CATALOG_2_1.get(rule_id)) is not None:
-        return info
-    if minor >= CATALOG_2_2_MINOR and (info := CATALOG_2_2.get(rule_id)) is not None:
-        return info
+    for added_in, entries in CATALOGS_BY_MINOR:
+        if minor >= added_in and (info := entries.get(rule_id)) is not None:
+            return info
     return GENERIC
+
+
+def catalog_entry(rule_id: str) -> RuleInfo | None:
+    """The catalog's own entry for `rule_id`, whatever minor added it.
+
+    `None` for a rule id without its own entry (the generic entries are not
+    returned). For display of a known rule id, not for checking a message:
+    a message is checked with `rule_info_for_contract`.
+    """
+    if (info := CATALOG_BASE.get(rule_id)) is not None:
+        return info
+    for _added_in, entries in CATALOGS_BY_MINOR:
+        if (info := entries.get(rule_id)) is not None:
+            return info
+    return None

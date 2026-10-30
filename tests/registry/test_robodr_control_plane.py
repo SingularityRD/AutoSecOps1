@@ -17,6 +17,7 @@ Byte-for-byte agreement with RoboDR's own vectors is checked in
 vector export (its finding key is the stub's answer key) through the stub.
 """
 
+import asyncio
 import contextlib
 import copy
 import datetime as dt
@@ -24,6 +25,7 @@ import hashlib
 import inspect
 import ipaddress
 import json
+import re
 import ssl
 import tempfile
 import threading
@@ -225,6 +227,8 @@ class StubRobot:
             "rollback_config",
         ]
     )
+    executes_actions: bool = False
+    """The snapshot's `executes_actions` (True: robodr-executor carries out actions)."""
     sign_answers: bool = True
     answer_key_id: str = FINDING_KEY_ID
     answer_status: int = 200
@@ -287,8 +291,10 @@ class StubRobot:
                 "api": "robodr-control-plane/v2",
                 "safety_state": {"state": "moving_slow", "source": "safety_feed"},
                 "mode": "enforce",
-                "executor": "recording",
-                "executes_actions": False,
+                "executor": (
+                    "robodr-executor" if self.executes_actions else "recording"
+                ),
+                "executes_actions": self.executes_actions,
                 "actions": self.actions,
             }
             if self.morphology is not None:
@@ -462,7 +468,16 @@ class FakeForms:
         email: str | None = None,
         age: timedelta = timedelta(minutes=5),
         form_id: str = FORM_ID,
+        robot_id: str = ROBOT_ID,
+        action: str | None = None,
     ) -> str:
+        """Record one sign-off submission.
+
+        ``action`` defaults to the catalog action a default request id names
+        (``robot_<name>:<robot>:<random>``); a revert's sign-off ignores it.
+        """
+        if action is None and request_id.startswith("robot_"):
+            action = request_id.split(":", 1)[0]
         submission_id = str(uuid.uuid4())
         self.submissions[submission_id] = {
             "id": submission_id,
@@ -470,6 +485,8 @@ class FakeForms:
             "answers": {
                 "robodr_request_id": request_id,
                 "robodr_request_digest": digest,
+                "robodr_robot_id": robot_id,
+                "robodr_action": action,
                 "robodr_decision": decision,
             },
             "submitted_by": {
@@ -493,15 +510,36 @@ class FakeRobotEdr:
     key_reads: list[str] = field(default_factory=list)
     key_ranges: list[tuple[int | None, int | None]] = field(default_factory=list)
     access_error: Exception | None = None
+    """An evidence access attempt the platform refuses."""
+    access_errors: dict[tuple[str, str], Exception] = field(default_factory=dict)
+    """Evidence access audit failures, by (operation, phase)."""
+    actions: list[dict[str, Any]] = field(default_factory=list)
+    action_errors: dict[str, Exception] = field(default_factory=dict)
+    """Robot action audit failures, by phase."""
+    audit_log: str = "written"
+    """What the platform says became of each event (``no_sink``...)."""
+    attempt_ids: list[str] = field(default_factory=list)
 
     async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
         self.stored.append({"case_id": case_id, **kwargs})
         return {"attachment_id": str(uuid.uuid4()), "attachment_name": "x.txt"}
 
-    async def record_evidence_access(self, **kwargs: Any) -> None:
-        if self.access_error is not None:
+    async def record_evidence_access(self, **kwargs: Any) -> dict[str, Any]:
+        phase = kwargs.get("phase", "attempt")
+        if self.access_error is not None and phase == "attempt":
             raise self.access_error
+        if (error := self.access_errors.get((kwargs["operation"], phase))) is not None:
+            raise error
         self.accesses.append(kwargs)
+        return {"audit_log": self.audit_log if phase == "attempt" else "queued"}
+
+    async def record_robot_action(self, **kwargs: Any) -> dict[str, Any]:
+        if (error := self.action_errors.get(kwargs["phase"])) is not None:
+            raise error
+        self.actions.append(kwargs)
+        if kwargs["phase"] == "attempt":
+            self.attempt_ids.append(str(uuid.uuid4()))
+        return {"attempt_id": self.attempt_ids[-1], "audit_log": self.audit_log}
 
     async def blackbox_public_keys(
         self, robot_id: str, *, from_ms: int | None = None, to_ms: int | None = None
@@ -905,6 +943,8 @@ async def test_homoglyph_identities_do_not_matter(stub, platform) -> None:
             "id": f"user:{LEAD_C}",
         }
         assert all(a["id"].isascii() for a in result["approved_by"])
+        # A robot without an executor is sent no approved_by.
+        assert result["robot_approved_by"] == []
 
 
 @pytest.mark.anyio
@@ -1596,10 +1636,11 @@ async def test_connection_inputs_are_checked_before_connecting(
         (
             {"status": "applied", "executed": True, "in_force": True},
             True,
-            False,
-            "In force",
+            True,
+            "Applied: the robot's executor carried out",
         ),
-        ({"status": "applied", "executed": True}, False, False, "Not applied"),
+        # Motion adapters revision: `applied` is final; in force only by word.
+        ({"status": "applied", "executed": True}, False, True, "does not report it"),
         ({"status": "something_new", "executed": True}, False, False, "Not applied"),
         ({"status": "something_new", "in_force": True}, False, False, "Not applied"),
     ],
@@ -1661,6 +1702,11 @@ def test_every_documented_refusal_code_is_explained() -> None:
         "soc_keys_unavailable",
         "approval_key_removed",
         "locator_out_of_scope",
+        # §6a motion adapters (Sprint 8 revision)
+        "no_adapter",
+        "adapter_not_validated",
+        "safety_state_not_allowed",
+        "behaviour_unsupported",
     ]
     for code in codes:
         outcome = cp._outcome(
@@ -2149,8 +2195,16 @@ async def test_list_evidence_is_signed_and_audit_logged(stub, platform) -> None:
         result = await cp.list_evidence(**_conn(base_url))
     assert result["data"]["robot_id"] == ROBOT_ID
     assert result["audit_logged"] is True
+    assert result["outcome_audit_log"] == "queued"
+    # Recorded before the robot is asked, and its end after.
     assert _robot_edr(platform).accesses == [
-        {"robot_id": ROBOT_ID, "operation": "list", "export_id": None}
+        {"robot_id": ROBOT_ID, "operation": "list", "export_id": None},
+        {
+            "robot_id": ROBOT_ID,
+            "operation": "list",
+            "export_id": None,
+            "phase": "succeeded",
+        },
     ]
 
 
@@ -2269,6 +2323,17 @@ async def test_download_verifies_resumes_and_stores(stub, platform) -> None:
     assert stored["manifest_signature"] == VECTOR_MANIFEST_SIG
     assert stored["verification"]["verified"] is True
     assert result["deleted"] is True
+    # The delete on the robot is recorded before it is sent, like the read.
+    assert [
+        (a["operation"], a.get("phase", "attempt"))
+        for a in _robot_edr(platform).accesses
+    ] == [
+        ("download_export", "attempt"),
+        ("download_export", "succeeded"),
+        ("delete_export", "attempt"),
+        ("delete_export", "succeeded"),
+    ]
+    assert result["delete_audit_log"] == "written"
 
 
 @pytest.mark.anyio
@@ -2707,3 +2772,798 @@ async def test_request_action_reports_the_quarantine_scope(stub, platform) -> No
         sent = await _send(base_url, platform, "robot_quarantine_node")
     assert (sent["containment"], sent["contained"]) == ("partial", False)
     assert sent["report"].startswith("In force, partially contained")
+
+
+# --------------------------------------------------------------------------- #
+# Robot actions are audit-logged by the platform before they are sent
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.anyio
+async def test_request_action_is_audit_logged_before_it_is_sent(stub, platform) -> None:
+    # The platform writes the event (the run that acted, and the requester
+    # and approvers it reads from these same submissions) before the
+    # request is signed; the robot's answer is recorded after.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, "robot_safe_pause", (LEAD_B, LEAD_C))
+    assert robot.requests[-1]["method"] == "POST"
+    attempt, answered = _robot_edr(platform).actions
+    request_sid, *approval_sids = platform.calls
+    assert attempt == {
+        "robot_id": ROBOT_ID,
+        "request_id": result["request_id"],
+        "operation": "request_action",
+        "robot_action": "robot_safe_pause",
+        "request_digest": attempt["request_digest"],
+        "request_submission_id": request_sid,
+        "approval_submission_ids": approval_sids,
+        "phase": "attempt",
+        "attempt_id": None,
+        # What the robot is sent; the stub robot has no executor.
+        "requested_by_name": EMAILS[REQUESTER],
+        "approved_by_names": [],
+    }
+    signed = platform.submissions[request_sid]["answers"]
+    assert attempt["request_digest"] == signed["robodr_request_digest"]
+    # The outcome cites the attempt the platform stored.
+    [attempt_id] = _robot_edr(platform).attempt_ids
+    names = ("requested_by_name", "approved_by_names")
+    assert answered == {k: v for k, v in attempt.items() if k not in names} | {
+        "phase": "answered",
+        "outcome": result["status"],
+        "applied": result["applied"],
+        "attempt_id": attempt_id,
+    }
+    assert result["audit_logged"] is True
+    assert result["audit_log"] == "written"
+    assert result["outcome_audit_logged"] is True
+    assert result["outcome_audit_log"] == "written"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error", [PermissionError("403 Forbidden"), RuntimeError("500 AuditWriteError")]
+)
+async def test_an_unaudited_robot_action_is_not_sent(
+    stub, platform, error: Exception
+) -> None:
+    # Fail closed: when the platform does not audit-log the request (the
+    # route refused, the sink did not take it), nothing is sent.
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["attempt"] = error
+    with soc_secrets():
+        with pytest.raises(cp.ActionAuditError, match="nothing was sent") as excinfo:
+            await _send(base_url, platform)
+    assert type(error).__name__ in str(excinfo.value)
+    assert all(r["method"] == "GET" for r in robot.requests)
+    assert _robot_edr(platform).actions == []
+
+
+@pytest.mark.anyio
+async def test_a_robot_action_without_a_run_context_is_not_audited_or_sent(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="robot_restrict_motion",
+        **ACTION_PARAMS["robot_restrict_motion"],
+    )
+    signoff = _signoffs(platform, prepared, (LEAD_B,))
+    forms = get_context().forms
+
+    class NoAuditContext:
+        """Sign-offs are readable, but the run has no audit client."""
+
+        @property
+        def forms(self) -> Any:
+            return forms
+
+        @property
+        def robot_edr(self) -> Any:
+            raise RuntimeError("no AutoSecOps run context")
+
+    with soc_secrets(), pytest.MonkeyPatch.context() as mp:
+        mp.setattr(cp, "get_context", lambda: NoAuditContext())
+        with pytest.raises(cp.ActionAuditError):
+            await cp.request_action(
+                **_conn(base_url),
+                action="robot_restrict_motion",
+                request_id=prepared["request_id"],
+                reason=prepared["reason"],
+                **signoff,
+                **ACTION_PARAMS["robot_restrict_motion"],
+            )
+    assert all(r["method"] == "GET" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_a_failed_robot_action_is_audited_as_failed(stub, platform) -> None:
+    robot, base_url = stub
+
+    def refuse_post(record: dict[str, Any]) -> tuple[int, dict[str, str], bytes] | None:
+        if record["method"] != "POST":
+            return None
+        return (
+            409,
+            {},
+            json.dumps(
+                {"error": {"code": "request_id_conflict", "message": "used"}}
+            ).encode(),
+        )
+
+    robot.evidence_for = refuse_post
+    with soc_secrets():
+        with pytest.raises(cp.ControlPlaneError):
+            await _send(base_url, platform)
+    attempt, failed = _robot_edr(platform).actions
+    assert attempt["phase"] == "attempt"
+    names = ("requested_by_name", "approved_by_names")
+    assert failed == {k: v for k, v in attempt.items() if k not in names} | {
+        "phase": "failed",
+        # The error type only: never the robot's message.
+        "failure_reason": "RobotHTTPError",
+        "attempt_id": _robot_edr(platform).attempt_ids[0],
+    }
+
+
+@pytest.mark.anyio
+async def test_an_unrecorded_answer_is_reported_not_hidden(stub, platform) -> None:
+    # The robot has already acted: a lost outcome event does not undo or
+    # hide the answer, it is reported.
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["answered"] = RuntimeError("503")
+    with soc_secrets():
+        result = await _send(base_url, platform)
+    assert result["audit_logged"] is True
+    assert result["outcome_audit_logged"] is False
+    assert result["outcome_audit_log"] == "failed"
+    assert any(r["method"] == "POST" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_revert_action_is_audit_logged_before_it_is_sent(stub, platform) -> None:
+    robot, base_url = stub
+    request_id = "robot_isolate_network:ugv-007:01"
+    with soc_secrets():
+        robot.answer_for = _stored("isolate_network")
+        result = await _revert(base_url, platform, request_id, (LEAD_B,))
+    attempt, answered = _robot_edr(platform).actions
+    assert attempt["operation"] == "revert_action"
+    # The action the robot's stored request names, not an input.
+    assert attempt["robot_action"] == "robot_isolate_network"
+    assert attempt["request_id"] == request_id
+    assert attempt["phase"] == "attempt"
+    assert answered["phase"] == "answered"
+    assert answered["attempt_id"] == _robot_edr(platform).attempt_ids[0]
+    assert result["audit_logged"] is True
+
+
+@pytest.mark.anyio
+async def test_an_unaudited_revert_is_not_sent(stub, platform) -> None:
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["attempt"] = PermissionError("403")
+    with soc_secrets():
+        robot.answer_for = _stored("isolate_network")
+        with pytest.raises(cp.ActionAuditError):
+            await _revert(
+                base_url, platform, "robot_isolate_network:ugv-007:01", (LEAD_B,)
+            )
+    assert all(r["method"] == "GET" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_robot_edr_sdk_records_robot_actions_on_its_exact_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(204)
+
+    def transport(*, uds: str) -> httpx.MockTransport:
+        return httpx.MockTransport(handle)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/robot-edr-test.sock")
+    sid = str(uuid.uuid4())
+    await client.robot_edr.record_robot_action(
+        robot_id=ROBOT_ID,
+        request_id="robot_safe_pause:ugv-007:01",
+        operation="request_action",
+        robot_action="robot_safe_pause",
+        request_digest="0" * 64,
+        request_submission_id=sid,
+        approval_submission_ids=[sid],
+        phase="attempt",
+    )
+    [request] = sent
+    assert (request.method, str(request.url)) == (
+        "POST",
+        "http://autosecops-action-gateway/internal/robot-edr/actions/audit",
+    )
+    assert json.loads(request.content) == {
+        "robot_id": ROBOT_ID,
+        "request_id": "robot_safe_pause:ugv-007:01",
+        "operation": "request_action",
+        "robot_action": "robot_safe_pause",
+        "request_digest": "0" * 64,
+        "request_submission_id": sid,
+        "approval_submission_ids": [sid],
+        "phase": "attempt",
+        "outcome": None,
+        "applied": None,
+        "failure_reason": None,
+    }
+    # An outcome cites its stored attempt; an attempt sends no attempt_id,
+    # so it still reaches an older API.
+    await client.robot_edr.record_robot_action(
+        robot_id=ROBOT_ID,
+        request_id="robot_safe_pause:ugv-007:01",
+        operation="request_action",
+        robot_action="robot_safe_pause",
+        request_digest="0" * 64,
+        request_submission_id=sid,
+        approval_submission_ids=[sid],
+        phase="failed",
+        failure_reason="CancelledError",
+        attempt_id="5d2c1f4e-0000-4000-8000-000000000001",
+    )
+    assert json.loads(sent[1].content)["attempt_id"] == (
+        "5d2c1f4e-0000-4000-8000-000000000001"
+    )
+    assert "requested_by_name" not in json.loads(sent[1].content)
+    # The attempt carries the names the robot is sent, when the caller says.
+    await client.robot_edr.record_robot_action(
+        robot_id=ROBOT_ID,
+        request_id="robot_safe_pause:ugv-007:01",
+        operation="request_action",
+        robot_action="robot_safe_pause",
+        request_digest="0" * 64,
+        request_submission_id=sid,
+        approval_submission_ids=[sid],
+        phase="attempt",
+        requested_by_name="analyst.a@example.com",
+        approved_by_names=[f"user-{LEAD_B}"],
+    )
+    body = json.loads(sent[2].content)
+    assert body["requested_by_name"] == "analyst.a@example.com"
+    assert body["approved_by_names"] == [f"user-{LEAD_B}"]
+
+
+# --------------------------------------------------------------------------- #
+# Review follow-ups: the sign-off names the robot and action, outcomes cite
+# their attempt, every way out is recorded, and "no sink" is said
+# --------------------------------------------------------------------------- #
+
+
+def test_the_signoff_answers_name_the_robot_and_the_action() -> None:
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="restrict_motion",
+        **ACTION_PARAMS["robot_restrict_motion"],
+    )
+    assert prepared["signoff_answers"] == {
+        "robodr_request_id": prepared["request_id"],
+        "robodr_request_digest": prepared["request_digest"],
+        "robodr_robot_id": ROBOT_ID,
+        "robodr_action": "robot_restrict_motion",
+    }
+    revert = cp.prepare_revert_request(robot_id=ROBOT_ID, request_id="r1")
+    # The action a revert undoes is the robot's stored request, not a form value.
+    assert revert["signoff_answers"] == {
+        "robodr_request_id": "r1",
+        "robodr_request_digest": revert["request_digest"],
+        "robodr_robot_id": ROBOT_ID,
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("answers", "match"),
+    [
+        ({"robot_id": "ugv-008"}, "robot ugv-007"),
+        ({"action": "robot_quarantine_node"}, "robot_restrict_motion"),
+    ],
+)
+async def test_a_signoff_for_another_robot_or_action_is_refused(
+    stub, platform, answers: dict[str, str], match: str
+) -> None:
+    robot, base_url = stub
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="robot_restrict_motion",
+        reason="rogue writer",
+        **ACTION_PARAMS["robot_restrict_motion"],
+    )
+    rid, digest = prepared["request_id"], prepared["request_digest"]
+    signoff = {
+        "request_submission_id": platform.add(REQUESTER, "request", rid, digest),
+        "approval_submission_ids": [
+            platform.add(LEAD_B, "approve", rid, digest, **answers)
+        ],
+    }
+    with soc_secrets():
+        with pytest.raises(cp.SignoffError, match=match):
+            await _send(base_url, platform, signoff=signoff, request_id=rid)
+    assert robot.requests == []
+    assert _robot_edr(platform).actions == []
+
+
+@pytest.mark.anyio
+async def test_a_robot_action_with_no_audit_sink_says_so(stub, platform) -> None:
+    # Sent (no sink is a deployment choice), never reported as audit-logged.
+    robot, base_url = stub
+    _robot_edr(platform).audit_log = "no_sink"
+    with soc_secrets():
+        result = await _send(base_url, platform)
+    assert any(r["method"] == "POST" for r in robot.requests)
+    assert (result["audit_logged"], result["audit_log"]) == (False, "no_sink")
+    assert result["outcome_audit_log"] == "no_sink"
+
+
+@pytest.mark.anyio
+async def test_an_api_that_does_not_say_is_reported_unconfirmed(
+    stub, platform, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, base_url = stub
+
+    async def older_api(**kwargs: Any) -> None:
+        _robot_edr(platform).actions.append(kwargs)
+
+    monkeypatch.setattr(_robot_edr(platform), "record_robot_action", older_api)
+    with soc_secrets():
+        result = await _send(base_url, platform)
+    assert (result["audit_logged"], result["audit_log"]) == (False, "unconfirmed")
+    # No attempt id to cite: the outcome is sent without one.
+    assert _robot_edr(platform).actions[1]["attempt_id"] is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("operation", ["request_action", "revert_action"])
+async def test_a_cancelled_robot_action_is_recorded_as_failed(
+    stub, platform, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    # The request may have reached the robot: a cancelled call still closes
+    # the audited attempt, and the cancellation goes on.
+    robot, base_url = stub
+    call = cp._call_retrying
+
+    async def cancelled_on_post(r: Any, method: str, *args: Any, **kw: Any) -> Any:
+        if method == "POST":
+            raise asyncio.CancelledError
+        return await call(r, method, *args, **kw)
+
+    monkeypatch.setattr(cp, "_call_retrying", cancelled_on_post)
+    with soc_secrets(), pytest.raises(asyncio.CancelledError):
+        if operation == "request_action":
+            await _send(base_url, platform)
+        else:
+            robot.answer_for = _stored("isolate_network")
+            await _revert(
+                base_url, platform, "robot_isolate_network:ugv-007:01", (LEAD_B,)
+            )
+    attempt, failed = _robot_edr(platform).actions
+    assert (attempt["phase"], failed["phase"]) == ("attempt", "failed")
+    assert failed["failure_reason"] == "CancelledError"
+    assert failed["attempt_id"] == _robot_edr(platform).attempt_ids[0]
+
+
+@pytest.mark.anyio
+async def test_an_unreadable_robot_answer_is_recorded_as_failed(
+    stub, platform, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The robot answered (and may have acted) but the answer cannot be read:
+    # the attempt is closed as failed instead of being left open.
+    _, base_url = stub
+
+    def unreadable(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise ValueError("unexpected answer shape")
+
+    monkeypatch.setattr(cp, "_outcome", unreadable)
+    with soc_secrets(), pytest.raises(ValueError, match="answer shape"):
+        await _send(base_url, platform)
+    _, failed = _robot_edr(platform).actions
+    assert (failed["phase"], failed["failure_reason"]) == ("failed", "ValueError")
+
+
+@pytest.mark.anyio
+async def test_a_failed_evidence_read_is_recorded_as_failed(stub, platform) -> None:
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot(manifest_sig="")
+    with soc_secrets():
+        with pytest.raises(ev.EvidenceError, match="manifest signature"):
+            await cp.create_evidence_export(
+                **_evidence_kwargs(base_url), requested_by="analyst@soc"
+            )
+    attempt, failed = _robot_edr(platform).accesses
+    assert attempt["operation"] == failed["operation"] == "create_export"
+    assert "phase" not in attempt
+    assert (failed["phase"], failed["failure_reason"]) == ("failed", "EvidenceError")
+
+
+@pytest.mark.anyio
+async def test_a_delete_the_platform_does_not_record_is_not_sent(
+    stub, platform
+) -> None:
+    # The evidence is stored by then, so the download still succeeds; the
+    # export stays on the robot and the result says why.
+    robot, base_url = stub
+    robot.evidence_for = EvidenceRobot()
+    _robot_edr(platform).access_errors[("delete_export", "attempt")] = PermissionError(
+        "403"
+    )
+    with soc_secrets():
+        result = await cp.download_evidence_export(
+            **_evidence_kwargs(base_url),
+            blackbox_public_keys=[BLACKBOX_PUB],
+            case_id="CASE-0042",
+            delete_after_download=True,
+        )
+    assert result["verified"] is True
+    assert (result["deleted"], result["delete_audit_log"]) == (False, "refused")
+    assert all(r["method"] != "DELETE" for r in robot.requests)
+    assert len(_robot_edr(platform).stored) == 1
+
+
+@pytest.mark.anyio
+async def test_robot_edr_sdk_sends_evidence_phases_only_when_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"audit_log": "written"})
+
+    def transport(*, uds: str) -> httpx.MockTransport:
+        return httpx.MockTransport(handle)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/robot-edr-test.sock")
+    answer = await client.robot_edr.record_evidence_access(
+        robot_id=ROBOT_ID, operation="list"
+    )
+    await client.robot_edr.record_evidence_access(
+        robot_id=ROBOT_ID,
+        operation="delete_export",
+        export_id=EXPORT_ID,
+        phase="failed",
+        failure_reason="RobotHTTPError",
+    )
+    assert answer == {"audit_log": "written"}
+    assert json.loads(sent[0].content) == {
+        "robot_id": ROBOT_ID,
+        "operation": "list",
+        "export_id": None,
+    }
+    assert json.loads(sent[1].content) == {
+        "robot_id": ROBOT_ID,
+        "operation": "delete_export",
+        "export_id": EXPORT_ID,
+        "phase": "failed",
+        "failure_reason": "RobotHTTPError",
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Motion adapters revision: approved_by, new statuses and refusal codes (§4, §6a)
+# --------------------------------------------------------------------------- #
+
+APPROVER_NAME = re.compile(r"[A-Za-z0-9._%+@-]{1,100}")
+"""RoboDR's `approver_name_ok`."""
+
+
+def _body_of_post(robot: StubRobot) -> dict[str, Any]:
+    (post,) = [r for r in robot.requests if r["method"] == "POST"]
+    assert post["verified"]
+    return json.loads(post["body"])
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", TWO_PERSON)
+async def test_a_two_person_request_names_its_approvers(
+    action: str, stub, platform
+) -> None:
+    robot, base_url = stub
+    robot.executes_actions = True
+    with soc_secrets():
+        result = await _send(base_url, platform, action, approvers=(LEAD_B, LEAD_C))
+    body = _body_of_post(robot)
+    # The sign-off approvers by their immutable platform user ids; never the
+    # requester.
+    assert body["approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+    assert body["requested_by"] == EMAILS[REQUESTER]
+    assert result["robot_approved_by"] == body["approved_by"]
+    assert all(APPROVER_NAME.fullmatch(name) for name in body["approved_by"])
+    # The platform audit is told exactly what is sent, to check and record.
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["phase"] == "attempt"
+    assert attempt["requested_by_name"] == EMAILS[REQUESTER]
+    assert attempt["approved_by_names"] == body["approved_by"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", TWO_PERSON)
+async def test_a_robot_without_an_executor_is_sent_no_approvers(
+    action: str, stub, platform
+) -> None:
+    # It only records the request as a plan, and an agentd older than the
+    # motion adapters revision would refuse the field.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, action, approvers=(LEAD_B, LEAD_C))
+    assert "approved_by" not in _body_of_post(robot)
+    assert result["robot_approved_by"] == []
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["approved_by_names"] == []
+    assert attempt["requested_by_name"] == EMAILS[REQUESTER]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", sorted(set(ACTION_PARAMS) - set(TWO_PERSON)))
+async def test_a_single_approval_request_names_no_approvers(
+    action: str, stub, platform
+) -> None:
+    # Unchanged body, so a robot whose agentd predates approved_by takes it.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, action)
+    assert "approved_by" not in _body_of_post(robot)
+    assert result["robot_approved_by"] == []
+
+
+@pytest.mark.anyio
+async def test_the_revert_of_a_safe_pause_names_its_approvers(stub, platform) -> None:
+    robot, base_url = stub
+    robot.executes_actions = True
+    with soc_secrets():
+        robot.answer_for = _stored("safe_pause")
+        result = await _revert(
+            base_url, platform, "robot_safe_pause:ugv-007:01", (LEAD_B, LEAD_C)
+        )
+    assert _body_of_post(robot) == {
+        "reason": "false positive",
+        "requested_by": EMAILS[REQUESTER],
+        "approved_by": [f"user-{LEAD_B}", f"user-{LEAD_C}"],
+    }
+    assert result["robot_approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["approved_by_names"] == result["robot_approved_by"]
+
+
+@pytest.mark.anyio
+async def test_approver_names_do_not_depend_on_emails(stub, platform) -> None:
+    """Approvers are named by user id: emails cannot alias or rename them.
+
+    Two accounts whose emails differ only in case, or an approver whose
+    email equals the requester's, are still two people other than the
+    requester to the robot; and a user who changes their own email is named
+    the same way in the robot's black box as in the platform audit.
+    """
+    robot, base_url = stub
+    robot.executes_actions = True
+    with soc_secrets():
+        prepared = cp.prepare_action_request(
+            robot_id=ROBOT_ID, action="robot_safe_pause", reason="r"
+        )
+        rid, digest = prepared["request_id"], prepared["request_digest"]
+        signoff = {
+            "request_submission_id": platform.add(REQUESTER, "request", rid, digest),
+            "approval_submission_ids": [
+                platform.add(LEAD_B, "approve", rid, digest, email="lead@example.com"),
+                platform.add(
+                    LEAD_C, "approve", rid, digest, email="ANALYST.A@example.com"
+                ),
+            ],
+        }
+        result = await _send(
+            base_url,
+            platform,
+            "robot_safe_pause",
+            reason="r",
+            request_id=rid,
+            signoff=signoff,
+        )
+    assert _body_of_post(robot)["approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+    assert result["robot_approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+
+
+def test_approver_names_follow_the_robots_grammar() -> None:
+    requester = cp.Person(REQUESTER, EMAILS[REQUESTER])
+    long_local = "a" * 64
+    long_email = f"{long_local}@{'b' * 30}.example.com"
+    assert len(long_email) > 100
+    people = [
+        cp.Person(LEAD_B, "alice.smith+ops@soc.example"),
+        cp.Person(LEAD_C, None),
+        # Too long, or not a plain ASCII address: the user id instead.
+        cp.Person("44444444-4444-4444-8444-444444444444", long_email),
+        cp.Person("55555555-5555-4555-8555-555555555555", "bob smith@x.com"),
+    ]
+    names = cp.approved_by_names(requester, people)
+    # Always the immutable user id, whatever the email.
+    assert names == [f"user-{p.user_id}" for p in people]
+    assert all(APPROVER_NAME.fullmatch(name) for name in names)
+    # The requester's fallback identifier keeps its own spelling (user:<id>).
+    assert cp.Person(REQUESTER, None).identifier == f"user:{REQUESTER}"
+    with pytest.raises(cp.SignoffError, match="at most 4"):
+        cp.approved_by_names(requester, [*people, cp.Person(REQUESTER, None)])
+    # Defensive checks for what the robot would refuse or merge.
+    with pytest.raises(cp.SignoffError, match="same name"):
+        cp.approved_by_names(
+            requester, [cp.Person(LEAD_B, None), cp.Person(LEAD_B.upper(), None)]
+        )
+    with pytest.raises(cp.SignoffError, match="no name the robot accepts"):
+        cp.approved_by_names(requester, [cp.Person("x y", None)])
+    named_like_approver = cp.Person(REQUESTER, f"user-{LEAD_B}@example.com")
+    assert cp.approved_by_names(named_like_approver, [cp.Person(LEAD_B, None)])
+
+
+def test_a_rollback_version_never_starts_with_a_dash() -> None:
+    with pytest.raises(ValueError, match="not start with '-'"):
+        cp.prepare_action_request(
+            robot_id=ROBOT_ID,
+            action="robot_rollback_config",
+            config="program",
+            to_version="-rf",
+        )
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="robot_rollback_config",
+        config="program",
+        to_version="1.4.2-rc1",
+    )
+    assert prepared["parameters"] == {"config": "program", "to_version": "1.4.2-rc1"}
+
+
+@pytest.mark.parametrize(
+    ("action", "word"),
+    [("request_safe_state", "Applied"), ("rollback_config", "Applied")],
+)
+def test_an_adapter_result_is_applied_final_and_not_reversible(
+    action: str, word: str
+) -> None:
+    outcome = cp._outcome(
+        {
+            "status": "applied",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": action, "executor": "robodr-executor"},
+        }
+    )
+    assert outcome["terminal"] is True
+    assert outcome["in_force"] is True and outcome["executed"] is True
+    assert outcome["report"].startswith(word)
+    assert "not reversible" in outcome["report"]
+    assert outcome["containment"] is None
+
+
+def test_a_motion_restriction_and_a_pause_reach_verified_and_reverted() -> None:
+    restricted = cp._outcome(
+        {"status": "verified", "executed": True, "in_force": True},
+        action="restrict_motion",
+    )
+    assert restricted["in_force"] is True and restricted["terminal"] is False
+    assert "motion adapters enforce the restriction" in restricted["report"]
+    paused = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": "safe_pause"},
+        }
+    )
+    assert "The robot is paused" in paused["report"]
+    assert "never resumes a mission" in paused["report"]
+    released = cp._outcome(
+        {"status": "reverted", "executed": True, "in_force": False},
+        revert=True,
+        action="safe_pause",
+    )
+    assert released["terminal"] is True and released["in_force"] is False
+    assert "no mission was resumed" in released["report"]
+    # Held or with a pending revert, a pause is not reported as in force.
+    held = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": False,
+            "state": {"action": "safe_pause", "executor_state": "held"},
+        }
+    )
+    assert "The robot is paused" not in held["report"]
+    pending = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": "safe_pause", "revert": {"result": "pending"}},
+        }
+    )
+    assert pending["revert_pending"] is True
+    assert "The robot is paused" not in pending["report"]
+
+
+@pytest.mark.parametrize(
+    ("code", "hint"),
+    [
+        ("no_adapter", "motion adapter"),
+        ("adapter_not_validated", "oem_validated"),
+        ("safety_state_not_allowed", "new, newly signed-off request"),
+        ("requires_idle", "idle"),
+        ("behaviour_unsupported", "safe behaviour"),
+        ("approval_missing", "two sign-off approvers"),
+        ("order_mismatch", "parameters"),
+        ("not_executor_action", "config program"),
+        ("invalid_order", "workspace_zone"),
+    ],
+)
+def test_motion_adapter_refusals_are_explained_with_a_hint(
+    code: str, hint: str
+) -> None:
+    outcome = cp._outcome(
+        {
+            "status": "refused",
+            "executed": False,
+            "in_force": False,
+            "refusal": {"code": code, "reason": "r", "safety_state": "idle"},
+        }
+    )
+    assert outcome["applied"] is False and outcome["terminal"] is True
+    assert outcome["refusal_explanation"] == cp.REFUSAL_EXPLANATIONS[code]
+    assert outcome["refusal_hint"] == cp.REFUSAL_HINTS[code]
+    assert hint in outcome["refusal_hint"]
+    assert outcome["report"].startswith("Not applied: refused by the robot")
+    assert outcome["new_request_id_required"] is False
+
+
+@pytest.mark.anyio
+async def test_an_agentd_without_approved_by_says_how_to_upgrade(
+    stub, platform
+) -> None:
+    # An agentd older than the motion adapters revision refuses the field.
+    robot, base_url = stub
+
+    def reply(record: dict[str, Any]) -> Reply | None:
+        if record["method"] != "POST":
+            return None
+        error = {"code": "unknown_field", "message": "unknown field approved_by"}
+        return 400, {}, json.dumps({"error": error}).encode()
+
+    robot.evidence_for = reply
+    robot.executes_actions = True
+    with soc_secrets(), pytest.raises(cp.RobotHTTPError) as raised:
+        await _send(base_url, platform, "robot_safe_pause", approvers=(LEAD_B, LEAD_C))
+    assert raised.value.code == "unknown_field"
+    assert "approved_by" in str(raised.value)
+    assert "upgrade" in str(raised.value)
+
+
+def test_a_pending_revert_says_why_for_its_action() -> None:
+    def pending(action: str) -> str:
+        return cp._outcome(
+            {
+                "status": "verified",
+                "executed": True,
+                "in_force": True,
+                "state": {"action": action, "revert": {"result": "pending"}},
+            }
+        )["report"]
+
+    pause = pending("safe_pause")
+    assert "two approvers" in pause and "approval_missing" in pause
+    assert "motion.safe_pause_ttl_s" in pause
+    assert "expires_at_ms" not in pause
+    isolate = pending("isolate_network")
+    assert "state.expires_at_ms" in isolate
+    assert "for example its SOC signature did not verify" in isolate
+
+
+def test_get_action_status_names_applied_as_an_end_state() -> None:
+    kwargs = getattr(cp.get_action_status, "__autosecops_udf_kwargs")
+    description = kwargs["description"]
+    assert "failed, applied and reverted are terminal" in description
+    assert "verified, applied (request_safe_state, rollback_config)" in description

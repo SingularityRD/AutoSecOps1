@@ -26,6 +26,21 @@ class AuditWebhookConfig:
     payload_attribute: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class AuditActor:
+    """An explicitly resolved audit actor, for events not attributed by role.
+
+    Attributes:
+        actor_type: What kind of principal acted.
+        actor_id: The principal's stable identifier.
+        actor_label: An optional display label (may contain PII).
+    """
+
+    actor_type: AuditEventActor
+    actor_id: uuid.UUID
+    actor_label: str | None = None
+
+
 AuditAction = Literal[
     "create",
     "update",
@@ -50,6 +65,8 @@ AuditAction = Literal[
     "retire",
     "approve",
     "withdraw",
+    "request",
+    "revert",
 ]
 AuditResourceType = Literal[
     "user",
@@ -71,6 +88,7 @@ AuditResourceType = Literal[
     "robot_ingest",
     "robot_evidence",
     "robot_fleet",
+    "robot_action",
     "tag",
     "table",
     "table_column",

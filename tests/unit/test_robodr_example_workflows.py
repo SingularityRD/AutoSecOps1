@@ -206,6 +206,8 @@ def test_signoff_workflow_collects_the_bound_answers() -> None:
     assert set(expects) >= {
         "robodr_request_id",
         "robodr_request_digest",
+        "robodr_robot_id",
+        "robodr_action",
         "robodr_decision",
     }
     decision = expects["robodr_decision"]

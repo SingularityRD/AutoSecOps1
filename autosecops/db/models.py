@@ -5959,6 +5959,49 @@ class RobotEvidenceExport(WorkspaceModel):
     storage_prefix: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
+class RobotActionAudit(WorkspaceModel):
+    """The audited attempt of one robot action request or revert.
+
+    Written with the ``attempt`` audit event, before the registry action signs
+    the request. The ``answered`` or ``failed`` event of the same call is
+    accepted only for an open attempt with the same request, robot, action,
+    digest and sign-off submissions, from the same run, and closes it, so an
+    outcome can be recorded once and only for an attempt that was audited.
+    The people are those the attempt read from the sign-off submissions.
+    """
+
+    __tablename__ = "robot_action_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, default=uuid.uuid4, nullable=False, unique=True, index=True
+    )
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False)
+    robot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    robot_action: Mapped[str] = mapped_column(String(80), nullable=False)
+    request_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_submission_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
+    approval_submission_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    requested_by_user_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
+    approved_by_user_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    requested_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    """The ``requested_by`` the robot was sent, checked against the requester's
+    user record; ``None`` for an attempt from a registry that did not say."""
+    approved_by_names: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    """The ``approved_by`` the robot was sent (``[]``: none), checked against
+    the approvers; ``None`` for an attempt from a registry that did not say."""
+    workflow_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    """The executor token's workflow id (the run that wrote the attempt)."""
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    """The executor token's run id."""
+    agent_session_id: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
+    closed_phase: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    """``answered`` or ``failed`` once the outcome was recorded."""
+    closed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+
 class OAuthIntegration(TimestampMixin, Base):
     """Store user integrations with external services."""
 

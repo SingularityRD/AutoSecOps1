@@ -73480,6 +73480,16 @@
               }
             ],
             "title": "Tunnel"
+          },
+          "trigger_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TriggerType"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

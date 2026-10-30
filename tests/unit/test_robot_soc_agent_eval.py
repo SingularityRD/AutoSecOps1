@@ -189,6 +189,12 @@ SKILL_RULES: dict[str, tuple[str, ...]] = {
         "robot.correlate.",
         "robot.deliver.",
         "robodr_delivery",
+        "robot.gateway.",
+        "robot.seal.",
+        "robot.unitree.webrtc_",
+        "robot.depot.",
+        "robot.seal.erase_deferred",
+        "depot's id, not a robot",
         "never request a robot action from triage",
     ),
     "robodr-containment": (
@@ -213,6 +219,11 @@ SKILL_RULES: dict[str, tuple[str, ...]] = {
         "scope unknown",
         "containment_report",
         "robot_isolate_network",
+        "approved_by",
+        "`applied`",
+        "not reversible",
+        "no_adapter",
+        "never resumes a mission",
         "every dds participant on that host",
         "never report a quarantine as contained",
     ),
@@ -544,6 +555,75 @@ def test_a_delivery_finding_keeps_its_2_2_catalog_fields() -> None:
     assert "- rule_data_source: robodr_delivery" in text
     assert "- catalog_mitre_ics:" not in text
     assert "- rule_id: (failed validation" not in text
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "title", "data_source"),
+    [
+        (
+            "robot.gateway.trajectory_rejected",
+            "Joint trajectory blocked by the in-path gateway",
+            "ros2_motion_commands",
+        ),
+        (
+            "robot.seal.erased",
+            "Crypto-erase of delivered software executed",
+            "robodr_delivery",
+        ),
+        (
+            "robot.unitree.webrtc_unknown_controller",
+            "WebRTC control session from an unlisted host",
+            "ros2_motion_commands",
+        ),
+        (
+            "robot.depot.locked",
+            "Depot database failed its anti-rollback check",
+            "robodr_delivery",
+        ),
+    ],
+)
+def test_a_2_3_finding_keeps_its_catalog_fields(
+    rule_id: str, title: str, data_source: str
+) -> None:
+    # robodr.findings 2.3 (§3b-§3d): gateway, sealing and Unitree WebRTC ids,
+    # no techniques.
+    robodr = dict(_BENIGN_ROBODR) | {
+        "rule_id": rule_id,
+        "contract_version": "2.3.0",
+        "mitre_ics": [],
+    }
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    text = "\n".join(outside)
+    assert f"- rule_id: {rule_id}" in text
+    assert f"- rule_title: {title}" in text
+    assert f"- rule_data_source: {data_source}" in text
+    assert "- catalog_mitre_ics:" not in text
+    assert "- rule_id: (failed validation" not in text
+
+
+@pytest.mark.parametrize("version", ["2.2.0", "2.0.0", "02.2.9"])
+def test_the_prompt_uses_the_catalog_of_the_findings_contract_minor(
+    version: str,
+) -> None:
+    # A 2.3 rule id in an earlier minor's finding carries the generic entry
+    # (that is what the case was built from); the rule id is still known.
+    robodr = dict(_BENIGN_ROBODR) | {
+        "rule_id": "robot.seal.erased",
+        "contract_version": version,
+        "mitre_ics": [],
+    }
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    text = "\n".join(outside)
+    assert "- rule_id: robot.seal.erased" in text
+    assert "- rule_title: RoboDR model-profile deviation" in text
+    assert "- rule_data_source: robodr" in text
+    assert "Crypto-erase" not in text
+    # Without a well-formed 2.x version the rule's own entry is shown.
+    robodr["contract_version"] = "3.0.0"
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    assert "- rule_title: Crypto-erase of delivered software executed" in "\n".join(
+        outside
+    )
 
 
 def test_clean_finding_names_its_catalog_data_source() -> None:

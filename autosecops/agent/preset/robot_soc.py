@@ -131,9 +131,10 @@ timeline, robodr-containment before proposing any robot action.
 Post one case comment with `core.cases.create_comment` that holds the
 verdict, citations, evidence, and any proposal, then summarise it in your
 reply. Report a `recorded_not_executed` request as recorded, not applied,
-any `refused` request as not applied, `revert_pending` as revert
-pending, never as reverted, and a quarantine by its `containment`, never
-as contained unless it is `full`.
+any `refused` request as not applied, an `applied` request as carried out
+and final (not reversible), `revert_pending` as revert pending, never as
+reverted, and a quarantine by its `containment`, never as contained unless
+it is `full`.
 """
 
 

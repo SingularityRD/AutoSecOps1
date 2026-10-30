@@ -21,7 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import wait_none
 
 from autosecops.audit import service as audit_service_module
-from autosecops.audit.enums import AuditEventActor, AuditEventStatus
+from autosecops.audit.enums import (
+    AuditEventActor,
+    AuditEventStatus,
+    AuditWriteResult,
+)
 from autosecops.audit.logger import (
     AuditEventDetails,
     audit_log,
@@ -29,11 +33,13 @@ from autosecops.audit.logger import (
 from autosecops.audit.sanitization import sanitize_audit_metadata
 from autosecops.audit.service import (
     AuditService,
+    AuditWriteError,
     _AuditDelivery,
     _spawn_delivery,
 )
 from autosecops.audit.types import (
     AuditAction,
+    AuditActor,
     AuditEvent,
     AuditMetadata,
     AuditWebhookConfig,
@@ -1787,3 +1793,184 @@ def test_sanitize_audit_metadata_drops_non_string_id_list_items():
     # Deliberately ill-typed items to exercise the runtime guard.
     data = cast(AuditMetadata, {"case_ids": [id_a, 42, None]})
     assert sanitize_audit_metadata(data) == {"case_ids": [id_a]}
+
+
+# --- strict writes are confirmed by the sink ---------------------------------
+
+_STRICT_SINK = "https://sink.example.com/audit/secret-path-token"
+
+
+@pytest.fixture
+def strict_sink(
+    monkeypatch: pytest.MonkeyPatch, audit_service: AuditService
+) -> AuditService:
+    """The audit service with a configured sink at ``_STRICT_SINK``."""
+    monkeypatch.setattr(
+        audit_service, "_get_webhook_url", AsyncMock(return_value=_STRICT_SINK)
+    )
+    monkeypatch.setattr(
+        audit_service,
+        "_resolve_config",
+        AsyncMock(return_value=AuditWebhookConfig(webhook_url=_STRICT_SINK)),
+    )
+    return audit_service
+
+
+def _pending_deliveries() -> list[asyncio.Task[None]]:
+    loop = asyncio.get_running_loop()
+    return [t for t in audit_service_module._delivery_tasks if t.get_loop() is loop]
+
+
+@respx.mock
+@pytest.mark.anyio
+async def test_a_strict_write_returns_only_once_the_sink_accepted_it(
+    strict_sink: AuditService, fresh_delivery_tasks: None
+) -> None:
+    route = respx.post(_STRICT_SINK).mock(return_value=httpx.Response(204))
+
+    result = await strict_sink.create_event(
+        resource_type="robot", action="update", strict=True
+    )
+
+    assert result is AuditWriteResult.WRITTEN
+    assert route.call_count == 1
+    assert _pending_deliveries() == []
+
+
+@respx.mock
+@pytest.mark.anyio
+@pytest.mark.parametrize("status_code", [400, 403, 500])
+async def test_a_strict_write_the_sink_rejects_is_refused(
+    strict_sink: AuditService, fresh_delivery_tasks: None, status_code: int
+) -> None:
+    # It used to return once the background task started, so the audited
+    # operation went ahead and the event was lost.
+    respx.post(_STRICT_SINK).mock(return_value=httpx.Response(status_code))
+
+    with pytest.raises(AuditWriteError) as raised:
+        await strict_sink.create_event(
+            resource_type="robot", action="update", strict=True
+        )
+
+    assert f"HTTPStatusError {status_code}" in str(raised.value)
+    assert "secret-path-token" not in str(raised.value)
+    assert raised.value.__cause__ is None
+    assert _pending_deliveries() == []
+
+
+@respx.mock
+@pytest.mark.anyio
+async def test_a_strict_write_the_sink_does_not_answer_in_time_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    strict_sink: AuditService,
+    fresh_delivery_tasks: None,
+) -> None:
+    monkeypatch.setattr(audit_service_module, "_STRICT_DELIVERY_TIMEOUT_SECONDS", 0.2)
+
+    async def hang(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(5)
+        return httpx.Response(200)
+
+    respx.post(_STRICT_SINK).mock(side_effect=hang)
+
+    with pytest.raises(AuditWriteError, match="did not answer within"):
+        await strict_sink.create_actor_event(
+            actor=AuditActor(AuditEventActor.WORKFLOW, uuid.uuid4()),
+            resource_type="robot_action",
+            action="request",
+            status=AuditEventStatus.ATTEMPT,
+            strict=True,
+        )
+
+
+@respx.mock
+@pytest.mark.anyio
+async def test_a_strict_write_the_sink_cannot_be_reached_is_refused(
+    strict_sink: AuditService, fresh_delivery_tasks: None
+) -> None:
+    respx.post(_STRICT_SINK).mock(side_effect=httpx.ConnectError("boom"))
+
+    with pytest.raises(AuditWriteError, match="ConnectError"):
+        await strict_sink.create_event(
+            resource_type="robot", action="update", strict=True
+        )
+
+
+@respx.mock
+@pytest.mark.anyio
+async def test_a_best_effort_write_is_reported_as_queued(
+    strict_sink: AuditService, fresh_delivery_tasks: None
+) -> None:
+    route = respx.post(_STRICT_SINK).mock(return_value=httpx.Response(500))
+
+    result = await strict_sink.create_event(resource_type="robot", action="update")
+
+    assert result is AuditWriteResult.QUEUED
+    await flush_audit_deliveries()
+    assert route.call_count >= 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("strict", [True, False])
+async def test_a_write_with_no_sink_says_so(
+    monkeypatch: pytest.MonkeyPatch, audit_service: AuditService, strict: bool
+) -> None:
+    # Not a failure (an unconfigured sink is a deployment choice), but never
+    # reported as written either.
+    monkeypatch.setattr(audit_service, "_get_webhook_url", AsyncMock(return_value=None))
+
+    event = await audit_service.create_event(
+        resource_type="robot", action="update", strict=strict
+    )
+    actor_event = await audit_service.create_actor_event(
+        actor=AuditActor(AuditEventActor.WORKFLOW, uuid.uuid4()),
+        resource_type="robot_action",
+        action="request",
+        status=AuditEventStatus.ATTEMPT,
+        strict=strict,
+    )
+
+    assert event is AuditWriteResult.NO_SINK
+    assert actor_event is AuditWriteResult.NO_SINK
+
+
+# --- identifiers the policy would drop ----------------------------------------
+
+
+def test_verified_identifiers_skip_the_free_text_credential_patterns() -> None:
+    data: AuditMetadata = {"request_id": "token:rq-0001", "export_id": "secret:e1"}
+
+    assert sanitize_audit_metadata(data) is None
+    assert sanitize_audit_metadata(
+        data, verified_keys=frozenset({"request_id", "export_id"})
+    ) == {"request_id": "token:rq-0001", "export_id": "secret:e1"}
+    # Still bound by the key policy.
+    assert (
+        sanitize_audit_metadata(
+            {"description": "token:x"}, verified_keys=frozenset({"description"})
+        )
+        is None
+    )
+
+
+@pytest.mark.anyio
+async def test_a_strict_actor_event_the_policy_would_cut_is_refused(
+    monkeypatch: pytest.MonkeyPatch, audit_service: AuditService
+) -> None:
+    # Writing less than asked and calling it written hid the request id.
+    monkeypatch.setattr(
+        audit_service, "_get_webhook_url", AsyncMock(return_value=_STRICT_SINK)
+    )
+    write = AsyncMock()
+    monkeypatch.setattr(audit_service, "_write_event", write)
+
+    with pytest.raises(AuditWriteError, match="would drop request_id"):
+        await audit_service.create_actor_event(
+            actor=AuditActor(AuditEventActor.WORKFLOW, uuid.uuid4()),
+            resource_type="robot_action",
+            action="request",
+            status=AuditEventStatus.ATTEMPT,
+            data={"robot_id": "r1", "request_id": "token:rq-0001"},
+            strict=True,
+        )
+    write.assert_not_awaited()

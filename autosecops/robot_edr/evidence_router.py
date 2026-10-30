@@ -1,4 +1,4 @@
-"""Action-gateway routes for RoboDR evidence (`tools.robodr` evidence actions).
+"""Action-gateway routes for RoboDR evidence and action audits (`tools.robodr`).
 
 Authorization: these routes admit only a verified executor token
 (`ExecutorWorkspaceRole`), i.e. the run of a workflow or agent action.
@@ -7,6 +7,17 @@ principals' operational scopes deliberately lack: adding it there would grant
 robot reads to every internal service on every route. These routes grant it
 to the executor themselves (`_require_executor_robot_read`), never beyond the
 person the run acts for.
+
+`/actions/audit` records robot action requests and reverts. It needs only a
+verified executor of the workspace: it grants nothing, and the people it
+records come from the platform's own sign-off submissions.
+
+Every audit event here names the run that acted (workflow or agent session,
+run, execution, trigger) and is written fail closed: a route that cannot
+write its event, or whose audit sink does not confirm it, answers an error,
+and the registry action then stops. The answer's ``audit_log`` says whether
+the sink confirmed the event (``written``) or no sink is configured
+(``no_sink``), so the registry action can report which.
 """
 
 from __future__ import annotations
@@ -24,12 +35,16 @@ from autosecops.exceptions import (
     AutoSecOpsValidationError,
     ScopeDeniedError,
 )
+from autosecops.robot_edr.action_audit import RobotActionAuditService
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
     ROBOT_ID_PATTERN,
     EvidenceAccessRequest,
+    EvidenceAccessResponse,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
+    RobotActionAuditRequest,
+    RobotActionAuditResponse,
 )
 from autosecops.storage.exceptions import FileValidationError
 
@@ -65,6 +80,20 @@ async def _require_executor_robot_read(role: Role) -> None:
         )
 
 
+def _require_executor(role: Role) -> None:
+    """Admit only a workspace's executor (a verified executor token).
+
+    Raises:
+        ScopeDeniedError: The role is not an executor of a workspace.
+    """
+    if role.type != "service" or role.workspace_id is None:
+        raise ScopeDeniedError(
+            required_scopes=[],
+            missing_scopes=[],
+            message="Only a workflow or agent run's executor records robot actions.",
+        )
+
+
 router = APIRouter(
     tags=["internal-robot-edr"],
     prefix="/internal/robot-edr",
@@ -92,16 +121,20 @@ async def store_evidence(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/evidence/access", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/evidence/access")
 async def record_evidence_access(
     *,
     role: ExecutorWorkspaceRole,
     session: AsyncDBSession,
     params: EvidenceAccessRequest,
-) -> None:
-    """Audit-log a workflow's read of a robot's evidence."""
+) -> EvidenceAccessResponse:
+    """Audit-log a run's read or delete of a robot's evidence.
+
+    The ``attempt`` is written before the robot is contacted (fail closed);
+    ``succeeded`` and ``failed`` close it, best effort.
+    """
     await _require_executor_robot_read(role)
-    await RobotEvidenceService(session, role=role).record_access(params)
+    return await RobotEvidenceService(session, role=role).record_access(params)
 
 
 @router.get("/robots/{robot_id}/blackbox-keys")
@@ -127,3 +160,22 @@ async def list_blackbox_keys(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except AutoSecOpsValidationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/actions/audit")
+async def record_robot_action(
+    *,
+    role: ExecutorWorkspaceRole,
+    session: AsyncDBSession,
+    params: RobotActionAuditRequest,
+) -> RobotActionAuditResponse:
+    """Audit-log a robot action request or revert, before it is sent.
+
+    The registry action sends nothing to the robot unless the ``attempt``
+    is written; its answer names the stored attempt the outcome must cite.
+    """
+    _require_executor(role)
+    try:
+        return await RobotActionAuditService(session, role=role).record(params)
+    except AutoSecOpsValidationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

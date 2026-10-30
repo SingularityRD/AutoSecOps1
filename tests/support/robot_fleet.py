@@ -83,7 +83,7 @@ async def _user(email: str) -> uuid.UUID:
 
 
 async def new_soc(organization: Organization) -> tuple[Soc, list[uuid.UUID]]:
-    """A workspace with two platform users and a service role, all admins."""
+    """A workspace with two platform users and a service account, all admins."""
     ws = Workspace(
         id=uuid.uuid4(),
         name=f"fleet-{uuid.uuid4().hex[:8]}",
@@ -97,10 +97,13 @@ async def new_soc(organization: Organization) -> tuple[Soc, list[uuid.UUID]]:
     bob_id = await _user(f"bob-{suffix}@example.com")
 
     def role(user_id: uuid.UUID | None) -> Role:
+        # Without a user: a service account, the non-person caller these
+        # routes admit (an auditable actor, but not a platform user).
         return Role(
-            type="user" if user_id else "service",
+            type="user" if user_id else "service_account",
             service_id="autosecops-api",
             user_id=user_id,
+            service_account_id=None if user_id else uuid.uuid4(),
             workspace_id=ws.id,
             organization_id=ws.organization_id,
             scopes=FLEET_SCOPES,

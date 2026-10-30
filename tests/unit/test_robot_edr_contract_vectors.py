@@ -38,12 +38,15 @@ from autosecops.robot_edr.schemas import RobotCreate, RobotKeyCreate
 from autosecops.robot_edr.service import RobotsService
 from autosecops.robot_edr.types import RobotKeyRole
 from autosecops.tiers import defaults as tier_defaults
-from tests.support.robot_keys import fixed_robot_keys_lock, forget_registered_keys
+from tests.support.robot_keys import exclusive_vector_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
 VECTORS = Path(__file__).parents[1] / "data" / "robot_edr" / "ingest_vectors"
 MANIFEST: dict[str, Any] = json.loads((VECTORS / "manifest.json").read_text())
+VECTOR_PUBLIC_KEYS: list[bytes] = [
+    bytes.fromhex(entry["public_key_hex"]) for entry in MANIFEST["keys"]
+]
 
 
 @pytest.fixture(autouse=True)
@@ -81,14 +84,12 @@ async def _drop_workspace(ws: Workspace) -> None:
 
 async def _register_manifest_workspace(ws: Workspace) -> None:
     role = Role(
-        type="service",
+        type="service_account",
         service_id="autosecops-api",
+        service_account_id=uuid.uuid4(),
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,
-    )
-    await forget_registered_keys(
-        bytes.fromhex(entry["public_key_hex"]) for entry in MANIFEST["keys"]
     )
     async with get_async_session_context_manager() as session:
         service = RobotsService(session, role=role)
@@ -148,9 +149,11 @@ async def test_every_contract_vector(
     app.include_router(ingest_router)
     transport = httpx.ASGITransport(app=app)
     mismatches: list[str] = []
-    async with fixed_robot_keys_lock():
-        for case in MANIFEST["cases"]:
-            rate_limit._local_buckets.clear()
+    for case in MANIFEST["cases"]:
+        rate_limit._local_buckets.clear()
+        # The manifest's keys are unique SOC-wide and the service database is
+        # shared by every xdist worker: hold them until the workspace is gone.
+        async with exclusive_vector_keys(VECTOR_PUBLIC_KEYS):
             workspace = await _new_workspace(svc_organization.id)
             try:
                 await _register_manifest_workspace(workspace)

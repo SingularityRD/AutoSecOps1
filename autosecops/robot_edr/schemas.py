@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from autosecops import config
 from autosecops.core.schemas import Schema
@@ -198,14 +198,112 @@ class EvidenceStoreResponse(BaseModel):
     manifest_key_id: str
 
 
+REQUEST_ID_PATTERN = r"^[A-Za-z0-9._:-]{1,128}$"
+ROBOT_ACTION_PATTERN = r"^robot_[a-z_]{1,64}$"
+ROBOT_OUTCOME_PATTERN = r"^[a-z_]{1,64}$"
+REQUEST_DIGEST_PATTERN = r"^[0-9a-f]{64}$"
+FAILURE_REASON_PATTERN = r"^[A-Za-z0-9_.]{1,64}$"
+MAX_ACTION_APPROVALS = 4
+REQUESTED_BY_NAME_PATTERN = r"^[A-Za-z0-9._%+@:-]{1,100}$"
+"""A ``requested_by`` AutoSecOps sends: a plain ASCII email or ``user:<id>``."""
+APPROVER_NAME_PATTERN = r"^[A-Za-z0-9._%+@-]{1,100}$"
+"""RoboDR's ``approved_by`` name grammar (control plane §4)."""
+"""Approval submissions a robot action request reads (registry limit)."""
+
+
 class EvidenceAccessRequest(BaseModel):
-    """An evidence read to write to the audit log (internal API)."""
+    """An evidence read or delete to write to the audit log (internal API).
+
+    The registry action writes ``attempt`` before it contacts the robot
+    (fail closed), then ``succeeded`` or ``failed`` (best effort). A request
+    without ``phase`` (an older registry) is an attempt.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
-    operation: Literal["list", "create_export", "download_export"]
+    operation: Literal["list", "create_export", "download_export", "delete_export"]
     export_id: str | None = Field(default=None, pattern=EXPORT_ID_PATTERN)
+    phase: Literal["attempt", "succeeded", "failed"] = Field(default="attempt")
+    failure_reason: str | None = Field(default=None, pattern=FAILURE_REASON_PATTERN)
+    """``failed``: the error type that stopped the call."""
+
+
+AuditLogResult = Literal["written", "no_sink", "queued", "failed"]
+"""What became of an audit event (``AuditWriteResult`` values)."""
+
+
+class EvidenceAccessResponse(BaseModel):
+    """The audit write for an evidence access (internal API)."""
+
+    audit_log: AuditLogResult
+    """``written``: the audit sink confirmed it; ``no_sink``: no audit sink is
+    configured, so only the platform log has it; ``queued``/``failed``: a
+    best-effort closing event was handed to delivery, or was not."""
+
+
+class RobotActionAuditRequest(BaseModel):
+    """A robot action request or revert to write to the audit log (internal API).
+
+    The registry action sends one ``attempt`` before it signs the request
+    (nothing is sent to the robot unless it is written), then ``answered``
+    or ``failed`` with the ``attempt_id`` the attempt returned. The people
+    are not taken from this body: the platform reads them from the sign-off
+    submissions it names, and an outcome must match its stored attempt.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
+    request_id: str = Field(..., pattern=REQUEST_ID_PATTERN)
+    operation: Literal["request_action", "revert_action"]
+    robot_action: str = Field(..., pattern=ROBOT_ACTION_PATTERN)
+    request_digest: str = Field(..., pattern=REQUEST_DIGEST_PATTERN)
+    request_submission_id: uuid.UUID
+    approval_submission_ids: list[uuid.UUID] = Field(
+        ..., min_length=1, max_length=MAX_ACTION_APPROVALS
+    )
+    phase: Literal["attempt", "answered", "failed"]
+    outcome: str | None = Field(default=None, pattern=ROBOT_OUTCOME_PATTERN)
+    """``answered``: the robot's status (e.g. ``recorded_not_executed``)."""
+    applied: bool | None = Field(default=None)
+    """``answered``: whether the robot reports the action applied."""
+    failure_reason: str | None = Field(default=None, pattern=FAILURE_REASON_PATTERN)
+    """``failed``: the error type that stopped the call."""
+    attempt_id: uuid.UUID | None = Field(default=None)
+    """``answered``/``failed``: the id the ``attempt`` returned."""
+    requested_by_name: str | None = Field(
+        default=None, pattern=REQUESTED_BY_NAME_PATTERN
+    )
+    """``attempt``: the ``requested_by`` the robot is sent. The platform
+    checks it against the requester's own user record and stores it."""
+    approved_by_names: (
+        list[Annotated[str, StringConstraints(pattern=APPROVER_NAME_PATTERN)]] | None
+    ) = Field(default=None, max_length=MAX_ACTION_APPROVALS)
+    """``attempt``: the ``approved_by`` the robot is sent (empty: none). When
+    not empty, the platform checks it names exactly the approvers, in order
+    (``user-<user id>``), and stores it."""
+
+    @model_validator(mode="after")
+    def _attempt_id_matches_phase(self) -> Self:
+        if self.phase == "attempt" and self.attempt_id is not None:
+            raise ValueError("an attempt has no attempt_id")
+        if self.phase != "attempt" and self.attempt_id is None:
+            raise ValueError(f"the {self.phase} event needs the attempt_id")
+        if self.phase != "attempt" and (
+            self.requested_by_name is not None or self.approved_by_names is not None
+        ):
+            raise ValueError("the names sent to the robot belong to the attempt")
+        return self
+
+
+class RobotActionAuditResponse(BaseModel):
+    """The audit write for one phase of a robot action call (internal API)."""
+
+    attempt_id: uuid.UUID
+    """The stored attempt; the outcome event of the call names it."""
+    audit_log: AuditLogResult
+    """See :attr:`EvidenceAccessResponse.audit_log`."""
 
 
 # --- fleet (robodr.fleet API v1) --------------------------------------------------

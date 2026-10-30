@@ -537,8 +537,15 @@ def test_case_description_neutralises_hostile_display() -> None:
 # M2: catalog constants are exact (robodr.findings §3, consumer parsing rules)
 # --------------------------------------------------------------------------- #
 
+
+def _default_robodr_source() -> Path:
+    """A RoboDR checkout next to this repository (or next to its worktree dir)."""
+    candidates = [parent / "robodr" for parent in Path(__file__).resolve().parents[3:5]]
+    return next((c for c in candidates if c.is_dir()), candidates[0])
+
+
 ROBODR_SOURCE_DIR = Path(
-    os.environ.get("ROBODR_SOURCE_DIR", Path(__file__).resolve().parents[3] / "robodr")
+    os.environ.get("ROBODR_SOURCE_DIR") or _default_robodr_source()
 )
 BUILDER_RS = ROBODR_SOURCE_DIR / "crates" / "robodr-ocsf" / "src" / "builder.rs"
 
@@ -763,6 +770,184 @@ def test_a_2_2_message_keeps_the_2_1_entries(rule_id: str) -> None:
         )
 
 
+GATEWAY_IDS = (
+    "robot.gateway.trajectory_rejected",
+    "robot.gateway.trajectory_time_scaled",
+    "robot.gateway.undecodable_command",
+    "robot.gateway.fragmented_command",
+    "robot.gateway.writer_binding_conflict",
+    "robot.gateway.sequence_jump",
+    "robot.gateway.port_bypass_risk",
+    "robot.gateway.restriction_changed",
+    "robot.gateway.findings_dropped",
+)
+"""robodr.findings 2.3 (§3b): the in-path motion gateway `robodr-firewall-gw`."""
+
+SEAL_IDS = (
+    "robot.seal.unseal_failed",
+    "robot.seal.lease_expired",
+    "robot.seal.erased",
+    "robot.seal.tamper",
+)
+"""robodr.findings 2.3 (§3c): sealing, reported by `robodr-deliverd`."""
+
+UNITREE_WEBRTC_IDS = (
+    "robot.unitree.webrtc_unknown_controller",
+    "robot.unitree.webrtc_new_peer",
+    "robot.unitree.webrtc_controller_mac_mismatch",
+    "robot.unitree.webrtc_session_in_denied_window",
+    "robot.unitree.webrtc_concurrent_sessions",
+    "robot.unitree.webrtc_relayed_session",
+    "robot.unitree.webrtc_media_without_signalling",
+)
+"""robodr.findings 2.3 (§3d): Go2 WebRTC control sessions."""
+
+DEPOT_IDS = (
+    "robot.depot.import_refused",
+    "robot.depot.enrolment_refused",
+    "robot.depot.unit_enrolled",
+    "robot.depot.rollout_halted",
+    "robot.depot.locked",
+    "robot.seal.erase_deferred",
+)
+"""robodr.findings 2.3 (§3e): the site depot, and the deferred crypto-erase."""
+
+IDS_2_3 = GATEWAY_IDS + SEAL_IDS + UNITREE_WEBRTC_IDS + DEPOT_IDS
+
+
+def test_the_2_3_catalog_is_its_blocks() -> None:
+    assert catalog.CATALOG_2_3_MINOR == 3
+    assert tuple(catalog.CATALOG_2_3_BLOCKS) == (
+        "catalog_2_3_seal",
+        "catalog_2_3_gateway",
+        "catalog_2_3_unitree",
+        "catalog_2_3_depot",
+    )
+    assert tuple(catalog.CATALOG_2_3_GATEWAY) == GATEWAY_IDS
+    assert tuple(catalog.CATALOG_2_3_SEAL) == SEAL_IDS
+    assert tuple(catalog.CATALOG_2_3_UNITREE) == UNITREE_WEBRTC_IDS
+    assert tuple(catalog.CATALOG_2_3_DEPOT) == DEPOT_IDS
+    assert set(catalog.CATALOG_2_3) == set(IDS_2_3)
+    assert len(catalog.CATALOG_2_3) == 26
+    sources = {
+        **dict.fromkeys(GATEWAY_IDS, "ros2_motion_commands"),
+        **dict.fromkeys(SEAL_IDS, "robodr_delivery"),
+        **dict.fromkeys(UNITREE_WEBRTC_IDS, "ros2_motion_commands"),
+        **dict.fromkeys(DEPOT_IDS, "robodr_delivery"),
+    }
+    earlier = (
+        catalog.CATALOG_BASE.keys()
+        | catalog.CATALOG_2_1.keys()
+        | catalog.CATALOG_2_2.keys()
+    )
+    for rule_id, entry in catalog.CATALOG_2_3.items():
+        # §3b-§3d: no techniques; a 2.3 id is new in 2.3.
+        assert entry.data_source == sources[rule_id], rule_id
+        assert entry.techniques == (), rule_id
+        assert rule_id not in earlier, rule_id
+    assert catalog.CATALOG_2_3["robot.seal.tamper"] == catalog.RuleInfo(
+        "Enclosure tamper or erase trigger fired",
+        "An enclosure tamper input or another crypto-erase trigger fired on the "
+        "unit; a crypto-erase of its sealing keys follows.",
+        "robodr_delivery",
+        (),
+    )
+    assert (
+        catalog.CATALOG_2_3["robot.gateway.port_bypass_risk"].title
+        == "Motion traffic may bypass the in-path gateway"
+    )
+    assert (
+        catalog.CATALOG_2_3["robot.unitree.webrtc_relayed_session"].title
+        == "Remote WebRTC session through a relay"
+    )
+
+
+def test_a_2_3_block_repeating_a_rule_id_is_refused() -> None:
+    # A later 2.3 block (e.g. catalog_2_3_depot) must not shadow another's id.
+    with pytest.raises(ValueError, match="catalog_2_3_depot"):
+        catalog._merge_blocks(
+            {
+                "catalog_2_3_seal": catalog.CATALOG_2_3_SEAL,
+                "catalog_2_3_depot": {
+                    "robot.seal.tamper": catalog.CATALOG_2_3_SEAL["robot.seal.tamper"]
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize("rule_id", IDS_2_3)
+def test_a_2_3_finding_carries_its_2_3_entry(rule_id: str) -> None:
+    entry = catalog.CATALOG_2_3[rule_id]
+    for version in ("2.3.0", "2.3.9", "2.4.0", "02.3.0"):
+        parsed = robodr.parse_finding(_dump(_retarget(_doc(), rule_id, version, entry)))
+        assert parsed["title"] == entry.title
+        assert parsed["catalog_description"] == entry.desc
+        assert parsed["mitre_ids"] == []
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, "2.3.0", catalog.GENERIC))
+        )
+    # A 2.2 or earlier message never had the entry: the generic one applies.
+    for version in ("2.2.0", "2.1.0", "2.0.0"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, version, catalog.GENERIC))
+        )
+        with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+            robodr.parse_finding(_dump(_retarget(_doc(), rule_id, version, entry)))
+
+
+def test_a_2_3_finding_lists_no_technique() -> None:
+    rule_id = "robot.unitree.webrtc_unknown_controller"
+    entry = catalog.CATALOG_2_3[rule_id]
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(
+                _retarget(
+                    _doc(),
+                    rule_id,
+                    "2.3.0",
+                    entry._replace(
+                        techniques=(("T0855", "Unauthorized Command Message"),)
+                    ),
+                )
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "added"),
+    [
+        ("robot.ros2.discovery_flood", catalog.CATALOG_2_1),
+        ("robot.unitree.legacy_unknown_sender", catalog.CATALOG_2_1),
+        ("robot.deliver.refused", catalog.CATALOG_2_2),
+    ],
+)
+def test_a_2_3_message_keeps_the_earlier_entries(
+    rule_id: str, added: dict[str, catalog.RuleInfo]
+) -> None:
+    entry = added[rule_id]
+    parsed = robodr.parse_finding(_dump(_retarget(_doc(), rule_id, "2.3.0", entry)))
+    assert parsed["title"] == entry.title
+    with pytest.raises(robodr.FindingError, match="catalog_mismatch"):
+        robodr.parse_finding(
+            _dump(_retarget(_doc(), rule_id, "2.3.0", catalog.GENERIC))
+        )
+
+
+def test_catalog_entry_finds_an_entry_of_any_minor() -> None:
+    for table in (
+        catalog.CATALOG_BASE,
+        catalog.CATALOG_2_1,
+        catalog.CATALOG_2_2,
+        catalog.CATALOG_2_3,
+    ):
+        for rule_id, entry in table.items():
+            assert catalog.catalog_entry(rule_id) == entry
+    # No entry of its own: the generic entries are not returned.
+    assert catalog.catalog_entry("robot.correlate.site_specific") is None
+    assert catalog.catalog_entry("robot.unknown.rule") is None
+
+
 def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
     """Parse the catalog arms of builder.rs, per catalog function."""
     strings = r'"((?:[^"\\]|\\.)*)"'
@@ -778,6 +963,9 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
         rf"(?:RuleInfo\s*\{{\s*title:\s*|e\(\s*){strings},\s*(?:desc:\s*)?{strings},"
         rf"\s*(?:data_source:\s*)?(\w+|{strings}),\s*(?:techniques:\s*)?&\[([^\]]*)\]"
     )
+    # A block whose `e(title, desc)` helper fixes the data source and lists
+    # no technique (the contract 2.3 blocks).
+    short_arm = re.compile(rf"{strings}\s*=>\s*e\(\s*{strings},\s*{strings},?\s*\)")
     out: dict[str, dict[str, catalog.RuleInfo]] = {}
     for fn in (
         "catalog_1_0",
@@ -785,6 +973,7 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
         "catalog_1_3_wave7",
         "catalog_2_1",
         "catalog_2_2",
+        *catalog.CATALOG_2_3_BLOCKS,
     ):
         if f"fn {fn}(" not in source:
             continue
@@ -792,11 +981,25 @@ def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
         end = source.find("\nfn ", start + 1)
         body = source[start : end if end != -1 else len(source)]
         entries: dict[str, catalog.RuleInfo] = {}
+        local_consts = consts | dict(
+            re.findall(r'const ([A-Z_]+): &str = "([^"]*)";', body)
+        )
+        if fixed := re.search(
+            r"const fn e\(title: &'static str, desc: &'static str\) -> RuleInfo \{"
+            r"\s*RuleInfo \{\s*title,\s*desc,\s*data_source: (\w+),\s*techniques: &\[\],",
+            body,
+        ):
+            for rule, title, desc in short_arm.findall(body):
+                entries[rule] = catalog.RuleInfo(
+                    title, desc, local_consts[fixed.group(1)], ()
+                )
+            out[fn] = entries
+            continue
         for rule, prefix, title, desc, ds, ds_literal, techs in arm.findall(body):
             key = rule or f"{prefix}*"
             names = [t.strip() for t in techs.split(",") if t.strip()]
             # The data source is a named constant or a string literal.
-            data_source = ds_literal if ds.startswith('"') else consts[ds]
+            data_source = ds_literal if ds.startswith('"') else local_consts[ds]
             entries[key] = catalog.RuleInfo(
                 title, desc, data_source, tuple(techniques[n] for n in names)
             )
@@ -1026,3 +1229,24 @@ def test_markdown_mode_labels_the_span_with_the_field() -> None:
         == "`/entity_context/detail??`: `x`"
     )
     assert robodr.render_untrusted(entry, mode="markdown") == "`x`"
+
+
+@pytest.mark.skipif(
+    not BUILDER_RS.is_file(), reason="RoboDR source not available (ROBODR_SOURCE_DIR)"
+)
+def test_python_2_3_catalog_matches_rust_source() -> None:
+    # Per block: RoboDR adds each 2.3 feature as its own `catalog_2_3_*`
+    # function chained into `catalog_2_3`. The blocks here must be exactly
+    # the ones RoboDR chains (a new RoboDR block, such as a depot block, is
+    # added to CATALOG_2_3_BLOCKS with it) and match byte for byte.
+    source = BUILDER_RS.read_text(encoding="utf-8")
+    rust = _rust_catalog(source)
+    if "fn catalog_2_3(" not in source:
+        pytest.skip("RoboDR source predates robodr.findings 2.3 (no catalog_2_3)")
+    assert "pub const CATALOG_2_3_MINOR: u64 = 3;" in source
+    chained = re.search(r"fn catalog_2_3\(rule: &str\)[^{]*\{(.*?)\n\}", source, re.S)
+    assert chained is not None
+    rust_blocks = re.findall(r"(catalog_2_3_\w+)\(rule\)", chained.group(1))
+    assert sorted(rust_blocks) == sorted(catalog.CATALOG_2_3_BLOCKS), rust_blocks
+    for fn in rust_blocks:
+        assert rust[fn] == catalog.CATALOG_2_3_BLOCKS[fn], fn

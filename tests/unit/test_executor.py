@@ -43,6 +43,7 @@ from autosecops.registry.versions.schemas import RegistryVersionManifestAction
 from autosecops.registry.versions.service import RegistryVersionsService
 from autosecops.secrets.schemas import SecretCreate, SecretKeyValue
 from autosecops.secrets.service import SecretsService
+from autosecops.workflow.executions.enums import TriggerType
 from tests.support.executor_backend import TestBackend
 
 TEST_VERSION = "test-version"
@@ -286,6 +287,38 @@ def test_workflow_token_omits_untrusted_agent_session_id(
     claims = verify_executor_token(token)
     assert claims.execution_origin == "workflow"
     assert claims.agent_session_id is None
+
+
+def test_action_token_carries_the_execution_and_its_trigger(
+    mock_run_context: RunContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Audit events for actions a run takes name the execution and how it
+    # started (e.g. a schedule), from the signed token.
+    monkeypatch.setattr(config, "AUTOSECOPS__SERVICE_KEY", "test-service-key")
+    role = Role(
+        type="service",
+        service_id="autosecops-executor",
+        workspace_id=uuid.uuid4(),
+        organization_id=uuid.uuid4(),
+    )
+    run_context = mock_run_context.model_copy(
+        update={"trigger_type": TriggerType.SCHEDULED}
+    )
+    input = RunActionInput(
+        task=ActionStatement(ref="action", action="core.http_request", args={}),
+        exec_context=create_default_execution_context(),
+        run_context=run_context,
+        registry_lock=make_registry_lock("core.http_request"),
+    )
+
+    claims = verify_executor_token(
+        executor_service._mint_action_executor_token(input, role)
+    )
+
+    assert claims.execution_id == str(run_context.wf_exec_id)
+    assert claims.wf_exec_id == str(run_context.wf_run_id)
+    assert claims.trigger_type == TriggerType.SCHEDULED.value
 
 
 @pytest.fixture(scope="function")
