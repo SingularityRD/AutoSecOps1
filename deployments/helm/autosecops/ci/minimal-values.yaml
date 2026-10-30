@@ -11,6 +11,7 @@ externalPostgres:
   auth:
     username: autosecops
     password: placeholder-password
+    runtimePassword: placeholder-runtime-password
 externalRedis:
   auth:
     url: redis://redis.example.internal:6379

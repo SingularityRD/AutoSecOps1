@@ -243,3 +243,60 @@ def test_tunnel_gateway_pull_secrets_reach_the_api() -> None:
         for item in api["spec"]["template"]["spec"]["containers"][0]["env"]
     }
     assert env["AUTOSECOPS__TUNNEL_GATEWAY_IMAGE_PULL_SECRETS"] == "ghcr-pull"
+
+
+def test_rls_is_enforced_by_default() -> None:
+    values = _load_yaml(CHART_DIR / "values.yaml")
+    assert values["autosecops"]["rlsMode"] == "enforce"
+    assert values["externalPostgres"]["auth"]["runtimeUsername"] == "autosecops_app"
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+@pytest.mark.parametrize("values_file", CI_VALUES, ids=lambda path: path.name)
+def test_backend_pods_and_migrations_receive_the_runtime_role(
+    values_file: Path,
+) -> None:
+    """Every pod that reaches PostgreSQL gets the runtime role credentials."""
+    rendered = _helm_template("autosecops", "-f", str(values_file))
+    documents = [doc for doc in yaml.safe_load_all(rendered) if doc]
+    configmap = next(
+        doc
+        for doc in documents
+        if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "autosecops-env"
+    )
+    assert configmap["data"]["AUTOSECOPS__RLS_MODE"] == "enforce"
+    assert configmap["data"]["AUTOSECOPS__DB_RUNTIME_USER"] == "autosecops_app"
+
+    checked = 0
+    for doc in documents:
+        if doc["kind"] not in ("Deployment", "Job"):
+            continue
+        for container in doc["spec"]["template"]["spec"]["containers"]:
+            env = {item["name"]: item for item in container.get("env", [])}
+            if "AUTOSECOPS__DB_PASS" not in env:
+                continue
+            checked += 1
+            ref = env["AUTOSECOPS__DB_RUNTIME_PASSWORD"]["valueFrom"]["secretKeyRef"]
+            assert ref["key"] == "runtime-password"
+            # Optional: a Secret without the key keeps the owner connection.
+            assert ref["optional"] is True
+            if doc["kind"] == "Job":
+                assert env["AUTOSECOPS__DB_RUNTIME_USER"]["value"] == "autosecops_app"
+    assert checked >= 7
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_chart_managed_postgres_secret_holds_the_runtime_password() -> None:
+    rendered = _helm_template(
+        "autosecops",
+        "-f",
+        str(CHART_DIR / "ci/minimal-values.yaml"),
+        "-s",
+        "templates/secrets.yaml",
+    )
+    secret = next(
+        doc
+        for doc in yaml.safe_load_all(rendered)
+        if doc and doc["metadata"]["name"] == "autosecops-postgres-credentials"
+    )
+    assert secret["stringData"]["runtime-password"] == "placeholder-runtime-password"
