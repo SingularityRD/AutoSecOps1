@@ -46,7 +46,7 @@ from autosecops_registry.integrations.robodr_evidence import (
 from sqlalchemy import func, or_, select
 
 from autosecops import config
-from autosecops.audit.enums import AuditEventStatus
+from autosecops.audit.enums import AuditEventStatus, AuditWriteResult
 from autosecops.cases.attachments.schemas import CaseAttachmentCreate
 from autosecops.cases.attachments.service import ROBODR_EVIDENCE_PREFIX
 from autosecops.cases.service import CasesService
@@ -63,6 +63,7 @@ from autosecops.robot_edr.evidence_storage import (
 from autosecops.robot_edr.fleet_wire import public_key_file
 from autosecops.robot_edr.schemas import (
     EvidenceAccessRequest,
+    EvidenceAccessResponse,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
 )
@@ -78,6 +79,12 @@ _SKEW: Final = timedelta(milliseconds=300_000)
 _EVIDENCE_LOCK_NAMESPACE: Final = 0x524F424F44520001  # "ROBODR" + 1
 _REPORT_TEXT_RE: Final = re.compile(r"[!-~]{1,128}")
 _HEX64_RE: Final = re.compile(r"[0-9a-f]{64}")
+_ACCESS_PHASES: Final = {
+    "attempt": (AuditEventStatus.ATTEMPT, True),
+    "succeeded": (AuditEventStatus.SUCCESS, False),
+    "failed": (AuditEventStatus.FAILURE, False),
+}
+"""Evidence access phase: its audit status and whether it fails closed."""
 
 
 def _decode(value: str, what: str) -> bytes:
@@ -483,36 +490,44 @@ class RobotEvidenceService(BaseWorkspaceService):
                 await delete_evidence_objects([prefix])
             raise
 
-    async def record_access(self, params: EvidenceAccessRequest) -> None:
-        """Write the audit event for an evidence read, before the read.
+    async def record_access(
+        self, params: EvidenceAccessRequest
+    ) -> EvidenceAccessResponse:
+        """Write the audit event for one phase of an evidence read or delete.
 
-        Fails closed: the registry action reads nothing from the robot
-        unless this succeeds.
+        The ``attempt`` comes before the registry action contacts the robot
+        and fails closed: it reads or deletes nothing unless this succeeds.
+        ``succeeded`` and ``failed`` follow it, best effort.
 
         Raises:
-            AuditWriteError: The event could not be written.
+            AuditWriteError: The attempt could not be written.
         """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
-        await self._audit(
-            "read",
-            AuditEventStatus.SUCCESS,
-            {
-                "robot_id": params.robot_id,
-                "export_id": params.export_id,
-                "operation": params.operation,
-            },
-            strict=True,
+        status, strict = _ACCESS_PHASES[params.phase]
+        data: dict[str, str | None] = {
+            "robot_id": params.robot_id,
+            "export_id": params.export_id,
+            "operation": params.operation,
+        }
+        if params.phase == "failed":
+            data["failure_reason"] = params.failure_reason
+        result = await self._audit(
+            "delete" if params.operation == "delete_export" else "read",
+            status,
+            data,
+            strict=strict,
         )
+        return EvidenceAccessResponse(audit_log=result.value)
 
     async def _audit(
         self,
-        action: Literal["create", "read"],
+        action: Literal["create", "read", "delete"],
         status: AuditEventStatus,
         data: Mapping[str, str | None],
         *,
         strict: bool,
-    ) -> None:
-        await write_robot_edr_audit(
+    ) -> AuditWriteResult:
+        return await write_robot_edr_audit(
             self.session,
             self.role,
             resource_type="robot_evidence",

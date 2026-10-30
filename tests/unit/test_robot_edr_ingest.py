@@ -118,8 +118,15 @@ def audit_capture(monkeypatch: pytest.MonkeyPatch) -> AuditCapture:
         capture.events.append(payload)
         return True
 
+    async def _write(
+        self: AuditService, *, webhook_url: str, payload: AuditEvent
+    ) -> None:
+        # Strict (fail-closed) writes, such as robot registration: confirmed.
+        capture.events.append(payload)
+
     monkeypatch.setattr(AuditService, "_get_webhook_url", _webhook)
     monkeypatch.setattr(AuditService, "_post_event", _post)
+    monkeypatch.setattr(AuditService, "_write_event", _write)
     return capture
 
 

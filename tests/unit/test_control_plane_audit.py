@@ -157,6 +157,10 @@ def _capture_events(
                 wire_events.append(payload.model_dump(mode="json"))
             return True
 
+        async def _write_event(self, *, webhook_url: str, payload: AuditEvent) -> None:
+            # Strict (fail-closed) writes: the capturing sink accepts every event.
+            await self._post_event(webhook_url=webhook_url, payload=payload)
+
     @asynccontextmanager
     async def with_session(
         cls: type[AuditService],

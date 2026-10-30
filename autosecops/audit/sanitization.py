@@ -27,6 +27,8 @@ _ALLOWED_METADATA_KEYS = frozenset(
 
 def sanitize_audit_metadata(
     data: AuditMetadata | None,
+    *,
+    verified_keys: frozenset[str] = frozenset(),
 ) -> dict[str, AuditMetadataValue] | None:
     """Return only operationally necessary, sanitized audit metadata.
 
@@ -45,6 +47,11 @@ def sanitize_audit_metadata(
 
     Args:
         data: Caller-selected metadata for an audit event.
+        verified_keys: Keys whose string values the caller has already
+            matched against a strict identifier grammar (for example a
+            schema-validated request id). Their values skip the free-text
+            credential patterns, which would otherwise drop a legitimate id
+            such as ``token:rq-1``; they still have to satisfy the key policy.
 
     Returns:
         A sanitized dictionary, or ``None`` when no allowed metadata remains.
@@ -57,7 +64,9 @@ def sanitize_audit_metadata(
     for key, value in data.items():
         if not _is_allowed_metadata(key, value):
             continue
-        if isinstance(value, str):
+        if isinstance(value, str) and key in verified_keys:
+            sanitized[key] = value
+        elif isinstance(value, str):
             redacted = redact_sensitive_text(value, redact_emails=True)
             if redacted == value:
                 sanitized[key] = value
@@ -73,6 +82,29 @@ def sanitize_audit_metadata(
         else:
             sanitized[key] = value
     return sanitized or None
+
+
+def dropped_audit_metadata_keys(
+    data: AuditMetadata | None,
+    sanitized: dict[str, AuditMetadataValue] | None,
+) -> list[str]:
+    """The keys of ``data`` that sanitizing dropped or shortened.
+
+    ``None`` values are not counted: they carry nothing to drop.
+
+    Args:
+        data: The metadata as the caller selected it.
+        sanitized: What :func:`sanitize_audit_metadata` returned for it.
+
+    Returns:
+        The dropped keys, sorted.
+    """
+    kept = sanitized or {}
+    return sorted(
+        key
+        for key, value in (data or {}).items()
+        if value is not None and kept.get(key) != value
+    )
 
 
 def _is_allowed_metadata(key: str, value: AuditMetadataValue) -> bool:

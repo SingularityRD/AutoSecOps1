@@ -25,3 +25,16 @@ class AuditEventStatus(StrEnum):
     ATTEMPT = "ATTEMPT"
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
+
+
+class AuditWriteResult(StrEnum):
+    """What became of one audit event write."""
+
+    WRITTEN = "written"
+    """The configured sink accepted the event (2xx). Strict writes only."""
+    QUEUED = "queued"
+    """Handed to background delivery; the sink has not confirmed it yet."""
+    NO_SINK = "no_sink"
+    """No audit sink is configured, so the event exists only in the app log."""
+    FAILED = "failed"
+    """Not written (best-effort writes only; a strict write raises instead)."""

@@ -14,7 +14,10 @@ records come from the platform's own sign-off submissions.
 
 Every audit event here names the run that acted (workflow or agent session,
 run, execution, trigger) and is written fail closed: a route that cannot
-write its event answers an error, and the registry action then stops.
+write its event, or whose audit sink does not confirm it, answers an error,
+and the registry action then stops. The answer's ``audit_log`` says whether
+the sink confirmed the event (``written``) or no sink is configured
+(``no_sink``), so the registry action can report which.
 """
 
 from __future__ import annotations
@@ -37,9 +40,11 @@ from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
     ROBOT_ID_PATTERN,
     EvidenceAccessRequest,
+    EvidenceAccessResponse,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
     RobotActionAuditRequest,
+    RobotActionAuditResponse,
 )
 from autosecops.storage.exceptions import FileValidationError
 
@@ -116,16 +121,20 @@ async def store_evidence(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/evidence/access", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/evidence/access")
 async def record_evidence_access(
     *,
     role: ExecutorWorkspaceRole,
     session: AsyncDBSession,
     params: EvidenceAccessRequest,
-) -> None:
-    """Audit-log a workflow's read of a robot's evidence."""
+) -> EvidenceAccessResponse:
+    """Audit-log a run's read or delete of a robot's evidence.
+
+    The ``attempt`` is written before the robot is contacted (fail closed);
+    ``succeeded`` and ``failed`` close it, best effort.
+    """
     await _require_executor_robot_read(role)
-    await RobotEvidenceService(session, role=role).record_access(params)
+    return await RobotEvidenceService(session, role=role).record_access(params)
 
 
 @router.get("/robots/{robot_id}/blackbox-keys")
@@ -153,20 +162,20 @@ async def list_blackbox_keys(
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
-@router.post("/actions/audit", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/actions/audit")
 async def record_robot_action(
     *,
     role: ExecutorWorkspaceRole,
     session: AsyncDBSession,
     params: RobotActionAuditRequest,
-) -> None:
+) -> RobotActionAuditResponse:
     """Audit-log a robot action request or revert, before it is sent.
 
     The registry action sends nothing to the robot unless the ``attempt``
-    is written.
+    is written; its answer names the stored attempt the outcome must cite.
     """
     _require_executor(role)
     try:
-        await RobotActionAuditService(session, role=role).record(params)
+        return await RobotActionAuditService(session, role=role).record(params)
     except AutoSecOpsValidationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

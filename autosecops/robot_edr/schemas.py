@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from autosecops import config
 from autosecops.core.schemas import Schema
@@ -198,16 +198,6 @@ class EvidenceStoreResponse(BaseModel):
     manifest_key_id: str
 
 
-class EvidenceAccessRequest(BaseModel):
-    """An evidence read to write to the audit log (internal API)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
-    operation: Literal["list", "create_export", "download_export"]
-    export_id: str | None = Field(default=None, pattern=EXPORT_ID_PATTERN)
-
-
 REQUEST_ID_PATTERN = r"^[A-Za-z0-9._:-]{1,128}$"
 ROBOT_ACTION_PATTERN = r"^robot_[a-z_]{1,64}$"
 ROBOT_OUTCOME_PATTERN = r"^[a-z_]{1,64}$"
@@ -217,13 +207,45 @@ MAX_ACTION_APPROVALS = 4
 """Approval submissions a robot action request reads (registry limit)."""
 
 
+class EvidenceAccessRequest(BaseModel):
+    """An evidence read or delete to write to the audit log (internal API).
+
+    The registry action writes ``attempt`` before it contacts the robot
+    (fail closed), then ``succeeded`` or ``failed`` (best effort). A request
+    without ``phase`` (an older registry) is an attempt.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    robot_id: str = Field(..., pattern=ROBOT_ID_PATTERN)
+    operation: Literal["list", "create_export", "download_export", "delete_export"]
+    export_id: str | None = Field(default=None, pattern=EXPORT_ID_PATTERN)
+    phase: Literal["attempt", "succeeded", "failed"] = Field(default="attempt")
+    failure_reason: str | None = Field(default=None, pattern=FAILURE_REASON_PATTERN)
+    """``failed``: the error type that stopped the call."""
+
+
+AuditLogResult = Literal["written", "no_sink", "queued", "failed"]
+"""What became of an audit event (``AuditWriteResult`` values)."""
+
+
+class EvidenceAccessResponse(BaseModel):
+    """The audit write for an evidence access (internal API)."""
+
+    audit_log: AuditLogResult
+    """``written``: the audit sink confirmed it; ``no_sink``: no audit sink is
+    configured, so only the platform log has it; ``queued``/``failed``: a
+    best-effort closing event was handed to delivery, or was not."""
+
+
 class RobotActionAuditRequest(BaseModel):
     """A robot action request or revert to write to the audit log (internal API).
 
     The registry action sends one ``attempt`` before it signs the request
     (nothing is sent to the robot unless it is written), then ``answered``
-    or ``failed``. The people are not taken from this body: the platform
-    reads them from the sign-off submissions it names.
+    or ``failed`` with the ``attempt_id`` the attempt returned. The people
+    are not taken from this body: the platform reads them from the sign-off
+    submissions it names, and an outcome must match its stored attempt.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -244,6 +266,25 @@ class RobotActionAuditRequest(BaseModel):
     """``answered``: whether the robot reports the action applied."""
     failure_reason: str | None = Field(default=None, pattern=FAILURE_REASON_PATTERN)
     """``failed``: the error type that stopped the call."""
+    attempt_id: uuid.UUID | None = Field(default=None)
+    """``answered``/``failed``: the id the ``attempt`` returned."""
+
+    @model_validator(mode="after")
+    def _attempt_id_matches_phase(self) -> Self:
+        if self.phase == "attempt" and self.attempt_id is not None:
+            raise ValueError("an attempt has no attempt_id")
+        if self.phase != "attempt" and self.attempt_id is None:
+            raise ValueError(f"the {self.phase} event needs the attempt_id")
+        return self
+
+
+class RobotActionAuditResponse(BaseModel):
+    """The audit write for one phase of a robot action call (internal API)."""
+
+    attempt_id: uuid.UUID
+    """The stored attempt; the outcome event of the call names it."""
+    audit_log: AuditLogResult
+    """See :attr:`EvidenceAccessResponse.audit_log`."""
 
 
 # --- fleet (robodr.fleet API v1) --------------------------------------------------

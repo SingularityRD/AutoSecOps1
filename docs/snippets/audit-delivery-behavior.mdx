@@ -1,4 +1,5 @@
-AutoSecOps posts each event as a JSON `POST` request and does not block the audited action on the result.
+AutoSecOps posts each event as a JSON `POST` request.
+Most events do not block the audited action on the result:
 
 - Delivery runs in the background, so a failing or slow collector does not prevent the audited change from completing.
 - Each request times out after 10 seconds.
@@ -7,3 +8,6 @@ AutoSecOps posts each event as a JSON `POST` request and does not block the audi
 - Under sustained backpressure AutoSecOps sheds events rather than buffering without bound.
 
 Delivery is best-effort, so do not treat the stream as a guaranteed-complete ledger.
+
+Fail-closed events are the exception: RoboDR robot actions, evidence reads and deletes, and robot and fleet changes post their `ATTEMPT` event inline, with the same retries, and run the operation only after your collector answers with a 2xx within 15 seconds.
+A non-2xx answer, a transport error, or no answer in time refuses the operation, so a slow or failing collector blocks these operations until it recovers.
