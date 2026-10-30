@@ -1,5 +1,6 @@
 """VCS integration router for organization-level platform features."""
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -111,16 +112,16 @@ async def github_app_install_callback(
 
 
 @github_router.post("/webhook")
-async def github_webhook(
-    *, request: Request, payload: dict[str, Any]
-) -> dict[str, str]:
+async def github_webhook(*, request: Request) -> dict[str, str]:
     """Handle GitHub webhook events.
 
     Deliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the
-    webhook secret stored in the GitHub App credentials.
+    webhook secret stored in the GitHub App credentials. The signature is
+    checked against the raw body before the body is parsed.
     """
+    body = await request.body()
     if not await verify_github_webhook(
-        body=await request.body(),
+        body=body,
         signature=request.headers.get("x-hub-signature-256"),
         app_id=request.headers.get("x-github-hook-installation-target-id"),
     ):
@@ -128,6 +129,18 @@ async def github_webhook(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid webhook signature",
+        )
+    try:
+        payload: Any = json.loads(body)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook body must be a JSON object",
+        ) from e
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook body must be a JSON object",
         )
     try:
         event_type = payload.get("action")

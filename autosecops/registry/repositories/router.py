@@ -16,6 +16,7 @@ from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import RegistryRepository
 from autosecops.exceptions import (
+    AutoSecOpsCredentialsError,
     AutoSecOpsCredentialsNotFoundError,
     AutoSecOpsValidationError,
     EntitlementRequired,
@@ -129,8 +130,8 @@ async def sync_registry_repository(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
-    except AutoSecOpsCredentialsNotFoundError as e:
-        logger.warning("Credentials not found", exc=e)
+    except AutoSecOpsCredentialsError as e:
+        logger.warning("Registry credentials unavailable", exc=e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -328,9 +329,10 @@ async def list_repository_commits(
                     detail=_NO_REGISTRY_SSH_KEY_DETAIL,
                 )
 
-            # List commits from the repository
+            # List commits from the repository. The origin's ``@ref`` suffix
+            # selects a branch and is not part of the remote path.
             commits = await list_git_commits(
-                repo.origin,
+                git_url.remote_url(),
                 env=ssh_env,
                 branch=branch,
                 limit=min(limit, 100),  # Cap at 100 commits max
@@ -365,6 +367,12 @@ async def list_repository_commits(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_NO_REGISTRY_SSH_KEY_DETAIL,
+        ) from e
+    except AutoSecOpsCredentialsError as e:
+        logger.warning("Invalid registry SSH key", origin=repo.origin, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         ) from e
     except Exception as e:
         logger.error("Unexpected error listing commits", exc=e)

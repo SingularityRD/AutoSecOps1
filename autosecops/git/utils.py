@@ -98,7 +98,9 @@ async def resolve_git_ref(
 
         code, stdout, stderr = await run_git(args, env=env, timeout=timeout)
 
-        if code != 0:
+        # ``ls-remote`` exits 0 with no output when ``refs/heads/<ref>`` does
+        # not exist, so a tag or other ref name also falls back to ``<ref>``.
+        if code != 0 or (ref is not None and not stdout.strip()):
             if ref is not None:
                 # Try with ref directly if refs/heads/<ref> failed
                 args = ["git", "ls-remote", repo_url, ref]

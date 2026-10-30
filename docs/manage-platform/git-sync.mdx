@@ -98,7 +98,7 @@ Use the `Push` tab to push the full workspace configuration.
 
 <Steps>
   <Step title="Choose a branch and commit message">
-    On the `Push` tab, use the branch picker beside `Into` to choose an existing branch or enter a new branch name and click `Create`. Enter a commit message. New branches start from the base branch. AutoSecOps blocks direct pushes to both the base branch and the repository default branch.
+    On the `Push` tab, use the branch picker beside `Into` to choose an existing branch or enter a new branch name and click `Create`. Enter a commit message. New branches start from the base branch. To open a pull request, choose a branch other than the base branch; `Push only` commits directly to the selected branch, including the base branch.
 
     <Frame>
       ![Git sync Push tab with grouped resource changes, target branch, and commit message](/img/manage-platform/git-sync-workspace-push.jpg)
@@ -164,7 +164,7 @@ A merged pull request changes nothing in a workspace until you or your pipeline 
     </Frame>
   </Step>
   <Step title="Apply">
-    Click `Pull into <workspace>`; the button includes the change count after a preview. AutoSecOps enables it only after a successful preview for the same commit and options. A pull updates matching workspace resources and leaves schedules untouched unless you check `Overwrite schedules`. Changing the commit, schedule option, or reference matches requires another preview.
+    Click `Pull into <workspace>`; the button includes the change count after a preview. AutoSecOps enables it only after a successful preview for the same commit and options. A pull creates and updates workspace resources; it does not delete resources that the commit no longer contains. It leaves schedules untouched unless you check `Overwrite schedules`. Changing the commit, schedule option, or reference matches requires another preview.
   </Step>
 </Steps>
 
@@ -198,7 +198,7 @@ Exporting a workspace requires `workspace_sync:sync`. Reading branches and commi
 | Action | Endpoint | Scopes |
 | --- | --- | --- |
 | Save provider credentials | `POST /organization/vcs/{provider}/credentials` (`github` or `gitlab`) | `org:settings:update` |
-| Bind a repository | `PATCH /workspaces/{workspace_id}` with `settings.git_provider` and `settings.git_repo_url` | `workspace:update` |
+| Bind a repository | `PATCH /workspaces/{workspace_id}` with `settings.git_provider` and `settings.git_repo_url` in `git+ssh://` form | `workspace:update` |
 | Preview an export | `POST /workflows/sync/export/preview` | `workspace_sync:sync` |
 | Export and open a pull request | `POST /workflows/sync/export` | `workspace_sync:sync` |
 | Push one workflow | `POST /workflows/{workflow_id}/publish` | `workflow:update`, plus `workflow:sync` or `workspace_sync:sync` |
