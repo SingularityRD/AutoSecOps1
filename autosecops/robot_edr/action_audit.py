@@ -63,6 +63,9 @@ SIGNOFF_ACTION: Final = "robodr_action"
 MAX_SIGNOFF_AGE: Final = timedelta(hours=24)
 """How old a sign-off submission may be (the registry action's limit)."""
 
+_USERS: Final = User.__table__
+"""The user table: the fastapi-users base types its columns as plain values."""
+
 _STATUS: Final = {
     "attempt": AuditEventStatus.ATTEMPT,
     "answered": AuditEventStatus.SUCCESS,
@@ -195,7 +198,7 @@ class RobotActionAuditService(BaseWorkspaceService):
         requested = params.requested_by_name
         if requested is not None:
             email = await self.session.scalar(
-                select(User.email).where(User.id == people.requested_by_user_id)
+                select(_USERS.c.email).where(_USERS.c.id == people.requested_by_user_id)
             )
             requester = Person(str(people.requested_by_user_id), email)
             if requested != requester.identifier:

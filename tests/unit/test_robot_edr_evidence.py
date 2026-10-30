@@ -1340,7 +1340,8 @@ async def test_a_failed_robot_revert_is_audited_as_a_failure(
 
 async def _email_of(user_id: uuid.UUID) -> str:
     async with get_async_session_context_manager() as session:
-        email = await session.scalar(select(User.email).where(User.id == user_id))
+        users = User.__table__
+        email = await session.scalar(select(users.c.email).where(users.c.id == user_id))
     assert email is not None
     return email
 
@@ -1450,11 +1451,9 @@ async def test_a_requester_whose_email_changed_is_refused(
     signoff = await _signoff(bare_workspace)
     old_email = await _email_of(signoff.requester)
     async with get_async_session_context_manager() as session:
-        await session.execute(
-            update(User)
-            .where(User.id == signoff.requester)
-            .values(email=f"renamed-{uuid.uuid4().hex[:8]}@example.com")
-        )
+        user = await session.get(User, signoff.requester)
+        assert user is not None
+        user.email = f"renamed-{uuid.uuid4().hex[:8]}@example.com"
         await session.commit()
     response = await gateway.post(
         "/internal/robot-edr/actions/audit",
