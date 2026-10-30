@@ -125,7 +125,7 @@ constraint-dependencies = [
     # GHSA-xmj3-9gf7-h52w.
     "setuptools==84.1.0",
     "urllib3==2.8.0",
-    "virtualenv==21.14.10",
+    "virtualenv==21.14.13",
 ]
 
 [dependency-groups]
