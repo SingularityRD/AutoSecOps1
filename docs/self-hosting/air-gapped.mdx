@@ -1,30 +1,31 @@
 ---
-title: Air-gapped deployment
-description: "Run AutoSecOps on Kubernetes with zero runtime internet connectivity, internal dependencies, and self-hosted LLM inference."
+title: Air-gapped installation
+description: "Install and run AutoSecOps with no internet access: the offline bundle, an internal registry, Docker Compose or Helm, an offline license, an internal LLM endpoint, and package mirrors."
 mode: wide
+keywords: ["air-gapped", "offline", "offline bundle", "internal registry", "mirror", "disconnected"]
 ---
 
 <Info>
   Every AutoSecOps feature works in self-hosted and air-gapped deployments.
 </Info>
 
-AutoSecOps supports fully air-gapped operation on production Kubernetes. Use internet access during preparation to stage every required artifact, then run AutoSecOps with zero internet connectivity.
+AutoSecOps runs with zero internet connectivity on Docker Compose and Kubernetes. Use the offline bundle to carry every image, install file, and chart into the disconnected network, then point AutoSecOps at your internal registry, LLM endpoint, and package mirrors.
 
 ## Reference architecture
 
-The inference service can run inside Kubernetes or on an adjacent private GPU cluster. Every runtime connection stays on customer-controlled networks.
+The inference service can run next to AutoSecOps or on an adjacent private GPU cluster. Every runtime connection stays on customer-controlled networks.
 
 ```mermaid
 flowchart TB
   subgraph preparation["Connected preparation"]
-    artifacts["Helm chart · AutoSecOps and inference images<br/>model weights · tokenizer · configuration"]
+    artifacts["Offline bundle: images · Compose files · Helm chart<br/>inference image · model weights · tokenizer"]
   end
 
   subgraph runtime["Disconnected runtime · zero internet routes"]
     direction TB
     registry["Internal OCI registry<br/>and model store"]
-    autosecops["AutoSecOps on Kubernetes<br/>API · UI · workers · executors"]
-    dependencies["Internal dependencies<br/>state · identity · integrations · telemetry"]
+    autosecops["AutoSecOps on Docker Compose or Kubernetes<br/>API · UI · workers · executors"]
+    dependencies["Internal dependencies<br/>state · identity · integrations · package mirrors"]
     litellm["Bundled LiteLLM"]
     inference["vLLM or Ollama<br/>in-cluster or adjacent DGX Spark"]
 
@@ -34,22 +35,164 @@ flowchart TB
     autosecops -->|bundled route| litellm --> inference
   end
 
-  artifacts -. mirror before cutover .-> registry
+  artifacts -. carry in before cutover .-> registry
 ```
 
 ## Prepare while connected
 
-- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry.
-- Stage the inference image, model weights, tokenizer, and model configuration in internal repositories.
-- Provision internal PostgreSQL, Redis, S3-compatible storage, Temporal, identity, DNS, TLS, secrets, telemetry, and integration endpoints. Validate image pulls and model discovery before removing egress.
+- Get the [offline bundle](#offline-bundle) for your AutoSecOps version. Build it with the GHCR access SingularityRD granted you, as described in [Registry access](/self-hosting/kubernetes#registry-access).
+- Stage the inference image, model weights, tokenizer, and model configuration in internal repositories. The offline bundle does not include model weights.
+- Provision internal DNS, TLS certificates, and identity. On Kubernetes, also provision PostgreSQL with pgvector, Redis, S3-compatible storage, and Temporal; Docker Compose runs these from the bundled images.
+- Mirror the PyPI and npm packages your workflows and MCP servers install. See [Mirror PyPI and npm](#mirror-pypi-and-npm).
+- Validate image pulls, model discovery, and package installs before you remove egress.
 
 No runtime workflow, integration, telemetry exporter, identity provider, or package dependency may require a public endpoint.
 
-The UI ships MCP catalog icons inside its bundle, so browsing the MCP catalog makes no third-party requests.
+The UI ships MCP catalog icons inside its bundle, and the API serves the Swagger UI (`/api/docs`) and ReDoc (`/api/redoc`) pages from assets in its image, so both work without internet access.
 
-The API serves the Swagger UI (`/api/docs`) and ReDoc (`/api/redoc`) pages from assets bundled in the API image, so the interactive API reference also works without internet access.
+## Offline bundle
 
-## Choose the model route
+The offline bundle is one archive, `autosecops-offline-<version>.tar.zst` (`.tar.gz` when the build host lacks `zstd`), with a `.sha256` checksum file beside it. It extracts to `autosecops-offline-<version>/`:
+
+| Path | Contents |
+| --- | --- |
+| `images/` | Every image the Compose stack and Helm chart run, saved with `docker save` for one platform (`linux/amd64` by default) |
+| `images.txt` | Tab-separated manifest: name, tag, digest, loaded reference, archive, Compose variable, Helm value |
+| `install/` | `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, `env-migration.sh` |
+| `charts/autosecops-<version>.tgz` | The Helm chart |
+| `load-images.sh` | Verifies the bundle, loads the images, and pushes them to an internal registry |
+| `THIRD_PARTY_NOTICES/` | Licenses of AutoSecOps dependencies and of every bundled third-party image |
+| `README.md` | Short load and install steps |
+| `SHA256SUMS` | SHA-256 of every file, plus `SHA256SUMS.sig` or `SHA256SUMS.minisig` when the bundle is signed |
+
+The bundle carries these images. `images.txt` records the digest each one was pinned to when the bundle was built.
+
+| Image | Docker Compose variable | Helm value |
+| --- | --- | --- |
+| `ghcr.io/singularityrd/autosecops` | `AUTOSECOPS__IMAGE_REPOSITORY` | `image.repository` |
+| `ghcr.io/singularityrd/autosecops-ui` | `AUTOSECOPS__UI_IMAGE_REPOSITORY` | `uiImage.repository` |
+| `ghcr.io/singularityrd/autosecops-tunnel-gateway` | — | `tunnels.gateway.image.repository` |
+| `ghcr.io/singularityrd/autosecops-postgres` | `AUTOSECOPS__PGVECTOR_IMAGE` | — |
+| `caddy` | `AUTOSECOPS__CADDY_IMAGE` | — |
+| `postgres` (Temporal database) | `TEMPORAL__POSTGRES_IMAGE` | — |
+| `temporalio/auto-setup` | `TEMPORAL__IMAGE_REPOSITORY` | — |
+| `temporalio/ui` | `TEMPORAL__UI_IMAGE_REPOSITORY` | — |
+| `cgr.dev/chainguard/minio` | `AUTOSECOPS__MINIO_IMAGE` | — |
+| `redis` | `AUTOSECOPS__REDIS_IMAGE` | — |
+
+`*_IMAGE_REPOSITORY` variables take a repository without a tag; the tag comes from `AUTOSECOPS__IMAGE_TAG`, `TEMPORAL__VERSION`, or `TEMPORAL__UI_VERSION`. The other variables take a full image reference.
+
+### Build a bundle
+
+Ask your SingularityRD contact for the bundle of your version, or build it on a connected Linux or macOS host with Docker, `uv`, `just`, and access to the AutoSecOps images:
+
+```bash
+git clone https://github.com/SingularityRD/AutoSecOps1.git
+cd AutoSecOps1
+git checkout <version>
+docker login ghcr.io          # only if the images are private
+just offline-bundle <version>
+```
+
+The bundle lands in `dist/`. Add `--platform linux/arm64` for arm64 hosts. The builder reads the image list from the checked-out `docker-compose.yml` and chart, so it refuses a version that differs from the checkout. Add `--dry-run` to list the images without pulling them.
+
+To sign the bundle, set one of these before you build. The builder signs `SHA256SUMS` and the archive checksum, and never copies the private key into the bundle:
+
+| Variable | Value |
+| --- | --- |
+| `OFFLINE_BUNDLE_COSIGN_KEY` | cosign key reference, e.g. `cosign.key` or a KMS URI. Set `COSIGN_PASSWORD` for an encrypted key |
+| `OFFLINE_BUNDLE_MINISIGN_KEY` | minisign secret key file. Set `MINISIGN_PASSWORD` for an encrypted key |
+| `OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY` or `OFFLINE_BUNDLE_MINISIGN_PUBLIC_KEY` | Optional public key file to include as `cosign.pub` or `minisign.pub` |
+
+## Verify the bundle
+
+Check the archive before you extract it, then check every file and the signature:
+
+```bash
+sha256sum -c autosecops-offline-<version>.tar.zst.sha256
+tar -xf autosecops-offline-<version>.tar.zst
+cd autosecops-offline-<version>
+./load-images.sh verify --cosign-key /path/to/cosign.pub    # or --minisign-key
+```
+
+Get the public key from SingularityRD through a channel other than the bundle: a `cosign.pub` inside the bundle only proves that the bundle matches the key it carries. `verify` without a key checks `SHA256SUMS` only.
+
+## Load the images
+
+On a Docker Compose host, load every image into the local Docker engine:
+
+```bash
+./load-images.sh load
+```
+
+`load` prints the `.env` lines Docker Compose needs. Images pinned by digest, such as MinIO, load under a tag that includes the digest, e.g. `AUTOSECOPS__MINIO_IMAGE=cgr.dev/chainguard/minio:latest-6a1d0b45c866`.
+
+## Push to an internal registry
+
+To serve the images from Harbor, Nexus, Artifactory, or any OCI registry, log in and push them under one repository prefix:
+
+```bash
+docker login registry.example.internal
+./load-images.sh push registry.example.internal/autosecops
+```
+
+`push` loads each image, keeps its repository path under your prefix (`ghcr.io/singularityrd/autosecops` becomes `registry.example.internal/autosecops/singularityrd/autosecops`), and prints the settings for both install methods:
+
+```bash
+# Docker Compose: add to the .env next to docker-compose.yml
+AUTOSECOPS__IMAGE_REPOSITORY=registry.example.internal/autosecops/singularityrd/autosecops
+AUTOSECOPS__UI_IMAGE_REPOSITORY=registry.example.internal/autosecops/singularityrd/autosecops-ui
+AUTOSECOPS__REDIS_IMAGE=registry.example.internal/autosecops/redis:7-alpine@sha256:...
+
+# Helm: save as registry-values.yaml and pass it with -f
+image:
+  repository: registry.example.internal/autosecops/singularityrd/autosecops
+uiImage:
+  repository: registry.example.internal/autosecops/singularityrd/autosecops-ui
+```
+
+Create the Harbor project, or the Nexus or Artifactory Docker repository, first. Add `--dry-run` to print the plan without loading or pushing. The script uses your existing `docker login` and never prints credentials.
+
+## Install with Docker Compose
+
+```bash
+mkdir -p /opt/autosecops
+cp -r install/. /opt/autosecops/
+cd /opt/autosecops
+chmod +x env.sh && ./env.sh
+```
+
+Append the lines `load` or `push` printed to `.env`, then continue with [Docker Compose](/self-hosting/docker-compose) from Generate the .env file onward. Skip its Extract configuration files step: `install/` holds the same files. Start AutoSecOps with `docker compose up -d`.
+
+Give Caddy an internal certificate. A domain in `BASE_DOMAIN` makes Caddy request a Let's Encrypt certificate, which fails offline. See [Bring your own certificate](/self-hosting/tls#bring-your-own-certificate).
+
+## Install with Helm
+
+Push the images first, then install the chart from the bundle with the printed `registry-values.yaml`:
+
+```bash
+helm install autosecops charts/autosecops-<version>.tgz \
+  --namespace autosecops --create-namespace \
+  -f values.yaml -f registry-values.yaml \
+  --wait --timeout 15m
+```
+
+If your registry needs credentials, create a pull Secret and list it in `imagePullSecrets`, and in `tunnels.gateway.imagePullSecrets` for tunnel gateways. See [Container images](/self-hosting/kubernetes#container-images). To serve the chart from your registry too, run `helm push charts/autosecops-<version>.tgz oci://registry.example.internal/autosecops/charts`.
+
+## Install the license key
+
+AutoSecOps verifies the license key's signature locally against a public key built into the image, so a license works without any connection to SingularityRD. Install it as described in [License key](/self-hosting/license): `AUTOSECOPS__LICENSE_KEY` in `.env` for Docker Compose, or `licenseKey` in the core Secret for Helm.
+
+## Connect an internal LLM endpoint
+
+Point agents at an internal OpenAI-compatible endpoint such as vLLM, Ollama, or your own LiteLLM gateway:
+
+1. Allow the endpoint's address. AutoSecOps rejects private addresses until you list them: set `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32` in `.env`, or `autosecops.outboundAllowedPrivateCidrs` in Helm values. See [Private endpoints](/agents/llm-providers#private-endpoints).
+2. In Organization settings > Agent > Configuration, connect the vLLM, Ollama, or LiteLLM provider with a base URL that ends in `/v1`, e.g. `http://vllm.example.internal:8000/v1`, or add a [custom LLM provider](/agents/custom-llm-providers).
+3. Allow the discovered models and set the default model.
+4. Send a representative agent request after you remove egress.
+
+### Choose the model route
 
 Configure the route per agent, including subagents.
 
@@ -60,7 +203,7 @@ Configure the route per agent, including subagents.
 
 Use [vLLM](https://docs.vllm.ai/en/stable/serving/parallelism_scaling/) as the distributed production option; confirm its model-specific [tool parser](https://docs.vllm.ai/en/stable/features/tool_calling/). Use Ollama as the simpler quantized or single-server option; review its [GPU](https://docs.ollama.com/gpu), [context](https://docs.ollama.com/context-length), [model import](https://docs.ollama.com/import), and [tool-calling](https://docs.ollama.com/capabilities/tool-calling) guidance. Ollama models tagged `:cloud` require the Ollama cloud service and cannot serve requests without egress.
 
-## Open model reference
+### Open model reference
 
 Reviewed September 2026. Each [DGX Spark](https://docs.nvidia.com/dgx/dgx-spark/hardware.html) provides 128 GB of unified memory. Static weight figures exclude KV cache, serving overhead, and concurrency. Calculated figures use two bytes per BF16 parameter, one byte per FP8 parameter, and half a byte per FP4 parameter. Context is the total window for input, reasoning, and response. Generation figures are vendor recommendations, not separate hard output limits.
 
@@ -83,10 +226,100 @@ Qwen recommends these generation limits only for frameworks that expose separate
 
 Treat static weight fit as a starting point, not a capacity guarantee. Validate target context length, KV cache, concurrency, latency, and serving overhead with your own workload.
 
+## Mirror PyPI and npm
+
+Python scripts (`core.script.run_python` with dependencies) and [custom registry](/custom-actions/custom-registry) sync install packages at runtime. Point them at an internal PyPI mirror and allow its address inside the sandbox:
+
+| Setting | Docker Compose (`.env`) | Helm values |
+| --- | --- | --- |
+| Primary index | `AUTOSECOPS__SANDBOX_PYPI_INDEX_URL=https://pypi.example.internal/simple` | `autosecops.sandbox.pypiIndexUrl` |
+| Extra indexes | `AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS=https://a.example.internal/simple,https://b.example.internal/simple` | `autosecops.sandbox.pypiExtraIndexUrls` |
+| Mirror address inside the sandbox | `AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS=10.0.20.5/32` | An `autosecops.extraEnv` entry with the same name |
+
+The sandbox blocks private addresses during installs, so a mirror on your network needs the egress CIDR. On AWS Fargate, set the `sandbox_pypi_index_url` and `sandbox_pypi_extra_index_urls` Terraform variables. Host custom registry repositories on an internal Git server and allow it with `AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS`.
+
+Stdio MCP servers started with `npx` or `uvx` download their package when they start. Set the mirror in the MCP integration's environment variables: `NPM_CONFIG_REGISTRY=https://npm.example.internal/` for `npx`, and `UV_INDEX_URL=https://pypi.example.internal/simple` for `uvx`.
+
+## Outbound connections
+
+Every outbound connection below is off by default or goes to an endpoint you configure.
+
+| Connection | Default | Air-gapped setting |
+| --- | --- | --- |
+| Sentry error reporting | Off | Leave `SENTRY_DSN` (Helm `sentryDsn` in the core Secret) empty, or point it at an internal Sentry |
+| PostHog product analytics in the UI | Off | Leave `NEXT_PUBLIC_POSTHOG_KEY` empty |
+| OpenTelemetry trace export | Off | Keep `AUTOSECOPS__PLATFORM_OTEL_ENABLED=false`, or point `OTEL_EXPORTER_OTLP_ENDPOINT` at an internal collector |
+| Caddy certificates (Docker Compose) | Let's Encrypt for a domain in `BASE_DOMAIN` | [Bring your own certificate](/self-hosting/tls#bring-your-own-certificate) |
+| LiteLLM model price list | Downloaded from GitHub when a service starts, with the copy in the image as fallback | `LITELLM_LOCAL_MODEL_COST_MAP=true` |
+| Sandbox Python packages | `https://pypi.org/simple` | [Mirror PyPI and npm](#mirror-pypi-and-npm) |
+| Stdio MCP server packages | Public npm and PyPI | [Mirror PyPI and npm](#mirror-pypi-and-npm) |
+| Custom registry sync | The Git URL you configure | An internal Git server |
+| LLM providers and remote MCP servers | The endpoints you configure | Internal endpoints listed in `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` |
+| License verification | Local | No setting needed |
+
+Without network access, each service that loads LiteLLM waits for the price-list download to fail, up to three five-second attempts, before it uses the copy in the image. `LITELLM_LOCAL_MODEL_COST_MAP=true` skips the download. On Helm, pass it through `autosecops.extraEnv`:
+
+```yaml
+autosecops:
+  extraEnv:
+    - name: LITELLM_LOCAL_MODEL_COST_MAP
+      value: "true"
+```
+
+On Docker Compose, add a `docker-compose.override.yml` next to `docker-compose.yml`. Compose merges it automatically:
+
+```yaml
+x-offline-env: &offline-env
+  LITELLM_LOCAL_MODEL_COST_MAP: "true"
+services:
+  api: { environment: *offline-env }
+  worker: { environment: *offline-env }
+  executor: { environment: *offline-env }
+  agent-worker: { environment: *offline-env }
+  agent-executor: { environment: *offline-env }
+  litellm: { environment: *offline-env }
+  mcp: { environment: *offline-env }
+```
+
+Actions, agent skills, and integrations that call public SaaS APIs fail without egress. Point them at internal equivalents or leave them disabled.
+
+## Update with a new bundle
+
+<Steps>
+  <Step title="Back up">
+    Back up before every update. See [Back up](#back-up).
+  </Step>
+  <Step title="Verify and load the new bundle">
+    Verify the new bundle, then run `./load-images.sh load` or `./load-images.sh push <registry>/<prefix>` again. Pushing a new version adds tags beside the old ones, so you can roll back.
+  </Step>
+  <Step title="Update Docker Compose">
+    From the new `install/` directory, copy `env-migration.sh` and `.env.example` next to your `.env` and run `./env-migration.sh`. Replace `docker-compose.yml`, `docker-compose.sandbox.yml`, and `Caddyfile` with the new copies, set `AUTOSECOPS__IMAGE_TAG` to the new version if you pinned it, update the image lines `load` or `push` printed, and run `docker compose up -d`. See [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
+  </Step>
+  <Step title="Update Helm">
+    Run `helm upgrade autosecops charts/autosecops-<version>.tgz --namespace autosecops -f values.yaml -f registry-values.yaml --wait --timeout 15m`. The migrations Job runs before the services roll.
+  </Step>
+</Steps>
+
+Read the release notes of every version you skip. See [Updating](/self-hosting/updating) for version-specific steps.
+
+## Back up
+
+Before you update, back up everything the bundle cannot rebuild:
+
+- The core PostgreSQL database. On Docker Compose, run `docker compose exec -T postgres_db pg_dump -U postgres -Fc postgres > autosecops-$(date +%F).dump`.
+- The `.env` file or the Kubernetes Secrets. You cannot regenerate `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, or `USER_AUTH_SECRET`; losing them makes stored credentials unreadable and invalidates webhook URLs.
+- Object storage: the `minio-data` volume on Docker Compose, or your S3-compatible buckets.
+- The Temporal database, if you need workflow history: the `temporal-db` volume on Docker Compose.
+- The previous offline bundle, so you can roll back.
+
+Keep backups inside the disconnected network and test a restore.
+
 ## Related pages
 
-- See [Kubernetes](/self-hosting/kubernetes) for component and resource requirements.
+- See [Docker Compose](/self-hosting/docker-compose) for the full single-host install and update steps.
+- See [Kubernetes](/self-hosting/kubernetes) for component and resource requirements and every Helm value.
 - See [Self-hosted architecture](/self-hosting/architecture) for service boundaries and request paths.
 - See [Security architecture](/security/architecture) for the threat model and trusted execution boundaries.
 - See [TLS and certificates](/self-hosting/tls) for internal certificate authorities and ingress TLS.
 - See [Custom LLM providers](/agents/custom-llm-providers) for passthrough configuration and model discovery.
+- See [License key](/self-hosting/license) for installing and checking a license key.

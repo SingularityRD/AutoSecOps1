@@ -55,7 +55,7 @@ hand.
 | async-lru | 2.0.4 | MIT License |
 | asyncpg | 0.29.0 | Apache Software License |
 | attrs | 26.1.0 | MIT |
-| Authlib | 1.6.12 | BSD License |
+| Authlib | 1.9.1 | BSD License |
 | azure-core | 1.41.0 | MIT |
 | azure-identity | 1.25.3 | MIT |
 | azure-storage-blob | 12.30.1 | MIT License |
@@ -87,7 +87,7 @@ hand.
 | defusedxml | 0.7.1 | Python Software Foundation License |
 | detect-installer | 0.2.1 | 0BSD |
 | distro | 1.9.0 | Apache Software License |
-| dnspython | 2.7.0 | ISC License (ISCL) |
+| dnspython | 2.9.0 | ISC |
 | docker | 7.1.0 | Apache-2.0 |
 | docstring_parser | 0.18.0 | MIT License |
 | duckdb | 1.4.3 | MIT License |
@@ -163,7 +163,7 @@ hand.
 | kubernetes | 36.0.2 | Apache Software License |
 | lark | 1.1.9 | MIT License |
 | ldap3 | 2.9.1 | GNU Lesser General Public License v3 (LGPLv3) |
-| litellm | 1.101.0 | MIT |
+| litellm | 1.101.3 | MIT |
 | litellm-enterprise | 0.1.65 | LicenseRef-Proprietary |
 | litellm-proxy-extras | 0.4.94 | MIT |
 | lockfile | 0.12.2 | MIT License |
@@ -244,7 +244,7 @@ hand.
 | PyGithub | 2.8.1 | GNU Library or Lesser General Public License (LGPL) |
 | Pygments | 2.21.0 | BSD-2-Clause |
 | PyJWT | 2.15.1 | MIT |
-| pymongo | 4.18.2 | Apache-2.0 |
+| pymongo | 4.18.3 | Apache-2.0 |
 | PyNaCl | 1.6.2 | Apache Software License |
 | pyOpenSSL | 26.4.0 | Apache Software License |
 | pyparsing | 3.3.2 | MIT |
@@ -287,7 +287,7 @@ hand.
 | starlette | 1.3.1 | BSD-3-Clause |
 | std-uritemplate | 2.0.12 | Apache Software License |
 | tavily-python | 0.7.6 | MIT License |
-| temporalio | 1.34.0 | MIT |
+| temporalio | 1.35.0 | MIT |
 | tenacity | 8.3.0 | Apache Software License |
 | text-unidecode | 1.3 | Artistic License / GNU General Public License (GPL) / GNU General Public License v2 or later (GPLv2+) |
 | tiktoken | 0.14.0 | MIT License |
@@ -3666,7 +3666,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Authlib 1.6.12
+### Authlib 1.9.1
 
 - License: BSD License
 - Homepage: https://github.com/authlib/authlib
@@ -6851,50 +6851,12 @@ Apache License
    limitations under the License.
 ```
 
-### dnspython 2.7.0
+### dnspython 2.9.0
 
-- License: ISC License (ISCL)
+- License: ISC
 - Homepage: https://www.dnspython.org
 
-`licenses/LICENSE`:
-
-```text
-ISC License
-
-Copyright (C) Dnspython Contributors
-
-Permission to use, copy, modify, and/or distribute this software for
-any purpose with or without fee is hereby granted, provided that the
-above copyright notice and this permission notice appear in all
-copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
-AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
-DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
-PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
-TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-
-
-
-Copyright (C) 2001-2017 Nominum, Inc.
-Copyright (C) Google Inc.
-
-Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose with or without fee is hereby granted,
-provided that the above copyright notice and this permission notice
-appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND NOMINUM DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NOMINUM BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
-OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-```
+No license file ships with this package. Copyright holder: Bob Halley. The license text is in the appendix under ISC.
 
 ### docker 7.1.0
 
@@ -13580,7 +13542,7 @@ along with this program in the COPYING and COPYING.LESSER files.
 If not, see <http://www.gnu.org/licenses/>.
 ```
 
-### litellm 1.101.0
+### litellm 1.101.3
 
 - License: MIT
 - Homepage: https://litellm.ai
@@ -25874,7 +25836,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### pymongo 4.18.2
+### pymongo 4.18.3
 
 - License: Apache-2.0
 - Homepage: https://www.mongodb.org
@@ -30627,7 +30589,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### temporalio 1.34.0
+### temporalio 1.35.0
 
 - License: MIT
 - Homepage: https://github.com/temporalio/sdk-python
@@ -33534,6 +33496,28 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### ISC
+
+Reference text as shipped by griffe 2.0.2 (`licenses/LICENSE`). For each package above, the copyright holder named with it replaces the copyright line.
+
+```text
+ISC License
+
+Copyright (c) 2021, Timothée Mazzucotelli
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ### MIT

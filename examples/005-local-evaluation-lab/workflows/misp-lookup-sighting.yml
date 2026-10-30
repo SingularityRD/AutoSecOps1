@@ -1,0 +1,90 @@
+# Lab: MISP lookup and sighting.
+#
+# Searches the lab MISP for an indicator and, when it matches, records a
+# sighting so MISP shows the indicator was seen again. The registry's MISP
+# actions are read-only, so the sighting step calls POST /sightings/add with
+# core.http_request.
+#
+# Secret `misp` (MISP_API_KEY) and variable `misp` with base_url
+# https://misp:8443. `lab.sh seed misp` loads indicators such as
+# 198.51.100.23, c2.lab-malware.example, and the EICAR hashes.
+definition:
+  title: "Lab: MISP lookup and sighting"
+  description: Look up an indicator in MISP and record a sighting when it matches.
+  config:
+    environment: default
+    timeout: 300
+  entrypoint:
+    expects:
+      value:
+        type: str
+        description: Indicator value to look up, such as 198.51.100.23.
+      add_sighting:
+        type: bool
+        description: Record a sighting when MISP knows the indicator.
+        default: true
+      sighting_source:
+        type: str
+        description: Source label stored with the sighting.
+        default: AutoSecOps lab
+  actions:
+    - ref: lookup
+      action: tools.misp.search_attributes
+      args:
+        value: ${{ TRIGGER.value }}
+        include_event_tags: true
+        include_sightings: true
+        limit: 20
+        verify_ssl: false
+
+    - ref: matches
+      action: core.script.run_python
+      depends_on:
+        - lookup
+      args:
+        inputs:
+          search: ${{ ACTIONS.lookup.result }}
+        script: |
+          def main(search=None):
+              attributes = ((search or {}).get("response") or {}).get("Attribute") or []
+              return {
+                  "count": len(attributes),
+                  "attributes": [
+                      {
+                          "id": a.get("id"),
+                          "type": a.get("type"),
+                          "category": a.get("category"),
+                          "event_id": a.get("event_id"),
+                          "event_info": (a.get("Event") or {}).get("info"),
+                          "to_ids": a.get("to_ids"),
+                          "comment": a.get("comment"),
+                          "sightings": len(a.get("Sighting") or []),
+                      }
+                      for a in attributes
+                  ],
+              }
+
+    - ref: sighting
+      action: core.http_request
+      depends_on:
+        - matches
+      run_if: ${{ TRIGGER.add_sighting && ACTIONS.matches.result.count > 0 }}
+      args:
+        url: ${{ VARS.misp.base_url }}/sightings/add
+        method: POST
+        verify_ssl: false
+        headers:
+          Authorization: ${{ SECRETS.misp.MISP_API_KEY }}
+          Accept: application/json
+          Content-Type: application/json
+        payload:
+          values:
+            - ${{ TRIGGER.value }}
+          source: ${{ TRIGGER.sighting_source }}
+          # 0 = sighting, 1 = false positive, 2 = expiration.
+          type: "0"
+
+  returns:
+    known: ${{ ACTIONS.matches.result.count > 0 }}
+    matches: ${{ ACTIONS.matches.result }}
+    sighting: ${{ ACTIONS.sighting.result.data }}

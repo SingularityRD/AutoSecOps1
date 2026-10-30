@@ -1,11 +1,11 @@
 ---
 title: License key
 description: "Install a signed AutoSecOps license key on a self-hosted deployment to unlock paid features, check its status, and see what happens when it expires."
-keywords: ["license", "license key", "entitlements", "enterprise", "AUTOSECOPS__LICENSE_KEY"]
+keywords: ["license", "license key", "entitlements", "enterprise", "deployment ID", "license limits", "AUTOSECOPS__LICENSE_KEY"]
 ---
 
 A self-hosted AutoSecOps deployment runs the free feature set until you install a license key.
-The license key lists the paid features (entitlements) your deployment may use and when it expires.
+The license key lists the paid features (entitlements) your deployment may use, when it expires, and optionally how many users and workspaces it covers and which installation it is bound to.
 To buy or renew a license, contact [sales@singularityrd.com](mailto:sales@singularityrd.com).
 
 Without a license, every deployment gets custom registry repositories and Workspace Chat.
@@ -48,9 +48,20 @@ Set it as `AUTOSECOPS__LICENSE_KEY` on every backend service: `api`, `worker`, `
 
 AutoSecOps reads the key at process startup, so restart the services after you install or replace a key.
 
+## Deployment ID
+
+Every installation has a deployment ID such as `dep_3f9c2a1b7d4e4f0a9b8c6d5e4f3a2b1c`.
+AutoSecOps generates it on first startup and stores it in the database, so it stays the same across restarts, upgrades, and database restores.
+
+A license can be bound to one deployment ID.
+A bound license verifies only on that installation; anywhere else its status is `invalid` with the error `deployment_mismatch`, and paid features stay off.
+
+To request a bound license, copy the deployment ID from the `License` page in the admin console, or read `deployment_id` from the license API below, and send it to [sales@singularityrd.com](mailto:sales@singularityrd.com).
+The deployment ID is available without a license.
+
 ## Check license status
 
-Platform admins see the license on the `License` page of the admin console at `/admin/license`, including its status, customer, expiry date, the entitlements the license grants, and the entitlements included without a license.
+Platform admins see the license on the `License` page of the admin console at `/admin/license`, including its status, plan, customer, expiry date, days remaining, the entitlements the license grants, the entitlements included without a license, limits against current usage, and the deployment ID.
 The same data is available from the API:
 
 ```bash
@@ -58,6 +69,7 @@ curl -H "Authorization: Bearer <superuser-token>" \
   https://autosecops.yourdomain.com/api/admin/license
 ```
 
+The response includes `status`, `plan`, `customer`, `expires_at`, `grace_ends_at`, `days_remaining`, `limits`, `usage` (active users, workspaces, and organizations), and `deployment_id`.
 The `api` service also logs the license status at startup.
 
 | Status | Meaning | Paid entitlements |
@@ -66,7 +78,29 @@ The `api` service also logs the license status at startup.
 | `valid` | The signature verifies and the license has not expired. | On |
 | `grace` | The license expired less than 14 days ago. | On |
 | `expired` | The license expired 14 or more days ago. | Off |
-| `invalid` | The key is malformed, its signature does not verify, or its issue date is in the future (`not_yet_valid`). | Off |
+| `invalid` | The key is malformed, its signature does not verify, its issue date is in the future (`not_yet_valid`), or it is bound to another installation (`deployment_mismatch`). | Off |
+
+## License limits
+
+A license can cap how much of the product your deployment uses.
+Each limit is optional; a limit the license does not set is unlimited.
+
+| Limit | What it counts | Applies to |
+| :---- | :------------- | :--------- |
+| `max_users` | Active user accounts. Service accounts and pending invitations do not count. | Single-tenant |
+| `max_workspaces` | Workspaces. | Single-tenant |
+| `max_organizations` | Organizations. | Multi-tenant |
+| `max_concurrent_workflows` | Workflow runs executing at the same time. | Single-tenant |
+| `max_concurrent_actions` | Actions executing at the same time. | Single-tenant |
+| `max_action_executions_per_workflow` | Action executions in one workflow run. | Single-tenant |
+
+When a deployment reaches `max_users`, `max_workspaces`, or `max_organizations`, AutoSecOps blocks creating another one and returns `403` with the limit name and the current and allowed counts.
+The user limit covers every way an account is created: sign-up, invitation acceptance by a new user, OAuth and OIDC sign-in, SAML and SCIM provisioning, and accounts created by platform admins.
+Existing users, workspaces, and organizations keep working; AutoSecOps never deactivates or deletes them when a limit is reached or lowered.
+To raise a limit, contact [sales@singularityrd.com](mailto:sales@singularityrd.com) for a new key.
+
+The concurrency and execution limits narrow the deployment's workflow limits, so runs beyond them wait or fail exactly as they do for tier limits.
+Limits apply while the license is `valid` or in `grace`; once it is `expired` or `invalid`, the deployment falls back to the free feature set, which has no license limits.
 
 ## Expiry and grace period
 
@@ -74,6 +108,10 @@ When a license expires, AutoSecOps keeps its entitlements on for a 14-day grace 
 The `api` service logs it at startup, and every service logs it again at most once an hour while paid features are in use. An idle deployment can go longer between warnings, so check the `License` page or the API for the current status.
 After the grace period, paid features turn off and AutoSecOps logs an error.
 Install a renewed key before the grace period ends to avoid interruption.
+
+Organization admins see a banner in the app when the license expires within 30 days, is in its grace period, or is expired or invalid.
+Each admin can dismiss the banner for the rest of their browser session; it returns when the license status changes.
+Deployments without a license never show the banner.
 
 An invalid key never stops AutoSecOps from starting: the deployment runs with the free feature set and logs an error until you fix the key.
 Turning paid features off keeps your data. Workflows, cases, and other records created with a paid feature stay in the database and become available again when you install a valid license.
@@ -95,6 +133,7 @@ In multi-tenant mode, AutoSecOps resolves entitlements from the tiers that platf
 
 If `AUTOSECOPS__EE_MULTI_TENANT=true` is set without such a license, the `api` service logs an error at startup and every service runs single-tenant, with entitlements from the license key as described above.
 Services evaluate the `multi_tenant` grant at startup, so restart them after you install or replace the key.
+If a license that grants `multi_tenant` is bound to a different deployment ID, the `api` service refuses to start.
 
 ## Third-party notices
 

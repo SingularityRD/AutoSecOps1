@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from autosecops import config
 from autosecops.db.models import Organization, OrganizationTier, Tier
+from autosecops.licensing.service import ensure_license_deployment_loaded
 from autosecops.service import BaseService
 from autosecops.tiers import defaults as tier_defaults
 from autosecops.tiers.access import get_org_tier_and_resolved_tier
@@ -91,7 +92,8 @@ class TierService(BaseService):
     async def get_effective_limits(self, org_id: OrganizationID) -> EffectiveLimits:
         """Get effective limits (org override or tier default).
 
-        In single-tenant mode, returns static single-tenant/self-host defaults.
+        In single-tenant mode, returns the self-host defaults narrowed by any
+        concurrency and execution limits in a valid signed license key.
         In multi-tenant mode, uses the org-assigned tier if present,
         otherwise falls back to the active default tier.
 
@@ -100,7 +102,8 @@ class TierService(BaseService):
                 and the organization has no assigned tier.
         """
         if not config.AUTOSECOPS__EE_MULTI_TENANT:
-            return tier_defaults.DEFAULT_LIMITS.model_copy()
+            await ensure_license_deployment_loaded()
+            return tier_defaults.get_single_tenant_limits()
 
         org_tier, tier = await get_org_tier_and_resolved_tier(self.session, org_id)
 
@@ -156,6 +159,7 @@ class TierService(BaseService):
                 and the organization has no assigned tier.
         """
         if not config.AUTOSECOPS__EE_MULTI_TENANT:
+            await ensure_license_deployment_loaded()
             return tier_defaults.get_single_tenant_entitlements()
 
         org_tier, tier = await get_org_tier_and_resolved_tier(self.session, org_id)
