@@ -747,6 +747,30 @@ def test_copilot_skills_dir_uses_default_for_empty_string(
 
 
 @pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("example.com,example.org", {"example.com", "example.org"}),
+        # The OIDC check compared raw entries, so a space or capital made the
+        # listed domain reject every sign-in while SAML admitted it.
+        (" Example.com, example.org ,,", {"example.com", "example.org"}),
+        ("", set()),
+    ],
+)
+def test_auth_allowed_domains_are_normalized(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: set[str]
+) -> None:
+    try:
+        with monkeypatch.context() as env:
+            env.setenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS", raw)
+
+            reloaded_config = importlib.reload(autosecops_config)
+
+            assert reloaded_config.AUTOSECOPS__AUTH_ALLOWED_DOMAINS == expected
+    finally:
+        importlib.reload(autosecops_config)
+
+
+@pytest.mark.parametrize(
     ("sandbox_timeout", "expected_drain_timeout"),
     [(None, 10860), (900, 960), (7200, 7260)],
 )

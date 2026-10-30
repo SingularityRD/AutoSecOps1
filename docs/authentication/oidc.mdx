@@ -21,6 +21,15 @@ Set the following variables for your provider:
 - `OIDC_CLIENT_SECRET`
 - `OIDC_SCOPES` (optional, defaults to `openid profile email`)
 
+## Access policy
+
+After your provider authenticates a user, AutoSecOps signs them in by the email address in the provider's user info:
+
+- AutoSecOps rejects the sign-in when the provider sends `email_verified: false`. Require verified email addresses at your provider.
+- The first account to sign in must use the email in `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL`. That account becomes the superadmin.
+- When `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` is set, the email domain must be in the list. AutoSecOps ignores case and spaces around each entry.
+- A new account joins an organization through an invitation or admin provisioning.
+
 ## Instructions
 
 <Steps>

@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request, Response, status
 from fastapi.exception_handlers import http_exception_handler as default_http_handler
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
+from httpx_oauth.integrations.fastapi import OAuth2AuthorizeCallbackError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -78,8 +79,31 @@ async def generic_exception_handler(request: Request, exc: Exception) -> Respons
     )
 
 
+def _oauth_code_exchange_error(exc: OAuth2AuthorizeCallbackError) -> HTTPException:
+    """Map a failed authorization-code exchange to a client-safe error.
+
+    The library raises a 500 whose detail is the provider's error text, token
+    endpoint URL included. A code the provider refuses (reused, expired, or
+    forged) is a bad request; any other failure is the provider's.
+    """
+    provider_status = exc.response.status_code if exc.response is not None else None
+    status_code = (
+        status.HTTP_400_BAD_REQUEST
+        if provider_status is not None and 400 <= provider_status < 500
+        else status.HTTP_502_BAD_GATEWAY
+    )
+    logger.warning(
+        "OAuth authorization code exchange failed",
+        provider_status=provider_status,
+        detail=exc.detail,
+    )
+    return HTTPException(status_code, "OAUTH_CODE_EXCHANGE_FAILED")
+
+
 async def http_exception_handler(request: Request, exc: Exception) -> Response:
     """Log HTTP exceptions with tenant context for observability."""
+    if isinstance(exc, OAuth2AuthorizeCallbackError) and exc.status_code >= 500:
+        exc = _oauth_code_exchange_error(exc)
     http_exc = (
         exc if isinstance(exc, StarletteHTTPException) else HTTPException(500, str(exc))
     )
