@@ -367,6 +367,8 @@ class TestRecordApprovalRequestsActivity:
                 tool_call_id="call_123",
             )
             assert updated is not None
+            # The upsert is a Core statement; reload the cached ORM instance.
+            await service.session.refresh(updated)
             assert updated.tool_name == "updated_tool"
             assert updated.tool_call_args == {"new": "args"}
             assert updated.status == ApprovalStatus.PENDING

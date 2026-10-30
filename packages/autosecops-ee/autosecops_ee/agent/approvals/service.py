@@ -8,14 +8,16 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, null, select
+from sqlalchemy import Executable, func, null, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import DataError, IntegrityError
 from temporalio import activity, workflow
 from temporalio.client import WorkflowExecution, WorkflowExecutionStatus, WorkflowHandle
 
 from autosecops.agent.aliases import build_agent_alias
 from autosecops.agent.approvals.enums import ApprovalStatus
 from autosecops.agent.common.stream_types import ToolCallContent
+from autosecops.agent.error_policy import agent_session_initialization_failed
 from autosecops.agent.mcp.metadata import strip_proxy_tool_metadata
 from autosecops.agent.schemas import AgentOutput
 from autosecops.agent.types import (
@@ -33,6 +35,7 @@ from autosecops.identifiers import WorkflowID
 from autosecops.identifiers.workflow import exec_id_to_parts
 from autosecops.logger import logger
 from autosecops.service import BaseWorkspaceService
+from autosecops.temporal.errors import raise_application_error_from_classification
 from autosecops.workflow.executions.enums import TemporalSearchAttr
 from autosecops_ee.agent.activities import (
     ApplyApprovalResultsActivityInputs,
@@ -715,8 +718,13 @@ class ApprovalManager:
                     "updated_at": func.now(),
                 },
             )
-            await service.session.execute(stmt)
-            await service.session.commit()
+            await _execute_approval_write(
+                service,
+                stmt,
+                session_id=input.session_id,
+                tool_call_ids=[decision.tool_call_id for decision in input.decisions],
+                operation="apply_approval_decisions",
+            )
 
     @staticmethod
     @activity.defn
@@ -725,64 +733,136 @@ class ApprovalManager:
     ) -> None:
         """Persist pending approval records for deferred tool calls.
 
-        Handles business logic:
-        - Upserts approvals (updates existing or creates new)
-        - Resets approval state to PENDING if record already exists
+        All rows are written with a single ``INSERT ... ON CONFLICT DO UPDATE``
+        in one transaction, so a batch of parallel tool calls becomes visible
+        atomically and the activity is idempotent under Temporal retries.
+
+        The conflict path is required, not legacy: an activity retry after a
+        committed-but-unacknowledged attempt, or the executor re-requesting the
+        same tool call ID in a later turn, must reset the existing row to a
+        clean PENDING state (clearing any prior decision, reviewer, and
+        ``approved_at``) instead of failing on the unique constraint.
         """
 
         if not input.approvals:
             return
 
+        # Parallel tool calls with a repeated ID would make ON CONFLICT touch
+        # the same row twice in one statement, which PostgreSQL rejects. Keep
+        # the last request for each ID, matching sequential upsert semantics.
+        payloads = {payload.tool_call_id: payload for payload in input.approvals}
+
         async with ApprovalService.with_session(role=input.role) as service:
-            for payload in input.approvals:
-                # Check if approval already exists
-                existing = await service.get_approval_by_session_and_tool(
-                    session_id=input.session_id,
-                    tool_call_id=payload.tool_call_id,
+            # Untyped: these are SQLAlchemy insert values keyed by column name,
+            # where each value may be a Python scalar or a SQL element (null()).
+            rows: list[dict[str, Any]] = []
+            for payload in payloads.values():
+                approval_args = _normalize_approval_args(payload)
+                rows.append(
+                    {
+                        "workspace_id": service.workspace_id,
+                        "session_id": input.session_id,
+                        "tool_call_id": payload.tool_call_id,
+                        "tool_name": payload.tool_name,
+                        "status": ApprovalStatus.PENDING,
+                        # SQL NULL rather than JSON null for absent arguments.
+                        "tool_call_args": approval_args
+                        if approval_args is not None
+                        else null(),
+                    }
                 )
 
-                # Normalize tool args to a dict
-                approval_args: dict[str, Any] | None = None
-                if payload.args is not None:
-                    if isinstance(payload.args, dict):
-                        approval_args = strip_proxy_tool_metadata(payload.args)
-                    elif isinstance(payload.args, str):
-                        try:
-                            loaded_args = json.loads(payload.args)
-                            if isinstance(loaded_args, dict):
-                                approval_args = strip_proxy_tool_metadata(loaded_args)
-                            else:
-                                approval_args = {"raw_args": payload.args}
-                        except (json.JSONDecodeError, ValueError):
-                            # Store as-is if not valid JSON
-                            approval_args = {"raw_args": payload.args}
-                if payload.metadata:
-                    approval_args = approval_args or {}
-                    approval_args["_autosecops"] = payload.metadata
+            stmt = pg_insert(Approval).values(rows)
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_approval_workspace_session_tool",
+                set_={
+                    "tool_name": stmt.excluded.tool_name,
+                    "tool_call_args": stmt.excluded.tool_call_args,
+                    "status": ApprovalStatus.PENDING,
+                    "reason": null(),
+                    "approved_by": null(),
+                    "approved_at": null(),
+                    "decision": null(),
+                    # onupdate does not fire for ON CONFLICT DO UPDATE.
+                    "updated_at": func.now(),
+                },
+            )
+            await _execute_approval_write(
+                service,
+                stmt,
+                session_id=input.session_id,
+                tool_call_ids=list(payloads),
+                operation="record_approval_requests",
+            )
 
-                if existing:
-                    # TODO: Do we need this path?
-                    # Update existing record and reset to pending state
-                    await service.update_approval(
-                        existing,
-                        ApprovalUpdate(
-                            status=ApprovalStatus.PENDING,
-                            tool_name=payload.tool_name,
-                            tool_call_args=approval_args,
-                            reason=None,
-                            approved_by=None,
-                            decision=None,
-                        ),
-                    )
-                    # Reset approved_at manually
-                    existing.approved_at = None
-                else:
-                    # Create new approval record
-                    await service.create_approval(
-                        ApprovalCreate(
-                            session_id=input.session_id,
-                            tool_call_id=payload.tool_call_id,
-                            tool_name=payload.tool_name,
-                            tool_call_args=approval_args,
-                        )
-                    )
+
+def _normalize_approval_args(payload: ToolApprovalPayload) -> dict[str, Any] | None:
+    """Normalize deferred tool arguments into the stored approval args shape.
+
+    Internal proxy metadata is stripped from the model-supplied arguments, and
+    per-tool request metadata is stored under the reserved ``_autosecops`` key
+    for display and decision reconciliation.
+    """
+    approval_args: dict[str, Any] | None = None
+    match payload.args:
+        case dict() as args:
+            approval_args = strip_proxy_tool_metadata(args)
+        case str() as raw_args:
+            try:
+                loaded_args = json.loads(raw_args)
+            except (json.JSONDecodeError, ValueError):
+                # Store as-is if not valid JSON
+                loaded_args = None
+            if isinstance(loaded_args, dict):
+                approval_args = strip_proxy_tool_metadata(loaded_args)
+            else:
+                approval_args = {"raw_args": raw_args}
+        case None:
+            approval_args = None
+    if payload.metadata:
+        approval_args = approval_args or {}
+        approval_args["_autosecops"] = payload.metadata
+    return approval_args
+
+
+async def _execute_approval_write(
+    service: ApprovalService,
+    stmt: Executable,
+    *,
+    session_id: uuid.UUID,
+    tool_call_ids: list[str],
+    operation: str,
+) -> None:
+    """Execute and commit an approval write, failing fast on permanent errors.
+
+    Approval activities run with Temporal's default (unbounded) retry policy.
+    Integrity and data errors are deterministic for a given input, for example
+    when the agent session row was deleted while the run waited, so retrying
+    them would hang the run indefinitely with no signal to the user. They are
+    raised as a non-retryable classified error instead, which fails the turn
+    and surfaces the session error. Transient errors (connection loss,
+    timeouts) still propagate unchanged and are retried.
+
+    The replacement error is raised after the ``except`` block exits so the
+    original database error, whose message can echo bound parameters such as
+    tool arguments, is never chained into Temporal workflow history.
+    """
+    permanent_error_type: str | None = None
+    try:
+        await service.session.execute(stmt)
+        await service.session.commit()
+    except (IntegrityError, DataError) as exc:
+        await service.session.rollback()
+        permanent_error_type = type(exc).__name__
+    if permanent_error_type is None:
+        return
+    logger.error(
+        "Approval persistence failed with a non-retryable database error",
+        operation=operation,
+        session_id=str(session_id),
+        tool_call_ids=tool_call_ids,
+        error_type=permanent_error_type,
+    )
+    raise_application_error_from_classification(
+        agent_session_initialization_failed(retryable=False)
+    )

@@ -361,6 +361,7 @@ def create_activities_with_mock_executor(
     session_messages: list[ChatMessage] | None = None,
     done_inputs: list[EmitSessionDoneInputs] | None = None,
     done_call_order: list[str] | None = None,
+    persist_session: bool = False,
 ) -> Sequence[Callable[..., Any]]:
     """Create a full activity list with mocked agent executor.
 
@@ -368,12 +369,17 @@ def create_activities_with_mock_executor(
         response_callback: Function for mock run_agent_activity.
         tool_exec_callback: Optional function for mock execute_action_activity.
         tool_definitions: Optional tool definitions for build_agent_tool_definitions.
+        persist_session: Use the real create_session_activity so the
+            agent_session row exists. Required whenever the real approval
+            activities run, because approval rows reference agent_session.id.
 
     Returns:
         List of activities including mocked activities and approval manager activities.
     """
     activities: list[Callable[..., Any]] = [
-        create_mock_create_session_activity(),
+        create_session_activity
+        if persist_session
+        else create_mock_create_session_activity(),
         create_mock_load_session_activity(),
         create_mock_load_session_messages_activity(
             captured_inputs=message_load_inputs,
@@ -2751,9 +2757,6 @@ async def test_agent_workflow_replays_suspended_legacy_sdk_session_data_history(
 # =============================================================================
 
 
-@pytest.mark.skip(
-    reason="TODO: Approval persistence via Temporal activity needs database session fix"
-)
 @pytest.mark.anyio
 @pytest.mark.integration
 async def test_agent_workflow_with_single_approval(
@@ -2795,7 +2798,9 @@ async def test_agent_workflow_with_single_approval(
             # Second call: after approval, complete successfully
             return AgentExecutorResult(success=True, approval_requested=False)
 
-    activities = create_activities_with_mock_executor(mock_executor)
+    activities = create_activities_with_mock_executor(
+        mock_executor, persist_session=True
+    )
 
     workflow_args = AgentWorkflowArgs(
         role=svc_role,
@@ -2870,9 +2875,6 @@ async def test_agent_workflow_with_single_approval(
         raise
 
 
-@pytest.mark.skip(
-    reason="TODO: Approval persistence via Temporal activity needs database session fix"
-)
 @pytest.mark.anyio
 @pytest.mark.integration
 async def test_agent_workflow_with_multiple_approvals(
@@ -2914,7 +2916,9 @@ async def test_agent_workflow_with_multiple_approvals(
         else:
             return AgentExecutorResult(success=True)
 
-    activities = create_activities_with_mock_executor(mock_executor)
+    activities = create_activities_with_mock_executor(
+        mock_executor, persist_session=True
+    )
 
     workflow_args = AgentWorkflowArgs(
         role=svc_role,
@@ -2988,9 +2992,6 @@ async def test_agent_workflow_with_multiple_approvals(
         raise
 
 
-@pytest.mark.skip(
-    reason="TODO: Approval persistence via Temporal activity needs database session fix"
-)
 @pytest.mark.anyio
 @pytest.mark.integration
 async def test_agent_workflow_approval_with_override_args(
@@ -3025,7 +3026,9 @@ async def test_agent_workflow_approval_with_override_args(
         else:
             return AgentExecutorResult(success=True)
 
-    activities = create_activities_with_mock_executor(mock_executor)
+    activities = create_activities_with_mock_executor(
+        mock_executor, persist_session=True
+    )
 
     workflow_args = AgentWorkflowArgs(
         role=svc_role,
@@ -3109,9 +3112,6 @@ async def test_agent_workflow_approval_with_override_args(
         raise
 
 
-@pytest.mark.skip(
-    reason="TODO: Approval persistence via Temporal activity needs database session fix"
-)
 @pytest.mark.anyio
 @pytest.mark.integration
 async def test_agent_workflow_mixed_approvals_and_rejections(
@@ -3154,7 +3154,9 @@ async def test_agent_workflow_mixed_approvals_and_rejections(
         else:
             return AgentExecutorResult(success=True)
 
-    activities = create_activities_with_mock_executor(mock_executor)
+    activities = create_activities_with_mock_executor(
+        mock_executor, persist_session=True
+    )
 
     workflow_args = AgentWorkflowArgs(
         role=svc_role,
