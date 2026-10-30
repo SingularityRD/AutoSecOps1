@@ -62,6 +62,7 @@ from autosecops.chat.schemas import (
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import AgentSession
 from autosecops.exceptions import (
+    AgentProviderCredentialsNotFoundError,
     AutoSecOpsConflictError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
@@ -735,6 +736,13 @@ async def send_message(
             media_type="text/event-stream",
             headers=_sse_headers("vercel"),
         )
+    except AgentProviderCredentialsNotFoundError as e:
+        # The session exists, but its model can't run until the provider is
+        # configured; the message tells the user what to set up.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
     except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
