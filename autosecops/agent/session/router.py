@@ -12,7 +12,6 @@ from autosecops_ee.workspace_chat.policy import (
 )
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.agent.adapter import vercel
@@ -60,7 +59,7 @@ from autosecops.chat.schemas import (
     ChatRequest,
     ContinueRunRequest,
 )
-from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.dependencies import AsyncDBSession, ReleaseRequestSession
 from autosecops.db.models import AgentSession
 from autosecops.exceptions import (
     AgentProviderCredentialsNotFoundError,
@@ -93,21 +92,6 @@ def _sse_headers(format: StreamFormat) -> dict[str, str]:
     if format == "vercel":
         return dict(VERCEL_SSE_HEADERS)
     return dict(SSE_HEADERS)
-
-
-async def _release_request_db_connection(db_session: AsyncSession) -> None:
-    """Return the request's pooled DB connection before a long-lived SSE stream.
-
-    FastAPI tears down ``yield`` dependencies only after a streaming response
-    finishes, so the request-scoped session shared with the auth dependency
-    would otherwise stay idle in transaction for the stream's lifetime. Its
-    open transaction keeps table locks that make DDL (such as a migration)
-    wait, and every query queued behind that DDL waits with it.
-
-    Args:
-        db_session: The request-scoped session from ``AsyncDBSession``.
-    """
-    await db_session.close()
 
 
 def _bubble_id(session_id: uuid.UUID, curr_run_id: uuid.UUID | None) -> str | None:
@@ -561,14 +545,13 @@ async def delete_session(
     await svc.delete_session(agent_session)
 
 
-@router.post("/{session_id}/messages")
+@router.post("/{session_id}/messages", dependencies=[ReleaseRequestSession])
 @require_scope("agent:execute")
 async def send_message(
     session_id: uuid.UUID,
     request: ChatRequest,
     role: WorkspaceActorRouteRole,
     http_request: Request,
-    db_session: AsyncDBSession,
 ) -> StreamingResponse:
     """Send a message to the agent session with streaming response.
 
@@ -718,7 +701,6 @@ async def send_message(
             start_id="0-0",
         )
 
-        await _release_request_db_connection(db_session)
         # Create stream and return with Vercel format
         return StreamingResponse(
             stream.sse(
@@ -770,13 +752,12 @@ async def send_message(
         ) from e
 
 
-@router.get("/{session_id}/stream")
+@router.get("/{session_id}/stream", dependencies=[ReleaseRequestSession])
 @require_scope("agent:read")
 async def stream_session_events(
     role: WorkspaceActorRouteRole,
     request: Request,
     session_id: uuid.UUID,
-    db_session: AsyncDBSession,
     format: StreamFormat = Query(
         default="vercel", description="Streaming format (e.g. 'vercel')"
     ),
@@ -816,7 +797,6 @@ async def stream_session_events(
             legacy_stream = await AgentStream.new(
                 session_id=session_id, workspace_id=workspace_id
             )
-            await _release_request_db_connection(db_session)
             return StreamingResponse(
                 legacy_stream.sse(
                     request.is_disconnected, last_id=start_id, format=format
@@ -864,7 +844,6 @@ async def stream_session_events(
         last_id=start_id,
         session_id=session_id,
     )
-    await _release_request_db_connection(db_session)
     return StreamingResponse(
         stream.sse(
             request.is_disconnected,
