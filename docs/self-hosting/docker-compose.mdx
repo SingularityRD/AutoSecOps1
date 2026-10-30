@@ -59,7 +59,7 @@ chmod +x env.sh && ./env.sh
 After running `env.sh`, you'll be prompted to input the following:
 
 - Use production mode? Defaults to `y`. Production mode generates random PostgreSQL, Temporal PostgreSQL, and MinIO passwords. Answer `n` only on a local development machine, which keeps the well-known development passwords.
-- Set `PUBLIC_APP_URL`. Defaults to `localhost`.
+- Set `PUBLIC_APP_URL`. Defaults to `localhost`. A typed `http://` or `https://` scheme is kept. Without one, production mode uses `https://` for any host except `localhost` and `127.*`, so session cookies are marked `Secure`; terminate TLS as described in [TLS and certificates](/self-hosting/tls). Development mode uses `http://` and also allows the frontend dev server at `http://localhost:3000` in `AUTOSECOPS__ALLOW_ORIGINS`.
 - Require PostgreSQL SSL mode? Defaults to `n`, because the bundled `postgres_db` container is reachable only on the internal Compose network. Use `require` or `verify-full` in `AUTOSECOPS__DB_SSLMODE` when you point `AUTOSECOPS__DB_URI` at an external database.
 - Required field: Enter email address for the first user (superadmin).
 
