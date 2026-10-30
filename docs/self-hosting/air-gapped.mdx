@@ -40,7 +40,7 @@ flowchart TB
 
 ## Prepare while connected
 
-- Get the [offline bundle](#offline-bundle) for your AutoSecOps version.
+- Get the [offline bundle](#offline-bundle) for your AutoSecOps version. Build it with the GHCR access SingularityRD granted you, as described in [Registry access](/self-hosting/kubernetes#registry-access).
 - Stage the inference image, model weights, tokenizer, and model configuration in internal repositories. The offline bundle does not include model weights.
 - Provision internal DNS, TLS certificates, and identity. On Kubernetes, also provision PostgreSQL with pgvector, Redis, S3-compatible storage, and Temporal; Docker Compose runs these from the bundled images.
 - Mirror the PyPI and npm packages your workflows and MCP servers install. See [Mirror PyPI and npm](#mirror-pypi-and-npm).

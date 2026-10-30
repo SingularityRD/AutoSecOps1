@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps to AWS ECS Fargate using Terraform: 
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import GhcrAccess from "/snippets/ghcr-access.mdx";
 import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 
 <Warning>
@@ -20,6 +21,11 @@ import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 - AWS credentials configured for your target account and role
 - A public [Route53 hosted zone](https://aws.amazon.com/route53/) (domain and hosted zone ID)
 - `openssl` and AWS CLI (if using the helper secret script)
+- Read access to the AutoSecOps packages on GHCR, granted by SingularityRD
+
+## Registry access
+
+<GhcrAccess />
 
 ## Extract the Terraform stack
 
@@ -39,20 +45,18 @@ docker rm "$id"
 cd autosecops-fargate
 ```
 
-If SingularityRD issued you registry credentials, run `docker login ghcr.io` before `docker pull`.
-
 ## Registry credentials
 
-ECS pulls the AutoSecOps images from GHCR. If the packages are private, store your registry credentials in Secrets Manager and pass the secret ARN to Terraform:
+ECS pulls the private AutoSecOps images from GHCR with the same GitHub username and token you used for `docker login`. Store them in Secrets Manager and pass the secret ARN to Terraform:
 
 ```bash
 aws secretsmanager create-secret --name autosecops/ghcr-pull \
-  --secret-string '{"username":"<github-user>","password":"<github-token-with-read:packages>"}'
+  --secret-string '{"username":"<github-username>","password":"<read-packages-token>"}'
 
 export TF_VAR_autosecops_registry_credentials_arn=<secret-arn>
 ```
 
-Terraform adds `repositoryCredentials` to every AutoSecOps container and lets the execution roles read the secret. If you encrypt the secret with a customer-managed KMS key, also grant the execution roles `kms:Decrypt` on it. Skip this step if the packages are public, or mirror the images to Amazon ECR and set `autosecops_image` and `autosecops_ui_image` instead.
+Terraform adds `repositoryCredentials` to every AutoSecOps container and lets the execution roles read the secret. If you encrypt the secret with a customer-managed KMS key, also grant the execution roles `kms:Decrypt` on it. When you rotate the token, update the secret value; ECS uses it on the next image pull. To pull from your own registry instead, mirror the images to Amazon ECR, set `autosecops_image` and `autosecops_ui_image`, and leave `autosecops_registry_credentials_arn` unset.
 
 ## Create core secrets
 
