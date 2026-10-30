@@ -23,9 +23,11 @@ TEMPORAL_SCHEDULE_ID_PATTERN = rf"(?:{_LEGACY_SCHEDULE_ID_PATTERN}|{_UUID_PATTER
 SCHEDULE_EXEC_ID_PATTERN = rf"{TEMPORAL_SCHEDULE_ID_PATTERN}-.*"
 
 # Short ID type (used as AutoSecOpsUUID type parameter)
-ScheduleIDShort = Annotated[str, StringConstraints(pattern=_SCH_ID_SHORT_PATTERN)]
+ScheduleIDShort = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{_SCH_ID_SHORT_PATTERN})$")
+]
 LegacyScheduleID = Annotated[
-    str, StringConstraints(pattern=_LEGACY_SCHEDULE_ID_PATTERN)
+    str, StringConstraints(pattern=rf"^(?:{_LEGACY_SCHEDULE_ID_PATTERN})$")
 ]
 
 

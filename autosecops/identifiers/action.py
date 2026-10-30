@@ -20,8 +20,12 @@ _ACT_ID_SHORT_PATTERN = rf"{ACT_ID_PREFIX}[0-9a-zA-Z]+"
 _LEGACY_ACTION_ID_PATTERN = r"act-[0-9a-f]{32}"
 
 # Short ID type (used as AutoSecOpsUUID type parameter)
-ActionIDShort = Annotated[str, StringConstraints(pattern=_ACT_ID_SHORT_PATTERN)]
-LegacyActionID = Annotated[str, StringConstraints(pattern=_LEGACY_ACTION_ID_PATTERN)]
+ActionIDShort = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{_ACT_ID_SHORT_PATTERN})$")
+]
+LegacyActionID = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{_LEGACY_ACTION_ID_PATTERN})$")
+]
 
 
 class ActionUUID(AutoSecOpsUUID[ActionIDShort]):

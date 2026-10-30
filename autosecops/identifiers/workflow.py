@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, Query
 from fastapi.exceptions import RequestValidationError
-from pydantic import UUID4, StringConstraints
+from pydantic import UUID4, StringConstraints, TypeAdapter, WithJsonSchema
 
 from autosecops.identifiers.common import AutoSecOpsUUID
 from autosecops.identifiers.resource import ResourcePrefix, generate_resource_id
@@ -33,7 +33,9 @@ WF_EXEC_ID_PATTERN = rf"(?P<workflow_id>{LEGACY_WF_ID_PATTERN}|{WF_ID_SHORT_PATT
 # clients). Runtime parsing keeps the named pattern above for `match.group(...)`.
 WF_EXEC_ID_SCHEMA_PATTERN = re.sub(r"\?P<[^>]+>", "", WF_EXEC_ID_PATTERN)
 
-WorkflowIDShort = Annotated[str, StringConstraints(pattern=WF_ID_SHORT_PATTERN)]
+WorkflowIDShort = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{WF_ID_SHORT_PATTERN})$")
+]
 """A short base62 encoded string representation of a workflow UUID.
 
 Examples
@@ -42,7 +44,9 @@ Examples
 - short -> `wf_4itKqkgCZrLhgYiq5L211X`
 """
 
-ExecutionIDShort = Annotated[str, StringConstraints(pattern=EXEC_ID_SHORT_PATTERN)]
+ExecutionIDShort = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{EXEC_ID_SHORT_PATTERN})$")
+]
 """A short base62 encoded string representation of a workflow execution UUID.
 
 Examples
@@ -51,7 +55,9 @@ Examples
 - short -> `exec_4itKqkgCZrLhgYiq5L211X`
 """
 
-WorkspaceIDShort = Annotated[str, StringConstraints(pattern=WS_ID_SHORT_PATTERN)]
+WorkspaceIDShort = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{WS_ID_SHORT_PATTERN})$")
+]
 """A short base62 encoded string representation of a workspace UUID.
 
 Examples
@@ -96,11 +102,22 @@ References
 ----------
 See Temporal docs: https://docs.temporal.io/workflows#workflow-id
 """
-LegacyWorkflowID = Annotated[str, StringConstraints(pattern=LEGACY_WF_ID_PATTERN)]
+LegacyWorkflowID = Annotated[
+    str, StringConstraints(pattern=rf"^(?:{LEGACY_WF_ID_PATTERN})$")
+]
 
 
 AnyWorkflowID = WorkflowID | WorkflowIDShort | LegacyWorkflowID
 """A workflow ID that can be either a UUID or a short string."""
+
+_AnyWorkflowIDParam = Annotated[
+    str, WithJsonSchema(TypeAdapter(AnyWorkflowID).json_schema())
+]
+"""Raw workflow ID parameter documented as AnyWorkflowID.
+
+The ID dependencies parse it themselves so every malformed ID gets the same
+validation error.
+"""
 
 AnyExecutionID = ExecutionUUID | ExecutionIDShort
 """Either manual or scheduled execution ID."""
@@ -172,7 +189,7 @@ def exec_id_from_parts(
 
 
 def _wf_id_from_any(
-    workflow_id: AnyWorkflowID, *, loc: Literal["path", "query"]
+    workflow_id: str | WorkflowID, *, loc: Literal["path", "query"]
 ) -> WorkflowID:
     try:
         return WorkflowUUID.new(workflow_id)
@@ -192,7 +209,7 @@ def _wf_id_from_any(
         ) from exc
 
 
-def wf_id_from_any_dep(workflow_id: AnyWorkflowID) -> WorkflowID:
+def wf_id_from_any_dep(workflow_id: _AnyWorkflowIDParam) -> WorkflowID:
     """Convert a workflow ID string to a UUID.
 
     Accepts either a UUID string or a short ID in the format wf_XXXXX.
@@ -201,7 +218,7 @@ def wf_id_from_any_dep(workflow_id: AnyWorkflowID) -> WorkflowID:
 
 
 def opt_wf_id_from_any_query_dep(
-    workflow_id: AnyWorkflowID | None = Query(None),
+    workflow_id: _AnyWorkflowIDParam | None = Query(None),
 ) -> WorkflowID | None:
     """Convert a workflow ID string to a UUID.
 
@@ -210,7 +227,9 @@ def opt_wf_id_from_any_query_dep(
     return _wf_id_from_any(workflow_id, loc="query") if workflow_id else None
 
 
-def wf_id_from_any_query_dep(workflow_id: AnyWorkflowID = Query(...)) -> WorkflowID:
+def wf_id_from_any_query_dep(
+    workflow_id: _AnyWorkflowIDParam = Query(...),
+) -> WorkflowID:
     """Convert a workflow ID string to a UUID.
 
     Accepts either a UUID string or a short ID in the format wf_XXXXX.

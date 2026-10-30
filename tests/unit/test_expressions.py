@@ -4,6 +4,7 @@ from typing import Any, Literal
 import pytest
 
 from autosecops.exceptions import AutoSecOpsExpressionError
+from autosecops.executor.service import get_workspace_variables
 from autosecops.expressions.common import (
     ExprContext,
     ExprType,
@@ -1126,6 +1127,31 @@ async def test_extract_expressions_errors(expr, expected, test_role, env_sandbox
 
     for actual, ex in zip(errors, expected, strict=True):
         assert_validation_detail(actual, **ex)
+
+
+@pytest.mark.anyio
+async def test_expr_validator_reports_invalid_variable_names(test_role, env_sandbox):
+    """VARS.MyVar names a variable that cannot exist; committing used to 500."""
+    validation_context = ExprValidationContext(action_refs=set())
+    async with ExprValidator(validation_context=validation_context) as validator:
+        for template in extract_expressions("${{ VARS.MyVar.key }}"):
+            template.validate(validator)
+    errors = validator.errors()
+    assert len(errors) == 1
+    assert errors[0].type == ExprType.VARIABLE
+    assert "Invalid variable name 'MyVar'" in errors[0].msg
+
+
+@pytest.mark.anyio
+async def test_get_workspace_variables_skips_impossible_names(test_role, env_sandbox):
+    async with VariablesService.with_session(role=test_role) as service:
+        await service.create_variable(
+            VariableCreate(name="real_var", values={"key": "value"})
+        )
+    assert await get_workspace_variables({"MyVar"}, role=test_role) == {}
+    assert await get_workspace_variables({"MyVar", "real_var"}, role=test_role) == {
+        "real_var": {"key": "value"}
+    }
 
 
 @pytest.mark.anyio

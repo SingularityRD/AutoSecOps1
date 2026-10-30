@@ -243,7 +243,11 @@ class SecretCreate(BaseModel):
     description: str | None = Field(default=None, min_length=0, max_length=1000)
     keys: list[SecretKeyValue] = Field(..., min_length=1, max_length=100)
     tags: dict[str, str] | None = None
-    environment: str = DEFAULT_SECRETS_ENVIRONMENT
+    # Same bounds as SecretUpdate: an empty environment stored a secret that
+    # workspace sync export could not project, failing every export preview.
+    environment: str = Field(
+        default=DEFAULT_SECRETS_ENVIRONMENT, min_length=1, max_length=100
+    )
 
     @staticmethod
     def from_strings(name: str, keyvalues: list[str]) -> SecretCreate:

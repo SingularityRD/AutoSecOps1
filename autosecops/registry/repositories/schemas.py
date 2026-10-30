@@ -58,6 +58,8 @@ class RegistryRepositoryCreate(BaseModel):
             DEFAULT_LOCAL_REGISTRY_ORIGIN,
         ):
             return v
+        if not isinstance(v, str):
+            raise ValueError("Origin must be a string")
 
         # Aside from the default origins, we only support git+ssh URLs
         if not v.startswith("git+ssh://"):

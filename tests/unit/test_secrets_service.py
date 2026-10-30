@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -601,6 +602,13 @@ class TestSecretsService:
         ssh_key = await service.get_ssh_key("test-secret-2", "test")
         assert isinstance(ssh_key, SecretStr)
         assert ssh_key.get_secret_value() == f"{ssh_private_key}\n"
+
+    async def test_get_nonexistent_org_secret_is_not_found(
+        self, service: SecretsService
+    ) -> None:
+        """A missing ID must be a not-found error (the update/delete routes 404)."""
+        with pytest.raises(AutoSecOpsNotFoundError):
+            await service.get_org_secret(uuid.uuid4())
 
     async def test_get_nonexistent_ssh_key(self, service: SecretsService) -> None:
         """Test retrieving non-existent SSH key."""

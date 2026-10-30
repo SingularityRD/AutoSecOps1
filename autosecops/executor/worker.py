@@ -103,8 +103,12 @@ def new_sandbox_runner() -> SandboxedWorkflowRunner:
 
     # Add beartype to passthrough modules to avoid circular import issues
     # with its custom import hooks conflicting with Temporal's sandbox.
+    # cryptography's Rust extension cannot be imported a second time inside
+    # the sandbox ("bad argument to internal function"); config imports it
+    # through the license verifier, so pass it through as the DSL worker does.
     passthrough_modules = SandboxRestrictions.passthrough_modules_default | {
         "beartype",
+        "cryptography",
     }
 
     return SandboxedWorkflowRunner(

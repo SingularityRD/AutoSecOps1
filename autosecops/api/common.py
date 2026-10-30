@@ -1,3 +1,4 @@
+import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -5,7 +6,9 @@ from fastapi import HTTPException, Request, Response, status
 from fastapi.exception_handlers import http_exception_handler as default_http_handler
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
+from pydantic_core import to_jsonable_python
 from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from temporalio.api.enums.v1 import IndexedValueType
@@ -64,6 +67,26 @@ def without_inputs(errors: Sequence[Any]) -> list[Any]:
     ]
 
 
+class BigIntSafeORJSONResponse(ORJSONResponse):
+    """ORJSONResponse that also encodes integers outside the 64-bit range.
+
+    orjson refuses them, but JSON columns (such as variable values) can store
+    them, so one stored value would otherwise make every read of it a 500.
+    Only that rare case falls back to the standard library encoder.
+    """
+
+    def render(self, content: Any) -> bytes:
+        try:
+            return super().render(content)
+        except TypeError:
+            return json.dumps(
+                content,
+                default=to_jsonable_python,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> Response:
     logger.exception(
         "Unexpected error",
@@ -76,6 +99,53 @@ async def generic_exception_handler(request: Request, exc: Exception) -> Respons
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"message": "An unexpected error occurred. Please try again later."},
     )
+
+
+# SQLSTATE classes that mean the request carried data the database refused:
+# 22 is "data exception" (such as a NUL byte in text or a malformed UUID) and
+# 23 is "integrity constraint violation" (such as a duplicate key or a missing
+# parent row). Neither is a server fault, so they must not surface as 500s.
+_DATA_EXCEPTION_CLASS = "22"
+_INTEGRITY_VIOLATION_CLASS = "23"
+
+
+def database_error_status(exc: DBAPIError) -> int | None:
+    """Return the client error status for a database error, if it is one."""
+    sqlstate = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
+    if not isinstance(sqlstate, str):
+        return None
+    if sqlstate.startswith(_DATA_EXCEPTION_CLASS):
+        return status.HTTP_400_BAD_REQUEST
+    if sqlstate.startswith(_INTEGRITY_VIOLATION_CLASS):
+        return status.HTTP_409_CONFLICT
+    return None
+
+
+async def database_exception_handler(request: Request, exc: Exception) -> Response:
+    """Answer database data and integrity errors as client errors.
+
+    Routes that handle these errors themselves keep their own messages; this
+    is the fallback for the ones that do not. The detail is generic because
+    the database message can carry statement parameters.
+    """
+    status_code = database_error_status(exc) if isinstance(exc, DBAPIError) else None
+    if status_code is None:
+        return await generic_exception_handler(request, exc)
+    sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", None)
+    logger.warning(
+        "Database rejected request data",
+        status_code=status_code,
+        sqlstate=sqlstate,
+        path=request.url.path,
+        method=request.method,
+        role=ctx_role.get(),
+    )
+    detail = (
+        "The request contains a value the database cannot store."
+        if status_code == status.HTTP_400_BAD_REQUEST
+        else "The request conflicts with existing data or references a missing resource."
+    )
+    return ORJSONResponse(status_code=status_code, content={"detail": detail})
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> Response:

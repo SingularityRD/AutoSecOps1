@@ -1,10 +1,36 @@
 import ast
 import functools
+import re
+import string
 import sys
 from collections.abc import Callable
 from typing import Any
 
 from autosecops.expressions.common import eval_jsonpath
+
+# A format field may only name a positional or keyword argument. Dotted or
+# indexed fields ("{0.attr}", "{0[key]}") make str.format call getattr and
+# getitem at runtime, which a lambda could use to walk from an argument to
+# module globals and process state.
+_SIMPLE_FORMAT_FIELD = re.compile(r"\d*|[A-Za-z_][A-Za-z0-9_]*")
+_MAX_FORMAT_SPEC_DEPTH = 2
+
+
+def _check_format_template(template: str, depth: int = 0) -> None:
+    if depth > _MAX_FORMAT_SPEC_DEPTH:
+        raise ValueError("Format string nests replacement fields too deeply")
+    for _literal, field_name, format_spec, _conversion in string.Formatter().parse(
+        template
+    ):
+        if field_name is None:
+            continue
+        if not _SIMPLE_FORMAT_FIELD.fullmatch(field_name):
+            raise ValueError(
+                "Format fields may only name an argument; attribute and index "
+                "lookups are not allowed"
+            )
+        if format_spec:
+            _check_format_template(format_spec, depth + 1)
 
 
 class SafeLambdaValidator(ast.NodeVisitor):
@@ -172,6 +198,13 @@ class SafeLambdaValidator(ast.NodeVisitor):
         ast.keyword,
     }
     ALLOWED_FUNCTIONS = {"jsonpath"}
+    # str.format and str.format_map resolve fields with getattr/getitem, so
+    # they are only allowed as direct calls on a literal, vetted template.
+    FORMAT_METHODS = {"format", "format_map"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._vetted_format_calls: set[int] = set()
 
     def visit(self, node):
         if type(node) in self.DENYLISTED_NODES:
@@ -184,6 +217,28 @@ class SafeLambdaValidator(ast.NodeVisitor):
                 f"Node type {type(node).__name__} is not allowed in expressions. "
                 f"Only safe, simple expressions are permitted."
             )
+
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in self.FORMAT_METHODS
+        ):
+            template = node.func.value
+            if not (
+                isinstance(template, ast.Constant) and isinstance(template.value, str)
+            ):
+                raise ValueError(
+                    f"'{node.func.attr}' is only allowed on a string literal"
+                )
+            _check_format_template(template.value)
+            self._vetted_format_calls.add(id(node.func))
+
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr in self.FORMAT_METHODS
+            and id(node) not in self._vetted_format_calls
+        ):
+            raise ValueError(f"'{node.attr}' is only allowed on a string literal")
 
         if isinstance(node, ast.Attribute):
             if node.attr.startswith("__") and node.attr.endswith("__"):

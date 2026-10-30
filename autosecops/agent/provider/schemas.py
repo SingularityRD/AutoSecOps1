@@ -1,10 +1,11 @@
 """Schemas for custom LLM provider management."""
 
 from datetime import datetime
+from typing import Self
 from urllib.parse import urlparse
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def validate_base_url(value: str | None) -> str | None:
@@ -63,6 +64,15 @@ class AgentCustomProviderUpdate(BaseModel):
     @classmethod
     def _validate_base_url(cls, value: str | None) -> str | None:
         return validate_base_url(value)
+
+    @model_validator(mode="after")
+    def _null_means_unchanged(self) -> Self:
+        # Updates apply only the fields that were set. These columns are NOT
+        # NULL, so an explicit null leaves them as they are.
+        for name in ("display_name", "passthrough"):
+            if getattr(self, name) is None:
+                self.model_fields_set.discard(name)
+        return self
 
 
 class AgentCustomProviderListResponse(BaseModel):

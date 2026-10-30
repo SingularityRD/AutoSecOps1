@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any, Self
 
 from fastapi_users import schemas
-from pydantic import UUID4, BaseModel, EmailStr
+from pydantic import UUID4, BaseModel, EmailStr, field_validator, model_validator
 
 
 # === Users ===
@@ -24,6 +24,13 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     first_name: str | None = None
     last_name: str | None = None
     settings: dict[str, Any]
+
+    @field_validator("settings", mode="before")
+    @classmethod
+    def _null_settings_as_empty(cls, value: Any) -> Any:
+        # The column is nullable, and older updates could store an explicit
+        # null. Reading such a user must not fail.
+        return {} if value is None else value
 
     @classmethod
     def system(cls) -> Self:
@@ -72,6 +79,15 @@ class UserUpdate(schemas.BaseUserUpdate):
     first_name: str | None = None
     last_name: str | None = None
     settings: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _null_means_unchanged(self) -> Self:
+        # Updates apply only the fields that were set. role is NOT NULL and a
+        # null settings breaks UserRead, so an explicit null leaves them as is.
+        for name in ("role", "settings"):
+            if getattr(self, name) is None:
+                self.model_fields_set.discard(name)
+        return self
 
 
 # === Sessions ===
