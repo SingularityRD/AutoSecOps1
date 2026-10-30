@@ -25,11 +25,7 @@ from autosecops_registry.integrations.robodr import (
     UNTRUSTED_PROMPT_RULES,
     render_untrusted,
 )
-from autosecops_registry.integrations.robodr_catalog import (
-    CATALOG_2_1,
-    CATALOG_2_2,
-    CATALOG_BASE,
-)
+from autosecops_registry.integrations.robodr_catalog import catalog_entry
 
 ROBODR_PAYLOAD_KEY: Final = "robodr"
 MAX_UNTRUSTED_VALUES: Final = 64
@@ -113,15 +109,7 @@ def _trusted_or_block(
 
 
 def _rule_lines(lines: list[str], rule_id: object) -> None:
-    info = (
-        (
-            CATALOG_BASE.get(rule_id)
-            or CATALOG_2_1.get(rule_id)
-            or CATALOG_2_2.get(rule_id)
-        )
-        if isinstance(rule_id, str)
-        else None
-    )
+    info = catalog_entry(rule_id) if isinstance(rule_id, str) else None
     if info is None:
         _trusted_or_block(lines, "rule_id", rule_id, trusted=False)
         return

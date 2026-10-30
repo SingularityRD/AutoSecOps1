@@ -546,6 +546,45 @@ def test_a_delivery_finding_keeps_its_2_2_catalog_fields() -> None:
     assert "- rule_id: (failed validation" not in text
 
 
+@pytest.mark.parametrize(
+    ("rule_id", "title", "data_source"),
+    [
+        (
+            "robot.gateway.trajectory_rejected",
+            "Joint trajectory blocked by the in-path gateway",
+            "ros2_motion_commands",
+        ),
+        (
+            "robot.seal.erased",
+            "Crypto-erase of delivered software executed",
+            "robodr_delivery",
+        ),
+        (
+            "robot.unitree.webrtc_unknown_controller",
+            "WebRTC control session from an unlisted host",
+            "ros2_motion_commands",
+        ),
+    ],
+)
+def test_a_2_3_finding_keeps_its_catalog_fields(
+    rule_id: str, title: str, data_source: str
+) -> None:
+    # robodr.findings 2.3 (§3b-§3d): gateway, sealing and Unitree WebRTC ids,
+    # no techniques.
+    robodr = dict(_BENIGN_ROBODR) | {
+        "rule_id": rule_id,
+        "contract_version": "2.3.0",
+        "mitre_ics": [],
+    }
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    text = "\n".join(outside)
+    assert f"- rule_id: {rule_id}" in text
+    assert f"- rule_title: {title}" in text
+    assert f"- rule_data_source: {data_source}" in text
+    assert "- catalog_mitre_ics:" not in text
+    assert "- rule_id: (failed validation" not in text
+
+
 def test_clean_finding_names_its_catalog_data_source() -> None:
     outside, _blocks = _split(build_robodr_case_prompt(_case(dict(_BENIGN_ROBODR))))
     assert "- rule_data_source: ros2_dds_discovery" in outside

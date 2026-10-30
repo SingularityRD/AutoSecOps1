@@ -997,3 +997,18 @@ def rule_info_for_contract(rule_id: str, major: int, minor: int) -> RuleInfo:
         if minor >= added_in and (info := entries.get(rule_id)) is not None:
             return info
     return GENERIC
+
+
+def catalog_entry(rule_id: str) -> RuleInfo | None:
+    """The catalog's own entry for `rule_id`, whatever minor added it.
+
+    `None` for a rule id without its own entry (the generic entries are not
+    returned). For display of a known rule id, not for checking a message:
+    a message is checked with `rule_info_for_contract`.
+    """
+    if (info := CATALOG_BASE.get(rule_id)) is not None:
+        return info
+    for _added_in, entries in CATALOGS_BY_MINOR:
+        if (info := entries.get(rule_id)) is not None:
+            return info
+    return None

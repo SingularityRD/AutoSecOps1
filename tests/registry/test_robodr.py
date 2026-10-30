@@ -914,6 +914,20 @@ def test_a_2_3_message_keeps_the_earlier_entries(
         )
 
 
+def test_catalog_entry_finds_an_entry_of_any_minor() -> None:
+    for table in (
+        catalog.CATALOG_BASE,
+        catalog.CATALOG_2_1,
+        catalog.CATALOG_2_2,
+        catalog.CATALOG_2_3,
+    ):
+        for rule_id, entry in table.items():
+            assert catalog.catalog_entry(rule_id) == entry
+    # No entry of its own: the generic entries are not returned.
+    assert catalog.catalog_entry("robot.correlate.site_specific") is None
+    assert catalog.catalog_entry("robot.unknown.rule") is None
+
+
 def _rust_catalog(source: str) -> dict[str, dict[str, catalog.RuleInfo]]:
     """Parse the catalog arms of builder.rs, per catalog function."""
     strings = r'"((?:[^"\\]|\\.)*)"'
