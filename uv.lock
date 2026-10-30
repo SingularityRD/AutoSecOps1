@@ -39,6 +39,7 @@ constraints = [
     { name = "virtualenv", specifier = "==21.14.10" },
 ]
 overrides = [{ name = "boto3", specifier = "==1.40.61" }]
+excludes = ["litellm-enterprise"]
 
 [[package]]
 name = "abnf"
@@ -3264,7 +3265,6 @@ proxy = [
     { name = "gunicorn" },
     { name = "hiredis" },
     { name = "inquirerpy" },
-    { name = "litellm-enterprise" },
     { name = "litellm-proxy-extras" },
     { name = "mcp" },
     { name = "orjson" },
@@ -3282,15 +3282,6 @@ proxy = [
     { name = "uvicorn" },
     { name = "uvloop", marker = "sys_platform != 'win32'" },
     { name = "websockets" },
-]
-
-[[package]]
-name = "litellm-enterprise"
-version = "0.1.65"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/23/a3/28c2f41420639cad5f1935a9d17559e5f1efbf0387353c7dcdc9ba20bdc0/litellm_enterprise-0.1.65.tar.gz", hash = "sha256:1c1d9d19917ee123dff3d35d331d29d1c16fb0cf75bb83d03e3904d4c1af7463", size = 86798, upload-time = "2026-09-06T02:54:53.251Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/fa/c59e2b02d9a1c9c90b81a9f6e22d71c11a6e86682ac2c0573e06466b28da/litellm_enterprise-0.1.65-py3-none-any.whl", hash = "sha256:462f36ced3034789a6e308eb5fc94c0ab76d4127635a05cb0eebe08cf301ff4c", size = 155354, upload-time = "2026-09-06T02:54:52.24Z" },
 ]
 
 [[package]]
