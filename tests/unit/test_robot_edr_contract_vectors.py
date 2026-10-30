@@ -38,7 +38,7 @@ from autosecops.robot_edr.schemas import RobotCreate, RobotKeyCreate
 from autosecops.robot_edr.service import RobotsService
 from autosecops.robot_edr.types import RobotKeyRole
 from autosecops.tiers import defaults as tier_defaults
-from tests.support.robot_keys import forget_registered_keys
+from tests.support.robot_keys import fixed_robot_keys_lock, forget_registered_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -148,19 +148,22 @@ async def test_every_contract_vector(
     app.include_router(ingest_router)
     transport = httpx.ASGITransport(app=app)
     mismatches: list[str] = []
-    for case in MANIFEST["cases"]:
-        rate_limit._local_buckets.clear()
-        workspace = await _new_workspace(svc_organization.id)
-        try:
-            await _register_manifest_workspace(workspace)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://test"
-            ) as client:
-                for request_path in case["requests"]:
-                    if problem := await _run_request(client, request_path, monkeypatch):
-                        mismatches.append(f"{request_path}: {problem}")
-        finally:
-            await _drop_workspace(workspace)
+    async with fixed_robot_keys_lock():
+        for case in MANIFEST["cases"]:
+            rate_limit._local_buckets.clear()
+            workspace = await _new_workspace(svc_organization.id)
+            try:
+                await _register_manifest_workspace(workspace)
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://test"
+                ) as client:
+                    for request_path in case["requests"]:
+                        if problem := await _run_request(
+                            client, request_path, monkeypatch
+                        ):
+                            mismatches.append(f"{request_path}: {problem}")
+            finally:
+                await _drop_workspace(workspace)
     assert not mismatches, "\n".join(mismatches)
     assert len(MANIFEST["cases"]) >= 26
 
