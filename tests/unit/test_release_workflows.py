@@ -127,6 +127,7 @@ def test_only_serialized_promotion_can_publish_latest() -> None:
         "merge-api",
         "build-and-push-ui",
         "merge-tunnel-gateway",
+        "sign-images",
     }
     # The implicit success() gate must require both tag-publishing jobs to succeed.
     assert promotion["if"] == "needs.validate.outputs.latest == 'true'"
@@ -144,6 +145,63 @@ def test_only_serialized_promotion_can_publish_latest() -> None:
         for step in job["steps"]:
             # Manifest creation must not append tags outside metadata-action.
             assert ":latest" not in step.get("run", "")
+
+
+def test_every_published_image_is_signed_with_least_privilege() -> None:
+    workflow = yaml.safe_load(IMAGE_WORKFLOW.read_text())
+    jobs = workflow["jobs"]
+    sign = jobs["sign-images"]
+    assert set(sign["needs"]) == {
+        "merge-api",
+        "build-and-push-ui",
+        "merge-tunnel-gateway",
+    }
+    assert sign["permissions"] == {
+        "contents": "read",
+        "packages": "write",
+        "id-token": "write",
+    }
+    # Only the signing job may request an OIDC token.
+    for name, job in jobs.items():
+        if name != "sign-images":
+            assert "id-token" not in job.get("permissions", {}), name
+    assert "id-token" not in workflow["permissions"]
+    for step in sign["steps"]:
+        if uses := step.get("uses"):
+            action, _, ref = uses.partition("@")
+            assert len(ref) == 40 and all(c in "0123456789abcdef" for c in ref), action
+    script = next(step["run"] for step in sign["steps"] if "run" in step)
+    for job, image in (
+        ("merge-api", "autosecops"),
+        ("build-and-push-ui", "autosecops-ui"),
+        ("merge-tunnel-gateway", "autosecops-tunnel-gateway"),
+    ):
+        assert "digest" in jobs[job]["outputs"]
+        assert f"ghcr.io/singularityrd/{image}@$" in script
+    assert "cosign sign --yes" in script
+
+
+def test_image_builds_attach_sbom_and_provenance() -> None:
+    workflow = yaml.safe_load(IMAGE_WORKFLOW.read_text())
+    for name in (
+        "build-and-push-api",
+        "build-and-push-tunnel-gateway",
+        "build-and-push-ui",
+    ):
+        build = next(
+            step
+            for step in workflow["jobs"][name]["steps"]
+            if step.get("uses", "").startswith("docker/build-push-action@")
+        )
+        assert build["with"]["sbom"] is True, name
+        assert build["with"]["provenance"] == "mode=max", name
+        metadata = next(
+            step for step in workflow["jobs"][name]["steps"] if step.get("id") == "meta"
+        )
+        assert (
+            "org.opencontainers.image.licenses=LicenseRef-Proprietary"
+            in metadata["with"]["labels"]
+        )
 
 
 @pytest.mark.parametrize("version", ["1.2.0", "1.3.0-alpha.1"])

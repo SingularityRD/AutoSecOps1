@@ -167,6 +167,22 @@ completion. Inspect both multi-platform manifests and their version/revision
 labels. For a prerelease, compare both `latest` digests before and after the
 build; for a stable release, verify `latest` points to the new image manifests.
 
+The `sign-images` job signs each image index with keyless cosign, and
+`promote-latest` waits for it. Verify every signature by digest, and confirm
+the SBOM and provenance attestations are present:
+
+```sh
+for image in autosecops autosecops-ui autosecops-tunnel-gateway; do
+  ref="ghcr.io/singularityrd/$image:<tag>"
+  digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)
+  cosign verify "ghcr.io/singularityrd/$image@$digest" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity "https://github.com/SingularityRD/AutoSecOps1/.github/workflows/build-push-images.yml@refs/tags/<tag>" \
+    > /dev/null
+  docker buildx imagetools inspect "$ref" --format '{{json .SBOM}}' | jq -e 'length > 0' > /dev/null
+done
+```
+
 If image publication fails, stop before creating the GitHub release. Report the
 existing branch/tag and failed run; never move the tag or automatically cut a
 replacement. To rebuild, use a separate trusted, updated `main` checkout and run:
