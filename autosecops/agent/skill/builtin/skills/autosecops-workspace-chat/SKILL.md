@@ -45,5 +45,5 @@ external AutoSecOps MCP surface one-for-one.
 
 Say that the bundled docs do not cover the detail and that Workspace Chat has no internet access.
 Point the user to the current [AutoSecOps documentation](https://docs.singularityrd.com) or
-AutoSecOps support at [support@singularityrd.com](mailto:support@singularityrd.com). Do not invent a product fact,
+AutoSecOps support at [info@singularityrd.com](mailto:info@singularityrd.com). Do not invent a product fact,
 UI path, vendor step, support address, or missing tool.

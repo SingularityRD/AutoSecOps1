@@ -6,7 +6,7 @@ keywords: ["license", "license key", "entitlements", "enterprise", "deployment I
 
 A self-hosted AutoSecOps deployment runs the free feature set until you install a license key.
 The license key lists the paid features (entitlements) your deployment may use, when it expires, and optionally how many users and workspaces it covers and which installation it is bound to.
-To buy or renew a license, contact [sales@singularityrd.com](mailto:sales@singularityrd.com).
+To buy or renew a license, contact [info@singularityrd.com](mailto:info@singularityrd.com).
 
 Without a license, every deployment gets custom registry repositories and Workspace Chat.
 All other entitlements, such as Git sync, case and agent add-ons, RBAC add-ons, service accounts, multi-workspace, Watchtower, external secret stores, agent channels, semantic search, forms, tunnels, and Robot EDR (`robot_edr`), need a license that grants them.
@@ -56,7 +56,7 @@ AutoSecOps generates it on first startup and stores it in the database, so it st
 A license can be bound to one deployment ID.
 A bound license verifies only on that installation; anywhere else its status is `invalid` with the error `deployment_mismatch`, and paid features stay off.
 
-To request a bound license, copy the deployment ID from the `License` page in the admin console, or read `deployment_id` from the license API below, and send it to [sales@singularityrd.com](mailto:sales@singularityrd.com).
+To request a bound license, copy the deployment ID from the `License` page in the admin console, or read `deployment_id` from the license API below, and send it to [info@singularityrd.com](mailto:info@singularityrd.com).
 The deployment ID is available without a license.
 
 ## Check license status
@@ -97,7 +97,7 @@ Each limit is optional; a limit the license does not set is unlimited.
 When a deployment reaches `max_users`, `max_workspaces`, or `max_organizations`, AutoSecOps blocks creating another one and returns `403` with the limit name and the current and allowed counts.
 The user limit covers every way an account is created: sign-up, invitation acceptance by a new user, OAuth and OIDC sign-in, SAML and SCIM provisioning, and accounts created by platform admins.
 Existing users, workspaces, and organizations keep working; AutoSecOps never deactivates or deletes them when a limit is reached or lowered.
-To raise a limit, contact [sales@singularityrd.com](mailto:sales@singularityrd.com) for a new key.
+To raise a limit, contact [info@singularityrd.com](mailto:info@singularityrd.com) for a new key.
 
 The concurrency and execution limits narrow the deployment's workflow limits, so runs beyond them wait or fail exactly as they do for tier limits.
 Limits apply while the license is `valid` or in `grace`; once it is `expired` or `invalid`, the deployment falls back to the free feature set, which has no license limits.

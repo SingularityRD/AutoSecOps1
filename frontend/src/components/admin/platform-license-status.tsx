@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useQuery } from "@/lib/query"
 
-const LICENSE_CONTACT = "sales@singularityrd.com"
+const LICENSE_CONTACT = "info@singularityrd.com"
 
 const STATUS_LABELS: Record<LicenseStatus, string> = {
   missing: "No license",

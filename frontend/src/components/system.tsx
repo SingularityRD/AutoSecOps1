@@ -3,7 +3,8 @@ import Image from "next/image"
 import AutoSecOpsIcon from "public/icon.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-const CONTACT_US_URL = "mailto:sales@singularityrd.com"
+const CONTACT_US_URL =
+  "mailto:info@singularityrd.com?subject=AutoSecOps%20sales"
 const SYSTEM_MSG_KINDS = ["beta-ee-contact-us"] as const
 type SystemMessageKind = (typeof SYSTEM_MSG_KINDS)[number]
 
