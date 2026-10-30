@@ -53,12 +53,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -168,12 +168,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -285,12 +285,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -384,12 +384,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2363,12 +2363,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2431,12 +2431,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2509,12 +2509,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2572,12 +2572,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2642,12 +2642,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2756,12 +2756,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2840,12 +2840,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2910,12 +2910,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2996,12 +2996,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3064,12 +3064,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3144,12 +3144,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3219,12 +3219,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3287,12 +3287,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3367,12 +3367,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3445,12 +3445,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3513,12 +3513,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3593,12 +3593,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3658,12 +3658,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3718,12 +3718,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3781,12 +3781,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3864,12 +3864,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3934,12 +3934,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -4002,12 +4002,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -4120,12 +4120,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -4482,12 +4482,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -5474,12 +5474,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5547,12 +5547,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5681,12 +5681,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5764,12 +5764,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5841,12 +5841,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5928,12 +5928,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5991,12 +5991,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6063,12 +6063,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6150,12 +6150,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6212,12 +6212,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -7534,7 +7534,8 @@
                   "type": "array",
                   "uniqueItems": true,
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-z0-9_]+$"
                   }
                 },
                 {
@@ -8524,12 +8525,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -22028,16 +22029,7 @@
             "in": "query",
             "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
-                },
-                {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
-                }
-              ],
+              "type": "string",
               "title": "Workflow Id"
             }
           }
@@ -43236,11 +43228,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -43515,7 +43507,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "type": {
@@ -47496,7 +47488,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "workflow_title": {
@@ -51571,11 +51563,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -55122,11 +55114,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -55210,7 +55202,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "null"
@@ -55319,11 +55311,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -61607,11 +61599,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -62594,7 +62586,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "workflow_title": {
@@ -62684,7 +62676,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "null"
@@ -73705,11 +73697,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -75280,6 +75272,8 @@
           },
           "environment": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Environment",
             "default": "default"
           }
@@ -80499,11 +80493,11 @@
               },
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -80518,11 +80512,11 @@
               },
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -84880,7 +84874,7 @@
         "properties": {
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "status": {
@@ -85031,7 +85025,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -85170,7 +85164,7 @@
         "properties": {
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "draft_revision": {
@@ -85860,11 +85854,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -87006,7 +87000,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -87185,7 +87179,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -87385,7 +87379,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "use_draft": {
@@ -87506,7 +87500,7 @@
           },
           "wf_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Wf Id"
           },
           "wf_exec_id": {
