@@ -6,7 +6,11 @@ request against its current safety state and may refuse it. Without executor
 v1 nothing is executed: an accepted request answers `recorded_not_executed`
 with `executed: false`, which these actions report as not applied. With
 executor v1 a request may answer `pending`, then `verified` or `reverted`;
-`refused` and `failed` are never applied. "In force" is taken only from the
+`refused` and `failed` are never applied. With the executor's motion
+adapters (its `motion` section) `restrict_motion` and `safe_pause` also
+reach `verified` / `reverted`, and `request_safe_state` / `rollback_config`
+(`config: program`) the terminal `applied` (carried out by the platform's
+adapter, not reversible). "In force" is taken only from the
 answer's own `in_force` (true for a `verified` action the executor does not
 hold): a `verified` action held after a robot reboot
 (`state.executor_state: "held"`) is reported as held, not enforced, and a
@@ -80,7 +84,13 @@ run's executor token:
    differ from the requester and from every other approver: one approval, or
    two for `safe_pause`, `request_safe_state`, `rollback_config` and the
    revert of any of them (the robot's stored request says which action a
-   revert undoes).
+   revert undoes). The body of a two-person request or revert names those
+   approvers to the robot (`approved_by`, motion adapters revision): each
+   approver's email, or `user-<user id>` without a plain ASCII email, never
+   the requester, and only names RoboDR's grammar `[A-Za-z0-9._%+@-]{1,100}`
+   accepts that it counts as different people (case-insensitively);
+   otherwise nothing is sent. The robot's executor carries out a two-person
+   action only with two such approvers.
 4. Any failure (no platform context, unreadable submission, mismatch) raises
    `SignoffError` before a request is signed, and nothing reaches the robot.
 5. Each request and revert is then recorded by the platform
@@ -310,6 +320,10 @@ _EMAIL_RE = re.compile(
     r"[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,8}"
 )
 _MAX_IDENTITY_CHARS = 100
+_APPROVER_NAME_RE = re.compile(r"[A-Za-z0-9._%+@-]{1,100}")
+"""RoboDR's `approved_by` name grammar (§4; `approver_name_ok`)."""
+MAX_APPROVER_NAMES = 4
+"""Most names an `approved_by` list may carry (§4)."""
 
 # Sign-off form (see the module docstring).
 SIGNOFF_REQUEST_ID = "robodr_request_id"
@@ -527,8 +541,13 @@ def _build_parameters(
         given.setdefault("config", "profile")
         if given["config"] not in ("profile", "program"):
             raise ValueError("config must be profile or program")
-        if "to_version" in given and not _full(_NAME64_RE, given["to_version"]):
-            raise ValueError("to_version must match [A-Za-z0-9._-]{1,64}")
+        if "to_version" in given and (
+            not _full(_NAME64_RE, given["to_version"])
+            or given["to_version"].startswith("-")
+        ):
+            raise ValueError(
+                "to_version must match [A-Za-z0-9._-]{1,64} and not start with '-'"
+            )
     return given
 
 
@@ -657,6 +676,18 @@ class Person:
         ):
             return self.email
         return f"user:{self.user_id}"
+
+    @property
+    def approver_name(self) -> str:
+        """The name the robot's `approved_by` carries for this person (§4).
+
+        The email when it is a plain ASCII address (as :attr:`identifier`),
+        else ``user-<user id>``: RoboDR's approver grammar
+        ``[A-Za-z0-9._%+@-]{1,100}`` has no ``:``.
+        """
+        if self.identifier == self.email:
+            return self.identifier
+        return f"user-{self.user_id}"
 
     def as_dict(self) -> dict[str, str]:
         return {"user_id": self.user_id, "id": self.identifier}
@@ -791,6 +822,46 @@ def _require_approvals(label: str, required: int, approvers: list[Person]) -> No
             f"{label} needs {required} approval(s) from platform users other "
             f"than the requester; got {len(approvers)}"
         )
+
+
+def approved_by_names(requester: Person, approvers: list[Person]) -> list[str]:
+    """The `approved_by` names of a two-person request or revert body (§4).
+
+    The executor carries out `safe_pause`, `request_safe_state` and
+    `rollback_config` (and lifts a `safe_pause`) only when the signed body
+    names at least two different people, neither the requester, comparing
+    names ASCII case-insensitively (the requester's trimmed `requested_by`
+    too). The names come from the sign-off submitters only. A name the robot
+    would refuse, or two people the robot would count as one, refuse the
+    call here, before the request or revert is signed.
+
+    Raises:
+        SignoffError: A name does not fit RoboDR's grammar, two approvers
+            share a name, or an approver's name is the requester's.
+    """
+    if len(approvers) > MAX_APPROVER_NAMES:
+        raise SignoffError(
+            f"the robot takes at most {MAX_APPROVER_NAMES} approvers (approved_by)"
+        )
+    names = [person.approver_name for person in approvers]
+    for person, name in zip(approvers, names, strict=True):
+        if not _full(_APPROVER_NAME_RE, name):
+            raise SignoffError(
+                f"approver {person.user_id} has no name the robot accepts "
+                "(approved_by: 1-100 characters of [A-Za-z0-9._%+@-])"
+            )
+    folded = [name.lower() for name in names]
+    if requester.identifier.strip().lower() in folded:
+        raise SignoffError(
+            "an approver's name equals the requester's (compared "
+            "case-insensitively): the robot would not count that approval"
+        )
+    if len(set(folded)) != len(folded):
+        raise SignoffError(
+            "two approvers have the same name compared case-insensitively: the "
+            "robot would count them as one person"
+        )
+    return names
 
 
 _AUDIT_OUTCOME_RE = re.compile(r"[a-z_]{1,64}")
@@ -1578,8 +1649,11 @@ async def _call_retrying(
 # --------------------------------------------------------------------------- #
 
 TERMINAL_STATUSES = frozenset(
-    {"recorded_not_executed", "refused", "failed", "not_applied", "reverted"}
+    {"recorded_not_executed", "refused", "failed", "not_applied", "reverted", "applied"}
 )
+"""Statuses that never change again (§5, §6a): `applied` is the terminal
+result of `request_safe_state` / `rollback_config` carried out by a platform
+adapter (motion adapters revision)."""
 
 REFUSAL_EXPLANATIONS: dict[str, str] = {
     # The robot's judgment (§4.1).
@@ -1594,14 +1668,25 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "morphology_mismatch": "the robot's morphology differs from its response policy's",
     "human_in_command": "a person is driving the robot (teleop or manual)",
     "transient_phase": "the robot is taking off or landing",
-    "fall_hazard": "the action could make the robot fall or collapse",
-    "requires_idle": "the action needs the robot to be idle",
+    "fall_hazard": (
+        "the action could make the robot fall or collapse (also: a motion "
+        "restriction below the policy's min_motion_factor on a robot that "
+        "balances)"
+    ),
+    "requires_idle": (
+        "the action needs the robot to be idle (rollback_config; the robot's "
+        "judgment or its executor at the moment of apply)"
+    ),
     "above_policy": "the robot's response policy does not allow this step now",
     "not_a_restriction": "the cap is above the robot's current envelope",
     "invariant_violation": "the plan fails the robot's response invariants",
     "not_reversible": "this action cannot be reverted; an operator restores the robot",
     # The executor's own checks (§6a).
-    "not_executor_action": "the robot's executor never carries out this action",
+    "not_executor_action": (
+        "the robot's executor does not carry out this action: it has no motion "
+        "section (safe_pause, request_safe_state, rollback_config), or it is a "
+        "rollback_config of the profile, which the anti-rollback chain refuses"
+    ),
     "needs_approval": "the robot's executor policy needs an approval it did not get",
     "motion_path": "the action would cut a motion path",
     "locators_required": (
@@ -1621,7 +1706,10 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "already_active": "the same action is already active",
     "ttl_out_of_range": "the TTL is outside the executor's limits",
     "replay": "the executor already received this order",
-    "invalid_order": "the executor received an invalid order",
+    "invalid_order": (
+        "the executor received an invalid order (also: a restrict_motion with "
+        "workspace_zone, which no motion adapter enforces)"
+    ),
     "id_conflict": "the executor holds another order under this id",
     "evidence_elsewhere": "the evidence is recorded elsewhere",
     # The executor's trust boundary (§6a, executor M1).
@@ -1634,8 +1722,17 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
     "soc_replay_store_unavailable": (
         "the executor's SOC replay store is full or could not record the request"
     ),
-    "order_mismatch": "the order does not match the request the SOC signed",
-    "approval_missing": "the executor found no SOC approval for the order",
+    "order_mismatch": (
+        "the order does not match the request the SOC signed (request id, "
+        "action, TTL, target, restriction or rollback parameters, key id or "
+        "requested_by)"
+    ),
+    "approval_missing": (
+        "the executor found no SOC approval for the order: the signed body "
+        "lacks the approval evidence, or a two-person action (or the revert "
+        "of a safe_pause) does not name two approvers other than the "
+        "requester in approved_by"
+    ),
     "soc_keys_unavailable": (
         "the executor's SOC key configuration cannot be trusted; it refuses "
         "every control-plane order until it is fixed"
@@ -1648,6 +1745,21 @@ REFUSAL_EXPLANATIONS: dict[str, str] = {
         "the participant's network locators lie outside the executor's quarantine scope"
     ),
     "executor_refused": "the executor refused it for a reason this agent does not know",
+    # The executor's motion adapters (§6a, motion adapters revision).
+    "no_adapter": "the robot's executor has no motion adapter configured for this action",
+    "adapter_not_validated": (
+        "the robot's motion adapter for this action is not marked OEM-validated "
+        "by the site"
+    ),
+    "safety_state_not_allowed": (
+        "the robot's safety state is not one the motion adapter allows this "
+        "action in (by default safe_pause and request_safe_state not while "
+        "moving_fast)"
+    ),
+    "behaviour_unsupported": (
+        "the response policy's safe behaviour for this action is not one the "
+        "robot's motion adapter can carry out"
+    ),
 }
 """What each refusal code means (§4.1, §6a); refusals are final."""
 
@@ -1678,12 +1790,52 @@ REFUSAL_HINTS: dict[str, str] = {
         "(executor state directory); then prepare a new request."
     ),
     "order_mismatch": (
-        "The order agentd forwarded differs from what the SOC signed: check "
-        "the robot's agentd for tampering."
+        "The order agentd forwarded differs from what the SOC signed (for a "
+        "restrict_motion or rollback_config also its parameters): check the "
+        "robot's agentd for tampering, and that its executor was upgraded "
+        "together with agentd."
     ),
     "approval_missing": (
-        "The signed request lacks the approval evidence the contract "
-        "requires (authority, requested_by, source, reason)."
+        "safe_pause, request_safe_state and rollback_config (and the revert of "
+        "a safe_pause) need two sign-off approvers other than the requester, "
+        "which AutoSecOps sends as approved_by: prepare a new request and have "
+        "two other platform users approve it. Otherwise the signed request "
+        "lacks the approval evidence the contract requires (authority, "
+        "requested_by, source, reason)."
+    ),
+    "not_executor_action": (
+        "Without a motion section in the robot's executor.json these actions "
+        "are never executed (act on site). rollback_config of the profile is "
+        "never executed: the anti-rollback chain refuses an older profile; "
+        "only config program is rolled back by the site's adapter."
+    ),
+    "invalid_order": (
+        "A robot with motion adapters enforces no workspace_zone: request "
+        "restrict_motion with max_linear_speed or max_joint_speed instead."
+    ),
+    "no_adapter": (
+        "An operator configures a motion adapter for this action in the "
+        "robot's executor.json (motion section), or the action is taken on "
+        "site."
+    ),
+    "adapter_not_validated": (
+        "The site sets the adapter's oem_validated flag in the robot's "
+        "executor.json once the OEM validated it; until then the executor "
+        "refuses the action."
+    ),
+    "safety_state_not_allowed": (
+        "This request stays refused; once the robot is in a safety state the "
+        "adapter allows, a new, newly signed-off request is judged in that "
+        "state."
+    ),
+    "requires_idle": (
+        "rollback_config runs only while the robot is idle; this request stays "
+        "refused. Once it is idle, a new, newly signed-off request is judged "
+        "then."
+    ),
+    "behaviour_unsupported": (
+        "The OEM response policy's safe behaviour and the robot's adapter "
+        "configuration must agree; fix them on the robot."
     ),
     "soc_keys_unavailable": (
         "An operator fixes soc.keys in the robot's executor.json (an "
@@ -1983,6 +2135,27 @@ def _quarantine_outcome(
     return _weaker(word, derived), scope
 
 
+IN_FORCE_NOTES: dict[str, str] = {
+    "restrict_motion": (
+        "The robot's motion adapters enforce the restriction (in-path gateway "
+        "or the platform's speed level)."
+    ),
+    "safe_pause": (
+        "The robot is paused. A revert (two approvers) releases the pause and "
+        "never resumes a mission; the executor also releases it after its "
+        "motion.safe_pause_ttl_s."
+    ),
+}
+"""What a `verified` motion action in force means (§6a, motion adapters)."""
+
+REVERTED_NOTES: dict[str, str] = {
+    "safe_pause": (
+        "The pause was released; no mission was resumed (an operator restarts it)."
+    ),
+}
+"""What a `reverted` motion action means (§6a, motion adapters)."""
+
+
 def _explain(table: dict[str, str], code: object, fallback: str) -> str:
     return table.get(code, fallback) if isinstance(code, str) else fallback
 
@@ -2144,9 +2317,26 @@ def _outcome(
                     f" {refusal_hint}" if refusal_hint else ""
                 )
         case "applied" if in_force:
-            report = "In force: applied and executed by the robot."
+            report = (
+                "Applied: the robot's executor carried out the action through its "
+                "platform adapter. Final and not reversible: the platform owns the "
+                "result and an operator restores the robot."
+            )
+        case "applied":
+            report = (
+                "Applied by the robot's adapter, but the robot does not report it "
+                "in force (in_force missing or false); final, not reversible."
+            )
         case _:
             report = f"Not applied (status {_shown(status)})."
+    acted = action if action is not None else state.get("action")
+    note = ""
+    if status == "verified" and in_force and not revert_pending:
+        note = _explain(IN_FORCE_NOTES, acted, "")
+    elif status == "reverted":
+        note = _explain(REVERTED_NOTES, acted, "")
+    if note:
+        report += f" {note}"
     return {
         "status": status,
         "executed": executed,
@@ -2306,7 +2496,11 @@ def prepare_action_request(
         str | None, Doc("rollback_config: profile (default) or program.")
     ] = None,
     to_version: Annotated[
-        str | None, Doc("rollback_config: target version, [A-Za-z0-9._-]{1,64}.")
+        str | None,
+        Doc(
+            "rollback_config: target version, [A-Za-z0-9._-]{1,64}, not "
+            "starting with '-'."
+        ),
     ] = None,
 ) -> dict[str, Any]:
     prepared = _prepare_action(
@@ -2350,10 +2544,14 @@ def prepare_action_request(
         "robot's control plane over mutual TLS. Refuses unless platform form "
         "submissions prove the requester and one approver (two for the "
         "two-person actions), all different platform users, signed off this "
-        "exact request. The robot judges it against its safety state and may "
-        "refuse it. recorded_not_executed, refused and failed are reported as "
-        "not applied; pending is not yet in force; in_force is the robot's own "
-        "word (verified and not held after a reboot). A robot_quarantine_node in "
+        "exact request; a two-person action names its two approvers to the "
+        "robot (approved_by), which the robot's executor requires. The robot "
+        "judges it against its safety state and may refuse it. "
+        "recorded_not_executed, refused and failed are reported as not "
+        "applied; pending is not yet in force; applied (request_safe_state, "
+        "rollback_config through a platform adapter) is final and not "
+        "reversible; in_force is the robot's own word (verified or applied, "
+        "and not held after a reboot). A robot_quarantine_node in "
         "force reports containment: full (contained), partial, guid_only "
         "(GUID-prefix drop only, not IP-contained) or unknown; only full is "
         "contained. Recorded by the platform (the run, requester and approvers) "
@@ -2404,7 +2602,11 @@ async def request_action(
         str | None, Doc("rollback_config: profile (default) or program.")
     ] = None,
     to_version: Annotated[
-        str | None, Doc("rollback_config: target version, [A-Za-z0-9._-]{1,64}.")
+        str | None,
+        Doc(
+            "rollback_config: target version, [A-Za-z0-9._-]{1,64}, not "
+            "starting with '-'."
+        ),
     ] = None,
     robot_spki_sha256: Annotated[str | None, _SPKI_DOC] = None,
     answer_key_id: Annotated[str | None, _ANSWER_KEY_ID_DOC] = None,
@@ -2447,6 +2649,10 @@ async def request_action(
         approval_submission_ids=approval_submission_ids,
     )
     _require_approvals(wire_name(spec.name), required, approvers)
+    # A two-person action names its approvers to the robot (§4, motion
+    # adapters revision); a single-approval body stays as before, so a robot
+    # whose agentd predates `approved_by` still takes it.
+    robot_approvers = approved_by_names(requester, approvers) if spec.two_person else []
 
     # 3. The policy against the robot's own signed snapshot.
     snap = await _verified_snapshot(robot)
@@ -2465,6 +2671,8 @@ async def request_action(
     }
     if prepared.ttl_seconds is not None:
         body_obj["ttl_seconds"] = prepared.ttl_seconds
+    if robot_approvers:
+        body_obj["approved_by"] = robot_approvers
 
     # 4. The platform audit log, before anything is signed or sent.
     audit = _ActionAudit(
@@ -2500,6 +2708,7 @@ async def request_action(
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
+        "robot_approved_by": robot_approvers,
         "robot_safety_state": snap.get("safety_state"),
         "robot_executor": snap.get("executor"),
         **outcome,
@@ -2513,8 +2722,8 @@ async def request_action(
     default_title="Get RoboDR action status",
     description=(
         "Read the stored state of a robot action request (signed answer). "
-        "recorded_not_executed, refused, failed and reverted are terminal: never "
-        "poll them. Poll pending until it becomes verified, refused or failed, "
+        "recorded_not_executed, refused, failed, applied and reverted are "
+        "terminal: never poll them. Poll pending until it becomes verified, refused or failed, "
         "and a held verified action until it is re-armed (in_force true) or "
         "reverted. A verified robot_quarantine_node reports containment (full, "
         "partial, guid_only or unknown) and what it cut and left out; only full "
@@ -2596,7 +2805,9 @@ def prepare_revert_request(
     description=(
         "Ask a robot to revert a signed-off action request. Needs the same "
         "platform sign-off as a request (two approvers to revert a two-person "
-        "action such as robot_safe_pause). request_safe_state, rollback_config "
+        "action such as robot_safe_pause; their names are sent as approved_by). "
+        "Reverting a safe_pause releases the pause and never resumes a "
+        "mission. request_safe_state, rollback_config "
         "and record_evidence are not reversible (refused, not_reversible); a "
         "request that never took effect answers not_applied; an executed one "
         "answers pending, then reverted. Recorded by the platform before it is "
@@ -2663,15 +2874,22 @@ async def revert_action(
     _require_approvals(
         f"a revert of {wire_name(spec.name)}", 2 if spec.two_person else 1, approvers
     )
+    # The executor lifts a `safe_pause` it carried out only with two
+    # approvers in the signed revert body (§6, §6a).
+    robot_approvers = approved_by_names(requester, approvers) if spec.two_person else []
 
     snap = await _verified_snapshot(robot)
     reasons = _policy_reasons(spec, snap.get("morphology"))
     if reasons:
         raise ValueError("revert refused by the SOC policy: " + "; ".join(reasons))
 
-    body = body_bytes(
-        {"reason": fields["reason"], "requested_by": requester.identifier}
-    )
+    revert_body: dict[str, Any] = {
+        "reason": fields["reason"],
+        "requested_by": requester.identifier,
+    }
+    if robot_approvers:
+        revert_body["approved_by"] = robot_approvers
+    body = body_bytes(revert_body)
     audit = _ActionAudit(
         robot_id=robot.robot_id,
         request_id=request_id,
@@ -2703,6 +2921,7 @@ async def revert_action(
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
+        "robot_approved_by": robot_approvers,
         **outcome,
         "answer_signature_verified": True,
         **_audit_fields(attempt_log, await audit.answered(outcome)),

@@ -25,6 +25,7 @@ import hashlib
 import inspect
 import ipaddress
 import json
+import re
 import ssl
 import tempfile
 import threading
@@ -938,6 +939,8 @@ async def test_homoglyph_identities_do_not_matter(stub, platform) -> None:
             "id": f"user:{LEAD_C}",
         }
         assert all(a["id"].isascii() for a in result["approved_by"])
+        # The robot's approver grammar has no ':': its name is user-<id>.
+        assert result["robot_approved_by"] == ["bob@example.com", f"user-{LEAD_C}"]
 
 
 @pytest.mark.anyio
@@ -1629,10 +1632,11 @@ async def test_connection_inputs_are_checked_before_connecting(
         (
             {"status": "applied", "executed": True, "in_force": True},
             True,
-            False,
-            "In force",
+            True,
+            "Applied: the robot's executor carried out",
         ),
-        ({"status": "applied", "executed": True}, False, False, "Not applied"),
+        # Motion adapters revision: `applied` is final; in force only by word.
+        ({"status": "applied", "executed": True}, False, True, "does not report it"),
         ({"status": "something_new", "executed": True}, False, False, "Not applied"),
         ({"status": "something_new", "in_force": True}, False, False, "Not applied"),
     ],
@@ -1694,6 +1698,11 @@ def test_every_documented_refusal_code_is_explained() -> None:
         "soc_keys_unavailable",
         "approval_key_removed",
         "locator_out_of_scope",
+        # §6a motion adapters (Sprint 8 revision)
+        "no_adapter",
+        "adapter_not_validated",
+        "safety_state_not_allowed",
+        "behaviour_unsupported",
     ]
     for code in codes:
         outcome = cp._outcome(
@@ -3211,3 +3220,274 @@ async def test_robot_edr_sdk_sends_evidence_phases_only_when_set(
         "phase": "failed",
         "failure_reason": "RobotHTTPError",
     }
+
+
+# --------------------------------------------------------------------------- #
+# Motion adapters revision: approved_by, new statuses and refusal codes (§4, §6a)
+# --------------------------------------------------------------------------- #
+
+APPROVER_NAME = re.compile(r"[A-Za-z0-9._%+@-]{1,100}")
+"""RoboDR's `approver_name_ok`."""
+
+
+def _body_of_post(robot: StubRobot) -> dict[str, Any]:
+    (post,) = [r for r in robot.requests if r["method"] == "POST"]
+    assert post["verified"]
+    return json.loads(post["body"])
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", TWO_PERSON)
+async def test_a_two_person_request_names_its_approvers(
+    action: str, stub, platform
+) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, action, approvers=(LEAD_B, LEAD_C))
+    body = _body_of_post(robot)
+    # The sign-off approvers, from the platform's records; never the requester.
+    assert body["approved_by"] == [EMAILS[LEAD_B], EMAILS[LEAD_C]]
+    assert body["requested_by"] == EMAILS[REQUESTER]
+    assert result["robot_approved_by"] == body["approved_by"]
+    assert all(APPROVER_NAME.fullmatch(name) for name in body["approved_by"])
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", sorted(set(ACTION_PARAMS) - set(TWO_PERSON)))
+async def test_a_single_approval_request_names_no_approvers(
+    action: str, stub, platform
+) -> None:
+    # Unchanged body, so a robot whose agentd predates approved_by takes it.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, action)
+    assert "approved_by" not in _body_of_post(robot)
+    assert result["robot_approved_by"] == []
+
+
+@pytest.mark.anyio
+async def test_the_revert_of_a_safe_pause_names_its_approvers(stub, platform) -> None:
+    robot, base_url = stub
+    with soc_secrets():
+        robot.answer_for = _stored("safe_pause")
+        result = await _revert(
+            base_url, platform, "robot_safe_pause:ugv-007:01", (LEAD_B, LEAD_C)
+        )
+    assert _body_of_post(robot) == {
+        "reason": "false positive",
+        "requested_by": EMAILS[REQUESTER],
+        "approved_by": [EMAILS[LEAD_B], EMAILS[LEAD_C]],
+    }
+    assert result["robot_approved_by"] == [EMAILS[LEAD_B], EMAILS[LEAD_C]]
+
+
+@pytest.mark.anyio
+async def test_approvers_the_robot_counts_as_one_person_send_nothing(
+    stub, platform
+) -> None:
+    """Different platform users whose names differ only in case are refused.
+
+    RoboDR compares approver names (and the requester's) ASCII
+    case-insensitively: it would count them as one person and refuse the
+    action, so nothing is sent.
+    """
+    robot, base_url = stub
+    with soc_secrets():
+        prepared = cp.prepare_action_request(
+            robot_id=ROBOT_ID, action="robot_safe_pause", reason="r"
+        )
+        rid, digest = prepared["request_id"], prepared["request_digest"]
+
+        async def send(*approvals: str) -> dict[str, Any]:
+            return await _send(
+                base_url,
+                platform,
+                "robot_safe_pause",
+                reason="r",
+                request_id=rid,
+                signoff={
+                    "request_submission_id": requested,
+                    "approval_submission_ids": list(approvals),
+                },
+            )
+
+        requested = platform.add(REQUESTER, "request", rid, digest)
+        b = platform.add(LEAD_B, "approve", rid, digest, email="lead.b@example.com")
+        c_same = platform.add(
+            LEAD_C, "approve", rid, digest, email="Lead.B@Example.com"
+        )
+        with pytest.raises(cp.SignoffError, match="same name"):
+            await send(b, c_same)
+        c_requester = platform.add(
+            LEAD_C, "approve", rid, digest, email="ANALYST.A@example.com"
+        )
+        with pytest.raises(cp.SignoffError, match="requester"):
+            await send(b, c_requester)
+        assert robot.requests == []
+        # Single-approval actions do not name approvers: nothing to compare.
+        prepared = cp.prepare_action_request(
+            robot_id=ROBOT_ID, action="robot_isolate_network", ttl_seconds=60
+        )
+        rid2, digest2 = prepared["request_id"], prepared["request_digest"]
+        result = await _send(
+            base_url,
+            platform,
+            "robot_isolate_network",
+            reason="",
+            request_id=rid2,
+            signoff={
+                "request_submission_id": platform.add(
+                    REQUESTER, "request", rid2, digest2
+                ),
+                "approval_submission_ids": [
+                    platform.add(
+                        LEAD_C, "approve", rid2, digest2, email="ANALYST.A@example.com"
+                    )
+                ],
+            },
+        )
+        assert result["robot_approved_by"] == []
+
+
+def test_approver_names_follow_the_robots_grammar() -> None:
+    requester = cp.Person(REQUESTER, EMAILS[REQUESTER])
+    long_local = "a" * 64
+    long_email = f"{long_local}@{'b' * 30}.example.com"
+    assert len(long_email) > 100
+    people = [
+        cp.Person(LEAD_B, "alice.smith+ops@soc.example"),
+        cp.Person(LEAD_C, None),
+        # Too long, or not a plain ASCII address: the user id instead.
+        cp.Person("44444444-4444-4444-8444-444444444444", long_email),
+        cp.Person("55555555-5555-4555-8555-555555555555", "bob smith@x.com"),
+    ]
+    names = cp.approved_by_names(requester, people)
+    assert names == [
+        "alice.smith+ops@soc.example",
+        f"user-{LEAD_C}",
+        "user-44444444-4444-4444-8444-444444444444",
+        "user-55555555-5555-4555-8555-555555555555",
+    ]
+    assert all(APPROVER_NAME.fullmatch(name) for name in names)
+    # The requester's fallback identifier keeps its own spelling (user:<id>).
+    assert cp.Person(REQUESTER, None).identifier == f"user:{REQUESTER}"
+    with pytest.raises(cp.SignoffError, match="at most 4"):
+        cp.approved_by_names(requester, [*people, cp.Person(REQUESTER, None)])
+
+
+def test_a_rollback_version_never_starts_with_a_dash() -> None:
+    with pytest.raises(ValueError, match="not start with '-'"):
+        cp.prepare_action_request(
+            robot_id=ROBOT_ID,
+            action="robot_rollback_config",
+            config="program",
+            to_version="-rf",
+        )
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="robot_rollback_config",
+        config="program",
+        to_version="1.4.2-rc1",
+    )
+    assert prepared["parameters"] == {"config": "program", "to_version": "1.4.2-rc1"}
+
+
+@pytest.mark.parametrize(
+    ("action", "word"),
+    [("request_safe_state", "Applied"), ("rollback_config", "Applied")],
+)
+def test_an_adapter_result_is_applied_final_and_not_reversible(
+    action: str, word: str
+) -> None:
+    outcome = cp._outcome(
+        {
+            "status": "applied",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": action, "executor": "robodr-executor"},
+        }
+    )
+    assert outcome["terminal"] is True
+    assert outcome["in_force"] is True and outcome["executed"] is True
+    assert outcome["report"].startswith(word)
+    assert "not reversible" in outcome["report"]
+    assert outcome["containment"] is None
+
+
+def test_a_motion_restriction_and_a_pause_reach_verified_and_reverted() -> None:
+    restricted = cp._outcome(
+        {"status": "verified", "executed": True, "in_force": True},
+        action="restrict_motion",
+    )
+    assert restricted["in_force"] is True and restricted["terminal"] is False
+    assert "motion adapters enforce the restriction" in restricted["report"]
+    paused = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": "safe_pause"},
+        }
+    )
+    assert "The robot is paused" in paused["report"]
+    assert "never resumes a mission" in paused["report"]
+    released = cp._outcome(
+        {"status": "reverted", "executed": True, "in_force": False},
+        revert=True,
+        action="safe_pause",
+    )
+    assert released["terminal"] is True and released["in_force"] is False
+    assert "no mission was resumed" in released["report"]
+    # Held or with a pending revert, a pause is not reported as in force.
+    held = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": False,
+            "state": {"action": "safe_pause", "executor_state": "held"},
+        }
+    )
+    assert "The robot is paused" not in held["report"]
+    pending = cp._outcome(
+        {
+            "status": "verified",
+            "executed": True,
+            "in_force": True,
+            "state": {"action": "safe_pause", "revert": {"result": "pending"}},
+        }
+    )
+    assert pending["revert_pending"] is True
+    assert "The robot is paused" not in pending["report"]
+
+
+@pytest.mark.parametrize(
+    ("code", "hint"),
+    [
+        ("no_adapter", "motion adapter"),
+        ("adapter_not_validated", "oem_validated"),
+        ("safety_state_not_allowed", "new, newly signed-off request"),
+        ("requires_idle", "idle"),
+        ("behaviour_unsupported", "safe behaviour"),
+        ("approval_missing", "two sign-off approvers"),
+        ("order_mismatch", "parameters"),
+        ("not_executor_action", "config program"),
+        ("invalid_order", "workspace_zone"),
+    ],
+)
+def test_motion_adapter_refusals_are_explained_with_a_hint(
+    code: str, hint: str
+) -> None:
+    outcome = cp._outcome(
+        {
+            "status": "refused",
+            "executed": False,
+            "in_force": False,
+            "refusal": {"code": code, "reason": "r", "safety_state": "idle"},
+        }
+    )
+    assert outcome["applied"] is False and outcome["terminal"] is True
+    assert outcome["refusal_explanation"] == cp.REFUSAL_EXPLANATIONS[code]
+    assert outcome["refusal_hint"] == cp.REFUSAL_HINTS[code]
+    assert hint in outcome["refusal_hint"]
+    assert outcome["report"].startswith("Not applied: refused by the robot")
+    assert outcome["new_request_id_required"] is False
