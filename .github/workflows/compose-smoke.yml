@@ -1,0 +1,171 @@
+name: Production Compose Smoke
+
+# Exercises the self-hosted install path: env.sh renders .env from
+# .env.example, docker-compose.yml must interpolate cleanly against it, and the
+# production stack must come up with the candidate image and answer through
+# Caddy. Other Compose jobs (test-python, frontend-smoke, integration tests)
+# use docker-compose.dev.yml or docker-compose.local.yml, not this file.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - docker-compose*.yml
+      - deployments/**
+      # Helm and Terraform have their own lint workflows and do not affect
+      # the Compose deployment.
+      - "!deployments/helm/**"
+      - "!deployments/fargate/**"
+      - Dockerfile*
+      - .dockerignore
+      - .env.example
+      - env.sh
+      - Caddyfile
+      - scripts/postgres/**
+      - .github/workflows/compose-smoke.yml
+  pull_request:
+    branches: [ "main", "staging" ]
+    paths:
+      - docker-compose*.yml
+      - deployments/**
+      # Helm and Terraform have their own lint workflows and do not affect
+      # the Compose deployment.
+      - "!deployments/helm/**"
+      - "!deployments/fargate/**"
+      - Dockerfile*
+      - .dockerignore
+      - .env.example
+      - env.sh
+      - Caddyfile
+      - scripts/postgres/**
+      - .github/workflows/compose-smoke.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMPOSE_FILE: docker-compose.yml
+  # Production mode, PUBLIC_APP_URL=localhost, no PostgreSQL SSL, superadmin.
+  # Strong credentials are generated; nothing below enables DEV-ONLY values.
+  ENV_SH_ANSWERS: |
+    y
+    localhost
+    n
+    test@autosecops.example
+
+jobs:
+  config:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Generate .env with env.sh
+        run: |
+          set -euo pipefail
+          printf '%s' "$ENV_SH_ANSWERS" | bash env.sh > /dev/null
+          bash env.sh --check .env
+
+      - name: Validate docker-compose.yml
+        run: |
+          set -euo pipefail
+          # --quiet suppresses the rendered config, which contains the
+          # generated secrets. Unset-variable warnings mean docker-compose.yml
+          # references a variable that .env.example does not define.
+          if ! warnings=$(docker compose config --quiet 2>&1); then
+            echo "$warnings" >&2
+            exit 1
+          fi
+          if grep -F "variable is not set" <<< "$warnings"; then
+            echo "::error::docker-compose.yml uses variables missing from .env.example" >&2
+            exit 1
+          fi
+          docker compose config --services
+
+  smoke:
+    needs: config
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      # docker-compose.yml reads these, so the stack runs the candidate image
+      # built below instead of a published release.
+      AUTOSECOPS__IMAGE_REPOSITORY: autosecops-ci
+      AUTOSECOPS__IMAGE_TAG: compose-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build candidate image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: production
+          load: true
+          tags: ${{ env.AUTOSECOPS__IMAGE_REPOSITORY }}:${{ env.AUTOSECOPS__IMAGE_TAG }}
+          # Reuse the amd64 layers the nightly image publish caches on main.
+          cache-from: type=gha,scope=api-linux-amd64
+
+      # Tags the image docker-compose.yml defaults to, so PRs test their own
+      # PostgreSQL candidate before its GHCR tag is published.
+      - name: Build PostgreSQL candidate image
+        run: bash scripts/postgres/build-image.sh
+
+      - name: Generate .env with env.sh
+        run: |
+          set -euo pipefail
+          printf '%s' "$ENV_SH_ANSWERS" | bash env.sh > /dev/null
+          bash env.sh --check .env
+
+      - name: Start production stack
+        run: |
+          set -euo pipefail
+          # The UI image is built from frontend/ and is out of scope here;
+          # Caddy, the API, and the Temporal workers cover the backend path.
+          docker compose up --no-build --pull missing -d caddy api worker executor
+
+      - name: Wait for API health through Caddy
+        run: |
+          set -euo pipefail
+          timeout 300 bash -c 'until curl -fsS http://localhost/api/health; do sleep 5; done'
+          echo
+          # /info reads the database, so it also proves migrations ran.
+          curl -fsS http://localhost/api/info | jq -e '.version | length > 0'
+
+      - name: Check services stayed up
+        run: |
+          set -euo pipefail
+          docker compose ps
+          for service in api worker executor caddy; do
+            state=$(docker compose ps --format json "$service" | jq -rs 'flatten | .[0].State // "missing"')
+            if [ "$state" != "running" ]; then
+              echo "::error::$service is $state" >&2
+              exit 1
+            fi
+          done
+          migrations=$(docker compose ps --all --format json migrations | jq -rs 'flatten | .[0].ExitCode // -1')
+          test "$migrations" = 0
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          docker compose ps --all
+          for service in migrations api worker executor caddy temporal postgres_db; do
+            echo "=== $service logs ==="
+            docker compose logs "$service" --tail=200
+          done
+
+      - name: Stop production stack
+        if: always()
+        run: docker compose down -v --remove-orphans
