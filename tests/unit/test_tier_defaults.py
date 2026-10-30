@@ -25,6 +25,7 @@ _FALSE_BY_DEFAULT = {
     "forms": False,
     "tunnels": False,
     "robot_edr": False,
+    "agent_runtime_preview": False,
 }
 
 

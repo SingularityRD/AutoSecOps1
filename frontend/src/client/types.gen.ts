@@ -4999,6 +4999,9 @@ export type EffectiveEntitlements = {
    * Whether workspaces may register robots and ingest RoboDR findings
    */
   robot_edr?: boolean
+   * Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions
+   */
+  agent_runtime_preview?: boolean
 }
 
 /**
@@ -5156,6 +5159,9 @@ export type EntitlementsDict = {
    * Whether workspaces may register robots and ingest RoboDR findings
    */
   robot_edr?: boolean
+   * Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions
+   */
+  agent_runtime_preview?: boolean
 }
 
 export type ErrorModel = {
@@ -24524,7 +24530,7 @@ export type $OpenApiTs = {
          */
         200: AgentSessionRead
         /**
-         * Workspace Chat entitlement or parent session write access required
+         * Workspace Chat or agent backend entitlement, or parent session write access required
          */
         403: unknown
         /**

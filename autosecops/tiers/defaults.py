@@ -38,6 +38,7 @@ BASELINE_ENTITLEMENTS = EffectiveEntitlements(
     forms=False,
     tunnels=False,
     robot_edr=False,
+    agent_runtime_preview=False,
 )
 """Free entitlements every single-tenant install gets without a license.
 
@@ -65,6 +66,7 @@ _LEGACY_ENTITLEMENT_FLAGS: dict[str, Entitlement] = {
     "rbac": Entitlement.RBAC_ADDONS,
     "agent-channels": Entitlement.AGENT_CHANNELS,
     "forms": Entitlement.FORMS,
+    "agent-runtime": Entitlement.AGENT_RUNTIME_PREVIEW,
 }
 
 

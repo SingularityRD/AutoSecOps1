@@ -188,4 +188,5 @@ class TierService(BaseService):
             forms=resolve_entitlement("forms"),
             tunnels=resolve_entitlement("tunnels"),
             robot_edr=resolve_entitlement("robot_edr"),
+            agent_runtime_preview=resolve_entitlement("agent_runtime_preview"),
         )

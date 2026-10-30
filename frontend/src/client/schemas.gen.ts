@@ -16783,6 +16783,11 @@ export const $EffectiveEntitlements = {
       title: "Robot EDR",
       description:
         "Whether workspaces may register robots and ingest RoboDR findings",
+    agent_runtime_preview: {
+      type: "boolean",
+      title: "Agent runtime preview",
+      description:
+        "Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions",
       default: false,
     },
   },
@@ -17054,6 +17059,11 @@ export const $EntitlementsDict = {
       title: "Robot EDR",
       description:
         "Whether workspaces may register robots and ingest RoboDR findings",
+    agent_runtime_preview: {
+      type: "boolean",
+      title: "Agent runtime preview",
+      description:
+        "Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions",
     },
   },
   type: "object",

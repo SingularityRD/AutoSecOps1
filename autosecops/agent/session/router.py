@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.agent.adapter import vercel
+from autosecops.agent.backends.access import can_use_backend
 from autosecops.agent.backends.registry import (
     get_agent_backends,
 )
@@ -193,16 +194,26 @@ async def _build_session_read_with_entitlement(
     return build_session_read(agent_session, role, readonly=readonly)
 
 
+async def _can_use_backend(
+    *, session: AsyncDBSession, role: WorkspaceActorRouteRole, backend_id: str
+) -> bool:
+    if role.organization_id is None:
+        return False
+    return await can_use_backend(session, role.organization_id, backend_id)
+
+
 @router.get("/backends")
 @require_scope("agent:read")
 async def list_agent_backends(
     role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
 ) -> list[AgentBackendRead]:
-    """List enabled installed backends available to new sessions."""
+    """List enabled installed backends this organization may start sessions on."""
     return [
         AgentBackendRead(id=key, name=backend.name)
         for key, backend in get_agent_backends().items()
         if backend.is_enabled()
+        and await _can_use_backend(session=session, role=role, backend_id=key)
     ]
 
 
@@ -210,7 +221,7 @@ async def list_agent_backends(
     "",
     responses={
         403: {
-            "description": "Workspace Chat entitlement or parent session write access required"
+            "description": "Workspace Chat or agent backend entitlement, or parent session write access required"
         },
         404: {"description": "Parent session not found in this workspace"},
     },
@@ -222,13 +233,14 @@ async def create_session(
     session: AsyncDBSession,
 ) -> AgentSessionRead:
     """Create a new agent session associated with an entity."""
+    chat_backend = config.AUTOSECOPS__AGENT_CHAT_BACKEND
+    # Orgs that cannot use the configured chat backend keep the built-in one.
     if (
         "backend_id" not in request.model_fields_set
         and request.entity_type in CHAT_BACKEND_ENTITIES
+        and await _can_use_backend(session=session, role=role, backend_id=chat_backend)
     ):
-        request = request.model_copy(
-            update={"backend_id": config.AUTOSECOPS__AGENT_CHAT_BACKEND}
-        )
+        request = request.model_copy(update={"backend_id": chat_backend})
     await require_workspace_chat_entitlement_for_entity(
         session=session,
         role=role,
