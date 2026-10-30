@@ -41,7 +41,11 @@ from autosecops.exceptions import (
 from autosecops.git.types import GitUrl
 from autosecops.git.utils import parse_git_url
 from autosecops.identifiers.workflow import WorkflowUUID
-from autosecops.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
+from autosecops.registry.repositories.schemas import (
+    GitBranchInfo,
+    GitCommitInfo,
+    GitTagInfo,
+)
 from autosecops.sync import (
     CatalogMappingRequirement,
     McpIntegrationMappingRequirement,
@@ -865,6 +869,25 @@ class WorkspaceSyncService(SyncMappingService):
         url = await self._workspace_git_url()
         transport = self._transport_for_provider()
         return await transport.list_branches(url=url, limit=limit)
+
+    async def list_tags(
+        self,
+        *,
+        limit: int = 100,
+        cursor: str | None = None,
+        url: GitUrl | None = None,
+    ) -> tuple[list[GitTagInfo], str | None]:
+        """List one page of tags for the workspace repository, newest first.
+
+        ``url`` overrides the repository read from workspace settings. The
+        managed resources source passes its pinned URL so the read cannot follow
+        a binding changed after the pin was checked.
+        """
+        self._require_sync_operation_scope()
+        if url is None:
+            url = await self._workspace_git_url()
+        transport = self._transport_for_provider()
+        return await transport.list_tags(url=url, limit=limit, cursor=cursor)
 
     def _transport_for_provider(self) -> VcsSyncTransport:
         """Build the VCS transport for the workspace provider using the factory."""
@@ -2384,7 +2407,6 @@ class WorkspaceSyncService(SyncMappingService):
         Raises :class:`AutoSecOpsSettingsError` when no URL is configured or it is
         invalid, and :class:`AutoSecOpsValidationError` for unsupported providers.
         """
-        provider = self._mapping_provider
         workspace = await self._workspace()
         repo_url = (
             workspace.settings.get("git_repo_url") if workspace.settings else None
@@ -2393,18 +2415,7 @@ class WorkspaceSyncService(SyncMappingService):
             raise AutoSecOpsSettingsError(
                 "Git repository URL not configured for this workspace."
             )
-        try:
-            match provider:
-                case VcsProvider.GITHUB:
-                    return parse_git_url(repo_url, allowed_domains={"github.com"})
-                case VcsProvider.GITLAB | VcsProvider.BITBUCKET_DATA_CENTER:
-                    return parse_git_url(repo_url)
-                case VcsProvider.BITBUCKET:
-                    return parse_git_url(repo_url, allowed_domains={"bitbucket.org"})
-        except ValueError as e:
-            raise AutoSecOpsSettingsError(
-                f"Invalid Git repository URL configured for this workspace: {e}"
-            ) from e
+        return parse_workspace_git_url(self._mapping_provider, repo_url)
 
     async def _workspace(self) -> Workspace:
         """Load the current workspace, raising :class:`AutoSecOpsNotFoundError` if absent."""
@@ -2415,6 +2426,26 @@ class WorkspaceSyncService(SyncMappingService):
         if workspace is None:
             raise AutoSecOpsNotFoundError("Workspace not found")
         return workspace
+
+
+def parse_workspace_git_url(provider: VcsProvider, repo_url: str) -> GitUrl:
+    """Parse a workspace Git repository URL the way workspace sync does.
+
+    Raises:
+        AutoSecOpsSettingsError: The URL is invalid for ``provider``.
+    """
+    try:
+        match provider:
+            case VcsProvider.GITHUB:
+                return parse_git_url(repo_url, allowed_domains={"github.com"})
+            case VcsProvider.GITLAB | VcsProvider.BITBUCKET_DATA_CENTER:
+                return parse_git_url(repo_url)
+            case VcsProvider.BITBUCKET:
+                return parse_git_url(repo_url, allowed_domains={"bitbucket.org"})
+    except ValueError as e:
+        raise AutoSecOpsSettingsError(
+            f"Invalid Git repository URL configured for this workspace: {e}"
+        ) from e
 
 
 _VAR_REF_RE = re.compile(r"\bVARS\.([A-Za-z_][A-Za-z0-9_-]*)")
