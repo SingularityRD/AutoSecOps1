@@ -35,7 +35,7 @@ from fastapi_users.exceptions import (
 from fastapi_users.openapi import OpenAPIResponseType
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from pydantic import EmailStr
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
@@ -120,8 +120,69 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             is_unprivileged and any(field in set_fields for field in denylist)
         ):
             raise PermissionsException("Operation not permitted")
+        # NOTE(security): The email is the identity that invitations, SSO
+        # account linking and domain policy trust, and there is no flow that
+        # verifies a new address. Self-service (safe) updates may not change
+        # it; the superuser-only `PATCH /users/{id}` route passes safe=False.
+        changes_email = "email" in set_fields and user_update.email != user.email
+        if safe and changes_email and not role.is_platform_superuser:
+            raise PermissionsException("Operation not permitted")
+        # NOTE(security): A stolen session must not be able to change the
+        # password without knowing the current one. This covers self-service
+        # updates (`PATCH /users/me`); the superuser-only `PATCH /users/{id}`
+        # route passes safe=False.
+        changes_own_password = (
+            safe and role.user_id == user.id and user_update.password is not None
+        )
+        if changes_own_password:
+            self._verify_current_password(user_update, user)
 
-        return await super().update(user_update, user, safe=True, request=request)
+        updated_user = await super().update(
+            user_update, user, safe=True, request=request
+        )
+        if changes_own_password:
+            await self._revoke_other_sessions(updated_user, request)
+        return updated_user
+
+    def _verify_current_password(
+        self, user_update: schemas.BaseUserUpdate, user: User
+    ) -> None:
+        current_password = (
+            user_update.current_password
+            if isinstance(user_update, UserUpdate)
+            else None
+        )
+        if not current_password:
+            raise InvalidPasswordException(
+                "Enter your current password to set a new password"
+            )
+        verified, _ = self.password_helper.verify_and_update(
+            current_password, user.hashed_password
+        )
+        if not verified:
+            raise InvalidPasswordException("Current password is incorrect")
+
+    async def _revoke_other_sessions(self, user: User, request: Request | None) -> None:
+        """Delete the user's sessions except the one that made this request."""
+        current_token = (
+            request.cookies.get(cookie_transport.cookie_name) if request else None
+        )
+        statement = delete(AccessToken).where(
+            AccessToken.user_id == user.id  # pyright: ignore[reportArgumentType]
+        )
+        if current_token:
+            statement = statement.where(
+                AccessToken.token != current_token  # pyright: ignore[reportArgumentType]
+            )
+        session = self._user_db.session
+        result = await session.execute(statement.returning(AccessToken.id))
+        revoked = len(result.scalars().all())
+        await session.commit()
+        self.logger.info(
+            "Revoked other sessions after password change",
+            user_id=str(user.id),
+            revoked=revoked,
+        )
 
     async def admin_update(
         self,
@@ -687,16 +748,15 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None
     ) -> None:
-        self.logger.info(
-            f"User {user.id} has forgot their password. Reset token: {token}"
-        )
+        # NOTE(security): Never log the token. It is a bearer credential that
+        # resets the account password, and logs reach far more readers.
+        self.logger.info("Password reset requested", user_id=str(user.id))
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
     ) -> None:
-        self.logger.info(
-            f"Verification requested for user {user.id}. Verification token: {token}"
-        )
+        # NOTE(security): Never log the token; it marks the email as verified.
+        self.logger.info("Email verification requested", user_id=str(user.id))
 
     async def saml_callback(
         self,

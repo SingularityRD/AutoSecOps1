@@ -1,0 +1,70 @@
+name: Lint Terraform
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - deployments/fargate/**
+      - .github/workflows/lint-terraform.yml
+  pull_request:
+    branches: [ "main", "staging" ]
+    paths:
+      - deployments/fargate/**
+      - .github/workflows/lint-terraform.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: 1.16.6
+  TERRAFORM_SHA256: 38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+
+jobs:
+  terraform:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Root modules only. Child modules under modules/ are validated
+        # through the root module that calls them.
+        root:
+          - deployments/fargate
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install terraform
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          echo "${TERRAFORM_SHA256}  terraform.zip" | sha256sum -c -
+          unzip -o -q terraform.zip terraform
+          install -m 0755 terraform bin/terraform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Check formatting
+        env:
+          ROOT: ${{ matrix.root }}
+        run: terraform -chdir="$ROOT" fmt -check -recursive -diff
+
+      - name: Validate
+        env:
+          ROOT: ${{ matrix.root }}
+          # Keep provider downloads out of the checkout. The root modules do
+          # not commit a lock file (.gitignore), so init writes a fresh one.
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data
+        run: |
+          set -euo pipefail
+          terraform -chdir="$ROOT" init -backend=false -no-color
+          terraform -chdir="$ROOT" validate -no-color

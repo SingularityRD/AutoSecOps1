@@ -59,7 +59,8 @@ def test_dispatch_requires_matching_remote_tag_workflow(tag: str) -> None:
         "",
         PUBLISHER.replace("flavor: latest=false", "flavor: latest=true"),
         PUBLISHER.replace(
-            "if: needs.validate.outputs.latest == 'true'", "if: always()"
+            "if: ${{ !failure() && !cancelled() && needs.validate.outputs.latest == 'true' }}",
+            "if: always()",
         ),
         PUBLISHER + "\n# A different workflow revision also requires review.\n",
     ],

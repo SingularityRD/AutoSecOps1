@@ -30,6 +30,7 @@ async def test_list_my_pending_invitations_success(
     mock_user = SimpleNamespace(
         id=test_admin_role.user_id,
         email="user@example.com",
+        is_verified=True,
     )
     mock_inviter = SimpleNamespace(
         first_name="Alice",
@@ -98,6 +99,7 @@ async def test_list_my_pending_invitations_empty_result(
     mock_user = SimpleNamespace(
         id=test_admin_role.user_id,
         email="user@example.com",
+        is_verified=True,
     )
 
     tuples_result = Mock()
@@ -115,6 +117,48 @@ async def test_list_my_pending_invitations_empty_result(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == []
+
+
+@pytest.mark.anyio
+async def test_list_my_pending_invitations_hides_tokens_from_unverified_user(
+    client: TestClient, test_admin_role: Role
+) -> None:
+    """An unverified email proves nothing, so it must not unlock invite tokens.
+
+    Anyone can self-register with an invitee's address (or used to be able to
+    switch to it) and would otherwise read the token and accept the invite.
+    """
+    mock_session = await app.dependency_overrides[get_async_session]()
+    mock_user = SimpleNamespace(
+        id=test_admin_role.user_id,
+        email="invitee@example.com",
+        is_verified=False,
+    )
+    mock_invitation = SimpleNamespace(
+        id=uuid.uuid4(),
+        token="invitation-token-123",
+        organization_id=uuid.uuid4(),
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+        created_at=datetime.now(UTC),
+        grants=[SimpleNamespace(workspace_id=None, role_id=uuid.uuid4())],
+    )
+    tuples_result = Mock()
+    tuples_result.all.return_value = [
+        (mock_invitation, SimpleNamespace(name="Acme Security"), None),
+    ]
+    pending_result = Mock()
+    pending_result.tuples.return_value = tuples_result
+    mock_session.execute.side_effect = [pending_result]
+    app.dependency_overrides[current_active_user] = lambda: mock_user
+
+    try:
+        response = client.get("/invitations/pending/me")
+    finally:
+        app.dependency_overrides.pop(current_active_user, None)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []
+    assert "invitation-token-123" not in response.text
 
 
 def _mock_invitation(

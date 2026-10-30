@@ -220,6 +220,17 @@ AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS = float(
 )
 """Interval in seconds between workflow permit heartbeat refreshes."""
 
+AUTOSECOPS__EXPRESSION_REGEX_TIMEOUT_SECONDS = float(
+    os.environ.get("AUTOSECOPS__EXPRESSION_REGEX_TIMEOUT_SECONDS") or 1
+)
+"""Maximum seconds one user-supplied regex in an expression may run.
+
+``FN.regex_*`` patterns run on the ``regex`` engine, which enforces this
+timeout and releases the GIL while matching, so a catastrophically
+backtracking pattern fails with an expression error instead of stalling the
+shared worker.
+"""
+
 AUTOSECOPS__PERMIT_TTL_SECONDS = int(
     os.environ.get("AUTOSECOPS__PERMIT_TTL_SECONDS") or 300
 )
@@ -451,6 +462,47 @@ AUTOSECOPS__AUTH_ALLOWED_DOMAINS = {
 AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH = int(
     os.environ.get("AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH") or 12
 )
+
+# Auth endpoint rate limits. Counters live in Redis and use fixed windows; a
+# limit of 0 disables that rule. Clients are keyed by the address resolved with
+# AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS.
+AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED = env_bool(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", default=True
+)
+"""Rate limit login, registration, password reset, invitation tokens, and API-key failures."""
+AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP", 50, lower=0
+)
+"""Password login attempts per client IP per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_ACCOUNT = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_ACCOUNT", 10, lower=0
+)
+"""Password login attempts per client IP and email per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_IP", 20, lower=0
+)
+"""Forgot-password requests per client IP per hour."""
+AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_ACCOUNT = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_ACCOUNT", 5, lower=0
+)
+"""Forgot-password requests per email per hour, across all clients."""
+AUTOSECOPS__AUTH_RATE_LIMIT_RESET_PASSWORD_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_RESET_PASSWORD_PER_IP", 10, lower=0
+)
+"""Reset-password submissions per client IP per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_REGISTER_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_REGISTER_PER_IP", 10, lower=0
+)
+"""Registration attempts per client IP per hour."""
+AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP", 30, lower=0
+)
+"""Invitation lookups and acceptances by token per client IP per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP", 20, lower=0
+)
+"""Failed service-account API-key authentications per client IP per minute
+before further API-key attempts from that IP are refused."""
 
 AUTOSECOPS__AUTH_SUPERADMIN_EMAIL = os.environ.get("AUTOSECOPS__AUTH_SUPERADMIN_EMAIL")
 """Email address that is allowed to become the first superuser. If not set, the first user logic is disabled for security."""
