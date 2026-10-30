@@ -107,6 +107,9 @@ autosecops:
   auditTrustedProxyCidrs: ""
   # -- Break-glass recovery for a platform admin IP allowlist lockout.
   platformAdminIpAllowlistBypass: false
+  # -- Break-glass recovery that skips security key (MFA) checks for platform
+  # admins who lost every key. Remove after recovery.
+  platformAdminMfaBypass: false
 
   contextCompression:
     enabled: false

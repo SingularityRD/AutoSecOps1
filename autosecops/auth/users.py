@@ -50,6 +50,7 @@ from autosecops.auth.ip_allowlist_enforcement import (
     current_client_ip,
     is_ip_allowed_for_org,
 )
+from autosecops.auth.mfa.policy import get_session_mfa_state
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
 from autosecops.auth.types import PlatformRole, Role
@@ -910,6 +911,15 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
             user = await user_manager.get(user_manager.parse_id(access_token.user_id))
         except (UserNotExists, InvalidID):
             return None
+
+        # A session waiting on a security key challenge or enrollment is not
+        # signed in. Only the /auth/mfa routes accept it.
+        if isinstance(self.database, SQLAlchemyAccessTokenDatabase):
+            mfa_state = await get_session_mfa_state(
+                self.database.session, user, access_token
+            )
+            if mfa_state.is_pending:
+                return None
 
         await self._touch_last_seen(access_token)
         return user

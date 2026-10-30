@@ -190,6 +190,9 @@
         "platformAdminIpAllowlistBypass": {
           "type": "boolean"
         },
+        "platformAdminMfaBypass": {
+          "type": "boolean"
+        },
         "contextCompression": {
           "type": "object",
           "properties": {
