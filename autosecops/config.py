@@ -1132,6 +1132,22 @@ AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE = float(
 Covers sandbox startup, imports, and result serialization around the timed
 function call, which the action runner enforces itself."""
 
+AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH = tuple(
+    name
+    for raw_name in (
+        os.environ.get("AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH") or ""
+    ).split(",")
+    if (name := raw_name.strip())
+)
+"""Extra executor environment variables that direct-mode actions may read.
+
+Direct-mode action subprocesses receive only an allowlisted environment. This
+comma-separated list of names adds operator-chosen, non-secret variables to it.
+Platform settings (``AUTOSECOPS__*``), cloud and service credentials, and names
+that look like credentials (``*_KEY``, ``*_SECRET``, ``*_PASSWORD``,
+``*_TOKEN``, and similar) are always refused. Store secrets as workspace
+secrets instead."""
+
 # === Action Gateway === #
 AUTOSECOPS__ACTION_GATEWAY_SOCKET = (
     os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET")

@@ -37,6 +37,7 @@ from pydantic_core import to_json
 
 from autosecops import config
 from autosecops.contexts import ctx_secret_masks
+from autosecops.executor.action_env import build_direct_action_env
 from autosecops.executor.action_gateway.config import (
     ACTION_GATEWAY_SANDBOX_SOCKET,
     action_gateway_socket_path,
@@ -470,10 +471,12 @@ class ActionRunner:
         # serialization around it.
         hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
 
-        # Build environment with registry paths in PYTHONPATH
-        env = os.environ.copy()
-        # Platform ingestion credentials belong to the worker, not action code.
-        env.pop("SENTRY_DSN", None)
+        # Actions start from an allowlist, never the executor's environment:
+        # it carries platform credentials (DB URI, encryption and service keys).
+        env = build_direct_action_env(
+            os.environ,
+            passthrough=config.AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH,
+        )
         if env_vars:
             env.update(env_vars)
         env.pop(TUNNEL_PROXY_ENV, None)

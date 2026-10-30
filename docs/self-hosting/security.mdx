@@ -174,6 +174,8 @@ Without nsjail, scripts, custom actions, and agents run as regular subprocesses 
 
 This is a supported production configuration when you trust everything that runs. That means your own workflow and custom registry code, the third-party dependencies those actions install, and the agents, tools, and MCP servers you enable.
 
+Custom actions in `direct` mode start from an allowlisted environment instead of the executor's own, so they do not inherit platform credentials such as `AUTOSECOPS__DB_URI`, `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, or `AWS_*`. They still run as the executor's user in the same container, so treat this as hardening, not a sandbox. To pass extra non-secret settings to actions, list them in `AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH`.
+
 Review that code and pin those dependencies as you would any code with direct access to your systems. Choose nsjail instead when you run code you have not reviewed, such as untrusted third-party packages or agents that generate and execute their own code.
 
 ### Choosing a backend
