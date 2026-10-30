@@ -111,7 +111,21 @@ async def github_app_install_callback(
         ) from e
 
 
-@github_router.post("/webhook")
+@github_router.post(
+    "/webhook",
+    # The body is read raw so the signature is checked before parsing; keep
+    # documenting it as a JSON object in the OpenAPI schema.
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object", "additionalProperties": True}
+                }
+            },
+        }
+    },
+)
 async def github_webhook(*, request: Request) -> dict[str, str]:
     """Handle GitHub webhook events.
 
