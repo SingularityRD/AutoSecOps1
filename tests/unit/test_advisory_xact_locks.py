@@ -34,6 +34,16 @@ from autosecops.db.locks import (
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
+
+def _probe_schema() -> str:
+    """Name a throwaway schema for probe tables.
+
+    The runtime role cannot create tables in ``public`` but may create schemas
+    (it owns per-workspace schemas), so probes work as owner and runtime role.
+    """
+    return f"lock_probe_{uuid.uuid4().hex}"
+
+
 # Long enough for a contender that should block to reach the lock call.
 CONTENTION_WINDOW = 0.3
 
@@ -133,8 +143,10 @@ async def test_lock_survives_a_server_idle_in_transaction_timeout() -> None:
 async def test_serialized_session_waiter_sees_every_commit_of_the_holder() -> None:
     """The holder commits twice; the waiter's snapshot starts after both."""
     key = _lock_key()
-    table = f"lock_probe_{uuid.uuid4().hex}"
+    schema = _probe_schema()
+    table = f"{schema}.probe"
     async with get_async_engine().begin() as connection:
+        await connection.execute(text(f"CREATE SCHEMA {schema}"))
         await connection.execute(text(f"CREATE TABLE {table} (n integer)"))
     holder_ready = asyncio.Event()
     release_holder = asyncio.Event()
@@ -167,14 +179,16 @@ async def test_serialized_session_waiter_sees_every_commit_of_the_holder() -> No
         assert await asyncio.wait_for(waiter_task, timeout=10) == 2
     finally:
         async with get_async_engine().begin() as connection:
-            await connection.execute(text(f"DROP TABLE IF EXISTS {table}"))
+            await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
 
 
 async def test_serialized_session_cannot_commit_after_losing_the_lock() -> None:
     """A dropped holder connection fails the work commit instead of racing."""
     key = _lock_key()
-    table = f"lock_probe_{uuid.uuid4().hex}"
+    schema = _probe_schema()
+    table = f"{schema}.probe"
     async with get_async_engine().begin() as connection:
+        await connection.execute(text(f"CREATE SCHEMA {schema}"))
         await connection.execute(text(f"CREATE TABLE {table} (n integer)"))
     try:
         async with get_serialized_session(key) as session:
@@ -188,7 +202,7 @@ async def test_serialized_session_cannot_commit_after_losing_the_lock() -> None:
             assert count.scalar_one() == 0
     finally:
         async with get_async_engine().begin() as connection:
-            await connection.execute(text(f"DROP TABLE IF EXISTS {table}"))
+            await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
 
 
 async def test_commit_fails_when_the_holder_transaction_ended_on_a_live_socket() -> (
@@ -211,16 +225,19 @@ async def test_commit_fails_when_the_holder_transaction_ended_on_a_live_socket()
 async def test_serialized_session_checks_the_holder_after_flushing() -> None:
     """Losing the holder while pending ORM writes flush still fails the commit."""
     key = _lock_key()
-    table = f"lock_probe_{uuid.uuid4().hex}"
+    schema = _probe_schema()
+    table = f"{schema}.probe"
 
     class Base(DeclarativeBase):
         pass
 
     class Probe(Base):
-        __tablename__ = table
+        __tablename__ = "probe"
+        __table_args__ = {"schema": schema}
         id: Mapped[int] = mapped_column(primary_key=True)
 
     async with get_async_engine().begin() as connection:
+        await connection.execute(text(f"CREATE SCHEMA {schema}"))
         await connection.run_sync(Base.metadata.create_all)
     try:
         async with get_serialized_session(key) as session:
@@ -237,7 +254,7 @@ async def test_serialized_session_checks_the_holder_after_flushing() -> None:
             assert count.scalar_one() == 0
     finally:
         async with get_async_engine().begin() as connection:
-            await connection.run_sync(Base.metadata.drop_all)
+            await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
 
 
 async def test_custom_field_schema_init_waits_for_the_first_commit(
