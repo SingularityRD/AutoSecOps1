@@ -45,6 +45,8 @@ from autosecops.db.models import (
     OrganizationSetting,
     PlatformSecret,
     PlatformSetting,
+    RobotFleetSocKey,
+    RobotFleetToken,
     Secret,
     WorkspaceTunnel,
 )
@@ -79,6 +81,8 @@ ENCRYPTED_COLUMNS: Final[tuple[EncryptedColumn, ...]] = (
     EncryptedColumn(AgentCatalog.encrypted_config),
     EncryptedColumn(WorkspaceTunnel.encrypted_client_secret),
     EncryptedColumn(WorkspaceTunnel.encrypted_gateway_key),
+    EncryptedColumn(RobotFleetSocKey.encrypted_seed),
+    EncryptedColumn(RobotFleetToken.encrypted_nonce),
     EncryptedColumn(
         OrganizationSetting.value, only_if=OrganizationSetting.is_encrypted.is_(True)
     ),

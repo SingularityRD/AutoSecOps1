@@ -43,6 +43,21 @@ NOT_DB_ENCRYPTED_BINARY_COLUMNS = {
     "webauthn_credential.credential_id",
     "webauthn_credential.public_key",
     "agent_session_history.raw_session_line",
+    # RoboDR public keys, signed envelopes and wire bodies hold no ciphertext.
+    "robot_fleet_approval.envelope",
+    "robot_fleet_approval.payload",
+    "robot_fleet_profile_draft.body",
+    "robot_fleet_profile_offer.body",
+    "robot_fleet_revocation_list.body",
+    "robot_fleet_ring.envelope",
+    "robot_fleet_rotation.cancel_answer",
+    "robot_fleet_rotation.retire_answer",
+    "robot_fleet_rotation.rotate_answer",
+    "robot_fleet_soc_key.public_key",
+    "robot_fleet_token.answer",
+    "robot_fleet_trust_root.public_key",
+    "robot_key.public_key",
+    "robot_key_registry.public_key",
 }
 
 FERNET = DBEncryptionAlgorithm.FERNET

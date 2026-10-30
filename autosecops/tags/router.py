@@ -60,9 +60,10 @@ async def create_tag(
     try:
         return await service.create_tag(tag)
     except ValueError as e:
+        # Raised by the service when a tag with the same slug already exists.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tag already exists",
+            detail=str(e),
         ) from e
     except IntegrityError as e:
         if not is_unique_violation(

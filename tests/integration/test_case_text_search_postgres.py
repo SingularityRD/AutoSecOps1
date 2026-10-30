@@ -67,6 +67,9 @@ class SearchMigration(Protocol):
 class RenameMigration(Protocol):
     _RENAMES: tuple[tuple[str, str, str], ...]
 
+    def upgrade(self) -> None: ...
+    def downgrade(self) -> None: ...
+
 
 class VectorMigration(Protocol):
     _BACKFILL_BATCH: int
