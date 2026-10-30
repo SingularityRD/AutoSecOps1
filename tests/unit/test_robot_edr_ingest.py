@@ -114,8 +114,9 @@ def audit_capture(monkeypatch: pytest.MonkeyPatch) -> AuditCapture:
 
     async def _post(
         self: AuditService, *, webhook_url: str, payload: AuditEvent
-    ) -> None:
+    ) -> bool:
         capture.events.append(payload)
+        return True
 
     monkeypatch.setattr(AuditService, "_get_webhook_url", _webhook)
     monkeypatch.setattr(AuditService, "_post_event", _post)
@@ -158,8 +159,9 @@ async def other_workspace(
 
 def admin_role(ws: Workspace, scopes: frozenset[str] = ADMIN_SCOPES) -> Role:
     return Role(
-        type="service",
+        type="service_account",
         service_id="autosecops-api",
+        service_account_id=uuid.uuid4(),
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=scopes,
@@ -772,17 +774,15 @@ async def test_authentication_failures_are_401_and_audited(
     for response, code, _ in cases:
         assert response.status_code == 401, response.text
         assert response.json()["code"] == code
-    reasons = [
-        e.data.get("failure_reason") if e.data else None for e in audit_capture.events
-    ]
+    # The ingest events (the robot and key registrations are audited too).
+    events = [e for e in audit_capture.events if e.resource_type == "robot_ingest"]
+    reasons = [e.data.get("failure_reason") if e.data else None for e in events]
     assert reasons == [reason for _, _, reason in cases]
-    assert all(
-        e.status == "FAILURE" and e.actor_type == "ROBOT" for e in audit_capture.events
-    )
-    assert all(e.ip_address == "127.0.0.1" for e in audit_capture.events)
+    assert all(e.status == "FAILURE" and e.actor_type == "ROBOT" for e in events)
+    assert all(e.ip_address == "127.0.0.1" for e in events)
     # Known keys are audited in their workspace; unknown ones on the platform sink.
-    assert audit_capture.events[0].workspace_id is None
-    assert audit_capture.events[1].workspace_id == workspace.id
+    assert events[0].workspace_id is None
+    assert events[1].workspace_id == workspace.id
     assert await _findings(workspace) == []
 
 

@@ -1,4 +1,4 @@
-"""Action-gateway routes for RoboDR evidence (`tools.robodr` evidence actions).
+"""Action-gateway routes for RoboDR evidence and action audits (`tools.robodr`).
 
 Authorization: these routes admit only a verified executor token
 (`ExecutorWorkspaceRole`), i.e. the run of a workflow or agent action.
@@ -7,6 +7,14 @@ principals' operational scopes deliberately lack: adding it there would grant
 robot reads to every internal service on every route. These routes grant it
 to the executor themselves (`_require_executor_robot_read`), never beyond the
 person the run acts for.
+
+`/actions/audit` records robot action requests and reverts. It needs only a
+verified executor of the workspace: it grants nothing, and the people it
+records come from the platform's own sign-off submissions.
+
+Every audit event here names the run that acted (workflow or agent session,
+run, execution, trigger) and is written fail closed: a route that cannot
+write its event answers an error, and the registry action then stops.
 """
 
 from __future__ import annotations
@@ -24,12 +32,14 @@ from autosecops.exceptions import (
     AutoSecOpsValidationError,
     ScopeDeniedError,
 )
+from autosecops.robot_edr.action_audit import RobotActionAuditService
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
     ROBOT_ID_PATTERN,
     EvidenceAccessRequest,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
+    RobotActionAuditRequest,
 )
 from autosecops.storage.exceptions import FileValidationError
 
@@ -62,6 +72,20 @@ async def _require_executor_robot_read(role: Role) -> None:
             required_scopes=[ROBOT_READ],
             missing_scopes=[ROBOT_READ],
             message="The user this run acts for may not read robots.",
+        )
+
+
+def _require_executor(role: Role) -> None:
+    """Admit only a workspace's executor (a verified executor token).
+
+    Raises:
+        ScopeDeniedError: The role is not an executor of a workspace.
+    """
+    if role.type != "service" or role.workspace_id is None:
+        raise ScopeDeniedError(
+            required_scopes=[],
+            missing_scopes=[],
+            message="Only a workflow or agent run's executor records robot actions.",
         )
 
 
@@ -127,3 +151,22 @@ async def list_blackbox_keys(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except AutoSecOpsValidationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/actions/audit", status_code=status.HTTP_204_NO_CONTENT)
+async def record_robot_action(
+    *,
+    role: ExecutorWorkspaceRole,
+    session: AsyncDBSession,
+    params: RobotActionAuditRequest,
+) -> None:
+    """Audit-log a robot action request or revert, before it is sent.
+
+    The registry action sends nothing to the robot unless the ``attempt``
+    is written.
+    """
+    _require_executor(role)
+    try:
+        await RobotActionAuditService(session, role=role).record(params)
+    except AutoSecOpsValidationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

@@ -81,8 +81,9 @@ async def _drop_workspace(ws: Workspace) -> None:
 
 async def _register_manifest_workspace(ws: Workspace) -> None:
     role = Role(
-        type="service",
+        type="service_account",
         service_id="autosecops-api",
+        service_account_id=uuid.uuid4(),
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,

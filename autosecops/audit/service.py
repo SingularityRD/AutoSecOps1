@@ -36,6 +36,7 @@ from autosecops.audit.enums import AuditEventActor, AuditEventStatus
 from autosecops.audit.sanitization import sanitize_audit_metadata
 from autosecops.audit.types import (
     AuditAction,
+    AuditActor,
     AuditEvent,
     AuditMetadata,
     AuditMetadataValue,
@@ -45,12 +46,17 @@ from autosecops.audit.types import (
 )
 from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import PlatformRole, Role
-from autosecops.contexts import ctx_request_audit, ctx_role
+from autosecops.contexts import (
+    ctx_request_audit,
+    ctx_role,
+    ctx_service_account_api_key_id,
+)
 from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
     get_async_session_context_manager,
 )
 from autosecops.db.models import PlatformSetting, ServiceAccount, User
+from autosecops.exceptions import AutoSecOpsServiceError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
 from autosecops.network import (
@@ -134,8 +140,22 @@ def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, httpx.TransportError)
 
 
-def _spawn_delivery(delivery: _AuditDelivery) -> None:
-    """Post the delivery on its own fire-and-forget task."""
+class AuditWriteError(AutoSecOpsServiceError):
+    """A fail-closed audit event could not be written, so the operation is refused.
+
+    Raised only by strict writes (``strict=True``). Configured-sink delivery
+    stays fire-and-forget: "written" means the event was built from a
+    resolvable actor and accepted for delivery to the configured sink, which a
+    settings lookup failure or a full delivery backlog prevents.
+    """
+
+
+def _spawn_delivery(delivery: _AuditDelivery) -> bool:
+    """Post the delivery on its own fire-and-forget task.
+
+    Returns:
+        Whether the delivery was accepted (``False`` when it was shed).
+    """
     # Tasks stranded on closed (e.g. per-test) loops never ran their done
     # callbacks; evict them and their loops' semaphores so neither container
     # grows across loops.
@@ -152,10 +172,11 @@ def _spawn_delivery(delivery: _AuditDelivery) -> None:
             action=delivery.action,
             max_pending=_MAX_PENDING_DELIVERIES,
         )
-        return
+        return False
     task = asyncio.get_running_loop().create_task(_deliver(delivery))
     _delivery_tasks.add(task)
     task.add_done_callback(_delivery_tasks.discard)
+    return True
 
 
 async def _deliver(delivery: _AuditDelivery) -> None:
@@ -599,8 +620,13 @@ class AuditService(BaseService):
             data={"test": True},
         )
 
-    async def _post_event(self, *, webhook_url: str, payload: AuditEvent) -> None:
-        """Resolve the delivery synchronously, then spawn its delivery task."""
+    async def _post_event(self, *, webhook_url: str, payload: AuditEvent) -> bool:
+        """Resolve the delivery synchronously, then spawn its delivery task.
+
+        Returns:
+            Whether the delivery was resolved and accepted. Failures are
+            logged, never raised: callers that must fail closed check this.
+        """
         try:
             delivery = await self._build_delivery(
                 webhook_url=webhook_url, payload=payload
@@ -612,8 +638,35 @@ class AuditService(BaseService):
                 "Failed to resolve audit webhook delivery",
                 error_type=type(exc).__name__,
             )
-            return
-        _spawn_delivery(delivery)
+            return False
+        return _spawn_delivery(delivery)
+
+    async def _emit(
+        self, *, webhook_url: str, payload: AuditEvent, strict: bool
+    ) -> None:
+        """Post ``payload``; a strict write raises when it was not accepted.
+
+        Raises:
+            AuditWriteError: ``strict`` and the delivery could not be resolved
+                or was shed.
+        """
+        accepted = await self._post_event(webhook_url=webhook_url, payload=payload)
+        if strict and accepted is not True:
+            raise AuditWriteError(
+                "The audit event could not be written (delivery not accepted)"
+            )
+
+    async def _webhook_url_for_write(self, *, strict: bool) -> str | None:
+        """The configured sink, or ``None``; a strict write fails on a lookup error."""
+        try:
+            return await self._get_webhook_url()
+        except Exception as exc:
+            if not strict:
+                raise
+            raise AuditWriteError(
+                "The audit event could not be written "
+                f"(sink lookup failed: {type(exc).__name__})"
+            ) from exc
 
     async def _get_actor_label(self) -> str | None:
         if self.role is None:
@@ -706,6 +759,7 @@ class AuditService(BaseService):
         include_actor_label: bool = True,
         include_ip_address: bool = True,
         include_user_agent: bool = True,
+        strict: bool = False,
     ) -> None:
         """Deliver a privacy-bounded audit event when a sink is configured.
 
@@ -736,6 +790,13 @@ class AuditService(BaseService):
             include_user_agent: Whether to include the bounded request
                 user-agent from context. This field is sensitive security
                 metadata and may identify client software or devices.
+            strict: Fail closed: raise instead of skipping or dropping the
+                event when the role names no actor, or the configured sink's
+                delivery cannot be resolved or is shed. An unconfigured sink
+                is not a failure.
+
+        Raises:
+            AuditWriteError: ``strict`` and the event could not be written.
         """
 
         if self.role is None or self.role.actor_id is None:
@@ -744,9 +805,14 @@ class AuditService(BaseService):
                 reason="non_auditable_role",
                 role_type=self.role.type if self.role is not None else None,
             )
+            if strict:
+                raise AuditWriteError(
+                    "The audit event could not be written: the caller is not an "
+                    "auditable actor"
+                )
             return
 
-        webhook_url = await self._get_webhook_url()
+        webhook_url = await self._webhook_url_for_write(strict=strict)
         if not webhook_url:
             self.logger.debug("Skipping audit log", reason="webhook_unconfigured")
             return
@@ -769,12 +835,76 @@ class AuditService(BaseService):
                 if include_user_agent and request_audit is not None
                 else None
             ),
-            data=sanitize_audit_metadata(data),
+            data=sanitize_audit_metadata(self._with_credential_ids(data)),
         )
-        await self._post_event(webhook_url=webhook_url, payload=payload)
+        await self._emit(webhook_url=webhook_url, payload=payload, strict=strict)
         self.logger.debug(
             "Streamed audit event", resource_type=resource_type, action=action
         )
+
+    def _with_credential_ids(self, data: AuditMetadata | None) -> AuditMetadata | None:
+        """Name the API key a service account authenticated this request with.
+
+        A service account may hold several keys; the actor id alone does not
+        say which credential acted.
+        """
+        if not (isinstance(self.role, Role) and self.role.type == "service_account"):
+            return data
+        if (api_key_id := ctx_service_account_api_key_id.get()) is None:
+            return data
+        return {**(data or {}), "api_key_id": str(api_key_id)}
+
+    async def create_actor_event(
+        self,
+        *,
+        actor: AuditActor,
+        resource_type: AuditResourceType,
+        action: AuditAction,
+        status: AuditEventStatus,
+        resource_id: uuid.UUID | None = None,
+        data: AuditMetadata | None = None,
+        strict: bool = False,
+    ) -> None:
+        """Deliver an audit event for an explicitly resolved actor.
+
+        For principals the role does not name as an actor, such as a workflow
+        run or agent session acting through the executor. Organization and
+        workspace context still come from this service's role. ``data`` is
+        sanitized as in :meth:`create_event`.
+
+        Args:
+            actor: The resolved actor.
+            resource_type: Type of resource affected by the operation.
+            action: Operation performed on the resource.
+            status: Lifecycle state or outcome of the operation.
+            resource_id: Stable resource ID, when one is available.
+            data: Explicitly selected operational metadata.
+            strict: Fail closed (see :meth:`create_event`).
+
+        Raises:
+            AuditWriteError: ``strict`` and the event could not be written.
+        """
+        webhook_url = await self._webhook_url_for_write(strict=strict)
+        if not webhook_url:
+            self.logger.debug("Skipping audit log", reason="webhook_unconfigured")
+            return
+        request_audit = ctx_request_audit.get()
+        role = self.role if isinstance(self.role, Role) else None
+        payload = AuditEvent(
+            organization_id=role.organization_id if role is not None else None,
+            workspace_id=role.workspace_id if role is not None else None,
+            actor_type=actor.actor_type,
+            actor_id=actor.actor_id,
+            actor_label=actor.actor_label,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            action=action,
+            status=status,
+            ip_address=request_audit.client_ip if request_audit is not None else None,
+            user_agent=request_audit.user_agent if request_audit is not None else None,
+            data=sanitize_audit_metadata(data),
+        )
+        await self._emit(webhook_url=webhook_url, payload=payload, strict=strict)
 
     async def create_robot_event(
         self,

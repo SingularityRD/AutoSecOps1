@@ -90,7 +90,7 @@ class RobotsService(BaseWorkspaceService):
         return robot
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot", action="create")
+    @audit_log(resource_type="robot", action="create", fail_closed=True)
     async def create_robot(self, params: RobotCreate) -> Robot:
         """Register a robot.
 
@@ -105,7 +105,7 @@ class RobotsService(BaseWorkspaceService):
         return robot
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot", action="update")
+    @audit_log(resource_type="robot", action="update", fail_closed=True)
     async def update_robot(self, robot: Robot, params: RobotUpdate) -> Robot:
         """Update a robot's descriptive fields or signature policy."""
         await self.require_entitlement(Entitlement.ROBOT_EDR)
@@ -118,7 +118,7 @@ class RobotsService(BaseWorkspaceService):
         return robot
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot", action="delete")
+    @audit_log(resource_type="robot", action="delete", fail_closed=True)
     async def delete_robot(self, robot: Robot) -> None:
         """Delete a robot and its keys; its findings and cases are kept."""
         await self.require_entitlement(Entitlement.ROBOT_EDR)
@@ -166,7 +166,7 @@ class RobotsService(BaseWorkspaceService):
         return row[0], row[1]
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_key", action="create")
+    @audit_log(resource_type="robot_key", action="create", fail_closed=True)
     async def create_key(self, params: RobotKeyCreate) -> RobotKey:
         """Register a public key.
 
@@ -248,7 +248,7 @@ class RobotsService(BaseWorkspaceService):
         return key
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_key", action="revoke")
+    @audit_log(resource_type="robot_key", action="revoke", fail_closed=True)
     async def revoke_key(self, key: RobotKey) -> RobotKey:
         """Revoke a key; it authenticates nothing from now on. Idempotent."""
         await self.require_entitlement(Entitlement.ROBOT_EDR)
@@ -259,7 +259,7 @@ class RobotsService(BaseWorkspaceService):
         return key
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_key", action="delete")
+    @audit_log(resource_type="robot_key", action="delete", fail_closed=True)
     async def delete_key(self, key: RobotKey) -> None:
         """Delete a key and the replay records of the batches it signed.
 

@@ -142,7 +142,7 @@ def _capture_events(
         async def _get_actor_label(self) -> str:
             return _ACTOR_LABEL
 
-        async def _post_event(self, *, webhook_url: str, payload: AuditEvent) -> None:
+        async def _post_event(self, *, webhook_url: str, payload: AuditEvent) -> bool:
             assert webhook_url == _WEBHOOK_URL
             calls.append(
                 _event(
@@ -155,6 +155,7 @@ def _capture_events(
             )
             if wire_events is not None:
                 wire_events.append(payload.model_dump(mode="json"))
+            return True
 
     @asynccontextmanager
     async def with_session(

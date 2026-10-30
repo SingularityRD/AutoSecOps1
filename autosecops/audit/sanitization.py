@@ -12,8 +12,13 @@ _ALLOWED_METADATA_KEYS = frozenset(
         "auth_method",
         "changed_fields",
         "delete_mode",
+        "execution_origin",
         "failure_reason",
         "operation",
+        "outcome",
+        "request_digest",
+        "robot_action",
+        "root_action",
         "trigger_type",
         "workflow_status",
     }

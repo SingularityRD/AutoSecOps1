@@ -145,8 +145,9 @@ async def test_ingest_latency(
     rate_limit._local_buckets.clear()
     signer = key(f"bench-relay-{workspace.id}")
     role = Role(
-        type="service",
+        type="service_account",
         service_id="autosecops-api",
+        service_account_id=uuid.uuid4(),
         workspace_id=workspace.id,
         organization_id=workspace.organization_id,
         scopes=ADMIN_SCOPES,
