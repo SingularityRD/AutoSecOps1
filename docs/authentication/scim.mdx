@@ -99,6 +99,8 @@ Any IdP that speaks SCIM 2.0 with bearer token authentication works. Configure i
 
 AutoSecOps supports `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` on both resources, `userName eq` filters on users, and `displayName eq` filters on groups.
 
+AutoSecOps stores `userName`, `externalId`, and `active` for users. It accepts profile attributes such as `name`, `displayName`, `title`, `phoneNumbers`, and enterprise extension attributes in `POST`, `PUT`, and `PATCH`, and ignores their values.
+
 ## Map groups
 
 Create your target groups and assign their roles in [Custom roles and groups](/manage-platform/custom-roles) first.
