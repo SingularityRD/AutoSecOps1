@@ -104,8 +104,13 @@ THIRD_PARTY_LICENSES: dict[str, UpstreamLicense] = {
         "MIT", "https://github.com/temporalio/temporal"
     ),
     "temporalio/ui": UpstreamLicense("MIT", "https://github.com/temporalio/ui"),
+    # Chainguard builds MinIO from its own fork (upstream minio/minio is no
+    # longer maintained), so the corresponding source for the shipped binary is
+    # the fork plus the Wolfi package recipe, not upstream.
     "cgr.dev/chainguard/minio": UpstreamLicense(
-        "AGPL-3.0", "https://github.com/minio/minio"
+        "AGPL-3.0-or-later",
+        "https://github.com/chainguard-forks/minio, built by "
+        "https://github.com/wolfi-dev/os/blob/main/minio.yaml",
     ),
     # Valkey, not Redis: Redis 7.4 and later are RSALv2/SSPLv1, which the bundle
     # must not redistribute. Without a `redis` entry the bundler refuses one.

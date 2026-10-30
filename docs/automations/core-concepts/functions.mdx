@@ -23,6 +23,21 @@ Expressions run in shared workers, so AutoSecOps rejects expressions that would 
 - `FN.format` and the `%` operator accept widths and precisions up to 1,000,000. Widths taken from the arguments, such as `%*d` or `{:{}}`, are rejected.
 - `FN.format` fields name a positional argument, such as `{}` or `{0:>8}`. Attribute and index lookups such as `{0.name}` or `{0[key]}` are rejected: index the value in the expression instead, as in `FN.format("{}", TRIGGER.alert.id)`.
 - An expression nests at most 200 levels deep, which also bounds long operator chains such as `a + b + c + ...`.
+- `FN.regex_extract`, `FN.regex_match`, and `FN.regex_not_match` stop a match that runs longer than 1 second, which catches patterns with catastrophic backtracking such as `(a|a)*$`. AutoSecOps rejects patterns whose counted repeats would expand beyond 100,000 nodes, such as `(?:x{1000}){1000}`. Patterns use Python `re` syntax, including lookarounds and backreferences.
+
+### Python lambda limits
+
+The `python_lambda` argument of the transform actions, and the conditions of the HTTP polling and pagination actions, run under the same kind of limits. Each limit fails the action with a clear error:
+
+- Integer results of `**`, `*`, and `<<` are at most 16,384 bits, so `lambda x: 9**9**9` fails immediately.
+- `range`, repetition with `*`, padding methods such as `ljust` and `zfill`, and format widths are capped at 1,000,000 items or characters.
+- One call evaluates at most 1,000,000 comprehension iterations and nested lambda calls.
+- One call builds and renders at most about 64 MiB of strings, lists, and dictionaries. Shared references count each time they render, so AutoSecOps rejects `str(['a' * 10**5] * 10**4)`.
+- A result may be at most that size larger than the value the lambda received.
+- One call runs for at most 2 seconds, and recursion is limited to 500 levels.
+- AutoSecOps reserves names that start with `_guard_`.
+
+For heavier processing, use `core.script.run_python` instead.
 
 ## Examples
 

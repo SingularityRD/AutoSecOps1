@@ -622,6 +622,14 @@
     {
       "source": "/automations/cases/linked-tables",
       "destination": "/automations/cases/linked-rows"
+    },
+    {
+      "source": "/agents/ai-slackbot",
+      "destination": "/agents/channels"
+    },
+    {
+      "source": "/deployment/overview",
+      "destination": "/self-hosting/docker-compose"
     }
   ],
   "logo": {

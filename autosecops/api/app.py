@@ -1,6 +1,8 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from autosecops_ee.admin.router import router as admin_router
 from autosecops_ee.agent.approvals.router import router as approvals_router
@@ -104,6 +106,12 @@ from autosecops.auth.dependencies import (
 from autosecops.auth.discovery import router as auth_discovery_router
 from autosecops.auth.enums import AuthType
 from autosecops.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
+from autosecops.auth.rate_limit import (
+    limit_forgot_password,
+    limit_login,
+    limit_register,
+    limit_reset_password,
+)
 from autosecops.auth.router import router as users_router
 from autosecops.auth.saml import router as saml_router
 from autosecops.auth.schemas import UserCreate, UserRead, UserUpdate
@@ -686,11 +694,46 @@ def _users_router() -> APIRouter:
     return users_router
 
 
-def create_app(**kwargs) -> FastAPI:
-    if config.AUTOSECOPS__ALLOW_ORIGINS is not None:
-        allow_origins = config.AUTOSECOPS__ALLOW_ORIGINS.split(",")
+def _rate_limited(
+    router: APIRouter, limits: Mapping[str, Callable[..., Awaitable[None]]]
+) -> APIRouter:
+    """Attach rate-limit dependencies to a fastapi-users router's named routes."""
+    for route in router.routes:
+        if isinstance(route, APIRoute) and (limit := limits.get(route.name)):
+            route.dependencies.append(Depends(limit))
+    return router
+
+
+@dataclass(frozen=True, slots=True)
+class CORSPolicy:
+    """Origins the API answers cross-origin requests for."""
+
+    allow_origins: list[str]
+    allow_credentials: bool
+
+
+def resolve_cors_policy(allow_origins: str | None, public_app_url: str) -> CORSPolicy:
+    """Resolve the CORS policy from ``AUTOSECOPS__ALLOW_ORIGINS``.
+
+    Unset defaults to the UI's own origin. Starlette answers a wildcard with
+    credentials by echoing the caller's ``Origin``, which would let any site
+    make cookie-authenticated requests and read the responses, so a wildcard
+    never allows credentials.
+    """
+    if allow_origins is None:
+        app_url = urlsplit(public_app_url)
+        origins = [f"{app_url.scheme}://{app_url.netloc}"]
     else:
-        allow_origins = ["*"]
+        origins = [origin.strip() for origin in allow_origins.split(",")]
+        origins = [origin for origin in origins if origin]
+    return CORSPolicy(allow_origins=origins, allow_credentials="*" not in origins)
+
+
+def create_app(**kwargs) -> FastAPI:
+    cors_policy = resolve_cors_policy(
+        config.AUTOSECOPS__ALLOW_ORIGINS, config.AUTOSECOPS__PUBLIC_APP_URL
+    )
+    allow_origins = cors_policy.allow_origins
     app = FastAPI(
         title="AutoSecOps API",
         description=(
@@ -852,17 +895,29 @@ def create_app(**kwargs) -> FastAPI:
     )
     if AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES:
         app.include_router(
-            fastapi_users.get_auth_router(auth_backend),
+            _rate_limited(
+                fastapi_users.get_auth_router(auth_backend),
+                {f"auth:{auth_backend.name}.login": limit_login},
+            ),
             prefix="/auth",
             tags=["auth"],
         )
         app.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),
+            _rate_limited(
+                fastapi_users.get_register_router(UserRead, UserCreate),
+                {"register:register": limit_register},
+            ),
             prefix="/auth",
             tags=["auth"],
         )
         app.include_router(
-            fastapi_users.get_reset_password_router(),
+            _rate_limited(
+                fastapi_users.get_reset_password_router(),
+                {
+                    "reset:forgot_password": limit_forgot_password,
+                    "reset:reset_password": limit_reset_password,
+                },
+            ),
             prefix="/auth",
             tags=["auth"],
         )
@@ -949,7 +1004,7 @@ def create_app(**kwargs) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
-        allow_credentials=True,
+        allow_credentials=cors_policy.allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=[TRACE_ID_HEADER, TRACE_SAMPLED_HEADER],

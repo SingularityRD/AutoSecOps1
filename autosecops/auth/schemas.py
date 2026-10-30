@@ -4,7 +4,14 @@ from enum import StrEnum
 from typing import Any, Self
 
 from fastapi_users import schemas
-from pydantic import UUID4, BaseModel, EmailStr, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 # === Users ===
@@ -79,6 +86,10 @@ class UserUpdate(schemas.BaseUserUpdate):
     first_name: str | None = None
     last_name: str | None = None
     settings: dict[str, Any] | None = None
+    current_password: str | None = Field(
+        default=None,
+        description="Required when a user changes their own password.",
+    )
 
     @model_validator(mode="after")
     def _null_means_unchanged(self) -> Self:
@@ -88,6 +99,18 @@ class UserUpdate(schemas.BaseUserUpdate):
             if getattr(self, name) is None:
                 self.model_fields_set.discard(name)
         return self
+
+    # current_password proves the caller knows the password; it is never
+    # written to the user row.
+    def create_update_dict(self) -> dict[str, Any]:
+        update_dict = super().create_update_dict()
+        update_dict.pop("current_password", None)
+        return update_dict
+
+    def create_update_dict_superuser(self) -> dict[str, Any]:
+        update_dict = super().create_update_dict_superuser()
+        update_dict.pop("current_password", None)
+        return update_dict
 
 
 # === Sessions ===

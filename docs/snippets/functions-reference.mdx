@@ -844,7 +844,7 @@
 
   `FN.regex_extract(pattern: str, text: str) -> str | None`
 
-  Extract the first captured group from text; fallback to full match if none.
+  Extract the first captured group or full match (stops after 1 second).
 
 </ResponseField>
 
@@ -852,7 +852,7 @@
 
   `FN.regex_match(pattern: str, text: str) -> bool`
 
-  Check if text matches regex pattern.
+  Check if text matches regex pattern (stops after 1 second).
 
 </ResponseField>
 
@@ -860,7 +860,7 @@
 
   `FN.regex_not_match(pattern: str, text: str) -> bool`
 
-  Check if text does not match regex pattern.
+  Check if text does not match regex pattern (stops after 1 second).
 
 </ResponseField>
 
