@@ -1,0 +1,107 @@
+name: Build offline bundle
+
+# Builds the air-gapped install bundle (scripts/offline_bundle.py) for a
+# published release and uploads it as a workflow artifact. A bundle is several
+# GB, above the 2 GB limit for a single GitHub release asset, so it stays a
+# workflow artifact instead of a release asset.
+#
+# Dispatch it from the release tag with the same tag as input: the bundle's
+# Compose files, chart, and image list come from that checkout.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to bundle (for example: 1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-bundle-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Build and upload bundle
+    if: >-
+      contains(
+        fromJSON(vars.TRUSTED_CI_ACTORS_JSON || '[]'),
+        github.triggering_actor || github.actor
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read # pull the AutoSecOps images from ghcr.io
+    steps:
+      - name: Validate release tag
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$REF_TYPE" != 'tag' || "$INPUT_TAG" != "$REF_NAME" ]]; then
+            echo '::error::Dispatch from the matching tag ref, with tag set to that tag.'
+            exit 1
+          fi
+          core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          if ! [[ "$INPUT_TAG" =~ ^${core}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || (( ${#INPUT_TAG} > 128 )); then
+            echo "::error::Unsupported release tag: ${INPUT_TAG}"
+            exit 1
+          fi
+          echo "version=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # The runner image keeps about 14 GB free; the images, their saved
+      # archives, and the compressed bundle need more.
+      - name: Free disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.4"
+          enable-cache: false
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --no-project --with pyyaml==6.0.3 \
+            python scripts/offline_bundle.py --version "$VERSION" \
+            --output-dir "$RUNNER_TEMP/bundle"
+          ls -l "$RUNNER_TEMP/bundle"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: autosecops-offline-${{ steps.version.outputs.version }}
+          path: |
+            ${{ runner.temp }}/bundle/autosecops-offline-*.tar.*
+          if-no-files-found: error
+          # The archive is already compressed.
+          compression-level: 0
+          retention-days: 30

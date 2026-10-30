@@ -53,12 +53,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -168,12 +168,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -285,12 +285,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -384,12 +384,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2363,12 +2363,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2431,12 +2431,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2509,12 +2509,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2572,12 +2572,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2642,12 +2642,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2756,12 +2756,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2840,12 +2840,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2910,12 +2910,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -2996,12 +2996,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3064,12 +3064,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3144,12 +3144,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3219,12 +3219,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3287,12 +3287,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3367,12 +3367,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3445,12 +3445,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3513,12 +3513,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3593,12 +3593,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3658,12 +3658,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3718,12 +3718,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3781,12 +3781,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3864,12 +3864,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -3934,12 +3934,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -4002,12 +4002,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -4120,12 +4120,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -4482,12 +4482,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -5474,12 +5474,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5547,12 +5547,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5681,12 +5681,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5764,12 +5764,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5841,12 +5841,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5928,12 +5928,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -5991,12 +5991,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6063,12 +6063,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6150,12 +6150,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -6212,12 +6212,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 }
               ],
               "title": "Workflow Id"
@@ -7534,7 +7534,8 @@
                   "type": "array",
                   "uniqueItems": true,
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-z0-9_]+$"
                   }
                 },
                 {
@@ -8524,12 +8525,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
+                  "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
+                  "type": "string"
                 },
                 {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
+                  "pattern": "^(?:wf-[0-9a-f]{32})$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -21104,7 +21105,7 @@
           "admin:license"
         ],
         "summary": "Get License",
-        "description": "Get the status of the configured license key.",
+        "description": "Get the status, limits, usage, and deployment ID of this installation.",
         "operationId": "admin:license-get_license",
         "responses": {
           "200": {
@@ -22028,16 +22029,7 @@
             "in": "query",
             "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "wf_[0-9a-zA-Z]+"
-                },
-                {
-                  "type": "string",
-                  "pattern": "wf-[0-9a-f]{32}"
-                }
-              ],
+              "type": "string",
               "title": "Workflow Id"
             }
           }
@@ -35566,15 +35558,14 @@
           "organization"
         ],
         "summary": "Github Webhook",
-        "description": "Handle GitHub webhook events.\n\nDeliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the\nwebhook secret stored in the GitHub App credentials.",
+        "description": "Handle GitHub webhook events.\n\nDeliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the\nwebhook secret stored in the GitHub App credentials. The signature is\nchecked against the raw body before the body is parsed.",
         "operationId": "vcs-github_webhook",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "additionalProperties": true,
-                "type": "object",
-                "title": "Payload"
+                "type": "object"
               }
             }
           },
@@ -35591,16 +35582,6 @@
                   },
                   "type": "object",
                   "title": "Response Vcs-Github Webhook"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -43057,6 +43038,36 @@
           }
         }
       }
+    },
+    "/organization/license-notice": {
+      "get": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get Organization License Notice",
+        "description": "Get the license expiry notice shown to organization administrators.\n\nOnly single-tenant installs, where the license controls the product,\nreport a notice. In multi-tenant mode, organization administrators are\ntenants of the operator and never see the operator's license.",
+        "operationId": "organization-get_organization_license_notice",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseNoticeRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -43206,11 +43217,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -43485,7 +43496,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "type": {
@@ -47466,7 +47477,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "workflow_title": {
@@ -51541,11 +51552,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -55092,11 +55103,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -55180,7 +55191,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "null"
@@ -55289,11 +55300,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -61577,11 +61588,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -62564,7 +62575,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "workflow_title": {
@@ -62654,7 +62665,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "null"
@@ -65776,7 +65787,8 @@
           "malformed",
           "bad_signature",
           "invalid_claims",
-          "not_yet_valid"
+          "not_yet_valid",
+          "deployment_mismatch"
         ],
         "title": "LicenseErrorCode",
         "description": "Why a license key failed verification."
@@ -65821,6 +65833,16 @@
             ],
             "title": "Customer"
           },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicensePlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "issued_at": {
             "anyOf": [
               {
@@ -65857,6 +65879,29 @@
             ],
             "title": "Grace Ends At"
           },
+          "days_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Remaining",
+            "description": "Whole days until the license expires; negative once expired"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseNoticeLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why administrators are warned about the license, if at all"
+          },
           "entitlements": {
             "items": {
               "$ref": "#/components/schemas/Entitlement"
@@ -65889,6 +65934,41 @@
             "title": "Licensed Entitlements",
             "description": "Every entitlement key listed in the license"
           },
+          "limits": {
+            "$ref": "#/components/schemas/LicenseLimits",
+            "description": "Limits that apply right now; null fields are unlimited"
+          },
+          "licensed_limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseLimits"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Limits listed in the license, whether or not they apply"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/LicenseUsageRead"
+          },
+          "deployment_id": {
+            "type": "string",
+            "title": "Deployment Id",
+            "description": "This installation's deployment ID. Send it to the vendor to receive a license bound to this installation."
+          },
+          "license_deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Deployment Id",
+            "description": "Deployment ID the license is bound to, if any"
+          },
           "error": {
             "anyOf": [
               {
@@ -65903,7 +65983,9 @@
         "type": "object",
         "required": [
           "status",
-          "enforced"
+          "enforced",
+          "usage",
+          "deployment_id"
         ],
         "title": "LicenseRead",
         "description": "License status for the platform admin."
@@ -73614,11 +73696,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -75189,6 +75271,8 @@
           },
           "environment": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Environment",
             "default": "default"
           }
@@ -80408,11 +80492,11 @@
               },
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -80427,11 +80511,11 @@
               },
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               },
               {
                 "type": "null"
@@ -84789,7 +84873,7 @@
         "properties": {
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "status": {
@@ -84940,7 +85024,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -85079,7 +85163,7 @@
         "properties": {
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "draft_revision": {
@@ -85769,11 +85853,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "wf_[0-9a-zA-Z]+"
+                "pattern": "^(?:wf_[0-9a-zA-Z]+)$"
               },
               {
                 "type": "string",
-                "pattern": "wf-[0-9a-f]{32}"
+                "pattern": "^(?:wf-[0-9a-f]{32})$"
               }
             ],
             "title": "Workflow Id"
@@ -86915,7 +86999,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -87094,7 +87178,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Id"
           },
           "title": {
@@ -87294,7 +87378,7 @@
           },
           "workflow_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Workflow Id"
           },
           "use_draft": {
@@ -87415,7 +87499,7 @@
           },
           "wf_id": {
             "type": "string",
-            "pattern": "wf_[0-9a-zA-Z]+",
+            "pattern": "^(?:wf_[0-9a-zA-Z]+)$",
             "title": "Wf Id"
           },
           "wf_exec_id": {
@@ -91494,6 +91578,215 @@
         "type": "object",
         "title": "RobotUpdate",
         "description": "Update a robot's descriptive fields or signature policy."
+      },
+      "LicenseLimits": {
+        "properties": {
+          "max_users": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Users",
+            "description": "Active user accounts on a single-tenant install; service accounts do not count"
+          },
+          "max_workspaces": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Workspaces",
+            "description": "Workspaces on a single-tenant install"
+          },
+          "max_organizations": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Organizations",
+            "description": "Organizations on a multi-tenant install"
+          },
+          "max_concurrent_workflows": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Workflows",
+            "description": "Concurrent workflow executions"
+          },
+          "max_concurrent_actions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Actions",
+            "description": "Concurrent action executions"
+          },
+          "max_action_executions_per_workflow": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Action Executions Per Workflow",
+            "description": "Action executions per workflow run"
+          }
+        },
+        "type": "object",
+        "title": "LicenseLimits",
+        "description": "Quantitative limits a license sets. ``None`` means unlimited."
+      },
+      "LicenseNoticeLevel": {
+        "type": "string",
+        "enum": [
+          "expiring",
+          "grace",
+          "expired",
+          "invalid"
+        ],
+        "title": "LicenseNoticeLevel",
+        "description": "Why administrators should be warned about the license."
+      },
+      "LicenseNoticeRead": {
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseNoticeLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicensePlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grace_ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grace Ends At"
+          },
+          "days_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Remaining",
+            "description": "Whole days until the license expires; negative once expired"
+          }
+        },
+        "type": "object",
+        "title": "LicenseNoticeRead",
+        "description": "License expiry notice for organization administrators.\n\n``level`` is null when no warning is needed, including on unlicensed\nCommunity installs and in multi-tenant mode."
+      },
+      "LicensePlan": {
+        "type": "string",
+        "enum": [
+          "community",
+          "team",
+          "business",
+          "enterprise",
+          "mssp",
+          "pilot"
+        ],
+        "title": "LicensePlan",
+        "description": "Commercial plan label carried by a license.\n\nDisplay only: entitlements and limits in the license decide what applies."
+      },
+      "LicenseUsageRead": {
+        "properties": {
+          "users": {
+            "type": "integer",
+            "title": "Users",
+            "description": "Active user accounts; service accounts excluded"
+          },
+          "workspaces": {
+            "type": "integer",
+            "title": "Workspaces",
+            "description": "Workspaces on this installation"
+          },
+          "organizations": {
+            "type": "integer",
+            "title": "Organizations",
+            "description": "Organizations on this installation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users",
+          "workspaces",
+          "organizations"
+        ],
+        "title": "LicenseUsageRead",
+        "description": "Current usage counted against license limits."
       }
     },
     "securitySchemes": {

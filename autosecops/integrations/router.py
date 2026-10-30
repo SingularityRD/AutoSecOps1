@@ -285,7 +285,15 @@ async def oauth_callback(
     # Use FOR UPDATE lock to prevent concurrent access to the same OAuth state
     # This ensures atomic read-modify-delete operations and prevents race conditions
     # where multiple requests could process the same state simultaneously
-    oauth_state_db = await session.get(OAuthStateDB, state, with_for_update=True)
+    try:
+        state_id = uuid.UUID(state)
+    except ValueError:
+        state_id = None
+    oauth_state_db = (
+        await session.get(OAuthStateDB, state_id, with_for_update=True)
+        if state_id is not None
+        else None
+    )
     if oauth_state_db is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

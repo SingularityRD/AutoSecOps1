@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 from httpx_oauth.clients.openid import OpenID
+from httpx_oauth.exceptions import GetIdEmailError, GetProfileError
 from httpx_oauth.oauth2 import BaseOAuth2
 
 from autosecops import config
 from autosecops.auth.enums import AuthType
+from autosecops.logger import logger
 
 _DEFAULT_OIDC_SCOPES: Final[tuple[str, ...]] = ("openid", "profile", "email")
 
@@ -28,6 +30,42 @@ class OIDCProviderConfig:
         if self.issuer is None:
             return None
         return f"{self.issuer}/.well-known/openid-configuration"
+
+
+def _is_explicitly_unverified(email_verified: Any) -> bool:
+    """Whether the provider says the email is unverified.
+
+    Some providers send the claim as a string; providers that omit it (for
+    example Microsoft Entra ID) are trusted as before.
+    """
+    if isinstance(email_verified, str):
+        return email_verified.strip().lower() == "false"
+    return email_verified is False
+
+
+class PlatformOpenID(OpenID):
+    """OpenID client that refuses emails the provider marks as unverified.
+
+    Login links accounts by email, so an unverified email would let anyone who
+    can set an arbitrary address at the provider sign in as that user.
+    """
+
+    async def get_id_email(self, token: str) -> tuple[str, str | None]:
+        try:
+            profile = await self.get_profile(token)
+        except GetProfileError as e:
+            raise GetIdEmailError(response=e.response) from e
+        account_id = str(profile["sub"])
+        email = profile.get("email")
+        if email is not None and _is_explicitly_unverified(
+            profile.get("email_verified")
+        ):
+            logger.warning(
+                "Rejected OIDC login with an unverified email",
+                oauth_name=self.name,
+            )
+            return account_id, None
+        return account_id, email
 
 
 def oidc_auth_type_enabled() -> bool:
@@ -54,7 +92,7 @@ def create_platform_oauth_client() -> BaseOAuth2:
     discovery_endpoint = oidc_config.discovery_endpoint
     if discovery_endpoint is None:
         raise ValueError("OIDC_ISSUER must be configured for OIDC login.")
-    return OpenID(
+    return PlatformOpenID(
         client_id=oidc_config.client_id,
         client_secret=oidc_config.client_secret,
         openid_configuration_endpoint=discovery_endpoint,

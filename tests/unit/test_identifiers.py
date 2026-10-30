@@ -318,3 +318,48 @@ def test_workflow_execution_id_schema_pattern_matches_same_ids() -> None:
         assert (re.fullmatch(WF_EXEC_ID_PATTERN, sample) is not None) == (
             re.fullmatch(WF_EXEC_ID_SCHEMA_PATTERN, sample) is not None
         )
+
+
+@pytest.mark.parametrize(
+    "annotation_path",
+    [
+        "autosecops.identifiers.workflow.AnyWorkflowID",
+        "autosecops.identifiers.workflow.ExecutionIDShort",
+        "autosecops.identifiers.workflow.WorkspaceIDShort",
+        "autosecops.identifiers.action.ActionIDShort",
+        "autosecops.identifiers.action.LegacyActionID",
+        "autosecops.identifiers.schedules.ScheduleIDShort",
+        "autosecops.identifiers.secret.SecretIDShort",
+        "autosecops.identifiers.secret.LegacySecretID",
+    ],
+)
+@pytest.mark.parametrize(
+    "wrap",
+    ["x{}", "{}!", "x{}!", "É{}", "{}\n"],
+    ids=["pre", "post", "both", "u", "nl"],
+)
+def test_short_and_legacy_id_patterns_are_anchored(
+    annotation_path: str, wrap: str
+) -> None:
+    """A valid ID embedded in other text must not validate.
+
+    Unanchored patterns let "Éwf-<hex>" through schema validation, and the
+    UUID conversion that follows then raised a 500.
+    """
+    module_name, _, name = annotation_path.rpartition(".")
+    annotation = getattr(__import__(module_name, fromlist=[name]), name)
+    samples = {
+        "AnyWorkflowID": f"wf-{uuid.uuid4().hex}",
+        "ExecutionIDShort": "exec_" + "a" * 20,
+        "WorkspaceIDShort": "ws_" + "a" * 20,
+        "ActionIDShort": "act_" + "a" * 20,
+        "LegacyActionID": f"act-{uuid.uuid4().hex}",
+        "ScheduleIDShort": "sch_" + "a" * 20,
+        "SecretIDShort": "secret_" + "a" * 20,
+        "LegacySecretID": f"secret-{uuid.uuid4().hex}",
+    }
+    adapter = TypeAdapter(annotation)
+    valid = samples[name]
+    adapter.validate_python(valid)
+    with pytest.raises(ValueError):
+        adapter.validate_python(wrap.format(valid))

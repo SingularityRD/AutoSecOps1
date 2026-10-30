@@ -51,6 +51,8 @@ For each pending call, the agent posts an `Approval required` message with the t
 After a reviewer clicks a button, AutoSecOps updates the message with the decision and the reviewer, and the agent continues once every pending call in the batch has a decision.
 To edit tool arguments before approving, review the call in the agent inbox instead.
 
+Anyone who can see the message in Slack can click `Approve` or `Deny`. AutoSecOps records the reviewer's Slack user ID but does not check their AutoSecOps role, so add the app only to channels whose members may approve the preset's tools.
+
 ## Manage the connection
 
 Open the connect dialog again from the `Channels` tab to update credentials.

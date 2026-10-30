@@ -7,7 +7,7 @@ import contextlib
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from autosecops_ee.admin.organizations.service import AdminOrgService
@@ -21,10 +21,15 @@ from autosecops.db.models import Invitation, InvitationGrant, Organization, User
 from autosecops.db.models import Role as DBRole
 from autosecops.email.transport import EmailDeliveryError, OutboundEmail, SMTPTransport
 from autosecops.exceptions import AutoSecOpsConflictError
+from autosecops.invitations import consumer as consumer_module
 from autosecops.invitations.consumer import (
     MAX_EMAIL_ATTEMPTS,
+    POLL_INTERVAL_SECONDS,
+    RETRY_BACKOFF_SECONDS,
     deliver_next_invitation,
+    next_poll_delay,
     run_invitation_email_tick,
+    start_invitation_email_consumer,
 )
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.service import RESEND_COOLDOWN, InvitationService
@@ -684,3 +689,145 @@ async def test_resend_is_rejected_while_delivery_is_in_flight(
     await org_factory_session.refresh(invitation)
     assert invitation.email_claimed_at is not None
     assert invitation.email_sent_at is not None
+
+
+@pytest.mark.anyio
+async def test_consumer_backs_off_instead_of_spending_every_attempt_on_an_outage(
+    session: AsyncSession,
+    org: Organization,
+    org_role: DBRole,
+    inviter: User,
+    smtp_configured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A relay down for a few seconds must not exhaust the attempt cap.
+
+    Polling every POLL_INTERVAL_SECONDS used to burn all MAX_EMAIL_ATTEMPTS
+    within a relay restart, so the invitation was never emailed.
+    """
+    monkeypatch.setattr(consumer_module, "POLL_INTERVAL_SECONDS", 0.01)
+    invitation = await _add_invitation(session, org, org_role, inviter)
+    _patch_transport(
+        monkeypatch,
+        FakeTransport(error=EmailDeliveryError("SMTPConnectError", retryable=True)),
+    )
+
+    stop_event = asyncio.Event()
+    consumer = asyncio.create_task(start_invitation_email_consumer(stop_event))
+    # Many idle polls' worth of time, far less than the first backoff.
+    await asyncio.sleep(0.5)
+    stop_event.set()
+    await asyncio.wait_for(consumer, timeout=5)
+
+    row = await _reload(session, invitation.id)
+    assert row.email_attempts == 1
+    assert row.email_claimed_at is None
+    assert row.email_sent_at is None
+
+
+@pytest.mark.anyio
+async def test_consumer_waits_out_each_backoff_then_resets_after_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outcomes = iter([(0, True), (0, True), (0, True), (0, True), (1, False)])
+    waits: list[float] = []
+    stop_event = asyncio.Event()
+
+    async def fake_run_batch(_: asyncio.Event | None) -> tuple[int, bool]:
+        return next(outcomes)
+
+    async def record_wait(event: asyncio.Event, timeout: float) -> None:
+        waits.append(timeout)
+        if len(waits) == 5:
+            event.set()
+
+    monkeypatch.setattr(consumer_module, "_run_batch", fake_run_batch)
+    monkeypatch.setattr(consumer_module, "_wait_for_stop", record_wait)
+
+    await start_invitation_email_consumer(stop_event)
+
+    assert waits == [*RETRY_BACKOFF_SECONDS, RETRY_BACKOFF_SECONDS[-1]] + [
+        POLL_INTERVAL_SECONDS
+    ]
+
+
+def test_retry_backoff_spreads_attempts_over_a_relay_restart() -> None:
+    assert next_poll_delay(0) == POLL_INTERVAL_SECONDS
+    assert [next_poll_delay(n) for n in range(1, 6)] == [
+        30.0,
+        120.0,
+        300.0,
+        300.0,
+        300.0,
+    ]
+    # Every attempt after the first waits out a backoff, so the cap covers
+    # an outage of at least a couple of minutes.
+    assert sum(next_poll_delay(n) for n in range(1, MAX_EMAIL_ATTEMPTS)) >= 120
+    assert RETRY_BACKOFF_SECONDS[0] > POLL_INTERVAL_SECONDS
+
+
+@pytest.mark.anyio
+async def test_reaching_the_attempt_cap_logs_an_error(
+    session: AsyncSession,
+    org: Organization,
+    org_role: DBRole,
+    inviter: User,
+    smtp_configured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Giving up must be visible, not logged as another deferral."""
+    await _add_invitation(
+        session, org, org_role, inviter, email_attempts=MAX_EMAIL_ATTEMPTS - 1
+    )
+    _patch_transport(
+        monkeypatch,
+        FakeTransport(error=EmailDeliveryError("nope", retryable=True)),
+    )
+    error_log = MagicMock()
+    warning_log = MagicMock()
+    monkeypatch.setattr(consumer_module.logger, "error", error_log)
+    monkeypatch.setattr(consumer_module.logger, "warning", warning_log)
+
+    assert await run_invitation_email_tick() == 0
+
+    error_log.assert_called_once()
+    assert "attempt cap" in error_log.call_args.args[0]
+    assert error_log.call_args.kwargs["attempts"] == MAX_EMAIL_ATTEMPTS
+    warning_log.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_consumer_does_not_back_off_after_giving_up_on_a_row(
+    session: AsyncSession,
+    org: Organization,
+    org_role: DBRole,
+    inviter: User,
+    smtp_configured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A row over the cap is never retried, so waiting for it only delays a
+    resend or the next invitation by the longest backoff."""
+    invitation = await _add_invitation(
+        session, org, org_role, inviter, email_attempts=MAX_EMAIL_ATTEMPTS - 2
+    )
+    _patch_transport(
+        monkeypatch,
+        FakeTransport(error=EmailDeliveryError("SMTPConnectError", retryable=True)),
+    )
+    waits: list[float] = []
+    stop_event = asyncio.Event()
+
+    async def record_wait(event: asyncio.Event, timeout: float) -> None:
+        waits.append(timeout)
+        if len(waits) == 2:
+            event.set()
+
+    monkeypatch.setattr(consumer_module, "_wait_for_stop", record_wait)
+
+    await start_invitation_email_consumer(stop_event)
+
+    row = await _reload(session, invitation.id)
+    assert row.email_attempts == MAX_EMAIL_ATTEMPTS
+    assert row.email_sent_at is None
+    # One deferral backs off; the attempt that hits the cap polls again.
+    assert waits == [RETRY_BACKOFF_SECONDS[0], POLL_INTERVAL_SECONDS]

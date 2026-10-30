@@ -21,7 +21,7 @@ from autosecops.validation.schemas import (
     TemplateActionExprValidationResult,
     ValidationDetail,
 )
-from autosecops.variables.schemas import VariableSearch
+from autosecops.variables.schemas import VARIABLE_NAME_PATTERN, VariableSearch
 from autosecops.variables.service import VariablesService
 
 T = TypeVar("T")
@@ -114,6 +114,18 @@ class ExprValidator(BaseExprValidator[ValidationDetail]):
         loc: tuple[str | int, ...],
         environment: str,
     ) -> None:
+        if not VARIABLE_NAME_PATTERN.fullmatch(name):
+            # No variable can have this name; searching would fail validation.
+            self.add(
+                status="error",
+                msg=(
+                    f"Invalid variable name {name!r}. Variable names may only"
+                    " contain lowercase letters, digits, and underscores."
+                ),
+                type=ExprType.VARIABLE,
+                loc=loc,
+            )
+            return
         async with VariablesService.with_session() as service:
             defined_variables = await service.search_variables(
                 VariableSearch(names={name}, environment=environment)

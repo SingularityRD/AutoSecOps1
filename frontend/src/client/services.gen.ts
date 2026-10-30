@@ -601,6 +601,7 @@ import type {
   OrganizationDeleteSessionResponse,
   OrganizationGetCurrentOrgMemberResponse,
   OrganizationGetOrganizationEntitlementsResponse,
+  OrganizationGetOrganizationLicenseNoticeResponse,
   OrganizationGetOrganizationResponse,
   OrganizationListCurrentUserOrganizationMembershipsResponse,
   OrganizationListOrganizationDomainsResponse,
@@ -5983,6 +5984,24 @@ export const organizationGetOrganizationEntitlements =
   }
 
 /**
+ * Get Organization License Notice
+ * Get the license expiry notice shown to organization administrators.
+ *
+ * Only single-tenant installs, where the license controls the product,
+ * report a notice. In multi-tenant mode, organization administrators are
+ * tenants of the operator and never see the operator's license.
+ * @returns LicenseNoticeRead Successful Response
+ * @throws ApiError
+ */
+export const organizationGetOrganizationLicenseNotice =
+  (): CancelablePromise<OrganizationGetOrganizationLicenseNoticeResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/organization/license-notice",
+    })
+  }
+
+/**
  * Get Current Org Member
  * Get the current user's organization membership.
  *
@@ -10814,7 +10833,7 @@ export const adminAgentListPlatformCatalog = (
 
 /**
  * Get License
- * Get the status of the configured license key.
+ * Get the status, limits, usage, and deployment ID of this installation.
  * @returns LicenseRead Successful Response
  * @throws ApiError
  */
@@ -16312,7 +16331,8 @@ export const vcsGithubAppInstallCallback = (
  * Handle GitHub webhook events.
  *
  * Deliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the
- * webhook secret stored in the GitHub App credentials.
+ * webhook secret stored in the GitHub App credentials. The signature is
+ * checked against the raw body before the body is parsed.
  * @param data The data for the request.
  * @param data.requestBody
  * @returns string Successful Response
@@ -16326,9 +16346,6 @@ export const vcsGithubWebhook = (
     url: "/organization/vcs/github/webhook",
     body: data.requestBody,
     mediaType: "application/json",
-    errors: {
-      422: "Validation Error",
-    },
   })
 }
 

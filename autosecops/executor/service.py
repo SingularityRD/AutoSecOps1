@@ -88,7 +88,7 @@ from autosecops.secrets.common import (
     call_with_masked_errors,
 )
 from autosecops.secrets.masking import SecretMaskCollector
-from autosecops.variables.schemas import VariableSearch
+from autosecops.variables.schemas import VARIABLE_NAME_PATTERN, VariableSearch
 from autosecops.variables.service import VariablesService
 
 """All these methods are used in the registry executor, not on the worker"""
@@ -1185,10 +1185,16 @@ async def get_workspace_variables(
     environment: str | None = None,
     role: Role | None = None,
 ) -> dict[str, dict[str, str]]:
+    # Expressions can name variables that cannot exist (e.g. VARS.MyVar);
+    # they resolve as missing rather than failing the search's validation.
+    # An empty set still means "no name filter", as before.
+    names = {name for name in variable_exprs if VARIABLE_NAME_PATTERN.fullmatch(name)}
+    if variable_exprs and not names:
+        return {}
     try:
         async with VariablesService.with_session(role=role) as service:
             variables = await service.search_variables(
-                VariableSearch(names=variable_exprs, environment=environment)
+                VariableSearch(names=names, environment=environment)
             )
     except AutoSecOpsAuthorizationError as e:
         logger.warning("No access to workspace variables", error=e)

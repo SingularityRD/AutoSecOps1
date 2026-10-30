@@ -416,6 +416,19 @@ class RBACService(BaseOrgService):
         )
         ensure_role_fits_scope(role, workspace_id)
 
+    async def _ensure_role_revocable(self, role_id: UUID) -> None:
+        """Reject revoking a role whose scopes the caller could not grant.
+
+        Revocation follows the grant ceiling, so a caller cannot strip access
+        above their own, such as an organization admin demoting an owner.
+        """
+        result = await self.session.execute(
+            select(Scope)
+            .join(RoleScope, RoleScope.scope_id == Scope.id)
+            .where(RoleScope.role_id == role_id)
+        )
+        await self._ensure_can_grant_scopes(result.scalars().all())
+
     async def _ensure_group_membership_assignable(self, group_id: UUID) -> None:
         """Reject membership grants containing scopes the caller does not hold."""
         stmt = (
@@ -529,6 +542,8 @@ class RBACService(BaseOrgService):
         """Delete a group."""
         await lock_role_changes(self.session, self.organization_id)
         group = await self.get_group(group_id)
+        # Deleting a group revokes its roles from every member.
+        await self._ensure_group_membership_assignable(group_id)
         await self.session.delete(group)
         await self.session.commit()
 
@@ -573,6 +588,8 @@ class RBACService(BaseOrgService):
         """Remove a user from a group."""
         await lock_role_changes(self.session, self.organization_id)
         await self._reject_if_idp_managed(group_id)
+        # Leaving the group revokes its roles from the member.
+        await self._ensure_group_membership_assignable(group_id)
         stmt = (
             select(GroupMember)
             .join(Group, Group.id == GroupMember.group_id)
@@ -752,6 +769,7 @@ class RBACService(BaseOrgService):
         """Update a group assignment (change role)."""
         await lock_role_changes(self.session, self.organization_id)
         assignment = await self.get_group_role_assignment(assignment_id)
+        await self._ensure_role_revocable(assignment.role_id)
 
         # Verify new role exists
         await self._ensure_role_assignable(role_id, assignment.workspace_id)
@@ -771,6 +789,7 @@ class RBACService(BaseOrgService):
         """Delete a group assignment."""
         await lock_role_changes(self.session, self.organization_id)
         assignment = await self.get_group_role_assignment(assignment_id)
+        await self._ensure_role_revocable(assignment.role_id)
         await self.session.delete(assignment)
         await self.session.commit()
 
@@ -845,12 +864,16 @@ class RBACService(BaseOrgService):
             removed = [a for a in current if a.workspace_id not in desired]
             if removed:
                 check_scopes(self.role, "org:rbac:delete")
+            for assignment in removed:
+                await self._ensure_role_revocable(assignment.role_id)
             for scope, role_id in changed.items():
                 check_scopes(
                     self.role,
                     "org:rbac:update" if scope in existing else "org:rbac:create",
                 )
                 # Check every grant against the actor's pre-edit permissions.
+                if scope in existing:
+                    await self._ensure_role_revocable(existing[scope].role_id)
                 await self._ensure_role_assignable(role_id, scope)
                 if (
                     scope is not None
@@ -991,6 +1014,7 @@ class RBACService(BaseOrgService):
         """Update a user role assignment (change role)."""
         await lock_role_changes(self.session, self.organization_id)
         assignment = await self.get_user_assignment(assignment_id)
+        await self._ensure_role_revocable(assignment.role_id)
 
         # Verify new role exists
         await self._ensure_role_assignable(role_id, assignment.workspace_id)
@@ -1010,6 +1034,7 @@ class RBACService(BaseOrgService):
         """Delete a user role assignment."""
         await lock_role_changes(self.session, self.organization_id)
         assignment = await self.get_user_assignment(assignment_id)
+        await self._ensure_role_revocable(assignment.role_id)
         await self.session.delete(assignment)
         # Org presence outlives the assignment; only the workspace mirror follows it.
         if assignment.workspace_id is not None:

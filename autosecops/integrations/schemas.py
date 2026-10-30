@@ -126,8 +126,9 @@ class IntegrationUpdate(BaseModel):
     def _validate_https_endpoint(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        if isinstance(value, str):
-            value = value.strip()
+        if not isinstance(value, str):
+            raise ValueError("Endpoint must be a string")
+        value = value.strip()
         if not value:
             return None
         parsed = urlparse(value)
@@ -159,8 +160,9 @@ class CustomOAuthProviderBase(BaseModel):
     def _validate_https_endpoint(cls, value: str | None) -> str:
         if value is None:
             raise ValueError("Endpoint is required")
-        if isinstance(value, str):
-            value = value.strip()
+        if not isinstance(value, str):
+            raise ValueError("Endpoint must be a string")
+        value = value.strip()
         if not value:
             raise ValueError("Endpoint must not be empty")
         parsed = urlparse(value)
@@ -479,8 +481,9 @@ class MCPHttpIntegrationCreate(_MCPIntegrationCreateBase):
         """Validate and sanitize MCP server URI."""
         if value is None:
             raise ValueError("server_uri is required for http-type servers")
-        if isinstance(value, str):
-            value = value.strip()
+        if not isinstance(value, str):
+            raise ValueError("Server URI must be a string")
+        value = value.strip()
         if not value:
             raise ValueError("server_uri is required for http-type servers")
 
@@ -599,8 +602,9 @@ class MCPIntegrationUpdate(BaseModel):
         """Validate and sanitize MCP server URI."""
         if value is None:
             return None
-        if isinstance(value, str):
-            value = value.strip()
+        if not isinstance(value, str):
+            raise ValueError("Server URI must be a string")
+        value = value.strip()
         if not value:
             return None
 
@@ -998,8 +1002,9 @@ class MCPHttpIntegrationTestConnectionRequest(_MCPIntegrationTestConnectionReque
         """
         if value is None:
             raise ValueError("server_uri is required")
-        if isinstance(value, str):
-            value = value.strip()
+        if not isinstance(value, str):
+            raise ValueError("Server URI must be a string")
+        value = value.strip()
         if not value:
             raise ValueError("server_uri is required")
 

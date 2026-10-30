@@ -72,6 +72,7 @@ from autosecops.db.models import (
 )
 from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.identifiers import OrganizationID
+from autosecops.licensing.enforcement import enforce_user_limit
 from autosecops.logger import logger
 from autosecops.organization.domains import normalize_domain
 from autosecops.organization.management import ensure_single_tenant_user_defaults
@@ -765,8 +766,24 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         return user
 
 
+class LicensedUserDatabase(SQLAlchemyUserDatabase[User, uuid.UUID]):
+    """User store that enforces the license ``max_users`` seat limit.
+
+    Every account fastapi-users creates goes through ``create``: registration
+    (including invitation sign-up), OAuth/OIDC sign-in, SAML and SCIM
+    just-in-time provisioning, and ``get_or_create_user``.
+    """
+
+    async def create(self, create_dict: dict[str, Any]) -> User:
+        # fastapi-users defines this signature with an untyped dict of User
+        # column values; the override must match it.
+        if create_dict.get("is_active", True):
+            await enforce_user_limit(self.session)
+        return await super().create(create_dict)
+
+
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
-    yield SQLAlchemyUserDatabase(session, User, OAuthAccount)
+    yield LicensedUserDatabase(session, User, OAuthAccount)
 
 
 async def get_access_token_db(
@@ -1031,6 +1048,8 @@ def validate_email(
 ) -> None:
     # Safety: This is already a validated email, so we can split on the first @
     _, domain = email.split("@", 1)
+    # Domains are case-insensitive; the config list is stored lowercase.
+    domain = domain.lower()
     if allowed_domains and domain not in allowed_domains:
         raise InvalidEmailException()
     logger.info("Validated email with domain", domain=domain)

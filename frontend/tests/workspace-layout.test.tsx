@@ -45,6 +45,10 @@ jest.mock("@/components/auth/scope-guard", () => ({
   useScopeCheck: (scope: string) => mockUseScopeCheck(scope),
 }))
 
+jest.mock("@/components/license/license-expiry-banner", () => ({
+  LicenseExpiryBanner: () => null,
+}))
+
 jest.mock("@/components/loading/spinner", () => ({
   CenteredSpinner: () => <div>Loading</div>,
 }))

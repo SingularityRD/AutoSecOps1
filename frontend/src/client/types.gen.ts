@@ -7248,6 +7248,7 @@ export type LicenseErrorCode =
   | "bad_signature"
   | "invalid_claims"
   | "not_yet_valid"
+  | "deployment_mismatch"
 
 /**
  * Deployment-wide capabilities a license can grant.
@@ -7257,6 +7258,72 @@ export type LicenseErrorCode =
  * organization entitlement keys.
  */
 export type LicenseGrant = "multi_tenant"
+
+/**
+ * Quantitative limits a license sets. ``None`` means unlimited.
+ */
+export type LicenseLimits = {
+  /**
+   * Active user accounts on a single-tenant install; service accounts do not count
+   */
+  max_users?: number | null
+  /**
+   * Workspaces on a single-tenant install
+   */
+  max_workspaces?: number | null
+  /**
+   * Organizations on a multi-tenant install
+   */
+  max_organizations?: number | null
+  /**
+   * Concurrent workflow executions
+   */
+  max_concurrent_workflows?: number | null
+  /**
+   * Concurrent action executions
+   */
+  max_concurrent_actions?: number | null
+  /**
+   * Action executions per workflow run
+   */
+  max_action_executions_per_workflow?: number | null
+}
+
+/**
+ * Why administrators should be warned about the license.
+ */
+export type LicenseNoticeLevel = "expiring" | "grace" | "expired" | "invalid"
+
+/**
+ * License expiry notice for organization administrators.
+ *
+ * ``level`` is null when no warning is needed, including on unlicensed
+ * Community installs and in multi-tenant mode.
+ */
+export type LicenseNoticeRead = {
+  level?: LicenseNoticeLevel | null
+  status?: LicenseStatus | null
+  plan?: LicensePlan | null
+  expires_at?: string | null
+  grace_ends_at?: string | null
+  /**
+   * Whole days until the license expires; negative once expired
+   */
+  days_remaining?: number | null
+}
+
+/**
+ * Commercial plan label carried by a license.
+ *
+ * Display only: entitlements and limits in the license decide what applies.
+ */
+export type LicensePlan =
+  | "community"
+  | "team"
+  | "business"
+  | "enterprise"
+  | "mssp"
+  | "pilot"
 
 /**
  * License status for the platform admin.
@@ -7269,9 +7336,18 @@ export type LicenseRead = {
   enforced: boolean
   license_id?: string | null
   customer?: string | null
+  plan?: LicensePlan | null
   issued_at?: string | null
   expires_at?: string | null
   grace_ends_at?: string | null
+  /**
+   * Whole days until the license expires; negative once expired
+   */
+  days_remaining?: number | null
+  /**
+   * Why administrators are warned about the license, if at all
+   */
+  notice?: LicenseNoticeLevel | null
   /**
    * Paid entitlements the license grants right now
    */
@@ -7288,6 +7364,23 @@ export type LicenseRead = {
    * Every entitlement key listed in the license
    */
   licensed_entitlements?: Array<string>
+  /**
+   * Limits that apply right now; null fields are unlimited
+   */
+  limits?: LicenseLimits
+  /**
+   * Limits listed in the license, whether or not they apply
+   */
+  licensed_limits?: LicenseLimits | null
+  usage: LicenseUsageRead
+  /**
+   * This installation's deployment ID. Send it to the vendor to receive a license bound to this installation.
+   */
+  deployment_id: string
+  /**
+   * Deployment ID the license is bound to, if any
+   */
+  license_deployment_id?: string | null
   error?: LicenseErrorCode | null
 }
 
@@ -7300,6 +7393,24 @@ export type LicenseStatus =
   | "grace"
   | "expired"
   | "invalid"
+
+/**
+ * Current usage counted against license limits.
+ */
+export type LicenseUsageRead = {
+  /**
+   * Active user accounts; service accounts excluded
+   */
+  users: number
+  /**
+   * Workspaces on this installation
+   */
+  workspaces: number
+  /**
+   * Organizations on this installation
+   */
+  organizations: number
+}
 
 /**
  * Per-line rejection codes (ingest contract §4 step 5).
@@ -15548,6 +15659,8 @@ export type OrganizationListOrganizationDomainsResponse =
 export type OrganizationGetOrganizationEntitlementsResponse =
   EffectiveEntitlements
 
+export type OrganizationGetOrganizationLicenseNoticeResponse = LicenseNoticeRead
+
 export type OrganizationGetCurrentOrgMemberResponse = OrgMemberDetail
 
 export type OrganizationListOrgMembersResponse = Array<OrgMemberRead>
@@ -22207,6 +22320,16 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/organization/license-notice": {
+    get: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: LicenseNoticeRead
+      }
+    }
+  }
   "/organization/members/me": {
     get: {
       res: {
@@ -27975,10 +28098,6 @@ export type $OpenApiTs = {
         200: {
           [key: string]: string
         }
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
       }
     }
   }

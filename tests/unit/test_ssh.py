@@ -153,3 +153,31 @@ def test_add_ssh_key_applies_lifetime_and_destination_constraint(
         check=False,
         timeout=30.0,
     )
+
+
+def test_add_ssh_key_rejects_non_ed25519_key_with_credentials_error(mocker) -> None:
+    """An RSA key surfaces as a clear credentials error, never reaching ssh-add."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from autosecops.exceptions import AutoSecOpsCredentialsError
+    from autosecops.ssh import INVALID_SSH_KEY_MESSAGE
+
+    rsa_key = (
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.OpenSSH,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
+    run = mocker.patch("autosecops.ssh.subprocess.run")
+
+    with pytest.raises(AutoSecOpsCredentialsError) as exc_info:
+        add_ssh_key_to_agent_sync(
+            rsa_key, SshEnv(ssh_auth_sock="/tmp/agent.sock", ssh_agent_pid="1")
+        )
+
+    assert str(exc_info.value) == INVALID_SSH_KEY_MESSAGE
+    run.assert_not_called()

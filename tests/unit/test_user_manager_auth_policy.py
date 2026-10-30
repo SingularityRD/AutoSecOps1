@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops import config
 from autosecops.api.common import bootstrap_role
 from autosecops.auth.enums import AuthErrorCode, AuthType
-from autosecops.auth.users import UserManager
+from autosecops.auth.users import InvalidEmailException, UserManager
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.db.models import (
     ExternalUser,
@@ -648,3 +648,25 @@ async def test_saml_would_not_admit_off_env_allowlist_domain(
     )
 
     assert admitted is False
+
+
+@pytest.mark.anyio
+async def test_oauth_email_domain_check_ignores_case(
+    session: AsyncSession,
+    user_manager: UserManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An IdP that capitalizes the domain still matches the allowlist."""
+    session.add(
+        User(
+            email=f"existing-{uuid.uuid4().hex[:8]}@example.com",
+            hashed_password=PasswordHelper().hash("unused-password"),
+        )
+    )
+    await session.commit()
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_ALLOWED_DOMAINS", {"example.com"})
+
+    await user_manager.validate_email("person@Example.COM")
+
+    with pytest.raises(InvalidEmailException):
+        await user_manager.validate_email("person@other.example")

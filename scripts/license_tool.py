@@ -8,6 +8,12 @@ Run from the repository root:
         --private-key ~/offline/license-keys/license-private.pem \\
         --customer "Example Corp" --expires 2027-12-31 \\
         --entitlement git_sync --entitlement rbac_addons
+    uv run python scripts/license_tool.py issue \\
+        --private-key ~/offline/license-keys/license-private.pem \\
+        --customer "Example Corp" --plan business --add tunnels \\
+        --max-users 50 --max-workspaces 5 \\
+        --deployment-id dep_0123456789abcdef0123456789abcdef \\
+        --ledger ~/offline/license-ledger.csv
     uv run python scripts/license_tool.py inspect "<token>"
 
 Keep the private key offline. The public key that verifies licenses is embedded
@@ -23,10 +29,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import orjson
@@ -41,16 +48,40 @@ from pydantic import ValidationError
 
 from autosecops.licensing import keys
 from autosecops.licensing.evaluation import LICENSE_CLOCK_SKEW, evaluate_license
+from autosecops.licensing.plans import (
+    ISSUABLE_PLANS,
+    plan_duration,
+    plan_entitlements,
+)
 from autosecops.licensing.token import (
     encode_license,
     load_private_key,
     load_public_key,
 )
-from autosecops.licensing.types import LicenseClaims, LicenseGrant, LicenseStatus
+from autosecops.licensing.types import (
+    LicenseClaims,
+    LicenseGrant,
+    LicenseLimitName,
+    LicenseLimits,
+    LicensePlan,
+    LicenseStatus,
+)
 from autosecops.tiers.enums import Entitlement
 
 _PRIVATE_KEY_NAME = "license-private.pem"
 _PUBLIC_KEY_NAME = "license-public.pem"
+
+LEDGER_FIELDS = (
+    "license_id",
+    "customer",
+    "plan",
+    "issued_at",
+    "expires_at",
+    "deployment_id",
+    "limits",
+    "entitlements",
+)
+"""Ledger CSV columns. The token and key material are never written."""
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -88,21 +119,78 @@ def _cmd_keygen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _requested_entitlements(args: argparse.Namespace) -> set[str]:
+    """Combine the plan preset, explicit entitlements, and overrides."""
+    requested: set[str] = set(args.entitlement or [])
+    if args.plan:
+        requested |= {e.value for e in plan_entitlements(LicensePlan(args.plan))}
+    if args.all_entitlements:
+        # Deployment grants such as multi_tenant must be named explicitly.
+        requested |= {e.value for e in Entitlement}
+    requested |= set(args.add or [])
+    requested -= set(args.remove or [])
+    return requested
+
+
+def _requested_limits(args: argparse.Namespace) -> LicenseLimits | None:
+    """Build limits from the ``--max-*`` flags; ``None`` when none is set."""
+    values: dict[str, int] = {}
+    for name in LicenseLimitName:
+        # argparse stores each --max-* flag under the limit's name.
+        value: int | None = vars(args)[name.value]
+        if value is not None:
+            values[name.value] = value
+    if not values:
+        return None
+    return LicenseLimits.model_validate(values)
+
+
+def _expiry(args: argparse.Namespace, issued_at: datetime) -> datetime:
+    """``--expires`` wins; otherwise ``--days`` or the plan's default period."""
+    if args.expires:
+        return _parse_datetime(args.expires)
+    plan = LicensePlan(args.plan) if args.plan else None
+    duration = timedelta(days=args.days) if args.days else plan_duration(plan)
+    return issued_at + duration
+
+
+def append_ledger_row(path: Path, claims: LicenseClaims) -> None:
+    """Append one row describing ``claims`` to the CSV ledger at ``path``.
+
+    Writes a header first when the file is new or empty. Only claim metadata
+    is recorded: never the signed token or any key material.
+    """
+    write_header = not path.exists() or path.stat().st_size == 0
+    limits = claims.limits.model_dump(exclude_none=True) if claims.limits else {}
+    row = {
+        "license_id": claims.license_id,
+        "customer": claims.customer,
+        "plan": claims.plan.value if claims.plan else "",
+        "issued_at": claims.issued_at.isoformat(),
+        "expires_at": claims.expires_at.isoformat(),
+        "deployment_id": claims.deployment_id or "",
+        "limits": orjson.dumps(limits, option=orjson.OPT_SORT_KEYS).decode(),
+        "entitlements": " ".join(claims.entitlements),
+    }
+    with path.open("a", newline="", encoding="utf-8") as ledger:
+        writer = csv.DictWriter(ledger, fieldnames=LEDGER_FIELDS)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def _cmd_issue(args: argparse.Namespace) -> int:
     entitlement_keys = {e.value for e in Entitlement}
     known = entitlement_keys | {g.value for g in LicenseGrant}
-    requested = set(args.entitlement or [])
-    if args.all_entitlements:
-        # Deployment grants such as multi_tenant must be named explicitly.
-        requested |= entitlement_keys
-    entitlements: list[str] = sorted(requested)
-    if unknown := [e for e in entitlements if e not in known]:
+    named = [*(args.entitlement or []), *(args.add or []), *(args.remove or [])]
+    if unknown := sorted({e for e in named if e not in known}):
         print(
             f"Unknown entitlement(s): {', '.join(unknown)}."
             f" Known: {', '.join(sorted(known))}",
             file=sys.stderr,
         )
         return 2
+    entitlements: list[str] = sorted(_requested_entitlements(args))
 
     try:
         private_key = load_private_key(Path(args.private_key).read_bytes())
@@ -120,10 +208,13 @@ def _cmd_issue(args: argparse.Namespace) -> int:
             license_id=args.license_id or f"lic_{uuid.uuid4().hex}",
             customer=args.customer,
             issued_at=issued_at,
-            expires_at=_parse_datetime(args.expires),
+            expires_at=_expiry(args, issued_at),
             entitlements=entitlements,
+            limits=_requested_limits(args),
+            deployment_id=args.deployment_id,
+            plan=LicensePlan(args.plan) if args.plan else None,
         )
-    except (ValidationError, ValueError) as exc:
+    except (ValidationError, ValueError, OverflowError) as exc:
         print(f"Invalid license claims: {exc}", file=sys.stderr)
         return 2
     if issued_at - datetime.now(UTC) > LICENSE_CLOCK_SKEW:
@@ -131,10 +222,18 @@ def _cmd_issue(args: argparse.Namespace) -> int:
             "Warning: issued_at is in the future; the license stays invalid until then",
             file=sys.stderr,
         )
-    print(encode_license(claims, private_key))
+    token = encode_license(claims, private_key)
+    if args.ledger:
+        try:
+            append_ledger_row(Path(args.ledger).expanduser(), claims)
+        except OSError as exc:
+            print(f"Cannot write ledger: {exc}", file=sys.stderr)
+            return 2
+    print(token)
     print(
         orjson.dumps(
-            claims.model_dump(mode="json"), option=orjson.OPT_INDENT_2
+            claims.model_dump(mode="json", exclude_none=True),
+            option=orjson.OPT_INDENT_2,
         ).decode(),
         file=sys.stderr,
     )
@@ -154,9 +253,15 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         print(f"Cannot load public key: {exc}", file=sys.stderr)
         return 2
 
+    # Without --deployment-id the binding is reported but not checked.
     state = evaluate_license(
-        token.strip(), now=datetime.now(UTC), public_key=public_key
+        token.strip(),
+        now=datetime.now(UTC),
+        public_key=public_key,
+        deployment_id=args.deployment_id,
+        check_deployment=args.deployment_id is not None,
     )
+    claims = state.claims
     # JSON report for humans and shell pipelines; a model would add nothing here.
     report = {
         "status": state.status.value,
@@ -164,7 +269,12 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         "grace_ends_at": state.grace_ends_at.isoformat()
         if state.grace_ends_at
         else None,
-        "claims": state.claims.model_dump(mode="json") if state.claims else None,
+        "plan": claims.plan.value if claims and claims.plan else None,
+        "deployment_id": claims.deployment_id if claims else None,
+        "limits": claims.limits.model_dump(mode="json", exclude_none=True)
+        if claims and claims.limits
+        else {},
+        "claims": claims.model_dump(mode="json") if claims else None,
         "grants": sorted(g.value for g in state.grants),
         "unknown_entitlements": list(state.unknown_entitlements),
     }
@@ -186,9 +296,21 @@ def _build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--private-key", required=True, help="PEM Ed25519 key path")
     issue.add_argument("--customer", required=True)
     issue.add_argument(
+        "--plan",
+        choices=[p.value for p in ISSUABLE_PLANS],
+        help="Plan preset that expands to its entitlement set"
+        " (see autosecops/licensing/plans.py)",
+    )
+    validity = issue.add_mutually_exclusive_group()
+    validity.add_argument(
         "--expires",
-        required=True,
         help="YYYY-MM-DD (end of day UTC) or ISO 8601 timestamp",
+    )
+    validity.add_argument(
+        "--days",
+        type=int,
+        help="Validity in days from issued_at. Defaults to 60 for pilot and"
+        " 365 otherwise",
     )
     issue.add_argument("--issued-at", help="Defaults to now (UTC)")
     issue.add_argument("--license-id", help="Defaults to a random lic_<hex> id")
@@ -204,6 +326,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Grant every organization entitlement this release knows;"
         " multi_tenant still needs --entitlement multi_tenant",
     )
+    issue.add_argument(
+        "--add",
+        action="append",
+        help="Entitlement or deployment grant to add to the plan; repeatable",
+    )
+    issue.add_argument(
+        "--remove",
+        action="append",
+        help="Entitlement or deployment grant to drop from the plan; repeatable",
+    )
+    for name in LicenseLimitName:
+        issue.add_argument(
+            f"--{name.value.replace('_', '-')}",
+            dest=name.value,
+            type=int,
+            help=f"Set the {name.value} limit (positive integer)",
+        )
+    issue.add_argument(
+        "--deployment-id",
+        help="Bind the license to the installation with this deployment ID",
+    )
+    issue.add_argument(
+        "--ledger",
+        help="Append a CSV row describing the license (never the token) to"
+        " this file. Keep it outside the repository",
+    )
     issue.set_defaults(func=_cmd_issue)
 
     inspect = sub.add_parser("inspect", help="Verify a token and print its claims")
@@ -211,6 +359,10 @@ def _build_parser() -> argparse.ArgumentParser:
     inspect.add_argument(
         "--public-key",
         help="PEM public key path; defaults to the key embedded in this checkout",
+    )
+    inspect.add_argument(
+        "--deployment-id",
+        help="Also check the license's binding against this deployment ID",
     )
     inspect.set_defaults(func=_cmd_inspect)
     return parser

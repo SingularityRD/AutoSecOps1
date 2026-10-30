@@ -441,10 +441,11 @@ SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS = int(
     os.environ.get("SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS") or 300
 )
 """Minimum interval between ``last_seen_at`` writes for an active session."""
-AUTOSECOPS__AUTH_ALLOWED_DOMAINS = set(
-    ((domains := os.getenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS")) and domains.split(","))
-    or []
-)
+AUTOSECOPS__AUTH_ALLOWED_DOMAINS = {
+    domain.strip().lower()
+    for domain in os.getenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS", "").split(",")
+    if domain.strip()
+}
 """Deprecated: This config has been moved into the settings service"""
 
 AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH = int(
@@ -809,10 +810,14 @@ if (
 ):
     raise ValueError("AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB must be positive")
 
-AUTOSECOPS__SANDBOX_PYPI_INDEX_URL = os.environ.get(
-    "AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "https://pypi.org/simple"
+AUTOSECOPS__SANDBOX_PYPI_INDEX_URL = (
+    os.environ.get("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "").strip()
+    or "https://pypi.org/simple"
 )
-"""Primary PyPI index URL for package installation. Supports private mirrors and air-gapped deployments."""
+"""Primary PyPI index URL for package installation. Supports private mirrors and air-gapped deployments.
+
+Blank means unset, so deployments can forward an empty override and keep PyPI.
+"""
 
 AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS = [
     url.strip()

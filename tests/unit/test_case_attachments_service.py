@@ -22,9 +22,9 @@ from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, Ca
 from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CaseEventsService, CasesService
 from autosecops.db.engine import get_async_session_context_manager
-from autosecops.db.models import Case, CaseAttachment, CaseEvent, File
+from autosecops.db.models import Case, CaseAttachment, CaseEvent, File, Workspace
 from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsException
-from autosecops.storage.blob import ensure_bucket_exists
+from autosecops.storage.blob import ensure_bucket_exists, file_exists
 from autosecops.storage.exceptions import (
     FileExtensionError,
     FileNameError,
@@ -505,6 +505,84 @@ async def test_cross_case_dedup_shares_file(
 
     assert a1.id != a2.id
     assert a1.file_id == a2.file_id
+
+
+def _case_create(summary: str) -> CaseCreate:
+    return CaseCreate(
+        summary=summary,
+        description="",
+        status=CaseStatus.NEW,
+        priority=CasePriority.MEDIUM,
+        severity=CaseSeverity.LOW,
+    )
+
+
+@pytest.mark.anyio
+async def test_delete_keeps_the_same_file_attached_to_other_cases(
+    configure_minio_for_attachments,
+    cases_service: CasesService,
+    attachments_service: CaseAttachmentService,
+    attachment_params: CaseAttachmentCreate,
+    minio_bucket: str,
+):
+    """Removing a deduplicated file from one case must not remove it elsewhere."""
+    c1 = await cases_service.create_case(_case_create("c1"))
+    c2 = await cases_service.create_case(_case_create("c2"))
+    a1 = await attachments_service.create_attachment(c1, attachment_params)
+    a2 = await attachments_service.create_attachment(c2, attachment_params)
+    assert a1.file_id == a2.file_id
+
+    await attachments_service.delete_attachment(c1, a1.id)
+
+    assert await attachments_service.list_attachments(c1) == []
+    assert [a.id for a in await attachments_service.list_attachments(c2)] == [a2.id]
+    content, _, _ = await attachments_service.download_attachment(c2, a2.id)
+    assert content == attachment_params.content
+
+    # The last reference still removes the blob.
+    await attachments_service.delete_attachment(c2, a2.id)
+    assert await attachments_service.list_attachments(c2) == []
+    assert not await file_exists(a2.storage_path, minio_bucket)
+
+
+@pytest.mark.anyio
+async def test_delete_keeps_a_blob_another_workspace_stores(
+    configure_minio_for_attachments,
+    session: AsyncSession,
+    svc_role: Role,
+    cases_service: CasesService,
+    attachments_service: CaseAttachmentService,
+    attachment_params: CaseAttachmentCreate,
+):
+    """Blobs are keyed by content hash, so workspaces share identical uploads.
+
+    Deleting an attachment in one workspace must not destroy another
+    workspace's copy of the same content.
+    """
+    assert svc_role.organization_id is not None
+    other_workspace = Workspace(
+        name="other-attachments-workspace", organization_id=svc_role.organization_id
+    )
+    session.add(other_workspace)
+    await session.commit()
+    other_role = svc_role.model_copy(update={"workspace_id": other_workspace.id})
+    other_cases = CasesService(session=session, role=other_role)
+    other_attachments = CaseAttachmentService(session=session, role=other_role)
+
+    mine = await cases_service.create_case(_case_create("mine"))
+    theirs = await other_cases.create_case(_case_create("theirs"))
+    my_attachment = await attachments_service.create_attachment(mine, attachment_params)
+    their_attachment = await other_attachments.create_attachment(
+        theirs, attachment_params
+    )
+    assert my_attachment.file_id != their_attachment.file_id
+
+    await attachments_service.delete_attachment(mine, my_attachment.id)
+
+    content, _, _ = await other_attachments.download_attachment(
+        theirs, their_attachment.id
+    )
+    assert content == attachment_params.content
 
 
 @pytest.mark.anyio

@@ -525,6 +525,58 @@ def test_registry_policy_env_vars_are_regular_executor_only() -> None:
             assert name not in agent_executor_source
 
 
+@pytest.mark.parametrize(
+    "name,tf_var",
+    [
+        ("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "sandbox_pypi_index_url"),
+        ("AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS", "sandbox_pypi_extra_index_urls"),
+    ],
+)
+def test_sandbox_pypi_index_env_is_wired_to_deployments(name: str, tf_var: str) -> None:
+    """Air-gapped installs point sandbox package installs at an internal mirror."""
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        match = re.search(
+            r"(?ms)^  executor:\n(?P<body>.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)",
+            path.read_text(),
+        )
+        assert match is not None, f"{path.name}: no executor service block"
+        assert f"{name}: ${{{name}:-}}" in match.group("body"), path.name
+    executor_template = (
+        REPO_ROOT / "deployments/helm/autosecops/templates/executor.yaml"
+    ).read_text()
+    assert f"name: {name}" in executor_template
+    fargate = REPO_ROOT / "deployments/fargate"
+    assert re.search(
+        rf"{name}\s*=\s*var\.{tf_var}\n",
+        (fargate / "modules/ecs/locals.tf").read_text(),
+    )
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            rf'variable "{tf_var}" \{{[^}}]*default\s*=\s*""',
+            (fargate / tf).read_text(),
+        ), tf
+
+
+def test_sandbox_pypi_index_url_treats_blank_as_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "")
+    try:
+        reloaded = importlib.reload(autosecops_config)
+        assert reloaded.AUTOSECOPS__SANDBOX_PYPI_INDEX_URL == "https://pypi.org/simple"
+        monkeypatch.setenv(
+            "AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "https://pypi.example.internal/simple"
+        )
+        reloaded = importlib.reload(autosecops_config)
+        assert (
+            reloaded.AUTOSECOPS__SANDBOX_PYPI_INDEX_URL
+            == "https://pypi.example.internal/simple"
+        )
+    finally:
+        monkeypatch.delenv("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL")
+        importlib.reload(autosecops_config)
+
+
 def test_config_boolean_env_values_use_env_bool() -> None:
     source = CONFIG_PATH.read_text()
     forbidden_patterns = {
@@ -746,6 +798,30 @@ def test_copilot_skills_dir_uses_default_for_empty_string(
                 reloaded_config.AUTOSECOPS__COPILOT_SKILLS_DIR
                 == "/var/lib/autosecops/copilot-skills"
             )
+    finally:
+        importlib.reload(autosecops_config)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("example.com,example.org", {"example.com", "example.org"}),
+        # The OIDC check compared raw entries, so a space or capital made the
+        # listed domain reject every sign-in while SAML admitted it.
+        (" Example.com, example.org ,,", {"example.com", "example.org"}),
+        ("", set()),
+    ],
+)
+def test_auth_allowed_domains_are_normalized(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: set[str]
+) -> None:
+    try:
+        with monkeypatch.context() as env:
+            env.setenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS", raw)
+
+            reloaded_config = importlib.reload(autosecops_config)
+
+            assert reloaded_config.AUTOSECOPS__AUTH_ALLOWED_DOMAINS == expected
     finally:
         importlib.reload(autosecops_config)
 
@@ -1040,7 +1116,10 @@ def test_env_example_defaults_to_production_mode() -> None:
 def test_temporal_ui_image_is_pinned() -> None:
     assert _env_example_values()["TEMPORAL__UI_VERSION"] not in {"", "latest"}
     for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
-        images = re.findall(r"image:\s*temporalio/ui:(\S+)", path.read_text())
+        images = re.findall(
+            r"image:\s*(?:temporalio/ui|\$\{TEMPORAL__UI_IMAGE_REPOSITORY:-temporalio/ui\}):(\S+)",
+            path.read_text(),
+        )
         assert images, f"{path.name} has no Temporal UI service"
         for image in images:
             assert "latest" not in image, f"{path.name} pins temporalio/ui to latest"

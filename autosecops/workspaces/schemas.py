@@ -106,6 +106,8 @@ class WorkspaceSettingsUpdate(Schema):
         """Ensure workspace git repo URLs use the shared Git SSH format."""
         if value is None:
             return value
+        if not isinstance(value, str):
+            raise ValueError("Must be a string")
 
         if not GIT_SSH_URL_REGEX.match(value):
             raise ValueError(

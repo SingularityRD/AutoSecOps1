@@ -341,7 +341,15 @@ def build_query(
 
     def _format_temporal_datetime(value: datetime) -> str:
         dt = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
-        return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            dt = dt.astimezone(UTC)
+        except OverflowError:
+            # An offset pushed the instant past year 1 or 9999; clamp to the
+            # bound it overflowed, which every execution time is within.
+            dt = (datetime.min if dt.year == 1 else datetime.max).replace(tzinfo=UTC)
+        # strftime("%Y") does not zero-pad years before 1000 on Linux, and
+        # Temporal rejects "784-03-20T..." as an invalid query (a 500).
+        return f"{dt.year:04d}-{dt:%m-%dT%H:%M:%S}Z"
 
     query.append(f"{TemporalSearchAttr.WORKSPACE_ID.value} = '{workspace_id}'")
     if workflow_id:

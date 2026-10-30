@@ -338,6 +338,12 @@
             "agentMemoryMb": {
               "type": "integer",
               "minimum": 0
+            },
+            "pypiIndexUrl": {
+              "type": "string"
+            },
+            "pypiExtraIndexUrls": {
+              "type": "string"
             }
           },
           "additionalProperties": false

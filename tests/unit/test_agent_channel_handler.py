@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Literal, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -23,7 +24,7 @@ from autosecops.agent.channels.schemas import (
 )
 from autosecops.agent.channels.service import AgentChannelService
 from autosecops.auth.types import Role
-from autosecops.chat.schemas import BasicChatRequest
+from autosecops.chat.schemas import BasicChatRequest, ContinueRunRequest
 from autosecops.exceptions import AutoSecOpsValidationError
 
 
@@ -561,3 +562,235 @@ async def test_handle_falls_back_to_user_id_when_profile_lookup_missing_scope(
     assert request.instructions is not None
     assert '- Slack user ID: "U1"' in request.instructions
     assert "Slack email:" not in request.instructions
+
+
+class _FakeApprovalRedis:
+    """In-memory stand-in for the RedisClient calls the approval path makes."""
+
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def set_if_not_exists(
+        self, key: str, value: str, *, expire_seconds: int | None
+    ) -> bool:
+        del expire_seconds
+        if key in self.values:
+            return False
+        self.values[key] = value
+        return True
+
+
+def _approval_click(
+    *,
+    batch_id: str,
+    tool_call_id: str,
+    action: Literal["approve", "deny"],
+    channel_id: str = "C1",
+    user_id: str = "U1",
+) -> dict[str, object]:
+    return {
+        "type": "block_actions",
+        "actions": [
+            {
+                "action_id": f"autosecops_approval_{action}",
+                "value": AgentChannelService.create_slack_approval_action_token(
+                    batch_id=batch_id, tool_call_id=tool_call_id, action=action
+                ),
+            }
+        ],
+        "user": {"id": user_id, "username": "reviewer"},
+        "channel": {"id": channel_id},
+        "container": {"message_ts": "1700000000.200", "thread_ts": "1700000000.100"},
+    }
+
+
+def _seed_approval_batch(
+    redis: _FakeApprovalRedis, *, workspace_id: uuid.UUID, session_id: uuid.UUID
+) -> str:
+    batch_id = uuid.uuid4().hex
+    redis.values[f"slack-approval:batch:{batch_id}"] = json.dumps(
+        {
+            "batch_id": batch_id,
+            "session_id": str(session_id),
+            "workspace_id": str(workspace_id),
+            "channel_id": "C1",
+            "thread_ts": "1700000000.100",
+            "tool_call_ids": ["tool-1", "tool-2"],
+            "tool_names": {
+                "tool-1": "core.http_request",
+                "tool-2": "core.cases.update_case",
+            },
+        }
+    )
+    return batch_id
+
+
+@pytest.mark.anyio
+async def test_slack_approval_resumes_the_run_once_every_call_is_decided(
+    handler: SlackChannelHandler,
+    token: ValidatedChannelToken,
+    workspace_id: uuid.UUID,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
+    redis = _FakeApprovalRedis()
+    session_id = uuid.uuid4()
+    batch_id = _seed_approval_batch(
+        redis, workspace_id=workspace_id, session_id=session_id
+    )
+    slack_client = _FakeSlackClient(token="xoxb-test")
+
+    with _patched_handle_deps(
+        handler,
+        slack_client=slack_client,
+        redis_client=cast(AsyncMock, redis),
+        session_row=object(),
+    ) as deps:
+        await handler.handle(
+            payload=_approval_click(
+                batch_id=batch_id, tool_call_id="tool-1", action="approve"
+            ),
+            token=token,
+        )
+        # One of two calls decided: the run stays paused.
+        deps.run_turn.assert_not_awaited()
+
+        await handler.handle(
+            payload=_approval_click(
+                batch_id=batch_id, tool_call_id="tool-2", action="deny"
+            ),
+            token=token,
+        )
+
+    deps.run_turn.assert_awaited_once()
+    resumed_session_id, request = deps.run_turn.await_args.args
+    assert resumed_session_id == session_id
+    assert isinstance(request, ContinueRunRequest)
+    assert request.source == "slack"
+    decisions = {decision.tool_call_id: decision for decision in request.decisions}
+    assert decisions["tool-1"].action == "approve"
+    assert decisions["tool-2"].action == "deny"
+    assert decisions["tool-2"].reason == "Denied from Slack thread"
+    assert decisions["tool-1"].metadata == {
+        "source": "slack",
+        "actor": {"user_id": "U1", "display_name": "reviewer"},
+    }
+    updates = [
+        payload for method, payload in slack_client.calls if method == "chat.update"
+    ]
+    assert [update["text"] for update in updates] == [
+        "Approved by <@U1> for `core.http_request`",
+        "Denied by <@U1> for `core.cases.update_case`",
+    ]
+
+
+@pytest.mark.anyio
+async def test_slack_approval_replay_cannot_change_or_resubmit_a_decision(
+    handler: SlackChannelHandler,
+    token: ValidatedChannelToken,
+    workspace_id: uuid.UUID,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A replayed or opposite click inside the signature window is ignored."""
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
+    redis = _FakeApprovalRedis()
+    batch_id = _seed_approval_batch(
+        redis, workspace_id=workspace_id, session_id=uuid.uuid4()
+    )
+    slack_client = _FakeSlackClient(token="xoxb-test")
+
+    with _patched_handle_deps(
+        handler,
+        slack_client=slack_client,
+        redis_client=cast(AsyncMock, redis),
+        session_row=object(),
+    ) as deps:
+        for tool_call_id in ("tool-1", "tool-2"):
+            await handler.handle(
+                payload=_approval_click(
+                    batch_id=batch_id, tool_call_id=tool_call_id, action="deny"
+                ),
+                token=token,
+            )
+        await handler.handle(
+            payload=_approval_click(
+                batch_id=batch_id, tool_call_id="tool-1", action="approve"
+            ),
+            token=token,
+        )
+
+    deps.run_turn.assert_awaited_once()
+    request = deps.run_turn.await_args.args[1]
+    assert {d.action for d in request.decisions} == {"deny"}
+    assert (
+        json.loads(redis.values[f"slack-approval:batch:{batch_id}:decision:tool-1"])[
+            "action"
+        ]
+        == "deny"
+    )
+    notices = [
+        payload["text"]
+        for method, payload in slack_client.calls
+        if method == "chat.postEphemeral"
+    ]
+    assert notices == ["A decision has already been recorded for this tool call."]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("click_channel", "batch_workspace", "notice"),
+    [
+        ("C-other", None, "This approval action is not valid in this channel."),
+        ("C1", "other", "This approval action is not valid for this workspace."),
+    ],
+)
+async def test_slack_approval_from_another_channel_or_workspace_is_refused(
+    handler: SlackChannelHandler,
+    token: ValidatedChannelToken,
+    workspace_id: uuid.UUID,
+    monkeypatch: pytest.MonkeyPatch,
+    click_channel: str,
+    batch_workspace: str | None,
+    notice: str,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__SIGNING_SECRET", "test-signing-secret")
+    redis = _FakeApprovalRedis()
+    batch_id = _seed_approval_batch(
+        redis,
+        workspace_id=uuid.uuid4() if batch_workspace else workspace_id,
+        session_id=uuid.uuid4(),
+    )
+    slack_client = _FakeSlackClient(token="xoxb-test")
+
+    with _patched_handle_deps(
+        handler,
+        slack_client=slack_client,
+        redis_client=cast(AsyncMock, redis),
+        session_row=object(),
+    ) as deps:
+        await handler.handle(
+            payload=_approval_click(
+                batch_id=batch_id,
+                tool_call_id="tool-1",
+                action="approve",
+                channel_id=click_channel,
+            ),
+            token=token,
+        )
+
+    deps.run_turn.assert_not_awaited()
+    assert not any(":decision:" in key for key in redis.values)
+    assert slack_client.calls == [
+        (
+            "chat.postEphemeral",
+            {
+                "channel": click_channel,
+                "user": "U1",
+                "text": notice,
+                "thread_ts": "1700000000.100",
+            },
+        )
+    ]

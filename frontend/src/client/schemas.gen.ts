@@ -145,11 +145,11 @@ export const $ActionCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -396,7 +396,7 @@ export const $ActionReadMinimal = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     type: {
@@ -4355,7 +4355,7 @@ export const $AgentPresetWorkflowReference = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     workflow_title: {
@@ -8359,11 +8359,11 @@ export const $CaseCommentCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -11871,11 +11871,11 @@ export const $CaseTaskCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -11958,7 +11958,7 @@ export const $CaseTaskRead = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "null",
@@ -12064,11 +12064,11 @@ export const $CaseTaskUpdate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -19423,11 +19423,11 @@ export const $FormCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -20364,7 +20364,7 @@ export const $FormRead = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     workflow_title: {
@@ -20455,7 +20455,7 @@ export const $FormReadMinimal = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "null",
@@ -23546,7 +23546,13 @@ export const $LibrarySkillSourceRead = {
 
 export const $LicenseErrorCode = {
   type: "string",
-  enum: ["malformed", "bad_signature", "invalid_claims", "not_yet_valid"],
+  enum: [
+    "malformed",
+    "bad_signature",
+    "invalid_claims",
+    "not_yet_valid",
+    "deployment_mismatch",
+  ],
   title: "LicenseErrorCode",
   description: "Why a license key failed verification.",
 } as const
@@ -23560,6 +23566,187 @@ export const $LicenseGrant = {
 These are not organization entitlements: they never appear in tiers or in
 \`\`EffectiveEntitlements\`\`. A license lists them in \`\`entitlements\`\` next to
 organization entitlement keys.`,
+} as const
+
+export const $LicenseLimits = {
+  properties: {
+    max_users: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Users",
+      description:
+        "Active user accounts on a single-tenant install; service accounts do not count",
+    },
+    max_workspaces: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Workspaces",
+      description: "Workspaces on a single-tenant install",
+    },
+    max_organizations: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Organizations",
+      description: "Organizations on a multi-tenant install",
+    },
+    max_concurrent_workflows: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Concurrent Workflows",
+      description: "Concurrent workflow executions",
+    },
+    max_concurrent_actions: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Concurrent Actions",
+      description: "Concurrent action executions",
+    },
+    max_action_executions_per_workflow: {
+      anyOf: [
+        {
+          type: "integer",
+          exclusiveMinimum: 0,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Max Action Executions Per Workflow",
+      description: "Action executions per workflow run",
+    },
+  },
+  type: "object",
+  title: "LicenseLimits",
+  description: "Quantitative limits a license sets. ``None`` means unlimited.",
+} as const
+
+export const $LicenseNoticeLevel = {
+  type: "string",
+  enum: ["expiring", "grace", "expired", "invalid"],
+  title: "LicenseNoticeLevel",
+  description: "Why administrators should be warned about the license.",
+} as const
+
+export const $LicenseNoticeRead = {
+  properties: {
+    level: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicenseNoticeLevel",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    status: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicenseStatus",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    plan: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicensePlan",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+    },
+    grace_ends_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Grace Ends At",
+    },
+    days_remaining: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Days Remaining",
+      description:
+        "Whole days until the license expires; negative once expired",
+    },
+  },
+  type: "object",
+  title: "LicenseNoticeRead",
+  description: `License expiry notice for organization administrators.
+
+\`\`level\`\` is null when no warning is needed, including on unlicensed
+Community installs and in multi-tenant mode.`,
+} as const
+
+export const $LicensePlan = {
+  type: "string",
+  enum: ["community", "team", "business", "enterprise", "mssp", "pilot"],
+  title: "LicensePlan",
+  description: `Commercial plan label carried by a license.
+
+Display only: entitlements and limits in the license decide what applies.`,
 } as const
 
 export const $LicenseRead = {
@@ -23594,6 +23781,16 @@ export const $LicenseRead = {
         },
       ],
       title: "Customer",
+    },
+    plan: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicensePlan",
+        },
+        {
+          type: "null",
+        },
+      ],
     },
     issued_at: {
       anyOf: [
@@ -23631,6 +23828,30 @@ export const $LicenseRead = {
       ],
       title: "Grace Ends At",
     },
+    days_remaining: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Days Remaining",
+      description:
+        "Whole days until the license expires; negative once expired",
+    },
+    notice: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicenseNoticeLevel",
+        },
+        {
+          type: "null",
+        },
+      ],
+      description: "Why administrators are warned about the license, if at all",
+    },
     entitlements: {
       items: {
         $ref: "#/components/schemas/Entitlement",
@@ -23665,6 +23886,42 @@ export const $LicenseRead = {
       title: "Licensed Entitlements",
       description: "Every entitlement key listed in the license",
     },
+    limits: {
+      $ref: "#/components/schemas/LicenseLimits",
+      description: "Limits that apply right now; null fields are unlimited",
+    },
+    licensed_limits: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/LicenseLimits",
+        },
+        {
+          type: "null",
+        },
+      ],
+      description: "Limits listed in the license, whether or not they apply",
+    },
+    usage: {
+      $ref: "#/components/schemas/LicenseUsageRead",
+    },
+    deployment_id: {
+      type: "string",
+      title: "Deployment Id",
+      description:
+        "This installation's deployment ID. Send it to the vendor to receive a license bound to this installation.",
+    },
+    license_deployment_id: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "License Deployment Id",
+      description: "Deployment ID the license is bound to, if any",
+    },
     error: {
       anyOf: [
         {
@@ -23677,7 +23934,7 @@ export const $LicenseRead = {
     },
   },
   type: "object",
-  required: ["status", "enforced"],
+  required: ["status", "enforced", "usage", "deployment_id"],
   title: "LicenseRead",
   description: "License status for the platform admin.",
 } as const
@@ -23687,6 +23944,30 @@ export const $LicenseStatus = {
   enum: ["missing", "valid", "grace", "expired", "invalid"],
   title: "LicenseStatus",
   description: "Lifecycle state of the configured license key.",
+} as const
+
+export const $LicenseUsageRead = {
+  properties: {
+    users: {
+      type: "integer",
+      title: "Users",
+      description: "Active user accounts; service accounts excluded",
+    },
+    workspaces: {
+      type: "integer",
+      title: "Workspaces",
+      description: "Workspaces on this installation",
+    },
+    organizations: {
+      type: "integer",
+      title: "Organizations",
+      description: "Organizations on this installation",
+    },
+  },
+  type: "object",
+  required: ["users", "workspaces", "organizations"],
+  title: "LicenseUsageRead",
+  description: "Current usage counted against license limits.",
 } as const
 
 export const $LineErrorCode = {
@@ -31932,11 +32213,11 @@ export const $ScheduleCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -33483,6 +33764,8 @@ export const $SecretCreate = {
     },
     environment: {
       type: "string",
+      maxLength: 100,
+      minLength: 1,
       title: "Environment",
       default: "default",
     },
@@ -38518,11 +38801,11 @@ export const $TaskWorkflowChangedEventRead = {
         },
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -38537,11 +38820,11 @@ export const $TaskWorkflowChangedEventRead = {
         },
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -42773,7 +43056,7 @@ export const $WorkflowCommitResponse = {
   properties: {
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     status: {
@@ -42917,7 +43200,7 @@ export const $WorkflowDirectoryItem = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -43057,7 +43340,7 @@ export const $WorkflowDraftRead = {
   properties: {
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     draft_revision: {
@@ -43737,11 +44020,11 @@ export const $WorkflowExecutionCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -44875,7 +45158,7 @@ export const $WorkflowRead = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -45055,7 +45338,7 @@ export const $WorkflowReadMinimal = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -45250,7 +45533,7 @@ export const $WorkflowRerunPlan = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     use_draft: {
@@ -45377,7 +45660,7 @@ export const $WorkflowRerunResponse = {
     },
     wf_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Wf Id",
     },
     wf_exec_id: {

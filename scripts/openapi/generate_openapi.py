@@ -23,7 +23,7 @@ logger.add(lambda _: None)  # Add a no-op handler to prevent any output
 class _OpenAPIOpenIDStub(BaseOAuth2[dict[str, str]]):
     """Stub OIDC client used only for OpenAPI generation.
 
-    `httpx_oauth.clients.openid.OpenID` performs network discovery in `__init__`,
+    `PlatformOpenID` (an `httpx_oauth` OpenID) runs network discovery in `__init__`,
     which makes schema generation depend on a live issuer. For OpenAPI generation
     we only need route construction to succeed.
     """
@@ -150,7 +150,7 @@ def main() -> None:
     os.environ["OIDC_CLIENT_SECRET"] = "openapi-client-secret"
     os.environ["USER_AUTH_SECRET"] = "openapi-stub-secret"
 
-    with patch("autosecops.auth.oidc.OpenID", _OpenAPIOpenIDStub):
+    with patch("autosecops.auth.oidc.PlatformOpenID", _OpenAPIOpenIDStub):
         from autosecops.api.app import app
 
         openapi_spec = app.openapi()
