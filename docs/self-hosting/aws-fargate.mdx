@@ -117,6 +117,8 @@ Once deployed, access your instance at:
 
 ## Updating AutoSecOps
 
+Read the release notes and take manual RDS snapshots first, as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate). Migrations are forward-only, so rolling back a release that ran migrations means restoring those snapshots.
+
 To update an existing AutoSecOps deployment on Fargate:
 
 1. Extract the Terraform stack from the image version you are updating to into a new directory.

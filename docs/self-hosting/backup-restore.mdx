@@ -1,0 +1,229 @@
+---
+title: Backup and restore
+description: "Back up and restore every stateful part of a self-hosted AutoSecOps deployment: the core PostgreSQL database, the Temporal database, object storage buckets, and the platform secrets, on Docker Compose, Kubernetes, and AWS Fargate."
+keywords: ["backup", "restore", "pg_dump", "pg_restore", "disaster recovery", "snapshot", "mc mirror"]
+---
+
+A complete AutoSecOps backup has four parts. Back up all four together and restore them together.
+
+| Part | Holds | Docker Compose | Kubernetes | AWS Fargate |
+| --- | --- | --- | --- | --- |
+| Core database | Workflows, cases, tables, users, settings, and encrypted credentials. PostgreSQL with pgvector | Database `postgres` in the `postgres_db` service (`core-db` volume) | Your PostgreSQL | RDS instance `core-database` |
+| Temporal database | Workflow run history, schedules, and timers | Databases `temporal` and `temporal_visibility` in `temporal_postgres_db` (`temporal-db` volume) | Your Temporal persistence store | RDS instance `temporal-database` |
+| Object storage | Buckets `autosecops-attachments`, `autosecops-workflow`, `autosecops-registry`, `autosecops-agent`, and `autosecops-skills` | The `minio` service (`minio-data` volume) | Your S3-compatible buckets | The stack's S3 buckets |
+| Platform secrets | `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, `USER_AUTH_SECRET`, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` if you enabled it | `.env` | The core Secret, `autosecops-secrets` by default | The Secrets Manager secrets whose ARNs you pass to Terraform |
+
+<Warning>
+  A database backup without its `AUTOSECOPS__DB_ENCRYPTION_KEY` restores every row but no stored credential: AutoSecOps encrypts integration secrets, OAuth tokens, and sensitive settings with that Fernet key, and nothing can decrypt them without it. The key cannot be regenerated or rotated. Keep a copy of it, and of the other platform secrets, in a separate secret store with the same access controls as the backup. If you enabled Temporal payload encryption, keep every key in `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` for as long as you keep the Temporal backups it encrypted.
+</Warning>
+
+Redis holds caches, rate-limit counters, and short-lived event queues. AutoSecOps rebuilds them, so you do not need to back up Redis. Events queued in Redis when you take the backup are not in it.
+
+## Consistency
+
+`pg_dump` takes a consistent snapshot of one database while AutoSecOps runs, so an online backup of the core database alone is safe. The parts drift apart when you capture them at different moments while AutoSecOps writes: a case attachment uploaded after the database dump has an object but no row, and a workflow run in progress has Temporal history that the core database does not know about.
+
+For a backup you can restore as one point in time, stop the services that write before you start, and start them again when you finish:
+
+| Writers to stop | Keep running |
+| --- | --- |
+| `api`, `worker`, `executor`, `agent-worker`, `agent-executor`, `litellm`, `mcp`, `temporal`, `temporal_ui` | `postgres_db`, `temporal_postgres_db`, `minio`, `redis` |
+
+Stopping them pauses webhooks, schedules, and the UI for the length of the backup. Workflow runs resume from Temporal history when the services start again. If you cannot stop AutoSecOps, take an online backup and expect to clean up orphaned objects and to re-run workflows that were in flight.
+
+## Docker Compose
+
+AutoSecOps images ship `backup_compose.sh` and `restore_compose.sh` with the other install files in `/opt/autosecops/install`. Copy them into the directory that holds `docker-compose.yml` and `.env`. If the image you run predates the scripts, copy them from the image of the version you are upgrading to; they work with earlier versions too.
+
+```bash
+id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
+docker cp "$id":/opt/autosecops/install/backup_compose.sh .
+docker cp "$id":/opt/autosecops/install/restore_compose.sh .
+docker rm "$id"
+```
+
+Both scripts run every Postgres command inside the database container as its superuser, read the MinIO credentials from the running `minio` container, run `mc` from the MinIO image you already have, and never print a secret value. They honor `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME`. Run either with `--help` for every option.
+
+### Back up
+
+```bash
+./backup_compose.sh -o /var/backups/autosecops
+```
+
+The script stops the writers listed in [Consistency](#consistency), dumps the core and Temporal databases, mirrors every MinIO bucket, copies `.env`, the Compose files, and the `Caddyfile`, and starts the stopped services again. It writes one directory per run:
+
+```text
+/var/backups/autosecops/autosecops-backup-20261030T195046Z/
+├── core.dump                          # pg_dump -Fc of the core database
+├── temporal-temporal.dump             # pg_dump -Fc of each Temporal database
+├── temporal-temporal_visibility.dump
+├── minio/<bucket>/...                 # mc mirror of every bucket
+├── config/.env                        # plus docker-compose*.yml and Caddyfile
+├── MANIFEST                           # time, alembic revision, images
+└── SHA256SUMS
+```
+
+| Option | Effect |
+| --- | --- |
+| `--online` | Keep AutoSecOps running. See [Consistency](#consistency) |
+| `--no-env` | Leave `.env` out. Back up the platform secrets in your secret store instead |
+| `--skip-temporal`, `--skip-minio` | Leave out the Temporal databases or object storage |
+
+The backup directory holds `.env` and every encrypted credential, so the script creates it readable by its owner only. Copy it off the host into encrypted, access-controlled storage. To run a nightly backup at 02:17, add a cron entry for the user that runs AutoSecOps:
+
+```bash
+17 2 * * * cd /opt/autosecops && ./backup_compose.sh -o /var/backups/autosecops >>/var/log/autosecops-backup.log 2>&1
+```
+
+Prune old backup directories with your own retention policy.
+
+### Back up manually
+
+The script runs these commands. Use them directly if you script backups another way:
+
+```bash
+# 1. Stop the writers
+docker compose stop api worker executor agent-worker agent-executor litellm mcp temporal_ui temporal
+
+# 2. Dump the core and Temporal databases
+docker compose exec -T postgres_db sh -c 'pg_dump -U "$POSTGRES_USER" -Fc postgres' > core.dump
+docker compose exec -T temporal_postgres_db sh -c 'pg_dump -U "$POSTGRES_USER" -Fc temporal' > temporal-temporal.dump
+docker compose exec -T temporal_postgres_db sh -c 'pg_dump -U "$POSTGRES_USER" -Fc temporal_visibility' > temporal-temporal_visibility.dump
+
+# 3. Mirror every MinIO bucket into ./minio with the mc client in the MinIO image
+export $(grep -E '^MINIO_ROOT_(USER|PASSWORD)=' .env | xargs)
+export MC_HOST_src="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@127.0.0.1:9000"
+minio=$(docker compose ps -q minio)
+mkdir -p minio
+docker run --rm --network "container:$minio" --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp -e MC_HOST_src -v "$PWD/minio:/backup" \
+  --entrypoint mc "$(docker inspect -f '{{.Config.Image}}' "$minio")" \
+  mirror --preserve src /backup
+
+# 4. Keep the secrets with the backup, then start the writers again
+cp .env env.backup && chmod 600 env.backup
+docker compose start api worker executor agent-worker agent-executor litellm mcp temporal_ui temporal
+```
+
+If `AUTOSECOPS__DB_URI` points at an external PostgreSQL instead of `postgres_db`, run `pg_dump -Fc` against that server from any host that can reach it.
+
+### Restore
+
+Restore into a deployment that runs the same AutoSecOps version as the backup or a newer one. An older version cannot start on a database that newer migrations changed.
+
+<Steps>
+  <Step title="Put the secrets back">
+    Copy `config/.env` from the backup next to `docker-compose.yml`, or make sure your `.env` holds the same `AUTOSECOPS__DB_ENCRYPTION_KEY`. The restore script compares the key in both files by hash and stops if they differ.
+  </Step>
+  <Step title="Start the stateful services">
+    On a new host, start only the databases and object storage:
+
+    ```bash
+    docker compose up -d postgres_db temporal_postgres_db minio redis
+    ```
+  </Step>
+  <Step title="Restore">
+    ```bash
+    ./restore_compose.sh /var/backups/autosecops/autosecops-backup-20261030T195046Z
+    ```
+
+    The script verifies `SHA256SUMS`, asks you to type the Compose project name, stops every service except the stateful ones, drops and recreates the core and Temporal databases from the dumps, and mirrors the buckets back. Each database restores in a single transaction, so a failed restore leaves an empty database rather than a partial one. Pass `--yes` to skip the prompt in automation.
+  </Step>
+  <Step title="Start AutoSecOps">
+    ```bash
+    docker compose up -d
+    ```
+
+    The `migrations` service runs first. If the image is newer than the backup, it upgrades the restored database before `api` starts. Follow it with `docker compose logs -f migrations`.
+  </Step>
+</Steps>
+
+To restore manually, stop the writers and replace each database in this order: core database, Temporal databases, then object storage.
+
+```bash
+docker compose exec -T postgres_db sh -c 'psql -U "$POSTGRES_USER" -d template1 \
+  -c "DROP DATABASE IF EXISTS postgres WITH (FORCE)" -c "CREATE DATABASE postgres TEMPLATE template0"'
+docker compose exec -T postgres_db sh -c \
+  'pg_restore -U "$POSTGRES_USER" --no-owner --exit-on-error --single-transaction -d postgres' < core.dump
+```
+
+Repeat for `temporal` and `temporal_visibility` on `temporal_postgres_db`, then run step 3 of the manual backup with the source and target swapped: `mirror --overwrite --preserve /backup src`.
+
+## Kubernetes
+
+The Helm chart keeps PostgreSQL, Redis, object storage, and Temporal outside the cluster, so you back them up with the tools of the service that runs them.
+
+| Part | Back up with |
+| --- | --- |
+| Core database | Your provider's snapshots and point-in-time recovery, e.g. RDS, Cloud SQL, or a CloudNativePG `ScheduledBackup`. For a portable copy, run `pg_dump -Fc` against the database from a pod or host that can reach it |
+| Temporal | Your Temporal persistence store's backups. Temporal Cloud manages its own |
+| Object storage | Bucket versioning plus replication to a second bucket or account, or `mc mirror` / `aws s3 sync` to backup storage |
+| Platform secrets | Your secret manager when External Secrets Operator syncs the core Secret. Otherwise export it, encrypted |
+
+```bash
+# Stop the writers. Running your usual `helm upgrade` command later restores the replica counts.
+kubectl -n autosecops scale deployment -l app.kubernetes.io/instance=autosecops --replicas=0
+
+# Portable dump of the core database. PGPASSWORD comes from your database Secret.
+pg_dump "postgresql://<user>@<host>:5432/<database>?sslmode=require" -Fc > core.dump
+
+# Mirror each bucket
+aws s3 sync s3://autosecops-attachments ./s3/autosecops-attachments
+
+# Export a chart-created or hand-made core Secret, and encrypt it at once
+kubectl -n autosecops get secret autosecops-secrets -o yaml | age -r <recipient> > autosecops-secrets.yaml.age
+```
+
+To restore, restore the database and buckets with the same tools, recreate the core Secret with the same values, and run your `helm upgrade` or `helm install` command. The migrations Job upgrades the restored database before the pods roll.
+
+## AWS Fargate
+
+The Terraform stack turns on automated RDS backups and S3 versioning.
+
+- RDS keeps automated backups for `rds_backup_retention_period` days, 7 by default, and supports point-in-time recovery within that window. Both instances have deletion protection, and Terraform takes a final snapshot if it ever deletes one.
+- Every S3 bucket has versioning. Lifecycle rules expire noncurrent versions after 1 to 90 days depending on the bucket, so versioning protects against recent overwrites and deletes, not as a long-term backup. Use AWS Backup or replication to a second account for that.
+- The platform secrets live in the Secrets Manager secrets you created. Keep an offline copy of `AUTOSECOPS__DB_ENCRYPTION_KEY` too: a deleted secret is recoverable only during its recovery window.
+
+For a point-in-time backup across RDS and S3, first stop the writers with `aws ecs update-service --cluster autosecops-cluster --service <service> --desired-count 0` for each AutoSecOps service; your next `terraform apply` restores the counts. Then take a manual snapshot. Take one before every upgrade too:
+
+```bash
+aws rds create-db-snapshot --db-instance-identifier core-database \
+  --db-snapshot-identifier autosecops-core-pre-<version>
+aws rds create-db-snapshot --db-instance-identifier temporal-database \
+  --db-snapshot-identifier autosecops-temporal-pre-<version>
+aws rds wait db-snapshot-available --db-snapshot-identifier autosecops-core-pre-<version>
+```
+
+Terraform restores a snapshot only when it creates the RDS instance, so restoring replaces the instance. Rehearse it on a staging stack first:
+
+```bash
+# 1. Allow Terraform to replace the instance
+aws rds modify-db-instance --db-instance-identifier core-database \
+  --no-deletion-protection --apply-immediately
+
+# 2. Recreate it from the snapshot. Terraform takes a final snapshot of the old instance first.
+export TF_VAR_restore_from_snapshot=true
+export TF_VAR_core_db_snapshot_name=autosecops-core-pre-<version>
+terraform apply -replace='module.ecs.aws_db_instance.core_database'
+```
+
+Without `core_db_snapshot_name`, Terraform picks the most recent snapshot of `core-database`. Set `temporal_db_snapshot_name` and replace `module.ecs.aws_db_instance.temporal_database` the same way to restore Temporal. Unset `TF_VAR_restore_from_snapshot` afterwards. To restore an S3 object, copy an earlier version over the current one with `aws s3api copy-object` and `--copy-source <bucket>/<key>?versionId=<id>`.
+
+## Verify a restore
+
+Check each part before you hand the deployment back to users:
+
+1. The `migrations` service, Job, or init container finished without errors, and `select version_num from alembic_version` in the core database returns the revision of the running release.
+2. You can sign in, and the workspace, workflow, and case counts match what you expect.
+3. A workflow that uses a stored credential runs. A decryption error means the deployment has a different `AUTOSECOPS__DB_ENCRYPTION_KEY` from the one the backup was taken with.
+4. A case attachment downloads, which proves the database rows and the objects match.
+5. Workflow runs from before the backup appear in the run history, and schedules fire again.
+
+Restore a recent backup into a separate environment at least once a quarter, and after every change to your backup jobs.
+
+## Related pages
+
+- See [Updating AutoSecOps](/self-hosting/updating) for the upgrade steps that start with a backup.
+- See [Security patches](/self-hosting/security-patches) for how patched releases reach you and how to apply them.
+- See [Security](/self-hosting/security#platform-secrets) for what each platform secret protects and which ones you can rotate.
+- See [Temporal retention](/self-hosting/temporal-retention) for how long Temporal keeps workflow history, which sets what a Temporal backup contains.

@@ -449,6 +449,8 @@ curl http://localhost:8000/health
 
 ## Upgrade the Helm chart
 
+Read the release notes and snapshot your database and buckets first. Migrations are forward-only, so rolling back a release that ran migrations means restoring that snapshot. See [Updating AutoSecOps](/self-hosting/updating) and [Backup and restore](/self-hosting/backup-restore#kubernetes).
+
 ```bash
 helm upgrade autosecops oci://ghcr.io/singularityrd/charts/autosecops \
   --version <version> \

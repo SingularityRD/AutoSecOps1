@@ -259,6 +259,8 @@ def staged_bundle(tmp_path: Path) -> Path:
 def test_dry_run_stages_the_bundle(staged_bundle: Path) -> None:
     for name in bundler.INSTALL_FILES:
         assert (staged_bundle / "install" / name).is_file(), name
+        if name.endswith(".sh"):
+            assert os.access(staged_bundle / "install" / name, os.X_OK), name
     assert (staged_bundle / "charts" / f"autosecops-{__version__}.tgz").is_file()
     assert os.access(staged_bundle / "load-images.sh", os.X_OK)
     for name in ("README.md", "images.txt", "SHA256SUMS"):
@@ -280,6 +282,21 @@ def test_dry_run_stages_the_bundle(staged_bundle: Path) -> None:
     for line in (staged_bundle / "SHA256SUMS").read_text().splitlines():
         digest, name = line.split("  ", 1)
         assert hashlib.sha256((staged_bundle / name).read_bytes()).hexdigest() == digest
+
+
+def test_image_ships_every_bundle_install_file() -> None:
+    """The image's /opt/autosecops/install and the bundle's install/ match."""
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    copies = re.findall(
+        r"^COPY [^\n]*(?:\\\n[^\n]*)*/opt/autosecops/install/$", dockerfile, re.M
+    )
+    shipped = {
+        Path(token).name
+        for block in copies
+        for token in block.replace("\\\n", " ").split()
+        if token.startswith("./")
+    }
+    assert shipped == set(bundler.INSTALL_FILES)
 
 
 def test_load_helper_verifies_and_plans_a_push(staged_bundle: Path) -> None:

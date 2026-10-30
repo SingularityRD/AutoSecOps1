@@ -1,14 +1,38 @@
 ---
 title: Updating AutoSecOps
-description: Learn how to safely update versions and run data migrations.
+description: "Upgrade a self-hosted AutoSecOps deployment: back up, read the release notes, pull the new version, watch the database migrations, check the result, and roll back from a backup."
+keywords: ["upgrade", "update", "migrations", "alembic", "rollback", "release notes"]
 ---
 
-Updates and data migrations can be tricky business. Follow the steps below carefully.
+AutoSecOps versions follow semantic versioning. Self-hosted deployments run stable versions only, `MAJOR.MINOR.PATCH`:
+
+| Release | Contains | Database migrations | Image-only rollback |
+| --- | --- | --- | --- |
+| Patch, e.g. `1.4.2` to `1.4.3` | Fixes cherry-picked onto the release train, including [security patches](/self-hosting/security-patches) | Never | Yes, to an earlier patch of the same `1.4` train |
+| Minor, e.g. `1.4.3` to `1.5.0` | New features and fixes | Often | No. Restore the pre-upgrade backup |
+| Major, e.g. `1.5.0` to `2.0.0` | Changes that need manual steps, listed in the release notes | Often | No. Restore the pre-upgrade backup |
+
+You can upgrade across several versions at once. The migrations apply every intermediate revision in order. Read the release notes of every version you skip.
+
+## Before you upgrade
+
+1. Read the release notes on the [AutoSecOps releases page](https://github.com/SingularityRD/AutoSecOps1/releases) for every version between yours and the target. Look for upgrade notes, new required settings, and breaking changes.
+2. Note the version you run now. `GET /api/info` returns it in `version`:
+
+   ```bash
+   curl -fsS https://autosecops.example.com/api/info
+   ```
+
+3. Back up the database, object storage, and secrets. See [Backup and restore](/self-hosting/backup-restore). On Docker Compose:
+
+   ```bash
+   ./backup_compose.sh -o /var/backups/autosecops
+   ```
+
+4. Plan for downtime. On Docker Compose and Fargate, the API stays down until the migrations finish. Most migrations take seconds; release notes call out migrations that rewrite large tables.
 
 <Warning>
-  If you want to migrate secrets, please make sure to save your database
-  encryption / decryption Fernet key. You can find this key in your `.env` file
-  assigned to the environment variable: `AUTOSECOPS__DB_ENCRYPTION_KEY`.
+  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable.
 </Warning>
 
 ## Docker Compose
@@ -21,80 +45,113 @@ Updates and data migrations can be tricky business. Follow the steps below caref
     changes yet. If `docker pull` fails with `denied` or `unauthorized`, log in
     to GHCR again as described in [Registry access](/self-hosting/docker-compose#registry-access).
 
-    ```
-    docker pull ghcr.io/singularityrd/autosecops:1.0.0
-    mkdir -p autosecops-1.0.0
-    id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
-    docker cp "$id":/opt/autosecops/install/. autosecops-1.0.0/
+    ```bash
+    docker pull ghcr.io/singularityrd/autosecops:<version>
+    mkdir -p autosecops-<version>
+    id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
+    docker cp "$id":/opt/autosecops/install/. autosecops-<version>/
     docker rm "$id"
     ```
-
   </Step>
-  <Step title="Execute environment variables migration">
+  <Step title="Migrate the environment variables">
     Copy the environment variables migration script `env-migration.sh` and
     template `.env.example` into your deployment directory, then run the
-    script to update your existing `.env` file with any new or changed
-    variables.
+    script. It backs up your `.env` and adds any new or changed variables.
 
-    ```
-    cp autosecops-1.0.0/env-migration.sh autosecops-1.0.0/.env.example .
+    ```bash
+    cp autosecops-<version>/env-migration.sh autosecops-<version>/.env.example .
     chmod +x env-migration.sh && ./env-migration.sh
     ```
-
   </Step>
-  <Step title="Update Docker Compose configuration">
-    <Warning>
-      If you modified `docker-compose.yml` or `Caddyfile`, make copies before
-      you continue. The commands below overwrite both files and discard your
-      local changes.
-    </Warning>
+  <Step title="Replace the Compose files, Caddyfile, and scripts">
+    The copies below overwrite your files. If you changed `docker-compose.yml`
+    or `Caddyfile`, carry your changes over from the `.bak` copies.
 
-    Replace the Docker Compose files with the ones from the new image.
-
-    ```
-    # Back up your existing docker-compose.yml first; the copy below overwrites it
+    ```bash
     cp docker-compose.yml docker-compose.yml.bak
-    cp autosecops-1.0.0/docker-compose.yml autosecops-1.0.0/docker-compose.sandbox.yml .
-    ```
-  </Step>
-  <Step title="Update Caddyfile">
-    Replace the Caddyfile with the one from the new image.
-
-    ```
-    # Back up your existing Caddyfile first; the copy below overwrites it
     cp Caddyfile Caddyfile.bak
-    cp autosecops-1.0.0/Caddyfile .
+    cp autosecops-<version>/docker-compose.yml autosecops-<version>/docker-compose.sandbox.yml .
+    cp autosecops-<version>/Caddyfile .
+    cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh .
     ```
+
+    If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to `<version>`.
   </Step>
-  <Step title="Restart AutoSecOps">
-    Run `docker compose up -d` using the new Docker Compose and `.env` files.
+  <Step title="Pull the images and restart">
+    ```bash
+    docker compose pull
+    docker compose up -d
+    ```
+
+    Add `-f docker-compose.sandbox.yml` to both commands if you run the nsjail backend.
   </Step>
 </Steps>
 
-## Update Integrations
+## Watch the migrations
 
-Integrations are not automatically updated when you update the AutoSecOps version.
-You will need to manually sync the `autosecops_registry` repository from the **Registry** page:
+Every deployment target runs `alembic upgrade head` from the new image before the API starts. Only one migration run proceeds at a time: others wait on a PostgreSQL advisory lock.
+
+| Target | Where migrations run | Follow them |
+| --- | --- | --- |
+| Docker Compose | The `migrations` service. `api` and the workers start after it exits with code 0 | `docker compose logs -f migrations` |
+| Kubernetes | The `autosecops-migrations` Job, a `pre-upgrade` hook. Pods roll after it succeeds | `kubectl -n autosecops logs job/autosecops-migrations -f` |
+| AWS Fargate | The migrations init container in each API task. The API container starts after it succeeds | `aws logs tail /ecs/autosecops --log-stream-name-prefix api-migrations --follow` |
+
+Each applied revision logs one `Running upgrade <from> -> <to>` line. To read the revision the database is at:
+
+```bash
+docker compose exec postgres_db sh -c 'psql -U "$POSTGRES_USER" -d postgres -XAt -c "select version_num from alembic_version"'
+```
+
+A failed migration leaves the API stopped and logs the error. PostgreSQL rolls back the failed revision, `alembic_version` keeps the last revision that committed, and the next run continues from there. Send the migration log to [info@singularityrd.com](mailto:info@singularityrd.com), or roll back as described below.
+
+## Check the upgrade
+
+Run these checks right after every upgrade:
+
+1. `docker compose ps -a` shows `migrations` as `Exited (0)` and every other service as `running` or `healthy`. On Kubernetes, the migrations Job is `Complete` and every pod is `Ready`.
+2. `curl -fsS https://autosecops.example.com/api/health` returns `{"status":"ok"}`, and `/api/info` returns the new `version`.
+3. You can sign in through your identity provider.
+4. A workflow that uses a stored credential runs to completion. A webhook-triggered workflow accepts a test event.
+5. A case with an attachment opens and the attachment downloads.
+6. Scheduled workflows fire on their next interval.
+
+## Roll back
+
+AutoSecOps migrations are forward-only. A release that ran migrations cannot run on an older image: the older migrations step fails with `Can't locate revision identified by '<revision>'`, and the API never starts.
+
+- To roll back a patch upgrade on the same train, set the image tag back to the earlier patch and restart. Patches contain no migrations.
+- To roll back any other upgrade, restore the pre-upgrade backup, then deploy the previous version.
+
+On Docker Compose:
+
+```bash
+cp docker-compose.yml.bak docker-compose.yml
+cp Caddyfile.bak Caddyfile
+# Set AUTOSECOPS__IMAGE_TAG in .env back to the previous version
+./restore_compose.sh /var/backups/autosecops/autosecops-backup-<timestamp>
+docker compose up -d
+```
+
+Data written after the backup is lost, including cases, workflow runs, and settings. On Kubernetes, restore the database and buckets, then run `helm rollback autosecops <revision>`. On Fargate, restore the pre-upgrade RDS snapshot as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate), then apply with the previous `TF_VAR_autosecops_image_tag`.
+
+## Kubernetes
+
+Upgrade with `helm upgrade` and the new chart version. See [Upgrade the Helm chart](/self-hosting/kubernetes#upgrade-the-helm-chart). Take a database snapshot first.
+
+## Terraform deployments
+
+AWS Fargate deployments of AutoSecOps are configured using Terraform. Take manual RDS snapshots first, as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate). Then extract the Terraform stack from the new image version, set the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`. See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
+
+## Update integrations
+
+Updating AutoSecOps leaves your registry as it was. To get the new integrations, sync the `autosecops_registry` repository from the **Registry** page:
 
 ![Sync registry](/img/custom-actions/sync-from-remote.png)
 
-## Terraform Deployments
+## Related pages
 
-AWS Fargate deployments of AutoSecOps are configured using Terraform.
-To update AutoSecOps, extract the Terraform stack from the new image version, update the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`.
-See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
-
-## Data Migration
-
-Data migrations are non-trivial operations.
-We recommend backing up your database before running migrations, especially in a production environment.
-
-<Info>
-If the API service fails to spin up due to a data migration error, do not worry.
-Your data is still intact. Make sure you backup the core AutoSecOps database:
-
-- For Docker Compose and AWS EC2 deployments, this would be the `core-db` volume in AutoSecOps's Docker stack.
-- For AWS ECS Fargate deployments, backups are created automatically as part of the RDS postgres service. Just run `terraform apply` with `var.restore_from_backup` set to `true` to restore the latest RDS snapshot.
-
-If you need live migration support, contact [info@singularityrd.com](mailto:info@singularityrd.com).
-</Info>
+- See [Backup and restore](/self-hosting/backup-restore) for the backup to take before every upgrade and the restore a rollback needs.
+- See [Security patches](/self-hosting/security-patches) for how patched releases are published and how fast to apply them.
+- See [Docker Compose](/self-hosting/docker-compose#updating-autosecops) for the short update command list.
+- See [Air-gapped installation](/self-hosting/air-gapped#update-with-a-new-bundle) for updating from an offline bundle.
