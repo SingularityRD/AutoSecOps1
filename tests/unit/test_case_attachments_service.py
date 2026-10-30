@@ -21,6 +21,7 @@ from autosecops.cases.attachments.service import CaseAttachmentService
 from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity, CaseStatus
 from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CaseEventsService, CasesService
+from autosecops.contexts import ctx_role
 from autosecops.db.engine import get_async_session_context_manager
 from autosecops.db.models import Case, CaseAttachment, CaseEvent, File, Workspace
 from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsException
@@ -625,6 +626,9 @@ async def test_concurrent_uploads_cannot_exceed_attachment_limit(
             svc = CaseAttachmentService(session=upload_session, role=svc_role)
             return await svc.create_attachment(case, params)
 
+    # Real sessions take tenant context from ctx_role, as in a request. The
+    # autouse clear_ctx_role_context fixture resets it.
+    ctx_role.set(svc_role)
     try:
         async with get_async_session_context_manager() as setup_session:
             setup_session.add(case)

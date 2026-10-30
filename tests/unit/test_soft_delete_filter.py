@@ -15,6 +15,7 @@ from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
 )
 from autosecops.db.models import AgentFolder, AgentPreset, Skill, Workspace
+from autosecops.db.rls import set_rls_context
 from autosecops.db.soft_delete import (
     assert_soft_delete_listener_registered,
     with_deleted,
@@ -374,6 +375,9 @@ async def test_direct_engine_session_uses_soft_delete_filter(
     async with AsyncSession(
         get_async_engine(), expire_on_commit=False
     ) as direct_session:
+        # A bare engine session has no tenant context; bypass RLS explicitly
+        # so the test exercises only the soft-delete listener.
+        await set_rls_context(direct_session, None, None, bypass=True)
         try:
             direct_session.add_all(
                 [
