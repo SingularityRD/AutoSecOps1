@@ -86,6 +86,19 @@ The rule id prefix tells you where the signal comes from:
   `erased` and `tamper` (an enclosure tamper input or another crypto-erase
   trigger): a captured or tampered unit. RoboDR detection keeps running;
   recovery after an erase is re-enrolment and re-delivery.
+- `robot.depot.*` (contract 2.3, data source `robodr_delivery`, no ATT&CK
+  technique): the site depot that imports releases and enrols units. The
+  finding's robot id is the depot's id, not a robot: never propose a robot
+  action for it. `locked` (critical: the depot database was restored or
+  replaced, and the depot does nothing until operators re-anchor it),
+  `import_refused`, `enrolment_refused` (a unit's TPM or boot measurements
+  did not check out), and `rollout_halted` are high; `unit_enrolled` is the
+  evidence trail.
+- `robot.seal.erase_deferred` (contract 2.3, data source `robodr_delivery`,
+  no ATT&CK technique): a crypto-erase trigger fired while the robot was
+  moving or its safety state was unknown, so the erase waits until it is
+  idle. Expect `robot.seal.tamper` before it and `robot.seal.erased` after;
+  a deferral that never ends means the robot never stops.
 - `robot.agent.*`, `robot.capture.*`, `robot.sensor.*`,
   `robot.safety_state.*`, `robot.profile.*`: sensor and agent health. They
   rarely mean compromise on their own, but `evidence_degraded`,

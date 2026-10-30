@@ -58,7 +58,7 @@ The preset's instructions tell the agent to:
 - Report a quarantine as contained only when its `containment` is `full`; report `partial`, `guid_only`, and an unknown scope as such, with what was left out, and propose `robot_isolate_network` or on-site action next.
 - Report an `applied` request (carried out by the robot's platform adapter) as final and not reversible, and `revert_pending` as revert pending, never as reverted.
 
-The library skills carry the detailed procedures: `robodr-triage` for rule families and severities, including the contract 2.3 gateway, sealing, and Unitree WebRTC rules, `robodr-containment` for action choice, policy checks, the two-approver sign-off, motion-adapter refusals, and the sign-off hand-off, and `robodr-forensics` for black-box evidence and timelines.
+The library skills carry the detailed procedures: `robodr-triage` for rule families and severities, including the contract 2.3 gateway, sealing, Unitree WebRTC, and depot rules, `robodr-containment` for action choice, policy checks, the two-approver sign-off, motion-adapter refusals, and the sign-off hand-off, and `robodr-forensics` for black-box evidence and timelines.
 Read or fork them from the skill library.
 
 ## Run the agent

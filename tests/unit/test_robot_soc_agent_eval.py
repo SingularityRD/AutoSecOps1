@@ -192,6 +192,9 @@ SKILL_RULES: dict[str, tuple[str, ...]] = {
         "robot.gateway.",
         "robot.seal.",
         "robot.unitree.webrtc_",
+        "robot.depot.",
+        "robot.seal.erase_deferred",
+        "depot's id, not a robot",
         "never request a robot action from triage",
     ),
     "robodr-containment": (
@@ -571,6 +574,11 @@ def test_a_delivery_finding_keeps_its_2_2_catalog_fields() -> None:
             "robot.unitree.webrtc_unknown_controller",
             "WebRTC control session from an unlisted host",
             "ros2_motion_commands",
+        ),
+        (
+            "robot.depot.locked",
+            "Depot database failed its anti-rollback check",
+            "robodr_delivery",
         ),
     ],
 )
