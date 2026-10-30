@@ -5,21 +5,30 @@ from __future__ import annotations
 import uuid
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
+from fastapi import Request
+from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi_users.exceptions import InvalidPasswordException
+from fastapi_users.password import PasswordHelper
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.schemas import UserUpdate
 from autosecops.auth.types import Role
-from autosecops.auth.users import PermissionsException, UserManager
+from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
 from autosecops.contexts import ctx_role
-from autosecops.db.models import User
+from autosecops.db.models import AccessToken, User
+
+OLD_PASSWORD = "old-password-123456"
+NEW_PASSWORD = "new-password-654321"
 
 
-def _role(*, superuser: bool = False) -> Role:
+def _role(*, superuser: bool = False, user_id: uuid.UUID | None = None) -> Role:
     return Role(
         type="user",
-        user_id=uuid.uuid4(),
+        user_id=user_id or uuid.uuid4(),
         service_id="autosecops-api",
         is_platform_superuser=superuser,
         scopes=frozenset({"*"}) if superuser else frozenset(),
@@ -31,6 +40,7 @@ def user_db() -> AsyncMock:
     db = AsyncMock()
     db.get_by_email.return_value = None
     db.update.side_effect = lambda user, update_dict: user
+    db.session.execute.return_value = MagicMock()
     return db
 
 
@@ -41,7 +51,156 @@ def manager(user_db: AsyncMock) -> UserManager:
 
 @pytest.fixture
 def user() -> User:
-    return cast(User, SimpleNamespace(id=uuid.uuid4(), email="member@example.com"))
+    return cast(
+        User,
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            email="member@example.com",
+            hashed_password=PasswordHelper().hash(OLD_PASSWORD),
+        ),
+    )
+
+
+def _request_with_session(token: str | None) -> Request:
+    headers = (
+        [(b"cookie", f"{cookie_transport.cookie_name}={token}".encode())]
+        if token
+        else []
+    )
+    return Request({"type": "http", "method": "PATCH", "headers": headers})
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("current_password", [None, "", "wrong-password-000"])
+async def test_self_service_password_change_requires_current_password(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    current_password: str | None,
+) -> None:
+    """A stolen session cookie must not be enough to take the account over."""
+    ctx_role.set(_role(user_id=user.id))
+
+    with pytest.raises(InvalidPasswordException):
+        await manager.update(
+            UserUpdate(password=NEW_PASSWORD, current_password=current_password),
+            user,
+            safe=True,
+        )
+
+    user_db.update.assert_not_awaited()
+    user_db.session.execute.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_self_service_password_change_with_current_password(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    ctx_role.set(_role(user_id=user.id))
+
+    await manager.update(
+        UserUpdate(password=NEW_PASSWORD, current_password=OLD_PASSWORD),
+        user,
+        safe=True,
+        request=_request_with_session("current-session"),
+    )
+
+    update_dict = user_db.update.await_args.args[1]
+    assert "current_password" not in update_dict
+    assert "password" not in update_dict
+    verified, _ = PasswordHelper().verify_and_update(
+        NEW_PASSWORD, update_dict["hashed_password"]
+    )
+    assert verified
+    user_db.session.execute.assert_awaited_once()
+    user_db.session.commit.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_profile_update_does_not_need_current_password(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    ctx_role.set(_role(user_id=user.id))
+
+    await manager.update(UserUpdate(first_name="Ada"), user, safe=True)
+
+    user_db.update.assert_awaited_once()
+    user_db.session.execute.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_superuser_patch_user_sets_password_without_current_password(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    """`PATCH /users/{id}` is superuser-only and passes safe=False."""
+    ctx_role.set(_role(superuser=True, user_id=user.id))
+
+    await manager.update(UserUpdate(password=NEW_PASSWORD), user, safe=False)
+
+    assert "hashed_password" in user_db.update.await_args.args[1]
+    user_db.session.execute.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_platform_superuser_sets_member_password_without_current_password(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    """The org member route updates another account with safe=True."""
+    ctx_role.set(_role(superuser=True))
+
+    await manager.update(UserUpdate(password=NEW_PASSWORD), user, safe=True)
+
+    assert "hashed_password" in user_db.update.await_args.args[1]
+    user_db.session.execute.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_password_change_revokes_other_sessions_only(
+    session: AsyncSession,
+) -> None:
+    user = User(
+        id=uuid.uuid4(),
+        email=f"pw-change-{uuid.uuid4().hex}@example.com",
+        hashed_password=PasswordHelper().hash(OLD_PASSWORD),
+    )
+    other_user_id = uuid.uuid4()
+    session.add(user)
+    session.add(
+        User(
+            id=other_user_id,
+            email=f"bystander-{uuid.uuid4().hex}@example.com",
+            hashed_password="unused",
+        )
+    )
+    await session.flush()
+    current, stolen, bystander = (uuid.uuid4().hex for _ in range(3))
+    session.add_all(
+        [
+            AccessToken(token=current, user_id=user.id),
+            AccessToken(token=stolen, user_id=user.id),
+            AccessToken(token=bystander, user_id=other_user_id),
+        ]
+    )
+    await session.commit()
+    ctx_role.set(_role(user_id=user.id))
+    manager = UserManager(SQLAlchemyUserDatabase(session, User))
+
+    await manager.update(
+        UserUpdate(password=NEW_PASSWORD, current_password=OLD_PASSWORD),
+        user,
+        safe=True,
+        request=_request_with_session(current),
+    )
+
+    tokens = (
+        await session.execute(
+            select(AccessToken).where(
+                AccessToken.token.in_([current, stolen, bystander])  # pyright: ignore[reportAttributeAccessIssue]
+            )
+        )
+    ).scalars()
+    remaining = {token.token for token in tokens}
+    assert remaining == {current, bystander}
 
 
 @pytest.mark.anyio
