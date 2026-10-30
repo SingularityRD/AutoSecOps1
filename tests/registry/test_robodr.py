@@ -802,25 +802,38 @@ UNITREE_WEBRTC_IDS = (
 )
 """robodr.findings 2.3 (§3d): Go2 WebRTC control sessions."""
 
-IDS_2_3 = GATEWAY_IDS + SEAL_IDS + UNITREE_WEBRTC_IDS
+DEPOT_IDS = (
+    "robot.depot.import_refused",
+    "robot.depot.enrolment_refused",
+    "robot.depot.unit_enrolled",
+    "robot.depot.rollout_halted",
+    "robot.depot.locked",
+    "robot.seal.erase_deferred",
+)
+"""robodr.findings 2.3 (§3e): the site depot, and the deferred crypto-erase."""
+
+IDS_2_3 = GATEWAY_IDS + SEAL_IDS + UNITREE_WEBRTC_IDS + DEPOT_IDS
 
 
-def test_the_2_3_catalog_is_its_three_blocks() -> None:
+def test_the_2_3_catalog_is_its_blocks() -> None:
     assert catalog.CATALOG_2_3_MINOR == 3
     assert tuple(catalog.CATALOG_2_3_BLOCKS) == (
         "catalog_2_3_seal",
         "catalog_2_3_gateway",
         "catalog_2_3_unitree",
+        "catalog_2_3_depot",
     )
     assert tuple(catalog.CATALOG_2_3_GATEWAY) == GATEWAY_IDS
     assert tuple(catalog.CATALOG_2_3_SEAL) == SEAL_IDS
     assert tuple(catalog.CATALOG_2_3_UNITREE) == UNITREE_WEBRTC_IDS
+    assert tuple(catalog.CATALOG_2_3_DEPOT) == DEPOT_IDS
     assert set(catalog.CATALOG_2_3) == set(IDS_2_3)
-    assert len(catalog.CATALOG_2_3) == 20
+    assert len(catalog.CATALOG_2_3) == 26
     sources = {
         **dict.fromkeys(GATEWAY_IDS, "ros2_motion_commands"),
         **dict.fromkeys(SEAL_IDS, "robodr_delivery"),
         **dict.fromkeys(UNITREE_WEBRTC_IDS, "ros2_motion_commands"),
+        **dict.fromkeys(DEPOT_IDS, "robodr_delivery"),
     }
     earlier = (
         catalog.CATALOG_BASE.keys()

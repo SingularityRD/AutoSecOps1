@@ -450,6 +450,8 @@ def test_the_validator_selects_the_2_2_delivery_catalog_by_minor() -> None:
         ("robot.gateway.trajectory_rejected", "ros2_motion_commands"),
         ("robot.seal.erased", "robodr_delivery"),
         ("robot.unitree.webrtc_unknown_controller", "ros2_motion_commands"),
+        ("robot.depot.rollout_halted", "robodr_delivery"),
+        ("robot.seal.erase_deferred", "robodr_delivery"),
     ],
 )
 def test_the_validator_selects_the_2_3_blocks_by_minor(

@@ -942,10 +942,53 @@ CATALOG_2_3_UNITREE: dict[str, RuleInfo] = {
 Go2 WebRTC control sessions `robot.unitree.webrtc_*`, data source
 `ros2_motion_commands`, no techniques."""
 
+CATALOG_2_3_DEPOT: dict[str, RuleInfo] = {
+    "robot.depot.import_refused": RuleInfo(
+        "Depot refused a release bundle",
+        "The site depot refused to import a release bundle: no passing entry-station report for exactly that bundle, a signature, quorum, chain, revocation, floor or hash check failed. Nothing of the bundle can be deployed.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.enrolment_refused": RuleInfo(
+        "Depot refused a unit enrolment",
+        "The site depot refused to enrol a unit: its EK certificate does not chain to a TPM vendor CA the site trusts, the attestation key or a certified key is not resident in that TPM, the unit's keys are not bound to the site's policy, its boot measurements do not match the signed policy, or the credential challenge was not answered by the unit's TPM. No key is wrapped for it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.unit_enrolled": RuleInfo(
+        "Unit enrolled at the depot",
+        "A unit was enrolled at the site depot after TPM credential activation and the operator quorum; the depot may now deliver and wrap keys for it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.rollout_halted": RuleInfo(
+        "Staged rollout halted",
+        "A unit of the current ring reported a failed health gate or a refusal beyond the rollout's failure threshold; the site depot halted the rollout and serves nothing more of it until operators resume it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.depot.locked": RuleInfo(
+        "Depot database failed its anti-rollback check",
+        "The site depot's database is older than its TPM anti-rollback counter says, or the counter was recreated: the database was restored or replaced. The depot signs, serves and imports nothing until operators re-anchor it.",
+        "robodr_delivery",
+        (),
+    ),
+    "robot.seal.erase_deferred": RuleInfo(
+        "Crypto-erase deferred by the safety state",
+        "A crypto-erase trigger fired, and the responder deferred the erase because the robot is moving (or its safety state is unknown); it runs as soon as the robot is idle or its safety system holds it.",
+        "robodr_delivery",
+        (),
+    ),
+}
+"""Contract 2.3 depot block (`catalog_2_3_depot`, robodr.findings §3e): the
+site depot's `robot.depot.*` findings and `robot.seal.erase_deferred`, data
+source `robodr_delivery`, no techniques."""
+
 CATALOG_2_3_BLOCKS: dict[str, dict[str, RuleInfo]] = {
     "catalog_2_3_seal": CATALOG_2_3_SEAL,
     "catalog_2_3_gateway": CATALOG_2_3_GATEWAY,
     "catalog_2_3_unitree": CATALOG_2_3_UNITREE,
+    "catalog_2_3_depot": CATALOG_2_3_DEPOT,
 }
 """The contract 2.3 blocks, keyed by their `builder.rs` function.
 
