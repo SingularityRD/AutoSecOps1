@@ -231,14 +231,18 @@ async def validate_workflow_definition(
 
 
 def parse_content_type(content_type: str) -> tuple[str, dict[str, str]]:
-    """Parse Content-Type header into media type and parameters."""
+    """Parse Content-Type header into media type and parameters.
+
+    The media type is lowercased because it is case-insensitive
+    (RFC 9110 section 8.3.1).
+    """
     mime_type, *params = content_type.strip().split(";")
     metadata = {}
     for param in params:
         if "=" in param:
             key, value = param.strip().split("=", 1)
             metadata[key] = value.strip('"')
-    return mime_type.strip(), metadata
+    return mime_type.strip().lower(), metadata
 
 
 async def parse_webhook_payload(
