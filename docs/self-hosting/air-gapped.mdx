@@ -39,7 +39,7 @@ flowchart TB
 
 ## Prepare while connected
 
-- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry.
+- Mirror the AutoSecOps OCI chart and every referenced container image into an internal OCI registry. Pull them from GHCR with the access SingularityRD granted you, as described in [Registry access](/self-hosting/kubernetes#registry-access).
 - Stage the inference image, model weights, tokenizer, and model configuration in internal repositories.
 - Provision internal PostgreSQL, Redis, S3-compatible storage, Temporal, identity, DNS, TLS, secrets, telemetry, and integration endpoints. Validate image pulls and model discovery before removing egress.
 
