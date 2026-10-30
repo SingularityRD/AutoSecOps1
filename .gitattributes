@@ -1,2 +1,5 @@
 # Embedded patches must preserve their context-line whitespace.
 *.patch -whitespace
+
+# Shell scripts run in Linux containers and WSL2; CRLF line endings break them.
+*.sh text eol=lf
