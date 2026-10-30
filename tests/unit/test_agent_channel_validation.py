@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
@@ -11,6 +12,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from autosecops.agent.channels.dependencies import (
+    SLACK_REQUEST_MAX_AGE_SECONDS,
     _verify_slack_signature,
     validate_channel_token,
 )
@@ -102,6 +104,94 @@ def test_verify_slack_signature_rejects_invalid_signature() -> None:
             slack_signing_secret=secret,
         )
     assert exc_info.value.status_code == 401
+
+
+def _now_timestamp(offset_seconds: int = 0) -> str:
+    return str(int(datetime.now(tz=UTC).timestamp()) + offset_seconds)
+
+
+@pytest.mark.parametrize(
+    "headers_for",
+    [
+        # Clock skew is symmetric: a timestamp from the future is a replay
+        # prepared in advance.
+        pytest.param(
+            lambda secret, body: {
+                "X-Slack-Request-Timestamp": (ts := _now_timestamp(301)),
+                "X-Slack-Signature": _build_slack_signature(secret, ts, body),
+            },
+            id="future-timestamp",
+        ),
+        pytest.param(
+            lambda secret, body: {
+                "X-Slack-Request-Timestamp": "not-a-number",
+                "X-Slack-Signature": _build_slack_signature(
+                    secret, "not-a-number", body
+                ),
+            },
+            id="non-numeric-timestamp",
+        ),
+        pytest.param(
+            lambda secret, body: {
+                "X-Slack-Signature": _build_slack_signature(
+                    secret, _now_timestamp(), body
+                )
+            },
+            id="missing-timestamp",
+        ),
+        pytest.param(
+            lambda secret, body: {"X-Slack-Request-Timestamp": _now_timestamp()},
+            id="missing-signature",
+        ),
+        pytest.param(
+            lambda secret, body: {
+                "X-Slack-Request-Timestamp": (ts := _now_timestamp()),
+                "X-Slack-Signature": _build_slack_signature(
+                    secret, ts, b'{"type":"block_actions"}'
+                ),
+            },
+            id="signature-for-another-body",
+        ),
+        pytest.param(
+            lambda secret, body: {
+                "X-Slack-Request-Timestamp": (ts := _now_timestamp()),
+                "X-Slack-Signature": _build_slack_signature(
+                    "another-signing-secret", ts, body
+                ),
+            },
+            id="signed-with-another-secret",
+        ),
+    ],
+)
+def test_verify_slack_signature_rejects_untrusted_requests(
+    headers_for: Callable[[str, bytes], dict[str, str]],
+) -> None:
+    secret = "signing-secret"
+    body = b'{"type":"event_callback"}'
+    request = _build_request(headers_for(secret, body), body)
+
+    with pytest.raises(HTTPException) as exc_info:
+        _verify_slack_signature(
+            request=request,
+            body=body,
+            slack_signing_secret=secret,
+        )
+    assert exc_info.value.status_code == 401
+
+
+def test_verify_slack_signature_accepts_timestamp_inside_the_window() -> None:
+    secret = "signing-secret"
+    body = b'{"type":"event_callback"}'
+    timestamp = _now_timestamp(-(SLACK_REQUEST_MAX_AGE_SECONDS - 5))
+    request = _build_request(
+        {
+            "X-Slack-Request-Timestamp": timestamp,
+            "X-Slack-Signature": _build_slack_signature(secret, timestamp, body),
+        },
+        body,
+    )
+
+    _verify_slack_signature(request=request, body=body, slack_signing_secret=secret)
 
 
 @pytest.mark.anyio
