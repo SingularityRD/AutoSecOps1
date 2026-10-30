@@ -25,7 +25,10 @@ from autosecops_registry.integrations.robodr import (
     UNTRUSTED_PROMPT_RULES,
     render_untrusted,
 )
-from autosecops_registry.integrations.robodr_catalog import catalog_entry
+from autosecops_registry.integrations.robodr_catalog import (
+    catalog_entry,
+    rule_info_for_contract,
+)
 
 ROBODR_PAYLOAD_KEY: Final = "robodr"
 MAX_UNTRUSTED_VALUES: Final = 64
@@ -108,11 +111,29 @@ def _trusted_or_block(
         lines.append(_block(value, f"payload.robodr.{name}"))
 
 
-def _rule_lines(lines: list[str], rule_id: object) -> None:
-    info = catalog_entry(rule_id) if isinstance(rule_id, str) else None
-    if info is None:
+def _contract_minor(version: object) -> int | None:
+    """The minor of a well-formed 2.x ``contract_version``; else ``None``."""
+    if not _matches(_VERSION_RE, version):
+        return None
+    major, minor, _patch = str(version).split(".")
+    return int(minor) if int(major) == 2 else None
+
+
+def _rule_lines(lines: list[str], rule_id: object, contract_version: object) -> None:
+    """The catalog fields of the rule, as the finding's own contract minor has them.
+
+    The rule id is shown as trusted only when the catalog knows it (in any
+    minor). Its title, description, data source and techniques come from
+    the catalog of the finding's contract minor, the entry the case was
+    built from: a rule id added in a later minor carries the generic entry
+    there. Without a well-formed 2.x version, the rule's own entry is shown.
+    """
+    known = catalog_entry(rule_id) if isinstance(rule_id, str) else None
+    if known is None or not isinstance(rule_id, str):
         _trusted_or_block(lines, "rule_id", rule_id, trusted=False)
         return
+    minor = _contract_minor(contract_version)
+    info = known if minor is None else rule_info_for_contract(rule_id, 2, minor)
     lines.append(f"- rule_id: {rule_id}")
     lines.append(f"- rule_title: {info.title}")
     lines.append(f"- rule_description: {info.desc}")
@@ -198,7 +219,7 @@ def build_robodr_case_prompt(case: RobodrCaseContext) -> str:
         "",
         "Finding fields checked against the RoboDR catalog and fixed patterns:",
     ]
-    _rule_lines(lines, robodr.get("rule_id"))
+    _rule_lines(lines, robodr.get("rule_id"), robodr.get("contract_version"))
     severity = robodr.get("severity")
     _trusted_or_block(lines, "severity", severity, severity in _SEVERITIES)
     robot_id = robodr.get("robot_id")

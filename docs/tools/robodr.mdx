@@ -314,7 +314,7 @@ Default: `null`.
 
 Action ID: `tools.robodr.get_action_status`
 
-Read the stored state of a robot action request (signed answer). recorded_not_executed, refused, failed, applied and reverted are terminal: never poll them. Poll pending until it becomes verified, refused or failed, and a held verified action until it is re-armed (in_force true) or reverted. A verified robot_quarantine_node reports containment (full, partial, guid_only or unknown) and what it cut and left out; only full is contained.
+Read the stored state of a robot action request (signed answer). recorded_not_executed, refused, failed, applied and reverted are terminal: never poll them. Poll pending until it becomes verified, applied (request_safe_state, rollback_config), refused or failed, and a held verified action until it is re-armed (in_force true) or reverted. A verified robot_quarantine_node reports containment (full, partial, guid_only or unknown) and what it cut and left out; only full is contained.
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 

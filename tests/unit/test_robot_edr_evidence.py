@@ -903,6 +903,7 @@ from autosecops.db.models import (  # noqa: E402
     RobotEvidenceExport,
     User,
 )
+from autosecops.robot_edr.schemas import RobotActionAuditRequest  # noqa: E402
 from autosecops.robot_edr.schemas import RobotCreate as _RobotCreate  # noqa: E402
 from tests import _forms_utils  # noqa: E402
 
@@ -1335,6 +1336,152 @@ async def test_a_failed_robot_revert_is_audited_as_a_failure(
     assert event.status == AuditEventStatus.FAILURE
     assert event.data is not None
     assert event.data["failure_reason"] == "ControlPlaneError"
+
+
+async def _email_of(user_id: uuid.UUID) -> str:
+    async with get_async_session_context_manager() as session:
+        email = await session.scalar(select(User.email).where(User.id == user_id))
+    assert email is not None
+    return email
+
+
+async def test_a_robot_action_records_the_names_sent_to_the_robot(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # The registry action reports the requested_by and approved_by it sends;
+    # the platform recomputes them from the submitters' user records.
+    signoff = await _signoff(bare_workspace, approvers=2)
+    requested = await _email_of(signoff.requester)
+    approved = [f"user-{u}" for u in signoff.approvers]
+    attempt_id = await _attempt(
+        gateway,
+        bare_workspace,
+        signoff,
+        requested_by_name=requested,
+        approved_by_names=approved,
+    )
+    async with get_async_session_context_manager() as session:
+        row = (
+            await session.execute(
+                select(
+                    RobotActionAudit.requested_by_name,
+                    RobotActionAudit.approved_by_names,
+                ).where(RobotActionAudit.id == uuid.UUID(attempt_id))
+            )
+        ).one()
+    assert tuple(row) == (requested, approved)
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(
+            signoff,
+            phase="answered",
+            outcome="verified",
+            applied=True,
+            attempt_id=attempt_id,
+        ),
+    )
+    assert response.status_code == 200, response.text
+    # Events carry flags only: the audit policy keeps emails out of them.
+    for event in _action_events(audit_capture):
+        assert event.data is not None
+        assert event.data["has_approved_by"] is True
+        assert event.data["is_requested_by_email"] is True
+        assert requested not in json.dumps(event.data)
+
+
+async def test_a_robot_action_that_sends_no_approvers_records_none(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace, approvers=2)
+    await _attempt(
+        gateway,
+        bare_workspace,
+        signoff,
+        requested_by_name=await _email_of(signoff.requester),
+        approved_by_names=[],
+    )
+    (event,) = _action_events(audit_capture)
+    assert event.data is not None
+    assert event.data["has_approved_by"] is False
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["other_requester", "email_approvers", "swapped", "one_short", "requester"],
+)
+async def test_robot_action_names_that_differ_from_the_signoff_are_refused(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    change: str,
+) -> None:
+    signoff = await _signoff(bare_workspace, approvers=2)
+    requested = await _email_of(signoff.requester)
+    approved = [f"user-{u}" for u in signoff.approvers]
+    match change:
+        case "other_requester":
+            requested = "someone.else@example.com"
+        case "email_approvers":
+            approved = [await _email_of(u) for u in signoff.approvers]
+        case "swapped":
+            approved = approved[::-1]
+        case "one_short":
+            approved = approved[:1]
+        case "requester":
+            approved = [f"user-{signoff.requester}", approved[1]]
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(
+            signoff, requested_by_name=requested, approved_by_names=approved
+        ),
+    )
+    assert response.status_code == 400, response.text
+    assert _action_events(audit_capture) == []
+
+
+async def test_a_requester_whose_email_changed_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # The registry read the requester's email from the submission; if the
+    # user changed it before the attempt, the names no longer match and the
+    # attempt (so the robot action) is refused.
+    signoff = await _signoff(bare_workspace)
+    old_email = await _email_of(signoff.requester)
+    async with get_async_session_context_manager() as session:
+        await session.execute(
+            update(User)
+            .where(User.id == signoff.requester)
+            .values(email=f"renamed-{uuid.uuid4().hex[:8]}@example.com")
+        )
+        await session.commit()
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff, requested_by_name=old_email, approved_by_names=[]),
+    )
+    assert response.status_code == 400, response.text
+    assert "requested_by_name" in response.text
+    assert _action_events(audit_capture) == []
+
+
+def test_the_names_sent_belong_to_the_attempt_only() -> None:
+    signoff = Signoff(uuid.uuid4(), [uuid.uuid4()], uuid.uuid4(), [uuid.uuid4()])
+    with pytest.raises(ValidationError, match="belong to the attempt"):
+        RobotActionAuditRequest.model_validate(
+            _action_body(
+                signoff,
+                phase="answered",
+                outcome="verified",
+                attempt_id=str(uuid.uuid4()),
+                approved_by_names=["user-x"],
+            )
+        )
+    with pytest.raises(ValidationError):
+        RobotActionAuditRequest.model_validate(
+            _action_body(signoff, approved_by_names=["bob smith"])
+        )
 
 
 @pytest.mark.parametrize(

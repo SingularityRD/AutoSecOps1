@@ -131,11 +131,11 @@ request you expect to be refused; say why instead.
 The robot's executor carries out `safe_pause`, `request_safe_state`, and
 `rollback_config`, and lifts a `safe_pause`, only when the signed request
 names two approvers other than the requester (`approved_by`). AutoSecOps
-sends the two platform users who approved the sign-off; their names are
-compared case-insensitively, so two approvers whose emails differ only in
-case, or an approver whose email is the requester's, are refused before
-anything is sent. Ask for two approvers who are different people from the
-requester.
+sends the platform users who approved the sign-off, by their user ids, to a
+robot whose snapshot reports `executes_actions: true`. Ask for two
+approvers who are different people from the requester. An agentd that
+answers `unknown_field` predates this and needs an upgrade (executor first,
+then agentd) before it can carry out these actions.
 
 The executor's motion adapters add their own refusals; report them with the
 result's `refusal_hint` and propose what it says, never a resend:

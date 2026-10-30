@@ -593,6 +593,31 @@ def test_a_2_3_finding_keeps_its_catalog_fields(
     assert "- rule_id: (failed validation" not in text
 
 
+@pytest.mark.parametrize("version", ["2.2.0", "2.0.0", "02.2.9"])
+def test_the_prompt_uses_the_catalog_of_the_findings_contract_minor(
+    version: str,
+) -> None:
+    # A 2.3 rule id in an earlier minor's finding carries the generic entry
+    # (that is what the case was built from); the rule id is still known.
+    robodr = dict(_BENIGN_ROBODR) | {
+        "rule_id": "robot.seal.erased",
+        "contract_version": version,
+        "mitre_ics": [],
+    }
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    text = "\n".join(outside)
+    assert "- rule_id: robot.seal.erased" in text
+    assert "- rule_title: RoboDR model-profile deviation" in text
+    assert "- rule_data_source: robodr" in text
+    assert "Crypto-erase" not in text
+    # Without a well-formed 2.x version the rule's own entry is shown.
+    robodr["contract_version"] = "3.0.0"
+    outside, _blocks = _split(build_robodr_case_prompt(_case(robodr)))
+    assert "- rule_title: Crypto-erase of delivered software executed" in "\n".join(
+        outside
+    )
+
+
 def test_clean_finding_names_its_catalog_data_source() -> None:
     outside, _blocks = _split(build_robodr_case_prompt(_case(dict(_BENIGN_ROBODR))))
     assert "- rule_data_source: ros2_dds_discovery" in outside

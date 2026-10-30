@@ -227,6 +227,8 @@ class StubRobot:
             "rollback_config",
         ]
     )
+    executes_actions: bool = False
+    """The snapshot's `executes_actions` (True: robodr-executor carries out actions)."""
     sign_answers: bool = True
     answer_key_id: str = FINDING_KEY_ID
     answer_status: int = 200
@@ -289,8 +291,10 @@ class StubRobot:
                 "api": "robodr-control-plane/v2",
                 "safety_state": {"state": "moving_slow", "source": "safety_feed"},
                 "mode": "enforce",
-                "executor": "recording",
-                "executes_actions": False,
+                "executor": (
+                    "robodr-executor" if self.executes_actions else "recording"
+                ),
+                "executes_actions": self.executes_actions,
                 "actions": self.actions,
             }
             if self.morphology is not None:
@@ -939,8 +943,8 @@ async def test_homoglyph_identities_do_not_matter(stub, platform) -> None:
             "id": f"user:{LEAD_C}",
         }
         assert all(a["id"].isascii() for a in result["approved_by"])
-        # The robot's approver grammar has no ':': its name is user-<id>.
-        assert result["robot_approved_by"] == ["bob@example.com", f"user-{LEAD_C}"]
+        # A robot without an executor is sent no approved_by.
+        assert result["robot_approved_by"] == []
 
 
 @pytest.mark.anyio
@@ -2796,12 +2800,16 @@ async def test_request_action_is_audit_logged_before_it_is_sent(stub, platform) 
         "approval_submission_ids": approval_sids,
         "phase": "attempt",
         "attempt_id": None,
+        # What the robot is sent; the stub robot has no executor.
+        "requested_by_name": EMAILS[REQUESTER],
+        "approved_by_names": [],
     }
     signed = platform.submissions[request_sid]["answers"]
     assert attempt["request_digest"] == signed["robodr_request_digest"]
     # The outcome cites the attempt the platform stored.
     [attempt_id] = _robot_edr(platform).attempt_ids
-    assert answered == attempt | {
+    names = ("requested_by_name", "approved_by_names")
+    assert answered == {k: v for k, v in attempt.items() if k not in names} | {
         "phase": "answered",
         "outcome": result["status"],
         "applied": result["applied"],
@@ -2891,7 +2899,8 @@ async def test_a_failed_robot_action_is_audited_as_failed(stub, platform) -> Non
             await _send(base_url, platform)
     attempt, failed = _robot_edr(platform).actions
     assert attempt["phase"] == "attempt"
-    assert failed == attempt | {
+    names = ("requested_by_name", "approved_by_names")
+    assert failed == {k: v for k, v in attempt.items() if k not in names} | {
         "phase": "failed",
         # The error type only: never the robot's message.
         "failure_reason": "RobotHTTPError",
@@ -3005,6 +3014,23 @@ async def test_robot_edr_sdk_records_robot_actions_on_its_exact_route(
     assert json.loads(sent[1].content)["attempt_id"] == (
         "5d2c1f4e-0000-4000-8000-000000000001"
     )
+    assert "requested_by_name" not in json.loads(sent[1].content)
+    # The attempt carries the names the robot is sent, when the caller says.
+    await client.robot_edr.record_robot_action(
+        robot_id=ROBOT_ID,
+        request_id="robot_safe_pause:ugv-007:01",
+        operation="request_action",
+        robot_action="robot_safe_pause",
+        request_digest="0" * 64,
+        request_submission_id=sid,
+        approval_submission_ids=[sid],
+        phase="attempt",
+        requested_by_name="analyst.a@example.com",
+        approved_by_names=[f"user-{LEAD_B}"],
+    )
+    body = json.loads(sent[2].content)
+    assert body["requested_by_name"] == "analyst.a@example.com"
+    assert body["approved_by_names"] == [f"user-{LEAD_B}"]
 
 
 # --------------------------------------------------------------------------- #
@@ -3242,14 +3268,38 @@ async def test_a_two_person_request_names_its_approvers(
     action: str, stub, platform
 ) -> None:
     robot, base_url = stub
+    robot.executes_actions = True
     with soc_secrets():
         result = await _send(base_url, platform, action, approvers=(LEAD_B, LEAD_C))
     body = _body_of_post(robot)
-    # The sign-off approvers, from the platform's records; never the requester.
-    assert body["approved_by"] == [EMAILS[LEAD_B], EMAILS[LEAD_C]]
+    # The sign-off approvers by their immutable platform user ids; never the
+    # requester.
+    assert body["approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
     assert body["requested_by"] == EMAILS[REQUESTER]
     assert result["robot_approved_by"] == body["approved_by"]
     assert all(APPROVER_NAME.fullmatch(name) for name in body["approved_by"])
+    # The platform audit is told exactly what is sent, to check and record.
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["phase"] == "attempt"
+    assert attempt["requested_by_name"] == EMAILS[REQUESTER]
+    assert attempt["approved_by_names"] == body["approved_by"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", TWO_PERSON)
+async def test_a_robot_without_an_executor_is_sent_no_approvers(
+    action: str, stub, platform
+) -> None:
+    # It only records the request as a plan, and an agentd older than the
+    # motion adapters revision would refuse the field.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, action, approvers=(LEAD_B, LEAD_C))
+    assert "approved_by" not in _body_of_post(robot)
+    assert result["robot_approved_by"] == []
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["approved_by_names"] == []
+    assert attempt["requested_by_name"] == EMAILS[REQUESTER]
 
 
 @pytest.mark.anyio
@@ -3268,6 +3318,7 @@ async def test_a_single_approval_request_names_no_approvers(
 @pytest.mark.anyio
 async def test_the_revert_of_a_safe_pause_names_its_approvers(stub, platform) -> None:
     robot, base_url = stub
+    robot.executes_actions = True
     with soc_secrets():
         robot.answer_for = _stored("safe_pause")
         result = await _revert(
@@ -3276,77 +3327,48 @@ async def test_the_revert_of_a_safe_pause_names_its_approvers(stub, platform) ->
     assert _body_of_post(robot) == {
         "reason": "false positive",
         "requested_by": EMAILS[REQUESTER],
-        "approved_by": [EMAILS[LEAD_B], EMAILS[LEAD_C]],
+        "approved_by": [f"user-{LEAD_B}", f"user-{LEAD_C}"],
     }
-    assert result["robot_approved_by"] == [EMAILS[LEAD_B], EMAILS[LEAD_C]]
+    assert result["robot_approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+    (attempt, _answered) = _robot_edr(platform).actions
+    assert attempt["approved_by_names"] == result["robot_approved_by"]
 
 
 @pytest.mark.anyio
-async def test_approvers_the_robot_counts_as_one_person_send_nothing(
-    stub, platform
-) -> None:
-    """Different platform users whose names differ only in case are refused.
+async def test_approver_names_do_not_depend_on_emails(stub, platform) -> None:
+    """Approvers are named by user id: emails cannot alias or rename them.
 
-    RoboDR compares approver names (and the requester's) ASCII
-    case-insensitively: it would count them as one person and refuse the
-    action, so nothing is sent.
+    Two accounts whose emails differ only in case, or an approver whose
+    email equals the requester's, are still two people other than the
+    requester to the robot; and a user who changes their own email is named
+    the same way in the robot's black box as in the platform audit.
     """
     robot, base_url = stub
+    robot.executes_actions = True
     with soc_secrets():
         prepared = cp.prepare_action_request(
             robot_id=ROBOT_ID, action="robot_safe_pause", reason="r"
         )
         rid, digest = prepared["request_id"], prepared["request_digest"]
-
-        async def send(*approvals: str) -> dict[str, Any]:
-            return await _send(
-                base_url,
-                platform,
-                "robot_safe_pause",
-                reason="r",
-                request_id=rid,
-                signoff={
-                    "request_submission_id": requested,
-                    "approval_submission_ids": list(approvals),
-                },
-            )
-
-        requested = platform.add(REQUESTER, "request", rid, digest)
-        b = platform.add(LEAD_B, "approve", rid, digest, email="lead.b@example.com")
-        c_same = platform.add(
-            LEAD_C, "approve", rid, digest, email="Lead.B@Example.com"
-        )
-        with pytest.raises(cp.SignoffError, match="same name"):
-            await send(b, c_same)
-        c_requester = platform.add(
-            LEAD_C, "approve", rid, digest, email="ANALYST.A@example.com"
-        )
-        with pytest.raises(cp.SignoffError, match="requester"):
-            await send(b, c_requester)
-        assert robot.requests == []
-        # Single-approval actions do not name approvers: nothing to compare.
-        prepared = cp.prepare_action_request(
-            robot_id=ROBOT_ID, action="robot_isolate_network", ttl_seconds=60
-        )
-        rid2, digest2 = prepared["request_id"], prepared["request_digest"]
+        signoff = {
+            "request_submission_id": platform.add(REQUESTER, "request", rid, digest),
+            "approval_submission_ids": [
+                platform.add(LEAD_B, "approve", rid, digest, email="lead@example.com"),
+                platform.add(
+                    LEAD_C, "approve", rid, digest, email="ANALYST.A@example.com"
+                ),
+            ],
+        }
         result = await _send(
             base_url,
             platform,
-            "robot_isolate_network",
-            reason="",
-            request_id=rid2,
-            signoff={
-                "request_submission_id": platform.add(
-                    REQUESTER, "request", rid2, digest2
-                ),
-                "approval_submission_ids": [
-                    platform.add(
-                        LEAD_C, "approve", rid2, digest2, email="ANALYST.A@example.com"
-                    )
-                ],
-            },
+            "robot_safe_pause",
+            reason="r",
+            request_id=rid,
+            signoff=signoff,
         )
-        assert result["robot_approved_by"] == []
+    assert _body_of_post(robot)["approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
+    assert result["robot_approved_by"] == [f"user-{LEAD_B}", f"user-{LEAD_C}"]
 
 
 def test_approver_names_follow_the_robots_grammar() -> None:
@@ -3362,17 +3384,22 @@ def test_approver_names_follow_the_robots_grammar() -> None:
         cp.Person("55555555-5555-4555-8555-555555555555", "bob smith@x.com"),
     ]
     names = cp.approved_by_names(requester, people)
-    assert names == [
-        "alice.smith+ops@soc.example",
-        f"user-{LEAD_C}",
-        "user-44444444-4444-4444-8444-444444444444",
-        "user-55555555-5555-4555-8555-555555555555",
-    ]
+    # Always the immutable user id, whatever the email.
+    assert names == [f"user-{p.user_id}" for p in people]
     assert all(APPROVER_NAME.fullmatch(name) for name in names)
     # The requester's fallback identifier keeps its own spelling (user:<id>).
     assert cp.Person(REQUESTER, None).identifier == f"user:{REQUESTER}"
     with pytest.raises(cp.SignoffError, match="at most 4"):
         cp.approved_by_names(requester, [*people, cp.Person(REQUESTER, None)])
+    # Defensive checks for what the robot would refuse or merge.
+    with pytest.raises(cp.SignoffError, match="same name"):
+        cp.approved_by_names(
+            requester, [cp.Person(LEAD_B, None), cp.Person(LEAD_B.upper(), None)]
+        )
+    with pytest.raises(cp.SignoffError, match="no name the robot accepts"):
+        cp.approved_by_names(requester, [cp.Person("x y", None)])
+    named_like_approver = cp.Person(REQUESTER, f"user-{LEAD_B}@example.com")
+    assert cp.approved_by_names(named_like_approver, [cp.Person(LEAD_B, None)])
 
 
 def test_a_rollback_version_never_starts_with_a_dash() -> None:
@@ -3507,8 +3534,36 @@ async def test_an_agentd_without_approved_by_says_how_to_upgrade(
         return 400, {}, json.dumps({"error": error}).encode()
 
     robot.evidence_for = reply
+    robot.executes_actions = True
     with soc_secrets(), pytest.raises(cp.RobotHTTPError) as raised:
         await _send(base_url, platform, "robot_safe_pause", approvers=(LEAD_B, LEAD_C))
     assert raised.value.code == "unknown_field"
     assert "approved_by" in str(raised.value)
     assert "upgrade" in str(raised.value)
+
+
+def test_a_pending_revert_says_why_for_its_action() -> None:
+    def pending(action: str) -> str:
+        return cp._outcome(
+            {
+                "status": "verified",
+                "executed": True,
+                "in_force": True,
+                "state": {"action": action, "revert": {"result": "pending"}},
+            }
+        )["report"]
+
+    pause = pending("safe_pause")
+    assert "two approvers" in pause and "approval_missing" in pause
+    assert "motion.safe_pause_ttl_s" in pause
+    assert "expires_at_ms" not in pause
+    isolate = pending("isolate_network")
+    assert "state.expires_at_ms" in isolate
+    assert "for example its SOC signature did not verify" in isolate
+
+
+def test_get_action_status_names_applied_as_an_end_state() -> None:
+    kwargs = getattr(cp.get_action_status, "__autosecops_udf_kwargs")
+    description = kwargs["description"]
+    assert "failed, applied and reverted are terminal" in description
+    assert "verified, applied (request_safe_state, rollback_config)" in description

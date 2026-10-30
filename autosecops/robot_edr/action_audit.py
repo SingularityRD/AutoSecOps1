@@ -21,6 +21,15 @@ The attempt is stored (:class:`~autosecops.db.models.RobotActionAudit`). An
 from the same run, and closes it: an outcome is accepted once, and only for
 an attempt that was audited. A revert's ``robot_action`` (the action the
 robot says it undoes) is not on the sign-off: it is bound to the attempt only.
+
+The stored attempt also records the ``requested_by`` and ``approved_by``
+names the registry action sends to the robot, recomputed here from the
+submitters' user records: ``requested_by`` is the requester's identifier (a
+plain ASCII email, else ``user:<user id>``) and ``approved_by`` names exactly
+the approvers, in order, as ``user-<user id>`` (or nothing). Names that
+differ refuse the attempt, so the platform and the robot's black box name
+the same people. The audit event carries flags only (``has_approved_by``,
+``is_requested_by_email``): the audit policy keeps emails out of events.
 """
 
 from __future__ import annotations
@@ -30,12 +39,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
+from autosecops_registry.integrations.robodr_control_plane import Person
 from sqlalchemy import select, update
 
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.types import AuditMetadataValue
 from autosecops.contexts import ExecutorProvenance, ctx_executor_provenance
-from autosecops.db.models import FormSubmission, RobotActionAudit
+from autosecops.db.models import FormSubmission, RobotActionAudit, User
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.robot_edr.audit import write_robot_edr_audit
 from autosecops.robot_edr.schemas import (
@@ -66,6 +76,14 @@ class SignoffPeople:
 
     requested_by_user_id: uuid.UUID
     approved_by_user_ids: tuple[uuid.UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SentNames:
+    """The names the robot was sent, as checked against the user records."""
+
+    requested_by: str | None
+    approved_by: tuple[str, ...] | None
 
 
 class RobotActionAuditService(BaseWorkspaceService):
@@ -153,6 +171,40 @@ class RobotActionAuditService(BaseWorkspaceService):
             )
         return SignoffPeople(requester, tuple(approvers))
 
+    async def _sent_names(
+        self, params: RobotActionAuditRequest, people: SignoffPeople
+    ) -> SentNames:
+        """Check the names the registry action sends against the user records.
+
+        Raises:
+            AutoSecOpsValidationError: ``requested_by_name`` is not the
+                requester's identifier, or ``approved_by_names`` does not name
+                exactly the approvers in order.
+        """
+        approved = params.approved_by_names
+        if approved:
+            expected = [
+                Person(str(user_id), None).approver_name
+                for user_id in people.approved_by_user_ids
+            ]
+            if approved != expected:
+                raise AutoSecOpsValidationError(
+                    "approved_by_names must name exactly the approvers of the "
+                    "sign-off, in order, as user-<user id>"
+                )
+        requested = params.requested_by_name
+        if requested is not None:
+            email = await self.session.scalar(
+                select(User.email).where(User.id == people.requested_by_user_id)
+            )
+            requester = Person(str(people.requested_by_user_id), email)
+            if requested != requester.identifier:
+                raise AutoSecOpsValidationError(
+                    "requested_by_name is not the requester's identifier (the "
+                    "requester's email changed, or another person is named)"
+                )
+        return SentNames(requested, None if approved is None else tuple(approved))
+
     @staticmethod
     def _run() -> ExecutorProvenance:
         """The run the executor token names (this route admits executors only)."""
@@ -163,7 +215,7 @@ class RobotActionAuditService(BaseWorkspaceService):
         return provenance
 
     async def _store_attempt(
-        self, params: RobotActionAuditRequest, people: SignoffPeople
+        self, params: RobotActionAuditRequest, people: SignoffPeople, names: SentNames
     ) -> uuid.UUID:
         run = self._run()
         attempt = RobotActionAudit(
@@ -178,6 +230,10 @@ class RobotActionAuditService(BaseWorkspaceService):
             approval_submission_ids=[str(s) for s in params.approval_submission_ids],
             requested_by_user_id=people.requested_by_user_id,
             approved_by_user_ids=[str(u) for u in people.approved_by_user_ids],
+            requested_by_name=names.requested_by,
+            approved_by_names=(
+                None if names.approved_by is None else list(names.approved_by)
+            ),
             workflow_id=run.workflow_id,
             run_id=run.run_id,
             agent_session_id=run.agent_session_id,
@@ -186,7 +242,9 @@ class RobotActionAuditService(BaseWorkspaceService):
         await self.session.flush()
         return attempt.id
 
-    async def _close_attempt(self, params: RobotActionAuditRequest) -> SignoffPeople:
+    async def _close_attempt(
+        self, params: RobotActionAuditRequest
+    ) -> tuple[SignoffPeople, SentNames]:
         """Close the open attempt this outcome belongs to.
 
         Raises:
@@ -218,7 +276,12 @@ class RobotActionAuditService(BaseWorkspaceService):
                 ),
             )
             .values(closed_phase=params.phase, closed_at=datetime.now(UTC))
-            .returning(table.requested_by_user_id, table.approved_by_user_ids)
+            .returning(
+                table.requested_by_user_id,
+                table.approved_by_user_ids,
+                table.requested_by_name,
+                table.approved_by_names,
+            )
         )
         row = (await self.session.execute(stmt)).tuples().one_or_none()
         if row is None:
@@ -226,8 +289,13 @@ class RobotActionAuditService(BaseWorkspaceService):
                 f"no open audited attempt of this {params.operation} from this run "
                 f"matches attempt_id {params.attempt_id}"
             )
-        requester, approvers = row
-        return SignoffPeople(requester, tuple(uuid.UUID(u) for u in approvers))
+        requester, approvers, requested_name, approved_names = row
+        people = SignoffPeople(requester, tuple(uuid.UUID(u) for u in approvers))
+        names = SentNames(
+            requested_name,
+            None if approved_names is None else tuple(approved_names),
+        )
+        return people, names
 
     async def record(self, params: RobotActionAuditRequest) -> RobotActionAuditResponse:
         """Write the audit event for one phase of a robot action call.
@@ -241,9 +309,10 @@ class RobotActionAuditService(BaseWorkspaceService):
         await self.require_entitlement(Entitlement.ROBOT_EDR)
         if params.phase == "attempt":
             people = await self._signoff_people(params)
-            attempt_id = await self._store_attempt(params, people)
+            names = await self._sent_names(params, people)
+            attempt_id = await self._store_attempt(params, people, names)
         else:
-            people = await self._close_attempt(params)
+            people, names = await self._close_attempt(params)
             attempt_id = params.attempt_id
             if attempt_id is None:  # the schema requires it; narrows the type
                 raise AutoSecOpsValidationError("an outcome needs the attempt_id")
@@ -259,6 +328,15 @@ class RobotActionAuditService(BaseWorkspaceService):
             "approval_submission_ids": [str(s) for s in params.approval_submission_ids],
             "action_audit_id": str(attempt_id),
         }
+        # The names themselves stay on the stored attempt: the audit policy
+        # keeps emails out of events. ``approved_by`` names are
+        # ``user-<id>`` of ``approved_by_user_ids``, so a flag says it all.
+        if names.approved_by is not None:
+            data["has_approved_by"] = bool(names.approved_by)
+        if names.requested_by is not None:
+            data["is_requested_by_email"] = (
+                names.requested_by != f"user:{people.requested_by_user_id}"
+            )
         if params.phase == "answered":
             data["outcome"] = params.outcome
             if params.applied is not None:

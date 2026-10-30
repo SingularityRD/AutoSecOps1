@@ -115,6 +115,8 @@ class RobotEdrClient:
         applied: bool | None = None,
         failure_reason: str | None = None,
         attempt_id: str | None = None,
+        requested_by_name: str | None = None,
+        approved_by_names: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Write an audit event for a robot action request or revert.
 
@@ -136,6 +138,10 @@ class RobotEdrClient:
             applied: ``answered``: whether the robot applied it.
             failure_reason: ``failed``: the error type.
             attempt_id: ``answered``/``failed``: the stored attempt.
+            requested_by_name: ``attempt``: the ``requested_by`` the robot is
+                sent; the platform checks it against the requester's record.
+            approved_by_names: ``attempt``: the ``approved_by`` the robot is
+                sent (empty: none); checked against the approvers' records.
 
         Returns:
             ``{"attempt_id": ..., "audit_log": ...}`` (``written``: the audit
@@ -157,6 +163,10 @@ class RobotEdrClient:
         }
         if attempt_id is not None:
             body["attempt_id"] = attempt_id
+        if requested_by_name is not None:
+            body["requested_by_name"] = requested_by_name
+        if approved_by_names is not None:
+            body["approved_by_names"] = approved_by_names
         return await self._client.post("/robot-edr/actions/audit", json=body)
 
     async def blackbox_public_keys(

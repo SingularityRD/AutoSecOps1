@@ -142,10 +142,16 @@ The action fetches every submission and refuses with `SignoffError`, before it s
 The result reports `requested_by` and `approved_by` as platform user ids, with an ASCII identifier: the user's email when it is a plain ASCII address, otherwise `user:<user id>`.
 The request sent to the robot carries the requester's identifier as `requested_by`.
 
-For `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and their reverts, the request also names the approvers as `approved_by`: each approver's email, or `user-<user id>` without a plain ASCII email.
+For `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and their reverts, the request also names the approvers as `approved_by` when the robot's signed snapshot reports `executes_actions: true`.
+Each approver is named `user-<user id>`, which stays the same when the user changes their email.
 RoboDR's executor carries out these actions, and lifts a `robot_safe_pause`, only when the signed request names two approvers other than the requester, compared case-insensitively.
-AutoSecOps refuses with `SignoffError`, before it signs anything, when RoboDR would count two approvers as one person or an approver as the requester, such as two accounts whose emails differ only in case.
+A robot without an executor records these requests as plans, so AutoSecOps sends it no `approved_by`.
 The result reports the names it sent as `robot_approved_by`; other actions send no `approved_by`.
+
+`requested_by` is the requester's email at the time of sending; AutoSecOps stores it with the requester's `user_id`, so a later email change does not break the link.
+AutoSecOps checks both names against the users' records when it records the attempt, stores them with it, and sends nothing if they differ. The `robot_action` audit event carries `has_approved_by` and `is_requested_by_email` instead of the names, since audit events never carry emails.
+
+Upgrade the robot before you use these actions with an executor: RoboDR's agentd rejects a request with `approved_by` (`400 unknown_field`) until it runs the control plane's motion adapters revision. Upgrade `robodr-executor` first, then `robodr-agentd`.
 
 The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
 Both actions need the forms feature.

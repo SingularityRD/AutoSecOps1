@@ -85,12 +85,17 @@ run's executor token:
    two for `safe_pause`, `request_safe_state`, `rollback_config` and the
    revert of any of them (the robot's stored request says which action a
    revert undoes). The body of a two-person request or revert names those
-   approvers to the robot (`approved_by`, motion adapters revision): each
-   approver's email, or `user-<user id>` without a plain ASCII email, never
-   the requester, and only names RoboDR's grammar `[A-Za-z0-9._%+@-]{1,100}`
-   accepts that it counts as different people (case-insensitively);
-   otherwise nothing is sent. The robot's executor carries out a two-person
-   action only with two such approvers.
+   approvers to the robot (`approved_by`, motion adapters revision) when the
+   robot's signed snapshot says its executor carries out actions
+   (`executes_actions: true`): each approver as `user-<platform user id>`
+   (immutable, unlike an email), never the requester, and only names
+   RoboDR's grammar `[A-Za-z0-9._%+@-]{1,100}` accepts that it counts as
+   different people (case-insensitively); otherwise nothing is sent. The
+   robot's executor carries out a two-person action only with two such
+   approvers; a robot without one only records the request as a plan, and
+   an older agentd would refuse the unknown field. The platform audit
+   records the `requested_by` and `approved_by` names sent and checks them
+   against the sign-off submitters.
 4. Any failure (no platform context, unreadable submission, mismatch) raises
    `SignoffError` before a request is signed, and nothing reaches the robot.
 5. Each request and revert is then recorded by the platform
@@ -681,12 +686,12 @@ class Person:
     def approver_name(self) -> str:
         """The name the robot's `approved_by` carries for this person (§4).
 
-        The email when it is a plain ASCII address (as :attr:`identifier`),
-        else ``user-<user id>``: RoboDR's approver grammar
-        ``[A-Za-z0-9._%+@-]{1,100}`` has no ``:``.
+        Always ``user-<user id>``: the platform user id cannot change, while
+        a user can change their own email, so the robot's black box and the
+        platform audit name the approver the same way for good. RoboDR's
+        approver grammar ``[A-Za-z0-9._%+@-]{1,100}`` has no ``:``, hence not
+        the ``user:`` spelling of :attr:`identifier`.
         """
-        if self.identifier == self.email:
-            return self.identifier
         return f"user-{self.user_id}"
 
     def as_dict(self) -> dict[str, str]:
@@ -864,6 +869,26 @@ def approved_by_names(requester: Person, approvers: list[Person]) -> list[str]:
     return names
 
 
+def _robot_approvers(
+    spec: ActionSpec,
+    snapshot: dict[str, Any],
+    requester: Person,
+    approvers: list[Person],
+) -> list[str]:
+    """The `approved_by` names this body carries; empty when it carries none.
+
+    Only a two-person action names its approvers, and only to a robot whose
+    signed snapshot says its executor carries out actions
+    (`executes_actions: true`): without an executor the robot records the
+    request as a plan, and an agentd older than the motion adapters
+    revision refuses the field (strict bodies). Single-approval bodies are
+    unchanged.
+    """
+    if not spec.two_person or snapshot.get("executes_actions") is not True:
+        return []
+    return approved_by_names(requester, approvers)
+
+
 _AUDIT_OUTCOME_RE = re.compile(r"[a-z_]{1,64}")
 _AUDIT_LOG_RESULTS = frozenset({"written", "no_sink", "queued", "failed"})
 
@@ -907,6 +932,10 @@ class _ActionAudit:
     request_digest: str
     request_submission_id: str
     approval_submission_ids: list[str]
+    requested_by_name: str
+    """The `requested_by` the body sends; the platform checks and records it."""
+    approved_by_names: list[str]
+    """The `approved_by` the body sends (empty: none); checked and recorded."""
     attempt_id: str | None = None
     """The platform's stored attempt, which the outcome event cites."""
 
@@ -922,7 +951,11 @@ class _ActionAudit:
             The audit log result (see :func:`_audit_log`).
         """
         try:
-            answer = await self._record(phase="attempt")
+            answer = await self._record(
+                phase="attempt",
+                requested_by_name=self.requested_by_name,
+                approved_by_names=self.approved_by_names,
+            )
         except Exception as exc:
             raise ActionAuditError(
                 f"the platform did not audit-log this {self.operation} "
@@ -2146,6 +2179,23 @@ def _quarantine_outcome(
     return _weaker(word, derived), scope
 
 
+REVERT_PENDING_DEFAULT = (
+    "If it stays verified, the executor refused the revert (for example its "
+    "SOC signature did not verify) and the action stays until its TTL "
+    "expires (state.expires_at_ms)."
+)
+"""Why a revert may stay pending, for an action without its own note."""
+
+REVERT_PENDING_NOTES: dict[str, str] = {
+    "safe_pause": (
+        "If it stays verified, the executor refused the revert: lifting a "
+        "safe_pause needs two approvers other than the requester in the signed "
+        "revert (approval_missing) as well as a valid SOC signature. The pause "
+        "stays until the executor's motion.safe_pause_ttl_s releases it."
+    ),
+}
+"""Why a revert of a motion action may stay pending (§6a, motion adapters)."""
+
 IN_FORCE_NOTES: dict[str, str] = {
     "restrict_motion": (
         "The robot's motion adapters enforce the restriction (in-path gateway "
@@ -2291,10 +2341,13 @@ def _outcome(
             report = (
                 f"Revert pending, not reverted: the action is {enforcement}. The "
                 "robot recorded the revert but its executor has not lifted the "
-                "action; if it stays verified, the executor refused the revert "
-                "(a revert of a SOC-approved action must carry the SOC's valid "
-                "signature) and the action stays until its TTL expires "
-                "(state.expires_at_ms). Keep polling get_action_status."
+                "action. "
+                + _explain(
+                    REVERT_PENDING_NOTES,
+                    action if action is not None else state.get("action"),
+                    REVERT_PENDING_DEFAULT,
+                )
+                + " Keep polling get_action_status."
             )
         case "verified" if held:
             report = (
@@ -2660,16 +2713,13 @@ async def request_action(
         approval_submission_ids=approval_submission_ids,
     )
     _require_approvals(wire_name(spec.name), required, approvers)
-    # A two-person action names its approvers to the robot (§4, motion
-    # adapters revision); a single-approval body stays as before, so a robot
-    # whose agentd predates `approved_by` still takes it.
-    robot_approvers = approved_by_names(requester, approvers) if spec.two_person else []
 
     # 3. The policy against the robot's own signed snapshot.
     snap = await _verified_snapshot(robot)
     reasons = _policy_reasons(spec, snap.get("morphology"), snap.get("actions"))
     if reasons:
         raise ValueError("request refused by the SOC policy: " + "; ".join(reasons))
+    robot_approvers = _robot_approvers(spec, snap, requester, approvers)
 
     body_obj: dict[str, Any] = {
         "request_id": prepared.request_id,
@@ -2694,6 +2744,8 @@ async def request_action(
         request_digest=digest,
         request_submission_id=_submission_uuid(request_submission_id),
         approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+        requested_by_name=requester.identifier,
+        approved_by_names=robot_approvers,
     )
     attempt_log = await audit.attempt()
     # A `busy` submission is resent unchanged (same request_id and body, a
@@ -2734,7 +2786,8 @@ async def request_action(
     description=(
         "Read the stored state of a robot action request (signed answer). "
         "recorded_not_executed, refused, failed, applied and reverted are "
-        "terminal: never poll them. Poll pending until it becomes verified, refused or failed, "
+        "terminal: never poll them. Poll pending until it becomes verified, "
+        "applied (request_safe_state, rollback_config), refused or failed, "
         "and a held verified action until it is re-armed (in_force true) or "
         "reverted. A verified robot_quarantine_node reports containment (full, "
         "partial, guid_only or unknown) and what it cut and left out; only full "
@@ -2885,14 +2938,14 @@ async def revert_action(
     _require_approvals(
         f"a revert of {wire_name(spec.name)}", 2 if spec.two_person else 1, approvers
     )
-    # The executor lifts a `safe_pause` it carried out only with two
-    # approvers in the signed revert body (§6, §6a).
-    robot_approvers = approved_by_names(requester, approvers) if spec.two_person else []
 
     snap = await _verified_snapshot(robot)
     reasons = _policy_reasons(spec, snap.get("morphology"))
     if reasons:
         raise ValueError("revert refused by the SOC policy: " + "; ".join(reasons))
+    # The executor lifts a `safe_pause` it carried out only with two
+    # approvers in the signed revert body (§6, §6a).
+    robot_approvers = _robot_approvers(spec, snap, requester, approvers)
 
     revert_body: dict[str, Any] = {
         "reason": fields["reason"],
@@ -2909,6 +2962,8 @@ async def revert_action(
         request_digest=digest,
         request_submission_id=_submission_uuid(request_submission_id),
         approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+        requested_by_name=requester.identifier,
+        approved_by_names=robot_approvers,
     )
     attempt_log = await audit.attempt()
     # Resent only when the robot did nothing (fenced, rate limited); after

@@ -5984,6 +5984,12 @@ class RobotActionAudit(WorkspaceModel):
     approval_submission_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     requested_by_user_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
     approved_by_user_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    requested_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    """The ``requested_by`` the robot was sent, checked against the requester's
+    user record; ``None`` for an attempt from a registry that did not say."""
+    approved_by_names: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    """The ``approved_by`` the robot was sent (``[]``: none), checked against
+    the approvers; ``None`` for an attempt from a registry that did not say."""
     workflow_id: Mapped[str] = mapped_column(String(255), nullable=False)
     """The executor token's workflow id (the run that wrote the attempt)."""
     run_id: Mapped[str] = mapped_column(String(255), nullable=False)

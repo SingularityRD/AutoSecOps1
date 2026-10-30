@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from autosecops import config
 from autosecops.core.schemas import Schema
@@ -204,6 +204,10 @@ ROBOT_OUTCOME_PATTERN = r"^[a-z_]{1,64}$"
 REQUEST_DIGEST_PATTERN = r"^[0-9a-f]{64}$"
 FAILURE_REASON_PATTERN = r"^[A-Za-z0-9_.]{1,64}$"
 MAX_ACTION_APPROVALS = 4
+REQUESTED_BY_NAME_PATTERN = r"^[A-Za-z0-9._%+@:-]{1,100}$"
+"""A ``requested_by`` AutoSecOps sends: a plain ASCII email or ``user:<id>``."""
+APPROVER_NAME_PATTERN = r"^[A-Za-z0-9._%+@-]{1,100}$"
+"""RoboDR's ``approved_by`` name grammar (control plane §4)."""
 """Approval submissions a robot action request reads (registry limit)."""
 
 
@@ -268,6 +272,17 @@ class RobotActionAuditRequest(BaseModel):
     """``failed``: the error type that stopped the call."""
     attempt_id: uuid.UUID | None = Field(default=None)
     """``answered``/``failed``: the id the ``attempt`` returned."""
+    requested_by_name: str | None = Field(
+        default=None, pattern=REQUESTED_BY_NAME_PATTERN
+    )
+    """``attempt``: the ``requested_by`` the robot is sent. The platform
+    checks it against the requester's own user record and stores it."""
+    approved_by_names: (
+        list[Annotated[str, StringConstraints(pattern=APPROVER_NAME_PATTERN)]] | None
+    ) = Field(default=None, max_length=MAX_ACTION_APPROVALS)
+    """``attempt``: the ``approved_by`` the robot is sent (empty: none). When
+    not empty, the platform checks it names exactly the approvers, in order
+    (``user-<user id>``), and stores it."""
 
     @model_validator(mode="after")
     def _attempt_id_matches_phase(self) -> Self:
@@ -275,6 +290,10 @@ class RobotActionAuditRequest(BaseModel):
             raise ValueError("an attempt has no attempt_id")
         if self.phase != "attempt" and self.attempt_id is None:
             raise ValueError(f"the {self.phase} event needs the attempt_id")
+        if self.phase != "attempt" and (
+            self.requested_by_name is not None or self.approved_by_names is not None
+        ):
+            raise ValueError("the names sent to the robot belong to the attempt")
         return self
 
 
