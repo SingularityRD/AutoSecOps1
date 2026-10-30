@@ -74,14 +74,13 @@ AutoSecOps is the AI-native security automation platform for teams and AI agents
 
 > [!NOTE]
 > AutoSecOps is deployed self-hosted on your own infrastructure with Docker Compose, AWS Fargate, or Kubernetes. See the [self-hosting docs](https://docs.singularityrd.com/self-hosting/docker-compose).
-> Contact [sales@singularityrd.com](mailto:sales@singularityrd.com) for licensing and deployment options.
+> Contact [info@singularityrd.com](mailto:info@singularityrd.com) for licensing and deployment options.
 
 ## Documentation and support
 
 - **Documentation**: [docs.singularityrd.com](https://docs.singularityrd.com)
-- **Support**: [support@singularityrd.com](mailto:support@singularityrd.com)
-- **Sales, licensing, and upgrades**: [sales@singularityrd.com](mailto:sales@singularityrd.com)
-- **Security vulnerabilities**: [security@singularityrd.com](mailto:security@singularityrd.com). See [SECURITY.md](SECURITY.md).
+- **Support, sales, licensing, and upgrades**: [info@singularityrd.com](mailto:info@singularityrd.com)
+- **Security vulnerabilities**: [info@singularityrd.com](mailto:info@singularityrd.com) with "Security" in the subject. See [SECURITY.md](SECURITY.md).
 
 ## Tech Stack
 

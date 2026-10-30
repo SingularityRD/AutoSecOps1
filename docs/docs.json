@@ -636,7 +636,7 @@
     "primary": {
       "type": "button",
       "label": "Contact sales",
-      "href": "mailto:sales@singularityrd.com"
+      "href": "mailto:info@singularityrd.com?subject=AutoSecOps%20sales"
     }
   },
   "contextual": {

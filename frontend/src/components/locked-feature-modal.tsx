@@ -84,7 +84,7 @@ export function LockedFeatureModal({
                 asChild
                 className="w-full justify-center"
               >
-                <a href="mailto:sales@singularityrd.com">
+                <a href="mailto:info@singularityrd.com?subject=AutoSecOps%20sales">
                   Contact sales <ArrowUpRight className="size-4" />
                 </a>
               </Button>

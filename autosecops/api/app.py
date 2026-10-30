@@ -701,7 +701,7 @@ def create_app(**kwargs) -> FastAPI:
         contact={
             "name": "SingularityRD",
             "url": "https://docs.singularityrd.com",
-            "email": "support@singularityrd.com",
+            "email": "info@singularityrd.com",
         },
         license_info={
             "name": "Proprietary",
