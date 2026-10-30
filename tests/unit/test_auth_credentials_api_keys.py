@@ -14,6 +14,7 @@ from autosecops.auth import credentials
 from autosecops.auth.api_keys import generate_managed_api_key
 from autosecops.auth.credentials import _authenticate_api_key
 from autosecops.authz.seeding import seed_system_scopes
+from autosecops.contexts import ctx_service_account_api_key_id
 from autosecops.db.models import (
     Organization,
     Scope,
@@ -147,6 +148,7 @@ async def test_authenticate_api_key_cold_workspace_cache_uses_one_auth_checkout(
         scopes=[SimpleNamespace(name="workflow:read")],
     )
     record = SimpleNamespace(
+        id=uuid.uuid4(),
         revoked_at=None,
         salt=generated.salt_b64,
         hashed=generated.hashed,
@@ -197,6 +199,7 @@ async def test_authenticate_api_key_cold_workspace_cache_uses_one_auth_checkout(
     assert role is not None
     assert role.workspace_id == workspace_id
     assert role.service_account_id == service_account_id
+    assert ctx_service_account_api_key_id.get() == record.id
     assert checkout_count == 1
     assert max_active_checkouts == 1
     assert active_checkouts == 0
