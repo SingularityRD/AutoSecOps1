@@ -18,7 +18,8 @@ Updates and data migrations can be tricky business. Follow the steps below caref
     Every AutoSecOps image ships its Docker Compose install files in
     `/opt/autosecops/install`. Pull the version you are upgrading to and copy
     them into a separate directory, so nothing in your deployment directory
-    changes yet.
+    changes yet. If `docker pull` fails with `denied` or `unauthorized`, log in
+    to GHCR again as described in [Registry access](/self-hosting/docker-compose#registry-access).
 
     ```
     docker pull ghcr.io/singularityrd/autosecops:1.0.0

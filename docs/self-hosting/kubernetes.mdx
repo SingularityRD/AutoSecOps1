@@ -5,6 +5,7 @@ description: "Deploy self-hosted AutoSecOps to Kubernetes with the AutoSecOps He
 
 import FirstSuperadmin from "/snippets/first-superadmin.mdx";
 import GenerateSecrets from "/snippets/generate-secrets.mdx";
+import GhcrAccess from "/snippets/ghcr-access.mdx";
 import TemporalSearchAttributes from "/snippets/temporal-search-attributes.mdx";
 
 Each AutoSecOps release publishes the AutoSecOps Helm chart to `oci://ghcr.io/singularityrd/charts/autosecops`, with the release version as the chart version. The chart source lives in the AutoSecOps repository at [`deployments/helm/autosecops`](https://github.com/SingularityRD/AutoSecOps1/tree/main/deployments/helm/autosecops).
@@ -30,14 +31,26 @@ Every component except `api` and `ui` can be turned off with `<component>.enable
 - S3 or S3-compatible object storage, e.g. Amazon S3 or MinIO
 - A Temporal server or Temporal Cloud namespace
 - `openssl` to generate secrets
+- Read access to the AutoSecOps packages on GHCR, granted by SingularityRD
+
+## Registry access
+
+<GhcrAccess />
+
+Log Helm in with the same token to pull the chart from `oci://ghcr.io/singularityrd/charts/autosecops`:
+
+```bash
+echo "<read-packages-token>" | helm registry login ghcr.io --username <github-username> --password-stdin
+```
 
 ## Container images
 
-The chart pulls `ghcr.io/singularityrd/autosecops`, `autosecops-ui`, and, with tunnels, `autosecops-tunnel-gateway`. If these GHCR packages are private, create a pull Secret from a GitHub token with `read:packages` and reference it:
+The chart pulls `ghcr.io/singularityrd/autosecops`, `autosecops-ui`, and, with tunnels, `autosecops-tunnel-gateway`. Create a pull Secret from your GitHub username and token, and reference it in `imagePullSecrets`:
 
 ```bash
+kubectl create namespace autosecops --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n autosecops create secret docker-registry ghcr-pull \
-  --docker-server=ghcr.io --docker-username=<github-user> --docker-password="$GITHUB_TOKEN"
+  --docker-server=ghcr.io --docker-username=<github-username> --docker-password="<read-packages-token>"
 ```
 
 ```yaml
@@ -47,7 +60,7 @@ imagePullSecrets:
 
 `imagePullSecrets` applies to every pod in the release namespace, including the migrations Job. Tunnel gateways run in `tunnels.namespace`, so create the same Secret there and set `tunnels.gateway.imagePullSecrets`. See [Tunnels](#tunnels).
 
-To skip pull Secrets, the package owner can make each package public under the package's Package settings on GitHub, or you can mirror the images to your own registry and override `image.repository`, `uiImage.repository`, and `tunnels.gateway.image.repository`.
+When you rotate the token, update each `ghcr-pull` Secret; kubelets use the new value on the next image pull. To pull from your own registry instead, mirror the images and override `image.repository`, `uiImage.repository`, and `tunnels.gateway.image.repository`.
 
 ## Core secrets
 
@@ -73,7 +86,7 @@ The names assume the release name `autosecops`. The core Secret also accepts the
     Create the Secret with `kubectl`, your GitOps pipeline, or [External Secrets Operator](https://external-secrets.io) syncing from your secret manager.
 
     ```bash
-    kubectl create namespace autosecops
+    kubectl create namespace autosecops --dry-run=client -o yaml | kubectl apply -f -
     kubectl create secret generic autosecops-secrets \
       --namespace autosecops \
       --from-literal=dbEncryptionKey="$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')" \
@@ -333,7 +346,7 @@ autosecops:
 - Gateways need `NET_ADMIN` and `/dev/net/tun`. Install a device plugin that exposes `/dev/net/tun` as the extended resource in `tunnels.gateway.tunResource` (default `squat.ai/tun`), or set it to `""` if your nodes grant the device another way.
 - The chart creates the namespace with the `privileged` Pod Security level, a NetworkPolicy that admits only executor traffic and allows egress to DNS, the API, and Pangolin on TCP 443 and UDP 21820, and a ValidatingAdmissionPolicy that admits only the gateway image. The policy needs Kubernetes 1.30+; set `tunnels.admissionPolicy.enabled: false` on older clusters.
 - The gateway image follows the AutoSecOps image tag, so each upgrade restarts every gateway briefly.
-- If the gateway image is private, create a pull Secret in `tunnels.namespace` and list it in `tunnels.gateway.imagePullSecrets`, e.g. `[{name: ghcr-pull}]`. The `api` adds it to every gateway Deployment.
+- Create the `ghcr-pull` Secret in `tunnels.namespace` too and list it in `tunnels.gateway.imagePullSecrets`, e.g. `[{name: ghcr-pull}]`. The `api` adds it to every gateway Deployment. The chart creates `tunnels.namespace` during install, so create the Secret right after the first install, or create the namespace yourself with the `privileged` Pod Security level and set `tunnels.createNamespace: false`.
 - `tunnels.namespace` must differ from the release namespace. The chart fails to render otherwise, because the `api` service account gets write access to Secrets and Deployments there.
 
 ## Installation
@@ -346,11 +359,7 @@ autosecops:
     helm show chart oci://ghcr.io/singularityrd/charts/autosecops --version <version>
     ```
 
-    Anonymous pulls work when the `charts/autosecops` package on GHCR is public. If your organization keeps it private, log in first with a GitHub token that has `read:packages`:
-
-    ```bash
-    echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username <github-user> --password-stdin
-    ```
+    The chart is private. Run `helm registry login ghcr.io` first, as described in [Registry access](#registry-access).
 
     To install from source instead, clone the repository at the release tag and use the chart path `deployments/helm/autosecops` in place of the OCI reference, without `--version`:
 

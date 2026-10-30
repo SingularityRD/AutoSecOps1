@@ -43,6 +43,7 @@ from temporalio.contrib.opentelemetry import (
     TracingInterceptor,
     TracingWorkflowInboundInterceptor,
 )
+from temporalio.contrib.opentelemetry._context import attached_context
 from temporalio.exceptions import ApplicationError, ApplicationErrorCategory
 from temporalio.worker import WorkflowInboundInterceptor, WorkflowInterceptorClassInput
 
@@ -288,8 +289,9 @@ class _TraceContextOnlyTracingInterceptor(TracingInterceptor):
         context: otel_context.Context | None = None,
     ) -> Iterator[None]:
         """Create a Temporal span without exporting exception content."""
-        token = otel_context.attach(context) if context else None
-        try:
+        # Same attach/detach as the SDK, so a detach that finalizes in another
+        # contextvars.Context (evicted workflows) is skipped instead of logged.
+        with attached_context(context):
             with self.tracer.start_as_current_span(
                 name,
                 attributes=attributes,
@@ -324,9 +326,6 @@ class _TraceContextOnlyTracingInterceptor(TracingInterceptor):
                         span.set_status(Status(status_code=StatusCode.ERROR))
                         span.set_attribute("error.type", _TEMPORAL_FAILURE_TYPE)
                     raise
-        finally:
-            if token and context is otel_context.get_current():
-                otel_context.detach(token)
 
     def _completed_workflow_span(
         self, params: _CompletedWorkflowSpanInput

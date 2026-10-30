@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import socket
 from email.message import EmailMessage
+from email.utils import parsedate_to_datetime
 from unittest.mock import AsyncMock
 
 import aiosmtplib
@@ -321,3 +322,57 @@ async def test_smtp_transport_send_is_bounded_by_the_deadline(
     # A deadline can fire after the relay accepted DATA, so a retry may duplicate.
     assert exc_info.value.retryable is False
     assert "TimeoutError" in str(exc_info.value)
+
+
+@pytest.mark.anyio
+async def test_smtp_transport_sets_date_and_message_id_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RFC 5322 requires Date, and relays such as Gmail reject mail without a
+    Message-ID. Neither aiosmtplib nor EmailMessage adds them."""
+    send = AsyncMock(return_value=({}, "OK"))
+    monkeypatch.setattr(transport_module.aiosmtplib, "send", send)
+    transport = SMTPTransport(
+        host="smtp.internal.example",
+        port=587,
+        username="relay",
+        password="secret",
+        from_addr="AutoSecOps <no-reply@mail.example.com>",
+    )
+
+    await transport.send(_outbound())
+    await transport.send(_outbound())
+
+    first, second = (call.args[0] for call in send.await_args_list)
+    for mime in (first, second):
+        assert parsedate_to_datetime(mime["Date"]).tzinfo is not None
+        # The domain comes from the sender, never the relay host or pod name.
+        assert mime["Message-ID"].startswith("<")
+        assert mime["Message-ID"].endswith("@mail.example.com>")
+    assert first["Message-ID"] != second["Message-ID"]
+
+
+@pytest.mark.anyio
+async def test_message_id_never_falls_back_to_the_host_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    send = AsyncMock(return_value=({}, "OK"))
+    monkeypatch.setattr(transport_module.aiosmtplib, "send", send)
+    monkeypatch.setattr(
+        socket,
+        "getfqdn",
+        lambda *args: "pod-7f9c.cluster.internal",
+    )
+    transport = SMTPTransport(
+        host="smtp.example.com",
+        port=587,
+        username="relay",
+        password="secret",
+        from_addr="AutoSecOps",
+    )
+
+    await transport.send(_outbound())
+
+    await_args = send.await_args
+    assert await_args is not None
+    assert await_args.args[0]["Message-ID"].endswith("@autosecops.invalid>")

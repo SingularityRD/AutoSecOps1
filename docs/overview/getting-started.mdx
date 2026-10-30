@@ -21,15 +21,18 @@ Choose a deployment method:
 - [Docker Compose](/self-hosting/docker-compose): Run every service on a single host. This is the fastest way to self-host.
 - [AWS ECS Fargate](/self-hosting/aws-fargate): Deploy to your own AWS account with Terraform.
 - [Kubernetes](/self-hosting/kubernetes): Install the Helm chart on EKS, GKE, or any conformant cluster.
-- [Air-gapped deployment](/self-hosting/air-gapped): Run on Kubernetes with no runtime internet access.
+- [Air-gapped installation](/self-hosting/air-gapped): Install on Docker Compose or Kubernetes with no internet access.
 
 See [Architecture](/self-hosting/architecture) for how the services fit together.
 
 ### Docker Compose quickstart
 
-Follow the full [Docker Compose guide](/self-hosting/docker-compose) or run the commands below.
+Follow the full [Docker Compose guide](/self-hosting/docker-compose) or run the commands below. The AutoSecOps images are private: first get Read access from SingularityRD and create a token as described in [Registry access](/self-hosting/docker-compose#registry-access).
 
 ```bash
+# Log in to GHCR with your read:packages token
+echo "<read-packages-token>" | docker login ghcr.io -u <github-username> --password-stdin
+
 # Extract the install files from the AutoSecOps image
 docker pull ghcr.io/singularityrd/autosecops:1.0.0
 id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)

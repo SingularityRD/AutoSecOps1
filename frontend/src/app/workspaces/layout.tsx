@@ -12,6 +12,7 @@ import { ApiError } from "@/client"
 import { NoOrganizationAccess } from "@/components/auth/no-organization-access"
 import { useScopeCheck } from "@/components/auth/scope-guard"
 import { CaseSelectionProvider } from "@/components/cases/case-selection-context"
+import { LicenseExpiryBanner } from "@/components/license/license-expiry-banner"
 import { CenteredSpinner } from "@/components/loading/spinner"
 import { ControlsHeader } from "@/components/nav/controls-header"
 import { DynamicNavbar } from "@/components/nav/dynamic-nav"
@@ -307,6 +308,7 @@ function WorkspaceChildren({ children }: { children: React.ReactNode }) {
         <SidebarInset>
           <CaseSelectionProvider>
             <div className="flex h-full flex-1 flex-col">
+              <LicenseExpiryBanner />
               <ControlsHeader />
               <div className="flex-1 overflow-y-scroll">{children}</div>
             </div>

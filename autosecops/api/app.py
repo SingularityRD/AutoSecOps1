@@ -157,6 +157,7 @@ from autosecops.exceptions import (
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
     EntitlementRequired,
+    LicenseLimitExceeded,
     ScopeDeniedError,
 )
 from autosecops.feature_flags import FeatureFlag, FlagLike, is_feature_enabled
@@ -176,6 +177,8 @@ from autosecops.integrations.router import (
 )
 from autosecops.invitations.consumer import start_invitation_email_consumer
 from autosecops.invitations.router import router as invitations_router
+from autosecops.licensing.deployment import ensure_deployment_id
+from autosecops.licensing.service import check_multi_tenant_deployment_binding
 from autosecops.logger import logger
 from autosecops.mcp.oidc import router as mcp_oidc_router
 from autosecops.mcp.personal_access_tokens.router import (
@@ -276,6 +279,11 @@ async def lifespan(app: FastAPI):
             bucket=config.AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW,
             expiration_days=config.AUTOSECOPS__WORKFLOW_ARTIFACT_RETENTION_DAYS,
         )
+
+    # Load the deployment ID before anything evaluates the license, so a
+    # license bound to this installation verifies from the first request.
+    await ensure_deployment_id()
+    check_multi_tenant_deployment_binding()
 
     await ensure_default_organization()
 
@@ -547,6 +555,34 @@ def entitlement_exception_handler(request: Request, exc: Exception) -> Response:
         status_code=status.HTTP_403_FORBIDDEN,
         content={
             "type": "EntitlementRequired",
+            "message": str(exc),
+            "detail": exc.detail,
+        },
+    )
+
+
+def license_limit_exception_handler(request: Request, exc: Exception) -> Response:
+    """Handle LicenseLimitExceeded with a 403 that names the limit and counts."""
+    if not isinstance(exc, LicenseLimitExceeded):
+        return ORJSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": str(exc)},
+        )
+    logger.warning(
+        "License limit reached",
+        limit=exc.limit.value,
+        current=exc.current,
+        maximum=exc.maximum,
+        path=request.url.path,
+    )
+    if is_scim_path(request):
+        return scim_error_response(
+            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
+        )
+    return ORJSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+            "type": "LicenseLimitExceeded",
             "message": str(exc),
             "detail": exc.detail,
         },
@@ -893,6 +929,7 @@ def create_app(**kwargs) -> FastAPI:
         fastapi_users_auth_exception_handler,
     )
     app.add_exception_handler(EntitlementRequired, entitlement_exception_handler)
+    app.add_exception_handler(LicenseLimitExceeded, license_limit_exception_handler)
     # Registered before ScopeDeniedError for readability only; Starlette dispatches
     # on the exception MRO, so the subclass handler still wins.
     app.add_exception_handler(

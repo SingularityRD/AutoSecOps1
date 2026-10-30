@@ -20,6 +20,7 @@ from autosecops.licensing.types import (
     LicenseClaims,
     LicenseErrorCode,
     LicenseGrant,
+    LicenseLimits,
     LicenseState,
     LicenseStatus,
 )
@@ -53,11 +54,22 @@ def evaluate_license(
     *,
     now: datetime,
     public_key: Ed25519PublicKey,
+    deployment_id: str | None = None,
+    check_deployment: bool = True,
 ) -> LicenseState:
     """Evaluate a license token at ``now``.
 
     Never raises for a bad token: malformed or unverifiable tokens evaluate to
     ``LicenseStatus.INVALID`` so a garbled key cannot stop the app from starting.
+
+    Args:
+        token: The license token, or ``None`` when none is configured.
+        now: The evaluation time.
+        public_key: The key that verifies the signature.
+        deployment_id: This installation's deployment ID, or ``None`` if unknown.
+        check_deployment: Whether to enforce a ``deployment_id`` claim. Only
+            callers that cannot know the installation (the issuer CLI, the
+            import-time multi-tenant check) turn it off.
     """
     if not token:
         return LicenseState(status=LicenseStatus.MISSING)
@@ -65,11 +77,28 @@ def evaluate_license(
         claims = decode_license(token, public_key)
     except LicenseVerificationError as exc:
         return LicenseState(status=LicenseStatus.INVALID, error=exc.code)
-    return state_from_claims(claims, now=now)
+    return state_from_claims(
+        claims,
+        now=now,
+        deployment_id=deployment_id,
+        check_deployment=check_deployment,
+    )
 
 
-def state_from_claims(claims: LicenseClaims, *, now: datetime) -> LicenseState:
-    """Evaluate verified claims at ``now``."""
+def state_from_claims(
+    claims: LicenseClaims,
+    *,
+    now: datetime,
+    deployment_id: str | None = None,
+    check_deployment: bool = True,
+) -> LicenseState:
+    """Evaluate verified claims at ``now``.
+
+    A license bound to a deployment ID is INVALID with
+    ``LicenseErrorCode.DEPLOYMENT_MISMATCH`` unless ``deployment_id`` equals
+    it. An unknown ``deployment_id`` (``None``) never matches, so a bound
+    license fails closed until the installation's ID is loaded.
+    """
     # ``LicenseClaims`` caps expires_at well below datetime.max, so this
     # addition cannot overflow.
     grace_ends_at = claims.expires_at + LICENSE_GRACE_PERIOD
@@ -82,20 +111,33 @@ def state_from_claims(claims: LicenseClaims, *, now: datetime) -> LicenseState:
             grace_ends_at=grace_ends_at,
             error=LicenseErrorCode.NOT_YET_VALID,
         )
+    bound_to = claims.deployment_id
+    if check_deployment and bound_to is not None and bound_to != deployment_id:
+        return LicenseState(
+            status=LicenseStatus.INVALID,
+            claims=claims,
+            grace_ends_at=grace_ends_at,
+            error=LicenseErrorCode.DEPLOYMENT_MISMATCH,
+        )
     entitlements, grants, unknown = _split_entitlements(claims.entitlements)
+    limits = claims.limits or LicenseLimits()
     if now < claims.expires_at:
         status = LicenseStatus.VALID
     elif now < grace_ends_at:
         status = LicenseStatus.GRACE
     else:
+        # Past the grace period the install falls back to the free baseline,
+        # which has no license limits.
         status = LicenseStatus.EXPIRED
         entitlements = frozenset()
         grants = frozenset()
+        limits = LicenseLimits()
     return LicenseState(
         status=status,
         claims=claims,
         granted=entitlements,
         grants=grants,
+        limits=limits,
         unknown_entitlements=unknown,
         grace_ends_at=grace_ends_at,
     )
@@ -106,7 +148,10 @@ def license_grants_multi_tenant(
 ) -> bool:
     """Whether ``token`` is valid or in grace and grants ``multi_tenant``.
 
-    Verifies against the embedded public key in ``keys``.
+    Verifies against the embedded public key in ``keys``. Config calls this at
+    import time, before the database is reachable, so a ``deployment_id``
+    claim is not checked here; the API checks it at startup instead (see
+    ``autosecops.licensing.service.check_multi_tenant_deployment_binding``).
     """
     if not token:
         return False
@@ -114,5 +159,6 @@ def license_grants_multi_tenant(
         token,
         now=now or datetime.now(UTC),
         public_key=load_public_key(keys.LICENSE_PUBLIC_KEY_PEM),
+        check_deployment=False,
     )
     return LicenseGrant.MULTI_TENANT in state.grants
