@@ -22,7 +22,7 @@
 | `AUTOSECOPS__API_ROOT_PATH` | `/api` | Path prefix the API registers behind the reverse proxy. |
 | `AUTOSECOPS__PUBLIC_APP_URL` | `${PUBLIC_APP_URL}` | Public frontend URL used for links in emails and notifications. |
 | `AUTOSECOPS__PUBLIC_API_URL` | `${PUBLIC_API_URL}` | Public API URL used for incoming webhooks. If you expose webhooks through a tunnel (e.g. ngrok), set this to the tunnel URL. |
-| `AUTOSECOPS__ALLOW_ORIGINS` | `http://localhost:3000,${PUBLIC_APP_URL}` | Comma-separated list of allowed CORS origins. |
+| `AUTOSECOPS__ALLOW_ORIGINS` | `${PUBLIC_APP_URL}` | Comma-separated list of allowed CORS origins. `env.sh` adds `http://localhost:3000` only in development mode. |
 | `AUTOSECOPS__LICENSE_KEY` | | Signed license key that unlocks paid entitlements on single-tenant deployments. See [License key](/self-hosting/license). |
 
 ### PostgreSQL
