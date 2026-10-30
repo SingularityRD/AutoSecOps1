@@ -1,0 +1,119 @@
+---
+title: Security patches
+description: "How SingularityRD publishes patched AutoSecOps releases, how you are notified, SingularityRD's target timelines, and how to roll a patch out on Docker Compose, Kubernetes, AWS Fargate, and air-gapped deployments."
+keywords: ["security patch", "vulnerability", "advisory", "CVE", "hotfix", "patch release", "SLA"]
+---
+
+SingularityRD ships security fixes as stable patch releases: `1.4.3` fixes `1.4.2`. A patch release contains only fixes cherry-picked onto its release train. It never contains database migrations, schema changes, backfills, or new registry actions, so you can apply it without a data migration and roll it back by changing the image tag.
+
+## How SingularityRD publishes a patch
+
+The SingularityRD security team confirms the vulnerability, rates its severity, and fixes it on the main branch. SingularityRD then cherry-picks the fix onto each affected release train, tags the next patch version, e.g. `1.4.3`, and publishes the images and the Helm chart under that version:
+
+| Artifact | Reference |
+| --- | --- |
+| Backend image | `ghcr.io/singularityrd/autosecops:1.4.3` |
+| UI image | `ghcr.io/singularityrd/autosecops-ui:1.4.3` |
+| Helm chart | `oci://ghcr.io/singularityrd/charts/autosecops`, version `1.4.3` |
+| Offline bundle | `autosecops-offline-1.4.3.tar.zst`, on request from your SingularityRD contact |
+
+The `1.4` tag moves to the newest patch of the train, and `latest` moves to the newest stable release. Deploy exact versions such as `1.4.3`, so every host runs the version you checked.
+
+The [GitHub release](https://github.com/SingularityRD/AutoSecOps1/releases) lists the fix under Security. The release notes name the advisory and say whether the patch also changes the install files: `docker-compose.yml`, `Caddyfile`, or `.env.example`.
+
+## Notifications
+
+SingularityRD sends a security advisory from [info@singularityrd.com](mailto:info@singularityrd.com) to the technical and security contacts on file for your deployment. An advisory states:
+
+- The affected versions and deployment options
+- The severity and, where one exists, the CVE
+- The fixed version on each affected release train
+- A workaround or mitigation for deployments that cannot upgrade yet
+
+Allow-list `info@singularityrd.com`, and write to it whenever your contacts change. To report a vulnerability, write to [security@singularityrd.com](mailto:security@singularityrd.com), as described in the repository's `SECURITY.md`.
+
+## Timelines
+
+SingularityRD aims to meet these targets, measured from the moment it confirms a vulnerability. They are targets, not guarantees; your support agreement takes precedence where it states different terms.
+
+| Severity | Patched release available | Advisory sent | Apply the patch within |
+| --- | --- | --- | --- |
+| Critical | 72 hours | With the release, plus an early warning with a mitigation when one exists | 72 hours |
+| High | 7 days | With the release | 7 days |
+| Medium | 30 days | With the release | 30 days |
+| Low | The next scheduled release | In the release notes | Your next maintenance window |
+
+SingularityRD publishes the fix for an actively exploited vulnerability as soon as it is ready, regardless of these targets.
+
+## Apply a patch
+
+Take a backup before you start, even though a patch runs no migrations. See [Backup and restore](/self-hosting/backup-restore).
+
+<Tabs>
+  <Tab title="Docker Compose">
+    If the release notes say the install files changed, follow the full [Docker Compose update](/self-hosting/updating#docker-compose). Otherwise, set the new version and restart:
+
+    ```bash
+    sed -i 's/^AUTOSECOPS__IMAGE_TAG=.*/AUTOSECOPS__IMAGE_TAG=1.4.3/' .env
+    grep -q '^AUTOSECOPS__IMAGE_TAG=' .env || echo 'AUTOSECOPS__IMAGE_TAG=1.4.3' >> .env
+    docker compose pull
+    docker compose up -d
+    ```
+  </Tab>
+  <Tab title="Kubernetes">
+    ```bash
+    helm upgrade autosecops oci://ghcr.io/singularityrd/charts/autosecops \
+      --version 1.4.3 \
+      --namespace autosecops \
+      -f values.yaml \
+      --wait --timeout 15m
+    ```
+
+    If you set `image.tag` or `uiImage.tag` in your values, update both. The migrations Job still runs and finds nothing to apply.
+  </Tab>
+  <Tab title="AWS Fargate">
+    Follow [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) with `TF_VAR_autosecops_image_tag=1.4.3`. ECS replaces the tasks service by service.
+  </Tab>
+  <Tab title="Air-gapped">
+    1. Get the `1.4.3` offline bundle from your SingularityRD contact, with its `.sha256` file and the SingularityRD public key from a separate channel.
+    2. Verify it before it enters the disconnected network, then again inside it:
+
+       ```bash
+       sha256sum -c autosecops-offline-1.4.3.tar.zst.sha256
+       tar -xf autosecops-offline-1.4.3.tar.zst
+       cd autosecops-offline-1.4.3
+       ./load-images.sh verify --cosign-key /path/to/cosign.pub
+       ```
+
+    3. Run `./load-images.sh load`, or `./load-images.sh push <registry>/<prefix>`, and follow [Update with a new bundle](/self-hosting/air-gapped#update-with-a-new-bundle).
+  </Tab>
+</Tabs>
+
+## Confirm the patch
+
+1. `GET /api/info` returns the patched `version`:
+
+   ```bash
+   curl -fsS https://autosecops.example.com/api/info
+   ```
+
+2. The running image digest matches the release. On Docker Compose, run `docker compose images` and compare each digest with the advisory or the bundle's `images.txt`.
+3. Run the post-upgrade checks in [Check the upgrade](/self-hosting/updating#check-the-upgrade).
+
+To roll a patch back, set the image tag to the earlier patch of the same train and restart. No restore is needed.
+
+## Third-party components
+
+The AutoSecOps images include their own operating system packages and Python and Node.js dependencies, so a patch release covers them. The other components are yours to patch:
+
+| Component | Docker Compose | Kubernetes and Fargate |
+| --- | --- | --- |
+| PostgreSQL, Temporal, MinIO, Redis, Caddy | Set in `docker-compose.yml`. SingularityRD updates the pinned versions and digests in a patch release and says so in the release notes. `docker compose pull` also picks up rebuilds of floating tags such as `redis:7-alpine` | Your managed services, patched by you or your provider |
+| Host operating system and Docker | Yours | Your nodes or AWS |
+
+## Related pages
+
+- See [Updating AutoSecOps](/self-hosting/updating) for the full upgrade steps and the post-upgrade checks.
+- See [Backup and restore](/self-hosting/backup-restore) for the backup to take before you patch.
+- See [Air-gapped installation](/self-hosting/air-gapped#verify-the-bundle) for verifying an offline bundle's checksums and signature.
+- See [Security](/self-hosting/security) for production hardening that limits the impact of a vulnerability.
