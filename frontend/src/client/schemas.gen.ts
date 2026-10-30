@@ -32012,6 +32012,16 @@ export const $RunContext = {
       ],
       title: "Tunnel",
     },
+    trigger_type: {
+      anyOf: [
+        {
+          $ref: "#/components/schemas/TriggerType",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
   },
   type: "object",
   required: ["wf_id", "wf_exec_id", "wf_run_id", "environment", "logical_time"],

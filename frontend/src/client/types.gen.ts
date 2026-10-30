@@ -9764,6 +9764,7 @@ export type RunContext = {
   environment: string
   logical_time: string
   tunnel?: string | null
+  trigger_type?: TriggerType | null
 }
 
 /**
