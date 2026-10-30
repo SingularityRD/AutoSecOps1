@@ -87,6 +87,104 @@ You can upgrade across several versions at once. The migrations apply every inte
   </Step>
 </Steps>
 
+## Upgrade the Temporal database
+
+The Docker Compose `temporal_postgres_db` service runs PostgreSQL 16 and the `temporal` service runs Temporal 1.29.1. Earlier releases ran PostgreSQL 13 and Temporal 1.27.1. To check whether your install needs this upgrade, look at the Compose file you replaced:
+
+```bash
+grep -n 'postgres:13' docker-compose.yml.bak
+```
+
+PostgreSQL 16 cannot open a data directory that PostgreSQL 13 wrote. When it finds one in the `temporal-db` volume, `temporal_postgres_db` exits without touching the volume and logs:
+
+```text
+temporal_postgres_db: the temporal-db volume holds PostgreSQL 13 data, but this image runs PostgreSQL 16.
+```
+
+Temporal, and every service that depends on it, stays down until you either upgrade the database or pin the old version.
+
+To keep running PostgreSQL 13 for now, add `TEMPORAL__POSTGRES_IMAGE=postgres:13` to `.env` and run `docker compose up -d`. `env-migration.sh` keeps this line. PostgreSQL 13 no longer receives security fixes, so plan the upgrade below.
+
+The upgrade dumps the Temporal databases from PostgreSQL 13, moves the old volume aside, and restores the dumps into PostgreSQL 16 on a fresh volume. It keeps workflow history, schedules, and timers. Run it from your deployment directory after the [Docker Compose](#docker-compose) steps, and add `-f docker-compose.sandbox.yml` to the `docker compose` commands if you run the nsjail backend.
+
+<Steps>
+  <Step title="Stop the stack and start the old database">
+    ```bash
+    docker compose down
+    TEMPORAL__POSTGRES_IMAGE=postgres:13 docker compose up -d temporal_postgres_db
+    docker compose exec temporal_postgres_db sh -c 'until pg_isready -q -h 127.0.0.1 -U "$POSTGRES_USER"; do sleep 1; done'
+    ```
+
+    `docker compose down` keeps volumes. Do not add `-v`.
+  </Step>
+  <Step title="Dump the Temporal databases">
+    List the databases. Expect `temporal` and `temporal_visibility`; dump any other database it lists besides `postgres` too.
+
+    ```bash
+    docker compose exec -T temporal_postgres_db sh -c 'PGUSER="$POSTGRES_USER" exec psql -XAtq -d postgres -c "select datname from pg_database where not datistemplate"'
+    ```
+
+    ```bash
+    mkdir -p temporal-pg13-dump
+    for db in temporal temporal_visibility; do
+      docker compose exec -T temporal_postgres_db sh -c 'PGUSER="$POSTGRES_USER" exec pg_dump -Fc -d "$1"' sh "$db" > "temporal-pg13-dump/$db.dump"
+    done
+    ls -l temporal-pg13-dump
+    ```
+
+    Both files must be larger than zero bytes before you continue.
+  </Step>
+  <Step title="Move the PostgreSQL 13 volume aside">
+    Find the volume name. Compose prefixes it with the project name, which defaults to the deployment directory name:
+
+    ```bash
+    docker compose rm -sf temporal_postgres_db
+    docker volume ls --filter name=temporal-db
+    ```
+
+    Copy it to a rollback volume, then remove the original so PostgreSQL 16 starts on a fresh one. Replace `<project>` with your project name. The copy needs as much free disk as the volume uses.
+
+    ```bash
+    docker volume create <project>_temporal-db-pg13
+    docker run --rm -v <project>_temporal-db:/from:ro -v <project>_temporal-db-pg13:/to postgres:13 cp -a /from/. /to/
+    docker volume rm <project>_temporal-db
+    ```
+  </Step>
+  <Step title="Start PostgreSQL 16 and restore">
+    ```bash
+    docker compose up -d temporal_postgres_db
+    docker compose exec temporal_postgres_db sh -c 'until pg_isready -q -h 127.0.0.1 -U "$POSTGRES_USER"; do sleep 1; done'
+    for db in temporal temporal_visibility; do
+      docker compose exec -T temporal_postgres_db sh -c 'PGUSER="$POSTGRES_USER" exec psql -XAtq -v ON_ERROR_STOP=1 -d template1 -c "DROP DATABASE IF EXISTS \"$1\"" -c "CREATE DATABASE \"$1\" TEMPLATE template0"' sh "$db"
+      docker compose exec -T temporal_postgres_db sh -c 'PGUSER="$POSTGRES_USER" exec pg_restore --no-owner --exit-on-error --single-transaction -d "$1"' sh "$db" < "temporal-pg13-dump/$db.dump"
+    done
+    ```
+
+    `DROP DATABASE` only removes the empty database that PostgreSQL 16 created on first start.
+  </Step>
+  <Step title="Step Temporal through 1.28">
+    Temporal supports upgrades one minor version at a time. Run 1.28 once so it applies its schema changes, then start the full stack on 1.29.1:
+
+    ```bash
+    TEMPORAL__VERSION=1.28.4 docker compose up -d temporal
+    docker compose ps temporal   # wait for "healthy"
+    docker compose up -d
+    ```
+  </Step>
+  <Step title="Check and clean up">
+    Open the Temporal UI or run `docker compose exec temporal tctl --address temporal:7233 --namespace default workflow list`, and check that your schedules still fire, as in [Check the upgrade](#check-the-upgrade). Then delete the rollback copy and the dumps:
+
+    ```bash
+    docker volume rm <project>_temporal-db-pg13
+    rm -r temporal-pg13-dump
+    ```
+  </Step>
+</Steps>
+
+To roll back before you delete the copy, stop the stack, copy `<project>_temporal-db-pg13` back into an empty `<project>_temporal-db` volume with the same `docker run ... cp -a` command, and start with `TEMPORAL__POSTGRES_IMAGE=postgres:13` and `TEMPORAL__VERSION=1.27.1` in `.env`.
+
+Fargate deployments keep Temporal on the RDS instance `temporal-database` and already run Temporal 1.29.1. The Helm chart connects to your own Temporal server; run Temporal 1.29 or later there too.
+
 ## Watch the migrations
 
 Every deployment target runs `alembic upgrade head` from the new image before the API starts. Only one migration run proceeds at a time: others wait on a PostgreSQL advisory lock.

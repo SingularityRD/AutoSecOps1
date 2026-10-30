@@ -153,6 +153,8 @@ If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to the new version befor
 
 The `redis` service runs Valkey and stores its data in the `valkey-data` volume. Valkey cannot read data files written by Redis 7.4 or later, so when you upgrade from a release that ran `redis:7-alpine`, the service starts with an empty store and leaves the old `redis-data` volume untouched. Let running workflows and agent sessions finish before you upgrade, because their in-flight stream data stays in the old volume. Once the stack is healthy, you can delete the old volume with `docker volume rm <project>_redis-data`.
 
+The `temporal_postgres_db` service runs PostgreSQL 16. If your `temporal-db` volume holds PostgreSQL 13 data from an earlier release, the service stops with a message until you [upgrade the Temporal database](/self-hosting/updating#upgrade-the-temporal-database) or pin `TEMPORAL__POSTGRES_IMAGE=postgres:13` in `.env`.
+
 The migration script creates a backup of your existing `.env` before rewriting it.
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.
 

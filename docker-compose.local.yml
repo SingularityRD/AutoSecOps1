@@ -709,7 +709,22 @@ services:
         condition: service_healthy
 
   temporal_postgres_db:
-    image: postgres:13
+    image: ${TEMPORAL__POSTGRES_IMAGE:-postgres:16.14-trixie@sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b}
+    # PostgreSQL cannot open a data directory written by another major version.
+    # Stop with the upgrade steps instead of a bare FATAL, and leave the volume
+    # untouched.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        data_version=$$(cat "$${PGDATA:-/var/lib/postgresql/data}/PG_VERSION" 2>/dev/null || true)
+        if [ -n "$$data_version" ] && [ -n "$${PG_MAJOR:-}" ] && [ "$$data_version" != "$${PG_MAJOR%%.*}" ]; then
+          echo "temporal_postgres_db: the temporal-db volume holds PostgreSQL $$data_version data, but this image runs PostgreSQL $$PG_MAJOR." >&2
+          echo "Upgrade the Temporal database: https://docs.singularityrd.com/self-hosting/updating#upgrade-the-temporal-database" >&2
+          echo "To keep the old version until then, set TEMPORAL__POSTGRES_IMAGE=postgres:$$data_version in .env." >&2
+          exit 1
+        fi
+        exec docker-entrypoint.sh postgres
     container_name: temporal_postgres_db
     restart: unless-stopped
     networks:
@@ -721,7 +736,7 @@ services:
       - temporal-db:/var/lib/postgresql/data
 
   temporal:
-    image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.27.1}
+    image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.29.1}
     container_name: temporal
     restart: unless-stopped
     ports:
