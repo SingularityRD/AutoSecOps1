@@ -14,6 +14,7 @@ data:
   AUTOSECOPS__LOG_FORMAT: {{ $a.logFormat | quote }}
   AUTOSECOPS__FEATURE_FLAGS: {{ $a.featureFlags | quote }}
   AUTOSECOPS__EE_MULTI_TENANT: {{ $a.eeMultiTenant | toString | quote }}
+  AUTOSECOPS__RLS_MODE: {{ $a.rlsMode | quote }}
   AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: {{ $a.agentSandboxTimeout | toString | quote }}
   AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED: {{ $a.contextCompression.enabled | toString | quote }}
   AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB: {{ $a.contextCompression.thresholdKb | toString | quote }}
@@ -51,6 +52,7 @@ data:
   AUTOSECOPS__DB_PORT: {{ .Values.externalPostgres.port | toString | quote }}
   AUTOSECOPS__DB_NAME: {{ .Values.externalPostgres.database | quote }}
   AUTOSECOPS__DB_SSLMODE: {{ .Values.externalPostgres.sslMode | quote }}
+  AUTOSECOPS__DB_RUNTIME_USER: {{ .Values.externalPostgres.auth.runtimeUsername | quote }}
   AUTOSECOPS__DB_POOL_SIZE: {{ $a.db.poolSize | toString | quote }}
   AUTOSECOPS__DB_MAX_OVERFLOW: {{ $a.db.maxOverflow | toString | quote }}
   AUTOSECOPS__DB_POOL_TIMEOUT: {{ $a.db.poolTimeout | toString | quote }}

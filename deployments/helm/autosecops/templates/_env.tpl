@@ -21,6 +21,8 @@ holds the Secret references and per-service settings.
 {{- $pg := include "autosecops.postgresSecretName" . -}}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_USER" "secret" $pg "key" .Values.externalPostgres.auth.usernameKey) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_PASS" "secret" $pg "key" .Values.externalPostgres.auth.passwordKey) }}
+{{- /* Optional: a Secret without the key keeps the services on the owner role. */}}
+{{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_RUNTIME_PASSWORD" "secret" $pg "key" .Values.externalPostgres.auth.runtimePasswordKey "optional" true) }}
 {{- end }}
 
 {{/*

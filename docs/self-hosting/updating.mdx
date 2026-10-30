@@ -77,6 +77,18 @@ You can upgrade across several versions at once. The migrations apply every inte
 
     If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to `<version>`.
   </Step>
+  <Step title="Set the database runtime role password">
+    Installs created before the runtime role have an empty
+    `AUTOSECOPS__DB_RUNTIME_PASSWORD` after the migration script. Set it so the
+    services connect as `autosecops_app` and tenant row-level security applies:
+
+    ```bash
+    sed -i "s/^AUTOSECOPS__DB_RUNTIME_PASSWORD=.*/AUTOSECOPS__DB_RUNTIME_PASSWORD=$(openssl rand -hex 24)/" .env
+    ```
+
+    Left empty, AutoSecOps keeps working as the owner role, logs a warning,
+    and row-level security stays inactive.
+  </Step>
   <Step title="Pull the images and restart">
     ```bash
     docker compose pull
@@ -84,6 +96,8 @@ You can upgrade across several versions at once. The migrations apply every inte
     ```
 
     Add `-f docker-compose.sandbox.yml` to both commands if you run the nsjail backend.
+    The `migrations` service creates the runtime role before the other
+    services start. Then [verify isolation](/self-hosting/security#verify-isolation).
   </Step>
 </Steps>
 

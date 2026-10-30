@@ -79,6 +79,9 @@ spec:
               value: {{ .Values.externalPostgres.database | quote }}
             - name: AUTOSECOPS__DB_SSLMODE
               value: {{ .Values.externalPostgres.sslMode | quote }}
+            # Migrations create this role and re-apply its grants after upgrading.
+            - name: AUTOSECOPS__DB_RUNTIME_USER
+              value: {{ .Values.externalPostgres.auth.runtimeUsername | quote }}
             {{- if .Values.externalPostgres.tls.caCert }}
             - name: PGSSLROOTCERT
               value: /etc/autosecops/postgres-ca/ca.crt

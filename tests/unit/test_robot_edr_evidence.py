@@ -32,7 +32,7 @@ from autosecops.cases.attachments.service import CaseAttachmentService
 from autosecops.cases.enums import CasePriority, CaseSeverity, CaseStatus
 from autosecops.cases.schemas import CaseCreate
 from autosecops.cases.service import CasesService
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import Case, Organization, RobotKey, Workspace
 from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.executor.action_gateway.app import create_app as create_gateway_app
@@ -159,7 +159,7 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
     async with exclusive_vector_keys(
         [bytes.fromhex(FINDING_KEY["public_hex"]), TEST_FINDING_PUBLIC]
     ):
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             session.add(ws)
             await session.commit()
             robots = RobotsService(session, role=_role(ws))
@@ -175,14 +175,14 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
         try:
             yield ws
         finally:
-            async with get_async_session_context_manager() as session:
+            async with get_async_session_bypass_rls_context_manager() as session:
                 await session.execute(delete(Workspace).where(Workspace.id == ws.id))
                 await session.commit()
 
 
 @pytest.fixture
 async def case(workspace: Workspace) -> Case:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         return await CasesService(session, role=_role(workspace)).create_case(
             CaseCreate(
                 summary="Robot finding",
@@ -212,7 +212,7 @@ async def _store(
     request: EvidenceStoreRequest,
     user_id: uuid.UUID | None = None,
 ) -> Any:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotEvidenceService(session, role=_role(ws, user_id))
         return await service.store_verified_export(case.id, request)
 
@@ -239,7 +239,7 @@ async def test_verified_export_is_stored_and_reported(
         await blob.download_file(f"{prefix}/manifest.sig", storage)
     ).decode() == MANIFEST_SIG
 
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = CaseAttachmentService(session, role=_role(workspace))
         attachment = await service.get_attachment(case, stored.attachment_id)
         assert attachment is not None
@@ -309,7 +309,7 @@ async def test_unverifiable_exports_are_refused(
 ) -> None:
     with pytest.raises(error, match=match):
         await _store(workspace, case, _request(**overrides))
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         attachments = await CaseAttachmentService(
             session, role=_role(workspace)
         ).list_attachments(case)
@@ -319,7 +319,7 @@ async def test_unverifiable_exports_are_refused(
 async def test_a_revoked_finding_key_does_not_verify(
     workspace: Workspace, case: Case, storage: str
 ) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(
             update(RobotKey)
             .where(RobotKey.workspace_id == workspace.id)
@@ -341,7 +341,7 @@ async def test_the_report_prefix_is_reserved(
         content=content,
     )
     for role in (_role(workspace), _role(workspace, uuid.uuid4())):
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             with pytest.raises(FileNameError, match="reserved"):
                 await CaseAttachmentService(session, role=role).create_attachment(
                     case, params
@@ -351,7 +351,7 @@ async def test_the_report_prefix_is_reserved(
 async def test_evidence_reads_are_audit_logged(
     workspace: Workspace, audit_capture: AuditCapture
 ) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await RobotEvidenceService(
             session, role=_role(workspace, uuid.uuid4())
         ).record_access(
@@ -499,7 +499,7 @@ async def test_the_evidence_routes_refuse_a_token_of_another_workspace(
         name=f"evidence-other-{uuid.uuid4().hex[:8]}",
         organization_id=svc_organization.id,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(other)
         await session.commit()
     try:
@@ -511,7 +511,7 @@ async def test_the_evidence_routes_refuse_a_token_of_another_workspace(
         # workspace is not found from it.
         assert keys.status_code == 404, keys.text
     finally:
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             await session.execute(delete(Workspace).where(Workspace.id == other.id))
             await session.commit()
 
@@ -619,7 +619,7 @@ async def _objects(storage: str, prefix: str) -> dict[str, bool]:
 
 
 async def _list_attachments(ws: Workspace, case: Case) -> list[Any]:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         return list(
             await CaseAttachmentService(session, role=_role(ws)).list_attachments(case)
         )
@@ -627,7 +627,7 @@ async def _list_attachments(ws: Workspace, case: Case) -> list[Any]:
 
 @pytest.fixture
 async def other_case(workspace: Workspace) -> Case:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         return await CasesService(session, role=_role(workspace)).create_case(
             CaseCreate(
                 summary="Another case",
@@ -643,13 +643,13 @@ async def test_a_copied_report_is_not_evidence_in_another_case(
     workspace: Workspace, case: Case, other_case: Case, storage: str
 ) -> None:
     stored = await _store(workspace, case, _request())
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = CaseAttachmentService(session, role=_role(workspace))
         content, name, _ = await service.download_attachment(case, stored.attachment_id)
     # Same bytes, any name, another case: the dedup path must not hand the
     # evidence File (and its mark) to an ordinary upload.
     for file_name in ("copy.txt", name.upper().replace("ROBODR-", "robodr_")):
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             with pytest.raises(FileContentMismatchError, match="evidence report"):
                 await CaseAttachmentService(
                     session, role=_role(workspace, uuid.uuid4())
@@ -671,7 +671,7 @@ async def test_an_ordinary_upload_is_never_marked_as_evidence(
     workspace: Workspace, case: Case, storage: str
 ) -> None:
     content = b"RoboDR evidence export: verified\nrobot_id: ugv-007\n"
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         attachment = await CaseAttachmentService(
             session, role=_role(workspace, uuid.uuid4())
         ).create_attachment(
@@ -746,7 +746,7 @@ async def test_case_deletion_deletes_the_stored_objects(
     stored = await _store(workspace, case, _request())
     prefix = stored.storage_key.removesuffix("/bundle.rbbx")
     assert all((await _objects(storage, prefix)).values())
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         cases = CasesService(session, role=_role(workspace))
         if batch:
             await cases.batch_delete_cases([case.id])
@@ -774,7 +774,7 @@ def _signed(manifest: dict[str, Any]) -> tuple[str, str]:
 async def test_finding_key(workspace: Workspace) -> None:
     # Forgotten by `workspace`, which holds the vector-key lock meanwhile.
     public = TEST_FINDING_PUBLIC.hex()
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await RobotsService(session, role=_role(workspace)).create_key(
             RobotKeyCreate(
                 role=RobotKeyRole.FINDING,
@@ -884,11 +884,11 @@ async def bare_workspace(
         name=f"evidence-bare-{uuid.uuid4().hex[:8]}",
         organization_id=svc_organization.id,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(ws)
         await session.commit()
     yield ws
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(delete(Workspace).where(Workspace.id == ws.id))
         await session.commit()
 
@@ -1024,7 +1024,7 @@ async def test_an_unattended_store_is_audited_before_and_after(
 
 
 async def _stored_exports(ws: Workspace) -> int:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         count = await session.scalar(
             select(func.count())
             .select_from(RobotEvidenceExport)
@@ -1062,7 +1062,7 @@ async def test_a_caller_with_no_auditable_actor_cannot_read_evidence(
         organization_id=bare_workspace.organization_id,
         scopes=ADMIN_SCOPES,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AuditWriteError, match="auditable actor"):
             await RobotEvidenceService(session, role=role).record_access(
                 EvidenceAccessRequest(robot_id=ROBOT_ID, operation="list")
@@ -1094,7 +1094,7 @@ async def test_a_robot_change_the_sink_does_not_take_is_refused(
     bare_workspace: Workspace, audit_capture: AuditCapture
 ) -> None:
     audit_capture.refuse = True
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AuditWriteError):
             await RobotsService(session, role=_role(bare_workspace)).create_robot(
                 _RobotCreate(robot_id="ugv-unaudited")
@@ -1118,7 +1118,7 @@ async def test_a_robot_change_by_an_unnamed_service_is_refused(
         organization_id=bare_workspace.organization_id,
         scopes=ADMIN_SCOPES,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AuditWriteError, match="auditable actor"):
             await RobotsService(session, role=role).create_robot(
                 _RobotCreate(robot_id="ugv-unnamed")
@@ -1131,7 +1131,7 @@ async def test_a_service_account_robot_change_names_its_api_key(
     api_key_id = uuid.uuid4()
     token = ctx_service_account_api_key_id.set(api_key_id)
     try:
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             await RobotsService(session, role=_role(bare_workspace)).create_robot(
                 _RobotCreate(robot_id="ugv-keyed")
             )
@@ -1170,7 +1170,7 @@ async def _platform_user() -> uuid.UUID:
         is_verified=True,
         is_superuser=False,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(user)
         await session.commit()
         return user.id
@@ -1204,7 +1204,7 @@ async def _signoff(
     }
     if action is not None:
         answers["robodr_action"] = action
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         workflow = await _forms_utils.create_workflow(session, ws.id)
         form = await _forms_utils.create_form(session, workflow)
         approval_form = form
@@ -1339,7 +1339,7 @@ async def test_a_failed_robot_revert_is_audited_as_a_failure(
 
 
 async def _email_of(user_id: uuid.UUID) -> str:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         users = User.__table__
         email = await session.scalar(select(users.c.email).where(users.c.id == user_id))
     assert email is not None
@@ -1361,7 +1361,7 @@ async def test_a_robot_action_records_the_names_sent_to_the_robot(
         requested_by_name=requested,
         approved_by_names=approved,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         row = (
             await session.execute(
                 select(
@@ -1450,7 +1450,7 @@ async def test_a_requester_whose_email_changed_is_refused(
     # attempt (so the robot action) is refused.
     signoff = await _signoff(bare_workspace)
     old_email = await _email_of(signoff.requester)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         user = await session.get(User, signoff.requester)
         assert user is not None
         user.email = f"renamed-{uuid.uuid4().hex[:8]}@example.com"
@@ -1531,7 +1531,7 @@ async def test_a_robot_action_signoff_from_another_workspace_is_refused(
         name=f"evidence-other-{uuid.uuid4().hex[:8]}",
         organization_id=svc_organization.id,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(other)
         await session.commit()
     try:
@@ -1545,7 +1545,7 @@ async def test_a_robot_action_signoff_from_another_workspace_is_refused(
         assert "not in this workspace" in response.text
         assert _action_events(audit_capture) == []
     finally:
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             await session.execute(delete(Workspace).where(Workspace.id == other.id))
             await session.commit()
 
@@ -1554,7 +1554,7 @@ async def test_a_robot_action_signed_off_by_a_service_account_is_refused(
     bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
 ) -> None:
     signoff = await _signoff(bare_workspace)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(
             update(FormSubmission)
             .where(FormSubmission.id == signoff.approval_submission_ids[0])
@@ -1610,7 +1610,7 @@ async def test_a_robot_action_signoff_older_than_24_hours_is_refused(
     bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
 ) -> None:
     signoff = await _signoff(bare_workspace)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(
             update(FormSubmission)
             .where(FormSubmission.id == signoff.approval_submission_ids[0])
@@ -1758,7 +1758,7 @@ async def test_an_attempt_the_sink_refuses_is_not_stored(
         json=_action_body(signoff),
     )
     assert response.status_code == 500, response.text
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         stored = await session.scalar(
             select(func.count())
             .select_from(RobotActionAudit)

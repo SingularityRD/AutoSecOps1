@@ -63,6 +63,8 @@ After running `env.sh`, you'll be prompted to input the following:
 - Require PostgreSQL SSL mode? Defaults to `n`, because the bundled `postgres_db` container is reachable only on the internal Compose network. Use `require` or `verify-full` in `AUTOSECOPS__DB_SSLMODE` when you point `AUTOSECOPS__DB_URI` at an external database.
 - Required field: Enter email address for the first user (superadmin).
 
+`env.sh` also generates `AUTOSECOPS__DB_RUNTIME_PASSWORD`. The `migrations` service creates the non-owner `autosecops_app` role with it, and every other service connects as that role with `AUTOSECOPS__RLS_MODE=enforce`, so PostgreSQL row-level security isolates tenants. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation).
+
 Then set `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` in `.env` to your organization's email domains, e.g. `example.com`. While it is blank, anyone who can reach the login page can sign up.
 
 Verify the file before you start AutoSecOps. The check exits non-zero while any `change-me-` placeholder remains:

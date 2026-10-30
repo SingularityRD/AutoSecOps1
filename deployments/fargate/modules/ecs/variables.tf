@@ -335,6 +335,17 @@ variable "license_key" {
   sensitive   = true
 }
 
+variable "rls_mode" {
+  type        = string
+  description = "Tenant row-level security mode for the AutoSecOps services: enforce, shadow, or off"
+  default     = "enforce"
+
+  validation {
+    condition     = contains(["enforce", "shadow", "off"], var.rls_mode)
+    error_message = "rls_mode must be enforce, shadow, or off."
+  }
+}
+
 variable "ee_multi_tenant" {
   type        = bool
   description = "Enable enterprise multi-tenant mode"

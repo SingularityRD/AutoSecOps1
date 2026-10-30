@@ -437,6 +437,95 @@ def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> N
     assert f"aws_secretsmanager_secret.{tf_var}[*].arn" in iam
 
 
+DB_RUNTIME_ROLE_COMPOSE_SERVICES = (
+    "api",
+    "worker",
+    "executor",
+    "agent-worker",
+    "litellm",
+    "agent-executor",
+    "mcp",
+)
+
+
+def _compose_service_body(source: str, service: str) -> str | None:
+    match = re.search(
+        rf"(?ms)^  {service}:\n(?P<body>.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)", source
+    )
+    return match.group("body") if match else None
+
+
+def test_db_runtime_role_env_is_wired_to_compose() -> None:
+    """Every Compose service with a DB URI gets the runtime role and RLS mode."""
+    user = "AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}"
+    password = "AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-}"
+    rls_mode = "AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}"
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        source = path.read_text().replace(" # Sensitive", "")
+        services_with_db = {
+            name
+            for name in re.findall(r"(?m)^  ([a-z][a-z0-9_-]*):\n", source)
+            if "AUTOSECOPS__DB_URI:" in (_compose_service_body(source, name) or "")
+        }
+        assert services_with_db == {*DB_RUNTIME_ROLE_COMPOSE_SERVICES, "migrations"}
+        for service in services_with_db:
+            body = _compose_service_body(source, service) or ""
+            assert user in body, f"{path.name}: {service}"
+            assert password in body, f"{path.name}: {service}"
+            # Migrations run as the owner; the mode only matters to services.
+            assert (rls_mode in body) == (service != "migrations"), (
+                f"{path.name}: {service}"
+            )
+
+
+def test_db_runtime_role_is_wired_to_fargate() -> None:
+    fargate = REPO_ROOT / "deployments/fargate"
+    ecs = fargate / "modules/ecs"
+    locals_tf = (ecs / "locals.tf").read_text()
+    assert re.search(r'AUTOSECOPS__DB_RUNTIME_USER\s*=\s*"autosecops_app"', locals_tf)
+    assert re.search(r"AUTOSECOPS__RLS_MODE\s*=\s*var\.rls_mode\n", locals_tf)
+    # The password is an ECS secret, never task-definition environment.
+    assert not re.search(r"^\s*AUTOSECOPS__DB_RUNTIME_PASSWORD\s*=", locals_tf, re.M)
+    secrets_tf = (ecs / "secrets.tf").read_text()
+    assert 'name      = "AUTOSECOPS__DB_RUNTIME_PASSWORD"' in secrets_tf
+    assert "local.db_runtime_password_secret,\n  ]" in secrets_tf
+    assert "secrets     = local.migrations_secrets" in (ecs / "ecs-api.tf").read_text()
+    assert (
+        "aws_secretsmanager_secret.db_runtime_password.arn"
+        in (ecs / "iam.tf").read_text()
+    )
+    assert re.search(
+        r"rls_mode\s*=\s*var\.rls_mode\n", (fargate / "main.tf").read_text()
+    )
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            r'variable "rls_mode" \{[^}]*default\s*=\s*"enforce"',
+            (fargate / tf).read_text(),
+        ), tf
+
+
+def test_db_runtime_password_is_generated_by_env_sh() -> None:
+    assert (
+        'dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD"'
+        in (REPO_ROOT / "env.sh").read_text()
+    )
+
+
+def test_rls_and_runtime_role_code_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Code stays on `off` and the owner role unless deployments opt in."""
+    try:
+        with monkeypatch.context() as env:
+            env.delenv("AUTOSECOPS__RLS_MODE", raising=False)
+            env.setenv("AUTOSECOPS__DB_RUNTIME_USER", "")
+            env.setenv("AUTOSECOPS__DB_RUNTIME_PASSWORD", "")
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.AUTOSECOPS__RLS_MODE == reloaded.RLSMode.OFF
+            assert reloaded.AUTOSECOPS__DB_RUNTIME_USER == "autosecops_app"
+            assert reloaded.AUTOSECOPS__DB_RUNTIME_PASSWORD is None
+    finally:
+        importlib.reload(autosecops_config)
+
+
 def test_fargate_autosecops_containers_use_registry_credentials() -> None:
     ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
     checked = 0
@@ -1078,6 +1167,7 @@ ENV_EXAMPLE_GENERATED_SECRETS = (
     "AUTOSECOPS__POSTGRES_PASSWORD",
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
+    "AUTOSECOPS__DB_RUNTIME_PASSWORD",
 )
 WEAK_DEFAULT_CREDENTIALS = {
     "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},

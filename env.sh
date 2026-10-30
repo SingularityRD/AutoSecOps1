@@ -198,6 +198,13 @@ dotenv_replace "AUTOSECOPS__POSTGRES_PASSWORD" "$postgres_password" "$env_file"
 dotenv_replace "TEMPORAL__POSTGRES_PASSWORD" "$temporal_postgres_password" "$env_file"
 dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 
+# The services connect as a non-owner role so tenant row-level security
+# applies; migrations create it with this password. Always random: no local
+# tooling logs in as it.
+echo -e "${YELLOW}Generating the database runtime role password...${NC}"
+db_runtime_password=$(openssl rand -hex 24)
+dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$db_runtime_password" "$env_file"
+
 # Prompt for the public address. Keep a typed http:// or https:// scheme.
 # Without one, production mode uses https:// for any host but a loopback
 # address, so session cookies are marked Secure; development mode uses http://.

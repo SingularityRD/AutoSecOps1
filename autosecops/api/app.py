@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -106,6 +106,12 @@ from autosecops.auth.dependencies import (
 from autosecops.auth.discovery import router as auth_discovery_router
 from autosecops.auth.enums import AuthType
 from autosecops.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
+from autosecops.auth.rate_limit import (
+    limit_forgot_password,
+    limit_login,
+    limit_register,
+    limit_reset_password,
+)
 from autosecops.auth.router import router as users_router
 from autosecops.auth.saml import router as saml_router
 from autosecops.auth.schemas import UserCreate, UserRead, UserUpdate
@@ -146,6 +152,7 @@ from autosecops.contexts import ctx_role
 from autosecops.db.dependencies import AsyncDBSessionBypass
 from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
+    log_rls_posture,
 )
 from autosecops.db.exceptions import AuthPoolExhaustedError
 from autosecops.db.rls import set_rls_context_from_role
@@ -353,7 +360,7 @@ async def lifespan(app: FastAPI):
         "Feature flags",
         feature_flags=[f.value for f in config.AUTOSECOPS__FEATURE_FLAGS],
     )
-    logger.info("RLS mode", rls_mode=config.AUTOSECOPS__RLS_MODE.value)
+    await log_rls_posture()
     log_license_startup()
     # Last start-up step: once the start-up registry sync and catalog load
     # finish, everything alive lives for the process, so take it out of full
@@ -688,6 +695,16 @@ def _users_router() -> APIRouter:
     return users_router
 
 
+def _rate_limited(
+    router: APIRouter, limits: Mapping[str, Callable[..., Awaitable[None]]]
+) -> APIRouter:
+    """Attach rate-limit dependencies to a fastapi-users router's named routes."""
+    for route in router.routes:
+        if isinstance(route, APIRoute) and (limit := limits.get(route.name)):
+            route.dependencies.append(Depends(limit))
+    return router
+
+
 @dataclass(frozen=True, slots=True)
 class CORSPolicy:
     """Origins the API answers cross-origin requests for."""
@@ -879,17 +896,29 @@ def create_app(**kwargs) -> FastAPI:
     )
     if AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES:
         app.include_router(
-            fastapi_users.get_auth_router(auth_backend),
+            _rate_limited(
+                fastapi_users.get_auth_router(auth_backend),
+                {f"auth:{auth_backend.name}.login": limit_login},
+            ),
             prefix="/auth",
             tags=["auth"],
         )
         app.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),
+            _rate_limited(
+                fastapi_users.get_register_router(UserRead, UserCreate),
+                {"register:register": limit_register},
+            ),
             prefix="/auth",
             tags=["auth"],
         )
         app.include_router(
-            fastapi_users.get_reset_password_router(),
+            _rate_limited(
+                fastapi_users.get_reset_password_router(),
+                {
+                    "reset:forgot_password": limit_forgot_password,
+                    "reset:reset_password": limit_reset_password,
+                },
+            ),
             prefix="/auth",
             tags=["auth"],
         )
