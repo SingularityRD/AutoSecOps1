@@ -430,7 +430,10 @@ COPY --from=registry-manifest --chown=apiuser:apiuser /app/.registry-artifacts /
 # a real .env or any other file that holds secrets. Copy the scripts first:
 # --chmod also applies to the directories a COPY creates, so the 0755 copy
 # keeps /opt/autosecops/install traversable.
-COPY --chmod=0755 ./env.sh ./env-migration.sh /opt/autosecops/install/
+COPY --chmod=0755 ./env.sh ./env-migration.sh \
+    ./scripts/backup_compose.sh \
+    ./scripts/restore_compose.sh \
+    /opt/autosecops/install/
 COPY --chmod=0644 \
     ./docker-compose.yml \
     ./docker-compose.sandbox.yml \

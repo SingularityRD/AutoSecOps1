@@ -61,7 +61,14 @@ INSTALL_FILES = (
     ".env.example",
     "env.sh",
     "env-migration.sh",
+    "backup_compose.sh",
+    "restore_compose.sh",
 )
+# Install files whose source is not at the repository root.
+INSTALL_SOURCES = {
+    "backup_compose.sh": REPO / "scripts" / "backup_compose.sh",
+    "restore_compose.sh": REPO / "scripts" / "restore_compose.sh",
+}
 NOTICE_FILES = {
     "autosecops.md": REPO / "THIRD_PARTY_NOTICES.md",
     "autosecops-ui.md": REPO / "frontend" / "THIRD_PARTY_NOTICES.md",
@@ -449,7 +456,7 @@ docs (`/self-hosting/air-gapped`).
 - `images/`: the container images, saved with `docker save`.
 - `images.txt`: name, tag, digest, and settings of every image.
 - `install/`: Docker Compose files, `Caddyfile`, `.env.example`, `env.sh`,
-  and `env-migration.sh`.
+  `env-migration.sh`, `backup_compose.sh`, and `restore_compose.sh`.
 - `charts/autosecops-{version}.tgz`: the Helm chart.
 - `load-images.sh`: verifies, loads, and pushes the images.
 - `THIRD_PARTY_NOTICES/`: third-party licenses.
@@ -619,7 +626,7 @@ def stage_files(staging: Path, version: str, images: Sequence[BundleImage]) -> N
     install = staging / "install"
     install.mkdir(parents=True, exist_ok=True)
     for name in INSTALL_FILES:
-        shutil.copy2(REPO / name, install / name)
+        shutil.copy2(INSTALL_SOURCES.get(name, REPO / name), install / name)
     package_chart(staging / "charts", version)
     shutil.copy2(LOAD_SCRIPT, staging / "load-images.sh")
     (staging / "load-images.sh").chmod(0o755)
