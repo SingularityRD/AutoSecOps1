@@ -24,6 +24,7 @@ from autosecops.api.app import validation_exception_handler
 from autosecops.api.common import (
     BigIntSafeORJSONResponse,
     database_exception_handler,
+    generic_exception_handler,
 )
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.auth.schemas import UserRead, UserRole, UserUpdate
@@ -106,8 +107,12 @@ def test_validation_error_keeps_ordinary_integers() -> None:
 
 
 class _PgError(Exception):
-    def __init__(self, sqlstate: str) -> None:
-        super().__init__("statement parameters: synthetic-secret-parameter")
+    def __init__(
+        self,
+        sqlstate: str,
+        message: str = "statement parameters: synthetic-secret-parameter",
+    ) -> None:
+        super().__init__(message)
         self.sqlstate = sqlstate
 
 
@@ -118,7 +123,6 @@ class _PgError(Exception):
         ("22P02", 400),  # invalid text representation
         ("23505", 409),  # unique violation
         ("23503", 409),  # foreign key violation
-        ("08006", 500),  # connection failure stays a server error
     ],
 )
 async def test_database_errors_map_to_client_errors(
@@ -127,6 +131,20 @@ async def test_database_errors_map_to_client_errors(
     exc = DBAPIError("INSERT ...", {"p": "synthetic"}, _PgError(sqlstate))
     response = await database_exception_handler(_request(), exc)
     assert response.status_code == expected
+    assert b"synthetic" not in bytes(response.body)
+
+
+async def test_server_database_errors_reach_the_catch_all_without_echo() -> None:
+    """A connection failure stays a server error and never echoes the database text.
+
+    The database handler re-raises it so error reporting captures it; the
+    catch-all then answers with a generic 500.
+    """
+    exc = DBAPIError("INSERT ...", {"p": "synthetic"}, _PgError("08006"))
+    with pytest.raises(DBAPIError):
+        await database_exception_handler(_request(), exc)
+    response = await generic_exception_handler(_request(), exc)
+    assert response.status_code == 500
     assert b"synthetic" not in bytes(response.body)
 
 
@@ -238,14 +256,16 @@ async def test_secret_conflict_does_not_echo_database_error(route: Any) -> None:
     leaked = "synthetic-encrypted-keys"
     service = MagicMock()
     error = IntegrityError(
-        "INSERT INTO secret ...", {"keys": leaked}, Exception(leaked)
+        "INSERT INTO secret ...", {"keys": leaked}, _PgError("23514", leaked)
     )
     service.create_secret = AsyncMock(side_effect=error)
     service.create_org_secret = AsyncMock(side_effect=error)
     token = ctx_role.set(role)
     try:
         with patch.object(secrets_router, "SecretsService", return_value=service):
-            with pytest.raises(secrets_router.HTTPException) as caught:
+            # Only the named-unique violation is the route's own 409; any other
+            # integrity error falls through to the shared database handler.
+            with pytest.raises(IntegrityError) as caught:
                 await route(
                     role=role,
                     session=AsyncMock(),
@@ -254,11 +274,13 @@ async def test_secret_conflict_does_not_echo_database_error(route: Any) -> None:
                         keys=[SecretKeyValue(key="k", value=SecretStr("v"))],
                     ),
                 )
+        response = await database_exception_handler(_request(), caught.value)
     finally:
         ctx_role.reset(token)
-    assert caught.value.status_code == 409
-    assert leaked not in str(caught.value.detail)
-    assert "IntegrityError" not in str(caught.value.detail)
+    assert response.status_code == 409
+    body = bytes(response.body)
+    assert leaked.encode() not in body
+    assert b"IntegrityError" not in body
 
 
 @pytest.mark.parametrize("environment", ["", "x" * 101])

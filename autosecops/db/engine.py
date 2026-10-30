@@ -353,6 +353,9 @@ def _create_async_db_engine() -> AsyncEngine:
         pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
+        # Keep statement parameters (encrypted secrets, tokens, user input) out
+        # of exception messages, logs and error reports.
+        hide_parameters=True,
         # Attribute pooled connections to the originating service in
         # pg_stat_activity.
         connect_args={
@@ -380,6 +383,9 @@ def _create_async_auth_db_engine() -> AsyncEngine:
         pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
+        # Keep statement parameters (encrypted secrets, tokens, user input) out
+        # of exception messages, logs and error reports.
+        hide_parameters=True,
         connect_args={
             "server_settings": {
                 "application_name": f"{config.AUTOSECOPS__SERVICE_NAME}-auth"
