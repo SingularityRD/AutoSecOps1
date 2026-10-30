@@ -1,11 +1,11 @@
-"""Security regressions for self-service account updates."""
+"""Security regressions for self-service account updates and token hooks."""
 
 from __future__ import annotations
 
 import uuid
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -102,3 +102,21 @@ async def test_platform_superuser_role_can_change_email(
 
     update_dict = user_db.update.await_args.args[1]
     assert update_dict["email"] == "renamed@example.com"
+
+
+@pytest.mark.anyio
+async def test_auth_token_hooks_never_log_the_token(
+    manager: UserManager, user: User
+) -> None:
+    """Reset and verification tokens are bearer credentials for the account."""
+    reset_token = "reset-token-" + uuid.uuid4().hex
+    verify_token = "verify-token-" + uuid.uuid4().hex
+    manager.logger = Mock()
+
+    await manager.on_after_forgot_password(user, reset_token)
+    await manager.on_after_request_verify(user, verify_token)
+
+    logged = repr(manager.logger.mock_calls)
+    assert len(manager.logger.mock_calls) == 2
+    assert reset_token not in logged
+    assert verify_token not in logged
