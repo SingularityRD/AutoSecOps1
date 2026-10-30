@@ -138,3 +138,22 @@ async def test_load_webhook_secrets_filters_by_app_id(
         "secret-a",
         "secret-b",
     ]
+
+
+def test_unsigned_malformed_body_is_rejected_before_parsing(
+    webhook_client: TestClient,
+) -> None:
+    response = _post(webhook_client, b"not json")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.parametrize("body", [b"not json", b"[1, 2]"])
+def test_signed_non_object_body_is_bad_request(
+    webhook_client: TestClient, body: bytes
+) -> None:
+    response = _post(
+        webhook_client,
+        body,
+        {"x-hub-signature-256": compute_github_signature(body, WEBHOOK_SECRET)},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

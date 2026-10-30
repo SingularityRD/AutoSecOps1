@@ -16331,7 +16331,8 @@ export const vcsGithubAppInstallCallback = (
  * Handle GitHub webhook events.
  *
  * Deliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the
- * webhook secret stored in the GitHub App credentials.
+ * webhook secret stored in the GitHub App credentials. The signature is
+ * checked against the raw body before the body is parsed.
  * @param data The data for the request.
  * @param data.requestBody
  * @returns string Successful Response
@@ -16345,9 +16346,6 @@ export const vcsGithubWebhook = (
     url: "/organization/vcs/github/webhook",
     body: data.requestBody,
     mediaType: "application/json",
-    errors: {
-      422: "Validation Error",
-    },
   })
 }
 

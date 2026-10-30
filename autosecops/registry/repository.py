@@ -34,7 +34,7 @@ from autosecops.db.engine import get_async_session_context_manager
 from autosecops.exceptions import RegistryError, RegistryTemplateLoadError
 from autosecops.expressions.expectations import create_expectation_model
 from autosecops.expressions.validation import TemplateValidator
-from autosecops.git.utils import GitUrl, get_git_repository_sha, parse_git_url
+from autosecops.git.utils import GitUrl, parse_git_url, resolve_git_ref
 from autosecops.logger import logger
 from autosecops.parse import safe_url
 from autosecops.registry.actions.bound import BoundRegistryAction
@@ -60,6 +60,8 @@ from autosecops.ssh import SshEnv, ssh_context
 
 ArgsClsT = type[BaseModel]
 type F = Callable[..., Any]
+
+_FULL_COMMIT_SHA = re.compile(r"[0-9a-fA-F]{40}")
 
 
 def get_custom_registry_target() -> Path:
@@ -550,15 +552,22 @@ class Repository:
     ) -> str:
         """Install the remote repository into the filesystem and return the commit sha."""
 
-        url = git_url.to_url()
+        # The ``@ref`` suffix selects a branch; it is not part of the remote path.
+        url = git_url.remote_url()
         async with (
             get_async_session_context_manager() as session,
             ssh_context(role=self.role, git_url=git_url, session=session) as env,
         ):
             if env is None:
                 raise RegistryError("No SSH key found")
-            if commit_sha is None:
-                commit_sha = await get_git_repository_sha(url, env=env)
+            if (
+                commit_sha is None
+                and git_url.ref
+                and _FULL_COMMIT_SHA.fullmatch(git_url.ref)
+            ):
+                commit_sha = git_url.ref
+            elif commit_sha is None:
+                commit_sha = await resolve_git_ref(url, ref=git_url.ref, env=env)
             await install_remote_repository(url, commit_sha=commit_sha, env=env)
         return commit_sha
 
