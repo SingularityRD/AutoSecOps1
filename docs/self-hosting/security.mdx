@@ -224,29 +224,37 @@ These limits apply only when nsjail is enabled. Without it AutoSecOps installs n
 
 ### No isolation
 
-Without nsjail, scripts, custom actions, and agents run as regular subprocesses in the executor.
+Without nsjail, scripts, custom actions, and agents run as regular subprocesses in the executor, as the same Linux user as the executor itself.
 
-This is a supported production configuration when you trust everything that runs. That means your own workflow and custom registry code, the third-party dependencies those actions install, and the agents, tools, and MCP servers you enable.
+<Warning>
+  The `direct` backend is not a security boundary between tenants or between your code and the platform. If you run custom actions, registry repositories, or agents you have not reviewed, or if several organizations share one deployment, use the nsjail backend: the [Docker Compose sandbox overlay](/self-hosting/docker-compose#start-autosecops), or the Helm chart's default with `autosecops.sandbox.disableNsjail: false`. AWS Fargate supports only the `direct` backend, so do not run such code on Fargate.
+</Warning>
 
-In `direct` mode, the executor keeps its platform credentials, such as `AUTOSECOPS__DB_URI`, `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, and `AWS_*`, away from action and registry code on Docker Compose, Kubernetes, and AWS Fargate:
+This is a supported production configuration when you trust everything that runs. That means your own workflow and custom registry code, the third-party dependencies those actions install, and the agents, tools, and MCP servers you enable. Review that code and pin those dependencies as you would any code with direct access to your systems.
 
-- Custom actions start from an allowlisted environment instead of the executor's own. To pass extra non-secret settings to actions, list them in `AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH`.
-- The executor worker runs as PID 1 and marks itself non-dumpable at startup, so action code running as the same user cannot read the worker's `/proc/<pid>/environ` or memory, or attach a debugger. Each action runner does the same, so concurrent actions cannot read each other's secrets. A side effect is that the worker writes no core dumps and you cannot attach `py-spy` or `gdb` to it without `CAP_SYS_PTRACE`.
-- Registry sync installs a repository in the executor, then imports its code in a subprocess without platform credentials or database access. `git`, `uv`, and mount helpers also run without platform credentials.
+On Docker Compose, Kubernetes, and AWS Fargate, the `direct` backend still keeps platform credentials such as `AUTOSECOPS__DB_URI`, `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, and `AWS_*` away from action and registry code:
 
-Action code still runs as the executor's user in the same container and network namespace, so treat these controls as hardening, not a sandbox:
+- Custom actions start from an allowlisted environment instead of the executor's. The executor token and tunnel proxy URL reach the action runner on its standard input, not in its environment. To pass extra non-secret settings to actions, list them in `AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH`.
+- The executor worker and the API server run as PID 1 and mark themselves non-dumpable at startup. Each action's supervisor, monitor, and runner do the same, and the supervisor and monitor close their copies of the action's input and output. Code running as the same user cannot read these processes' `/proc/<pid>/environ`, memory, or file descriptors, or attach a debugger to them. As a side effect, these processes write no core dumps, and you cannot attach `py-spy` or `gdb` to them without `CAP_SYS_PTRACE`.
+- Registry sync installs a repository into a temporary directory used by that sync alone. A subprocess without platform credentials or database access then imports the repository's code from it. `git`, `uv`, `ssh-agent`, and mount helpers also run without platform credentials, ignore per-user `git` and `uv` configuration, and resolve only from directories the platform user cannot write.
+- In release images, application code and the Python environment are owned by `root` and read-only to the platform user, and no platform process imports Python code or runs binaries from a directory that user can write.
 
-- Action code can read files the executor user can read. On EKS with IRSA, that includes the web identity token file, so action code can assume the executor's IAM role. Grant that role only the registry and attachment bucket access it needs, or use nsjail.
-- Action code can open network connections the executor can. On Fargate, the task-role credentials endpoint at `169.254.170.2` requires the per-task `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` path, which actions no longer see; the unauthenticated task metadata endpoint still answers. On EC2 hosts and EKS nodes, require IMDSv2 with a hop limit of `1` so containers cannot reach `169.254.169.254`, and block metadata addresses with a network policy.
+These controls do not stop code that runs as the executor's user from:
 
-Review that code and pin those dependencies as you would any code with direct access to your systems. Choose nsjail instead when you run code you have not reviewed, such as untrusted third-party packages or agents that generate and execute their own code.
+- Reading or changing files that user can write, which include the registry artifact cache when SquashFS mounts are off, the `core.script.run_python` dependency cache, the `uv` cache, temporary directories, and repositories installed for local-repository mode. Code in one action can change what another organization's action imports from these locations.
+- Reading files that user can read. On EKS with IRSA, that includes the web identity token file, so action code can assume the executor's IAM role.
+- Inspecting another action in the moment between its runner starting and protecting itself, or a `git`, `uv`, or registry discovery process while it runs. These processes hold no platform credentials, but a registry sync's `ssh-agent` socket and a running action's workspace secrets are reachable in those windows.
+- Opening any network connection the executor can. On Fargate, the task-role credentials endpoint at `169.254.170.2` requires the per-task `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` path, which no longer reaches action code; the task metadata endpoint still answers without it. On EC2 hosts and EKS nodes, require IMDSv2 with a hop limit of `1` so containers cannot reach `169.254.169.254`, and block metadata addresses with a network policy.
+- Reaching the `agent-executor` service's environment, which the `direct` agent runtime does not yet restrict in the same way.
+
+Credentials in an operator egress proxy URL (`http://user:password@proxy`) are removed before the URL reaches actions, registry builds, and `uv`, so use a proxy that authorizes the executor by network address.
 
 ### Choosing a backend
 
 | Backend | Isolation | Latency | Use case |
 | :------ | :-------- | :------ | :------- |
-| `direct` | Does not support sandboxing | ~50ms | Trusted code, dependencies, and agents |
-| `nsjail` (`ephemeral` alias) | nsjail sandbox (cold per action) | ~4000ms | Untrusted code, dependencies, and agents |
+| `direct` | Credential hardening only; not a tenant boundary | ~50ms | Trusted code, dependencies, and agents in a single-tenant deployment |
+| `nsjail` (`ephemeral` alias) | nsjail sandbox (cold per action) | ~4000ms | Untrusted or multi-tenant code, dependencies, and agents |
 
 ## Authentication
 
