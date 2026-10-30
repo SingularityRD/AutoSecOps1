@@ -229,6 +229,17 @@ AUTOSECOPS__WORKFLOW_PERMIT_HEARTBEAT_SECONDS = float(
 )
 """Interval in seconds between workflow permit heartbeat refreshes."""
 
+AUTOSECOPS__EXPRESSION_REGEX_TIMEOUT_SECONDS = float(
+    os.environ.get("AUTOSECOPS__EXPRESSION_REGEX_TIMEOUT_SECONDS") or 1
+)
+"""Maximum seconds one user-supplied regex in an expression may run.
+
+``FN.regex_*`` patterns run on the ``regex`` engine, which enforces this
+timeout and releases the GIL while matching, so a catastrophically
+backtracking pattern fails with an expression error instead of stalling the
+shared worker.
+"""
+
 AUTOSECOPS__PERMIT_TTL_SECONDS = int(
     os.environ.get("AUTOSECOPS__PERMIT_TTL_SECONDS") or 300
 )

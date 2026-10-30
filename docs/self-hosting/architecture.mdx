@@ -28,7 +28,7 @@ The Docker Compose stack runs 18 containers. Only `caddy` is exposed externally;
 | `temporal_ui` | 8081 (not exposed) | Temporal web UI |
 | `minio` | 9000, 9001 | S3-compatible object storage |
 | `minio-init` | — | One-shot MinIO data-volume ownership initialization |
-| `redis` | 6379 | Cache and message broker |
+| `redis` | 6379 | Cache and message broker (Valkey, Redis-compatible) |
 | `migrations` | — | One-shot database migration runner |
 
 ## Networking

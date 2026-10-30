@@ -374,6 +374,9 @@
               "self-hosting/aws-fargate",
               "self-hosting/kubernetes",
               "self-hosting/air-gapped",
+              "self-hosting/updating",
+              "self-hosting/backup-restore",
+              "self-hosting/security-patches",
               "self-hosting/temporal-retention",
               "self-hosting/architecture",
               "self-hosting/pgvector",
@@ -622,6 +625,14 @@
     {
       "source": "/automations/cases/linked-tables",
       "destination": "/automations/cases/linked-rows"
+    },
+    {
+      "source": "/agents/ai-slackbot",
+      "destination": "/agents/channels"
+    },
+    {
+      "source": "/deployment/overview",
+      "destination": "/self-hosting/docker-compose"
     }
   ],
   "logo": {
@@ -636,7 +647,7 @@
     "primary": {
       "type": "button",
       "label": "Contact sales",
-      "href": "mailto:sales@singularityrd.com"
+      "href": "mailto:info@singularityrd.com?subject=AutoSecOps%20sales"
     }
   },
   "contextual": {

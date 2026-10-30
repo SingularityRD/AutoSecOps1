@@ -247,6 +247,18 @@ See [Roles and permissions](/manage-platform/rbac) for the roles you assign to u
 
 Never run production traffic over plain HTTP. See [TLS and certificates](/self-hosting/tls) for Caddy-based automatic TLS setup, custom certificates, and trusting internal CAs.
 
+## Image signatures
+
+Each `autosecops`, `autosecops-ui`, and `autosecops-tunnel-gateway` image carries an SPDX SBOM and SLSA provenance attestation. Releases that SingularityRD signs also carry a keyless [cosign](https://docs.sigstore.dev/cosign/signing/overview/) signature from the release workflow; the release notes say when a release is signed. Verify a signed image by digest before you deploy it:
+
+```bash
+cosign verify ghcr.io/singularityrd/autosecops@sha256:<digest> \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/SingularityRD/AutoSecOps1/\.github/workflows/build-push-images\.yml@refs/tags/'
+```
+
+Log in to `ghcr.io` with your read token first. To list the SBOM and provenance, run `docker buildx imagetools inspect ghcr.io/singularityrd/autosecops@sha256:<digest> --format '{{ json .SBOM }}'` or `--format '{{ json .Provenance }}'`.
+
 ## Related pages
 
 - See [Architecture](/security/architecture) for the platform and AI agent trust model.

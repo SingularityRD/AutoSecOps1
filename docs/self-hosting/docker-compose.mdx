@@ -35,7 +35,7 @@ The `env.sh` script (below) generates these automatically. If you need to genera
 
 ## Extract configuration files
 
-Every AutoSecOps image ships the Docker Compose install files in `/opt/autosecops/install`: `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, and `env-migration.sh`.
+Every AutoSecOps image ships the Docker Compose install files in `/opt/autosecops/install`: `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, `env-migration.sh`, and the `backup_compose.sh` and `restore_compose.sh` scripts described in [Backup and restore](/self-hosting/backup-restore).
 Copy them out of the image version you deploy into an empty directory:
 
 ```bash
@@ -120,6 +120,8 @@ Once deployed, access your instance at:
   Losing these secrets will break your credentials and webhooks.
 </Warning>
 
+Read the release notes and take a backup first: run `./backup_compose.sh -o /var/backups/autosecops`, as described in [Backup and restore](/self-hosting/backup-restore). See [Updating AutoSecOps](/self-hosting/updating) for watching migrations, post-upgrade checks, and rollback.
+
 Replace `<version>` with the AutoSecOps version you are upgrading to. If `docker pull` fails with `denied` or `unauthorized`, log in again as described in [Registry access](#registry-access). The commands extract the new install files into a separate directory first, so nothing in your deployment directory changes until you copy a file over.
 
 ```bash
@@ -137,6 +139,7 @@ chmod +x env-migration.sh && ./env-migration.sh
 # 3. Back up and replace the Docker Compose files
 cp docker-compose.yml docker-compose.yml.bak
 cp autosecops-<version>/docker-compose.yml autosecops-<version>/docker-compose.sandbox.yml .
+cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh .
 
 # 4. Back up and replace the Caddyfile
 cp Caddyfile Caddyfile.bak
@@ -147,6 +150,8 @@ docker compose up -d
 ```
 
 If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to the new version before step 5.
+
+The `redis` service runs Valkey and stores its data in the `valkey-data` volume. Valkey cannot read data files written by Redis 7.4 or later, so when you upgrade from a release that ran `redis:7-alpine`, the service starts with an empty store and leaves the old `redis-data` volume untouched. Let running workflows and agent sessions finish before you upgrade, because their in-flight stream data stays in the old volume. Once the stack is healthy, you can delete the old volume with `docker volume rm <project>_redis-data`.
 
 The migration script creates a backup of your existing `.env` before rewriting it.
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.

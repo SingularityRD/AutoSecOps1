@@ -27,7 +27,7 @@ Every component except `api` and `ui` can be turned off with `<component>.enable
 - Helm 3.12+
 - `kubectl` configured for your target cluster
 - PostgreSQL 15 or newer with [pgvector](/self-hosting/pgvector) available, e.g. Amazon RDS, Cloud SQL, or [CloudNativePG](#cloudnativepg)
-- Redis 7 or newer, e.g. Amazon ElastiCache or Memorystore
+- Redis 7 or newer, or a Redis-compatible server such as Valkey, e.g. Amazon ElastiCache or Memorystore
 - S3 or S3-compatible object storage, e.g. Amazon S3 or MinIO
 - A Temporal server or Temporal Cloud namespace
 - `openssl` to generate secrets
@@ -460,6 +460,8 @@ curl http://localhost:8000/health
 <FirstSuperadmin />
 
 ## Upgrade the Helm chart
+
+Read the release notes and snapshot your database and buckets first. Migrations are forward-only, so rolling back a release that ran migrations means restoring that snapshot. See [Updating AutoSecOps](/self-hosting/updating) and [Backup and restore](/self-hosting/backup-restore#kubernetes).
 
 ```bash
 helm upgrade autosecops oci://ghcr.io/singularityrd/charts/autosecops \

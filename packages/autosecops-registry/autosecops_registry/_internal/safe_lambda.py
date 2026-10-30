@@ -12,6 +12,14 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from autosecops_registry._internal.lambda_guards import (
+    GUARD_GLOBALS,
+    check_result_size,
+    evaluation_budget,
+    guarded_range,
+    guarded_sum,
+    instrument_lambda,
+)
 from autosecops_registry._internal.jsonpath import eval_jsonpath
 
 
@@ -357,7 +365,9 @@ def _sandbox_lambda(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
                 elif isinstance(x, list):
                     x = [count_guard(item) for item in x]
 
-            result = func(x)
+            with evaluation_budget():
+                result = func(x)
+                check_result_size(result, x)
 
             if hasattr(result, "__class__"):
                 result_type = type(result)
@@ -421,6 +431,10 @@ def build_safe_lambda(lambda_expr: str) -> Callable[[Any], Any]:
         raise ValueError("Expression must be a lambda function")
 
     SafeLambdaValidator().visit(expr_ast)
+    # Route operations that can grow without bound (**, *, comprehensions,
+    # str(), growing string methods...) through step, allocation and time
+    # budgets. See lambda_guards for the design.
+    expr_ast = instrument_lambda(expr_ast)
 
     code = compile(ast.Expression(expr_ast), "<string>", "eval")
 
@@ -428,7 +442,7 @@ def build_safe_lambda(lambda_expr: str) -> Callable[[Any], Any]:
         "abs": abs,
         "min": min,
         "max": max,
-        "sum": sum,
+        "sum": guarded_sum,
         "round": round,
         "len": len,
         "int": int,
@@ -445,13 +459,14 @@ def build_safe_lambda(lambda_expr: str) -> Callable[[Any], Any]:
         "reversed": reversed,
         "enumerate": enumerate,
         "zip": zip,
-        "range": range,
+        "range": guarded_range,
         "True": True,
         "False": False,
         "None": None,
     }
 
     restricted_globals = {
+        **GUARD_GLOBALS,
         "__builtins__": safe_builtins,
         "jsonpath": eval_jsonpath,
     }

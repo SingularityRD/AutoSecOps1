@@ -1128,6 +1128,28 @@ def test_temporal_ui_image_is_pinned() -> None:
             assert re.fullmatch(r"\$\{TEMPORAL__UI_VERSION:-\d+\.\d+\.\d+\}", image)
 
 
+def test_redis_service_runs_pinned_valkey() -> None:
+    """Redis 7.4 and later are RSALv2/SSPLv1, so the stacks ship Valkey instead."""
+    pins: dict[str, str] = {}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        text = path.read_text()
+        match = re.search(
+            r"^  redis:\n    image: (?:\$\{AUTOSECOPS__REDIS_IMAGE:-)?([^}\s]+)\}?$",
+            text,
+            re.MULTILINE,
+        )
+        assert match, f"{path.name} has no redis service image"
+        image = match.group(1)
+        assert re.fullmatch(
+            r"valkey/valkey:\d+\.\d+\.\d+-alpine@sha256:[0-9a-f]{64}", image
+        ), f"{path.name}: pin redis to valkey/valkey:<x.y.z>-alpine@sha256:<digest>"
+        assert not re.search(r"^\s*-?\s*redis-data:", text, re.MULTILINE), (
+            f"{path.name}: Valkey 8 cannot load Redis 7.4+ data; keep valkey-data"
+        )
+        pins[path.name] = image
+    assert len(set(pins.values())) == 1, f"Valkey pins drifted: {pins}"
+
+
 def test_env_sh_check_refuses_placeholder_secrets(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text((REPO_ROOT / ".env.example").read_text())

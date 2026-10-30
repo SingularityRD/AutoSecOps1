@@ -889,15 +889,16 @@ services:
     attach: false
 
   redis:
-    image: redis:7-alpine
+    image: valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
     restart: unless-stopped
     ports:
       - ${REDIS_PORT_HOST:-6379}:6379
     volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
+      # Not redis-data: Valkey 8 cannot load data files written by Redis 7.4+.
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -908,5 +909,5 @@ volumes:
   temporal-db:
   containers:
   minio-data:
-  redis-data:
+  valkey-data:
   sandbox-cache:

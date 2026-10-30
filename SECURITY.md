@@ -42,7 +42,7 @@ Each ignore lives in `.trivyignore.yaml`, is scoped to the affected advisory and
 > `nsjail` is the recommended executor runtime for production deployments. We do not accept reports related to "breakout" in the `pid` runtime using the `UnsafePidExecutor`.
 > `nsjail` is enabled by default for Helm chart / Kubernetes deployments only and must be explicitly enabled in other deployment options.
 
-Report security vulnerabilities privately by email to [security@singularityrd.com](mailto:security@singularityrd.com).
+Report security vulnerabilities privately by email to [info@singularityrd.com](mailto:info@singularityrd.com?subject=Security), and put "Security" in the subject line.
 Do not open a public issue, discussion, or pull request for a security problem.
 
 Include as much of the following as you can:
@@ -65,6 +65,6 @@ As part of responsible disclosure, please give us a reasonable opportunity to fi
 
 ## Contact
 
-- Security vulnerabilities: [security@singularityrd.com](mailto:security@singularityrd.com)
-- Product support: [support@singularityrd.com](mailto:support@singularityrd.com)
+- Security vulnerabilities: [info@singularityrd.com](mailto:info@singularityrd.com?subject=Security), with "Security" in the subject
+- Product support: [info@singularityrd.com](mailto:info@singularityrd.com)
 - Documentation: [docs.singularityrd.com](https://docs.singularityrd.com)

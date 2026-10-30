@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from autosecops_ee.admin.router import router as admin_router
 from autosecops_ee.agent.approvals.router import router as approvals_router
@@ -704,11 +706,36 @@ def _users_router() -> APIRouter:
     return users_router
 
 
-def create_app(**kwargs) -> FastAPI:
-    if config.AUTOSECOPS__ALLOW_ORIGINS is not None:
-        allow_origins = config.AUTOSECOPS__ALLOW_ORIGINS.split(",")
+@dataclass(frozen=True, slots=True)
+class CORSPolicy:
+    """Origins the API answers cross-origin requests for."""
+
+    allow_origins: list[str]
+    allow_credentials: bool
+
+
+def resolve_cors_policy(allow_origins: str | None, public_app_url: str) -> CORSPolicy:
+    """Resolve the CORS policy from ``AUTOSECOPS__ALLOW_ORIGINS``.
+
+    Unset defaults to the UI's own origin. Starlette answers a wildcard with
+    credentials by echoing the caller's ``Origin``, which would let any site
+    make cookie-authenticated requests and read the responses, so a wildcard
+    never allows credentials.
+    """
+    if allow_origins is None:
+        app_url = urlsplit(public_app_url)
+        origins = [f"{app_url.scheme}://{app_url.netloc}"]
     else:
-        allow_origins = ["*"]
+        origins = [origin.strip() for origin in allow_origins.split(",")]
+        origins = [origin for origin in origins if origin]
+    return CORSPolicy(allow_origins=origins, allow_credentials="*" not in origins)
+
+
+def create_app(**kwargs) -> FastAPI:
+    cors_policy = resolve_cors_policy(
+        config.AUTOSECOPS__ALLOW_ORIGINS, config.AUTOSECOPS__PUBLIC_APP_URL
+    )
+    allow_origins = cors_policy.allow_origins
     app = FastAPI(
         title="AutoSecOps API",
         description=(
@@ -719,7 +746,7 @@ def create_app(**kwargs) -> FastAPI:
         contact={
             "name": "SingularityRD",
             "url": "https://docs.singularityrd.com",
-            "email": "support@singularityrd.com",
+            "email": "info@singularityrd.com",
         },
         license_info={
             "name": "Proprietary",
@@ -969,7 +996,7 @@ def create_app(**kwargs) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
-        allow_credentials=True,
+        allow_credentials=cors_policy.allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=[TRACE_ID_HEADER, TRACE_SAMPLED_HEADER],
