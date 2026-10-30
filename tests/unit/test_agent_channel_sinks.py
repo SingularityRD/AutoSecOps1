@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from autosecops import config
+from autosecops.agent.channels.service import AgentChannelService
 from autosecops.agent.channels.sinks.slack import SlackStreamSink
 from autosecops.agent.common.stream_types import (
     StreamEventType,
@@ -355,6 +356,24 @@ async def test_slack_stream_sink_emits_approval_cards(
         if method == "chat.postMessage"
     ]
     assert len(post_messages) == 2
+    for message, tool_call_id in zip(
+        post_messages, ["tool-call-approve-1", "tool-call-approve-2"], strict=True
+    ):
+        buttons = message["blocks"][1]["elements"]
+        assert [button["action_id"] for button in buttons] == [
+            "autosecops_approval_approve",
+            "autosecops_approval_deny",
+        ]
+        parsed = [
+            AgentChannelService.parse_slack_approval_action_token(button["value"])
+            for button in buttons
+        ]
+        assert [(p["tool_call_id"], p["action"]) for p in parsed] == [
+            (tool_call_id, "approve"),
+            (tool_call_id, "deny"),
+        ]
+        # Both cards share one batch so the run resumes once all are decided.
+        assert {p["batch_id"] for p in parsed} == {parsed[0]["batch_id"]}
 
     batch_entries = [
         json.loads(value)

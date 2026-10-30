@@ -7,7 +7,9 @@ import smtplib
 import socket
 import ssl
 from copy import deepcopy
+from datetime import UTC, datetime
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid
 from typing import Annotated, Any, Literal
 
 import nh3
@@ -95,6 +97,13 @@ def _build_email_message(
     if headers:
         for header, value in headers.items():
             msg[header] = value
+    # smtplib adds neither, and relays such as Gmail reject mail without a
+    # Message-ID. Header lookups are case-insensitive, so a caller's own
+    # value wins. The sender's domain keeps make_msgid off the host name.
+    if "Date" not in msg:
+        msg["Date"] = format_datetime(datetime.now(UTC))
+    if "Message-ID" not in msg:
+        msg["Message-ID"] = make_msgid(domain=sender.rpartition("@")[2])
     return msg
 
 

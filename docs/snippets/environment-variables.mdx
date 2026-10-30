@@ -43,6 +43,18 @@
 | `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` | | Comma-separated email domains allowed to create an account and to sign in through OIDC, e.g. `example.com,example.org`. Leave blank to allow all. SAML uses the organization's configured domains when set; without them, single-tenant deployments fall back to this list and multi-tenant deployments reject the sign-in. Membership in an organization still comes from an invitation or admin provisioning. |
 | `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` | `12` | Minimum password length for basic auth. |
 
+### Email
+
+Set every SMTP value on `api` to email organization invitations. Leave any of them blank to disable email; admins then share the invitation link themselves.
+
+| Variable | Default | Description |
+| :------- | :------ | :---------- |
+| `AUTOSECOPS__SMTP_HOST` | | SMTP relay hostname, e.g. `smtp.resend.com`. |
+| `AUTOSECOPS__SMTP_PORT` | `587` | Port `465` uses implicit TLS. Every other port requires the relay to offer STARTTLS. AutoSecOps verifies the relay's certificate against the system trust store. |
+| `AUTOSECOPS__SMTP_USER` | | SMTP username. AutoSecOps always authenticates, so the relay must accept a login. |
+| `AUTOSECOPS__SMTP_PASSWORD` | | SMTP password or API key. |
+| `AUTOSECOPS__EMAIL_FROM` | | Sender address, e.g. `AutoSecOps <no-reply@example.com>`. Use a domain the relay is allowed to send for. |
+
 ### OIDC / OAuth
 
 | Variable | Default | Description |
