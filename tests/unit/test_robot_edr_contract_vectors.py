@@ -38,12 +38,15 @@ from autosecops.robot_edr.schemas import RobotCreate, RobotKeyCreate
 from autosecops.robot_edr.service import RobotsService
 from autosecops.robot_edr.types import RobotKeyRole
 from autosecops.tiers import defaults as tier_defaults
-from tests.support.robot_keys import forget_registered_keys
+from tests.support.robot_keys import exclusive_vector_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
 VECTORS = Path(__file__).parents[1] / "data" / "robot_edr" / "ingest_vectors"
 MANIFEST: dict[str, Any] = json.loads((VECTORS / "manifest.json").read_text())
+VECTOR_PUBLIC_KEYS: list[bytes] = [
+    bytes.fromhex(entry["public_key_hex"]) for entry in MANIFEST["keys"]
+]
 
 
 @pytest.fixture(autouse=True)
@@ -87,9 +90,6 @@ async def _register_manifest_workspace(ws: Workspace) -> None:
         workspace_id=ws.id,
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,
-    )
-    await forget_registered_keys(
-        bytes.fromhex(entry["public_key_hex"]) for entry in MANIFEST["keys"]
     )
     async with get_async_session_context_manager() as session:
         service = RobotsService(session, role=role)
@@ -151,17 +151,22 @@ async def test_every_contract_vector(
     mismatches: list[str] = []
     for case in MANIFEST["cases"]:
         rate_limit._local_buckets.clear()
-        workspace = await _new_workspace(svc_organization.id)
-        try:
-            await _register_manifest_workspace(workspace)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://test"
-            ) as client:
-                for request_path in case["requests"]:
-                    if problem := await _run_request(client, request_path, monkeypatch):
-                        mismatches.append(f"{request_path}: {problem}")
-        finally:
-            await _drop_workspace(workspace)
+        # The manifest's keys are unique SOC-wide and the service database is
+        # shared by every xdist worker: hold them until the workspace is gone.
+        async with exclusive_vector_keys(VECTOR_PUBLIC_KEYS):
+            workspace = await _new_workspace(svc_organization.id)
+            try:
+                await _register_manifest_workspace(workspace)
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://test"
+                ) as client:
+                    for request_path in case["requests"]:
+                        if problem := await _run_request(
+                            client, request_path, monkeypatch
+                        ):
+                            mismatches.append(f"{request_path}: {problem}")
+            finally:
+                await _drop_workspace(workspace)
     assert not mismatches, "\n".join(mismatches)
     assert len(MANIFEST["cases"]) >= 26
 

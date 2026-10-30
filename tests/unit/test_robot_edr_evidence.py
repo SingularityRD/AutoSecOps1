@@ -49,7 +49,7 @@ from autosecops.storage import blob
 from autosecops.storage.exceptions import FileNameError
 from autosecops.tiers import defaults as tier_defaults
 from tests._route_utils import iter_effective_api_routes
-from tests.support.robot_keys import forget_registered_keys
+from tests.support.robot_keys import exclusive_vector_keys
 
 pytestmark = [pytest.mark.usefixtures("db"), pytest.mark.anyio]
 
@@ -154,24 +154,30 @@ async def workspace(svc_organization: Organization) -> AsyncGenerator[Workspace,
         name=f"evidence-{uuid.uuid4().hex[:8]}",
         organization_id=svc_organization.id,
     )
-    await forget_registered_keys([bytes.fromhex(FINDING_KEY["public_hex"])])
-    async with get_async_session_context_manager() as session:
-        session.add(ws)
-        await session.commit()
-        robots = RobotsService(session, role=_role(ws))
-        await robots.create_robot(RobotCreate(robot_id=ROBOT_ID))
-        await robots.create_key(
-            RobotKeyCreate(
-                role=RobotKeyRole.FINDING,
-                robot_id=ROBOT_ID,
-                public_key=FINDING_KEY["public_hex"],
-                key_id=FINDING_KEY["key_id"],
+    # The fixed vector keys are unique SOC-wide and the service database is
+    # shared by every xdist worker: hold them until the workspace is gone.
+    async with exclusive_vector_keys(
+        [bytes.fromhex(FINDING_KEY["public_hex"]), TEST_FINDING_PUBLIC]
+    ):
+        async with get_async_session_context_manager() as session:
+            session.add(ws)
+            await session.commit()
+            robots = RobotsService(session, role=_role(ws))
+            await robots.create_robot(RobotCreate(robot_id=ROBOT_ID))
+            await robots.create_key(
+                RobotKeyCreate(
+                    role=RobotKeyRole.FINDING,
+                    robot_id=ROBOT_ID,
+                    public_key=FINDING_KEY["public_hex"],
+                    key_id=FINDING_KEY["key_id"],
+                )
             )
-        )
-    yield ws
-    async with get_async_session_context_manager() as session:
-        await session.execute(delete(Workspace).where(Workspace.id == ws.id))
-        await session.commit()
+        try:
+            yield ws
+        finally:
+            async with get_async_session_context_manager() as session:
+                await session.execute(delete(Workspace).where(Workspace.id == ws.id))
+                await session.commit()
 
 
 @pytest.fixture
@@ -601,6 +607,7 @@ from autosecops.robot_edr.evidence_storage import EVIDENCE_OBJECTS  # noqa: E402
 from autosecops.storage.exceptions import FileContentMismatchError  # noqa: E402
 
 TEST_FINDING_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+TEST_FINDING_PUBLIC = TEST_FINDING_KEY.public_key().public_bytes_raw()
 TEST_FINDING_KEY_ID = "finding:ugv-007:test"
 
 
@@ -765,8 +772,8 @@ def _signed(manifest: dict[str, Any]) -> tuple[str, str]:
 
 @pytest.fixture
 async def test_finding_key(workspace: Workspace) -> None:
-    public = TEST_FINDING_KEY.public_key().public_bytes_raw().hex()
-    await forget_registered_keys([bytes.fromhex(public)])
+    # Forgotten by `workspace`, which holds the vector-key lock meanwhile.
+    public = TEST_FINDING_PUBLIC.hex()
     async with get_async_session_context_manager() as session:
         await RobotsService(session, role=_role(workspace)).create_key(
             RobotKeyCreate(

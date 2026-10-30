@@ -537,8 +537,15 @@ def test_case_description_neutralises_hostile_display() -> None:
 # M2: catalog constants are exact (robodr.findings §3, consumer parsing rules)
 # --------------------------------------------------------------------------- #
 
+
+def _default_robodr_source() -> Path:
+    """A RoboDR checkout next to this repository (or next to its worktree dir)."""
+    candidates = [parent / "robodr" for parent in Path(__file__).resolve().parents[3:5]]
+    return next((c for c in candidates if c.is_dir()), candidates[0])
+
+
 ROBODR_SOURCE_DIR = Path(
-    os.environ.get("ROBODR_SOURCE_DIR", Path(__file__).resolve().parents[3] / "robodr")
+    os.environ.get("ROBODR_SOURCE_DIR") or _default_robodr_source()
 )
 BUILDER_RS = ROBODR_SOURCE_DIR / "crates" / "robodr-ocsf" / "src" / "builder.rs"
 
@@ -1216,9 +1223,9 @@ def test_markdown_mode_labels_the_span_with_the_field() -> None:
 )
 def test_python_2_3_catalog_matches_rust_source() -> None:
     # Per block: RoboDR adds each 2.3 feature as its own `catalog_2_3_*`
-    # function, and a RoboDR branch may carry only some of them (the Unitree
-    # block lives on its own branch until merged). Every block the source
-    # defines must match; a block the source lacks is not checked.
+    # function chained into `catalog_2_3`. The blocks here must be exactly
+    # the ones RoboDR chains (a new RoboDR block, such as a depot block, is
+    # added to CATALOG_2_3_BLOCKS with it) and match byte for byte.
     source = BUILDER_RS.read_text(encoding="utf-8")
     rust = _rust_catalog(source)
     if "fn catalog_2_3(" not in source:
@@ -1227,9 +1234,6 @@ def test_python_2_3_catalog_matches_rust_source() -> None:
     chained = re.search(r"fn catalog_2_3\(rule: &str\)[^{]*\{(.*?)\n\}", source, re.S)
     assert chained is not None
     rust_blocks = re.findall(r"(catalog_2_3_\w+)\(rule\)", chained.group(1))
-    # Every block the Rust catalog chains is known here (a new RoboDR block
-    # must be added to CATALOG_2_3_BLOCKS) ...
-    assert set(rust_blocks) <= set(catalog.CATALOG_2_3_BLOCKS), rust_blocks
-    # ... and matches byte for byte.
+    assert sorted(rust_blocks) == sorted(catalog.CATALOG_2_3_BLOCKS), rust_blocks
     for fn in rust_blocks:
         assert rust[fn] == catalog.CATALOG_2_3_BLOCKS[fn], fn
