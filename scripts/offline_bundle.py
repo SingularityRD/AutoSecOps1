@@ -100,9 +100,10 @@ THIRD_PARTY_LICENSES: dict[str, UpstreamLicense] = {
     "cgr.dev/chainguard/minio": UpstreamLicense(
         "AGPL-3.0", "https://github.com/minio/minio"
     ),
-    "redis": UpstreamLicense(
-        "RSALv2 or SSPLv1 (Redis 7.4 and later); BSD-3-Clause (Redis 7.2 and earlier)",
-        "https://github.com/redis/redis",
+    # Valkey, not Redis: Redis 7.4 and later are RSALv2/SSPLv1, which the bundle
+    # must not redistribute. Without a `redis` entry the bundler refuses one.
+    "valkey/valkey": UpstreamLicense(
+        "BSD-3-Clause", "https://github.com/valkey-io/valkey"
     ),
 }
 
@@ -708,7 +709,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--image",
         action="append",
         default=[],
-        help="Bundle only this image name (repeatable), e.g. redis",
+        help="Bundle only this image name (repeatable), e.g. valkey/valkey",
     )
     parser.add_argument(
         "--dry-run",

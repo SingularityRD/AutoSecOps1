@@ -776,7 +776,7 @@ services:
       retries: 5
 
   redis:
-    image: ${AUTOSECOPS__REDIS_IMAGE:-redis:7-alpine}
+    image: ${AUTOSECOPS__REDIS_IMAGE:-valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507}
     container_name: redis
     restart: unless-stopped
     networks:
@@ -784,7 +784,10 @@ services:
     # ports:
     #   - 6379:6379
     volumes:
-      - redis-data:/data
+      # Not redis-data: Valkey 8 cannot load data files written by Redis 7.4+.
+      - valkey-data:/data
+    # The redis-* names run in Valkey (compatibility links) and in Redis images
+    # selected through AUTOSECOPS__REDIS_IMAGE.
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -796,7 +799,7 @@ volumes:
   core-db:
   temporal-db:
   minio-data:
-  redis-data:
+  valkey-data:
   sandbox-cache:
 
 networks:

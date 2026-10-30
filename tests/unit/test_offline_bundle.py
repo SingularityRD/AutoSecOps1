@@ -143,11 +143,36 @@ def test_bundle_images_follow_compose_overrides() -> None:
         str(image.source)
         for image in bundler.bundle_images(
             __version__,
-            env={"AUTOSECOPS__REDIS_IMAGE": "mirror.example.internal/redis:7.2"},
+            env={
+                "AUTOSECOPS__REDIS_IMAGE": "mirror.example.internal/valkey/valkey:8.1"
+            },
         )
     }
-    assert "mirror.example.internal/redis:7.2" in refs
-    assert "redis:7-alpine" not in refs
+    assert "mirror.example.internal/valkey/valkey:8.1" in refs
+    assert not any(ref.startswith("valkey/valkey:") for ref in refs)
+
+
+def test_bundle_ships_valkey_under_the_redis_settings() -> None:
+    """The `redis` service runs Valkey (BSD-3-Clause), pinned by digest."""
+    by_name = {image.source.name: image for image in bundler.bundle_images(__version__)}
+    valkey = by_name["valkey/valkey"]
+    assert (valkey.compose_var, valkey.compose_kind) == (
+        "AUTOSECOPS__REDIS_IMAGE",
+        "full",
+    )
+    assert valkey.source.tag is not None and valkey.source.digest is not None
+    license_entry = bundler.upstream_license(valkey.source)
+    assert license_entry is not None
+    assert license_entry.license == "BSD-3-Clause"
+
+
+@pytest.mark.parametrize(
+    "image", ["redis:7-alpine", "mirror.example.internal/redis:7.4"]
+)
+def test_bundler_refuses_redis_images(image: str) -> None:
+    """Redis 7.4 and later are RSALv2/SSPLv1; the bundle must not carry them."""
+    with pytest.raises(bundler.BundleError, match="No license entry"):
+        bundler.bundle_images(__version__, env={"AUTOSECOPS__REDIS_IMAGE": image})
 
 
 def test_third_party_images_need_a_license_entry(tmp_path: Path) -> None:
