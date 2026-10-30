@@ -117,6 +117,7 @@ POST_RLS_WORKSPACE_SCOPED_TABLES = (
     "robot_fleet_trust_root",
     "agent_session_command",
     "workspace_sync_operation",
+    "case_search_word",
 )
 
 POST_RLS_ORG_SCOPED_TABLES = (
