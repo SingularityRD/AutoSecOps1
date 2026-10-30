@@ -20,7 +20,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from tests.database import TEST_DB_CONFIG
 from autosecops.auth.types import Role
 from autosecops.auth.users import UserManager
 from autosecops.authz.scopes import ORG_ADMIN_SCOPES
@@ -40,6 +39,7 @@ from autosecops.mcp.oidc.schemas import (
 )
 from autosecops.organization.management import delete_organization_with_cleanup
 from autosecops.organization.service import OrgService
+from tests.database import TEST_DB_CONFIG
 
 CLIENT_ID = "revocation-test-client"
 
