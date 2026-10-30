@@ -3491,3 +3491,24 @@ def test_motion_adapter_refusals_are_explained_with_a_hint(
     assert hint in outcome["refusal_hint"]
     assert outcome["report"].startswith("Not applied: refused by the robot")
     assert outcome["new_request_id_required"] is False
+
+
+@pytest.mark.anyio
+async def test_an_agentd_without_approved_by_says_how_to_upgrade(
+    stub, platform
+) -> None:
+    # An agentd older than the motion adapters revision refuses the field.
+    robot, base_url = stub
+
+    def reply(record: dict[str, Any]) -> Reply | None:
+        if record["method"] != "POST":
+            return None
+        error = {"code": "unknown_field", "message": "unknown field approved_by"}
+        return 400, {}, json.dumps({"error": error}).encode()
+
+    robot.evidence_for = reply
+    with soc_secrets(), pytest.raises(cp.RobotHTTPError) as raised:
+        await _send(base_url, platform, "robot_safe_pause", approvers=(LEAD_B, LEAD_C))
+    assert raised.value.code == "unknown_field"
+    assert "approved_by" in str(raised.value)
+    assert "upgrade" in str(raised.value)

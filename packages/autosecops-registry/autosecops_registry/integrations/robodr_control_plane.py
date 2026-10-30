@@ -1377,6 +1377,17 @@ ERROR_EXPLANATIONS: dict[str, str] = {
     "evidence_gap": "the selection spans a gap in the robot's black box",
     "evidence_mismatch": "the evidence links do not match the robot's records",
     "answer_signing_failed": "the robot could not sign its answer; nothing in it is used",
+    "unknown_field": (
+        "the robot refused a body field it does not know; nothing was judged. "
+        "An agentd older than the motion adapters revision does not take "
+        "approved_by, which AutoSecOps sends for safe_pause, "
+        "request_safe_state, rollback_config and their reverts: upgrade the "
+        "robot's executor, then its agentd"
+    ),
+    "invalid_field": (
+        "the robot refused a body field (reason, requested_by, source or "
+        "approved_by) as malformed; nothing was judged"
+    ),
 }
 """What each robot error code means for the person running the action (§7)."""
 
