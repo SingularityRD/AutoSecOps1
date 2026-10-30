@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: caddy:2.10.2-alpine
+    image: ${AUTOSECOPS__CADDY_IMAGE:-caddy:2.10.2-alpine}
     container_name: caddy
     restart: unless-stopped
     networks:
@@ -15,7 +15,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
 
   api:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     container_name: api
     restart: unless-stopped
     networks:
@@ -127,7 +127,7 @@ services:
       start_period: 10s
 
   worker:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
     networks:
       - core
@@ -210,7 +210,7 @@ services:
         condition: service_healthy
 
   executor:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
 
     # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
@@ -273,6 +273,8 @@ services:
       AUTOSECOPS__SANDBOX_ROOTFS_PATH: /var/lib/autosecops/sandbox-rootfs
       AUTOSECOPS__SANDBOX_CACHE_DIR: /var/lib/autosecops/sandbox-cache
       AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT: ${AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT:-120}
+      AUTOSECOPS__SANDBOX_PYPI_INDEX_URL: ${AUTOSECOPS__SANDBOX_PYPI_INDEX_URL:-}
+      AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS: ${AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS:-}
       AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS: ${AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_CIDRS:-}
       AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS: ${AUTOSECOPS__SANDBOX_INSTALL_ALLOWED_EGRESS_TCP_PORTS:-80,443}
       AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS: ${AUTOSECOPS__SANDBOX_REGISTRY_ALLOWED_EGRESS_CIDRS:-}
@@ -329,7 +331,7 @@ services:
         condition: service_healthy
 
   agent-worker:
-      image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+      image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
       restart: unless-stopped
       networks:
         - core
@@ -414,7 +416,7 @@ services:
           condition: service_healthy
 
   litellm:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     restart: unless-stopped
     networks:
       - core
@@ -449,7 +451,7 @@ services:
       start_period: 10s
 
   agent-executor:
-      image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+      image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
       restart: unless-stopped
 
       # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
@@ -574,7 +576,7 @@ services:
           condition: service_healthy
 
   mcp:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     restart: on-failure:3
     networks:
       - core
@@ -634,7 +636,7 @@ services:
         condition: service_healthy
 
   ui:
-    image: ghcr.io/singularityrd/autosecops-ui:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__UI_IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops-ui}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     container_name: ui
     restart: unless-stopped
     networks:
@@ -672,7 +674,7 @@ services:
       start_period: 180s
 
   migrations:
-    image: ghcr.io/singularityrd/autosecops:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
+    image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
     container_name: migrations
     restart: "no"
     networks:
@@ -691,7 +693,7 @@ services:
         condition: service_healthy
 
   temporal_postgres_db:
-    image: postgres:13
+    image: ${TEMPORAL__POSTGRES_IMAGE:-postgres:13}
     container_name: temporal_postgres_db
     restart: unless-stopped
     networks:
@@ -703,7 +705,7 @@ services:
       - temporal-db:/var/lib/postgresql/data
 
   temporal:
-    image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.27.1}
+    image: ${TEMPORAL__IMAGE_REPOSITORY:-temporalio/auto-setup}:${TEMPORAL__VERSION:-1.27.1}
     container_name: temporal
     restart: unless-stopped
     networks:
@@ -729,7 +731,7 @@ services:
       - temporal_postgres_db
 
   temporal_ui:
-    image: temporalio/ui:${TEMPORAL__UI_VERSION:-2.43.3}
+    image: ${TEMPORAL__UI_IMAGE_REPOSITORY:-temporalio/ui}:${TEMPORAL__UI_VERSION:-2.43.3}
     container_name: temporal_ui
     restart: unless-stopped
     networks:
@@ -744,7 +746,7 @@ services:
       - temporal
 
   minio-init:
-    image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    image: ${AUTOSECOPS__MINIO_IMAGE:-cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b}
     user: "0:0"
     entrypoint: ["chown", "-R", "65532:65532", "/data"]
     volumes:
@@ -753,7 +755,7 @@ services:
     restart: "no"
 
   minio:
-    image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    image: ${AUTOSECOPS__MINIO_IMAGE:-cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b}
     container_name: minio
     restart: unless-stopped
     networks:
@@ -774,7 +776,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: ${AUTOSECOPS__REDIS_IMAGE:-redis:7-alpine}
     container_name: redis
     restart: unless-stopped
     networks:

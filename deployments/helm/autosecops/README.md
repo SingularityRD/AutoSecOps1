@@ -33,9 +33,18 @@ helm install autosecops oci://ghcr.io/singularityrd/charts/autosecops \
   --wait --timeout 15m
 ```
 
-Pulling anonymously requires the `charts/autosecops` GHCR package to be public.
-For a private package, run `helm registry login ghcr.io` first with a token
-that has `read:packages`.
+The chart and images are private GHCR packages. SingularityRD grants each
+customer's GitHub account Read access. Log in with a personal access token
+(classic) that has only `read:packages`, then reference a `docker-registry`
+Secret in `imagePullSecrets` (and in `tunnels.gateway.imagePullSecrets` in
+`tunnels.namespace` when tunnels are enabled):
+
+```bash
+echo "<read-packages-token>" | helm registry login ghcr.io --username <github-username> --password-stdin
+kubectl -n autosecops create secret docker-registry ghcr-pull \
+  --docker-server=ghcr.io --docker-username=<github-username> \
+  --docker-password="<read-packages-token>"
+```
 
 To install from a checkout of this repository instead, check out the release
 tag and replace the OCI reference with `deployments/helm/autosecops` (drop

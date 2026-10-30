@@ -26,8 +26,15 @@ from autosecops.db.models import (
     Tier,
     Workspace,
 )
-from autosecops.exceptions import EntitlementRequired
+from autosecops.exceptions import EntitlementRequired, LicenseLimitExceeded
 from autosecops.identifiers.workflow import WorkspaceUUID
+from autosecops.licensing import enforcement
+from autosecops.licensing.types import (
+    LicenseLimitName,
+    LicenseLimits,
+    LicenseState,
+    LicenseStatus,
+)
 from autosecops.tiers import defaults as tier_defaults
 from autosecops.tiers.enums import Entitlement
 from autosecops.workspaces.schemas import WorkspaceUpdate
@@ -379,3 +386,42 @@ async def test_concurrent_default_workspace_bootstrap_is_idempotent(
 
     assert results == [None, None]
     assert await workspace_db.count_workspaces(organization_id) == 1
+
+
+@pytest.mark.anyio
+async def test_single_tenant_license_workspace_limit_blocks_creation(
+    workspace_db: WorkspaceDatabase,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A licensed max_workspaces blocks new workspaces and keeps existing ones."""
+    monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", False)
+    monkeypatch.setattr(
+        tier_defaults,
+        "DEFAULT_ENTITLEMENTS",
+        tier_defaults.BASELINE_ENTITLEMENTS.model_copy(
+            update={"multi_workspace": True}
+        ),
+    )
+    monkeypatch.setattr(
+        enforcement,
+        "get_license_state",
+        lambda log: LicenseState(
+            status=LicenseStatus.VALID, limits=LicenseLimits(max_workspaces=2)
+        ),
+    )
+    organization_id = await workspace_db.create_organization()
+
+    async def count_org_workspaces(_session: object) -> int:
+        # Other tests commit workspaces in parallel; count this organization only.
+        return await workspace_db.count_workspaces(organization_id)
+
+    monkeypatch.setattr(enforcement, "count_workspaces", count_org_workspaces)
+
+    await _create_workspace(workspace_db, organization_id, "first")
+    await _create_workspace(workspace_db, organization_id, "second")
+    with pytest.raises(LicenseLimitExceeded) as exc_info:
+        await _create_workspace(workspace_db, organization_id, "third")
+
+    assert exc_info.value.limit == LicenseLimitName.MAX_WORKSPACES
+    assert (exc_info.value.current, exc_info.value.maximum) == (2, 2)
+    assert await workspace_db.count_workspaces(organization_id) == 2

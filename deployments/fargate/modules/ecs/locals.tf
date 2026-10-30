@@ -217,6 +217,8 @@ locals {
         AUTOSECOPS__SANDBOX_NSJAIL_PATH                = "/usr/local/bin/nsjail"
         AUTOSECOPS__SANDBOX_ROOTFS_PATH                = "/var/lib/autosecops/sandbox-rootfs"
         AUTOSECOPS__SANDBOX_CACHE_DIR                  = "/var/lib/autosecops/sandbox-cache"
+        AUTOSECOPS__SANDBOX_PYPI_INDEX_URL             = var.sandbox_pypi_index_url
+        AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS      = var.sandbox_pypi_extra_index_urls
       }
     ) :
     { name = k, value = tostring(v) } if v != null

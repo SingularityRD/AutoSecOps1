@@ -810,10 +810,14 @@ if (
 ):
     raise ValueError("AUTOSECOPS__SANDBOX_ADDRESS_SPACE_MB must be positive")
 
-AUTOSECOPS__SANDBOX_PYPI_INDEX_URL = os.environ.get(
-    "AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "https://pypi.org/simple"
+AUTOSECOPS__SANDBOX_PYPI_INDEX_URL = (
+    os.environ.get("AUTOSECOPS__SANDBOX_PYPI_INDEX_URL", "").strip()
+    or "https://pypi.org/simple"
 )
-"""Primary PyPI index URL for package installation. Supports private mirrors and air-gapped deployments."""
+"""Primary PyPI index URL for package installation. Supports private mirrors and air-gapped deployments.
+
+Blank means unset, so deployments can forward an empty override and keep PyPI.
+"""
 
 AUTOSECOPS__SANDBOX_PYPI_EXTRA_INDEX_URLS = [
     url.strip()

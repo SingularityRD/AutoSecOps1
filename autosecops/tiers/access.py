@@ -11,6 +11,7 @@ from autosecops.db.engine import SupportsExecute
 from autosecops.db.models import OrganizationTier, Tier
 from autosecops.exceptions import EntitlementRequired
 from autosecops.identifiers import OrganizationID
+from autosecops.licensing.service import ensure_license_deployment_loaded
 from autosecops.tiers import defaults as tier_defaults
 from autosecops.tiers.enums import Entitlement
 from autosecops.tiers.exceptions import DefaultTierNotConfiguredError
@@ -56,6 +57,7 @@ async def is_org_entitled(
 ) -> bool:
     """Check if an organization has a specific entitlement."""
     if not config.AUTOSECOPS__EE_MULTI_TENANT:
+        await ensure_license_deployment_loaded()
         # Single-tenant mode: free baseline plus signed-license entitlements
         # instead of DB tiers. getattr maps the enum value to its schema field.
         return bool(
