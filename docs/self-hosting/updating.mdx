@@ -103,7 +103,7 @@ Each applied revision logs one `Running upgrade <from> -> <to>` line. To read th
 docker compose exec postgres_db sh -c 'psql -U "$POSTGRES_USER" -d postgres -XAt -c "select version_num from alembic_version"'
 ```
 
-A failed migration leaves the API stopped and logs the error. PostgreSQL rolls back the failed revision, `alembic_version` keeps the last revision that committed, and the next run continues from there. Send the migration log to [support@singularityrd.com](mailto:support@singularityrd.com), or roll back as described below.
+A failed migration leaves the API stopped and logs the error. PostgreSQL rolls back the failed revision, `alembic_version` keeps the last revision that committed, and the next run continues from there. Send the migration log to [info@singularityrd.com](mailto:info@singularityrd.com), or roll back as described below.
 
 ## Check the upgrade
 
