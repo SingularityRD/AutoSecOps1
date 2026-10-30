@@ -10,6 +10,7 @@ from temporalio import activity
 from autosecops.agent.catalog.service import AgentCatalogService
 from autosecops.agent.error_policy import (
     agent_preparation_failed,
+    ambiguous_agent_model,
     invalid_agent_configuration,
 )
 from autosecops.agent.gateway_providers import (
@@ -30,6 +31,7 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentCatalog
 from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
     AutoSecOpsAuthorizationError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
@@ -149,13 +151,13 @@ class CustomModelProviderConfigResult(BaseModel):
     model_name: str | None = None
     base_url: str
     passthrough: bool = False
-    catalog_id: uuid.UUID | None = None
+    catalog_id: uuid.UUID | None = Field(default=None)
 
 
 @activity.defn
 async def resolve_custom_model_provider_config_activity(
     role: Role | dict[str, object],
-    catalog_id: uuid.UUID | None = None,
+    catalog_id: uuid.UUID | str | None = None,
     use_workspace_credentials: bool = False,  # noqa: ARG001 - signature compatibility
     model_provider: str = CUSTOM_MODEL_PROVIDER_SLUG,
     model_name: str | None = None,
@@ -169,18 +171,26 @@ async def resolve_custom_model_provider_config_activity(
        row belongs to ``model_provider`` and resolve credentials through the
        catalog credential loader. That keeps org/workspace model-access checks
        and provider config decryption centralized.
-    2. **Legacy.** When ``catalog_id`` is ``None`` (pre-v2 workflow history
-       replay or DSL AI actions that don't carry a catalog_id yet), resolve
-       workspace-scoped ``agent-{model_provider}-credentials``. Without them,
-       ``model_name`` resolves to the enabled catalog row for
-       ``(model_provider, model_name)``, returned as ``catalog_id`` so the
-       LLM gateway loads the same credentials.
+    2. **No catalog id.** When ``catalog_id`` is ``None`` (pre-v2 workflow
+       history replay, or configs that name a model without a catalog id),
+       workspace-scoped ``agent-{model_provider}-credentials`` win when they
+       exist. Otherwise ``model_name`` resolves to the single catalog row
+       enabled for this workspace that matches ``(model_provider,
+       model_name)``, such as a model from an Ollama or custom source
+       configured in organization settings. The resolved id is returned so
+       the workflow binds the LLM gateway to the same row's credentials.
+       Several matching org-owned rows fail the run instead of guessing.
 
     ``catalog_id`` remains nullable for legacy no-catalog executions.
     ``use_workspace_credentials`` is retained for activity signature
     compatibility with workflow code that scheduled the third argument before
     the catalog cutover; credential scope is now resolved by catalog id or the
     legacy runtime provider lookup.
+
+    Temporal only applies argument type hints when the scheduled argument
+    count matches this signature. Workflow code that schedules four arguments
+    (histories recorded before ``model_name`` was added) therefore delivers
+    ``role`` as a dict and ``catalog_id`` as a string, so both are coerced.
     """
     activity.logger.info(
         "Resolving gateway provider config", extra={"provider": model_provider}
@@ -193,17 +203,45 @@ async def resolve_custom_model_provider_config_activity(
         raise_application_error_from_classification(invalid_agent_configuration())
 
     role = role if isinstance(role, Role) else Role.model_validate(role)
+    try:
+        resolved_catalog_id = _coerce_catalog_id(catalog_id)
+    except ValueError as exc:
+        raise_application_error_from_classification(invalid_agent_configuration(exc))
     async with AgentManagementService.with_session(role) as svc:
         try:
-            if catalog_id is None and model_name:
-                catalog_id = await _resolve_catalog_id_by_model_name(
-                    svc, model_provider=model_provider, model_name=model_name
+            if resolved_catalog_id is not None:
+                creds = await _load_custom_model_provider_creds(
+                    svc,
+                    catalog_id=resolved_catalog_id,
+                    model_provider=model_provider,
                 )
-            creds = await _load_custom_model_provider_creds(
-                svc,
-                catalog_id=catalog_id,
-                model_provider=model_provider,
+            else:
+                creds = await svc.get_workspace_provider_credentials(model_provider)
+                if creds is None and model_name:
+                    resolved_catalog_id = await AgentCatalogService(
+                        session=svc.session
+                    ).resolve_runtime_catalog_id_by_model(
+                        org_id=svc.organization_id,
+                        model_provider=model_provider,
+                        model_name=model_name,
+                        workspace_id=svc.role.workspace_id,
+                    )
+                    if resolved_catalog_id is not None:
+                        activity.logger.info(
+                            "Resolved gateway provider catalog model by name",
+                            extra={"provider": model_provider},
+                        )
+                        creds = await _load_custom_model_provider_creds(
+                            svc,
+                            catalog_id=resolved_catalog_id,
+                            model_provider=model_provider,
+                        )
+        except AgentCatalogModelAmbiguousError as exc:
+            activity.logger.error(
+                "Several enabled catalog models match the gateway provider model",
+                extra={"provider": model_provider},
             )
+            raise_application_error_from_classification(ambiguous_agent_model(exc))
         except AutoSecOpsAuthorizationError as exc:
             raise_application_error_from_classification(
                 invalid_agent_configuration(exc)
@@ -212,7 +250,11 @@ async def resolve_custom_model_provider_config_activity(
     if creds is None:
         activity.logger.error(
             "Gateway provider credentials not found",
-            extra={"provider": model_provider},
+            extra={
+                "provider": model_provider,
+                "has_catalog_id": resolved_catalog_id is not None,
+                "has_model_name": bool(model_name),
+            },
         )
         raise_application_error_from_classification(invalid_agent_configuration())
     runtime = resolve_gateway_provider_config(model_provider, creds)
@@ -240,32 +282,15 @@ async def resolve_custom_model_provider_config_activity(
         base_url=runtime.base_url,
         model_name=runtime.model_name,
         passthrough=runtime.passthrough,
-        catalog_id=catalog_id,
+        catalog_id=resolved_catalog_id,
     )
 
 
-async def _resolve_catalog_id_by_model_name(
-    svc: AgentManagementService,
-    *,
-    model_provider: str,
-    model_name: str,
-) -> uuid.UUID | None:
-    """Resolve a catalog row for a config that names a model but no catalog id.
-
-    Workspace-scoped provider credentials keep precedence, so this returns
-    ``None`` when they exist and the legacy path still uses them. Otherwise
-    it returns the catalog row enabled for this workspace that matches
-    ``(model_provider, model_name)``, such as a model from an Ollama or
-    custom source configured in organization settings.
-    """
-    if await svc.get_workspace_provider_credentials(model_provider) is not None:
-        return None
-    return await AgentCatalogService(session=svc.session).resolve_catalog_id_by_model(
-        org_id=svc.organization_id,
-        model_provider=model_provider,
-        model_name=model_name,
-        workspace_id=svc.role.workspace_id,
-    )
+def _coerce_catalog_id(catalog_id: uuid.UUID | str | None) -> uuid.UUID | None:
+    """Normalize a catalog id that may arrive untyped from Temporal."""
+    if catalog_id is None or isinstance(catalog_id, uuid.UUID):
+        return catalog_id
+    return uuid.UUID(catalog_id)
 
 
 async def _load_custom_model_provider_creds(

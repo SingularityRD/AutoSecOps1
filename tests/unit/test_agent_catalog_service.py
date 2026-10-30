@@ -28,7 +28,11 @@ from autosecops.db.models import (
     AgentModelAccess,
     Organization,
 )
-from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
+from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
+)
 from autosecops.pagination import CursorPaginationParams
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -800,6 +804,168 @@ async def test_resolve_catalog_id_by_model_multiple_rows_best_effort(
         model_name="shared-model",
     )
     assert again == resolved
+
+
+@pytest.mark.anyio
+async def test_resolve_runtime_catalog_id_by_model_returns_single_custom_row(
+    session: AsyncSession,
+    svc_organization: Organization,
+    svc_workspace,
+) -> None:
+    service = AgentCatalogService(session=session)
+    provider = await _custom_provider(session, svc_organization.id, "Local Ollama")
+    row = _catalog(
+        svc_organization.id,
+        "custom-model-provider",
+        "llama3",
+        custom_provider_id=provider.id,
+    )
+    session.add(row)
+    await session.flush()
+    session.add(_enable(org_id=svc_organization.id, catalog_id=row.id))
+    await session.commit()
+
+    resolved = await service.resolve_runtime_catalog_id_by_model(
+        org_id=svc_organization.id,
+        model_provider="custom-model-provider",
+        model_name="llama3",
+        workspace_id=svc_workspace.id,
+    )
+
+    assert resolved == row.id
+
+
+@pytest.mark.anyio
+async def test_resolve_runtime_catalog_id_by_model_prefers_org_over_platform(
+    session: AsyncSession,
+    svc_organization: Organization,
+) -> None:
+    service = AgentCatalogService(session=session)
+    platform_row = _catalog(None)
+    org_row = _catalog(svc_organization.id)
+    session.add_all([platform_row, org_row])
+    await session.flush()
+    session.add_all(
+        [
+            _enable(org_id=svc_organization.id, catalog_id=platform_row.id),
+            _enable(org_id=svc_organization.id, catalog_id=org_row.id),
+        ]
+    )
+    await session.commit()
+
+    resolved = await service.resolve_runtime_catalog_id_by_model(
+        org_id=svc_organization.id,
+        model_provider="anthropic",
+        model_name="claude-opus-4-8",
+    )
+
+    assert resolved == org_row.id
+
+
+@pytest.mark.anyio
+async def test_resolve_runtime_catalog_id_by_model_falls_back_to_platform(
+    session: AsyncSession,
+    svc_organization: Organization,
+) -> None:
+    service = AgentCatalogService(session=session)
+    platform_row = _catalog(None, "openai", "gpt-4.1")
+    session.add(platform_row)
+    await session.flush()
+    session.add(_enable(org_id=svc_organization.id, catalog_id=platform_row.id))
+    await session.commit()
+
+    resolved = await service.resolve_runtime_catalog_id_by_model(
+        org_id=svc_organization.id,
+        model_provider="openai",
+        model_name="gpt-4.1",
+    )
+
+    assert resolved == platform_row.id
+
+
+@pytest.mark.anyio
+async def test_resolve_runtime_catalog_id_by_model_ignores_rows_not_enabled_here(
+    session: AsyncSession,
+    svc_organization: Organization,
+    svc_workspace,
+) -> None:
+    """Workspace enablement and org ownership both gate the lookup."""
+    service = AgentCatalogService(session=session)
+    other_org = await _other_org(session)
+    other_provider = await _custom_provider(session, other_org.id, "Other org")
+    other_org_row = _catalog(
+        other_org.id,
+        "custom-model-provider",
+        "llama3",
+        custom_provider_id=other_provider.id,
+    )
+    provider = await _custom_provider(session, svc_organization.id, "Local")
+    hidden_row = _catalog(
+        svc_organization.id,
+        "custom-model-provider",
+        "llama3",
+        custom_provider_id=provider.id,
+    )
+    visible_row = _catalog(svc_organization.id, "openai", "gpt-4.1")
+    session.add_all([other_org_row, hidden_row, visible_row])
+    await session.flush()
+    session.add_all(
+        [
+            _enable(org_id=other_org.id, catalog_id=other_org_row.id),
+            _enable(org_id=svc_organization.id, catalog_id=hidden_row.id),
+            _enable(org_id=svc_organization.id, catalog_id=visible_row.id),
+            # The workspace subset hides the org-enabled custom row.
+            _enable(
+                org_id=svc_organization.id,
+                catalog_id=visible_row.id,
+                workspace_id=svc_workspace.id,
+            ),
+        ]
+    )
+    await session.commit()
+
+    resolved = await service.resolve_runtime_catalog_id_by_model(
+        org_id=svc_organization.id,
+        model_provider="custom-model-provider",
+        model_name="llama3",
+        workspace_id=svc_workspace.id,
+    )
+
+    assert resolved is None
+
+
+@pytest.mark.anyio
+async def test_resolve_runtime_catalog_id_by_model_rejects_ambiguous_rows(
+    session: AsyncSession,
+    svc_organization: Organization,
+) -> None:
+    """Two enabled endpoints serving one model name must not be guessed."""
+    service = AgentCatalogService(session=session)
+    rows = []
+    for name in ("Provider A", "Provider B"):
+        provider = await _custom_provider(session, svc_organization.id, name)
+        row = _catalog(
+            svc_organization.id,
+            "custom-model-provider",
+            "shared-model",
+            custom_provider_id=provider.id,
+        )
+        session.add(row)
+        rows.append(row)
+    await session.flush()
+    for row in rows:
+        session.add(_enable(org_id=svc_organization.id, catalog_id=row.id))
+    await session.commit()
+
+    with pytest.raises(AgentCatalogModelAmbiguousError) as exc_info:
+        await service.resolve_runtime_catalog_id_by_model(
+            org_id=svc_organization.id,
+            model_provider="custom-model-provider",
+            model_name="shared-model",
+        )
+
+    assert exc_info.value.model_provider == "custom-model-provider"
+    assert exc_info.value.model_name == "shared-model"
 
 
 @pytest.mark.anyio

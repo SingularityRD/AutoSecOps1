@@ -624,21 +624,36 @@ class DurableAgentWorkflow:
     ) -> None:
         if not is_gateway_provider(cfg.model_provider):
             return
+        # Histories recorded before this patch scheduled four arguments and
+        # never bound a catalog row by model name; replay keeps that shape.
+        # New executions pass the model name so a gateway model configured in
+        # organization settings (no catalog id, no workspace secret) resolves
+        # to its catalog row, and bind that row so the LLM gateway loads the
+        # same credentials.
+        resolve_by_model = workflow.patched(
+            DurableAgentWorkflowPatch.RESOLVE_GATEWAY_CATALOG_BY_MODEL
+        )
+        activity_args: tuple[object, ...] = (
+            self.role,
+            cfg.catalog_id,
+            False,
+            cfg.model_provider,
+        )
+        if resolve_by_model:
+            activity_args = (*activity_args, cfg.model_name)
         result = await workflow.execute_activity(
             resolve_custom_model_provider_config_activity,
-            args=(
-                self.role,
-                cfg.catalog_id,
-                False,
-                cfg.model_provider,
-                cfg.model_name,
-            ),
+            args=activity_args,
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=RETRY_POLICIES["activity:fail_fast"],
         )
         cfg.base_url = result.base_url
         cfg.passthrough = result.passthrough
-        if cfg.catalog_id is None and result.catalog_id is not None:
+        if (
+            resolve_by_model
+            and cfg.catalog_id is None
+            and result.catalog_id is not None
+        ):
             cfg.catalog_id = result.catalog_id
         if result.model_name:
             cfg.model_name = result.model_name

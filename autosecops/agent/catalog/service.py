@@ -26,7 +26,11 @@ from autosecops.agent.catalog.types import ModelKey
 from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import AgentCatalog, AgentCustomProvider
-from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
+from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
+    AutoSecOpsNotFoundError,
+    AutoSecOpsValidationError,
+)
 from autosecops.pagination import BaseCursorPaginator, CursorPaginationParams
 from autosecops.service import BaseService
 from autosecops.sync import CatalogMappingCandidate
@@ -364,6 +368,68 @@ class AgentCatalogService(BaseService):
         if row_id is None:
             return None
         return row_id
+
+    async def resolve_runtime_catalog_id_by_model(
+        self,
+        *,
+        org_id: UUID,
+        model_provider: str,
+        model_name: str,
+        workspace_id: UUID | None = None,
+    ) -> UUID | None:
+        """Find the one enabled catalog row a runtime config names by model.
+
+        Used when an agent config carries ``(model_provider, model_name)`` but
+        no ``catalog_id``. Candidates follow the same visibility and
+        workspace enablement rules as ``resolve_catalog_id_by_model``, and an
+        org-owned row wins over a platform row.
+
+        Unlike that best-effort import resolver, this method fails closed:
+        when several org-owned rows match (for example two custom providers
+        that both serve ``llama3``), it raises instead of picking one, because
+        the rows can point at different endpoints and credentials.
+
+        Args:
+            org_id: Organization whose catalog rows are visible.
+            model_provider: Catalog provider slug.
+            model_name: Catalog model name.
+            workspace_id: Workspace whose model enablement applies.
+
+        Returns:
+            The matching catalog row id, or ``None`` when no enabled row
+            matches.
+
+        Raises:
+            AgentCatalogModelAmbiguousError: Several enabled org-owned rows
+                match the model.
+        """
+        enabled_catalog_ids = effective_catalog_ids(org_id, workspace_id)
+        is_org_row = AgentCatalog.organization_id.is_not(None)
+        stmt = (
+            select(AgentCatalog.id, is_org_row)
+            .where(
+                AgentCatalog.model_provider == model_provider,
+                AgentCatalog.model_name == model_name,
+                AgentCatalog.id.in_(enabled_catalog_ids),
+                sa.or_(
+                    AgentCatalog.organization_id == org_id,
+                    AgentCatalog.organization_id.is_(None),
+                ),
+            )
+            # Org-owned rows first, then platform rows. Two org-owned rows in
+            # the first two positions means the model name is ambiguous.
+            .order_by(is_org_row.desc(), AgentCatalog.id.asc())
+            .limit(2)
+        )
+        rows = (await self.session.execute(stmt)).tuples().all()
+        if not rows:
+            return None
+        if len(rows) == 2 and rows[0][1] and rows[1][1]:
+            raise AgentCatalogModelAmbiguousError(
+                model_provider=model_provider,
+                model_name=model_name,
+            )
+        return rows[0][0]
 
     async def list_catalog(
         self,
