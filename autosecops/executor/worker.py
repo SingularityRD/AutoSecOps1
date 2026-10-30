@@ -72,6 +72,7 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.observability.sentry import (
         initialize_executor_sentry_from_environment,
     )
+    from autosecops.process_hardening import protect_process_from_inspection
     from autosecops.registry.sync.workflow import (
         RegistryArtifactsBackfillWorkflow,
         RegistrySyncActivities,
@@ -233,4 +234,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
 
 if __name__ == "__main__":
+    # Direct-mode actions run as this process's user. Refuse them /proc access
+    # to the worker's environment and memory before any action can start.
+    protect_process_from_inspection()
     run_worker_entrypoint(main)

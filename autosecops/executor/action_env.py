@@ -18,43 +18,10 @@ from sqlalchemy.exc import ArgumentError
 
 from autosecops import config
 from autosecops.logger import logger
+from autosecops.process_env import BASE_ENV_NAMES, select_env
 
-ACTION_ENV_ALLOWED_NAMES = frozenset(
+ACTION_ENV_ALLOWED_NAMES = BASE_ENV_NAMES | frozenset(
     {
-        # Process plumbing.
-        "PATH",
-        "HOME",
-        "USER",
-        "LOGNAME",
-        "SHELL",
-        "LANG",
-        "LANGUAGE",
-        "TZ",
-        "TMPDIR",
-        "TEMP",
-        "TMP",
-        # Python import roots. Custom registries installed for local-repository
-        # mode live in the user site that PYTHONUSERBASE/PYTHONPATH point at.
-        "PYTHONPATH",
-        "PYTHONUSERBASE",
-        "PYTHONUNBUFFERED",
-        "PYTHONIOENCODING",
-        "PYTHONUTF8",
-        "VIRTUAL_ENV",
-        # TLS trust stores for outbound action requests.
-        "SSL_CERT_FILE",
-        "SSL_CERT_DIR",
-        "REQUESTS_CA_BUNDLE",
-        "CURL_CA_BUNDLE",
-        # Operator egress proxy. Tunneled actions replace these with their route.
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "ALL_PROXY",
-        "NO_PROXY",
-        "http_proxy",
-        "https_proxy",
-        "all_proxy",
-        "no_proxy",
         # Non-secret settings that autosecops_registry reads at import time.
         "AUTOSECOPS__MAX_FILE_SIZE_BYTES",
         "AUTOSECOPS__MAX_UPLOAD_FILES_COUNT",
@@ -73,10 +40,11 @@ ACTION_ENV_ALLOWED_NAMES = frozenset(
         "AUTOSECOPS__SANDBOX_RLIMIT_NPROC",
     }
 )
-"""Executor environment variables copied into every direct-mode action."""
+"""Executor environment variables copied into every direct-mode action.
 
-ACTION_ENV_ALLOWED_PREFIXES = ("LC_",)
-"""Name prefixes copied into every direct-mode action (locale categories)."""
+Process plumbing, Python import roots, CA bundles and the operator egress proxy
+come from ``BASE_ENV_NAMES``; tunneled actions replace the proxy with their
+route."""
 
 PASSTHROUGH_DENIED_PREFIXES = (
     "AUTOSECOPS__",
@@ -189,12 +157,7 @@ def build_direct_action_env(
         The allowlisted variables present in ``environ``, the requested
         passthrough variables, and the internal database endpoint.
     """
-    env = {
-        name: value
-        for name, value in environ.items()
-        if name in ACTION_ENV_ALLOWED_NAMES
-        or name.startswith(ACTION_ENV_ALLOWED_PREFIXES)
-    }
+    env = select_env(environ, names=ACTION_ENV_ALLOWED_NAMES)
     for name in _allowed_passthrough(tuple(passthrough)):
         if (value := environ.get(name)) is not None:
             env[name] = value

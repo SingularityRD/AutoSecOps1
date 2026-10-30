@@ -63,6 +63,7 @@ from autosecops.executor.registry_artifact_storage import (
     validate_cache_entry_path,
 )
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.registry.artifact_keys import parse_s3_uri
 from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.sandbox.utils import communicate_process_group
@@ -493,6 +494,7 @@ class SquashfsArtifact(RegistryArtifact):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            env=tool_subprocess_env(),
         )
         await communicate_process_group(proc)
 
@@ -519,6 +521,7 @@ class SquashfsArtifact(RegistryArtifact):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            env=tool_subprocess_env(),
         )
         stdout, _ = await communicate_process_group(proc)
 

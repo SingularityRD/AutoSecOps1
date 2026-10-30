@@ -37,6 +37,7 @@ from autosecops.executor.registry_artifact_budget import (
     plan_registry_artifact_evictions,
 )
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.sandbox.utils import communicate_process_group
 
 __all__ = (
@@ -1376,6 +1377,7 @@ class RegistryArtifactCacheStorage:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            env=tool_subprocess_env(),
         )
         stdout, stderr = await communicate_process_group(proc)
         if proc.returncode == 0 or not registry_artifact_mounts.is_mount(mount_dir):

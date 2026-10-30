@@ -27,6 +27,7 @@ import autosecops_registry
 from autosecops import config
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.storage import blob
 
 if TYPE_CHECKING:
@@ -198,7 +199,9 @@ def subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     Kept as a small wrapper so tests can monkeypatch SquashFS creation without
     shelling out.
     """
-    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+    return subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=tool_subprocess_env()
+    )
 
 
 def get_builtin_registry_source_path() -> Path:
@@ -407,6 +410,7 @@ async def build_artifact_from_path(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=str(package_path),
+        env=tool_subprocess_env(),
     )
     _, stderr = await process.communicate()
 
@@ -429,6 +433,7 @@ async def build_artifact_from_path(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=str(package_path),
+        env=tool_subprocess_env(),
     )
     _, stderr = await process.communicate()
 
@@ -466,6 +471,7 @@ async def build_artifact_from_path(
         *compile_cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=tool_subprocess_env(),
     )
     await process.communicate()
     # Ignore errors - bytecode compilation is optional optimization
@@ -555,7 +561,7 @@ async def build_artifact_from_git(
         )
 
         # Set up environment for git operations
-        git_env = os.environ.copy()
+        git_env = tool_subprocess_env()
         if env:
             git_env.update(env.to_dict())
 

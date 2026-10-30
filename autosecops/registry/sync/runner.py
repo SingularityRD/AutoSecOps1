@@ -21,7 +21,6 @@ Security model:
 from __future__ import annotations
 
 import asyncio
-import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +35,7 @@ from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.exceptions import RegistrySyncContentError
 from autosecops.git.utils import parse_git_url
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.registry.artifact_keys import get_artifact_s3_key
 from autosecops.registry.constants import PLATFORM_REGISTRY_NAMESPACE
 from autosecops.registry.sync.artifact import (
@@ -506,7 +506,7 @@ class RegistrySyncRunner:
         )
 
         # Set up environment for git operations
-        git_env = os.environ.copy()
+        git_env = tool_subprocess_env()
         if ssh_key:
             # Write SSH key to a temporary file
             ssh_key_path = work_dir / "ssh_key"

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import errno
 import importlib
 import json
@@ -807,6 +808,36 @@ def _action_display_name(action_impl: dict[str, Any] | None) -> str:
     return "<unknown>"
 
 
+def _protect_from_other_actions() -> None:
+    """Refuse other same-user processes /proc access to this runner.
+
+    Concurrent direct-mode actions share one Linux user. Without this, one
+    action could read another's environment or memory, including the workspace
+    secrets this runner receives, through /proc/<pid>/environ or /proc/<pid>/mem.
+    The flag resets on execve, so it does not leak into processes the action
+    starts. Standard library only: the runner must not import AutoSecOps.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = [
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    prctl.restype = ctypes.c_int
+    pr_set_dumpable = 4
+    if prctl(pr_set_dumpable, 0, 0, 0, 0) != 0:
+        error_number = ctypes.get_errno()
+        raise SystemExit(
+            "_protect_from_other_actions: could not clear the dumpable flag: "
+            f"{os.strerror(error_number)}"
+        )
+
+
 def _enforce_nproc_limit() -> None:
     """Cap the sandbox's process count via RLIMIT_NPROC.
 
@@ -854,6 +885,7 @@ if __name__ == "__main__":
     # import, because the executor process also imports this module.
     sys.modules.setdefault("httpx._main", cast(ModuleType, None))
 
+    _protect_from_other_actions()
     _enforce_nproc_limit()
 
     # Determine input source: file (sandbox) or stdin (direct)
