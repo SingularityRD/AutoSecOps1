@@ -197,7 +197,13 @@ class InvitationMixin:
         doc="User who created the invitation",
     )
     token: Mapped[str] = mapped_column(
-        String(64), unique=True, doc="Unique token for magic link acceptance"
+        String(64),
+        unique=True,
+        doc=(
+            "Digest of the magic link acceptance token (see hash_bearer_token). "
+            "On the invitation table a row with token_hashed false still holds "
+            "the raw token: it was written by an app version that predates hashing."
+        ),
     )
     expires_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), doc="When the invitation expires"
@@ -663,9 +669,20 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
 
 class AccessToken(SQLAlchemyBaseAccessTokenTableUUID, Base):
+    """Browser session. ``token`` holds the digest of the session cookie value."""
+
     __tablename__ = "access_token"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, unique=True, default=uuid.uuid4)
+    # Rows inserted by an app version that predates hashing get the server
+    # default, so they keep working until the contract migration rehashes them.
+    token_hashed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("false"),
+        doc="Whether token holds the SHA-256 digest rather than the raw value",
+    )
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(
@@ -6667,6 +6684,24 @@ class Invitation(InvitationMixin, TimestampMixin, Base):
         default=False,
         server_default=text("false"),
         doc="Whether the invitation was created by a platform admin",
+    )
+    # Rows inserted by an app version that predates hashing get the server
+    # default, so their links keep working until the contract migration.
+    token_hashed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("false"),
+        doc="Whether token holds the SHA-256 digest rather than the raw value",
+    )
+    encrypted_token: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        doc=(
+            "Raw token encrypted with the database encryption key, so the email "
+            "outbox and copy-link actions can rebuild the link. NULL for rows "
+            "hashed by the migration, which get a fresh token when next revealed."
+        ),
     )
     # The invitation row is its own delivery outbox: a NULL claim means unsent
     # and eligible, and claiming before sending makes delivery at-most-once.

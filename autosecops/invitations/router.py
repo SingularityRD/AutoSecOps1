@@ -37,6 +37,7 @@ from autosecops.invitations.service import (
     InvitationService,
     accept_invitation_for_user,
     find_invitation_by_token,
+    reveal_invitation_token,
 )
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
@@ -183,11 +184,12 @@ async def list_my_pending_invitations(
     pending_invitations: list[PendingInvitationRead] = []
     for invitation, organization, inviter in rows:
         inviter_name, inviter_email = _get_user_display_name_and_email(inviter)
+        token = await reveal_invitation_token(session, invitation)
 
         pending_invitations.append(
             PendingInvitationRead.model_validate(
                 {
-                    "token": invitation.token,
+                    "token": token,
                     "organization_id": invitation.organization_id,
                     "organization_name": organization.name,
                     "inviter_name": inviter_name,
@@ -197,6 +199,8 @@ async def list_my_pending_invitations(
                 }
             )
         )
+    # Persist any token issued to a row hashed during upgrade.
+    await session.commit()
     return pending_invitations
 
 
@@ -328,4 +332,6 @@ async def get_invitation_token(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
         ) from e
-    return InvitationTokenRead(token=invitation.token)
+    token = await reveal_invitation_token(session, invitation)
+    await session.commit()
+    return InvitationTokenRead(token=token)

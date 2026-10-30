@@ -217,6 +217,14 @@ docker compose exec postgres_db sh -c 'psql -U "$POSTGRES_USER" -d postgres -XAt
 
 A failed migration leaves the API stopped and logs the error. PostgreSQL rolls back the failed revision, `alembic_version` keeps the last revision that committed, and the next run continues from there. Send the migration log to [info@singularityrd.com](mailto:info@singularityrd.com), or roll back as described below.
 
+### Session and invitation token hashing
+
+The release that adds revision `3f7a9c2d5b81` replaces every stored session token and invitation token with its SHA-256 digest. Existing sessions and emailed invitation links keep working.
+
+- Users routed to a pod or task still running the previous version during the rollout get signed out once and sign in again.
+- An invitation created before the upgrade gets a new token the first time AutoSecOps reveals it: `Copy invitation link`, `Resend invitation email`, a delivery retry, or the invitee's pending invitation list. The link emailed before the upgrade then stops working, so send the new link.
+- Restore the pre-upgrade backup to roll back. `alembic downgrade` signs out every user, and invitation links emailed after the upgrade stop working.
+
 ## Check the upgrade
 
 Run these checks right after every upgrade:

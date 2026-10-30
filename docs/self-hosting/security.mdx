@@ -153,7 +153,7 @@ Rotation support differs by secret. Check the differences before you plan a rota
 | `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` | Yes | Add the new key to `keys` and let every service pick it up, then point `current_key_id` at it. Keep retired keys as long as you retain their histories. | None for existing histories, which stay readable under the key they were written with. Between the two steps, a service still on the old keyring cannot decrypt payloads written under the new key. In ARN mode that gap lasts up to `TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS`. |
 | `AUTOSECOPS__SIGNING_SECRET` | No | Rotate, then reissue every affected URL. | Every webhook URL and agent channel endpoint URL. Breaks in-flight Slack OAuth installs, and pending Slack approval buttons for up to 24 hours. |
 | `AUTOSECOPS__SERVICE_KEY` | No | Restart every service that holds it in one window, including `ui`, which uses it for the SAML ACS proxy. | While services disagree, in-flight agent turns fail their next tool or LLM call, executor calls fail, and service-to-service requests return `401`. Miss `ui` and SSO login breaks. |
-| `USER_AUTH_SECRET` | No | Restart `api` and `mcp` together. | Active MCP access tokens (1-hour lifetime), and in-flight password reset and verification links. Sessions are database-backed, so users stay logged in. MCP refresh tokens are hashed and survive. |
+| `USER_AUTH_SECRET` | No | Restart `api` and `mcp` together. | Active MCP access tokens (1-hour lifetime), and in-flight password reset and verification links. Sessions are database-backed and stored as SHA-256 digests, so users stay logged in. MCP refresh tokens are hashed and survive. |
 
 ## Isolation
 

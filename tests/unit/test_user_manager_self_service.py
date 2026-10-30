@@ -15,6 +15,7 @@ from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.schemas import UserUpdate
 from autosecops.auth.types import Role
 from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
@@ -176,9 +177,9 @@ async def test_password_change_revokes_other_sessions_only(
     current, stolen, bystander = (uuid.uuid4().hex for _ in range(3))
     session.add_all(
         [
-            AccessToken(token=current, user_id=user.id),
-            AccessToken(token=stolen, user_id=user.id),
-            AccessToken(token=bystander, user_id=other_user_id),
+            AccessToken(token=hash_bearer_token(current), user_id=user.id),
+            AccessToken(token=hash_bearer_token(stolen), user_id=user.id),
+            AccessToken(token=hash_bearer_token(bystander), user_id=other_user_id),
         ]
     )
     await session.commit()
@@ -192,14 +193,15 @@ async def test_password_change_revokes_other_sessions_only(
         request=_request_with_session(current),
     )
 
+    digests = {hash_bearer_token(t): t for t in (current, stolen, bystander)}
     tokens = (
         await session.execute(
-            select(AccessToken).where(
-                AccessToken.token.in_([current, stolen, bystander])  # pyright: ignore[reportAttributeAccessIssue]
+            select(AccessToken.__table__.c.token).where(
+                AccessToken.__table__.c.token.in_(digests)
             )
         )
     ).scalars()
-    remaining = {token.token for token in tokens}
+    remaining = {digests[digest] for digest in tokens}
     assert remaining == {current, bystander}
 
 

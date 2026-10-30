@@ -33,6 +33,7 @@ from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
 from autosecops.invitations.service import (
     create_invitation_row,
     reset_invitation_email,
+    reveal_invitation_token,
     revoke_invitation_row,
 )
 from autosecops.organization.domains import normalize_domain
@@ -192,8 +193,9 @@ class AdminOrgService(BasePlatformService):
             .options(selectinload(Invitation.grants))
         )
         invitation = result.scalar_one()
+        token = await reveal_invitation_token(self.session, invitation)
         return self._serialize_invitation_create(
-            invitation, (role_obj.id, role_obj.name, role_obj.slug)
+            invitation, (role_obj.id, role_obj.name, role_obj.slug), token=token
         )
 
     async def list_organization_invitations(
@@ -310,7 +312,10 @@ class AdminOrgService(BasePlatformService):
     ) -> AdminOrgInvitationTokenRead:
         """Get the raw token for a platform-created organization invitation."""
         invitation = await self._get_platform_invitation(org_id, invitation_id)
-        return AdminOrgInvitationTokenRead(token=invitation.token)
+        token = await reveal_invitation_token(self.session, invitation)
+        # Persist a token issued to a row hashed during upgrade.
+        await self.session.commit()
+        return AdminOrgInvitationTokenRead(token=token)
 
     @audit_log(
         resource_type="organization_invitation",
@@ -459,11 +464,13 @@ class AdminOrgService(BasePlatformService):
         self,
         invitation: Invitation,
         role: tuple[uuid.UUID, str, str | None],
+        *,
+        token: str,
     ) -> AdminOrgInvitationCreateResponse:
         """Serialize a newly created platform admin invitation with its token."""
         return AdminOrgInvitationCreateResponse(
             **self._serialize_invitation(invitation, role).model_dump(),
-            token=invitation.token,
+            token=token,
         )
 
     # Org Domain Methods
