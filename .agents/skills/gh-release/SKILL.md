@@ -167,7 +167,7 @@ completion. Inspect both multi-platform manifests and their version/revision
 labels. For a prerelease, compare both `latest` digests before and after the
 build; for a stable release, verify `latest` points to the new image manifests.
 
-The `sign-images` job signs each image index with keyless cosign, and
+The `sign-images` job only runs when the repository variable `IMAGE_SIGNING_ENABLED` is `true` (keyless signing records the repository name and digest in the public Rekor log, so the owner opts in). When it runs, it signs each image index with keyless cosign, and
 `promote-latest` waits for it. Verify every signature by digest, and confirm
 the SBOM and provenance attestations are present:
 

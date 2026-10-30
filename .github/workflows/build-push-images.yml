@@ -545,6 +545,9 @@ jobs:
   #     --certificate-identity-regexp '^https://github\.com/SingularityRD/AutoSecOps1/\.github/workflows/build-push-images\.yml@'
   sign-images:
     needs: [merge-api, build-and-push-ui, merge-tunnel-gateway]
+    # Keyless signing records the repository and digest in the public Rekor
+    # log, so it only runs once the IMAGE_SIGNING_ENABLED variable opts in.
+    if: vars.IMAGE_SIGNING_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -590,7 +593,9 @@ jobs:
 
   promote-latest:
     needs: [validate, merge-api, build-and-push-ui, merge-tunnel-gateway, sign-images]
-    if: needs.validate.outputs.latest == 'true'
+    # sign-images may be skipped when signing is disabled; promote only when
+    # nothing upstream failed or was cancelled.
+    if: ${{ !failure() && !cancelled() && needs.validate.outputs.latest == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

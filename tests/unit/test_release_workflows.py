@@ -129,8 +129,11 @@ def test_only_serialized_promotion_can_publish_latest() -> None:
         "merge-tunnel-gateway",
         "sign-images",
     }
-    # The implicit success() gate must require both tag-publishing jobs to succeed.
-    assert promotion["if"] == "needs.validate.outputs.latest == 'true'"
+    # sign-images may be skipped when signing is disabled, so promotion uses an
+    # explicit gate: any failed or cancelled upstream job still blocks it.
+    assert promotion["if"] == (
+        "${{ !failure() && !cancelled() && needs.validate.outputs.latest == 'true' }}"
+    )
     assert promotion["concurrency"] == {
         "group": "publish-images-latest",
         "queue": "max",
@@ -151,6 +154,8 @@ def test_every_published_image_is_signed_with_least_privilege() -> None:
     workflow = yaml.safe_load(IMAGE_WORKFLOW.read_text())
     jobs = workflow["jobs"]
     sign = jobs["sign-images"]
+    # Keyless signing writes to the public Rekor log, so it is opt-in.
+    assert sign["if"] == "vars.IMAGE_SIGNING_ENABLED == 'true'"
     assert set(sign["needs"]) == {
         "merge-api",
         "build-and-push-ui",
