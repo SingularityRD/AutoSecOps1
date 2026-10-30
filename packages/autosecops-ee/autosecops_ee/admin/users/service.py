@@ -19,6 +19,7 @@ from autosecops.db.models import (
     UserRoleAssignment,
 )
 from autosecops.exceptions import AutoSecOpsNotFoundError
+from autosecops.licensing.enforcement import enforce_user_limit
 from autosecops.organization.management import (
     ensure_single_tenant_user_defaults_for_session,
 )
@@ -41,6 +42,7 @@ class AdminUserService(BasePlatformService):
                 await user_manager.validate_password(params.password, user_create)
                 hashed_password = user_manager.password_helper.hash(params.password)
 
+        await enforce_user_limit(self.session)
         user = User(
             email=params.email,
             hashed_password=hashed_password,

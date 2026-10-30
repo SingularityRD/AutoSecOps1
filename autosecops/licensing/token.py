@@ -84,7 +84,12 @@ def load_private_key(pem: bytes) -> Ed25519PrivateKey:
 
 def encode_license(claims: LicenseClaims, private_key: Ed25519PrivateKey) -> str:
     """Sign license claims and return the compact token."""
-    payload = orjson.dumps(claims.model_dump(mode="json"), option=orjson.OPT_SORT_KEYS)
+    # Unset optional claims are omitted so a license without them encodes
+    # exactly as releases before those claims existed.
+    payload = orjson.dumps(
+        claims.model_dump(mode="json", exclude_none=True),
+        option=orjson.OPT_SORT_KEYS,
+    )
     signature = private_key.sign(payload)
     return f"{_b64url_encode(payload)}.{_b64url_encode(signature)}"
 
