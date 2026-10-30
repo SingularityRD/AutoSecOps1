@@ -151,6 +151,8 @@ docker compose up -d
 
 If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to the new version before step 5.
 
+The `redis` service runs Valkey and stores its data in the `valkey-data` volume. Valkey cannot read data files written by Redis 7.4 or later, so when you upgrade from a release that ran `redis:7-alpine`, the service starts with an empty store and leaves the old `redis-data` volume untouched. Let running workflows and agent sessions finish before you upgrade, because their in-flight stream data stays in the old volume. Once the stack is healthy, you can delete the old volume with `docker volume rm <project>_redis-data`.
+
 The migration script creates a backup of your existing `.env` before rewriting it.
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.
 
