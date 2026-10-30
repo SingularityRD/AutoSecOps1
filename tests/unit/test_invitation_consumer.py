@@ -794,3 +794,40 @@ async def test_reaching_the_attempt_cap_logs_an_error(
     assert "attempt cap" in error_log.call_args.args[0]
     assert error_log.call_args.kwargs["attempts"] == MAX_EMAIL_ATTEMPTS
     warning_log.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_consumer_does_not_back_off_after_giving_up_on_a_row(
+    session: AsyncSession,
+    org: Organization,
+    org_role: DBRole,
+    inviter: User,
+    smtp_configured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A row over the cap is never retried, so waiting for it only delays a
+    resend or the next invitation by the longest backoff."""
+    invitation = await _add_invitation(
+        session, org, org_role, inviter, email_attempts=MAX_EMAIL_ATTEMPTS - 2
+    )
+    _patch_transport(
+        monkeypatch,
+        FakeTransport(error=EmailDeliveryError("SMTPConnectError", retryable=True)),
+    )
+    waits: list[float] = []
+    stop_event = asyncio.Event()
+
+    async def record_wait(event: asyncio.Event, timeout: float) -> None:
+        waits.append(timeout)
+        if len(waits) == 2:
+            event.set()
+
+    monkeypatch.setattr(consumer_module, "_wait_for_stop", record_wait)
+
+    await start_invitation_email_consumer(stop_event)
+
+    row = await _reload(session, invitation.id)
+    assert row.email_attempts == MAX_EMAIL_ATTEMPTS
+    assert row.email_sent_at is None
+    # One deferral backs off; the attempt that hits the cap polls again.
+    assert waits == [RETRY_BACKOFF_SECONDS[0], POLL_INTERVAL_SECONDS]

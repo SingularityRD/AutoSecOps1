@@ -40,6 +40,8 @@ class _Outcome(enum.Enum):
     """The claimed row was sent or given up on."""
     DEFERRED = "deferred"
     """The relay asked for a retry; the claim was released."""
+    GAVE_UP = "gave_up"
+    """The relay asked for a retry, but the row reached the attempt cap."""
 
 
 async def load_invitation_grants(
@@ -159,13 +161,15 @@ async def _deliver_next(session: AsyncSession, transport: SMTPTransport) -> _Out
                 attempts=attempts,
                 error=str(error),
             )
-        else:
-            logger.warning(
-                "Invitation email delivery deferred",
-                invitation_id=str(invitation_id),
-                attempts=attempts,
-                error=str(error),
-            )
+            # Nothing will retry this row, so the consumer must not back off
+            # for it: a resend or the next invitation goes out on the next poll.
+            return _Outcome.GAVE_UP
+        logger.warning(
+            "Invitation email delivery deferred",
+            invitation_id=str(invitation_id),
+            attempts=attempts,
+            error=str(error),
+        )
         # Ending the tick lets the consumer back off before the retry.
         return _Outcome.DEFERRED
 
@@ -206,7 +210,7 @@ async def _run_batch(stop_event: asyncio.Event | None) -> tuple[int, bool]:
             outcome = await _deliver_next(session, transport)
             if outcome is _Outcome.DEFERRED:
                 return delivered, True
-            if outcome is _Outcome.IDLE:
+            if outcome is _Outcome.IDLE or outcome is _Outcome.GAVE_UP:
                 break
             delivered += 1
     return delivered, False
