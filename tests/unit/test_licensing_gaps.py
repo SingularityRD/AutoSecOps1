@@ -7,8 +7,11 @@ counts toward a limit (inactive users, other tables) is caught.
 
 from __future__ import annotations
 
+import base64
+import string
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import orjson
@@ -29,15 +32,29 @@ from autosecops import config
 from autosecops.db.models import Organization, PlatformSetting, User, Workspace
 from autosecops.exceptions import LicenseLimitExceeded
 from autosecops.licensing import deployment as license_deployment
-from autosecops.licensing import enforcement
+from autosecops.licensing import enforcement, keys
 from autosecops.licensing.deployment import (
     DEPLOYMENT_ID_SETTING_KEY,
     _decode_setting_value,
     ensure_deployment_id,
     load_or_create_deployment_id,
 )
-from autosecops.licensing.token import load_private_key, load_public_key
+from autosecops.licensing.evaluation import (
+    license_grants_multi_tenant,
+    state_from_claims,
+)
+from autosecops.licensing.token import (
+    MAX_LICENSE_TOKEN_LENGTH,
+    LicenseVerificationError,
+    decode_license,
+    encode_license,
+    load_private_key,
+    load_public_key,
+)
 from autosecops.licensing.types import (
+    LicenseClaims,
+    LicenseErrorCode,
+    LicenseGrant,
     LicenseLimitName,
     LicenseLimits,
     LicenseState,
@@ -248,3 +265,173 @@ def test_each_limit_locks_independently() -> None:
     keys = {enforcement._advisory_lock_key(limit) for limit in LicenseLimitName}
     assert len(keys) == len(LicenseLimitName)
     assert all(-(2**31) <= key < 2**31 for key in keys)
+
+
+# --- Token encoding edges (mutation-testing findings) ---------------------------
+
+_B64URL_ALPHABET = (
+    string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"
+)
+
+
+def _claims() -> LicenseClaims:
+    return LicenseClaims(
+        license_id="lic_gap",
+        customer="Synthetic Customer",
+        issued_at=datetime(2026, 1, 1, tzinfo=UTC),
+        expires_at=datetime(2027, 1, 1, tzinfo=UTC),
+    )
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def _signed_token(key: Ed25519PrivateKey, payload: bytes) -> str:
+    return f"{_b64url(payload)}.{_b64url(key.sign(payload))}"
+
+
+def _payload_with_length(total_token_length: int) -> bytes:
+    """A valid claims payload whose signed token is exactly this long."""
+    # A 64-byte signature encodes to 86 chars; one more for the separator.
+    encoded_payload_length = total_token_length - 87
+    assert encoded_payload_length % 4 != 1, "unreachable base64 length"
+    payload_bytes = (encoded_payload_length * 3) // 4
+    base = orjson.dumps(_claims().model_dump(mode="json", exclude_none=True))
+    # Unknown fields are ignored on decode but still covered by the signature.
+    filler = payload_bytes - len(base) - len(b',"pad":""')
+    payload = base[:-1] + b',"pad":"' + b"x" * filler + b'"}'
+    assert len(payload) == payload_bytes
+    return payload
+
+
+def test_token_length_cap_is_exact() -> None:
+    key = Ed25519PrivateKey.generate()
+    under = _signed_token(key, _payload_with_length(MAX_LICENSE_TOKEN_LENGTH - 1))
+    over = _signed_token(key, _payload_with_length(MAX_LICENSE_TOKEN_LENGTH + 1))
+    assert len(under) == MAX_LICENSE_TOKEN_LENGTH - 1
+    assert len(over) == MAX_LICENSE_TOKEN_LENGTH + 1
+
+    assert decode_license(under, key.public_key()).license_id == "lic_gap"
+    with pytest.raises(LicenseVerificationError) as exc_info:
+        decode_license(over, key.public_key())
+    assert exc_info.value.code == LicenseErrorCode.MALFORMED
+
+    # No validly signed token is exactly at the cap (base64 lengths), but a
+    # 65-byte signature makes one that passes the length gate and then fails
+    # verification, which proves the gate admits it.
+    payload_part = under.split(".")[0]
+    at_cap = f"{payload_part}.{_b64url(b'\x00' * 65)}"
+    assert len(at_cap) == MAX_LICENSE_TOKEN_LENGTH
+    with pytest.raises(LicenseVerificationError) as exc_info:
+        decode_license(at_cap, key.public_key())
+    assert exc_info.value.code == LicenseErrorCode.BAD_SIGNATURE
+
+
+def test_every_non_canonical_signature_encoding_is_malformed() -> None:
+    """Variants are rejected whether they sort before or after the canonical form.
+
+    A 64-byte signature ends in a char with 4 unused bits. Only when the
+    canonical char is "w" (index 48) do some variants ("0"-"9", "-", "_") sort
+    before it, so pick such a signature to cover both orderings.
+    """
+    key = Ed25519PrivateKey.generate()
+    for attempt in range(500):
+        claims = _claims().model_copy(update={"license_id": f"lic_{attempt}"})
+        token = encode_license(claims, key)
+        if token.endswith("w"):
+            break
+    else:
+        pytest.fail("no signature ending in 'w' found")
+    payload_part, signature_part = token.split(".")
+    canonical = base64.urlsafe_b64decode(signature_part + "==")
+    variants = [
+        signature_part[:-1] + char
+        for char in _B64URL_ALPHABET
+        if char != signature_part[-1]
+        and base64.urlsafe_b64decode(signature_part[:-1] + char + "==") == canonical
+    ]
+    assert len(variants) == 15  # 4 unused trailing bits
+    assert any(v < signature_part for v in variants)
+    assert any(v > signature_part for v in variants)
+    for variant in variants:
+        with pytest.raises(LicenseVerificationError) as exc_info:
+            decode_license(f"{payload_part}.{variant}", key.public_key())
+        assert exc_info.value.code == LicenseErrorCode.MALFORMED
+
+
+def test_unset_optional_claims_are_omitted_from_the_signed_payload() -> None:
+    """Older releases must see byte-identical payloads for licenses without them."""
+    token = encode_license(_claims(), Ed25519PrivateKey.generate())
+    payload = orjson.loads(base64.urlsafe_b64decode(token.split(".")[0] + "=="))
+    assert set(payload) == {
+        "version",
+        "license_id",
+        "customer",
+        "issued_at",
+        "expires_at",
+        "entitlements",
+    }
+
+
+# --- Evaluation policy pins (mutation-testing findings) -----------------------
+
+
+def _bound_claims(**updates: object) -> LicenseClaims:
+    now = datetime.now(UTC)
+    return LicenseClaims(
+        license_id="lic_bound",
+        customer="Synthetic Customer",
+        issued_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=30),
+        deployment_id="dep_" + "a" * 32,
+    ).model_copy(update=updates)
+
+
+def test_deployment_binding_is_enforced_by_default() -> None:
+    claims = _bound_claims()
+    state = state_from_claims(
+        claims, now=datetime.now(UTC), deployment_id="dep_" + "b" * 32
+    )
+    assert state.status == LicenseStatus.INVALID
+    assert state.error == LicenseErrorCode.DEPLOYMENT_MISMATCH
+
+
+@pytest.mark.parametrize(
+    ("ahead", "status"),
+    [
+        (timedelta(minutes=4, seconds=59), LicenseStatus.VALID),
+        (timedelta(minutes=5), LicenseStatus.VALID),
+        (timedelta(minutes=5, seconds=1), LicenseStatus.INVALID),
+    ],
+)
+def test_clock_skew_tolerance_is_five_minutes(
+    ahead: timedelta, status: LicenseStatus
+) -> None:
+    now = datetime(2026, 6, 1, tzinfo=UTC)
+    claims = LicenseClaims(
+        license_id="lic_skew",
+        customer="Synthetic Customer",
+        issued_at=now + ahead,
+        expires_at=now + timedelta(days=30),
+    )
+    assert state_from_claims(claims, now=now).status == status
+
+
+def test_bound_multi_tenant_license_is_honoured_before_the_db_is_reachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Config checks the grant at import time, when the deployment is unknown."""
+    key = Ed25519PrivateKey.generate()
+    monkeypatch.setattr(
+        keys,
+        "LICENSE_PUBLIC_KEY_PEM",
+        key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo),
+    )
+    token = encode_license(
+        _bound_claims(entitlements=[LicenseGrant.MULTI_TENANT.value]), key
+    )
+    assert license_grants_multi_tenant(token)
+    assert not license_grants_multi_tenant(
+        encode_license(_bound_claims(entitlements=[]), key)
+    )
