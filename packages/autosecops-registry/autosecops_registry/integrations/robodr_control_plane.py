@@ -66,14 +66,16 @@ run's executor token:
    source; for a revert: robot id, request id, reason).
 2. The requester submits the sign-off form with `robodr_decision: request`;
    each approver submits it with `robodr_decision: approve`. Every
-   submission carries `robodr_request_id` and `robodr_request_digest`.
+   submission carries `robodr_request_id`, `robodr_request_digest` and
+   `robodr_robot_id`, and a request's also `robodr_action` (the catalog wire
+   name): the `signoff_answers` the prepare action returns.
 3. `request_action` / `revert_action` take the submission ids, fetch each
    submission from the platform (`ctx.forms.get_submission`) and require:
    submitted by a platform user (`submitted_by.type == "user"`, never a
    service account; workflows, agents and the executor have no
    `form:submit` scope, so they cannot create one), the same form for all, the
-   same request id and digest as the request being sent, the right decision,
-   and at most 24 hours old. People are identified only by the platform user
+   same request id, digest, robot id (and action) as the request being sent,
+   the right decision, and at most 24 hours old. People are identified only by the platform user
    ids on those records; no action input names a person. An approver must
    differ from the requester and from every other approver: one approval, or
    two for `safe_pause`, `request_safe_state`, `rollback_config` and the
@@ -81,14 +83,19 @@ run's executor token:
    revert undoes).
 4. Any failure (no platform context, unreadable submission, mismatch) raises
    `SignoffError` before a request is signed, and nothing reaches the robot.
-5. Each request and revert is then written to the platform audit log
+5. Each request and revert is then recorded by the platform
    (`ctx.robot_edr.record_robot_action`) before it is signed: the platform
-   names the run that acted (workflow or agent session, run, execution and
-   trigger) and reads the requester and approvers from the same sign-off
-   submissions. A call the platform does not audit-log raises
-   `ActionAuditError` and nothing reaches the robot. The robot's answer, or
-   the failure, is recorded after it (best effort: the robot has acted;
-   `outcome_audit_logged` says whether it was).
+   re-checks the sign-off submissions itself (same form, age, request,
+   digest, robot and action), names the run that acted (workflow or agent
+   session, run, execution and trigger) and the requester and approvers, and
+   stores the attempt. With an audit sink configured, the call goes ahead
+   only once the sink confirmed the event (`audit_log: written`); a refusal,
+   a sink error or no answer in time raises `ActionAuditError` and nothing
+   reaches the robot. With no audit sink configured the platform only logs
+   the event (`audit_log: no_sink`, `audit_logged: false`). The robot's
+   answer, or the failure (also a cancelled call), is recorded after it
+   against the stored attempt, once (best effort: the robot has acted;
+   `outcome_audit_log` says what became of it).
 
 `requires_approval=True` additionally pauses an agent's tool call in the
 inbox, but that gate is not relied on: a workflow step calling the action
@@ -101,9 +108,12 @@ Evidence (contract §11)
 
 `list_evidence`, `create_evidence_export` and `download_evidence_export`
 read black-box evidence. Exporting changes nothing on the robot (it is
-recorded in its black box), so these need no sign-off; each call is written
-to the platform audit log first, and a call it cannot audit-log is refused
-before anything is read. A download verifies the export as §11.6 requires
+recorded in its black box), so these need no sign-off; each call is recorded
+by the platform first (`attempt`: refused before anything is read when the
+platform refuses it or the configured audit sink does not confirm it), and
+its end after (`succeeded` or `failed`, also a cancelled call; best effort).
+`delete_after_download` records the delete the same way before it is sent;
+a delete the platform does not record is not sent (`deleted: false`). A download verifies the export as §11.6 requires
 (`robodr_evidence`) before the bundle is stored for the case; nothing that
 fails verification is stored.
 """
@@ -305,6 +315,8 @@ _MAX_IDENTITY_CHARS = 100
 SIGNOFF_REQUEST_ID = "robodr_request_id"
 SIGNOFF_DIGEST = "robodr_request_digest"
 SIGNOFF_DECISION = "robodr_decision"
+SIGNOFF_ROBOT_ID = "robodr_robot_id"
+SIGNOFF_ACTION = "robodr_action"
 MAX_SIGNOFF_AGE = timedelta(hours=24)
 MAX_SIGNOFF_CLOCK_SKEW = timedelta(minutes=5)
 MAX_APPROVAL_SUBMISSIONS = 4
@@ -675,10 +687,16 @@ async def _collect_signoff(
     *,
     request_id: str,
     digest: str,
+    robot_id: str,
+    action: str | None,
     request_submission_id: object,
     approval_submission_ids: object,
 ) -> tuple[Person, list[Person]]:
     """Read the sign-off submissions from the platform and check them.
+
+    ``action`` is the catalog wire name a request's sign-off names; ``None``
+    for a revert, whose sign-off names the robot only (the action it undoes
+    is the robot's stored request).
 
     Returns the requester and the approvers (distinct platform users, none of
     them the requester). The number of approvals is checked by the caller.
@@ -741,6 +759,10 @@ async def _collect_signoff(
                 f"submission {sid} does not carry this request's digest: the "
                 "request differs from what was signed off"
             )
+        if answers.get(SIGNOFF_ROBOT_ID) != robot_id:
+            raise SignoffError(f"submission {sid} does not sign off robot {robot_id}")
+        if action is not None and answers.get(SIGNOFF_ACTION) != action:
+            raise SignoffError(f"submission {sid} does not sign off {action}")
         if answers.get(SIGNOFF_DECISION) != decision:
             raise SignoffError(
                 f"submission {sid} must have {SIGNOFF_DECISION}={decision!r}"
@@ -772,9 +794,38 @@ def _require_approvals(label: str, required: int, approvers: list[Person]) -> No
 
 
 _AUDIT_OUTCOME_RE = re.compile(r"[a-z_]{1,64}")
+_AUDIT_LOG_RESULTS = frozenset({"written", "no_sink", "queued", "failed"})
+
+# Strong refs to outcome records that must outlive a cancelled call.
+_RECORDS_IN_FLIGHT: set[asyncio.Task[Any]] = set()
 
 
-@dataclass(frozen=True)
+def _audit_log(answer: object) -> str:
+    """What the platform says became of an audit event.
+
+    ``written``: the configured audit sink confirmed it. ``no_sink``: no sink
+    is configured, so only the platform's own log has it. ``queued`` or
+    ``failed``: a best-effort event was handed to delivery, or was not.
+    ``unconfirmed``: the platform did not say (an older API version).
+    """
+    if isinstance(answer, dict) and answer.get("audit_log") in _AUDIT_LOG_RESULTS:
+        return str(answer["audit_log"])
+    return "unconfirmed"
+
+
+async def _record_shielded(coro: Any) -> str:
+    """Await an outcome record that a cancellation of the caller cannot stop.
+
+    The record runs on its own task; if the caller is cancelled (again)
+    while waiting, the record still completes and the cancellation goes on.
+    """
+    task: asyncio.Task[str] = asyncio.ensure_future(coro)
+    _RECORDS_IN_FLIGHT.add(task)
+    task.add_done_callback(_RECORDS_IN_FLIGHT.discard)
+    return await asyncio.shield(task)
+
+
+@dataclass
 class _ActionAudit:
     """What the platform audit log records for one robot action call."""
 
@@ -785,25 +836,32 @@ class _ActionAudit:
     request_digest: str
     request_submission_id: str
     approval_submission_ids: list[str]
+    attempt_id: str | None = None
+    """The platform's stored attempt, which the outcome event cites."""
 
-    async def attempt(self) -> bool:
-        """Write the audit event before the request is signed and sent.
+    async def attempt(self) -> str:
+        """Record the call before the request is signed and sent.
 
-        Fails closed: a robot action the platform cannot audit-log (no run
-        context, the audit route refused or failed) is not sent. The
-        platform names the run that acted and reads the requester and
-        approvers from the sign-off submissions itself. Returns True.
+        Fails closed: a robot action the platform does not record (no run
+        context, the route refused, the audit sink did not confirm it) is
+        not sent. The platform checks the sign-off submissions itself, names
+        the run that acted and reads the requester and approvers from them.
+
+        Returns:
+            The audit log result (see :func:`_audit_log`).
         """
         try:
-            await self._record(phase="attempt")
+            answer = await self._record(phase="attempt")
         except Exception as exc:
             raise ActionAuditError(
                 f"the platform did not audit-log this {self.operation} "
                 f"({type(exc).__name__}: {exc}); nothing was sent to the robot"
             ) from exc
-        return True
+        if isinstance(answer, dict) and isinstance(answer.get("attempt_id"), str):
+            self.attempt_id = answer["attempt_id"]
+        return _audit_log(answer)
 
-    async def answered(self, outcome: dict[str, Any]) -> bool:
+    async def answered(self, outcome: dict[str, Any]) -> str:
         """Record the robot's answer; best effort, as the robot already acted."""
         status = outcome.get("status")
         applied = outcome.get("applied")
@@ -813,19 +871,24 @@ class _ActionAudit:
             applied=applied if isinstance(applied, bool) else None,
         )
 
-    async def failed(self, exc: BaseException) -> bool:
-        """Record that the call failed after the attempt; best effort."""
-        return await self._after(phase="failed", failure_reason=type(exc).__name__)
+    async def failed(self, exc: BaseException) -> str:
+        """Record that the call failed after the attempt; best effort.
 
-    async def _after(self, **fields: Any) -> bool:
+        Completes even when the call was cancelled: the request may have
+        reached the robot.
+        """
+        return await _record_shielded(
+            self._after(phase="failed", failure_reason=type(exc).__name__)
+        )
+
+    async def _after(self, **fields: Any) -> str:
         try:
-            await self._record(**fields)
+            return _audit_log(await self._record(**fields))
         except Exception:
-            return False
-        return True
+            return "failed"
 
-    async def _record(self, **fields: Any) -> None:
-        await get_context().robot_edr.record_robot_action(
+    async def _record(self, **fields: Any) -> Any:
+        return await get_context().robot_edr.record_robot_action(
             robot_id=self.robot_id,
             request_id=self.request_id,
             operation=self.operation,
@@ -833,8 +896,19 @@ class _ActionAudit:
             request_digest=self.request_digest,
             request_submission_id=self.request_submission_id,
             approval_submission_ids=self.approval_submission_ids,
+            attempt_id=self.attempt_id,
             **fields,
         )
+
+
+def _audit_fields(attempt_log: str, outcome_log: str) -> dict[str, Any]:
+    """The audit results a robot action reports."""
+    return {
+        "audit_logged": attempt_log == "written",
+        "audit_log": attempt_log,
+        "outcome_audit_logged": outcome_log == "written",
+        "outcome_audit_log": outcome_log,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -2261,6 +2335,8 @@ def prepare_action_request(
         "signoff_answers": {
             SIGNOFF_REQUEST_ID: prepared.request_id,
             SIGNOFF_DIGEST: digest,
+            SIGNOFF_ROBOT_ID: prepared.robot_id,
+            SIGNOFF_ACTION: wire_name(spec.name),
         },
     }
 
@@ -2280,8 +2356,10 @@ def prepare_action_request(
         "word (verified and not held after a reboot). A robot_quarantine_node in "
         "force reports containment: full (contained), partial, guid_only "
         "(GUID-prefix drop only, not IP-contained) or unknown; only full is "
-        "contained. Written to the platform audit log (the run, requester and "
-        "approvers) before it is sent; refused if it cannot be."
+        "contained. Recorded by the platform (the run, requester and approvers) "
+        "before it is sent; refused if the configured audit sink does not "
+        "confirm it. audit_log says written (sink confirmed) or no_sink (no "
+        "audit sink configured: platform log only)."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2363,6 +2441,8 @@ async def request_action(
     requester, approvers = await _collect_signoff(
         request_id=prepared.request_id,
         digest=digest,
+        robot_id=robot.robot_id,
+        action=wire_name(spec.name),
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2396,9 +2476,11 @@ async def request_action(
         request_submission_id=_submission_uuid(request_submission_id),
         approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
     )
-    audit_logged = await audit.attempt()
+    attempt_log = await audit.attempt()
     # A `busy` submission is resent unchanged (same request_id and body, a
     # fresh nonce): the robot judges it once or answers it as a duplicate (§7).
+    # Every way out after the attempt closes it: a cancelled call, or an
+    # answer that cannot be read, may still have reached the robot.
     try:
         answer = await _call_retrying(
             robot,
@@ -2406,11 +2488,11 @@ async def request_action(
             _robot_target(robot.robot_id, "action-requests"),
             body_bytes(body_obj),
         )
-    except Exception as exc:
+        data = answer.json()
+        outcome = _outcome(data, action=spec.name)
+    except BaseException as exc:
         await audit.failed(exc)
         raise
-    data = answer.json()
-    outcome = _outcome(data, action=spec.name)
     return {
         "request_id": prepared.request_id,
         "action": spec.name,
@@ -2422,8 +2504,7 @@ async def request_action(
         "robot_executor": snap.get("executor"),
         **outcome,
         "answer_signature_verified": True,
-        "audit_logged": audit_logged,
-        "outcome_audit_logged": await audit.answered(outcome),
+        **_audit_fields(attempt_log, await audit.answered(outcome)),
         "answer": data,
     }
 
@@ -2502,7 +2583,11 @@ def prepare_revert_request(
             "1, or 2 when the stored request is robot_safe_pause, "
             "robot_request_safe_state or robot_rollback_config"
         ),
-        "signoff_answers": {SIGNOFF_REQUEST_ID: request_id, SIGNOFF_DIGEST: digest},
+        "signoff_answers": {
+            SIGNOFF_REQUEST_ID: request_id,
+            SIGNOFF_DIGEST: digest,
+            SIGNOFF_ROBOT_ID: fields["robot_id"],
+        },
     }
 
 
@@ -2514,8 +2599,10 @@ def prepare_revert_request(
         "action such as robot_safe_pause). request_safe_state, rollback_config "
         "and record_evidence are not reversible (refused, not_reversible); a "
         "request that never took effect answers not_applied; an executed one "
-        "answers pending, then reverted. Written to the platform audit log "
-        "before it is sent; refused if it cannot be."
+        "answers pending, then reverted. Recorded by the platform before it is "
+        "sent; refused if the configured audit sink does not confirm it. "
+        "audit_log says written (sink confirmed) or no_sink (no audit sink "
+        "configured: platform log only)."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2553,6 +2640,8 @@ async def revert_action(
     requester, approvers = await _collect_signoff(
         request_id=request_id,
         digest=digest,
+        robot_id=robot.robot_id,
+        action=None,
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2592,7 +2681,7 @@ async def revert_action(
         request_submission_id=_submission_uuid(request_submission_id),
         approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
     )
-    audit_logged = await audit.attempt()
+    attempt_log = await audit.attempt()
     # Resent only when the robot did nothing (fenced, rate limited); after
     # `busy` the revert may be recorded: read get_action_status first.
     try:
@@ -2603,11 +2692,11 @@ async def revert_action(
             body,
             busy_codes=(),
         )
-    except Exception as exc:
+        data = answer.json()
+        outcome = _outcome(data, revert=True, action=spec.name)
+    except BaseException as exc:
         await audit.failed(exc)
         raise
-    data = answer.json()
-    outcome = _outcome(data, revert=True, action=spec.name)
     return {
         "request_id": request_id,
         "action": spec.name,
@@ -2616,8 +2705,7 @@ async def revert_action(
         "approved_by": [a.as_dict() for a in approvers],
         **outcome,
         "answer_signature_verified": True,
-        "audit_logged": audit_logged,
-        "outcome_audit_logged": await audit.answered(outcome),
+        **_audit_fields(attempt_log, await audit.answered(outcome)),
         "answer": data,
     }
 
@@ -2654,25 +2742,67 @@ def _check_export_id(export_id: object) -> str:
     return export_id
 
 
-async def _record_access(
-    robot_id: str, operation: EvidenceOperation, export_id: str | None = None
-) -> bool:
-    """Write the platform audit event for an evidence read, before the read.
+@dataclass
+class _AccessAudit:
+    """What the platform audit log records for one evidence read or delete."""
 
-    Fails closed: an evidence read the platform cannot audit-log (the audit
-    route refused or failed) is refused, never done unaudited. Returns True.
-    """
-    try:
-        await get_context().robot_edr.record_evidence_access(
-            robot_id=robot_id, operation=operation, export_id=export_id
+    robot_id: str
+    operation: EvidenceOperation
+    export_id: str | None = None
+
+    async def attempt(self) -> str:
+        """Record the access before the robot is contacted.
+
+        Fails closed: an evidence access the platform does not record (the
+        route refused, the audit sink did not confirm it) is refused, never
+        done unaudited.
+
+        Returns:
+            The audit log result (see :func:`_audit_log`).
+        """
+        try:
+            answer = await self._record()
+        except Exception as exc:
+            raise EvidenceError(
+                f"the platform did not audit-log this evidence access "
+                f"({self.operation}: {type(exc).__name__}: {exc}); nothing was "
+                "sent to the robot. Check that the workflow's executor may "
+                "record evidence access"
+            ) from exc
+        return _audit_log(answer)
+
+    async def succeeded(self) -> str:
+        """Record that the access completed; best effort."""
+        return await self._after(phase="succeeded")
+
+    async def failed(self, exc: BaseException) -> str:
+        """Record that the access failed; best effort, also when cancelled."""
+        return await _record_shielded(
+            self._after(phase="failed", failure_reason=type(exc).__name__)
         )
-    except Exception as exc:
-        raise EvidenceError(
-            f"the platform did not audit-log this evidence read ({operation}: "
-            f"{type(exc).__name__}: {exc}); nothing was read from the robot. "
-            "Check that the workflow's executor may record evidence access"
-        ) from exc
-    return True
+
+    async def _after(self, **fields: Any) -> str:
+        try:
+            return _audit_log(await self._record(**fields))
+        except Exception:
+            return "failed"
+
+    async def _record(self, **fields: Any) -> Any:
+        return await get_context().robot_edr.record_evidence_access(
+            robot_id=self.robot_id,
+            operation=self.operation,
+            export_id=self.export_id,
+            **fields,
+        )
+
+
+def _access_fields(attempt_log: str, outcome_log: str) -> dict[str, Any]:
+    """The audit results an evidence access reports."""
+    return {
+        "audit_logged": attempt_log == "written",
+        "audit_log": attempt_log,
+        "outcome_audit_log": outcome_log,
+    }
 
 
 async def _registered_blackbox_keys(
@@ -2725,14 +2855,20 @@ async def list_evidence(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
-    audit_logged = await _record_access(robot.robot_id, "list")
-    answer = await _call_retrying(
-        robot, "GET", _robot_target(robot.robot_id, "evidence")
-    )
+    access = _AccessAudit(robot.robot_id, "list")
+    attempt_log = await access.attempt()
+    try:
+        answer = await _call_retrying(
+            robot, "GET", _robot_target(robot.robot_id, "evidence")
+        )
+        data = answer.json()
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
     return {
         "answer_signature_verified": True,
-        "audit_logged": audit_logged,
-        "data": answer.json(),
+        **_access_fields(attempt_log, await access.succeeded()),
+        "data": data,
     }
 
 
@@ -2842,7 +2978,8 @@ async def create_evidence_export(
         from_ms,
         to_ms,
     )
-    audit_logged = await _record_access(robot.robot_id, "create_export", export_id)
+    access = _AccessAudit(robot.robot_id, "create_export", export_id)
+    attempt_log = await access.attempt()
     body = body_bytes(
         {
             "export_id": export_id,
@@ -2851,17 +2988,21 @@ async def create_evidence_export(
             "reason": reason,
         }
     )
-    # The same export_id and selector answer the same export (200), so a
-    # busy robot is asked again.
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "evidence", "exports"),
-        body,
-        ok=(200, 201),
-        busy_codes=("busy", "evidence_busy"),
-    )
-    verified = _verified_manifest(robot, answer, export_id, selector)
+    try:
+        # The same export_id and selector answer the same export (200), so a
+        # busy robot is asked again.
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "evidence", "exports"),
+            body,
+            ok=(200, 201),
+            busy_codes=("busy", "evidence_busy"),
+        )
+        verified = _verified_manifest(robot, answer, export_id, selector)
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
     return {
         "export_id": export_id,
         "created": answer.status == 201,
@@ -2869,7 +3010,7 @@ async def create_evidence_export(
         "manifest_signature_verified": True,
         "manifest_signature": verified.manifest_signature,
         "manifest_sha256": hashlib.sha256(verified.manifest_bytes).hexdigest(),
-        "audit_logged": audit_logged,
+        **_access_fields(attempt_log, await access.succeeded()),
         "manifest": verified.manifest.raw,
     }
 
@@ -2940,7 +3081,8 @@ def _verification_report(
         "black-box record's hash, signature and chain under the robot's "
         "black-box keyring, and the result against the manifest) and store the "
         "verified bundle for the case. Nothing that fails verification is "
-        "stored. Read-only for the robot; audit-logged."
+        "stored. Read-only for the robot unless delete_after_download; "
+        "audit-logged."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -3005,72 +3147,108 @@ async def download_evidence_export(
     )
     if not isinstance(case_id, str) or not case_id:
         raise ValueError("case_id is required")
-    audit_logged = await _record_access(robot.robot_id, "download_export", export_id)
-
-    # Step 1-2: the manifest (signed answer, signed manifest, the selector).
-    export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
-    verified = _verified_manifest(
-        robot,
-        await _call_retrying(robot, "GET", export_target),
-        export_id,
-        selector,
-    )
-    manifest = verified.manifest
-    if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
-        raise EvidenceError(
-            f"the export is {manifest.bundle_bytes} bytes; at most "
-            f"{MAX_STORED_BUNDLE_BYTES} are downloaded and stored (export a "
-            "smaller selection)"
+    access = _AccessAudit(robot.robot_id, "download_export", export_id)
+    attempt_log = await access.attempt()
+    try:
+        # Step 1-2: the manifest (signed answer, signed manifest, the selector).
+        export_target = _robot_target(robot.robot_id, "evidence", "exports", export_id)
+        verified = _verified_manifest(
+            robot,
+            await _call_retrying(robot, "GET", export_target),
+            export_id,
+            selector,
         )
-
-    # Step 3: every chunk (signed answer, length, SHA-256), then the bundle.
-    chunks: dict[int, bytes] = {}
-    for spec in manifest.chunks:
-        data = await _fetch_chunk(robot, export_id, spec.index, spec.size)
-        check_chunk(spec, data)
-        chunks[spec.index] = data
-    bundle = assemble_bundle(manifest, chunks)
-
-    # Step 4-5: the records under the black-box keyring, against the manifest.
-    report = verify_bundle(
-        bundle,
-        keyring,
-        robot_id=robot.robot_id,
-        signing_key_id=manifest.signing_key_id,
-    )
-    problems = report.problems or check_report_against_manifest(report, manifest)
-    if problems:
-        raise EvidenceError(
-            "the evidence does not verify: "
-            + "; ".join(problems[:5])
-            + (
-                ""
-                if all(UNVERIFIABLE in p for p in problems)
-                else " (the robot's black box or the transfer reports a problem: "
-                "investigate before relying on this robot's evidence)"
+        manifest = verified.manifest
+        if manifest.bundle_bytes > MAX_STORED_BUNDLE_BYTES:
+            raise EvidenceError(
+                f"the export is {manifest.bundle_bytes} bytes; at most "
+                f"{MAX_STORED_BUNDLE_BYTES} are downloaded and stored (export a "
+                "smaller selection)"
             )
-        )
-    verification = _verification_report(verified, report.as_dict())
 
-    stored = await get_context().robot_edr.store_evidence(
-        case_id,
-        robot_id=robot.robot_id,
-        export_id=export_id,
-        manifest_base64=base64.b64encode(verified.manifest_bytes).decode("ascii"),
-        manifest_signature=verified.manifest_signature,
-        bundle_base64=base64.b64encode(bundle).decode("ascii"),
-        verification=verification,
-    )
+        # Step 3: every chunk (signed answer, length, SHA-256), then the bundle.
+        chunks: dict[int, bytes] = {}
+        for spec in manifest.chunks:
+            data = await _fetch_chunk(robot, export_id, spec.index, spec.size)
+            check_chunk(spec, data)
+            chunks[spec.index] = data
+        bundle = assemble_bundle(manifest, chunks)
+
+        # Step 4-5: the records under the black-box keyring, against the manifest.
+        report = verify_bundle(
+            bundle,
+            keyring,
+            robot_id=robot.robot_id,
+            signing_key_id=manifest.signing_key_id,
+        )
+        problems = report.problems or check_report_against_manifest(report, manifest)
+        if problems:
+            raise EvidenceError(
+                "the evidence does not verify: "
+                + "; ".join(problems[:5])
+                + (
+                    ""
+                    if all(UNVERIFIABLE in p for p in problems)
+                    else " (the robot's black box or the transfer reports a problem: "
+                    "investigate before relying on this robot's evidence)"
+                )
+            )
+        verification = _verification_report(verified, report.as_dict())
+
+        stored = await get_context().robot_edr.store_evidence(
+            case_id,
+            robot_id=robot.robot_id,
+            export_id=export_id,
+            manifest_base64=base64.b64encode(verified.manifest_bytes).decode("ascii"),
+            manifest_signature=verified.manifest_signature,
+            bundle_base64=base64.b64encode(bundle).decode("ascii"),
+            verification=verification,
+        )
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
+    outcome_log = await access.succeeded()
+
     deleted = False
+    delete_audit_log: str | None = None
     if delete_after_download:
-        await _call_retrying(robot, "DELETE", export_target)
-        deleted = True
+        deleted, delete_audit_log = await _delete_export(
+            robot, export_id, export_target
+        )
     return {
         "export_id": export_id,
         "verified": True,
         "verification": verification,
         "stored": stored,
         "deleted": deleted,
-        "audit_logged": audit_logged,
+        "delete_audit_log": delete_audit_log,
+        **_access_fields(attempt_log, outcome_log),
         "manifest": manifest.raw,
     }
+
+
+async def _delete_export(
+    robot: _Robot, export_id: str, export_target: str
+) -> tuple[bool, str]:
+    """Delete a stored export on the robot, recorded by the platform first.
+
+    The evidence is already stored, so a delete the platform does not record
+    is skipped and reported (``deleted: false``) instead of failing the
+    download. A failed delete raises after it is recorded.
+
+    Returns:
+        Whether the export was deleted, and the delete's audit log result
+        (``refused`` when the platform did not record it).
+    """
+    access = _AccessAudit(robot.robot_id, "delete_export", export_id)
+    try:
+        attempt_log = await access.attempt()
+    except EvidenceError:
+        return False, "refused"
+    try:
+        await _call_retrying(robot, "DELETE", export_target)
+    except BaseException as exc:
+        await access.failed(exc)
+        raise
+    await access.succeeded()
+    return True, attempt_log

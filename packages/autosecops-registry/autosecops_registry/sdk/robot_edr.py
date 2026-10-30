@@ -8,7 +8,10 @@ from urllib.parse import quote
 if TYPE_CHECKING:
     from autosecops_registry.sdk.client import AutoSecOpsClient
 
-type EvidenceOperation = Literal["list", "create_export", "download_export"]
+type EvidenceOperation = Literal[
+    "list", "create_export", "download_export", "delete_export"
+]
+type EvidencePhase = Literal["attempt", "succeeded", "failed"]
 type RobotActionOperation = Literal["request_action", "revert_action"]
 type RobotActionPhase = Literal["attempt", "answered", "failed"]
 
@@ -67,16 +70,35 @@ class RobotEdrClient:
         robot_id: str,
         operation: EvidenceOperation,
         export_id: str | None = None,
-    ) -> None:
-        """Write an audit event for reading a robot's evidence."""
-        await self._client.post(
-            "/robot-edr/evidence/access",
-            json={
-                "robot_id": robot_id,
-                "operation": operation,
-                "export_id": export_id,
-            },
-        )
+        phase: EvidencePhase = "attempt",
+        failure_reason: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Write an audit event for reading or deleting a robot's evidence.
+
+        Args:
+            robot_id: The robot whose evidence is accessed.
+            operation: What is done with it.
+            export_id: The export, for the export operations.
+            phase: ``attempt`` (before the robot is contacted; the platform
+                refuses it unless written), ``succeeded`` or ``failed``.
+            failure_reason: ``failed``: the error type.
+
+        Returns:
+            ``{"audit_log": ...}``: ``written`` (the audit sink confirmed
+            it), ``no_sink``, or for a closing event ``queued``/``failed``;
+            ``None`` from an API that does not say.
+        """
+        body: dict[str, Any] = {
+            "robot_id": robot_id,
+            "operation": operation,
+            "export_id": export_id,
+        }
+        # Sent only when set, so an attempt still reaches an older API.
+        if phase != "attempt":
+            body["phase"] = phase
+        if failure_reason is not None:
+            body["failure_reason"] = failure_reason
+        return await self._client.post("/robot-edr/evidence/access", json=body)
 
     async def record_robot_action(
         self,
@@ -92,11 +114,14 @@ class RobotEdrClient:
         outcome: str | None = None,
         applied: bool | None = None,
         failure_reason: str | None = None,
-    ) -> None:
+        attempt_id: str | None = None,
+    ) -> dict[str, Any] | None:
         """Write an audit event for a robot action request or revert.
 
-        The platform records the run that acted and reads the requester and
-        approvers from the named sign-off submissions itself.
+        The platform checks the named sign-off submissions, records the run
+        that acted and reads the requester and approvers from them itself. An
+        ``answered`` or ``failed`` event names the ``attempt_id`` the attempt
+        returned and must match that stored attempt.
 
         Args:
             robot_id: The robot the request is for.
@@ -110,23 +135,29 @@ class RobotEdrClient:
             outcome: ``answered``: the robot's status.
             applied: ``answered``: whether the robot applied it.
             failure_reason: ``failed``: the error type.
+            attempt_id: ``answered``/``failed``: the stored attempt.
+
+        Returns:
+            ``{"attempt_id": ..., "audit_log": ...}`` (``written``: the audit
+            sink confirmed it; ``no_sink``: none is configured), or ``None``
+            from an API that does not say.
         """
-        await self._client.post(
-            "/robot-edr/actions/audit",
-            json={
-                "robot_id": robot_id,
-                "request_id": request_id,
-                "operation": operation,
-                "robot_action": robot_action,
-                "request_digest": request_digest,
-                "request_submission_id": request_submission_id,
-                "approval_submission_ids": approval_submission_ids,
-                "phase": phase,
-                "outcome": outcome,
-                "applied": applied,
-                "failure_reason": failure_reason,
-            },
-        )
+        body: dict[str, Any] = {
+            "robot_id": robot_id,
+            "request_id": request_id,
+            "operation": operation,
+            "robot_action": robot_action,
+            "request_digest": request_digest,
+            "request_submission_id": request_submission_id,
+            "approval_submission_ids": approval_submission_ids,
+            "phase": phase,
+            "outcome": outcome,
+            "applied": applied,
+            "failure_reason": failure_reason,
+        }
+        if attempt_id is not None:
+            body["attempt_id"] = attempt_id
+        return await self._client.post("/robot-edr/actions/audit", json=body)
 
     async def blackbox_public_keys(
         self,
