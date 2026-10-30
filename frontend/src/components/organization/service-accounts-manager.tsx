@@ -268,23 +268,53 @@ function formatFullTimestamp(value?: string | null): string {
   return format(new Date(value), "PPpp")
 }
 
+type ApiKeyStatus = "active" | "expired" | "revoked"
+
+/** Whether an API key has passed its expiry time and no longer authenticates. */
+function isApiKeyExpired(apiKey: ServiceAccountApiKeyRead): boolean {
+  return Boolean(
+    apiKey.expires_at && new Date(apiKey.expires_at).getTime() <= Date.now()
+  )
+}
+
+function getApiKeyStatus(apiKey: ServiceAccountApiKeyRead): ApiKeyStatus {
+  if (apiKey.revoked_at) return "revoked"
+  if (isApiKeyExpired(apiKey)) return "expired"
+  return "active"
+}
+
+const API_KEY_STATUS_LABELS: Record<ApiKeyStatus, string> = {
+  active: "Active",
+  expired: "Expired",
+  revoked: "Revoked",
+}
+
 function getApiKeyStatusLabel(apiKey: ServiceAccountApiKeyRead): string {
-  return apiKey.revoked_at ? "Revoked" : "Active"
+  return API_KEY_STATUS_LABELS[getApiKeyStatus(apiKey)]
 }
 
 function getApiKeyStatusTone(apiKey: ServiceAccountApiKeyRead): {
   dotClassName: string
   textClassName: string
 } {
-  return apiKey.revoked_at
-    ? {
-        dotClassName: "bg-rose-500",
-        textClassName: "text-rose-700 dark:text-rose-400",
-      }
-    : {
-        dotClassName: "bg-green-500",
-        textClassName: "text-green-700 dark:text-green-400",
-      }
+  if (getApiKeyStatus(apiKey) === "active") {
+    return {
+      dotClassName: "bg-green-500",
+      textClassName: "text-green-700 dark:text-green-400",
+    }
+  }
+  return {
+    dotClassName: "bg-rose-500",
+    textClassName: "text-rose-700 dark:text-rose-400",
+  }
+}
+
+function formatApiKeyExpiry(value?: string | null): string {
+  if (!value) {
+    return "Never"
+  }
+
+  return format(new Date(value), "PP")
 }
 
 function matchesServiceAccountStatusFilter(
@@ -506,6 +536,7 @@ function ServiceAccountDetailPanel({
                     <TableHead className="text-xs">Created by</TableHead>
                     <TableHead className="text-xs">Created</TableHead>
                     <TableHead className="text-xs">Last used</TableHead>
+                    <TableHead className="text-xs">Expires</TableHead>
                     <TableHead className="h-8 w-[40px]" />
                   </TableRow>
                 </TableHeader>
@@ -554,6 +585,16 @@ function ServiceAccountDetailPanel({
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {formatTimestamp(apiKey.last_used_at)}
+                        </TableCell>
+                        <TableCell
+                          className="text-xs text-muted-foreground"
+                          title={
+                            apiKey.expires_at
+                              ? formatFullTimestamp(apiKey.expires_at)
+                              : undefined
+                          }
+                        >
+                          {formatApiKeyExpiry(apiKey.expires_at)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

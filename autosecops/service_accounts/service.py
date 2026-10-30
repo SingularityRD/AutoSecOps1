@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
 import sqlalchemy as sa
@@ -15,6 +16,7 @@ from autosecops.auth.api_keys import (
     ORG_API_KEY_PREFIX,
     WORKSPACE_API_KEY_PREFIX,
     generate_managed_api_key,
+    is_api_key_expired,
 )
 from autosecops.auth.credentials import compute_effective_scopes
 from autosecops.auth.types import Role
@@ -36,9 +38,13 @@ from autosecops.service import (
     requires_entitlement,
 )
 from autosecops.service_accounts.constants import (
+    API_KEY_MAX_TTL_DAYS_MAX,
+    API_KEY_MAX_TTL_DAYS_MIN,
+    SERVICE_ACCOUNT_API_KEY_MAX_TTL_DAYS_KEY,
     is_org_service_account_assignable_scope,
     is_workspace_service_account_assignable_scope,
 )
+from autosecops.settings.service import get_setting
 from autosecops.tiers.enums import Entitlement
 
 ServiceAccountScopeValidator = Callable[..., bool]
@@ -266,13 +272,71 @@ def get_service_account_last_used_at(
     return max(last_used_candidates)
 
 
+@dataclass(frozen=True, slots=True)
+class ApiKeyCounts:
+    """How many of a service account's keys are in each lifecycle state."""
+
+    total: int
+    active: int
+    """Unrevoked and unexpired: the keys that still authenticate."""
+    expired: int
+    """Unrevoked but past their expiry."""
+    revoked: int
+
+
 def get_service_account_api_key_counts(
-    service_account: ServiceAccount,
-) -> tuple[int, int, int]:
-    total = len(service_account.api_keys)
-    active = sum(key.revoked_at is None for key in service_account.api_keys)
-    revoked = total - active
-    return total, active, revoked
+    service_account: ServiceAccount, *, now: datetime | None = None
+) -> ApiKeyCounts:
+    now = now or datetime.now(UTC)
+    keys = service_account.api_keys
+    revoked = sum(key.revoked_at is not None for key in keys)
+    expired = sum(
+        key.revoked_at is None and is_api_key_expired(key.expires_at, now=now)
+        for key in keys
+    )
+    return ApiKeyCounts(
+        total=len(keys),
+        active=len(keys) - revoked - expired,
+        expired=expired,
+        revoked=revoked,
+    )
+
+
+def resolve_api_key_expiry(
+    requested: datetime | None,
+    *,
+    now: datetime,
+    max_ttl_days: int | None,
+) -> datetime | None:
+    """Decide when a new API key expires.
+
+    Args:
+        requested: The expiry the caller asked for, or ``None`` for none.
+        now: The issue time.
+        max_ttl_days: The organization's maximum key lifetime, if any.
+
+    Returns:
+        ``requested`` when it is allowed; the maximum lifetime from ``now``
+        when the caller asked for none and the organization sets one; or
+        ``None`` for a key that never expires.
+
+    Raises:
+        AutoSecOpsValidationError: ``requested`` is not in the future, or is
+            later than the organization's maximum lifetime allows.
+    """
+    if requested is not None and requested.tzinfo is None:
+        raise AutoSecOpsValidationError("API key expiry must include a time zone")
+    latest = now + timedelta(days=max_ttl_days) if max_ttl_days is not None else None
+    if requested is None:
+        return latest
+    if requested <= now:
+        raise AutoSecOpsValidationError("API key expiry must be in the future")
+    if latest is not None and requested > latest:
+        raise AutoSecOpsValidationError(
+            f"API key expiry exceeds the organization's maximum lifetime of "
+            f"{max_ttl_days} days"
+        )
+    return requested
 
 
 async def _ensure_role_can_assign_scopes(role: Role, scopes: list[Scope]) -> None:
@@ -422,6 +486,7 @@ class BaseServiceAccountService:
         *,
         service_account: ServiceAccount,
         name: str,
+        expires_at: datetime | None,
     ) -> tuple[ServiceAccountApiKey, str]:
         generated = generate_managed_api_key(prefix=self.key_prefix)
         api_key = ServiceAccountApiKey(
@@ -433,9 +498,43 @@ class BaseServiceAccountService:
             salt=generated.salt_b64,
             preview=generated.preview(),
             created_by=self.role.user_id,
+            expires_at=expires_at,
         )
         self.session.add(api_key)
         return api_key, generated.raw
+
+    async def _get_api_key_max_ttl_days(self) -> int | None:
+        """The organization's maximum API key lifetime in days, if it sets one."""
+        value = await get_setting(
+            SERVICE_ACCOUNT_API_KEY_MAX_TTL_DAYS_KEY,
+            role=self.role,
+            session=self.session,
+            default=None,
+        )
+        if value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not API_KEY_MAX_TTL_DAYS_MIN <= value <= API_KEY_MAX_TTL_DAYS_MAX
+        ):
+            # Refuse to issue rather than silently issue a key the policy
+            # was meant to bound.
+            raise AutoSecOpsValidationError(
+                "The organization's maximum API key lifetime setting is invalid; "
+                "an administrator must correct it before keys can be issued"
+            )
+        return value
+
+    async def _resolve_api_key_expiry(
+        self, requested: datetime | None
+    ) -> datetime | None:
+        """Apply the organization's maximum key lifetime to a requested expiry."""
+        return resolve_api_key_expiry(
+            requested,
+            now=datetime.now(UTC),
+            max_ttl_days=await self._get_api_key_max_ttl_days(),
+        )
 
     async def _resolve_scopes(self, scope_ids: list[uuid.UUID]) -> list[Scope]:
         return await _resolve_assignable_scopes(
@@ -451,9 +550,11 @@ class BaseServiceAccountService:
         description: str | None,
         scope_ids: list[uuid.UUID],
         initial_key_name: str,
+        initial_key_expires_at: datetime | None,
     ) -> IssuedServiceAccountApiKeyResult:
         scopes = await self._resolve_scopes(scope_ids)
         await _ensure_role_can_assign_scopes(self.role, scopes)
+        expires_at = await self._resolve_api_key_expiry(initial_key_expires_at)
         service_account = ServiceAccount(
             organization_id=self.organization_id,
             workspace_id=self.workspace_id if self.workspace_scoped else None,
@@ -467,6 +568,7 @@ class BaseServiceAccountService:
         created_api_key, raw_key = await self._create_api_key(
             service_account=service_account,
             name=initial_key_name,
+            expires_at=expires_at,
         )
         created_api_key_id = created_api_key.id
         await self.session.commit()
@@ -554,7 +656,11 @@ class BaseServiceAccountService:
         service_account_id: uuid.UUID,
         *,
         name: str,
+        expires_at: datetime | None,
     ) -> IssuedServiceAccountApiKeyResult:
+        # Resolve the expiry first: a refused expiry must not revoke the key
+        # the caller meant to replace.
+        resolved_expires_at = await self._resolve_api_key_expiry(expires_at)
         service_account = await self.get_service_account(
             service_account_id,
             for_update=True,
@@ -567,7 +673,9 @@ class BaseServiceAccountService:
             active_key.revoked_at = datetime.now(UTC)
             active_key.revoked_by = self.role.user_id
         created_api_key, raw_key = await self._create_api_key(
-            service_account=service_account, name=name
+            service_account=service_account,
+            name=name,
+            expires_at=resolved_expires_at,
         )
         created_api_key_id = created_api_key.id
         refreshed_service_account_id = service_account.id
@@ -639,12 +747,14 @@ class OrganizationServiceAccountService(BaseOrgService, BaseServiceAccountServic
         description: str | None,
         scope_ids: list[uuid.UUID],
         initial_key_name: str,
+        initial_key_expires_at: datetime | None = None,
     ) -> IssuedServiceAccountApiKeyResult:
         return await self._create_service_account(
             name=name,
             description=description,
             scope_ids=scope_ids,
             initial_key_name=initial_key_name,
+            initial_key_expires_at=initial_key_expires_at,
         )
 
     @require_scope("org:service_account:update")
@@ -703,8 +813,11 @@ class OrganizationServiceAccountService(BaseOrgService, BaseServiceAccountServic
         service_account_id: uuid.UUID,
         *,
         name: str,
+        expires_at: datetime | None = None,
     ) -> IssuedServiceAccountApiKeyResult:
-        return await self._issue_api_key(service_account_id, name=name)
+        return await self._issue_api_key(
+            service_account_id, name=name, expires_at=expires_at
+        )
 
     @require_scope("org:service_account:update")
     @requires_entitlement(Entitlement.SERVICE_ACCOUNTS)
@@ -759,12 +872,14 @@ class WorkspaceServiceAccountService(BaseWorkspaceService, BaseServiceAccountSer
         description: str | None,
         scope_ids: list[uuid.UUID],
         initial_key_name: str,
+        initial_key_expires_at: datetime | None = None,
     ) -> IssuedServiceAccountApiKeyResult:
         return await self._create_service_account(
             name=name,
             description=description,
             scope_ids=scope_ids,
             initial_key_name=initial_key_name,
+            initial_key_expires_at=initial_key_expires_at,
         )
 
     @require_scope("workspace:service_account:update")
@@ -823,8 +938,11 @@ class WorkspaceServiceAccountService(BaseWorkspaceService, BaseServiceAccountSer
         service_account_id: uuid.UUID,
         *,
         name: str,
+        expires_at: datetime | None = None,
     ) -> IssuedServiceAccountApiKeyResult:
-        return await self._issue_api_key(service_account_id, name=name)
+        return await self._issue_api_key(
+            service_account_id, name=name, expires_at=expires_at
+        )
 
     @require_scope("workspace:service_account:update")
     @requires_entitlement(Entitlement.SERVICE_ACCOUNTS)

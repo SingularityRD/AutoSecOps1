@@ -33,9 +33,11 @@ from autosecops import config
 from autosecops.auth.api_keys import (
     ORG_API_KEY_PREFIX,
     WORKSPACE_API_KEY_PREFIX,
+    is_api_key_expired,
     parse_managed_api_key,
     verify_api_key,
 )
+from autosecops.auth.audit import AuthAuditFailureReason, emit_api_key_rejected_event
 from autosecops.auth.executor_tokens import known_trigger_type, verify_executor_token
 from autosecops.auth.ip_allowlist_enforcement import (
     enforce_org_ip_allowlist,
@@ -391,6 +393,18 @@ async def _authenticate_api_key(
         if not verify_api_key(api_key, record.salt, record.hashed):
             raise UNAUTHORIZED_EXCEPTION
         service_account = record.service_account
+        now = datetime.now(UTC)
+        if is_api_key_expired(record.expires_at, now=now):
+            # Audited only after the secret verified, so a guessed key id
+            # cannot write events against someone else's key.
+            await emit_api_key_rejected_event(
+                organization_id=service_account.organization_id,
+                workspace_id=service_account.workspace_id,
+                service_account_id=service_account.id,
+                api_key_id=record.id,
+                failure_reason=AuthAuditFailureReason.EXPIRED,
+            )
+            raise UNAUTHORIZED_EXCEPTION
         if service_account.disabled_at is not None:
             raise UNAUTHORIZED_EXCEPTION
         if not await is_org_entitled(
@@ -440,7 +454,7 @@ async def _authenticate_api_key(
                 )
             resolved_workspace_id = workspace_id or bound_workspace_id
 
-        record.last_used_at = datetime.now(UTC)
+        record.last_used_at = now
         session.add(record)
         await session.commit()
         ctx_service_account_api_key_id.set(record.id)

@@ -1938,6 +1938,10 @@ class ServiceAccountApiKey(RecordModel):
     revoked_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    """When the key stops authenticating. ``None`` means it never expires."""
     revoked_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID,
         ForeignKey("user.id", ondelete="SET NULL"),
