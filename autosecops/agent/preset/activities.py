@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy import select
 from temporalio import activity
 
+from autosecops.agent.catalog.service import AgentCatalogService
 from autosecops.agent.error_policy import (
     agent_preparation_failed,
     invalid_agent_configuration,
@@ -148,6 +149,7 @@ class CustomModelProviderConfigResult(BaseModel):
     model_name: str | None = None
     base_url: str
     passthrough: bool = False
+    catalog_id: uuid.UUID | None = None
 
 
 @activity.defn
@@ -156,6 +158,7 @@ async def resolve_custom_model_provider_config_activity(
     catalog_id: uuid.UUID | None = None,
     use_workspace_credentials: bool = False,  # noqa: ARG001 - signature compatibility
     model_provider: str = CUSTOM_MODEL_PROVIDER_SLUG,
+    model_name: str | None = None,
 ) -> CustomModelProviderConfigResult:
     """Resolve runtime config for an OpenAI-compatible gateway provider.
 
@@ -168,7 +171,10 @@ async def resolve_custom_model_provider_config_activity(
        and provider config decryption centralized.
     2. **Legacy.** When ``catalog_id`` is ``None`` (pre-v2 workflow history
        replay or DSL AI actions that don't carry a catalog_id yet), resolve
-       workspace-scoped ``agent-{model_provider}-credentials``.
+       workspace-scoped ``agent-{model_provider}-credentials``. Without them,
+       ``model_name`` resolves to the enabled catalog row for
+       ``(model_provider, model_name)``, returned as ``catalog_id`` so the
+       LLM gateway loads the same credentials.
 
     ``catalog_id`` remains nullable for legacy no-catalog executions.
     ``use_workspace_credentials`` is retained for activity signature
@@ -189,6 +195,10 @@ async def resolve_custom_model_provider_config_activity(
     role = role if isinstance(role, Role) else Role.model_validate(role)
     async with AgentManagementService.with_session(role) as svc:
         try:
+            if catalog_id is None and model_name:
+                catalog_id = await _resolve_catalog_id_by_model_name(
+                    svc, model_provider=model_provider, model_name=model_name
+                )
             creds = await _load_custom_model_provider_creds(
                 svc,
                 catalog_id=catalog_id,
@@ -230,6 +240,31 @@ async def resolve_custom_model_provider_config_activity(
         base_url=runtime.base_url,
         model_name=runtime.model_name,
         passthrough=runtime.passthrough,
+        catalog_id=catalog_id,
+    )
+
+
+async def _resolve_catalog_id_by_model_name(
+    svc: AgentManagementService,
+    *,
+    model_provider: str,
+    model_name: str,
+) -> uuid.UUID | None:
+    """Resolve a catalog row for a config that names a model but no catalog id.
+
+    Workspace-scoped provider credentials keep precedence, so this returns
+    ``None`` when they exist and the legacy path still uses them. Otherwise
+    it returns the catalog row enabled for this workspace that matches
+    ``(model_provider, model_name)``, such as a model from an Ollama or
+    custom source configured in organization settings.
+    """
+    if await svc.get_workspace_provider_credentials(model_provider) is not None:
+        return None
+    return await AgentCatalogService(session=svc.session).resolve_catalog_id_by_model(
+        org_id=svc.organization_id,
+        model_provider=model_provider,
+        model_name=model_name,
+        workspace_id=svc.role.workspace_id,
     )
 
 

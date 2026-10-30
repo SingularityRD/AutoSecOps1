@@ -626,12 +626,20 @@ class DurableAgentWorkflow:
             return
         result = await workflow.execute_activity(
             resolve_custom_model_provider_config_activity,
-            args=(self.role, cfg.catalog_id, False, cfg.model_provider),
+            args=(
+                self.role,
+                cfg.catalog_id,
+                False,
+                cfg.model_provider,
+                cfg.model_name,
+            ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=RETRY_POLICIES["activity:fail_fast"],
         )
         cfg.base_url = result.base_url
         cfg.passthrough = result.passthrough
+        if cfg.catalog_id is None and result.catalog_id is not None:
+            cfg.catalog_id = result.catalog_id
         if result.model_name:
             cfg.model_name = result.model_name
         logger.info(
