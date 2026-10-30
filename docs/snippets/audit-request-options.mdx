@@ -8,6 +8,8 @@
 
 AutoSecOps encrypts the webhook URL, custom headers, and custom payload at rest.
 
+AutoSecOps resolves the webhook host on every request, for both live delivery and **Test**, and refuses private, loopback, link-local, and other non-public addresses. To reach a collector on a private network, add its exact IP or a narrow CIDR to `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` on the `api` service, such as `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32`; see [Private endpoints](/agents/llm-providers#private-endpoints) for where to set it. `HTTP_PROXY` and `HTTPS_PROXY` have no effect on these requests; use `AUTOSECOPS__OUTBOUND_PROXY_URL` to route them through a forward proxy.
+
 Use the payload attribute when your collector expects the event under a specific key. Splunk HTTP Event Collector is the common case: it requires each event wrapped in an `event` field.
 
 Set the payload attribute to `event`, and AutoSecOps wraps the whole payload:

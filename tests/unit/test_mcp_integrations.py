@@ -104,6 +104,7 @@ from autosecops.integrations.service import (
 )
 from autosecops.integrations.types import DCRResponse, OAuthServerMetadata
 from autosecops.tiers import defaults as tier_defaults
+from tests.support.outbound_network import install_recording_network, resolve_all_to
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -4663,25 +4664,10 @@ class TestMCPProviderOAuth:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Generic MCP DCR must not fetch hosts resolving to private addresses."""
-
-        def fake_getaddrinfo(
-            host: str,
-            port: int,
-            *,
-            type: socket.SocketKind,
-            proto: int,
-        ) -> list[
-            tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int]]
-        ]:
-            assert host == "metadata.example.test"
-            assert type == socket.SOCK_STREAM
-            assert proto == socket.IPPROTO_TCP
-            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.10", port))]
-
-        monkeypatch.setattr(
-            "autosecops.integrations.providers.base.socket.getaddrinfo",
-            fake_getaddrinfo,
-        )
+        # The outbound client resolves once, checks every answer, and dials only
+        # the checked address.
+        network = install_recording_network(monkeypatch)
+        resolve_all_to(monkeypatch, "10.0.0.10", host="metadata.example.test")
 
         with pytest.raises(ValueError) as exc:
             await integration_service._fetch_oauth_json(
@@ -4690,7 +4676,9 @@ class TestMCPProviderOAuth:
 
         message = str(exc.value)
         assert "host is not allowed" in message
+        assert "10.0.0.10" not in message
         assert "private" not in message.lower()
+        assert network.connections == []
 
     async def test_generic_mcp_callback_rejects_private_token_endpoint_resolution(
         self,
@@ -6229,7 +6217,7 @@ class TestMCPProviderOAuth:
                 )
 
         monkeypatch.setattr(
-            "autosecops.integrations.providers.base.httpx.AsyncClient",
+            "autosecops.integrations.providers.base.create_outbound_http_client",
             FakeAsyncClient,
         )
 

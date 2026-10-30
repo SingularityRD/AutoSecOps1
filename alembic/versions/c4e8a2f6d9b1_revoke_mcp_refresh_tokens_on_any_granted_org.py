@@ -1,7 +1,7 @@
 """Revoke MCP refresh tokens when any granted org membership is removed.
 
 Revision ID: c4e8a2f6d9b1
-Revises: 4c8e2a9f6b13
+Revises: 9b4d6e2f1a37
 Create Date: 2026-10-23 21:30:00.000000
 
 Adds a nullable ``mcp_refresh_token.granted_organization_ids`` column and
@@ -30,7 +30,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "c4e8a2f6d9b1"
-down_revision: str | None = "4c8e2a9f6b13"
+down_revision: str | None = "9b4d6e2f1a37"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

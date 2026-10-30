@@ -14,6 +14,10 @@ from autosecops.db.migration_lock import (
     acquire_migration_advisory_lock,
     release_migration_advisory_lock,
 )
+from autosecops.db.runtime_role import (
+    provision_runtime_role,
+    runtime_role_credentials_from_config,
+)
 
 alembic_postgresql_enum.set_configuration(
     alembic_postgresql_enum.Config(
@@ -106,8 +110,26 @@ def run_migrations_online() -> None:
 
         has_advisory_lock = acquire_migration_advisory_lock(connection)
         try:
+            # Migrations run as the owner and may fix up data across tenants.
+            # The owner bypasses non-forced policies already; this session-level
+            # bypass also covers workspace tables that force RLS.
+            connection.exec_driver_sql(
+                "SELECT set_config('app.rls_bypass', 'on', false)"
+            )
+            connection.commit()
             with context.begin_transaction():
                 context.run_migrations()
+            # Re-apply the runtime role's grants under the same lock, so tables
+            # created by these migrations are covered before services start.
+            if (credentials := runtime_role_credentials_from_config()) is not None:
+                with connection.begin():
+                    provision_runtime_role(connection, credentials)
+            else:
+                logging.warning(
+                    "AUTOSECOPS__DB_RUNTIME_PASSWORD is not set; skipping the"
+                    " database runtime role. Services keep connecting as the"
+                    " owner and tenant RLS isolation stays inactive."
+                )
         finally:
             if has_advisory_lock:
                 try:

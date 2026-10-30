@@ -71,7 +71,7 @@ On-prem and in-cluster gateways such as `http://litellm:4000/v1`, `http://vllm:8
 | Kubernetes | `autosecops.outboundAllowedPrivateCidrs: "10.0.12.34/32"` in your Helm values; the chart passes it to every backend service |
 | AWS Fargate | `outbound_allowed_private_cidrs = "10.0.12.34/32"` in your Terraform variables |
 
-The allowlist applies to every workspace and also covers remote MCP servers, so list only endpoints you operate. Container hostnames such as `litellm` or `vllm` resolve to addresses on the Docker Compose `core` network; run `docker compose exec api getent hosts <hostname>` to find the address to allow, or allow that network's subnet from `docker network inspect`.
+The allowlist applies to every workspace and also covers remote MCP servers, MCP OAuth discovery and client registration, audit webhooks, and GitLab or Bitbucket Data Center instance URLs, so list only endpoints you operate. Container hostnames such as `litellm` or `vllm` resolve to addresses on the Docker Compose `core` network; run `docker compose exec api getent hosts <hostname>` to find the address to allow, or allow that network's subnet from `docker network inspect`.
 
 ## Corporate proxy
 

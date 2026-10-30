@@ -13,6 +13,7 @@ from typing import Any, TypedDict, cast
 from urllib.parse import urlparse, urlunparse
 from uuid import uuid4
 
+import httpx
 import orjson
 import sqlalchemy as sa
 from authlib.integrations.base_client.errors import OAuthError
@@ -142,6 +143,7 @@ from autosecops.integrations.types import (
     OAuthServerMetadata,
     TokenResponse,
 )
+from autosecops.network import DisallowedUrlError
 from autosecops.sanitization import sanitize_urls_in_text
 from autosecops.secrets.encryption import decrypt_value, encrypt_value, is_set
 from autosecops.service import BaseWorkspaceService
@@ -1079,10 +1081,32 @@ class IntegrationService(BaseWorkspaceService):
             subject=f"mcp_integration:{mcp_integration.id if mcp_integration else ''}",
         )
 
+    @staticmethod
+    async def _send_mcp_oauth_request(
+        url: str, *, json_body: dict[str, Any] | None = None
+    ) -> httpx.Response:
+        """GET a discovery URL, or POST a registration body, through the guard.
+
+        The URL shape is checked here; the outbound client (or tunnel gateway)
+        decides which addresses are reachable when it connects, so DNS cannot
+        change between the check and the connection.
+        """
+        validate_oauth_endpoint(url, allow_private_hosts=True)
+        try:
+            async with create_mcp_oauth_http_client() as client:
+                if json_body is None:
+                    return await client.get(url, timeout=10.0)
+                return await client.post(
+                    url,
+                    json=json_body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10.0,
+                )
+        except DisallowedUrlError as exc:
+            raise ValueError("OAuth endpoint host is not allowed") from exc
+
     async def _fetch_oauth_json(self, url: str) -> OAuthServerMetadata | None:
-        await self._validate_mcp_oauth_endpoint_reachable(url)
-        async with create_mcp_oauth_http_client() as client:
-            response = await client.get(url, timeout=10.0)
+        response = await self._send_mcp_oauth_request(url)
         if response.status_code == 404:
             return None
         response.raise_for_status()
@@ -1224,14 +1248,9 @@ class IntegrationService(BaseWorkspaceService):
             requested_scopes=requested_scopes,
         )
 
-        await self._validate_mcp_oauth_endpoint_reachable(registration_endpoint)
-        async with create_mcp_oauth_http_client() as client:
-            response = await client.post(
-                registration_endpoint,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=10.0,
-            )
+        response = await self._send_mcp_oauth_request(
+            registration_endpoint, json_body=payload
+        )
         response.raise_for_status()
         try:
             registration_response = DCRResponse.model_validate(response.json())

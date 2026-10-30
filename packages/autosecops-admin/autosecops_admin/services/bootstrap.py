@@ -23,10 +23,7 @@ from autosecops.auth.users import (
     lookup_user_by_email,
 )
 from autosecops.authz.membership import ensure_member
-from autosecops.db.engine import (
-    get_async_session_bypass_rls_context_manager,
-    get_async_session_context_manager,
-)
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import (
     LegacyMembership,
     OrganizationTier,
@@ -116,7 +113,9 @@ async def create_superuser(
         ValueError: If user not found (when create=False) or already superuser.
         ValueError: If password not provided when create=True.
     """
-    async with get_async_session_context_manager() as session:
+    # Platform bootstrap from the admin CLI: no tenant context exists, and it
+    # writes organization memberships, so it needs the explicit RLS bypass.
+    async with get_async_session_bypass_rls_context_manager() as session:
         if create:
             if not password:
                 raise ValueError("Password is required when creating a new user")

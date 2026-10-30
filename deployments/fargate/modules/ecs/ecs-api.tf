@@ -28,6 +28,7 @@ resource "aws_ecs_task_definition" "api_task_definition" {
         }
       }
       environment = local.migrations_env
+      secrets     = local.migrations_secrets
     }, local.autosecops_repository_credentials),
     merge({
       name      = "AutoSecOpsApiContainer"

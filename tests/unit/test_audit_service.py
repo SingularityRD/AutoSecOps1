@@ -911,7 +911,7 @@ async def test_post_event_uses_custom_payload_headers_and_verify_ssl(
     )
 
     with patch(
-        "autosecops.audit.service.httpx.AsyncClient",
+        "autosecops.audit.service.create_outbound_http_client",
         return_value=async_client_context_mock,
     ) as async_client_ctor:
         await audit_service._post_event(webhook_url=webhook_url, payload=event)
@@ -984,7 +984,7 @@ async def test_post_event_wraps_payload_when_attribute_configured(
     )
 
     with patch(
-        "autosecops.audit.service.httpx.AsyncClient",
+        "autosecops.audit.service.create_outbound_http_client",
         return_value=async_client_context_mock,
     ) as async_client_ctor:
         await audit_service._post_event(webhook_url=webhook_url, payload=event)
@@ -1038,7 +1038,7 @@ async def test_post_event_failure_does_not_log_webhook_url(
 
     with (
         patch(
-            "autosecops.audit.service.httpx.AsyncClient",
+            "autosecops.audit.service.create_outbound_http_client",
             return_value=async_client_context_mock,
         ),
         patch("autosecops.audit.service.logger.warning", side_effect=capture_warning),

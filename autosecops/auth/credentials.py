@@ -42,6 +42,7 @@ from autosecops.auth.ip_allowlist_enforcement import (
     enforce_platform_admin_ip_allowlist,
 )
 from autosecops.auth.mfa.dependencies import VerifiedMfaSession, enforce_step_up
+from autosecops.auth.rate_limit import check_api_key_failures, record_api_key_failure
 from autosecops.auth.secrets import get_service_key
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.auth.users import (
@@ -455,6 +456,25 @@ async def _authenticate_api_key(
         )
 
 
+async def _authenticate_api_key_rate_limited(
+    *,
+    request: Request,
+    api_key: str,
+    workspace_id: uuid.UUID | None,
+) -> Role | None:
+    """Authenticate an API key, refusing clients with too many recent failures."""
+    await check_api_key_failures(request)
+    try:
+        role = await _authenticate_api_key(api_key=api_key, workspace_id=workspace_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            await record_api_key_failure(request)
+        raise
+    if role is None:
+        await record_api_key_failure(request)
+    return role
+
+
 @contextmanager
 def TemporaryRole(
     type: Literal["user", "service", "service_account"] = "service",
@@ -863,7 +883,8 @@ async def _role_dependency(
                 logger.warning("Failed to clear RLS context after auth failure")
             raise
     elif autosecops_api_key and allow_api_key:
-        role = await _authenticate_api_key(
+        role = await _authenticate_api_key_rate_limited(
+            request=request,
             api_key=autosecops_api_key,
             workspace_id=workspace_id,
         )

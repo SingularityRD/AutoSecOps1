@@ -42151,6 +42151,18 @@ export const $UserUpdate = {
       ],
       title: "Settings",
     },
+    current_password: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Current Password",
+      description: "Required when a user changes their own password.",
+    },
   },
   type: "object",
   title: "UserUpdate",

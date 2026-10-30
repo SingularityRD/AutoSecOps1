@@ -82,10 +82,10 @@ jobs:
         test_group:
           - unit
           - unit-sandbox
-          # tests/unit again with AUTOSECOPS__RLS_MODE=enforce, so request
-          # sessions carry role-derived tenant context instead of the bypass.
-          # tests/unit/test_rls_policies.py checks the migrated policies as a
-          # non-owner role in every group; this group covers enforce-only paths.
+          # tests/unit again with AUTOSECOPS__RLS_MODE=enforce against an
+          # Alembic-migrated database, with the application engine connected as
+          # the non-owner runtime role, so the tenant policies bind and any
+          # session without tenant context or an explicit bypass fails.
           - rls
           - registry
           - temporal
@@ -284,6 +284,7 @@ jobs:
             uv run pytest tests/unit "${ignore_args[@]}" -m "not live_secret" -n auto -ra -o faulthandler_timeout=300
           elif [ "${{ matrix.test_group }}" = "rls" ]; then
             AUTOSECOPS__RLS_MODE=enforce \
+            AUTOSECOPS_TEST_DB_RUNTIME_ROLE=true \
             uv run pytest tests/unit "${ignore_args[@]}" -m "not live_secret" -n auto -ra -o faulthandler_timeout=300
           elif [ "${{ matrix.test_group }}" = "unit-sandbox" ]; then
             uv run pytest "${sandbox_tests[@]}" -m "not live_secret" -n auto -ra -o faulthandler_timeout=300
