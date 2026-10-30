@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import httpcore
 import pytest
 
-from autosecops import config
+from autosecops import config, outbound
 from autosecops.outbound import SocketOption
 
 OK_RESPONSE = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
@@ -125,12 +125,21 @@ def resolve_all_to(
 
 
 def resolve_all_to_in_any_loop(monkeypatch: pytest.MonkeyPatch, address: str) -> None:
-    """Answer every ``socket.getaddrinfo`` call, in any thread, with ``address``.
+    """Answer every outbound DNS lookup, in any thread or loop, with ``address``.
 
-    For code that runs the outbound client on its own event loop.
+    For code that runs the outbound client on its own event loop. That loop may
+    be uvloop, whose resolver does not go through ``socket.getaddrinfo``, so
+    this replaces the outbound resolver itself. The address policy still runs.
     """
+    original = outbound.resolve_outbound_addresses
 
-    def getaddrinfo(*args: object, **kwargs: object) -> list[AddrInfo]:
-        return _answer(address)
+    async def resolve(
+        host: str, port: int
+    ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            return await original(address, port)
+        return await original(host, port)
 
-    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    monkeypatch.setattr(outbound, "resolve_outbound_addresses", resolve)
