@@ -147,14 +147,12 @@ async def list_my_pending_invitations(
     session: AsyncDBSessionBypass,
     user: Annotated[User, Depends(current_active_user)],
 ) -> list[PendingInvitationRead]:
-    """List pending, unexpired invitations for the authenticated user.
-
-    Only verified accounts see them. The response carries each invitation's
-    acceptance token, and an unverified account's email proves nothing: anyone
-    can self-register with an invitee's address before the invitee does. Such
-    users accept through the emailed invitation link instead.
-    """
+    """List pending, unexpired invitations for the authenticated user."""
     assert role.user_id is not None
+    # NOTE(security): Only verified accounts see them. The response carries
+    # each invitation's acceptance token, and an unverified account's email
+    # proves nothing: anyone can self-register with an invitee's address
+    # before the invitee does. Such users accept through the emailed link.
     if not user.is_verified:
         return []
 
