@@ -36,9 +36,18 @@ Pass the value verbatim: re-serialising, pretty-printing, or reordering keys bre
 Set `robot_id` to require that the finding names the robot the key belongs to.
 
 `parse_finding` applies the contract's consumer parsing rules for catalog constants.
-`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0, 2.1, or 2.2 and later), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
+`title`, the leading sentence of `description`, `finding_info.types`, `finding_info.data_sources`, and the ATT&CK lists must equal the rule catalog entry for `entity_context.rule_id` in the finding's own contract minor (2.0, 2.1, 2.2, or 2.3 and later), and every tainted resource's `labels` must be exactly `["taint:adversary"]`.
 A finding that carries anything else is refused with `catalog_mismatch`, so these fields carry only catalog text.
-Contract 2.2 adds the secure-delivery rules `robot.deliver.*` (data source `robodr_delivery`, no ATT&CK techniques); a 2.0 or 2.1 finding for those rule ids carries the generic entry.
+Each contract minor adds rules, and a finding of an earlier minor carries the generic entry for them:
+
+| Minor | Rules | Data source |
+| --- | --- | --- |
+| 2.2 | `robot.deliver.*`: secure delivery | `robodr_delivery` |
+| 2.3 | `robot.gateway.*`: the in-path motion gateway | `ros2_motion_commands` |
+| 2.3 | `robot.seal.*`: sealed delivered software | `robodr_delivery` |
+| 2.3 | `robot.unitree.webrtc_*`: Unitree Go2 WebRTC control sessions | `ros2_motion_commands` |
+
+None of these rules carries ATT&CK techniques.
 The case summary and the first line of the case description come from that catalog text. The robot model, site, and other trusted labels appear only as escaped table cells.
 
 Severity maps one-to-one: `low`, `medium`, `high`, and `critical` become the case severity and priority of the same name and OCSF `severity_id` 2 to 5.
@@ -133,6 +142,11 @@ The action fetches every submission and refuses with `SignoffError`, before it s
 The result reports `requested_by` and `approved_by` as platform user ids, with an ASCII identifier: the user's email when it is a plain ASCII address, otherwise `user:<user id>`.
 The request sent to the robot carries the requester's identifier as `requested_by`.
 
+For `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and their reverts, the request also names the approvers as `approved_by`: each approver's email, or `user-<user id>` without a plain ASCII email.
+RoboDR's executor carries out these actions, and lifts a `robot_safe_pause`, only when the signed request names two approvers other than the requester, compared case-insensitively.
+AutoSecOps refuses with `SignoffError`, before it signs anything, when RoboDR would count two approvers as one person or an approver as the requester, such as two accounts whose emails differ only in case.
+The result reports the names it sent as `robot_approved_by`; other actions send no `approved_by`.
+
 The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
 Both actions need the forms feature.
 
@@ -166,7 +180,7 @@ Evidence reads work the same way: `list_evidence`, `create_evidence_export` and 
 | `robot_record_evidence` | None | Not allowed | One |
 | `robot_safe_pause` | None | Not allowed | Two |
 | `robot_request_safe_state` | None | Not allowed | Two |
-| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` | Not allowed | Two |
+| `robot_rollback_config` | `config` (`profile` or `program`), `to_version` (`[A-Za-z0-9._-]{1,64}`, not starting with `-`) | Not allowed | Two |
 
 After the sign-off check, `request_action` reads the robot's signed snapshot and refuses an action the robot does not advertise or the morphology rules forbid.
 
@@ -218,7 +232,8 @@ Every action result carries `status`, `executed`, `in_force`, `applied` (same as
 | `failed` | Not taken (`error.code`); nothing is in force. A new request is judged anew | Yes |
 | `pending` | Handed to RoboDR's executor; not in force yet. Poll `get_action_status` | No |
 | `verified` | The executor applied the action and verified it. In force only when `in_force` is `true`; `held` when the executor holds it after a reboot; `revert_pending` while a revert has not lifted it | No |
-| `reverted` | No longer in force | Yes |
+| `applied` | `robot_request_safe_state` or `robot_rollback_config` carried out by the robot's platform adapter. Final and not reversible: an operator restores the robot | Yes |
+| `reverted` | No longer in force. A reverted `robot_safe_pause` releases the pause and never resumes a mission | Yes |
 | `not_applied` | Revert of a request that never took effect | Yes |
 
 #### Quarantine scope
@@ -242,6 +257,10 @@ An address drop cuts every DDS participant on that host, including a legitimate 
 </Warning>
 
 Without RoboDR's executor (the default), an accepted request answers `recorded_not_executed`.
+
+RoboDR's executor carries out the motion actions only through the motion adapters in its `motion` section; without one, `robot_restrict_motion` answers `recorded_not_executed` and the two-person actions are refused with `not_executor_action`.
+With adapters, `robot_restrict_motion` and `robot_safe_pause` reach `verified` and later `reverted`, and `robot_request_safe_state` and `robot_rollback_config` with `config: program` reach `applied`.
+A `profile` rollback is never executed, and the adapters enforce no `workspace_zone`: request speed caps instead.
 A revert of a `pending` or `verified` request answers `pending`; the action may stay in force until `get_action_status` shows `reverted`.
 The executor lifts an action the SOC approved only with the SOC's signed revert, which `revert_action` always sends. If the executor refuses the revert, the request keeps reading `verified` with `state.revert.result: "pending"` until its TTL expires. AutoSecOps reports that as revert pending (`revert_pending: true`), never as reverted.
 
@@ -254,13 +273,25 @@ The executor verifies the SOC's signed request itself and refuses with these cod
 | `soc_request_stale` | Prepare a new request (new `request_id`), get it signed off, and send it. Check NTP if it persists |
 | `soc_nonce_replayed` | Prepare a new request (new `request_id`), get it signed off, and send it |
 | `soc_replay_store_unavailable` | An operator fixes the executor's replay store on the robot |
-| `order_mismatch` | Check the robot's agentd: the order it forwarded differs from what the SOC signed |
-| `approval_missing` | The signed request lacks the required approval fields |
+| `order_mismatch` | Check the robot's agentd: the order it forwarded, including restriction or rollback parameters, differs from what the SOC signed |
+| `approval_missing` | Get two approvers other than the requester for a two-person action, then prepare a new request. Otherwise the signed request lacks the required approval fields |
 | `soc_keys_unavailable` | An operator fixes `soc.keys` on the robot; the executor refuses every order until then |
 | `approval_key_removed` | Keep old and new SOC keys listed during a rotation until the old key's actions expire |
 | `locator_out_of_scope` | Set `network.quarantine.cidrs` in the executor's configuration; every quarantine is refused until then |
 
 The executor can refuse `soc_request_stale` or `soc_nonce_replayed` after agentd accepted the request. Sending the same `request_id` again only returns the stored refusal, so AutoSecOps never resends it and sets `new_request_id_required`.
+The executor's motion adapters refuse with these codes:
+
+| Code | What to do |
+| --- | --- |
+| `no_adapter` | Configure a motion adapter for the action in the executor's `motion` section, or act on site |
+| `adapter_not_validated` | Set the adapter's `oem_validated` flag once the OEM validated it |
+| `safety_state_not_allowed` | Wait for a safety state the adapter allows (by default not `moving_fast` for `robot_safe_pause` and `robot_request_safe_state`), then prepare a new request |
+| `requires_idle` | Wait until the robot is idle, then prepare a new `robot_rollback_config` request |
+| `behaviour_unsupported` | Align the OEM policy's safe behaviour with the adapter configuration on the robot |
+| `not_executor_action` | Act on site, or use `config: program` for a rollback |
+| `invalid_order` | Use `max_linear_speed` or `max_joint_speed` instead of `workspace_zone` |
+
 AutoSecOps reports a refusal code it does not know as not applied, with an unknown refusal code. Every other refusal is final.
 
 ### Errors and retries
