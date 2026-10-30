@@ -8,7 +8,7 @@ import { useLicenseNotice } from "@/hooks/use-license-notice"
 import { cn } from "@/lib/utils"
 
 /** Vendor contact shown when a license needs renewal or replacement. */
-export const LICENSE_CONTACT = "sales@singularityrd.com"
+export const LICENSE_CONTACT = "info@singularityrd.com"
 
 const DISMISS_KEY_PREFIX = "autosecops:license-notice-dismissed"
 

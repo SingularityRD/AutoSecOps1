@@ -25,6 +25,7 @@ from slugify import slugify
 
 from autosecops.common import is_iterable
 from autosecops.contexts import ctx_logical_time
+from autosecops.expressions import user_regex
 from autosecops.expressions.formatters import (
     tabulate,
     to_markdown_list,
@@ -258,8 +259,8 @@ def replace(x: str, old: str, new: str) -> str:
 
 
 def regex_extract(pattern: str, text: str) -> str | None:
-    """Extract the first captured group from text; fallback to full match if none."""
-    match = re.search(pattern, text)
+    """Extract the first captured group or full match (stops after 1 second)."""
+    match = user_regex.search(pattern, text)
     if not match:
         return None
     if match.lastindex:
@@ -270,13 +271,13 @@ def regex_extract(pattern: str, text: str) -> str | None:
 
 
 def regex_match(pattern: str, text: str) -> bool:
-    """Check if text matches regex pattern."""
-    return bool(re.match(pattern, text))
+    """Check if text matches regex pattern (stops after 1 second)."""
+    return bool(user_regex.match(pattern, text))
 
 
 def regex_not_match(pattern: str, text: str) -> bool:
-    """Check if text does not match regex pattern."""
-    return not bool(re.match(pattern, text))
+    """Check if text does not match regex pattern (stops after 1 second)."""
+    return not bool(user_regex.match(pattern, text))
 
 
 def generate_uuid() -> str:

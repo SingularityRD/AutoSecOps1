@@ -165,7 +165,9 @@ def _platform_client() -> PlatformOpenID:
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("email_verified", [False, "false", "FALSE"])
+@pytest.mark.parametrize(
+    "email_verified", [False, "false", "FALSE", 0, 0.0, "0", " 0 "]
+)
 async def test_platform_openid_rejects_unverified_email(
     email_verified: object,
 ) -> None:

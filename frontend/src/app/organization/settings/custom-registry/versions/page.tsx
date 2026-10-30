@@ -30,7 +30,7 @@ export default function CustomRegistryVersionsPage() {
               className="text-muted-foreground"
               size="sm"
             >
-              <a href="mailto:sales@singularityrd.com">
+              <a href="mailto:info@singularityrd.com?subject=AutoSecOps%20sales">
                 Contact sales <ArrowUpRight className="size-4" />
               </a>
             </Button>

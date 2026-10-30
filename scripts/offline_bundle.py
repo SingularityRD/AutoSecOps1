@@ -61,7 +61,14 @@ INSTALL_FILES = (
     ".env.example",
     "env.sh",
     "env-migration.sh",
+    "backup_compose.sh",
+    "restore_compose.sh",
 )
+# Install files whose source is not at the repository root.
+INSTALL_SOURCES = {
+    "backup_compose.sh": REPO / "scripts" / "backup_compose.sh",
+    "restore_compose.sh": REPO / "scripts" / "restore_compose.sh",
+}
 NOTICE_FILES = {
     "autosecops.md": REPO / "THIRD_PARTY_NOTICES.md",
     "autosecops-ui.md": REPO / "frontend" / "THIRD_PARTY_NOTICES.md",
@@ -97,12 +104,18 @@ THIRD_PARTY_LICENSES: dict[str, UpstreamLicense] = {
         "MIT", "https://github.com/temporalio/temporal"
     ),
     "temporalio/ui": UpstreamLicense("MIT", "https://github.com/temporalio/ui"),
+    # Chainguard builds MinIO from its own fork (upstream minio/minio is no
+    # longer maintained), so the corresponding source for the shipped binary is
+    # the fork plus the Wolfi package recipe, not upstream.
     "cgr.dev/chainguard/minio": UpstreamLicense(
-        "AGPL-3.0", "https://github.com/minio/minio"
+        "AGPL-3.0-or-later",
+        "https://github.com/chainguard-forks/minio, built by "
+        "https://github.com/wolfi-dev/os/blob/main/minio.yaml",
     ),
-    "redis": UpstreamLicense(
-        "RSALv2 or SSPLv1 (Redis 7.4 and later); BSD-3-Clause (Redis 7.2 and earlier)",
-        "https://github.com/redis/redis",
+    # Valkey, not Redis: Redis 7.4 and later are RSALv2/SSPLv1, which the bundle
+    # must not redistribute. Without a `redis` entry the bundler refuses one.
+    "valkey/valkey": UpstreamLicense(
+        "BSD-3-Clause", "https://github.com/valkey-io/valkey"
     ),
 }
 
@@ -449,7 +462,7 @@ docs (`/self-hosting/air-gapped`).
 - `images/`: the container images, saved with `docker save`.
 - `images.txt`: name, tag, digest, and settings of every image.
 - `install/`: Docker Compose files, `Caddyfile`, `.env.example`, `env.sh`,
-  and `env-migration.sh`.
+  `env-migration.sh`, `backup_compose.sh`, and `restore_compose.sh`.
 - `charts/autosecops-{version}.tgz`: the Helm chart.
 - `load-images.sh`: verifies, loads, and pushes the images.
 - `THIRD_PARTY_NOTICES/`: third-party licenses.
@@ -619,7 +632,7 @@ def stage_files(staging: Path, version: str, images: Sequence[BundleImage]) -> N
     install = staging / "install"
     install.mkdir(parents=True, exist_ok=True)
     for name in INSTALL_FILES:
-        shutil.copy2(REPO / name, install / name)
+        shutil.copy2(INSTALL_SOURCES.get(name, REPO / name), install / name)
     package_chart(staging / "charts", version)
     shutil.copy2(LOAD_SCRIPT, staging / "load-images.sh")
     (staging / "load-images.sh").chmod(0o755)
@@ -708,7 +721,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--image",
         action="append",
         default=[],
-        help="Bundle only this image name (repeatable), e.g. redis",
+        help="Bundle only this image name (repeatable), e.g. valkey/valkey",
     )
     parser.add_argument(
         "--dry-run",

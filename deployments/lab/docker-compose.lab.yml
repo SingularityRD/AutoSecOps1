@@ -353,7 +353,7 @@ services:
   fleet-redis:
     <<: *restart
     profiles: [fleet]
-    image: redis:7.4-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    image: valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
     networks: [lab]
 
   lab-fleet:
