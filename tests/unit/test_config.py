@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -1217,6 +1218,78 @@ def test_temporal_ui_image_is_pinned() -> None:
         for image in images:
             assert "latest" not in image, f"{path.name} pins temporalio/ui to latest"
             assert re.fullmatch(r"\$\{TEMPORAL__UI_VERSION:-\d+\.\d+\.\d+\}", image)
+
+
+def _temporal_postgres_service(text: str) -> str:
+    match = re.search(
+        r"^  temporal_postgres_db:\n((?:    .*\n|\n)+)", text, re.MULTILINE
+    )
+    assert match, "no temporal_postgres_db service"
+    return match.group(1)
+
+
+def test_temporal_postgres_matches_core_postgres_base() -> None:
+    """The Temporal DB runs the same digest-pinned PostgreSQL 16 base as the core DB."""
+    images = json.loads((REPO_ROOT / "deployments/postgres/images.json").read_text())
+    base = images["trixie"]["base"]
+    assert re.fullmatch(r"postgres:16\.\d+-trixie@sha256:[0-9a-f]{64}", base)
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        service = _temporal_postgres_service(path.read_text())
+        assert f"    image: ${{TEMPORAL__POSTGRES_IMAGE:-{base}}}\n" in service, (
+            f"{path.name}: temporal_postgres_db must default to {base}"
+        )
+        # Existing PostgreSQL 13 volumes stop with upgrade steps, not a FATAL.
+        assert "PG_VERSION" in service
+        assert "updating#upgrade-the-temporal-database" in service
+        assert "exec docker-entrypoint.sh postgres" in service
+        assert "temporal-db:/var/lib/postgresql/data" in service
+
+
+def test_temporal_server_version_matches_across_targets() -> None:
+    versions: dict[str, str] = {}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        matches = re.findall(
+            r"temporalio/auto-setup\}?:\$\{TEMPORAL__VERSION:-([\d.]+)\}",
+            path.read_text(),
+        )
+        assert len(matches) == 1, f"{path.name} has no pinned Temporal server"
+        versions[path.name] = matches[0]
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        text = (REPO_ROOT / "deployments/fargate" / tf).read_text()
+        match = re.search(
+            r'variable "temporal_server_image_tag" \{[^}]*default\s*=\s*"([^"]+)"',
+            text,
+        )
+        assert match, f"{tf} has no temporal_server_image_tag default"
+        versions[f"fargate/{tf}"] = match.group(1)
+    assert len(set(versions.values())) == 1, f"Temporal versions drifted: {versions}"
+
+
+def _run_env_migration(tmp_path: Path, old_env: str) -> str:
+    for name in ("env-migration.sh", ".env.example"):
+        (tmp_path / name).write_text((REPO_ROOT / name).read_text())
+    (tmp_path / ".env").write_text(old_env)
+    subprocess.run(
+        ["bash", "env-migration.sh"],
+        cwd=tmp_path,
+        input="n\ny\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return (tmp_path / ".env").read_text()
+
+
+def test_env_migration_keeps_temporal_postgres_image_pin(tmp_path: Path) -> None:
+    pinned = _run_env_migration(
+        tmp_path,
+        "AUTOSECOPS__APP_ENV=production\nTEMPORAL__POSTGRES_IMAGE=postgres:13\n",
+    )
+    assert re.search(r"^TEMPORAL__POSTGRES_IMAGE=postgres:13$", pinned, re.MULTILINE)
+    assert re.search(r"^AUTOSECOPS__APP_ENV=production$", pinned, re.MULTILINE)
+
+    unpinned = _run_env_migration(tmp_path, "AUTOSECOPS__APP_ENV=production\n")
+    assert "TEMPORAL__POSTGRES_IMAGE" not in unpinned
 
 
 def test_redis_service_runs_pinned_valkey() -> None:
