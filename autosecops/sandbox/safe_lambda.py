@@ -122,6 +122,26 @@ class SafeLambdaValidator(ast.NodeVisitor):
         "quit",
         "memoryview",
         "bytearray",
+        # Generator and frame introspection. A generator expression exposes
+        # its frame (gi_frame); f_back walks up to the sandbox wrapper, whose
+        # f_globals hold sys and so os.environ.
+        "gi_frame",
+        "gi_code",
+        "gi_yieldfrom",
+        "cr_frame",
+        "cr_code",
+        "cr_await",
+        "ag_frame",
+        "ag_code",
+        "ag_await",
+        "f_back",
+        "f_builtins",
+        "f_code",
+        "f_globals",
+        "f_locals",
+        "f_trace",
+        "tb_frame",
+        "tb_next",
     }
     ALLOWLISTED_NODE_TYPES = {
         # Basic nodes

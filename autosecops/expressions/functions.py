@@ -58,7 +58,7 @@ MAX_SEQUENCE_LENGTH = 1_000_000
 """Largest string or list that repetition or FN.range may produce."""
 
 _SIMPLE_FORMAT_FIELD = re.compile(r"\d*|[A-Za-z_][A-Za-z0-9_]*")
-_PRINTF_SIZES = re.compile(r"%(?:\([^)]*\))?[-#0 +]*(\d*)(?:\.(\d*))?")
+_PRINTF_SIZES = re.compile(r"%(?:%|(?:\([^)]*\))?[-#0 +]*(\*|\d*)(?:\.(\*|\d*))?)")
 
 
 def _check_int_bits(bits: int) -> None:
@@ -373,9 +373,12 @@ def mod(a: float | int, b: float | int) -> float | int:
     if b == 0:
         raise ZeroDivisionError("Cannot calculate modulo with zero")
     if isinstance(a, str):
-        # printf-style formatting: bound literal widths and precisions.
+        # printf-style formatting: bound literal widths and precisions. A "*"
+        # takes the size from the arguments, so it is not allowed.
         for width, precision in _PRINTF_SIZES.findall(a):
             for number in (width, precision):
+                if number == "*":
+                    raise ValueError("'*' widths and precisions are not allowed")
                 if number:
                     _check_sequence_length(int(number))
     return a % b

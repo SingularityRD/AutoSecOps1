@@ -1,4 +1,4 @@
-"""Regression tests: str.format must not let a safe lambda walk object graphs.
+"""Regression tests: a safe lambda must not walk object graphs or frames.
 
 ``"{0.attr[key]}".format(obj)`` performs getattr and getitem at runtime. A
 lambda could build such a template from string pieces (``"_" * 2`` avoids the
@@ -80,3 +80,39 @@ def test_format_with_simple_fields_still_works(
     expected: str,
 ) -> None:
     assert builder(lambda_str)(value) == expected
+
+
+@pytest.mark.parametrize(
+    "lambda_str",
+    [
+        # A generator expression that holds itself reads its own frame, then
+        # f_back reaches the sandbox wrapper, whose module globals hold sys.
+        (
+            "lambda x: [h.append(G) or list(G)[0] for h in [[]] for G in "
+            "[(h[0].gi_frame.f_back.f_back.f_globals['sys'].modules['os']"
+            f".environ['{ENV_CANARY}'] for _ in [1])]]"
+        ),
+        "lambda x: [(i for i in x)][0].gi_frame",
+        "lambda x: [(i for i in x)][0].gi_code",
+        "lambda x: x.f_globals",
+        "lambda x: x.f_builtins",
+        "lambda x: x.f_locals",
+        "lambda x: x.f_back",
+        "lambda x: x.tb_frame",
+        "lambda x: x.cr_frame",
+    ],
+)
+def test_frame_introspection_is_rejected(
+    builder: Callable[[str], Callable[[Any], Any]],
+    lambda_str: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_CANARY, "canary-secret-value")
+    with pytest.raises(ValueError, match="restricted"):
+        builder(lambda_str)
+
+
+def test_generator_expressions_still_work(
+    builder: Callable[[str], Callable[[Any], Any]],
+) -> None:
+    assert builder("lambda x: sum(i * 2 for i in x)")([1, 2, 3]) == 12

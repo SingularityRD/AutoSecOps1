@@ -20,7 +20,7 @@ Expressions run in shared workers, so AutoSecOps rejects expressions that would 
 
 - Integer results from `FN.pow`, `FN.mul`, and `*` are at most 16,384 bits.
 - Repeating a string or list with `*`, `FN.range`, and `FN.iter_product` produce at most 1,000,000 items.
-- `FN.format` and the `%` operator accept widths and precisions up to 1,000,000.
+- `FN.format` and the `%` operator accept widths and precisions up to 1,000,000. Widths taken from the arguments, such as `%*d` or `{:{}}`, are rejected.
 - `FN.format` fields name a positional argument, such as `{}` or `{0:>8}`. Attribute and index lookups such as `{0.name}` or `{0[key]}` are rejected: index the value in the expression instead, as in `FN.format("{}", TRIGGER.alert.id)`.
 - An expression nests at most 200 levels deep, which also bounds long operator chains such as `a + b + c + ...`.
 

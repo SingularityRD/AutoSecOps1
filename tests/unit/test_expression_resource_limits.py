@@ -34,6 +34,9 @@ def _eval(expr: str) -> object:
         "FN.iter_product(FN.range(0, 10000), FN.range(0, 10000))",
         "FN.format('{:>1000000000}', 1)",
         "'%1000000000d' % 1",
+        # "*" takes the width from the arguments; FN.zip yields a tuple.
+        "'%*d' % FN.zip([1000000000], [1])[0]",
+        "'%.*f' % FN.zip([1000000000], [1])[0]",
     ],
 )
 def test_resource_heavy_expressions_are_rejected_quickly(expr: str) -> None:
@@ -58,6 +61,7 @@ def test_resource_heavy_expressions_are_rejected_quickly(expr: str) -> None:
         ("FN.format('{} {}', 'a', 1)", "a 1"),
         ("FN.format('{0:>4}', 'a')", "   a"),
         ("'%05d' % 42", "00042"),
+        ("'100%% of %s' % 'x'", "100% of x"),
         ("'Order 50000000000 %s' % 'x'", "Order 50000000000 x"),
     ],
 )
