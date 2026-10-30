@@ -8,6 +8,7 @@ import itertools
 import json
 import math
 import re
+import string
 import urllib.parse
 import zoneinfo
 from collections.abc import Callable, Iterable, Sequence
@@ -47,6 +48,59 @@ from autosecops.expressions.ioc_extractors import (
     normalize_email,
 )
 from autosecops.parse import unescape_string
+
+# Expressions run inside shared worker processes. Integer arithmetic and
+# sequence repetition are bounded so one expression cannot pin a CPU or
+# exhaust memory (for example ``FN.pow(9, FN.pow(9, 9))`` or ``'a' * 10**10``).
+MAX_INT_BITS = 16_384
+"""Largest integer result, in bits, that arithmetic functions may produce."""
+MAX_SEQUENCE_LENGTH = 1_000_000
+"""Largest string or list that repetition or FN.range may produce."""
+
+_SIMPLE_FORMAT_FIELD = re.compile(r"\d*|[A-Za-z_][A-Za-z0-9_]*")
+_PRINTF_SIZES = re.compile(r"%(?:%|(?:\([^)]*\))?[-#0 +]*(\*|\d*)(?:\.(\*|\d*))?)")
+
+
+def _check_int_bits(bits: int) -> None:
+    if bits > MAX_INT_BITS:
+        raise ValueError(
+            f"Integer result would exceed {MAX_INT_BITS} bits; use smaller operands"
+        )
+
+
+def _check_sequence_length(length: int) -> None:
+    if length > MAX_SEQUENCE_LENGTH:
+        raise ValueError(
+            f"Result would have {length} items; the maximum is {MAX_SEQUENCE_LENGTH}"
+        )
+
+
+def _check_format_template(template: str) -> None:
+    """Allow only fields that name a positional argument.
+
+    ``str.format`` resolves ``{0.attr}`` and ``{0[key]}`` with getattr and
+    getitem, which would let an expression walk Python object internals.
+    """
+    for _literal, field_name, format_spec, _conversion in string.Formatter().parse(
+        template
+    ):
+        if field_name is None:
+            continue
+        if not _SIMPLE_FORMAT_FIELD.fullmatch(field_name):
+            raise ValueError(
+                "Format fields may only be positional, such as {} or {0};"
+                " attribute and index lookups are not allowed"
+            )
+        if format_spec:
+            _check_format_spec(format_spec)
+
+
+def _check_format_spec(spec: str) -> None:
+    """Reject widths or precisions that would build a huge string."""
+    if "{" in spec:
+        raise ValueError("Nested replacement fields are not allowed in format specs")
+    for number in re.findall(r"\d+", spec):
+        _check_sequence_length(int(number))
 
 
 def _bool(x: Any) -> bool:
@@ -92,7 +146,8 @@ def add_suffix(x: str | list[str], suffix: str) -> str | list[str]:
 
 
 def format_string(template: str, *values: Any) -> str:
-    """Format a string with the given arguments."""
+    """Format a string with positional arguments; fields cannot look up attributes or keys."""
+    _check_format_template(template)
     return template.format(*values)
 
 
@@ -289,6 +344,20 @@ def sub(a: float | int, b: float | int) -> float | int:
 
 def mul(a: float | int, b: float | int) -> float | int:
     """Multiply two numbers together."""
+    for count, other in ((a, b), (b, a)):
+        if (
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and isinstance(other, str | bytes | list | tuple)
+        ):
+            _check_sequence_length(len(other) * max(count, 0))
+    if (
+        isinstance(a, int)
+        and isinstance(b, int)
+        and not isinstance(a, bool)
+        and not isinstance(b, bool)
+    ):
+        _check_int_bits(a.bit_length() + b.bit_length())
     return a * b
 
 
@@ -303,11 +372,22 @@ def mod(a: float | int, b: float | int) -> float | int:
     """Calculate modulo (remainder) of first number divided by second."""
     if b == 0:
         raise ZeroDivisionError("Cannot calculate modulo with zero")
+    if isinstance(a, str):
+        # printf-style formatting: bound literal widths and precisions. A "*"
+        # takes the size from the arguments, so it is not allowed.
+        for width, precision in _PRINTF_SIZES.findall(a):
+            for number in (width, precision):
+                if number == "*":
+                    raise ValueError("'*' widths and precisions are not allowed")
+                if number:
+                    _check_sequence_length(int(number))
     return a % b
 
 
 def pow(a: float | int, b: float | int) -> float | int:
-    """Raise first number to the power of second number."""
+    """Raise first number to the power of second number (integers up to 16,384 bits)."""
+    if isinstance(a, int) and isinstance(b, int) and b > 0 and abs(a) > 1:
+        _check_int_bits(b * abs(a).bit_length())
     return a**b
 
 
@@ -436,12 +516,16 @@ def zip_iterables(*iterables: Sequence[Any]) -> list[tuple[Any, ...]]:
 
 def iter_product(*iterables: Sequence[Any]) -> list[tuple[Any, ...]]:
     """Generate cartesian product of sequences."""
-    return list(itertools.product(*iterables))
+    pools = [tuple(iterable) for iterable in iterables]
+    _check_sequence_length(math.prod(len(pool) for pool in pools))
+    return list(itertools.product(*pools))
 
 
 def create_range(start: int, end: int, step: int = 1) -> list[int]:
-    """Create a range of integers from start to end (exclusive), with a step size."""
-    return list(range(start, end, step))
+    """Create a range of up to 1,000,000 integers from start to end (exclusive), with a step size."""
+    values = range(start, end, step)
+    _check_sequence_length(len(values))
+    return list(values)
 
 
 # Dictionary functions

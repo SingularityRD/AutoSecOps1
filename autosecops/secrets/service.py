@@ -436,7 +436,10 @@ class SecretsService(BaseOrgService):
             OrganizationSecret.id == secret_id,
         )
         result = await self.session.execute(statement)
-        return result.scalar_one()
+        try:
+            return result.scalar_one()
+        except NoResultFound as e:
+            raise AutoSecOpsNotFoundError("Organization secret not found") from e
 
     async def _get_org_secret_by_name(
         self,

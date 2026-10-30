@@ -10,7 +10,15 @@ from autosecops.identifiers.workflow import WorkflowExecutionID
 
 
 def unquote_dep(execution_id: str) -> WorkflowExecutionID:
-    return urllib.parse.unquote(execution_id)
+    unquoted = urllib.parse.unquote(execution_id)
+    if not unquoted.strip():
+        # An empty ID (e.g. ".../workflow-executions//compact") reached
+        # Temporal as a request without a workflow ID and answered 500.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow execution not found",
+        )
+    return unquoted
 
 
 UnquotedExecutionID = Annotated[WorkflowExecutionID, Depends(unquote_dep)]

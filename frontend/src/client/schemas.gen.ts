@@ -145,11 +145,11 @@ export const $ActionCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -396,7 +396,7 @@ export const $ActionReadMinimal = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     type: {
@@ -4355,7 +4355,7 @@ export const $AgentPresetWorkflowReference = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     workflow_title: {
@@ -8359,11 +8359,11 @@ export const $CaseCommentCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -11871,11 +11871,11 @@ export const $CaseTaskCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -11958,7 +11958,7 @@ export const $CaseTaskRead = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "null",
@@ -12064,11 +12064,11 @@ export const $CaseTaskUpdate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -19423,11 +19423,11 @@ export const $FormCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -20364,7 +20364,7 @@ export const $FormRead = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     workflow_title: {
@@ -20455,7 +20455,7 @@ export const $FormReadMinimal = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "null",
@@ -32213,11 +32213,11 @@ export const $ScheduleCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -33764,6 +33764,8 @@ export const $SecretCreate = {
     },
     environment: {
       type: "string",
+      maxLength: 100,
+      minLength: 1,
       title: "Environment",
       default: "default",
     },
@@ -38799,11 +38801,11 @@ export const $TaskWorkflowChangedEventRead = {
         },
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -38818,11 +38820,11 @@ export const $TaskWorkflowChangedEventRead = {
         },
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
         {
           type: "null",
@@ -43054,7 +43056,7 @@ export const $WorkflowCommitResponse = {
   properties: {
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     status: {
@@ -43198,7 +43200,7 @@ export const $WorkflowDirectoryItem = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -43338,7 +43340,7 @@ export const $WorkflowDraftRead = {
   properties: {
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     draft_revision: {
@@ -44018,11 +44020,11 @@ export const $WorkflowExecutionCreate = {
       anyOf: [
         {
           type: "string",
-          pattern: "wf_[0-9a-zA-Z]+",
+          pattern: "^(?:wf_[0-9a-zA-Z]+)$",
         },
         {
           type: "string",
-          pattern: "wf-[0-9a-f]{32}",
+          pattern: "^(?:wf-[0-9a-f]{32})$",
         },
       ],
       title: "Workflow Id",
@@ -45156,7 +45158,7 @@ export const $WorkflowRead = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -45336,7 +45338,7 @@ export const $WorkflowReadMinimal = {
   properties: {
     id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Id",
     },
     title: {
@@ -45531,7 +45533,7 @@ export const $WorkflowRerunPlan = {
     },
     workflow_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Workflow Id",
     },
     use_draft: {
@@ -45658,7 +45660,7 @@ export const $WorkflowRerunResponse = {
     },
     wf_id: {
       type: "string",
-      pattern: "wf_[0-9a-zA-Z]+",
+      pattern: "^(?:wf_[0-9a-zA-Z]+)$",
       title: "Wf Id",
     },
     wf_exec_id: {

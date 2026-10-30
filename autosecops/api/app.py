@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
 from autosecops_ee.admin.router import router as admin_router
 from autosecops_ee.agent.approvals.router import router as approvals_router
@@ -38,6 +39,7 @@ from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
 
@@ -73,11 +75,14 @@ from autosecops.agent.tags.definitions_router import (
 )
 from autosecops.agent.tags.router import router as agent_preset_tags_router
 from autosecops.api.common import (
+    BigIntSafeORJSONResponse,
     add_temporal_search_attributes,
     auth_pool_exhausted_exception_handler,
     autosecops_exception_handler,
     bootstrap_role,
     custom_generate_unique_id,
+    database_error_status,
+    database_exception_handler,
     generic_exception_handler,
     http_exception_handler,
     query_overflow_exception_handler,
@@ -451,13 +456,49 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
             detail="An unexpected error occurred. Please try again later.",
         )
 
+    async def _database(request: Request, exc: Exception) -> Response:
+        if not is_scim_path(request):
+            return await database_exception_handler(request, exc)
+        status_code = (
+            database_error_status(exc) if isinstance(exc, DBAPIError) else None
+        )
+        if status_code is None:
+            return await _unexpected(request, exc)
+        return scim_error_response(
+            status_code=status_code, detail="The request was rejected."
+        )
+
     app.add_exception_handler(Exception, _unexpected)
+    app.add_exception_handler(DBAPIError, _database)
     app.add_exception_handler(AutoSecOpsAuthorizationError, _authorization)
     app.add_exception_handler(ScopeDeniedError, _scope_denied)
     app.add_exception_handler(HTTPException, _http_async)
     app.add_exception_handler(RequestValidationError, _validation)
     for exc_type in scim_statuses:
         app.add_exception_handler(exc_type, _domain(exc_type))
+
+
+_ORJSON_INT_MIN = -(2**63)
+_ORJSON_INT_MAX = 2**64 - 1
+
+
+def _orjson_safe(value: Any) -> Any:
+    """Render integers orjson cannot encode as strings.
+
+    Validation errors echo the rejected input, and orjson raises on integers
+    outside the 64-bit range, which would turn a 422 into a 500.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if _ORJSON_INT_MIN <= value <= _ORJSON_INT_MAX:
+            return value
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _orjson_safe(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_orjson_safe(item) for item in value]
+    return value
 
 
 def validation_exception_handler(request: Request, exc: Exception) -> Response:
@@ -468,7 +509,7 @@ def validation_exception_handler(request: Request, exc: Exception) -> Response:
             content={"detail": str(exc)},
         )
     errors = exc.errors()
-    ser_errors = to_jsonable_python(errors, fallback=str)
+    ser_errors = _orjson_safe(to_jsonable_python(errors, fallback=str))
     logger.error(
         "API Model Validation error",
         method=request.method,
@@ -680,7 +721,7 @@ def create_app(**kwargs) -> FastAPI:
         servers=[{"url": config.AUTOSECOPS__API_ROOT_PATH}],
         generate_unique_id_function=custom_generate_unique_id,
         lifespan=lifespan,
-        default_response_class=ORJSONResponse,
+        default_response_class=BigIntSafeORJSONResponse,
         root_path=config.AUTOSECOPS__API_ROOT_PATH,
         # Registered by install_api_docs() with CSP-allowed asset URLs.
         docs_url=None,
@@ -896,6 +937,7 @@ def create_app(**kwargs) -> FastAPI:
     )
     app.add_exception_handler(ScopeDeniedError, scope_denied_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(DBAPIError, database_exception_handler)
     # SCIM paths answer with the spec's error envelope, so their handlers wrap
     # the app-wide ones rather than replacing them.
     _install_scim_exception_handlers(app)

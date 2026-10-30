@@ -5,6 +5,25 @@ from autosecops.exceptions import AutoSecOpsExpressionError
 from autosecops.expressions.parser.grammar import grammar
 from autosecops.logger import logger
 
+MAX_EXPRESSION_DEPTH = 200
+"""Deepest parse tree an expression may produce.
+
+Evaluators, validators and extractors walk the tree recursively. Deeper trees
+(such as a long ``1 + 1 + ...`` chain or deeply nested lists) would raise
+RecursionError there instead of an expression error.
+"""
+
+
+def _tree_depth(tree: Tree[Token]) -> int:
+    deepest = 0
+    stack: list[tuple[Tree[Token] | Token, int]] = [(tree, 1)]
+    while stack:
+        node, depth = stack.pop()
+        deepest = max(deepest, depth)
+        if isinstance(node, Tree):
+            stack.extend((child, depth + 1) for child in node.children)
+    return deepest
+
 
 class ExprParser:
     def __init__(self, start_rule: str = "root") -> None:
@@ -12,7 +31,7 @@ class ExprParser:
 
     def parse(self, expression: str) -> Tree[Token] | None:
         try:
-            return self.parser.parse(expression)
+            tree = self.parser.parse(expression)
         except (UnexpectedCharacters, UnexpectedEOF, UnexpectedInput) as e:
             logger.error(
                 "Failed to parse expression",
@@ -30,6 +49,12 @@ class ExprParser:
             raise AutoSecOpsExpressionError(
                 f"Unexpected error when parsing expression: {e!r}"
             ) from e
+        if _tree_depth(tree) > MAX_EXPRESSION_DEPTH:
+            raise AutoSecOpsExpressionError(
+                "Expression is nested too deeply"
+                f" (maximum depth is {MAX_EXPRESSION_DEPTH})"
+            )
+        return tree
 
 
 parser = ExprParser()

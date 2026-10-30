@@ -279,6 +279,8 @@ Numbers, booleans, `None`, lists, and objects substitute as valid literals witho
 
 A string value containing an apostrophe breaks the lambda with `Invalid syntax in expression: unterminated string literal`. `core.script.run_python` accepts values that contain quotes through `inputs`.
 
+`.format()` and `.format_map()` work only on a string literal whose fields name an argument, such as `"lambda x: '{} items'.format(len(x))"`. A template built at runtime, or a field with an attribute or index lookup such as `{0.name}` or `{0[key]}`, fails with `'format' is only allowed on a string literal` or `Format fields may only name an argument`. Index the value in the lambda instead: `"lambda x: '{}'.format(x['key'])"`.
+
 ## Related pages
 
 - See [Expressions](/automations/core-concepts/expressions) for expression syntax, contexts, and operators.

@@ -224,3 +224,22 @@ async def test_callback_resolves_scopes_for_state_workspace(
     current_role = ctx_role.get()
     assert current_role is not None
     assert current_role.scopes == workspace_scopes
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("state", ["", "not-a-uuid", "0"])
+async def test_malformed_state_is_rejected_before_lookup(
+    callback_context: CallbackContext, state: str
+) -> None:
+    """A non-UUID state is invalid, not a database error (it used to 500)."""
+    with pytest.raises(HTTPException) as caught:
+        await router.oauth_callback(
+            session=callback_context.session,
+            role=callback_context.role,
+            code="synthetic-code",
+            state=state,
+        )
+
+    assert caught.value.status_code == 400
+    callback_context.session.get.assert_not_called()
+    callback_context.fetch_token.assert_not_called()

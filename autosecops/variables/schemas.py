@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -15,7 +16,10 @@ from autosecops.db.models import WorkspaceVariable
 from autosecops.identifiers import VariableID, WorkspaceID
 from autosecops.secrets.constants import DEFAULT_SECRETS_ENVIRONMENT
 
-VariableName = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_]+$")]
+VARIABLE_NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
+"""Names a workspace variable can have. Expressions may reference others."""
+
+VariableName = Annotated[str, StringConstraints(pattern=VARIABLE_NAME_PATTERN.pattern)]
 """Validator for a variable name. e.g. 'api_config'"""
 
 VariableKey = Annotated[

@@ -87,6 +87,8 @@ class ActionControlFlow(Schema):
     @field_validator("wait_until", mode="before")
     def validate_wait_until(cls, v: str | None) -> str | None:
         if v is not None:
+            if not isinstance(v, str):
+                raise ValueError("`wait_until` must be a string")
             if (
                 dateparser.parse(
                     v, settings={"TIMEZONE": "UTC", "RETURN_AS_TIMEZONE_AWARE": True}

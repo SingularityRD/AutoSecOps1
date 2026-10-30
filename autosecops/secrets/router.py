@@ -213,10 +213,11 @@ async def create_secret(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
     except IntegrityError as e:
-        logger.error("Secret integrity error", e=str(e))
+        # str(e) carries the INSERT parameters, including the encrypted keys.
+        logger.error("Secret integrity error", e=str(e.orig))
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Secret creation integrity error: {e!r}",
+            detail="A secret with this name already exists in this environment.",
         ) from e
     return _serialize_secret_read_minimal(service=service, secret=secret)
 
@@ -329,10 +330,11 @@ async def create_org_secret(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
     except IntegrityError as e:
-        logger.error("Organization secret integrity error", e=str(e))
+        # str(e) carries the INSERT parameters, including the encrypted keys.
+        logger.error("Organization secret integrity error", e=str(e.orig))
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Organization secret creation integrity error: {e!r}",
+            detail="A secret with this name already exists in this environment.",
         ) from e
     return _serialize_secret_read_minimal(service=service, secret=secret)
 

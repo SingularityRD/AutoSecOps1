@@ -53,6 +53,8 @@ class GitSettingsUpdate(BaseSettingsGroup):
         """Validate that git_repo_url is a valid Git SSH URL if provided."""
         if value is None:
             return value
+        if not isinstance(value, str):
+            raise ValueError("Must be a string")
 
         # Use shared regex from git utils to ensure consistency across the codebase
         if not GIT_SSH_URL_REGEX.match(value):
