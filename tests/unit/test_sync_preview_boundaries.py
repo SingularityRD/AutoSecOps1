@@ -11,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 
 from autosecops.agent.access.service import AgentModelAccessService
 from autosecops.cases.service import CaseFieldsService
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import (
     Action,
     AgentCatalog,
@@ -867,22 +868,32 @@ async def test_catalog_confirmation_fences_targets_grants_and_first_override(svc
     target_name = f"reviewed-{target_id}"
     try:
         # Real committed transactions are required for a second connection to see rows.
+        # Platform catalog rows (no organization) are written by platform
+        # rollouts through the RLS-bypass session, never by a tenant session.
+        async with get_async_session_bypass_rls_context_manager() as platform:
+            platform.add_all(
+                [
+                    AgentCatalog(
+                        id=target_id,
+                        model_provider="synthetic",
+                        model_name=target_name,
+                    ),
+                    AgentCatalog(
+                        id=other_id,
+                        model_provider="synthetic",
+                        model_name=f"other-{other_id}",
+                    ),
+                ]
+            )
+            await platform.commit()
         async with DurableSyncService.with_session(svc_role) as sync:
             session = sync.session
-            target = AgentCatalog(
-                id=target_id, model_provider="synthetic", model_name=target_name
-            )
-            other = AgentCatalog(
-                id=other_id, model_provider="synthetic", model_name=f"other-{other_id}"
-            )
-            session.add_all([target, other])
-            await session.flush()
             access = AgentModelAccess(
-                organization_id=svc_role.organization_id, catalog_id=target.id
+                organization_id=svc_role.organization_id, catalog_id=target_id
             )
             session.add(access)
             await session.commit()
-            target_id, other_id, access_id = target.id, other.id, access.id
+            access_id = access.id
             # This is the same workspace fence held by repository_fingerprint(lock=True).
             await sync.repository_fingerprint(lock=True)
             snapshot = WorkspaceRemoteSnapshot(
@@ -909,18 +920,25 @@ async def test_catalog_confirmation_fences_targets_grants_and_first_override(svc
             async with AgentModelAccessService.with_session(svc_role) as writer:
                 with pytest.raises(AutoSecOpsValidationError, match="already enabled"):
                     await writer.enable_model(target_id)
-            for model, row_id in [
-                (AgentCatalog, target_id),
-                (AgentModelAccess, access_id),
-            ]:
-                async with DurableSyncService.with_session(svc_role) as writer:
-                    with pytest.raises(DBAPIError) as error:
-                        await writer.session.execute(
-                            select(model.id)
-                            .where(model.id == row_id)
-                            .with_for_update(nowait=True)
-                        )
-                    assert getattr(error.value.orig, "sqlstate", None) == "55P03"
+            # Platform catalog rows are only writable by platform rollouts, which
+            # use the RLS-bypass session; under RLS a tenant session cannot
+            # even lock them, so probe the catalog fence the way a rollout would.
+            async with get_async_session_bypass_rls_context_manager() as platform:
+                with pytest.raises(DBAPIError) as error:
+                    await platform.execute(
+                        select(AgentCatalog.id)
+                        .where(AgentCatalog.id == target_id)
+                        .with_for_update(nowait=True)
+                    )
+                assert getattr(error.value.orig, "sqlstate", None) == "55P03"
+            async with DurableSyncService.with_session(svc_role) as writer:
+                with pytest.raises(DBAPIError) as error:
+                    await writer.session.execute(
+                        select(AgentModelAccess.id)
+                        .where(AgentModelAccess.id == access_id)
+                        .with_for_update(nowait=True)
+                    )
+                assert getattr(error.value.orig, "sqlstate", None) == "55P03"
             async with AgentModelAccessService.with_session(svc_role) as writer:
                 await writer.session.execute(text("SET LOCAL lock_timeout = '100ms'"))
                 with pytest.raises(DBAPIError) as error:

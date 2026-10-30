@@ -6,6 +6,7 @@ from sqlalchemy import String, or_, select
 
 from autosecops.agent.access.effective import effective_catalog_ids
 from autosecops.db.models import AgentCatalog, AgentModelAccess
+from autosecops.db.rls import rls_bypass_for_statement
 from autosecops.dsl.enums import PlatformAction
 from autosecops.workspace_sync.adapters.base import SyncMappingService
 from autosecops.workspace_sync.schemas import WorkspaceRemoteSnapshot
@@ -53,12 +54,17 @@ async def catalog_target_state(
     )
     if lock:
         # Lock parent catalog rows first, matching catalog-delete/cascade order.
-        await service.session.execute(
-            select(AgentCatalog.id)
-            .where(AgentCatalog.id.in_(ids), visible)
-            .order_by(AgentCatalog.id)
-            .with_for_update(read=True)
-        )
+        # Platform rows (no organization) are read-only to tenants, and under
+        # RLS a tenant FOR SHARE skips rows it cannot update, which would leave
+        # them unlocked. `visible` already limits the rows to this org's and the
+        # platform's, so lift RLS for this one locking statement.
+        async with rls_bypass_for_statement(service.session):
+            await service.session.execute(
+                select(AgentCatalog.id)
+                .where(AgentCatalog.id.in_(ids), visible)
+                .order_by(AgentCatalog.id)
+                .with_for_update(read=True)
+            )
         await service.session.execute(
             select(AgentModelAccess.id)
             .where(
