@@ -85,6 +85,7 @@ A member with no roles stays in the organization with the baseline scopes. Use `
 | One role per scope | A user holds one direct role per workspace and one organization-wide. The same limit applies to each group. |
 | Effective scopes | A user's scopes are the union of their direct roles, the roles of every group they belong to, and the baseline scopes. |
 | Granting | You can assign a role only when you hold every scope in it. AutoSecOps refuses the rest with `Cannot grant scopes not held by the caller`. Platform superusers are exempt. |
+| Revoking | The same limit applies when you take a role away: changing or removing a role assignment, removing someone from a group, deleting a group, or removing a member from the organization. An `organization-admin` therefore cannot demote or remove an `organization-owner`. SCIM deprovisioning is exempt. |
 | Membership | You can assign roles and groups only to organization members. AutoSecOps refuses other users with `User not found in organization`. |
 
 AutoSecOps rejects a role edit that would switch a role between organization and workspace level while it is assigned or offered in a pending invitation.

@@ -8,7 +8,7 @@ from typing import cast as type_cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -491,6 +491,36 @@ class TestOrganizationServiceDeleteMember:
             )
             is None
         )
+
+    @pytest.mark.anyio
+    async def test_admin_cannot_remove_an_owner(
+        self,
+        session: AsyncSession,
+        org1: Organization,
+        user_in_org1: User,
+        admin_in_org1: User,
+        org1_owner_role: DBRole,
+    ):
+        """Removal revokes the member's roles, so it follows the grant ceiling."""
+        await session.execute(
+            update(UserRoleAssignment)
+            .where(
+                UserRoleAssignment.organization_id == org1.id,
+                UserRoleAssignment.user_id == user_in_org1.id,
+                UserRoleAssignment.workspace_id.is_(None),
+            )
+            .values(role_id=org1_owner_role.id)
+        )
+        await session.commit()
+        service = OrgService(session, role=create_admin_role(org1.id, admin_in_org1.id))
+
+        with pytest.raises(
+            AutoSecOpsAuthorizationError,
+            match="Cannot grant scopes not held by the caller: .*org:owner:assign",
+        ):
+            await service.delete_member(user_in_org1.id)
+
+        assert await _is_org_member(session, user_in_org1.id, org1.id)
 
     @pytest.mark.anyio
     async def test_delete_member_removes_group_links_without_organization_id(
