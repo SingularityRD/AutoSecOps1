@@ -441,10 +441,11 @@ SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS = int(
     os.environ.get("SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS") or 300
 )
 """Minimum interval between ``last_seen_at`` writes for an active session."""
-AUTOSECOPS__AUTH_ALLOWED_DOMAINS = set(
-    ((domains := os.getenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS")) and domains.split(","))
-    or []
-)
+AUTOSECOPS__AUTH_ALLOWED_DOMAINS = {
+    domain.strip().lower()
+    for domain in os.getenv("AUTOSECOPS__AUTH_ALLOWED_DOMAINS", "").split(",")
+    if domain.strip()
+}
 """Deprecated: This config has been moved into the settings service"""
 
 AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH = int(
