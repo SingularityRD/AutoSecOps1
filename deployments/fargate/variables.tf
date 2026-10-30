@@ -154,7 +154,7 @@ variable "autosecops_migrations_image_tag" {
 
 variable "autosecops_registry_credentials_arn" {
   type        = string
-  description = "Optional Secrets Manager secret ARN with {\"username\", \"password\"} for a private registry that hosts the AutoSecOps images, such as GHCR (a GitHub username and a personal access token with read:packages). ECS uses it to pull the API, worker, executor, LiteLLM, MCP, migrations, and UI images. Leave null for public images or ECR."
+  description = "Optional Secrets Manager secret ARN with {\"username\", \"password\"} for a private registry that hosts the AutoSecOps images, such as GHCR (a GitHub username and a personal access token with read:packages). ECS uses it to pull the API, worker, executor, LiteLLM, MCP, migrations, and UI images. Required for the private GHCR images; leave null only when the images are mirrored to ECR."
   default     = null
 }
 
@@ -242,6 +242,18 @@ variable "outbound_proxy_url" {
 variable "outbound_no_proxy" {
   type        = string
   description = "Comma-separated hostnames, IPs, or CIDRs that bypass outbound_proxy_url and connect directly."
+  default     = ""
+}
+
+variable "sandbox_pypi_index_url" {
+  type        = string
+  description = "PyPI index for sandbox package installs (Python script dependencies and custom registry sync), such as an internal mirror. Empty uses https://pypi.org/simple."
+  default     = ""
+}
+
+variable "sandbox_pypi_extra_index_urls" {
+  type        = string
+  description = "Comma-separated extra PyPI index URLs for sandbox package installs."
   default     = ""
 }
 

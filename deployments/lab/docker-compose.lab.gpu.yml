@@ -1,0 +1,15 @@
+# NVIDIA GPU overlay for the lab Ollama container. Needs the NVIDIA driver and,
+# on Linux, the NVIDIA Container Toolkit. Docker Desktop on Windows passes the
+# GPU through WSL2 when the Windows NVIDIA driver is installed.
+#
+#   ./deployments/lab/lab.sh up --gpu ollama
+
+services:
+  lab-ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

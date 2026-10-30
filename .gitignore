@@ -52,6 +52,10 @@ _private_key.pem
 # Ignore all .env files except .env.example
 .env*
 !.env.example
+!deployments/lab/.env.lab.example
+
+# Local evaluation lab: Wazuh config downloaded by deployments/lab/lab.sh
+deployments/lab/wazuh/
 
 
 # Editor and IDE-specific files

@@ -155,6 +155,12 @@ it. No merge to `main` is involved. Leave the branch in place.
 
 ## Verify the images before publication
 
+The GHCR images and the Helm chart are private packages. Never change their
+visibility to public. Before you inspect manifests or run `helm show chart`, log
+Docker and Helm in to `ghcr.io` with a SingularityRD account that has Read
+access. Customer pull access is per customer; see the
+`customer-registry-access` skill.
+
 Tag push triggers `.github/workflows/build-push-images.yml`. Find the run whose
 tag and `headSha` match the new release commit, then watch it to successful
 completion. Inspect both multi-platform manifests and their version/revision
