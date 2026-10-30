@@ -13,6 +13,7 @@ from autosecops import config
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.dsl.client import get_temporal_client
 from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.pagination import Page, PageParams, PaginationError
@@ -96,6 +97,8 @@ async def create_aws_secret_reference(
     except AutoSecOpsAuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_secret_name_environment_workspace_id"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Secret already exists"
         ) from e
@@ -126,6 +129,8 @@ async def update_aws_secret_reference(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_secret_name_environment_workspace_id"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Secret already exists"
         ) from e

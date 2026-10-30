@@ -12,6 +12,7 @@ from autosecops import config
 from autosecops.auth.dependencies import OrgActorRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import OrganizationSecretStore
 from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsNotFoundError
 from autosecops.identifiers import WorkspaceID
@@ -111,6 +112,8 @@ async def create_secret_store(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_organization_secret_store_organization_id"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A secret store with this name already exists",
@@ -166,6 +169,8 @@ async def update_secret_store(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret store not found"
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_organization_secret_store_organization_id"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A secret store with this name already exists",

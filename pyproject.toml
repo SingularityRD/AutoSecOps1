@@ -40,6 +40,7 @@ dependencies = [
     "defusedxml==0.7.1",
     "email-validator==2.2.0",
     "fastapi-users[sqlalchemy,oauth]==15.0.5",
+    "fido2==2.2.1",
     "fastapi[standard]==0.137.1",
     "fastmcp==3.4.10",
     "google-auth==2.48.0",
@@ -131,7 +132,7 @@ constraint-dependencies = [
     # GHSA-xmj3-9gf7-h52w.
     "setuptools==84.1.0",
     "urllib3==2.8.0",
-    "virtualenv==21.14.10",
+    "virtualenv==21.14.13",
 ]
 
 [dependency-groups]

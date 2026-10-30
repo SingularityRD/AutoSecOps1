@@ -12,10 +12,10 @@ from autosecops_ee.workspace_chat.policy import (
 )
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.agent.adapter import vercel
+from autosecops.agent.backends.access import can_use_backend
 from autosecops.agent.backends.registry import (
     get_agent_backends,
 )
@@ -32,6 +32,7 @@ from autosecops.agent.session.schemas import (
     AgentSessionCancelResponse,
     AgentSessionCreate,
     AgentSessionForkRequest,
+    AgentSessionPendingRead,
     AgentSessionRead,
     AgentSessionReadVercel,
     AgentSessionReadWithMessages,
@@ -58,9 +59,10 @@ from autosecops.chat.schemas import (
     ChatRequest,
     ContinueRunRequest,
 )
-from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.dependencies import AsyncDBSession, ReleaseRequestSession
 from autosecops.db.models import AgentSession
 from autosecops.exceptions import (
+    AgentProviderCredentialsNotFoundError,
     AutoSecOpsConflictError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
@@ -70,16 +72,6 @@ from autosecops.logger import logger
 from autosecops.observability.otel import set_current_span_attributes
 
 router = APIRouter(prefix="/agent/sessions", tags=["agent-sessions"])
-
-# Chats that take the configured backend when the request omits one. The preset
-# builder and external channels depend on the built-in backend's workflow.
-CHAT_BACKEND_ENTITIES = frozenset(
-    {
-        AgentSessionEntity.WORKSPACE_CHAT,
-        AgentSessionEntity.AGENT_PRESET,
-        AgentSessionEntity.CASE,
-    }
-)
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache, no-transform",
@@ -100,21 +92,6 @@ def _sse_headers(format: StreamFormat) -> dict[str, str]:
     if format == "vercel":
         return dict(VERCEL_SSE_HEADERS)
     return dict(SSE_HEADERS)
-
-
-async def _release_request_db_connection(db_session: AsyncSession) -> None:
-    """Return the request's pooled DB connection before a long-lived SSE stream.
-
-    FastAPI tears down ``yield`` dependencies only after a streaming response
-    finishes, so the request-scoped session shared with the auth dependency
-    would otherwise stay idle in transaction for the stream's lifetime. Its
-    open transaction keeps table locks that make DDL (such as a migration)
-    wait, and every query queued behind that DDL waits with it.
-
-    Args:
-        db_session: The request-scoped session from ``AsyncDBSession``.
-    """
-    await db_session.close()
 
 
 def _bubble_id(session_id: uuid.UUID, curr_run_id: uuid.UUID | None) -> str | None:
@@ -191,16 +168,26 @@ async def _build_session_read_with_entitlement(
     return build_session_read(agent_session, role, readonly=readonly)
 
 
+async def _can_use_backend(
+    *, session: AsyncDBSession, role: WorkspaceActorRouteRole, backend_id: str
+) -> bool:
+    if role.organization_id is None:
+        return False
+    return await can_use_backend(session, role.organization_id, backend_id)
+
+
 @router.get("/backends")
 @require_scope("agent:read")
 async def list_agent_backends(
     role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
 ) -> list[AgentBackendRead]:
-    """List enabled installed backends available to new sessions."""
+    """List enabled installed backends this organization may start sessions on."""
     return [
         AgentBackendRead(id=key, name=backend.name)
         for key, backend in get_agent_backends().items()
         if backend.is_enabled()
+        and await _can_use_backend(session=session, role=role, backend_id=key)
     ]
 
 
@@ -208,7 +195,7 @@ async def list_agent_backends(
     "",
     responses={
         403: {
-            "description": "Workspace Chat entitlement or parent session write access required"
+            "description": "Workspace Chat or agent backend entitlement, or parent session write access required"
         },
         404: {"description": "Parent session not found in this workspace"},
     },
@@ -220,13 +207,6 @@ async def create_session(
     session: AsyncDBSession,
 ) -> AgentSessionRead:
     """Create a new agent session associated with an entity."""
-    if (
-        "backend_id" not in request.model_fields_set
-        and request.entity_type in CHAT_BACKEND_ENTITIES
-    ):
-        request = request.model_copy(
-            update={"backend_id": config.AUTOSECOPS__AGENT_CHAT_BACKEND}
-        )
     await require_workspace_chat_entitlement_for_entity(
         session=session,
         role=role,
@@ -565,14 +545,13 @@ async def delete_session(
     await svc.delete_session(agent_session)
 
 
-@router.post("/{session_id}/messages")
+@router.post("/{session_id}/messages", dependencies=[ReleaseRequestSession])
 @require_scope("agent:execute")
 async def send_message(
     session_id: uuid.UUID,
     request: ChatRequest,
     role: WorkspaceActorRouteRole,
     http_request: Request,
-    db_session: AsyncDBSession,
 ) -> StreamingResponse:
     """Send a message to the agent session with streaming response.
 
@@ -722,7 +701,6 @@ async def send_message(
             start_id="0-0",
         )
 
-        await _release_request_db_connection(db_session)
         # Create stream and return with Vercel format
         return StreamingResponse(
             stream.sse(
@@ -734,6 +712,13 @@ async def send_message(
             media_type="text/event-stream",
             headers=_sse_headers("vercel"),
         )
+    except AgentProviderCredentialsNotFoundError as e:
+        # The session exists, but its model can't run until the provider is
+        # configured; the message tells the user what to set up.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
     except AutoSecOpsNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -767,13 +752,12 @@ async def send_message(
         ) from e
 
 
-@router.get("/{session_id}/stream")
+@router.get("/{session_id}/stream", dependencies=[ReleaseRequestSession])
 @require_scope("agent:read")
 async def stream_session_events(
     role: WorkspaceActorRouteRole,
     request: Request,
     session_id: uuid.UUID,
-    db_session: AsyncDBSession,
     format: StreamFormat = Query(
         default="vercel", description="Streaming format (e.g. 'vercel')"
     ),
@@ -813,7 +797,6 @@ async def stream_session_events(
             legacy_stream = await AgentStream.new(
                 session_id=session_id, workspace_id=workspace_id
             )
-            await _release_request_db_connection(db_session)
             return StreamingResponse(
                 legacy_stream.sse(
                     request.is_disconnected, last_id=start_id, format=format
@@ -861,7 +844,6 @@ async def stream_session_events(
         last_id=start_id,
         session_id=session_id,
     )
-    await _release_request_db_connection(db_session)
     return StreamingResponse(
         stream.sse(
             request.is_disconnected,
@@ -873,6 +855,39 @@ async def stream_session_events(
         media_type="text/event-stream",
         headers=headers,
     )
+
+
+@router.get("/{session_id}/pending")
+@require_scope("agent:read")
+async def list_pending_messages(
+    session_id: uuid.UUID,
+    role: WorkspaceActorRouteRole,
+    session: AsyncDBSession,
+) -> AgentSessionPendingRead:
+    """List the user messages the model has not read yet, in send order.
+
+    Covers steers waiting to join the running turn and messages queued for a
+    later turn. The list is short-lived and small, so it is not paginated. Only
+    the session's owner sees it: the messages are theirs until the model reads
+    them.
+    """
+    svc = AgentSessionService(session, role)
+    try:
+        agent_session = await svc.get_session(session_id)
+        if agent_session is None:
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
+        _require_session_write_access(role, agent_session)
+        return await svc.list_pending(session_id)
+    except AutoSecOpsNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except AutoSecOpsConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
 
 
 @router.post("/{session_id}/fork")
