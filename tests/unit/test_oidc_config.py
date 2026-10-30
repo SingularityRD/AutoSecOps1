@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 from httpx_oauth.clients.openid import OpenID
+from httpx_oauth.exceptions import GetIdEmailError, GetProfileError
 
 from autosecops import config
 from autosecops.auth.enums import AuthType
@@ -192,3 +193,14 @@ async def test_platform_openid_returns_verified_or_unflagged_email(
     client = _platform_client()
     with patch.object(PlatformOpenID, "get_profile", return_value=profile):
         assert await client.get_id_email("token") == ("user-sub", "user@example.com")
+
+
+@pytest.mark.anyio
+async def test_platform_openid_keeps_get_id_email_error_contract() -> None:
+    """A failed profile fetch raises the library's GetIdEmailError, as OpenID does."""
+    client = _platform_client()
+    with patch.object(
+        PlatformOpenID, "get_profile", side_effect=GetProfileError("profile failed")
+    ):
+        with pytest.raises(GetIdEmailError):
+            await client.get_id_email("token")

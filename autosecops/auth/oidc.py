@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from httpx_oauth.clients.openid import OpenID
+from httpx_oauth.exceptions import GetIdEmailError, GetProfileError
 from httpx_oauth.oauth2 import BaseOAuth2
 
 from autosecops import config
@@ -50,7 +51,10 @@ class PlatformOpenID(OpenID):
     """
 
     async def get_id_email(self, token: str) -> tuple[str, str | None]:
-        profile = await self.get_profile(token)
+        try:
+            profile = await self.get_profile(token)
+        except GetProfileError as e:
+            raise GetIdEmailError(response=e.response) from e
         account_id = str(profile["sub"])
         email = profile.get("email")
         if email is not None and _is_explicitly_unverified(
