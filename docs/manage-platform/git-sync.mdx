@@ -44,6 +44,8 @@ For custom roles, provider setup requires `org:settings:update`, changing the wo
 
     The account must have access to the repository. Initialize the repository with a commit before syncing. For Bitbucket Data Center, click `Connect` on the Data Center connection with your HTTPS instance URL and an [HTTP access token](https://confluence.atlassian.com/bitbucketserver/http-access-tokens-939515499.html) granting repository write permission. Include any port and context path in the instance URL, such as `https://bitbucket.example.com:8443/bitbucket`.
 
+    AutoSecOps refuses GitLab and Bitbucket Data Center instance URLs that resolve to private, loopback, link-local, or other non-public addresses. For a self-managed instance on a private network, add its exact IP or a narrow CIDR to `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` on the `api` service, such as `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=10.0.12.34/32`; see [Private endpoints](/agents/llm-providers#private-endpoints) for where to set it. `HTTP_PROXY` and `HTTPS_PROXY` have no effect on GitLab and Data Center API requests; use `AUTOSECOPS__OUTBOUND_PROXY_URL` instead.
+
     Use `Update` to rotate the token before it expires. Deleting these credentials disconnects sync across the organization; it preserves workspace resources, repository branches, and custom-registry credentials.
   </Step>
 </Steps>

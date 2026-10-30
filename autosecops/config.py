@@ -970,9 +970,11 @@ def env_no_proxy(name: str) -> tuple[str | IPv4Network | IPv6Network, ...]:
 AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
     "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS"
 )
-"""Operator-only exceptions for caller-controlled MCP and LLM HTTP destinations.
+"""Operator-only exceptions for caller-controlled HTTP destinations.
 
-Empty by default. Configure exact IPs or narrow CIDRs only for intentional private
+Covers MCP and LLM endpoints, audit webhook delivery and tests, workspace sync
+GitLab and Bitbucket Data Center instance URLs, and OAuth discovery and dynamic
+client registration. Empty by default. Configure exact IPs or narrow CIDRs only for intentional private
 integrations. Every workspace using these clients can reach an allowed address.
 Set this in the process/container environment, not workspace or action inputs.
 """
