@@ -1,0 +1,409 @@
+---
+title: Local evaluation lab
+description: "Install AutoSecOps on your own computer and test it end to end with a local or cloud LLM, open-source security tools, and free threat-intel APIs."
+sidebarTitle: Local evaluation
+keywords: ["evaluation", "lab", "ollama", "local llm", "windows", "wsl", "misp", "opensearch", "wazuh", "free tier"]
+---
+
+import GhcrAccess from "/snippets/ghcr-access.mdx";
+
+This page sets up a complete evaluation on one computer: the AutoSecOps stack, an LLM, a lab of open-source security tools (MISP, OpenSearch, Wazuh, FleetDM, Mailpit, Ollama), and sample workflows that use only those tools and free API tiers. It covers Windows (WSL2 and Docker Desktop), macOS on Apple Silicon, and Linux.
+
+The lab lives in the repository:
+
+| Path | Contents |
+| :--- | :------- |
+| `deployments/lab/docker-compose.lab.yml` | Lab services, one Compose profile per tool |
+| `deployments/lab/.env.lab.example` | Lab settings with `change-me-` placeholders |
+| `deployments/lab/lab.sh` | Helper: generate secrets, start profiles, seed data, check the LLM |
+| `examples/005-local-evaluation-lab/workflows/` | Sample workflows to import |
+
+The lab is for evaluation only. Every lab port binds to `127.0.0.1`, and `lab.sh` generates throwaway passwords.
+
+## Requirements
+
+| Resource | Minimum | Recommended |
+| :------- | :------ | :---------- |
+| CPU | 8 cores | 8+ cores |
+| RAM | 16 GB (AutoSecOps alone) | 32 GB for AutoSecOps, one or two lab profiles, and a local 8B model |
+| Disk | 40 GB free | 80 GB free with Wazuh and local models |
+| GPU | None | NVIDIA with 8 GB+ VRAM for local models |
+
+The AutoSecOps stack alone matches the Small size in [Docker Compose](/self-hosting/docker-compose#scaling). Lab profiles add roughly:
+
+| Profile | RAM | Notes |
+| :------ | :-- | :---- |
+| `misp` | 1.5–2 GB | First start takes 5–10 minutes |
+| `opensearch` | 1.5 GB | 512 MB heap by default |
+| `wazuh` | 6–8 GB | Manager, indexer, dashboard, and one agent. Optional |
+| `fleet` | 1 GB | Optional |
+| `mailpit` | 50 MB | |
+| `ollama` | Model size plus context | See [Configure an LLM](#configure-an-llm) |
+
+On a 32 GB computer, run Wazuh or a local 14B model, not both.
+
+### Image architectures
+
+`ghcr.io/singularityrd/autosecops`, `autosecops-ui`, and `autosecops-postgres` are multi-arch images for `linux/amd64` and `linux/arm64`, so Apple Silicon runs them natively without Rosetta. The MISP, OpenSearch, Wazuh, Mailpit, and Ollama lab images publish both architectures. FleetDM publishes `linux/amd64` only; the lab pins that platform, and Docker Desktop on Apple Silicon runs it under Rosetta emulation (Settings > General > Use Rosetta for x86_64/amd64 emulation).
+
+## Prepare your computer
+
+<Tabs>
+  <Tab title="Windows">
+    Run every command on this page in a WSL2 Ubuntu shell, not in PowerShell. Docker Desktop shares its engine with WSL, and `lab.sh` and `env.sh` are bash scripts.
+
+    1. Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) with the WSL2 backend, then enable Settings > Resources > WSL integration for your Ubuntu distribution.
+    2. Install Ubuntu from PowerShell: `wsl --install -d Ubuntu`.
+    3. In Ubuntu, install the tools the scripts use: `sudo apt-get update && sudo apt-get install -y curl openssl git`.
+    4. Limit the memory WSL2 and Docker take, and raise `vm.max_map_count` for OpenSearch and the Wazuh indexer. Create `%UserProfile%\.wslconfig`:
+
+       ```ini
+       [wsl2]
+       memory=18GB
+       processors=8
+       swap=8GB
+       kernelCommandLine = "sysctl.vm.max_map_count=262144"
+       ```
+
+       Then run `wsl --shutdown` in PowerShell and restart Docker Desktop. On a 32 GB computer, 18 GB for WSL leaves room for Windows and a native Ollama model.
+    5. Keep the AutoSecOps files inside the Linux file system, such as `~/autosecops`, not under `/mnt/c`. Windows paths are slow for containers and can convert shell scripts to CRLF line endings, which breaks them with `bad interpreter` or `$'\r': command not found`. The repository's `.gitattributes` forces LF for `*.sh`; if you copied the files another way, fix them with `sed -i 's/\r$//' deployments/lab/lab.sh env.sh`.
+
+    Docker Desktop publishes container ports on Windows `localhost`, so you open every UI in your Windows browser.
+  </Tab>
+  <Tab title="macOS">
+    1. Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/) and give it at least 12 GB of memory in Settings > Resources.
+    2. Install [Ollama for macOS](https://ollama.com/download) natively if you want a local model. Containers on macOS cannot use the Metal GPU, so the `ollama` lab profile runs on CPU only.
+  </Tab>
+  <Tab title="Linux">
+    1. Install [Docker Engine](https://docs.docker.com/engine/install/) 26.0.0+ and the Compose plugin 2.29.0+.
+    2. Raise `vm.max_map_count` for OpenSearch and the Wazuh indexer: `sudo sysctl -w vm.max_map_count=262144`, and add `vm.max_map_count=262144` to `/etc/sysctl.d/99-autosecops-lab.conf` to keep it after a reboot.
+    3. For an NVIDIA GPU in the `ollama` profile, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+  </Tab>
+</Tabs>
+
+## Log in to the registry
+
+<GhcrAccess />
+
+## Start AutoSecOps
+
+<Steps>
+  <Step title="Get the install files and the lab">
+    Clone the repository, which holds the lab, then extract the install files of the version you evaluate into a separate directory:
+
+    ```bash
+    git clone https://github.com/SingularityRD/AutoSecOps1.git ~/autosecops-src
+    mkdir -p ~/autosecops && cd ~/autosecops
+    docker pull ghcr.io/singularityrd/autosecops:1.0.0
+    id=$(docker create ghcr.io/singularityrd/autosecops:1.0.0)
+    docker cp "$id":/opt/autosecops/install/. .
+    docker rm "$id"
+    ```
+  </Step>
+  <Step title="Generate the .env file">
+    ```bash
+    chmod +x env.sh && ./env.sh
+    ```
+
+    Answer `y` for production mode, so `env.sh` generates random database and MinIO passwords. For `PUBLIC_APP_URL`, enter `localhost` on macOS and Linux and `127.0.0.1` on Windows. Add a port, such as `127.0.0.1:8080`, if another program already uses port 80. Enter your own email as the superadmin email.
+
+    Run `./env.sh --check` to confirm no placeholder remains.
+  </Step>
+  <Step title="Start the stack">
+    ```bash
+    docker compose up -d
+    docker compose ps
+    ```
+
+    The first pull downloads several gigabytes. Wait until `api` reports `healthy`.
+  </Step>
+  <Step title="Create the admin account">
+    Open the `PUBLIC_APP_URL` you chose, such as `http://127.0.0.1`, and sign up with the superadmin email from `.env`. That account becomes superadmin and owner of the default organization. See [First login](/self-hosting/docker-compose#first-login).
+  </Step>
+</Steps>
+
+## Configure an LLM
+
+Agents, AI actions, and Workspace Chat need at least one enabled model and an organization default model. Configure providers in Organization settings > Agent > Configuration; [LLM providers](/agents/llm-providers) documents every field.
+
+### Cloud API key
+
+Click Connect next to OpenAI, Anthropic, or Gemini API, paste the API key, click Save credentials, then Allow the models you want and pick a Default model. Cloud models are the strongest option for agent tool calling. Each request leaves your computer and bills your provider account.
+
+### Local Ollama
+
+AutoSecOps connects to Ollama through its managed LiteLLM gateway with the `ollama_chat/` route: you enter Ollama's OpenAI-compatible base URL ending in `/v1`, AutoSecOps discovers models from `<base URL>/models`, and LiteLLM calls Ollama's native chat API at the same host without `/v1`. Agent runs send a long system prompt and every tool's schema, so the model must support tool calling and Ollama must keep a large enough context window.
+
+<Steps>
+  <Step title="Run Ollama">
+    <Tabs>
+      <Tab title="Windows">
+        Install [Ollama for Windows](https://ollama.com/download/windows). It uses an NVIDIA GPU automatically when the driver is installed and falls back to CPU. In PowerShell, set the server options, then quit Ollama from the system tray and start it again:
+
+        ```powershell
+        setx OLLAMA_CONTEXT_LENGTH 32768
+        setx OLLAMA_FLASH_ATTENTION 1
+        setx OLLAMA_KV_CACHE_TYPE q8_0
+        ollama pull qwen3:8b
+        ```
+
+        AutoSecOps reaches it at `http://host.docker.internal:11434/v1`. If [Check tool calling](#check-tool-calling) cannot connect, also run `setx OLLAMA_HOST 0.0.0.0:11434`, restart Ollama, and allow `ollama.exe` on private networks only when Windows Firewall asks.
+      </Tab>
+      <Tab title="macOS">
+        Install [Ollama for macOS](https://ollama.com/download), which uses the Metal GPU:
+
+        ```bash
+        launchctl setenv OLLAMA_CONTEXT_LENGTH 32768
+        launchctl setenv OLLAMA_FLASH_ATTENTION 1
+        launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0
+        ollama pull qwen3:8b
+        ```
+
+        Quit and reopen the Ollama app so it reads the settings. AutoSecOps reaches it at `http://host.docker.internal:11434/v1`.
+      </Tab>
+      <Tab title="Linux or container">
+        Start the lab's Ollama container, which sets the same options, after the lab setup in [Start the lab](#start-the-lab):
+
+        ```bash
+        ./deployments/lab/lab.sh up ollama          # CPU
+        ./deployments/lab/lab.sh up --gpu ollama    # NVIDIA GPU
+        docker exec autosecops-lab-lab-ollama-1 ollama pull qwen3:8b
+        ```
+
+        AutoSecOps reaches it at `http://lab-ollama:11434/v1`. The container also publishes `127.0.0.1:11435` for your own testing.
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Allow the private address">
+    AutoSecOps rejects LLM endpoints on private addresses until you allow them. Print the address AutoSecOps resolves for your base URL, run from the repository clone:
+
+    ```bash
+    cd ~/autosecops-src
+    ./deployments/lab/lab.sh allowlist http://host.docker.internal:11434/v1
+    ```
+
+    Add the printed value to `~/autosecops/.env`, then recreate the services:
+
+    ```bash
+    AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS=192.168.65.254/32
+    ```
+
+    ```bash
+    cd ~/autosecops && docker compose up -d
+    ```
+
+    Allow only that `/32` address. The allowlist applies to every workspace and to remote MCP servers. A container address such as `lab-ollama` can change when the container is recreated; run `lab.sh allowlist` again if Ollama stops answering. See [Private endpoints](/agents/llm-providers#private-endpoints).
+  </Step>
+  <Step title="Connect Ollama in AutoSecOps">
+    In Organization settings > Agent > Configuration, click Connect next to Ollama and set:
+
+    | Field | Value |
+    | :---- | :---- |
+    | Base URL | `http://host.docker.internal:11434/v1`, or `http://lab-ollama:11434/v1` for the container |
+    | API key | Leave blank |
+    | Passthrough | Off |
+
+    Click Save credentials. AutoSecOps lists the pulled models. Click Allow next to `qwen3:8b`, then pick it as the Default model.
+  </Step>
+</Steps>
+
+#### Recommended local models
+
+Pick a model whose Ollama library page lists the `tools` capability. These fit a 32 GB computer:
+
+| Hardware | Model | Download | Notes |
+| :------- | :---- | :------- | :---- |
+| NVIDIA GPU with 16 GB+ VRAM | `qwen3:14b` | ~9 GB | Most reliable tool calls in this size range |
+| NVIDIA GPU with 8–12 GB VRAM | `qwen3:8b` | ~5 GB | Recommended default |
+| CPU only | `qwen3:8b` | ~5 GB | Works, but an agent turn can take minutes |
+| Alternatives | `qwen2.5:7b`, `qwen2.5:14b`, `llama3.1:8b` | 5–9 GB | Tool capable; weaker at structured output |
+
+With `OLLAMA_CONTEXT_LENGTH=32768` and a `q8_0` KV cache, `qwen3:8b` uses about 8 GB and `qwen3:14b` about 13 GB. Ollama truncates prompts longer than the context length without an error, which shows up as an agent that ignores its instructions or tools.
+
+Small local models are noticeably weaker than cloud models at tool calling. Expect skipped tool calls, invented arguments, and malformed JSON, more often on CPU and with many tools. The sample workflows send compact evidence to `ai.action`, which needs no tool calls, and use `ai.agent` with a single tool only in the tool-calling check. Set `enable_thinking: false` on `ai.agent` and `ai.action` when you use a local model. For larger local models and production inference, see [Air-gapped deployment](/self-hosting/air-gapped#choose-the-model-route).
+
+### Check tool calling
+
+`lab.sh llm-check` runs inside the AutoSecOps `litellm` container, so it uses the same network path as agent runs. It resolves the base URL, confirms the model is pulled and reports the `tools` capability, and asks the model to call a tool:
+
+```bash
+./deployments/lab/lab.sh llm-check http://host.docker.internal:11434/v1 qwen3:8b
+```
+
+```text
+host.docker.internal resolves to 192.168.65.254 inside AutoSecOps.
+Models on this Ollama: qwen3:8b
+Capabilities: completion, tools, thinking
+Asking qwen3:8b to call a tool (CPU-only models can take a few minutes)...
+PASS: tool call {"name": "lookup_cve_scores", "arguments": {"cve": "CVE-2021-44228"}}
+```
+
+Then run the `Lab: LLM tool-calling check` workflow from [Import the sample workflows](#import-the-sample-workflows). It passes only when an `ai.agent` run calls `tools.first_epss.lookup_cve_scores` and reports the same EPSS score that the workflow fetches directly.
+
+## Start the lab
+
+Start AutoSecOps first: the lab joins its Compose network, `autosecops_core`, so workflows reach lab services by name. If you changed `COMPOSE_PROJECT_NAME`, set `AUTOSECOPS_CORE_NETWORK=<project>_core` in `deployments/lab/.env.lab`.
+
+```bash
+cd ~/autosecops-src
+./deployments/lab/lab.sh env                 # writes deployments/lab/.env.lab with random passwords
+./deployments/lab/lab.sh up misp opensearch  # light profiles
+./deployments/lab/lab.sh seed                # sample IOCs and alerts
+```
+
+Optional profiles:
+
+```bash
+./deployments/lab/lab.sh wazuh-init          # once: downloads Wazuh's single-node config, creates certificates
+./deployments/lab/lab.sh up wazuh
+./deployments/lab/lab.sh up fleet mailpit
+./deployments/lab/lab.sh seed wazuh          # after the manager is up
+```
+
+`lab.sh wazuh-init` downloads the official `wazuh-docker` v4.14.9 single-node configuration into `deployments/lab/wazuh/`, which Git ignores. The Wazuh indexer keeps Wazuh's published default `admin` / `SecretPassword` credentials; `lab.sh` sets a random `wazuh-wui` API password.
+
+`lab.sh seed` loads:
+
+| Target | Data |
+| :----- | :--- |
+| `misp` | One event with synthetic IOCs: `203.0.113.10`, `198.51.100.23`, `c2.lab-malware.example`, a payload URL, and the EICAR test-file MD5 and SHA-256 |
+| `opensearch` | Four alerts in the `lab-alerts` index: SSH brute force, EICAR detection, suspicious outbound connection, new local administrator |
+| `wazuh` | Waits for the `lab-endpoint-01` agent to enroll, then sends ten failed SSH logins from `198.51.100.23` so the SSH brute-force rules fire |
+
+### Connect the lab to AutoSecOps
+
+Print the values to enter:
+
+```bash
+./deployments/lab/lab.sh secrets
+```
+
+Create the secrets on the workspace Credentials page and the variables on the Variables page:
+
+| Secret | Keys | Value |
+| :----- | :--- | :---- |
+| `misp` | `MISP_API_KEY` | `LAB_MISP_ADMIN_KEY` from `.env.lab` |
+| `opensearch` | `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD` | `admin`, `LAB_OPENSEARCH_ADMIN_PASSWORD` |
+| `wazuh_wui` | `WAZUH_WUI_USERNAME`, `WAZUH_WUI_PASSWORD` | `wazuh-wui`, `LAB_WAZUH_API_PASSWORD` |
+| `wazuh_indexer` | `WAZUH_INDEXER_USERNAME`, `WAZUH_INDEXER_PASSWORD` | `admin`, `SecretPassword` |
+| `fleetdm` | `FLEETDM_API_TOKEN` | Token of an API-only user you create in the Fleet UI |
+| `smtp` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `lab-mailpit`, `1025`, any value, any value |
+
+| Variable | Key | Value |
+| :------- | :-- | :---- |
+| `misp` | `base_url` | `https://misp:8443` |
+| `opensearch` | `base_url` | `https://lab-opensearch:9200` |
+| `wazuh` | `base_url` | `https://wazuh.manager:55000` |
+| `wazuh_indexer` | `base_url` | `https://wazuh.indexer:9200` |
+| `fleetdm` | `base_url` | `http://lab-fleet:8080` |
+
+Lab services use self-signed certificates, so set `verify_ssl: false` on MISP, OpenSearch, and Wazuh actions. `core.send_email_smtp` delivers to Mailpit with `enable_starttls`, `enable_ssl`, and `enable_auth` left at `false`; read the mail at `http://localhost:8025`.
+
+Lab web UIs on your computer:
+
+| Tool | URL | Login |
+| :--- | :-- | :---- |
+| MISP | `https://localhost:8443` | `admin@lab.local`, `LAB_MISP_ADMIN_PASSWORD` |
+| OpenSearch Dashboards | `http://localhost:5602` | `admin`, `LAB_OPENSEARCH_ADMIN_PASSWORD` |
+| Wazuh dashboard | `https://localhost:5443` | `admin`, `SecretPassword` |
+| FleetDM | `http://localhost:8412` | Create the first user on first visit |
+| Mailpit | `http://localhost:8025` | None |
+
+## Free threat-intel and SaaS accounts
+
+These registry integrations work on a free account. Create the secret in AutoSecOps with the exact name and keys shown. Free quotas change; check each provider's pricing page.
+
+| Integration | Actions | Secret and keys | Free option | Sign up |
+| :---------- | :------ | :-------------- | :---------- | :------ |
+| VirusTotal | `tools.virustotal.lookup_ip_address`, `lookup_domain`, `lookup_url`, `lookup_file_hash` | `virustotal`: `VIRUSTOTAL_API_KEY` | Public API: 4 requests a minute, 500 a day, non-commercial use | [virustotal.com](https://www.virustotal.com/gui/join-us) |
+| AbuseIPDB | `tools.abuseipdb.lookup_ip_address` | `abuseipdb`: `ABUSEIPDB_API_KEY` | Free plan: 1,000 checks a day | [abuseipdb.com](https://www.abuseipdb.com/register) |
+| URLhaus | `tools.urlhaus.lookup_host`, `lookup_url`, `lookup_payload`, `list_recent_payloads` | `abusech`: `ABUSECH_API_KEY` | Free Auth-Key, fair use | [auth.abuse.ch](https://auth.abuse.ch/) |
+| ThreatFox | `tools.threatfox.lookup_ioc`, `search_file_hash`, `list_recent_iocs`, and more | `abusech`: `ABUSECH_API_KEY` (same key as URLhaus) | Free Auth-Key, fair use | [auth.abuse.ch](https://auth.abuse.ch/) |
+| GreyNoise Community | `core.http_request` to `/v3/community/{ip}` | `greynoise`: `GREYNOISE_API_KEY` | Community API, daily lookup limit. The registry's `tools.greynoise.*` actions call the paid v3 IP and GNQL endpoints | [viz.greynoise.io](https://viz.greynoise.io/signup) |
+| urlscan.io | `tools.urlscan.lookup_url`, `search_scans`, `get_result` | `urlscan`: `URLSCAN_API_KEY` | Free account with daily scan and search quotas; free scans are public | [urlscan.io](https://urlscan.io/user/signup) |
+| Shodan | `tools.shodan.lookup_host`, `resolve_dns`, `reverse_dns` | `shodan`: `SHODAN_API_KEY` | Free account covers host and DNS lookups. `search_hosts` and filtered `count_hosts` need a paid membership | [account.shodan.io](https://account.shodan.io/register) |
+| CrowdSec CTI | `tools.crowdsec_cti.lookup_ip_address` | `crowdsec_cti`: `CTI_API_KEY` | Community key with a small daily quota | [app.crowdsec.net](https://app.crowdsec.net/signup) |
+| IPinfo | `tools.ipinfo.lookup_ip_address` | `ipinfo`: `IPINFO_API_TOKEN` | Free plan | [ipinfo.io](https://ipinfo.io/signup) |
+| Hunter | `tools.hunter.domain_search`, `email_verifier`, and more | `hunter`: `HUNTER_API_KEY` | Free plan with a small monthly search and verification quota | [hunter.io](https://hunter.io/users/sign_up) |
+| EmailRep | `tools.emailrep.lookup_email` | `emailrep`: `EMAILREP_API_KEY` | Free key on request, low daily limit | [emailrep.io](https://emailrep.io/key) |
+| OpenPhish, FIRST EPSS, CISA KEV, OSV | `tools.openphish.get_public_feed`, `tools.first_epss.*`, `tools.cisa_kev.*`, `tools.osv.*` | None | Public data, no account | None |
+| Slack | `tools.slack.post_message` and 37 more | `slack`: `SLACK_BOT_TOKEN` | Free workspace with a bot app | [api.slack.com/apps](https://api.slack.com/apps) |
+| GitHub | `tools.github.*` | `github_pat`: `GITHUB_PAT_TOKEN`, or the GitHub OAuth integration | Free account; code scanning and secret scanning alerts need public repositories or GitHub Advanced Security | [github.com](https://github.com/signup) |
+| Jira Cloud | `tools.jira.*` | `jira`: `JIRA_USEREMAIL`, `JIRA_API_TOKEN`; variable `jira.base_url` | Free plan for up to 10 users | [atlassian.com](https://www.atlassian.com/software/jira/free) |
+| PagerDuty | `tools.pagerduty.*` | `pagerduty`: `PAGERDUTY_API_KEY` | Free plan for small teams; `trigger_event` takes an Events API integration key as `service_key` | [pagerduty.com](https://www.pagerduty.com/sign-up/) |
+| Okta | `tools.okta.*` | `okta`: `OKTA_API_TOKEN`; variable `okta.base_url` | Integrator Free Plan | [developer.okta.com](https://developer.okta.com/signup/) |
+| GitLab | `tools.gitlab.*` pipelines, issues, merge requests, repositories | `gitlab`: `GITLAB_API_TOKEN`; variable `gitlab.base_url` | GitLab.com Free or self-managed CE. Vulnerability and security actions need Ultimate | [gitlab.com](https://gitlab.com/users/sign_up) |
+
+Self-hosted open-source tools beyond the lab profiles also work: Elasticsearch and Elastic Security on the free Basic license (detection rules, alerts, timelines; endpoint response actions need Elastic Defend), Gophish, MITRE Caldera, and an OpenLDAP server for `tools.ldap.*`.
+
+These need a paid license, a trial, or tenant licenses, so the lab leaves them out: Splunk (Splunk Free disables authentication and REST API tokens; use a trial), Microsoft Teams (needs Microsoft 365 licenses), and the GreyNoise `tools.greynoise.*` actions. Microsoft Entra ID works on a free Entra tenant but needs an OAuth app registration. Sublime Security needs a Sublime platform account connected to a mailbox.
+
+## Import the sample workflows
+
+`examples/005-local-evaluation-lab/workflows/` holds four workflow definitions in the import format:
+
+| File | Workflow | Needs |
+| :--- | :------- | :---- |
+| `ioc-enrichment.yml` | `Lab: IOC enrichment`: VirusTotal, AbuseIPDB, URLhaus, ThreatFox, and GreyNoise Community lookups, a model verdict, a case, and an optional Slack message | Free API keys for the providers you list, an LLM |
+| `alert-triage.yml` | `Lab: Alert triage`: recent alerts from OpenSearch or the Wazuh indexer, a model triage summary, a case and comment | `opensearch` or `wazuh` profile, an LLM |
+| `misp-lookup-sighting.yml` | `Lab: MISP lookup and sighting`: searches MISP for an indicator and records a sighting when it matches | `misp` profile |
+| `llm-tool-check.yml` | `Lab: LLM tool-calling check`: an `ai.agent` run that must call a tool | An LLM |
+
+Import each file with the Create new button on the Workflows page, then publish it. See [Workflows](/automations/workflows) for export and import.
+
+Every AI step takes its model from the `model_name` and `model_provider` inputs, which default to `qwen3:8b` on `ollama`. For a cloud model, pass the exact model ID from Organization settings > Agent and its provider slug, such as `openai`, `anthropic`, or `gemini`.
+
+## Run the workflows
+
+Run a workflow from its editor with these inputs:
+
+| Workflow | Inputs | Expected result |
+| :------- | :----- | :-------------- |
+| `Lab: LLM tool-calling check` | `{}` | `passed: true` |
+| `Lab: MISP lookup and sighting` | `{"value": "198.51.100.23"}` | `known: true`, and a new sighting on the attribute in MISP |
+| `Lab: Alert triage` | `{"source": "opensearch"}` | A case tagged `lab` and `alert-triage` with the model summary and an alert comment |
+| `Lab: Alert triage` | `{"source": "wazuh", "lookback": "now-1h"}` | A case summarizing the seeded SSH brute-force alerts |
+| `Lab: IOC enrichment` | `{"ioc": "44d88612fea8a8f36de82e1278abb02f", "ioc_type": "hash", "providers": ["virustotal", "urlhaus", "threatfox"]}` | A case for the EICAR test file, which VirusTotal engines flag |
+
+The synthetic `203.0.113.0/24` and `198.51.100.0/24` addresses come from reserved documentation ranges, so public threat-intel services return no data for them. Pass a real indicator from a public feed to see positive enrichment. Each provider step fails the run when its secret is missing or its quota is exhausted; remove that provider from `providers`.
+
+## Troubleshooting
+
+| Symptom | Fix |
+| :------ | :-- |
+| `lab.sh up` says network `autosecops_core` not found | Start AutoSecOps first, or set `AUTOSECOPS_CORE_NETWORK` to `<COMPOSE_PROJECT_NAME>_core` |
+| Ollama Save credentials or Refresh models fails with `Host is not allowed` | Add the `lab.sh allowlist` value to `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` and run `docker compose up -d` |
+| `lab.sh llm-check` gets `Connection refused` on Windows or macOS | Ollama is not running or listens on loopback only. Set `OLLAMA_HOST=0.0.0.0:11434` and restart Ollama |
+| `lab.sh llm-check` reports `FAIL: the model answered without calling the tool` | Use a model with the `tools` capability, such as `qwen3:8b`, and confirm `OLLAMA_CONTEXT_LENGTH` is at least 32768 |
+| Agent runs time out on CPU | Use `qwen3:8b`, raise `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT` (seconds, default `600`) in `.env`, or use a GPU or cloud model |
+| OpenSearch or the Wazuh indexer exits with `max virtual memory areas vm.max_map_count [65530] is too low` | Set `vm.max_map_count=262144` as shown in [Prepare your computer](#prepare-your-computer) |
+| MISP `lab.sh seed` waits for minutes | MISP initializes its database on the first start. Follow it with `docker logs -f autosecops-lab-misp-core-1` |
+| A workflow step to a lab service fails with a certificate error | Set `verify_ssl: false` on that action |
+| `bad interpreter` or `$'\r': command not found` | The script has CRLF line endings. Run `sed -i 's/\r$//' deployments/lab/lab.sh` |
+
+Invitation emails need an SMTP relay with STARTTLS and a trusted certificate (`AUTOSECOPS__SMTP_*`); Mailpit only receives mail from `core.send_email_smtp`.
+
+## Stop and clean up
+
+Stop the lab and AutoSecOps without deleting data:
+
+```bash
+cd ~/autosecops-src && ./deployments/lab/lab.sh down
+cd ~/autosecops && docker compose down
+```
+
+<Warning>
+  `down -v` deletes volumes permanently. Run `docker compose -p autosecops-lab down -v` only to erase the lab data (MISP, OpenSearch, Wazuh, Fleet, and downloaded Ollama models). Running `docker compose down -v` in `~/autosecops` erases every AutoSecOps workflow, case, secret, and user.
+</Warning>
+
+## License
+
+AutoSecOps runs its free feature set without a license key, including workflows, cases, agents, AI actions, Workspace Chat, and custom registry repositories. Agent presets, case triggers, case dropdowns and tasks, agent approvals, multi-workspace, forms, and other paid features need a license that grants them. To evaluate paid features, ask SingularityRD for a pilot or evaluation key and install it as described in [License key](/self-hosting/license).
+
+## Related pages
+
+- See [Docker Compose](/self-hosting/docker-compose) for the full install, upgrade, and FAQ for the AutoSecOps stack.
+- See [LLM providers](/agents/llm-providers) for every provider's fields, the private endpoint allowlist, and passthrough.
+- See [Custom LLM providers](/agents/custom-llm-providers) for LM Studio, vLLM, and other OpenAI-compatible gateways.
+- See [Air-gapped deployment](/self-hosting/air-gapped) for self-hosted inference without internet access and larger open models.
+- See [License key](/self-hosting/license) for installing a key and the features each entitlement unlocks.
