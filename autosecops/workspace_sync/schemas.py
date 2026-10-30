@@ -28,7 +28,11 @@ from autosecops.workflow.store.schemas import (
     WorkflowDslPublishResult,
 )
 from autosecops.workspace_sync.enums import SyncResourceType
-from autosecops.workspace_sync.types import WorkflowExportCode, WorkflowExportStage
+from autosecops.workspace_sync.types import (
+    SyncMappingTarget,
+    WorkflowExportCode,
+    WorkflowExportStage,
+)
 
 MANIFEST_FILENAME = "autosecops.json"
 WORKFLOW_ROOT = "workflows"
@@ -768,6 +772,8 @@ class WorkspaceSpec(BaseModel):
 
 class WorkspaceProjection(BaseModel):
     """Locally projected workspace state plus the files it serializes to."""
+
+    mapping_targets: list[SyncMappingTarget] = Field(default_factory=list)
 
     manifest: WorkspaceManifest = Field(
         description="Manifest describing the projected repository layout."
