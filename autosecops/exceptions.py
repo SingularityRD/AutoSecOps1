@@ -129,6 +129,10 @@ class AutoSecOpsNotFoundError(AutoSecOpsException):
     """Raised when a resource is not found in the AutoSecOps database."""
 
 
+class AgentProviderCredentialsNotFoundError(AutoSecOpsNotFoundError):
+    """Raised when an agent's model provider has no configured credentials."""
+
+
 class WorkflowAliasResolutionError(AutoSecOpsNotFoundError):
     """Raised when a configured workflow alias does not resolve."""
 

@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -88,6 +89,31 @@ class BigIntSafeORJSONResponse(ORJSONResponse):
             ).encode("utf-8")
 
 
+_SURROGATES = re.compile(r"[\ud800-\udfff]")
+
+
+def serialize_validation_errors(errors: Sequence[Any]) -> list[Any]:
+    """Make validation errors safe for UTF-8 JSON."""
+    errors = _replace_surrogates(errors)
+    return _replace_surrogates(to_jsonable_python(errors, fallback=str))
+
+
+def _replace_surrogates(value: Any) -> Any:
+    # pydantic_core rejects surrogate keys; fallback=str can reintroduce them.
+    if isinstance(value, str):
+        return value if value.isascii() else _SURROGATES.sub("\ufffd", value)
+    if isinstance(value, (list, tuple)):
+        return [_replace_surrogates(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            (
+                _replace_surrogates(key) if isinstance(key, str) else key
+            ): _replace_surrogates(item)
+            for key, item in value.items()
+        }
+    return value
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> Response:
     logger.exception(
         "Unexpected error",
@@ -131,7 +157,9 @@ async def database_exception_handler(request: Request, exc: Exception) -> Respon
     """
     status_code = database_error_status(exc) if isinstance(exc, DBAPIError) else None
     if status_code is None:
-        return await generic_exception_handler(request, exc)
+        # Server-side database failures propagate to the catch-all so error
+        # reporting still captures them.
+        raise exc
     sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", None)
     logger.warning(
         "Database rejected request data",

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Mapped
 
 from autosecops import config
 from autosecops.db.engine import SupportsExecute
+from autosecops.db.locks import pg_advisory_xact_lock
 from autosecops.db.models import Organization, User, Workspace
 from autosecops.exceptions import LicenseLimitExceeded
 from autosecops.licensing.service import (
@@ -61,7 +62,7 @@ def _advisory_lock_key(limit: LicenseLimitName) -> int:
 
 
 async def _lock_limit(session: AsyncSession, limit: LicenseLimitName) -> None:
-    await session.execute(select(func.pg_advisory_xact_lock(_advisory_lock_key(limit))))
+    await pg_advisory_xact_lock(session, _advisory_lock_key(limit))
 
 
 async def _licensed_maximum(limit: LicenseLimitName) -> int | None:

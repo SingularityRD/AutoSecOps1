@@ -328,6 +328,23 @@ variable "platform_admin_ip_allowlist_bypass" {
   default     = false
 }
 
+variable "db_encryption_algorithm" {
+  type        = string
+  description = "Cipher for new encrypted database writes: fernet or aes256gcm. Reads accept both. See the database encryption docs before switching."
+  default     = "fernet"
+
+  validation {
+    condition     = contains(["fernet", "aes256gcm"], var.db_encryption_algorithm)
+    error_message = "db_encryption_algorithm must be fernet or aes256gcm."
+  }
+}
+
+variable "platform_admin_mfa_bypass" {
+  type        = bool
+  description = "Break-glass override that skips security key (MFA) sign-in and step-up checks for platform admins. Remove after recovery."
+  default     = false
+}
+
 variable "unsafe_disable_secret_error_withholding" {
   type        = bool
   description = "UNSAFE: surface original action and expression error details even when secrets are in scope, instead of the generic 'Details withheld' message. Not recommended; may expose secret-derived values in error messages."
@@ -439,6 +456,12 @@ variable "temporal_payload_encryption_cache_max_items" {
 variable "autosecops_db_encryption_key_arn" {
   type        = string
   description = "The ARN of the secret containing the AutoSecOps database encryption key"
+}
+
+variable "autosecops_db_encryption_previous_keys_arn" {
+  type        = string
+  description = "The ARN of the secret containing retired database encryption keys, comma-separated, used for reads only during key rotation (optional)"
+  default     = null
 }
 
 variable "autosecops_service_key_arn" {
@@ -1083,4 +1106,34 @@ variable "sentry_dsn" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "background_queue" {
+  type    = string
+  default = "shared-background-queue"
+}
+
+variable "background_worker_cpu" {
+  type    = number
+  default = 1024
+}
+
+variable "background_worker_memory" {
+  type    = number
+  default = 2048
+}
+
+variable "background_worker_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "background_worker_max_concurrent_activities" {
+  type    = number
+  default = 4
+
+  validation {
+    condition     = var.background_worker_max_concurrent_activities > 0 && floor(var.background_worker_max_concurrent_activities) == var.background_worker_max_concurrent_activities
+    error_message = "background_worker_max_concurrent_activities must be a positive integer."
+  }
 }

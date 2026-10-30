@@ -40,7 +40,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from pydantic_core import to_jsonable_python
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
@@ -89,6 +88,7 @@ from autosecops.api.common import (
     http_exception_handler,
     query_overflow_exception_handler,
     query_timeout_exception_handler,
+    serialize_validation_errors,
     table_row_exception_handler,
     without_inputs,
 )
@@ -98,13 +98,18 @@ from autosecops.api.lifespan import (
     freeze_startup_heap_after,
     unfreeze_startup_heap,
 )
-from autosecops.auth.credentials import authenticated_user_only, require_superuser
+from autosecops.auth.credentials import (
+    authenticated_user_only,
+    require_superuser,
+    require_superuser_step_up,
+)
 from autosecops.auth.dependencies import (
     require_any_auth_type_enabled,
     require_workspace_id_path,
 )
 from autosecops.auth.discovery import router as auth_discovery_router
 from autosecops.auth.enums import AuthType
+from autosecops.auth.mfa.router import router as mfa_router
 from autosecops.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
 from autosecops.auth.rate_limit import (
     limit_forgot_password,
@@ -261,6 +266,7 @@ from autosecops.workflow.management.router import router as workflow_management_
 from autosecops.workflow.schedules.router import router as schedules_router
 from autosecops.workflow.store.router import router as workflow_store_router
 from autosecops.workflow.tags.router import router as workflow_tags_router
+from autosecops.workspace_sync.operations.router import router as sync_operations_router
 from autosecops.workspaces.router import router as workspaces_router
 from autosecops.workspaces.service import WorkspaceService
 
@@ -478,7 +484,11 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
         if status_code is None:
             return await _unexpected(request, exc)
         return scim_error_response(
-            status_code=status_code, detail="The request was rejected."
+            status_code=status_code,
+            detail="The request was rejected.",
+            scim_type=(
+                "invalidValue" if status_code == status.HTTP_400_BAD_REQUEST else None
+            ),
         )
 
     app.add_exception_handler(Exception, _unexpected)
@@ -521,8 +531,7 @@ def validation_exception_handler(request: Request, exc: Exception) -> Response:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": str(exc)},
         )
-    errors = exc.errors()
-    ser_errors = _orjson_safe(to_jsonable_python(errors, fallback=str))
+    ser_errors = _orjson_safe(serialize_validation_errors(exc.errors()))
     logger.error(
         "API Model Validation error",
         method=request.method,
@@ -685,17 +694,26 @@ def _include_workspace_scoped_router(app: FastAPI, router: APIRouter) -> None:
     )
 
 
-_SUPERUSER_USER_ROUTE_NAMES = frozenset(
-    {"users:user", "users:patch_user", "users:delete_user"}
+_SUPERUSER_USER_ROUTE_NAMES = frozenset({"users:user"})
+_SUPERUSER_STEP_UP_USER_ROUTE_NAMES = frozenset(
+    {"users:patch_user", "users:delete_user"}
 )
 
 
 def _users_router() -> APIRouter:
-    """fastapi-users router whose superuser-only routes honor the platform admin IP allowlist."""
+    """fastapi-users router whose superuser-only routes honor the platform admin IP allowlist.
+
+    Changing or deleting another user also needs a recent security key
+    verification, like the other privileged platform admin actions.
+    """
     users_router = fastapi_users.get_users_router(UserRead, UserUpdate)
     for route in users_router.routes:
-        if isinstance(route, APIRoute) and route.name in _SUPERUSER_USER_ROUTE_NAMES:
+        if not isinstance(route, APIRoute):
+            continue
+        if route.name in _SUPERUSER_USER_ROUTE_NAMES:
             route.dependencies.append(Depends(require_superuser))
+        elif route.name in _SUPERUSER_STEP_UP_USER_ROUTE_NAMES:
+            route.dependencies.append(Depends(require_superuser_step_up))
     return users_router
 
 
@@ -795,6 +813,7 @@ def create_app(**kwargs) -> FastAPI:
     _include_workspace_scoped_router(app, workflow_actions_router)
     _include_workspace_scoped_router(app, workflow_tags_router)
     _include_workspace_scoped_router(app, workflow_store_router)
+    _include_workspace_scoped_router(app, sync_operations_router)
     # EE references register first so POST /secrets/aws wins over /secrets/{secret_id}.
     _include_workspace_scoped_router(app, external_secrets_router)
     _include_workspace_scoped_router(app, workspace_secret_stores_router)
@@ -956,6 +975,7 @@ def create_app(**kwargs) -> FastAPI:
     # The ACS callback resolves org context from RelayState, so requiring
     # query/cookie org context at router level can block legitimate IdP callbacks.
     app.include_router(saml_router)
+    app.include_router(mfa_router)
     app.include_router(auth_discovery_router)
 
     if AuthType.BASIC not in config.AUTOSECOPS__AUTH_TYPES:
@@ -972,6 +992,7 @@ def create_app(**kwargs) -> FastAPI:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
+    app.add_exception_handler(DBAPIError, database_exception_handler)
     app.add_exception_handler(AutoSecOpsException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
@@ -997,7 +1018,6 @@ def create_app(**kwargs) -> FastAPI:
     )
     app.add_exception_handler(ScopeDeniedError, scope_denied_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
-    app.add_exception_handler(DBAPIError, database_exception_handler)
     # SCIM paths answer with the spec's error envelope, so their handlers wrap
     # the app-wide ones rather than replacing them.
     _install_scim_exception_handlers(app)

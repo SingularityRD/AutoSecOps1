@@ -40,6 +40,7 @@ from autosecops.authz.membership import (
 )
 from autosecops.authz.scopes import ORG_MEMBER_ROLE_SLUG
 from autosecops.authz.service import query_effective_scopes, resolve_granter_scopes
+from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     ExternalGroup,
@@ -221,6 +222,9 @@ class OrgService(BaseOrgService):
                 ),
             )
 
+        # The membership delete below fires the MCP token-revocation trigger,
+        # which takes this lock; take it before locking any of the user's rows.
+        await lock_mcp_refresh_token_users(self.session, [user.id])
         await self.session.execute(
             delete(AccessToken).where(type_cast(Any, AccessToken.user_id) == user.id)
         )

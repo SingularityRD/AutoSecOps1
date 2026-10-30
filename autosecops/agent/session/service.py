@@ -41,12 +41,14 @@ from autosecops.agent.approvals.types import (
     ToolApprovedDecision,
     ToolDeniedDecision,
 )
+from autosecops.agent.backends.access import require_backend_entitlement
 from autosecops.agent.backends.base import AgentBackend
 from autosecops.agent.backends.registry import (
     find_agent_backend,
     get_agent_backend,
 )
 from autosecops.agent.backends.schemas import WorkflowApprovalSubmission
+from autosecops.agent.backends.selection import select_backend_id
 from autosecops.agent.backends.types import (
     AgentControlRejected,
     SessionForkContext,
@@ -93,8 +95,10 @@ from autosecops.agent.session.history import (
     prepare_session_history,
 )
 from autosecops.agent.session.schemas import (
+    AgentPendingMessageRead,
     AgentSessionCancelResponse,
     AgentSessionCreate,
+    AgentSessionPendingRead,
     AgentSessionRead,
     AgentSessionUpdate,
 )
@@ -545,7 +549,20 @@ class AgentSessionService(BaseWorkspaceService):
 
         Returns:
             The created AgentSession model.
+
+        Raises:
+            EntitlementRequired: If the backend needs an entitlement the
+                organization lacks.
         """
+        # Callers that do not pin a backend get the one selected for the surface.
+        if "backend_id" not in args.model_fields_set:
+            backend_id = await select_backend_id(
+                self.session, self.organization_id, args.entity_type
+            )
+            args = args.model_copy(update={"backend_id": backend_id})
+        await require_backend_entitlement(
+            self.session, self.organization_id, args.backend_id
+        )
         backend = get_agent_backend(args.backend_id, harness_type=args.harness_type)
         if args.spawned_by_session_id is not None:
             if await self.get_session(args.spawned_by_session_id) is None:
@@ -2047,15 +2064,14 @@ class AgentSessionService(BaseWorkspaceService):
             session_id,
             BasicChatRequest(message=prompt),
         )
-        # This caller constructs the built-in workflow's arguments directly.
-        # Keep that integration restriction explicit until it uses the contract.
-        if agent_session.backend_id != "oss":
+        backend = get_agent_backend(
+            agent_session.backend_id, harness_type=agent_session.harness_type
+        )
+        # The caller runs the turn as its own child and reads the result.
+        if not backend.caller_owned_turns:
             raise AutoSecOpsValidationError(
                 "This backend does not support caller-owned workflows"
             )
-        get_agent_backend(
-            agent_session.backend_id, harness_type=agent_session.harness_type
-        )
         async with self._build_agent_config(agent_session) as agent_config:
             run_id = agent_session.curr_run_id or uuid.uuid4()
             stream_id = agent_session.active_stream_id or uuid.uuid4()
@@ -2071,6 +2087,8 @@ class AgentSessionService(BaseWorkspaceService):
                 tools=agent_session.tools,
                 agent_preset_id=agent_session.agent_preset_id,
                 agent_preset_version_id=agent_session.agent_preset_version_id,
+                backend_id=agent_session.backend_id,
+                harness_type=agent_session.harness_type,
             )
 
             agent_session.curr_run_id = run_id
@@ -2598,6 +2616,41 @@ class AgentSessionService(BaseWorkspaceService):
             chat_id=session_id,
             active_stream_id=attempt.stream_id,
             curr_run_id=curr_run_id,
+        )
+
+    async def list_pending(self, session_id: uuid.UUID) -> AgentSessionPendingRead:
+        """List the session's user messages the model has not read, in send order.
+
+        Raises:
+            AutoSecOpsNotFoundError: If no session exists with this ID.
+            AutoSecOpsConflictError: If the session's backend is unavailable or
+                cannot list pending messages.
+        """
+        agent_session = await self.get_session(session_id)
+        if agent_session is None:
+            raise AutoSecOpsNotFoundError(f"Session with ID {session_id} not found")
+        try:
+            backend = get_agent_backend(
+                agent_session.backend_id, harness_type=agent_session.harness_type
+            )
+        except AutoSecOpsValidationError as e:
+            raise AutoSecOpsConflictError(str(e)) from e
+        if not backend.listing_pending:
+            raise AutoSecOpsConflictError(
+                "This agent backend does not support listing pending messages"
+            )
+        pending = await backend.list_pending(session_id)
+        return AgentSessionPendingRead(
+            session_id=session_id,
+            items=[
+                AgentPendingMessageRead(
+                    id=message.id,
+                    type=message.type,
+                    text=message.text,
+                    created_at=message.created_at,
+                )
+                for message in pending
+            ],
         )
 
     async def request_cancel(
@@ -3687,6 +3740,8 @@ class AgentSessionService(BaseWorkspaceService):
 
         Raises:
             AutoSecOpsNotFoundError: If the parent session is not found.
+            EntitlementRequired: If the source session's backend needs an
+                entitlement the organization lacks.
         """
         history_boundary = (
             select(func.max(AgentSessionHistory.surrogate_id))
@@ -3715,6 +3770,9 @@ class AgentSessionService(BaseWorkspaceService):
         ):
             raise AutoSecOpsNotFoundError("Parent session not found in this workspace")
 
+        await require_backend_entitlement(
+            self.session, self.organization_id, source.backend_id
+        )
         backend = get_agent_backend(source.backend_id, harness_type=source.harness_type)
 
         # Forked sessions are read-only "reviewer" sessions.

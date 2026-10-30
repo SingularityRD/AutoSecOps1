@@ -34,6 +34,7 @@ from autosecops.authz.service import (
     resolve_grantable_role,
     resolve_granter_scopes,
 )
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import (
     ExternalGroupMapping,
     Group,
@@ -983,16 +984,22 @@ class RBACService(BaseOrgService):
             workspace_id=workspace_id,
             assigned_by=self.role.user_id,
         )
-        if workspace_id is not None:
-            # Legacy workspace table is still written for app versions reading it.
-            await mirror_workspace_membership(
-                self.session, user_id=user_id, workspace_id=workspace_id
-            )
-        self.session.add(assignment)
         try:
+            if workspace_id is not None:
+                # Legacy workspace table is still written for app versions reading it.
+                await mirror_workspace_membership(
+                    self.session, user_id=user_id, workspace_id=workspace_id
+                )
+            self.session.add(assignment)
             await self.session.commit()
         except IntegrityError as e:
             await self.session.rollback()
+            if not is_unique_violation(
+                e,
+                "uq_user_role_assignment_user_id_workspace_id",
+                "ix_user_role_assignment_user_org_unique",
+            ):
+                raise
             raise AutoSecOpsConflictError(
                 "User already has an assignment for this workspace"
             ) from e

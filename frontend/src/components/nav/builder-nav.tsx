@@ -849,6 +849,8 @@ function WorkflowSaveActions({
         branch: data.branch,
         create_pr: pushOutcome.createPr,
       })
+    } catch {
+      // WorkflowProvider presents the error, including Publish-first guidance.
     } finally {
       setIsPublishing(false)
       setPublishOpen(false)
@@ -951,7 +953,7 @@ function WorkflowSaveActions({
                             {hasBranches ? (
                               <>
                                 <SelectItem value={CREATE_NEW_BRANCH_VALUE}>
-                                  Create new branch...
+                                  Create branch...
                                 </SelectItem>
                                 <SelectSeparator />
                                 {(repoBranches ?? []).map((branch) => (

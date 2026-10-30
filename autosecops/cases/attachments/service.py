@@ -122,7 +122,7 @@ class CaseAttachmentService(BaseWorkspaceService):
         except Exception as e:
             # Rollback the database transaction if storage fails to keep DB/storage in sync
             await self.session.rollback()
-            raise AutoSecOpsException(f"Failed to upload file: {str(e)}") from e
+            raise AutoSecOpsException("Failed to upload file") from e
 
     async def _emit_case_event(
         self, case: Case, event: AttachmentCreatedEvent | AttachmentDeletedEvent
@@ -519,8 +519,10 @@ class CaseAttachmentService(BaseWorkspaceService):
             return content, attachment.file.name, attachment.file.content_type
         except FileNotFoundError as e:
             raise AutoSecOpsNotFoundError("Attachment file not found in storage") from e
+        except AutoSecOpsException:
+            raise
         except Exception as e:
-            raise AutoSecOpsException(f"Failed to download attachment: {str(e)}") from e
+            raise AutoSecOpsException("Failed to download attachment") from e
 
     async def get_attachment_download_url(
         self,
@@ -577,9 +579,7 @@ class CaseAttachmentService(BaseWorkspaceService):
             )
             return presigned_url, attachment.file.name, attachment.file.content_type
         except Exception as e:
-            raise AutoSecOpsException(
-                f"Failed to generate download URL: {str(e)}"
-            ) from e
+            raise AutoSecOpsException("Failed to generate download URL") from e
 
     async def delete_attachment(self, case: Case, attachment_id: uuid.UUID) -> None:
         """Soft delete an attachment.

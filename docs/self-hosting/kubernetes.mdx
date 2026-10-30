@@ -62,6 +62,18 @@ imagePullSecrets:
 
 When you rotate the token, update each `ghcr-pull` Secret; kubelets use the new value on the next image pull. To pull from your own registry instead, mirror the images and override `image.repository`, `uiImage.repository`, and `tunnels.gateway.image.repository`.
 
+## Git sync background worker
+
+The chart runs a `background-worker` Deployment for durable Git sync operations. Git sync operations stay queued until this worker is running, so keep it enabled:
+
+```yaml
+backgroundWorker:
+  enabled: true
+  queue: shared-background-queue
+```
+
+The chart applies the queue name to both the API and the worker. `backgroundWorker.maxConcurrentActivities` sets how many background activities each worker runs at once.
+
 ## Core secrets
 
 <GenerateSecrets />
@@ -79,7 +91,7 @@ Each credential comes from a Kubernetes Secret. Reference a Secret you manage wi
 | `externalTemporal.auth` | `autosecops-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `autosecops-pangolin-credentials` | `apiKey` |
 
-The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, and `temporalPayloadEncryptionKeyring`.
+The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `dbEncryptionPreviousKeys`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, and `temporalPayloadEncryptionKeyring`.
 
 <Tabs>
   <Tab title="Existing Secret (recommended)">
