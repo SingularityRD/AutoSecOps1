@@ -142,6 +142,10 @@ export TF_VAR_autosecops_image_tag=<version>
 terraform apply
 ```
 
+## Database roles
+
+The services connect to RDS as the non-owner `autosecops_app` role, so tenant row-level security applies to them. Terraform generates its password into Secrets Manager, and the API task's migrations container creates the role as the RDS master user before the API starts. `rls_mode` defaults to `enforce`. On the first apply after upgrading, worker tasks that start before the API migrations finish fail to authenticate and ECS restarts them. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation) to verify isolation.
+
 ## Temporal DB SSL enforcement
 
 For the bundled Fargate `temporalio/auto-setup` deployment, `temporal_db_force_ssl` defaults to `false`:

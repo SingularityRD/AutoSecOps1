@@ -145,6 +145,8 @@ externalPostgres:
       -----END CERTIFICATE-----
 ```
 
+Set `auth.runtimePassword` (or a `runtime-password` key in the existing Secret) to a value from `openssl rand -hex 24`. The migrations Job connects as `auth.username`, which must own the schema and have `CREATEROLE`, and creates the `autosecops_app` runtime role that every other pod connects as, so tenant row-level security applies. Without it the pods connect as the owner and row-level security is inactive. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation).
+
 The chart mounts `tls.caCert` into every backend pod and sets `PGSSLROOTCERT`. For Amazon RDS, download the global CA bundle from the [AWS trust store](https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem).
 
 #### CloudNativePG
@@ -460,6 +462,8 @@ helm upgrade autosecops oci://ghcr.io/singularityrd/charts/autosecops \
 For a source install, run `git -C AutoSecOps1 fetch --tags && git -C AutoSecOps1 checkout <version>` and upgrade from `AutoSecOps1/deployments/helm/autosecops` without `--version`.
 
 The migrations Job runs again as a `pre-upgrade` hook before any pod rolls. Pods restart automatically when the chart's ConfigMap or chart-created Secrets change.
+
+The chart defaults to `autosecops.rlsMode: enforce`. To turn on tenant row-level security in an install that predates the runtime role, add `externalPostgres.auth.runtimePassword` (or the `runtime-password` key of your existing Secret) before you upgrade, then [verify isolation](/self-hosting/security#verify-isolation).
 
 <Warning>
   Do not change or lose your `dbEncryptionKey`, `serviceKey`, `signingSecret`, or `userAuthSecret` values between upgrades.

@@ -66,8 +66,22 @@ Updates and data migrations can be tricky business. Follow the steps below caref
     cp autosecops-1.0.0/Caddyfile .
     ```
   </Step>
+  <Step title="Set the database runtime role password">
+    Installs created before the runtime role have an empty
+    `AUTOSECOPS__DB_RUNTIME_PASSWORD` after the migration script. Set it so the
+    services connect as `autosecops_app` and tenant row-level security applies:
+
+    ```
+    sed -i "s/^AUTOSECOPS__DB_RUNTIME_PASSWORD=.*/AUTOSECOPS__DB_RUNTIME_PASSWORD=$(openssl rand -hex 24)/" .env
+    ```
+
+    Left empty, AutoSecOps keeps working as the owner role, logs a warning,
+    and row-level security stays inactive.
+  </Step>
   <Step title="Restart AutoSecOps">
     Run `docker compose up -d` using the new Docker Compose and `.env` files.
+    The `migrations` service creates the runtime role before the other
+    services start. Then [verify isolation](/self-hosting/security#verify-isolation).
   </Step>
 </Steps>
 
