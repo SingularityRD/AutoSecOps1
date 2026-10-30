@@ -1,0 +1,451 @@
+# AutoSecOps local evaluation lab.
+#
+# Open-source tools for testing AutoSecOps end to end on one computer. Every
+# service sits behind a profile, so `up` with no profile starts nothing.
+#
+#   misp        MISP threat intelligence platform (official images)
+#   opensearch  OpenSearch + OpenSearch Dashboards, single node
+#   wazuh       Wazuh manager + indexer + dashboard + one agent (heavy, ~6 GB)
+#   fleet       FleetDM + MySQL + Redis
+#   mailpit     SMTP sink with a web inbox
+#   ollama      Ollama in a container (Linux, or NVIDIA GPU via Docker)
+#
+# Run it through deployments/lab/lab.sh, which passes `--env-file .env.lab`:
+#
+#   ./deployments/lab/lab.sh env
+#   ./deployments/lab/lab.sh up misp opensearch
+#
+# Networking: services that AutoSecOps calls join the main stack's Compose
+# network (`autosecops_core` by default), so workflows reach them by service
+# name, e.g. https://misp:8443. Start the main stack first; the lab fails to
+# start while that network is missing. Host ports bind to 127.0.0.1 only.
+#
+# Secrets: required passwords use `${VAR:?...}` so the lab never starts with a
+# built-in password. `lab.sh env` generates them into .env.lab. Everything
+# else uses `${VAR:-default}`.
+
+name: autosecops-lab
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # --------------------------------------------------------------------------
+  # MISP (profile: misp). Images from ghcr.io/misp/misp-docker, matching the
+  # upstream docker-compose.yml for CORE_TAG=v2.5.50 / MODULES_TAG=v3.1.1.
+  # --------------------------------------------------------------------------
+  misp-db:
+    <<: *restart
+    profiles: [misp]
+    image: mariadb:10.11@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae
+    environment:
+      MYSQL_USER: misp
+      MYSQL_PASSWORD: ${LAB_MISP_DB_PASSWORD:?run lab.sh env to create .env.lab}
+      MYSQL_ROOT_PASSWORD: ${LAB_MISP_DB_ROOT_PASSWORD:?run lab.sh env to create .env.lab}
+      MYSQL_DATABASE: misp
+    command: >-
+      --innodb-buffer-pool-size=${LAB_MISP_DB_BUFFER_POOL:-256M}
+      --innodb-change-buffering=none
+      --innodb-log-file-size=128M
+    volumes:
+      - misp-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+    networks: [lab]
+
+  misp-redis:
+    <<: *restart
+    profiles: [misp]
+    image: valkey/valkey:7.2@sha256:828b1cbb1c258e02b9cd9588063fa997e097444e610d3f3c00d43e21400e2b8d
+    command: ["sh", "-c", "exec valkey-server --requirepass \"$$REDIS_PASSWORD\" --save ''"]
+    environment:
+      REDIS_PASSWORD: ${LAB_MISP_REDIS_PASSWORD:?run lab.sh env to create .env.lab}
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [lab]
+
+  misp-modules:
+    <<: *restart
+    profiles: [misp]
+    image: ghcr.io/misp/misp-docker/misp-modules:v3.1.1@sha256:624668d57115ebe8152481df83dd95bca1f868e8cfb614f362d702f048a94098
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/6666'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [lab]
+
+  misp-core:
+    <<: *restart
+    profiles: [misp]
+    image: ghcr.io/misp/misp-docker/misp-core:v2.5.50@sha256:1bf559bf280021da2adead9e715a8c84786e378b107e34e8b834d518596fcab7
+    depends_on:
+      misp-db:
+        condition: service_healthy
+      misp-redis:
+        condition: service_healthy
+      misp-modules:
+        condition: service_healthy
+    environment:
+      BASE_URL: https://localhost:${LAB_MISP_PORT:-8443}
+      ADMIN_EMAIL: ${LAB_MISP_ADMIN_EMAIL:-admin@lab.local}
+      ADMIN_ORG: ${LAB_MISP_ADMIN_ORG:-LAB}
+      ADMIN_PASSWORD: ${LAB_MISP_ADMIN_PASSWORD:?run lab.sh env to create .env.lab}
+      # 40-character automation key. Becomes MISP_API_KEY in AutoSecOps.
+      ADMIN_KEY: ${LAB_MISP_ADMIN_KEY:?run lab.sh env to create .env.lab}
+      DISABLE_PRINTING_PLAINTEXT_CREDENTIALS: ${LAB_MISP_DISABLE_PRINTING_PLAINTEXT_CREDENTIALS:-true}
+      ENCRYPTION_KEY: ${LAB_MISP_ENCRYPTION_KEY:?run lab.sh env to create .env.lab}
+      MYSQL_HOST: misp-db
+      MYSQL_USER: misp
+      MYSQL_PASSWORD: ${LAB_MISP_DB_PASSWORD:?run lab.sh env to create .env.lab}
+      MYSQL_DATABASE: misp
+      REDIS_HOST: misp-redis
+      REDIS_PASSWORD: ${LAB_MISP_REDIS_PASSWORD:?run lab.sh env to create .env.lab}
+      ENABLE_REDIS_EMPTY_PASSWORD: ${LAB_MISP_ENABLE_REDIS_EMPTY_PASSWORD:-false}
+      SMTP_FQDN: ${LAB_MISP_SMTP_FQDN:-lab-mailpit}
+      SMTP_PORT: ${LAB_MISP_SMTP_PORT:-1025}
+      TZ: ${LAB_TZ:-UTC}
+    volumes:
+      - misp-configs:/var/www/MISP/app/Config
+      - misp-logs:/var/www/MISP/app/tmp/logs
+      - misp-files:/var/www/MISP/app/files
+      - misp-gnupg:/var/www/MISP/.gnupg
+    cap_add:
+      - AUDIT_WRITE
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9002'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
+    networks: [lab]
+
+  # MISP web/API front end. AutoSecOps reaches it at https://misp:8443
+  # (self-signed certificate: pass verify_ssl: false).
+  misp:
+    <<: *restart
+    profiles: [misp]
+    image: ghcr.io/misp/misp-docker/misp-nginx:v2.5.50@sha256:0ddc6730db7433220b821d6aa640cb3205ec59166364daf50272090bf4d066cd
+    depends_on:
+      misp-core:
+        condition: service_healthy
+    environment:
+      BASE_URL: https://localhost:${LAB_MISP_PORT:-8443}
+      FASTCGI_LISTEN: misp-core:9002
+      FASTCGI_LISTEN_STATUS: misp-core:9003
+      TZ: ${LAB_TZ:-UTC}
+    ports:
+      - 127.0.0.1:${LAB_MISP_PORT:-8443}:8443
+    tmpfs:
+      - /etc/nginx/conf.d:mode=0755,uid=101,gid=101
+      - /var/cache/nginx:mode=0755,uid=101,gid=101
+      - /tmp:mode=1777
+    user: nginx
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [lab, autosecops]
+
+  # --------------------------------------------------------------------------
+  # OpenSearch (profile: opensearch). The security plugin stays on with its
+  # demo TLS certificates: HTTPS and Basic auth, like a real cluster.
+  # --------------------------------------------------------------------------
+  lab-opensearch:
+    <<: *restart
+    profiles: [opensearch]
+    image: opensearchproject/opensearch:3.8.0@sha256:fafe3fc3587088674669235575aa166228c48bdb940294a8cdbbc1da75236a40
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "false"
+      OPENSEARCH_JAVA_OPTS: -Xms${LAB_OPENSEARCH_HEAP:-512m} -Xmx${LAB_OPENSEARCH_HEAP:-512m}
+      # Needs upper and lower case, a digit and a symbol. lab.sh env generates one.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${LAB_OPENSEARCH_ADMIN_PASSWORD:?run lab.sh env to create .env.lab}
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - 127.0.0.1:${LAB_OPENSEARCH_PORT:-9201}:9200
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -o /dev/null -w '%{http_code}' https://localhost:9200 | grep -qE '200|401'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [lab, autosecops]
+
+  lab-opensearch-dashboards:
+    <<: *restart
+    profiles: [opensearch]
+    image: opensearchproject/opensearch-dashboards:3.8.0@sha256:7fb7ec1b33f1ef49796dc31180f17f227361263c15bb19c56a8a6e5a38852bbd
+    depends_on:
+      lab-opensearch:
+        condition: service_healthy
+    environment:
+      OPENSEARCH_HOSTS: '["https://lab-opensearch:9200"]'
+    ports:
+      - 127.0.0.1:${LAB_OPENSEARCH_DASHBOARDS_PORT:-5602}:5601
+    networks: [lab]
+
+  # --------------------------------------------------------------------------
+  # Wazuh (profile: wazuh). Single node, from the official wazuh-docker
+  # single-node layout at v4.14.9. `lab.sh wazuh-init` downloads that
+  # release's config into ./wazuh/ (git-ignored) and generates certificates
+  # before the first `up`. Service names match the certificates.
+  # --------------------------------------------------------------------------
+  wazuh-certs:
+    profiles: [wazuh-init]
+    image: wazuh/wazuh-certs-generator:0.0.4@sha256:369b4d58509aab074b188596870c81584f7120e653d9ef83c591f0f785dcf325
+    environment:
+      CERT_TOOL_VERSION: "4.14"
+    volumes:
+      - ./wazuh/config/wazuh_indexer_ssl_certs/:/certificates/
+      - ./wazuh/config/certs.yml:/config/certs.yml
+    networks: [lab]
+
+  wazuh.manager:
+    <<: *restart
+    profiles: [wazuh]
+    image: wazuh/wazuh-manager:4.14.9@sha256:dbb337727a6b6b17e24b1ccfe4c6e95fd983286ba0ccbf29d568144aa9527c6b
+    hostname: wazuh.manager
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 655360
+        hard: 655360
+    environment:
+      INDEXER_URL: https://wazuh.indexer:9200
+      # Wazuh's published single-node defaults. The indexer's
+      # internal_users.yml ships this hash; change both together.
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: ${LAB_WAZUH_INDEXER_PASSWORD:-SecretPassword}
+      FILEBEAT_SSL_VERIFICATION_MODE: full
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
+      API_USERNAME: wazuh-wui
+      # Applied at first start. Becomes WAZUH_WUI_PASSWORD in AutoSecOps.
+      API_PASSWORD: ${LAB_WAZUH_API_PASSWORD:?run lab.sh env to create .env.lab}
+    volumes:
+      - wazuh-api-configuration:/var/ossec/api/configuration
+      - wazuh-etc:/var/ossec/etc
+      - wazuh-logs:/var/ossec/logs
+      - wazuh-queue:/var/ossec/queue
+      - wazuh-var-multigroups:/var/ossec/var/multigroups
+      - wazuh-integrations:/var/ossec/integrations
+      - wazuh-active-response:/var/ossec/active-response/bin
+      - wazuh-agentless:/var/ossec/agentless
+      - wazuh-wodles:/var/ossec/wodles
+      - wazuh-filebeat-etc:/etc/filebeat
+      - wazuh-filebeat-var:/var/lib/filebeat
+      - ./wazuh/config/wazuh_indexer_ssl_certs/root-ca-manager.pem:/etc/ssl/root-ca.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.manager.pem:/etc/ssl/filebeat.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key
+      - ./wazuh/config/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
+    ports:
+      - 127.0.0.1:${LAB_WAZUH_API_PORT:-55000}:55000
+    networks: [lab, autosecops]
+
+  wazuh.indexer:
+    <<: *restart
+    profiles: [wazuh]
+    image: wazuh/wazuh-indexer:4.14.9@sha256:615465315b560d974100ea55bbe67efa72afc6490ef563d4d1bef127df0e98f6
+    hostname: wazuh.indexer
+    environment:
+      OPENSEARCH_JAVA_OPTS: -Xms${LAB_WAZUH_INDEXER_HEAP:-1g} -Xmx${LAB_WAZUH_INDEXER_HEAP:-1g}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./wazuh/config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-indexer/config/certs/root-ca.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/config/certs/wazuh.indexer.key
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/config/certs/wazuh.indexer.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/admin.pem:/usr/share/wazuh-indexer/config/certs/admin.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/admin-key.pem:/usr/share/wazuh-indexer/config/certs/admin-key.pem
+      - ./wazuh/config/wazuh_indexer/wazuh.indexer.yml:/usr/share/wazuh-indexer/config/opensearch.yml
+      - ./wazuh/config/wazuh_indexer/internal_users.yml:/usr/share/wazuh-indexer/config/opensearch-security/internal_users.yml
+    ports:
+      - 127.0.0.1:${LAB_WAZUH_INDEXER_PORT:-9202}:9200
+    networks: [lab, autosecops]
+
+  wazuh.dashboard:
+    <<: *restart
+    profiles: [wazuh]
+    image: wazuh/wazuh-dashboard:4.14.9@sha256:e8e2340265feb6f61711d2ba460d04d2dea875ee46de26cd1832da2a3558a341
+    hostname: wazuh.dashboard
+    depends_on:
+      - wazuh.indexer
+      - wazuh.manager
+    environment:
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: ${LAB_WAZUH_INDEXER_PASSWORD:-SecretPassword}
+      WAZUH_API_URL: https://wazuh.manager
+      DASHBOARD_USERNAME: kibanaserver
+      DASHBOARD_PASSWORD: ${LAB_WAZUH_DASHBOARD_PASSWORD:-kibanaserver}
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: ${LAB_WAZUH_API_PASSWORD:?run lab.sh env to create .env.lab}
+    volumes:
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+      - ./wazuh/config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem
+      - ./wazuh/config/wazuh_dashboard/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+      - ./wazuh/config/wazuh_dashboard/wazuh.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
+    ports:
+      - 127.0.0.1:${LAB_WAZUH_DASHBOARD_PORT:-5443}:5601
+    networks: [lab]
+
+  # One enrolled endpoint so agent actions and alerts have data.
+  wazuh.agent:
+    <<: *restart
+    profiles: [wazuh]
+    image: wazuh/wazuh-agent:4.14.9@sha256:db274c1e2c56106f108fa1469f7ee99995ad3cac41003e8ca7a975cda2af20d8
+    hostname: lab-endpoint-01
+    depends_on:
+      - wazuh.manager
+    environment:
+      WAZUH_MANAGER_SERVER: wazuh.manager
+      WAZUH_AGENT_NAME: lab-endpoint-01
+    networks: [lab]
+
+  # --------------------------------------------------------------------------
+  # FleetDM (profile: fleet). Free edition. Create the first user in the UI
+  # at http://localhost:8412, then an API-only user's token for AutoSecOps.
+  # --------------------------------------------------------------------------
+  fleet-mysql:
+    <<: *restart
+    profiles: [fleet]
+    image: mysql:8.4.7@sha256:0426ec38c7a10aa45ba383887df7878f74ee70e2fd589c7b69207f3577901903
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_FLEET_MYSQL_ROOT_PASSWORD:?run lab.sh env to create .env.lab}
+      MYSQL_DATABASE: fleet
+      MYSQL_USER: fleet
+      MYSQL_PASSWORD: ${LAB_FLEET_MYSQL_PASSWORD:?run lab.sh env to create .env.lab}
+    volumes:
+      - fleet-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u fleet --password=$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    networks: [lab]
+
+  fleet-redis:
+    <<: *restart
+    profiles: [fleet]
+    image: redis:7.4-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    networks: [lab]
+
+  lab-fleet:
+    <<: *restart
+    profiles: [fleet]
+    image: fleetdm/fleet:v4.93.1@sha256:941409b8aa8a297d59462a98ecc7f74c470b5be8afb1eaeb032ce4d0dbb15114
+    # Published for amd64 only; Apple Silicon runs it under Rosetta emulation.
+    platform: linux/amd64
+    depends_on:
+      fleet-mysql:
+        condition: service_healthy
+      fleet-redis:
+        condition: service_started
+    command: ["sh", "-c", "fleet prepare db --no-prompt && exec fleet serve"]
+    environment:
+      FLEET_MYSQL_ADDRESS: fleet-mysql:3306
+      FLEET_MYSQL_DATABASE: fleet
+      FLEET_MYSQL_USERNAME: fleet
+      FLEET_MYSQL_PASSWORD: ${LAB_FLEET_MYSQL_PASSWORD:?run lab.sh env to create .env.lab}
+      FLEET_REDIS_ADDRESS: fleet-redis:6379
+      FLEET_SERVER_ADDRESS: 0.0.0.0:8080
+      FLEET_SERVER_TLS: ${LAB_FLEET_SERVER_TLS:-false}
+      FLEET_LOGGING_JSON: ${LAB_FLEET_LOGGING_JSON:-true}
+    ports:
+      - 127.0.0.1:${LAB_FLEET_PORT:-8412}:8080
+    networks: [lab, autosecops]
+
+  # --------------------------------------------------------------------------
+  # Mailpit (profile: mailpit). SMTP sink for core.send_email_smtp. AutoSecOps
+  # sends to lab-mailpit:1025 without TLS or auth; read mail at :8025.
+  # --------------------------------------------------------------------------
+  lab-mailpit:
+    <<: *restart
+    profiles: [mailpit]
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: ${LAB_MAILPIT_SMTP_AUTH_ACCEPT_ANY:-true}
+      MP_SMTP_AUTH_ALLOW_INSECURE: ${LAB_MAILPIT_SMTP_AUTH_ALLOW_INSECURE:-true}
+      MP_MAX_MESSAGES: ${LAB_MAILPIT_MAX_MESSAGES:-500}
+    ports:
+      - 127.0.0.1:${LAB_MAILPIT_UI_PORT:-8025}:8025
+    networks: [lab, autosecops]
+
+  # --------------------------------------------------------------------------
+  # Ollama (profile: ollama). Prefer native Ollama on Windows and macOS: it
+  # uses the GPU (CUDA or Metal) directly. Use this container on Linux, or add
+  # docker-compose.lab.gpu.yml for an NVIDIA GPU. Host port 11435 avoids a
+  # clash with a native Ollama on 11434.
+  # --------------------------------------------------------------------------
+  lab-ollama:
+    <<: *restart
+    profiles: [ollama]
+    image: ollama/ollama:0.40.5@sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241
+    environment:
+      # AutoSecOps agents send a long system prompt and tool list. Ollama
+      # truncates anything above the context length without an error.
+      OLLAMA_CONTEXT_LENGTH: ${LAB_OLLAMA_CONTEXT_LENGTH:-32768}
+      OLLAMA_FLASH_ATTENTION: ${LAB_OLLAMA_FLASH_ATTENTION:-1}
+      OLLAMA_KV_CACHE_TYPE: ${LAB_OLLAMA_KV_CACHE_TYPE:-q8_0}
+      OLLAMA_KEEP_ALIVE: ${LAB_OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - 127.0.0.1:${LAB_OLLAMA_PORT:-11435}:11434
+    networks: [lab, autosecops]
+
+networks:
+  lab: {}
+  autosecops:
+    external: true
+    name: ${AUTOSECOPS_CORE_NETWORK:-autosecops_core}
+
+volumes:
+  misp-db: {}
+  misp-configs: {}
+  misp-logs: {}
+  misp-files: {}
+  misp-gnupg: {}
+  opensearch-data: {}
+  wazuh-api-configuration: {}
+  wazuh-etc: {}
+  wazuh-logs: {}
+  wazuh-queue: {}
+  wazuh-var-multigroups: {}
+  wazuh-integrations: {}
+  wazuh-active-response: {}
+  wazuh-agentless: {}
+  wazuh-wodles: {}
+  wazuh-filebeat-etc: {}
+  wazuh-filebeat-var: {}
+  wazuh-indexer-data: {}
+  wazuh-dashboard-config: {}
+  wazuh-dashboard-custom: {}
+  fleet-mysql: {}
+  ollama-models: {}
