@@ -153,11 +153,11 @@ async def test_update_and_delete_by_id_and_short_id(
     assert (await client.delete(f"/secrets/{first['id']}")).status_code == 404
     assert await _by_id(session, Secret, first["id"]) is None
 
-    # Renaming onto a taken name conflicts. The failed flush poisons this
-    # test's shared session, so it comes last.
+    # Renaming onto a taken name conflicts and leaves the secret unchanged.
     third = (await client.post("/secrets", json=_secret("third"))).json()
     renamed = await client.post(f"/secrets/{third['id']}", json={"name": "second"})
     assert renamed.status_code == 409
+    assert (await client.get("/secrets/third")).status_code == 200
 
 
 async def test_corrupted_secret_is_listed_without_keys(
@@ -252,14 +252,15 @@ async def test_org_secrets_are_scoped_to_the_organization(
         await client.delete(f"/organization/secrets/{secret_id}")
     ).status_code == 404
     stored = await _by_id(session, OrganizationSecret, secret_id)
-    assert stored is not None
+    assert isinstance(stored, OrganizationSecret)
 
-    # A failed insert poisons this test's shared session, so it comes last.
     caller.role = caller.role.model_copy(
         update={"organization_id": stored.organization_id}
     )
     duplicate = await client.post("/organization/secrets", json=_secret("shared"))
     assert duplicate.status_code == 409
+    # The conflict rolls back cleanly: the original secret is still served.
+    assert (await client.get("/organization/secrets/shared")).status_code == 200
 
 
 async def test_org_secret_update_and_delete(
@@ -287,7 +288,7 @@ async def test_org_secret_update_and_delete(
     )
     assert remaining is None
 
-    # Renaming onto a taken name conflicts; last, as it poisons the session.
+    # Renaming onto a taken name conflicts and leaves both secrets in place.
     clash_id = (
         await client.post("/organization/secrets", json=_secret("clashing"))
     ).json()["id"]
@@ -295,6 +296,8 @@ async def test_org_secret_update_and_delete(
         f"/organization/secrets/{clash_id}", json={"name": "taken"}
     )
     assert clash.status_code == 409
+    assert (await client.get("/organization/secrets/clashing")).status_code == 200
+    assert (await client.get("/organization/secrets/taken")).status_code == 200
 
 
 async def _store(client: httpx.AsyncClient, name: str = "prod") -> dict:

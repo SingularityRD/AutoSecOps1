@@ -78,7 +78,15 @@ async def db_api_client(
                 app.dependency_overrides[call] = _current_role
 
     async def _session() -> AsyncGenerator[AsyncSession, None]:
-        yield session
+        # Production closes the request session, discarding a failed flush.
+        # The shared test session must be rolled back instead, or the next
+        # request and fixture teardown hit PendingRollbackError.
+        try:
+            yield session
+        except Exception:
+            if not session.is_active:
+                await session.rollback()
+            raise
 
     app.dependency_overrides[get_async_session] = _session
     app.dependency_overrides[get_async_session_bypass_rls] = _session
