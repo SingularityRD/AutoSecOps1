@@ -1,0 +1,73 @@
+---
+title: Get support
+description: Information to collect before you ask the AutoSecOps team to help debug a self-hosted deployment.
+---
+
+Collect the details below before you email [support@singularityrd.com](mailto:support@singularityrd.com).
+We need your AutoSecOps version, and your Helm chart version if you deploy with Helm, before we can start debugging.
+
+## Required information
+
+### AutoSecOps version
+
+Get the version from the running API:
+
+```bash
+curl -s https://<your-domain>/api/info | jq -r .version
+```
+
+You can also read it from your deployment configuration:
+
+- Docker Compose: run `docker compose images api ui`, or check `AUTOSECOPS__IMAGE_TAG` in your `.env` file.
+- Kubernetes: run the command below. `image.tag` and `uiImage.tag` override the chart's `appVersion`, so check the running images rather than the `APP VERSION` column in `helm list`.
+
+  ```bash
+  kubectl get deploy -n autosecops \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+  ```
+
+- AWS ECS Fargate: check the `autosecops_image_tag` Terraform variable.
+
+### Helm chart version
+
+If you deploy with Helm, send the chart version from the `CHART` column:
+
+```bash
+helm list -n autosecops
+```
+
+`autosecops-1.0.0` means chart version `1.0.0`. Also tell us which values you changed from the defaults, with secrets removed.
+
+### Latest release
+
+Check the release notes of the latest AutoSecOps release for a fix to your issue, then update to the latest AutoSecOps image, Helm chart, or Docker Compose files:
+
+- Docker Compose: follow [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
+- Kubernetes: follow [Upgrade the Helm chart](/self-hosting/kubernetes#upgrade-the-helm-chart).
+- AWS ECS Fargate: follow [Updating AutoSecOps](/self-hosting/aws-fargate#updating-autosecops).
+
+Tell us whether you updated and whether the issue still happens on the latest release.
+If you can't update yet, say so and include the version you plan to move to.
+
+## Details that speed up debugging
+
+- Exact error: the full message and where it appeared (UI, workflow run event, agent chat, API response, or service log). Add a screenshot for UI issues.
+- Time: when the issue happened, with timezone, so we can match it to logs.
+- Reproduction steps: the smallest workflow, agent preset, or API call that reproduces the issue. Export the workflow definition as YAML and remove secrets.
+- Regression: whether this worked on an earlier AutoSecOps version, and which one.
+- Recent changes: upgrades, environment variable or Helm value changes, infrastructure, proxy, or network changes made before the issue started.
+- Scope: whether the issue affects every workflow, user, and workspace, or only some.
+- Service health: output of `docker compose ps` or `kubectl get pods -n autosecops`, including restart counts.
+- Logs: logs from `api`, `worker`, `executor`, `agent-worker`, and `agent-executor` around the time of the issue. For UI issues, add errors from the browser console.
+
+  ```bash
+  # Docker Compose
+  docker compose logs --since 1h api worker executor agent-worker agent-executor
+
+  # Kubernetes
+  kubectl logs -n autosecops deploy/autosecops-api --since=1h
+  ```
+
+- Deployment setup: your execution backend (`AUTOSECOPS__EXECUTOR_BACKEND`), Temporal (bundled, self-hosted, or Temporal Cloud), PostgreSQL (bundled or external), authentication type, and whether you run behind a reverse proxy, a custom CA, or in an [air-gapped](/self-hosting/air-gapped) environment.
+
+Remove secrets, API keys, tokens, and customer data from everything you send. Never share your `.env` file or `AUTOSECOPS__DB_ENCRYPTION_KEY`.

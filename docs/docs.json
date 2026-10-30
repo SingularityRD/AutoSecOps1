@@ -379,7 +379,8 @@
               "self-hosting/tls",
               "self-hosting/environment-variables",
               "self-hosting/license",
-              "self-hosting/security"
+              "self-hosting/security",
+              "self-hosting/support"
             ]
           },
           {
