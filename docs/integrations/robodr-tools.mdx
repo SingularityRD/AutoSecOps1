@@ -136,6 +136,11 @@ The request sent to the robot carries the requester's identifier as `requested_b
 The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
 Both actions need the forms feature.
 
+AutoSecOps writes every request and revert to the [audit log](/audit-logs/organization) as a `robot_action` event (`request` or `revert`) before the action signs it.
+The event names the run that sent it and the requester and approvers, which AutoSecOps reads from the same sign-off submissions.
+If AutoSecOps cannot write the event, the action raises `ActionAuditError` and sends nothing to the robot.
+After the robot answers, a `SUCCESS` event records its status, or a `FAILURE` event records the error type; the result's `outcome_audit_logged` says whether that second event was written.
+
 `request_action` accepts these catalog actions and validates their parameters before it reads a sign-off or sends anything:
 
 | Wire name | Parameters | `ttl_seconds` | Approvals |
@@ -275,7 +280,8 @@ The bundle sits outside the case attachment limits; `AUTOSECOPS__ROBOT_EDR_MAX_E
 
 Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
 AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.
-AutoSecOps records the call before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+AutoSecOps records the call, naming the run that made it, before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+Storing evidence for a case is recorded the same way before anything is stored.
 A workflow run may read evidence and store it in a case; a run that a person started reads it only when that person has the `robot:read` scope.
 
 ## Humanoid and quadruped safety

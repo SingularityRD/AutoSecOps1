@@ -81,6 +81,14 @@ run's executor token:
    revert undoes).
 4. Any failure (no platform context, unreadable submission, mismatch) raises
    `SignoffError` before a request is signed, and nothing reaches the robot.
+5. Each request and revert is then written to the platform audit log
+   (`ctx.robot_edr.record_robot_action`) before it is signed: the platform
+   names the run that acted (workflow or agent session, run, execution and
+   trigger) and reads the requester and approvers from the same sign-off
+   submissions. A call the platform does not audit-log raises
+   `ActionAuditError` and nothing reaches the robot. The robot's answer, or
+   the failure, is recorded after it (best effort: the robot has acted;
+   `outcome_audit_logged` says whether it was).
 
 `requires_approval=True` additionally pauses an agent's tool call in the
 inbox, but that gate is not relied on: a workflow step calling the action
@@ -146,7 +154,7 @@ from autosecops_registry.integrations.robodr_evidence import (
     verify_bundle,
     verify_manifest_signature,
 )
-from autosecops_registry.sdk.robot_edr import EvidenceOperation
+from autosecops_registry.sdk.robot_edr import EvidenceOperation, RobotActionOperation
 
 API_VERSION = "robodr-control-plane/v2"
 ANSWER_DOMAIN = f"{API_VERSION} answer"
@@ -308,6 +316,10 @@ class ControlPlaneError(RuntimeError):
 
 class SignoffError(PermissionError):
     """The platform does not prove the sign-off this request needs."""
+
+
+class ActionAuditError(PermissionError):
+    """The platform did not audit-log a robot action, so it was not sent."""
 
 
 def _full(pattern: re.Pattern[str], text: object) -> bool:
@@ -756,6 +768,72 @@ def _require_approvals(label: str, required: int, approvers: list[Person]) -> No
         raise SignoffError(
             f"{label} needs {required} approval(s) from platform users other "
             f"than the requester; got {len(approvers)}"
+        )
+
+
+_AUDIT_OUTCOME_RE = re.compile(r"[a-z_]{1,64}")
+
+
+@dataclass(frozen=True)
+class _ActionAudit:
+    """What the platform audit log records for one robot action call."""
+
+    robot_id: str
+    request_id: str
+    operation: RobotActionOperation
+    robot_action: str
+    request_digest: str
+    request_submission_id: str
+    approval_submission_ids: list[str]
+
+    async def attempt(self) -> bool:
+        """Write the audit event before the request is signed and sent.
+
+        Fails closed: a robot action the platform cannot audit-log (no run
+        context, the audit route refused or failed) is not sent. The
+        platform names the run that acted and reads the requester and
+        approvers from the sign-off submissions itself. Returns True.
+        """
+        try:
+            await self._record(phase="attempt")
+        except Exception as exc:
+            raise ActionAuditError(
+                f"the platform did not audit-log this {self.operation} "
+                f"({type(exc).__name__}: {exc}); nothing was sent to the robot"
+            ) from exc
+        return True
+
+    async def answered(self, outcome: dict[str, Any]) -> bool:
+        """Record the robot's answer; best effort, as the robot already acted."""
+        status = outcome.get("status")
+        applied = outcome.get("applied")
+        return await self._after(
+            phase="answered",
+            outcome=status if _full(_AUDIT_OUTCOME_RE, status) else None,
+            applied=applied if isinstance(applied, bool) else None,
+        )
+
+    async def failed(self, exc: BaseException) -> bool:
+        """Record that the call failed after the attempt; best effort."""
+        return await self._after(phase="failed", failure_reason=type(exc).__name__)
+
+    async def _after(self, **fields: Any) -> bool:
+        try:
+            await self._record(**fields)
+        except Exception:
+            return False
+        return True
+
+    async def _record(self, **fields: Any) -> None:
+        await get_context().robot_edr.record_robot_action(
+            robot_id=self.robot_id,
+            request_id=self.request_id,
+            operation=self.operation,
+            robot_action=self.robot_action,
+            request_digest=self.request_digest,
+            request_submission_id=self.request_submission_id,
+            approval_submission_ids=self.approval_submission_ids,
+            **fields,
         )
 
 
@@ -2202,7 +2280,8 @@ def prepare_action_request(
         "word (verified and not held after a reboot). A robot_quarantine_node in "
         "force reports containment: full (contained), partial, guid_only "
         "(GUID-prefix drop only, not IP-contained) or unknown; only full is "
-        "contained."
+        "contained. Written to the platform audit log (the run, requester and "
+        "approvers) before it is sent; refused if it cannot be."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2280,9 +2359,10 @@ async def request_action(
 
     # 2. The platform sign-off for exactly this request.
     required = 2 if spec.two_person else 1
+    digest = request_digest("action", prepared.digest_fields())
     requester, approvers = await _collect_signoff(
         request_id=prepared.request_id,
-        digest=request_digest("action", prepared.digest_fields()),
+        digest=digest,
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2305,15 +2385,32 @@ async def request_action(
     }
     if prepared.ttl_seconds is not None:
         body_obj["ttl_seconds"] = prepared.ttl_seconds
+
+    # 4. The platform audit log, before anything is signed or sent.
+    audit = _ActionAudit(
+        robot_id=robot.robot_id,
+        request_id=prepared.request_id,
+        operation="request_action",
+        robot_action=wire_name(spec.name),
+        request_digest=digest,
+        request_submission_id=_submission_uuid(request_submission_id),
+        approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+    )
+    audit_logged = await audit.attempt()
     # A `busy` submission is resent unchanged (same request_id and body, a
     # fresh nonce): the robot judges it once or answers it as a duplicate (§7).
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "action-requests"),
-        body_bytes(body_obj),
-    )
+    try:
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "action-requests"),
+            body_bytes(body_obj),
+        )
+    except Exception as exc:
+        await audit.failed(exc)
+        raise
     data = answer.json()
+    outcome = _outcome(data, action=spec.name)
     return {
         "request_id": prepared.request_id,
         "action": spec.name,
@@ -2323,8 +2420,10 @@ async def request_action(
         "approved_by": [a.as_dict() for a in approvers],
         "robot_safety_state": snap.get("safety_state"),
         "robot_executor": snap.get("executor"),
-        **_outcome(data, action=spec.name),
+        **outcome,
         "answer_signature_verified": True,
+        "audit_logged": audit_logged,
+        "outcome_audit_logged": await audit.answered(outcome),
         "answer": data,
     }
 
@@ -2415,7 +2514,8 @@ def prepare_revert_request(
         "action such as robot_safe_pause). request_safe_state, rollback_config "
         "and record_evidence are not reversible (refused, not_reversible); a "
         "request that never took effect answers not_applied; an executed one "
-        "answers pending, then reverted."
+        "answers pending, then reverted. Written to the platform audit log "
+        "before it is sent; refused if it cannot be."
     ),
     display_group=DISPLAY_GROUP,
     doc_url=DOC_URL,
@@ -2449,9 +2549,10 @@ async def revert_action(
         answer_public_key_hex=answer_public_key_hex,
         answer_key_id=answer_key_id,
     )
+    digest = request_digest("revert", fields)
     requester, approvers = await _collect_signoff(
         request_id=request_id,
-        digest=request_digest("revert", fields),
+        digest=digest,
         request_submission_id=request_submission_id,
         approval_submission_ids=approval_submission_ids,
     )
@@ -2482,24 +2583,41 @@ async def revert_action(
     body = body_bytes(
         {"reason": fields["reason"], "requested_by": requester.identifier}
     )
+    audit = _ActionAudit(
+        robot_id=robot.robot_id,
+        request_id=request_id,
+        operation="revert_action",
+        robot_action=wire_name(spec.name),
+        request_digest=digest,
+        request_submission_id=_submission_uuid(request_submission_id),
+        approval_submission_ids=[_submission_uuid(s) for s in approval_submission_ids],
+    )
+    audit_logged = await audit.attempt()
     # Resent only when the robot did nothing (fenced, rate limited); after
     # `busy` the revert may be recorded: read get_action_status first.
-    answer = await _call_retrying(
-        robot,
-        "POST",
-        _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
-        body,
-        busy_codes=(),
-    )
+    try:
+        answer = await _call_retrying(
+            robot,
+            "POST",
+            _robot_target(robot.robot_id, "action-requests", request_id, "revert"),
+            body,
+            busy_codes=(),
+        )
+    except Exception as exc:
+        await audit.failed(exc)
+        raise
     data = answer.json()
+    outcome = _outcome(data, revert=True, action=spec.name)
     return {
         "request_id": request_id,
         "action": spec.name,
         "approval": "two_person" if spec.two_person else "single",
         "requested_by": requester.as_dict(),
         "approved_by": [a.as_dict() for a in approvers],
-        **_outcome(data, revert=True, action=spec.name),
+        **outcome,
         "answer_signature_verified": True,
+        "audit_logged": audit_logged,
+        "outcome_audit_logged": await audit.answered(outcome),
         "answer": data,
     }
 

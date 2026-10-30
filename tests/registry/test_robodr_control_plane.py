@@ -493,6 +493,9 @@ class FakeRobotEdr:
     key_reads: list[str] = field(default_factory=list)
     key_ranges: list[tuple[int | None, int | None]] = field(default_factory=list)
     access_error: Exception | None = None
+    actions: list[dict[str, Any]] = field(default_factory=list)
+    action_errors: dict[str, Exception] = field(default_factory=dict)
+    """Robot action audit failures, by phase."""
 
     async def store_evidence(self, case_id: str, **kwargs: Any) -> dict[str, Any]:
         self.stored.append({"case_id": case_id, **kwargs})
@@ -502,6 +505,11 @@ class FakeRobotEdr:
         if self.access_error is not None:
             raise self.access_error
         self.accesses.append(kwargs)
+
+    async def record_robot_action(self, **kwargs: Any) -> None:
+        if (error := self.action_errors.get(kwargs["phase"])) is not None:
+            raise error
+        self.actions.append(kwargs)
 
     async def blackbox_public_keys(
         self, robot_id: str, *, from_ms: int | None = None, to_ms: int | None = None
@@ -2707,3 +2715,214 @@ async def test_request_action_reports_the_quarantine_scope(stub, platform) -> No
         sent = await _send(base_url, platform, "robot_quarantine_node")
     assert (sent["containment"], sent["contained"]) == ("partial", False)
     assert sent["report"].startswith("In force, partially contained")
+
+
+# --------------------------------------------------------------------------- #
+# Robot actions are audit-logged by the platform before they are sent
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.anyio
+async def test_request_action_is_audit_logged_before_it_is_sent(stub, platform) -> None:
+    # The platform writes the event (the run that acted, and the requester
+    # and approvers it reads from these same submissions) before the
+    # request is signed; the robot's answer is recorded after.
+    robot, base_url = stub
+    with soc_secrets():
+        result = await _send(base_url, platform, "robot_safe_pause", (LEAD_B, LEAD_C))
+    assert robot.requests[-1]["method"] == "POST"
+    attempt, answered = _robot_edr(platform).actions
+    request_sid, *approval_sids = platform.calls
+    assert attempt == {
+        "robot_id": ROBOT_ID,
+        "request_id": result["request_id"],
+        "operation": "request_action",
+        "robot_action": "robot_safe_pause",
+        "request_digest": attempt["request_digest"],
+        "request_submission_id": request_sid,
+        "approval_submission_ids": approval_sids,
+        "phase": "attempt",
+    }
+    signed = platform.submissions[request_sid]["answers"]
+    assert attempt["request_digest"] == signed["robodr_request_digest"]
+    assert answered == attempt | {
+        "phase": "answered",
+        "outcome": result["status"],
+        "applied": result["applied"],
+    }
+    assert result["audit_logged"] is True
+    assert result["outcome_audit_logged"] is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error", [PermissionError("403 Forbidden"), RuntimeError("500 AuditWriteError")]
+)
+async def test_an_unaudited_robot_action_is_not_sent(
+    stub, platform, error: Exception
+) -> None:
+    # Fail closed: when the platform does not audit-log the request (the
+    # route refused, the sink did not take it), nothing is sent.
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["attempt"] = error
+    with soc_secrets():
+        with pytest.raises(cp.ActionAuditError, match="nothing was sent") as excinfo:
+            await _send(base_url, platform)
+    assert type(error).__name__ in str(excinfo.value)
+    assert all(r["method"] == "GET" for r in robot.requests)
+    assert _robot_edr(platform).actions == []
+
+
+@pytest.mark.anyio
+async def test_a_robot_action_without_a_run_context_is_not_audited_or_sent(
+    stub, platform
+) -> None:
+    robot, base_url = stub
+    prepared = cp.prepare_action_request(
+        robot_id=ROBOT_ID,
+        action="robot_restrict_motion",
+        **ACTION_PARAMS["robot_restrict_motion"],
+    )
+    signoff = _signoffs(platform, prepared, (LEAD_B,))
+    forms = get_context().forms
+
+    class NoAuditContext:
+        """Sign-offs are readable, but the run has no audit client."""
+
+        @property
+        def forms(self) -> Any:
+            return forms
+
+        @property
+        def robot_edr(self) -> Any:
+            raise RuntimeError("no AutoSecOps run context")
+
+    with soc_secrets(), pytest.MonkeyPatch.context() as mp:
+        mp.setattr(cp, "get_context", lambda: NoAuditContext())
+        with pytest.raises(cp.ActionAuditError):
+            await cp.request_action(
+                **_conn(base_url),
+                action="robot_restrict_motion",
+                request_id=prepared["request_id"],
+                reason=prepared["reason"],
+                **signoff,
+                **ACTION_PARAMS["robot_restrict_motion"],
+            )
+    assert all(r["method"] == "GET" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_a_failed_robot_action_is_audited_as_failed(stub, platform) -> None:
+    robot, base_url = stub
+
+    def refuse_post(record: dict[str, Any]) -> tuple[int, dict[str, str], bytes] | None:
+        if record["method"] != "POST":
+            return None
+        return (
+            409,
+            {},
+            json.dumps(
+                {"error": {"code": "request_id_conflict", "message": "used"}}
+            ).encode(),
+        )
+
+    robot.evidence_for = refuse_post
+    with soc_secrets():
+        with pytest.raises(cp.ControlPlaneError):
+            await _send(base_url, platform)
+    attempt, failed = _robot_edr(platform).actions
+    assert attempt["phase"] == "attempt"
+    assert failed == attempt | {
+        "phase": "failed",
+        # The error type only: never the robot's message.
+        "failure_reason": "RobotHTTPError",
+    }
+
+
+@pytest.mark.anyio
+async def test_an_unrecorded_answer_is_reported_not_hidden(stub, platform) -> None:
+    # The robot has already acted: a lost outcome event does not undo or
+    # hide the answer, it is reported.
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["answered"] = RuntimeError("503")
+    with soc_secrets():
+        result = await _send(base_url, platform)
+    assert result["audit_logged"] is True
+    assert result["outcome_audit_logged"] is False
+    assert any(r["method"] == "POST" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_revert_action_is_audit_logged_before_it_is_sent(stub, platform) -> None:
+    robot, base_url = stub
+    request_id = "robot_isolate_network:ugv-007:01"
+    with soc_secrets():
+        robot.answer_for = _stored("isolate_network")
+        result = await _revert(base_url, platform, request_id, (LEAD_B,))
+    attempt, answered = _robot_edr(platform).actions
+    assert attempt["operation"] == "revert_action"
+    # The action the robot's stored request names, not an input.
+    assert attempt["robot_action"] == "robot_isolate_network"
+    assert attempt["request_id"] == request_id
+    assert attempt["phase"] == "attempt"
+    assert answered["phase"] == "answered"
+    assert result["audit_logged"] is True
+
+
+@pytest.mark.anyio
+async def test_an_unaudited_revert_is_not_sent(stub, platform) -> None:
+    robot, base_url = stub
+    _robot_edr(platform).action_errors["attempt"] = PermissionError("403")
+    with soc_secrets():
+        robot.answer_for = _stored("isolate_network")
+        with pytest.raises(cp.ActionAuditError):
+            await _revert(
+                base_url, platform, "robot_isolate_network:ugv-007:01", (LEAD_B,)
+            )
+    assert all(r["method"] == "GET" for r in robot.requests)
+
+
+@pytest.mark.anyio
+async def test_robot_edr_sdk_records_robot_actions_on_its_exact_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(204)
+
+    def transport(*, uds: str) -> httpx.MockTransport:
+        return httpx.MockTransport(handle)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
+    client = AutoSecOpsClient(action_gateway_socket="/tmp/robot-edr-test.sock")
+    sid = str(uuid.uuid4())
+    await client.robot_edr.record_robot_action(
+        robot_id=ROBOT_ID,
+        request_id="robot_safe_pause:ugv-007:01",
+        operation="request_action",
+        robot_action="robot_safe_pause",
+        request_digest="0" * 64,
+        request_submission_id=sid,
+        approval_submission_ids=[sid],
+        phase="attempt",
+    )
+    [request] = sent
+    assert (request.method, str(request.url)) == (
+        "POST",
+        "http://autosecops-action-gateway/internal/robot-edr/actions/audit",
+    )
+    assert json.loads(request.content) == {
+        "robot_id": ROBOT_ID,
+        "request_id": "robot_safe_pause:ugv-007:01",
+        "operation": "request_action",
+        "robot_action": "robot_safe_pause",
+        "request_digest": "0" * 64,
+        "request_submission_id": sid,
+        "approval_submission_ids": [sid],
+        "phase": "attempt",
+        "outcome": None,
+        "applied": None,
+        "failure_reason": None,
+    }

@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from autosecops_registry.sdk.client import AutoSecOpsClient
 
 type EvidenceOperation = Literal["list", "create_export", "download_export"]
+type RobotActionOperation = Literal["request_action", "revert_action"]
+type RobotActionPhase = Literal["attempt", "answered", "failed"]
 
 
 class RobotEdrClient:
@@ -73,6 +75,56 @@ class RobotEdrClient:
                 "robot_id": robot_id,
                 "operation": operation,
                 "export_id": export_id,
+            },
+        )
+
+    async def record_robot_action(
+        self,
+        *,
+        robot_id: str,
+        request_id: str,
+        operation: RobotActionOperation,
+        robot_action: str,
+        request_digest: str,
+        request_submission_id: str,
+        approval_submission_ids: list[str],
+        phase: RobotActionPhase,
+        outcome: str | None = None,
+        applied: bool | None = None,
+        failure_reason: str | None = None,
+    ) -> None:
+        """Write an audit event for a robot action request or revert.
+
+        The platform records the run that acted and reads the requester and
+        approvers from the named sign-off submissions itself.
+
+        Args:
+            robot_id: The robot the request is for.
+            request_id: The signed-off request id.
+            operation: ``request_action`` or ``revert_action``.
+            robot_action: The catalog action (wire name) requested or reverted.
+            request_digest: The digest the sign-offs carry.
+            request_submission_id: The requester's sign-off submission.
+            approval_submission_ids: The approvers' sign-off submissions.
+            phase: ``attempt`` (before sending), ``answered`` or ``failed``.
+            outcome: ``answered``: the robot's status.
+            applied: ``answered``: whether the robot applied it.
+            failure_reason: ``failed``: the error type.
+        """
+        await self._client.post(
+            "/robot-edr/actions/audit",
+            json={
+                "robot_id": robot_id,
+                "request_id": request_id,
+                "operation": operation,
+                "robot_action": robot_action,
+                "request_digest": request_digest,
+                "request_submission_id": request_submission_id,
+                "approval_submission_ids": approval_submission_ids,
+                "phase": phase,
+                "outcome": outcome,
+                "applied": applied,
+                "failure_reason": failure_reason,
             },
         )
 
