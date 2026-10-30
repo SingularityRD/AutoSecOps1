@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from loguru import logger
 from sqlalchemy import select
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.pool import QueuePool
@@ -72,6 +73,45 @@ def test_get_db_uri_logs_decode_error(monkeypatch: pytest.MonkeyPatch) -> None:
         "SecretBinary must be UTF-8 encoded text or JSON." in message
         for message in messages
     )
+
+
+def test_get_db_uri_uses_runtime_role_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner_uri = (
+        "postgresql+psycopg://owner:owner-pw@db.internal:5432/app?sslmode=require"
+    )
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_PASS__ARN", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_USER", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", owner_uri)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_RUNTIME_USER", "autosecops_app")
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_RUNTIME_PASSWORD", "p@ss/word%")
+
+    runtime_uri = make_url(_get_db_uri(driver="asyncpg"))
+    assert runtime_uri.drivername == "postgresql+asyncpg"
+    assert (runtime_uri.username, runtime_uri.password) == (
+        "autosecops_app",
+        "p@ss/word%",
+    )
+    assert (runtime_uri.host, runtime_uri.port, runtime_uri.database) == (
+        "db.internal",
+        5432,
+        "app",
+    )
+    assert runtime_uri.query == {"sslmode": "require"}
+    # Migrations and provisioning keep the owner.
+    assert _get_db_uri(as_owner=True) == owner_uri
+
+
+def test_get_db_uri_keeps_owner_without_runtime_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner_uri = "postgresql+psycopg://owner:owner-pw@db.internal:5432/app"
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_PASS__ARN", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_USER", None)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_URI", owner_uri)
+    monkeypatch.setattr(config, "AUTOSECOPS__DB_RUNTIME_PASSWORD", None)
+    assert _get_db_uri() == owner_uri
 
 
 @pytest.mark.anyio

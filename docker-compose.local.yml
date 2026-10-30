@@ -52,6 +52,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__PUBLIC_API_URL: ${AUTOSECOPS__PUBLIC_API_URL}
       AUTOSECOPS__PUBLIC_APP_URL: ${AUTOSECOPS__PUBLIC_APP_URL}
       AUTOSECOPS__SMTP_HOST: ${AUTOSECOPS__SMTP_HOST:-}
@@ -156,6 +159,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__PUBLIC_API_URL: ${AUTOSECOPS__PUBLIC_API_URL}
       AUTOSECOPS__PUBLIC_APP_URL: ${AUTOSECOPS__PUBLIC_APP_URL}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY} # Sensitive
@@ -248,6 +254,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY} # Sensitive
       AUTOSECOPS__SERVICE_NAME: executor
       AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: ${AUTOSECOPS__AGENT_SANDBOX_TIMEOUT:-10800}
@@ -359,6 +368,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY} # Sensitive
       AUTOSECOPS__SERVICE_NAME: agent-worker
       AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: ${AUTOSECOPS__AGENT_SANDBOX_TIMEOUT:-10800}
@@ -434,6 +446,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY} # Sensitive
       AUTOSECOPS__SERVICE_NAME: litellm
       AUTOSECOPS__DB_POOL_TIMEOUT: ${AUTOSECOPS__DB_POOL_TIMEOUT:-30}
@@ -488,6 +503,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI} # Sensitive
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY} # Sensitive
       AUTOSECOPS__SERVICE_NAME: agent-executor
       SENTRY_DSN: ${SENTRY_DSN:-}
@@ -598,6 +616,9 @@ services:
       AUTOSECOPS__DB_ENCRYPTION_KEY: ${AUTOSECOPS__DB_ENCRYPTION_KEY}
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI}
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
+      AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}
       AUTOSECOPS__SERVICE_KEY: ${AUTOSECOPS__SERVICE_KEY}
       AUTOSECOPS__SERVICE_NAME: mcp
       AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: ${AUTOSECOPS__AGENT_SANDBOX_TIMEOUT:-10800}
@@ -700,6 +721,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
       AUTOSECOPS__DB_URI: ${AUTOSECOPS__DB_URI}
+      AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}
+      AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-} # Sensitive
       AUTOSECOPS__DB_SSLMODE: ${AUTOSECOPS__DB_SSLMODE}
       AUTOSECOPS__FEATURE_FLAGS: ${AUTOSECOPS__FEATURE_FLAGS}
       AUTOSECOPS__LICENSE_KEY: ${AUTOSECOPS__LICENSE_KEY:-}
@@ -709,7 +732,22 @@ services:
         condition: service_healthy
 
   temporal_postgres_db:
-    image: postgres:13
+    image: ${TEMPORAL__POSTGRES_IMAGE:-postgres:16.14-trixie@sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b}
+    # PostgreSQL cannot open a data directory written by another major version.
+    # Stop with the upgrade steps instead of a bare FATAL, and leave the volume
+    # untouched.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        data_version=$$(cat "$${PGDATA:-/var/lib/postgresql/data}/PG_VERSION" 2>/dev/null || true)
+        if [ -n "$$data_version" ] && [ -n "$${PG_MAJOR:-}" ] && [ "$$data_version" != "$${PG_MAJOR%%.*}" ]; then
+          echo "temporal_postgres_db: the temporal-db volume holds PostgreSQL $$data_version data, but this image runs PostgreSQL $$PG_MAJOR." >&2
+          echo "Upgrade the Temporal database: https://docs.singularityrd.com/self-hosting/updating#upgrade-the-temporal-database" >&2
+          echo "To keep the old version until then, set TEMPORAL__POSTGRES_IMAGE=postgres:$$data_version in .env." >&2
+          exit 1
+        fi
+        exec docker-entrypoint.sh postgres
     container_name: temporal_postgres_db
     restart: unless-stopped
     networks:
@@ -721,7 +759,7 @@ services:
       - temporal-db:/var/lib/postgresql/data
 
   temporal:
-    image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.27.1}
+    image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.29.1}
     container_name: temporal
     restart: unless-stopped
     ports:

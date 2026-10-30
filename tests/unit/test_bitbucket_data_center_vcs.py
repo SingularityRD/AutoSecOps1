@@ -27,6 +27,7 @@ from autosecops.vcs.bitbucket_data_center.types import DataCenterBranch
 from autosecops.workspace_sync.transport import (
     BitbucketDataCenterWorkspaceSyncTransport,
 )
+from tests.support.outbound_network import resolve_all_to
 from tests.unit.test_bitbucket_vcs import role
 
 TOKEN = "synthetic-data-center-test-token"
@@ -131,7 +132,9 @@ async def test_credentials_require_settings_scope_and_entitlement():
 
 
 @pytest.mark.anyio
-async def test_instance_auth_and_host_isolation():
+async def test_instance_auth_and_host_isolation(monkeypatch: pytest.MonkeyPatch):
+    # The instance host must pass the outbound egress policy before any traffic.
+    resolve_all_to(monkeypatch, "8.8.8.8", host="example.test")
     transport = BitbucketDataCenterWorkspaceSyncTransport(
         session=AsyncMock(), role=role()
     )

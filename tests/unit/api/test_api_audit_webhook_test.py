@@ -12,11 +12,16 @@ from autosecops_ee.admin.settings import router as admin_settings_router
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from autosecops import network
 from autosecops.audit import service as audit_service_module
 from autosecops.auth.types import Role
+from autosecops.outbound import OutboundRequestDenied
 from autosecops.settings import router as settings_router
 from autosecops.settings.schemas import AuditSettingsUpdate
+from tests.support.outbound_network import (
+    RecordingNetwork,
+    install_recording_network,
+    resolve_all_to,
+)
 
 _TEST_BODY: dict[str, Any] = {
     "audit_webhook_url": "https://audit.example.test/ingest",
@@ -98,20 +103,10 @@ def reset_fake_client() -> None:
     HangingAuditWebhookClient.calls = []
 
 
-@pytest.fixture(autouse=True)
-def allow_probe_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Resolve every probe URL to a public address unless a test overrides it.
-
-    The probe rejects URLs that do not resolve to public addresses, so the
-    delivery-path tests must not depend on real DNS for their example hosts.
-    """
-
-    async def _noop(url: str) -> None:
-        return None
-
-    monkeypatch.setattr(
-        audit_service_module, "validate_url_resolves_public_async", _noop
-    )
+@pytest.fixture
+def recording_network(monkeypatch: pytest.MonkeyPatch) -> RecordingNetwork:
+    """Run the real outbound client against synthetic sockets."""
+    return install_recording_network(monkeypatch)
 
 
 def test_audit_webhook_test_routes_do_not_hold_request_sessions() -> None:
@@ -128,7 +123,7 @@ async def test_org_audit_webhook_test_posts_marked_event_from_submitted_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -165,7 +160,7 @@ async def test_org_audit_webhook_test_probes_submitted_not_saved_url(
 ) -> None:
     """The probe must target exactly the submitted configuration."""
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
 
     client.post("/settings/audit/test", json=_TEST_BODY)
@@ -189,7 +184,7 @@ async def test_org_audit_webhook_test_surfaces_receiver_error(
 ) -> None:
     FakeAuditWebhookClient.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -212,7 +207,8 @@ async def test_org_audit_webhook_test_enforces_wall_clock_timeout(
         "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
     )
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", HangingAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client",
+        HangingAuditWebhookClient,
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
@@ -228,33 +224,34 @@ async def test_org_audit_webhook_test_enforces_wall_clock_timeout(
 
 
 @pytest.mark.anyio
-async def test_org_audit_webhook_test_timeout_includes_dns_resolution(
-    client: TestClient,
+async def test_probe_timeout_includes_dns_resolution(
     test_admin_role: Role,
+    recording_network: RecordingNetwork,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def _hang(url: str) -> None:
+    """The wall clock bounds the outbound client's own DNS lookup."""
+
+    async def _hang(*args: object, **kwargs: object) -> None:
         await asyncio.Event().wait()
 
     monkeypatch.setattr(
         "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.01
     )
-    monkeypatch.setattr(
-        audit_service_module, "validate_url_resolves_public_async", _hang
-    )
-    monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", _hang)
+
+    result = await audit_service_module.AuditService.probe_webhook(
+        sink="organization",
+        organization_id=test_admin_role.organization_id,
+        role=test_admin_role,
+        settings=AuditSettingsUpdate(
+            audit_webhook_url="https://audit.example.test/ingest"
+        ),
     )
 
-    response = client.post("/settings/audit/test", json=_TEST_BODY)
-
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {
-        "ok": False,
-        "receiver_status_code": None,
-        "error_category": "timeout",
-    }
-    assert FakeAuditWebhookClient.calls == []
+    assert result.ok is False
+    assert result.receiver_status_code is None
+    assert result.error_category == "timeout"
+    assert recording_network.connections == []
 
 
 @pytest.mark.anyio
@@ -273,7 +270,7 @@ async def test_org_audit_webhook_test_returns_400_without_url(
     body: dict[str, Any],
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
 
     response = client.post("/settings/audit/test", json=body)
@@ -293,7 +290,7 @@ async def test_probe_times_out_when_socket_budget_exhausted(
         "autosecops.audit.service._AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS", 0.05
     )
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
     loop = asyncio.get_running_loop()
     audit_service_module._post_semaphores[loop] = asyncio.Semaphore(0)
@@ -314,36 +311,80 @@ async def test_probe_times_out_when_socket_budget_exhausted(
     assert FakeAuditWebhookClient.calls == []
 
 
+class DeniedAuditWebhookClient(FakeAuditWebhookClient):
+    """Stands in for the outbound client refusing the resolved address."""
+
+    @asynccontextmanager
+    async def stream(
+        self,
+        method: str,
+        url: str,
+        *,
+        json: dict[str, Any],
+        headers: dict[str, str],
+    ) -> AsyncIterator[httpx.Response]:
+        raise OutboundRequestDenied("Host is not allowed")
+        yield httpx.Response(self.status_code)
+
+
 @pytest.mark.anyio
-async def test_probe_rejects_private_address_without_connecting(
+async def test_probe_route_maps_denied_target_to_400(
     client: TestClient,
     test_admin_role: Role,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A URL resolving to a private address is a 400 and never connects."""
-
-    async def _reject(url: str) -> None:
-        raise audit_service_module.DisallowedUrlError("Host is not allowed")
-
+    """The outbound client's refusal is a 400 without the address."""
     monkeypatch.setattr(
-        audit_service_module, "validate_url_resolves_public_async", _reject
-    )
-    monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client",
+        DeniedAuditWebhookClient,
     )
 
     response = client.post("/settings/audit/test", json=_TEST_BODY)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json() == {"detail": "Audit webhook URL is not allowed"}
-    assert FakeAuditWebhookClient.calls == []
 
 
 @pytest.mark.anyio
-async def test_probe_url_guard_uses_real_resolver_for_loopback() -> None:
-    """The shared guard rejects a loopback URL end to end."""
-    with pytest.raises(network.DisallowedUrlError):
-        await network.validate_url_resolves_public_async("http://127.0.0.1:9000/ingest")
+@pytest.mark.parametrize("address", ["10.0.0.10", "127.0.0.1", "169.254.169.254"])
+async def test_probe_rejects_private_address_without_connecting(
+    test_admin_role: Role,
+    recording_network: RecordingNetwork,
+    monkeypatch: pytest.MonkeyPatch,
+    address: str,
+) -> None:
+    """A URL resolving to a non-public address is refused and never connects."""
+    resolve_all_to(monkeypatch, address)
+
+    with pytest.raises(audit_service_module.AuditWebhookUrlNotAllowedError):
+        await audit_service_module.AuditService.probe_webhook(
+            sink="organization",
+            organization_id=test_admin_role.organization_id,
+            role=test_admin_role,
+            settings=AuditSettingsUpdate(
+                audit_webhook_url="https://audit.example.test/ingest"
+            ),
+        )
+
+    assert recording_network.connections == []
+
+
+@pytest.mark.anyio
+async def test_probe_rejects_loopback_literal_without_connecting(
+    test_admin_role: Role, recording_network: RecordingNetwork
+) -> None:
+    """A loopback literal is refused without any DNS lookup or socket."""
+    with pytest.raises(audit_service_module.AuditWebhookUrlNotAllowedError):
+        await audit_service_module.AuditService.probe_webhook(
+            sink="organization",
+            organization_id=test_admin_role.organization_id,
+            role=test_admin_role,
+            settings=AuditSettingsUpdate(
+                audit_webhook_url="http://127.0.0.1:9000/ingest"
+            ),
+        )
+
+    assert recording_network.connections == []
 
 
 @pytest.mark.anyio
@@ -360,25 +401,16 @@ async def test_probe_url_guard_uses_real_resolver_for_loopback() -> None:
 async def test_org_audit_webhook_test_returns_400_for_malformed_url(
     client: TestClient,
     test_admin_role: Role,
-    monkeypatch: pytest.MonkeyPatch,
     url: str,
+    recording_network: RecordingNetwork,
 ) -> None:
-    monkeypatch.setattr(
-        audit_service_module,
-        "validate_url_resolves_public_async",
-        network.validate_url_resolves_public_async,
-    )
-    monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
-    )
-
     response = client.post(
         "/settings/audit/test", json={**_TEST_BODY, "audit_webhook_url": url}
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json() == {"detail": "Audit webhook URL is not allowed"}
-    assert FakeAuditWebhookClient.calls == []
+    assert recording_network.connections == []
 
 
 @pytest.mark.anyio
@@ -388,7 +420,7 @@ async def test_platform_audit_webhook_test_posts_platform_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "autosecops.audit.service.httpx.AsyncClient", FakeAuditWebhookClient
+        "autosecops.audit.service.create_outbound_http_client", FakeAuditWebhookClient
     )
 
     response = client.post("/admin/settings/audit/test", json=_TEST_BODY)

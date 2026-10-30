@@ -252,7 +252,11 @@ See [IP allowlist](/manage-platform/ip-allowlist) for configuration steps and th
 
 ### Tenant isolation
 
-AutoSecOps enforces tenant scope in the application layer, and PostgreSQL row-level security enforces it again on tenant-owned tables. The second layer is the one that matters under failure: when an application check slips, row-level security still withholds another tenant's rows.
+AutoSecOps enforces tenant scope in the application layer, and PostgreSQL row-level security enforces it again on tenant-owned tables, including link tables such as tags, attachments, and table columns through their parent rows. The second layer is the one that matters under failure: when an application check slips, row-level security still withholds another tenant's rows.
+
+Row-level security binds only when the services connect as the non-owner runtime role and `AUTOSECOPS__RLS_MODE` is `enforce`, which the shipped Docker Compose, Helm, and Fargate deployments set. The migrations step creates that role from `AUTOSECOPS__DB_RUNTIME_PASSWORD`. Without the password, the services connect as the table owner, which PostgreSQL exempts from row-level security, and isolation rests on the application layer alone. The API logs `rls_isolation_active` at startup; see [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation) to enable and verify it.
+
+A few platform tables carry no tenant policy by design: users and sessions, organizations, tiers, platform settings and registry, and the SOC-wide robot key registry, whose key-id uniqueness check must see every tenant and which holds public keys only. Platform superusers, background consumers, and migrations use an explicit bypass.
 
 ### Credentials and sensitive settings
 

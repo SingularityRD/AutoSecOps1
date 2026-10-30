@@ -83,6 +83,20 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fi
 done < "$NEW_TEMPLATE"
 
+# Keep a Temporal database image pin even though .env.example does not list it.
+# Installs whose temporal-db volume still holds PostgreSQL 13 data pin
+# TEMPORAL__POSTGRES_IMAGE=postgres:13 until they upgrade the database; dropping
+# the pin here would stop temporal_postgres_db on the next start.
+for key in TEMPORAL__POSTGRES_IMAGE; do
+    if ! grep -q "^${key}=" "$TEMP_FILE"; then
+        pinned=$(grep "^${key}=" "$OLD_ENV" | tail -n 1)
+        if [[ -n "$pinned" ]]; then
+            printf '\n%s\n' "$pinned" >> "$TEMP_FILE"
+            echo "Kept ${pinned}"
+        fi
+    fi
+done
+
 # Move the temporary file to the final output
 mv "$TEMP_FILE" "$OUTPUT_ENV"
 

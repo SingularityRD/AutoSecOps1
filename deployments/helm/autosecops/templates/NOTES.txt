@@ -26,6 +26,13 @@ Public URL: {{ include "autosecops.publicAppUrl" . }}
    front of the {{ include "autosecops.componentName" (dict "root" . "component" "ui") }} (/) and {{ include "autosecops.componentName" (dict "root" . "component" "api") }} (/api) services.
 {{- end }}
 
+{{- if and (not .Values.externalPostgres.auth.existingSecret) (not .Values.externalPostgres.auth.runtimePassword) }}
+
+WARNING: externalPostgres.auth.runtimePassword is empty, so the services connect
+as the database owner and tenant row-level security is inactive. Set it (or the
+`{{ .Values.externalPostgres.auth.runtimePasswordKey }}` key of an existing Secret) and upgrade.
+{{- end }}
+
 {{- if .Values.autosecops.auth.superadminEmail }}
 
 Sign in first as {{ .Values.autosecops.auth.superadminEmail }} to become superadmin.

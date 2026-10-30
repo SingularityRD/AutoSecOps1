@@ -7,6 +7,9 @@ in the same revision.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Literal
+
 RLS_BYPASS_VAR = "app.rls_bypass"
 RLS_BYPASS_ON = "on"
 
@@ -140,14 +143,83 @@ POST_RLS_ORG_OPTIONAL_WORKSPACE_SCOPED_TABLES = (
     "workspace_secret_store_authorization",
 )
 
+
+@dataclass(frozen=True, slots=True)
+class ParentScope:
+    """A parent row whose tenant column scopes a table without its own."""
+
+    table: str
+    fk_column: str
+    tenant_column: Literal["workspace_id", "organization_id"]
+
+
+# Link and child tables without tenant columns. Each row is visible only when
+# every listed parent belongs to the current tenant.
+PARENT_SCOPED_TABLES: dict[str, tuple[ParentScope, ...]] = {
+    "case_attachment": (
+        ParentScope("case", "case_id", "workspace_id"),
+        ParentScope("file", "file_id", "workspace_id"),
+    ),
+    "case_dropdown_option": (
+        ParentScope("case_dropdown_definition", "definition_id", "workspace_id"),
+    ),
+    "case_dropdown_value": (
+        ParentScope("case", "case_id", "workspace_id"),
+        ParentScope("case_dropdown_definition", "definition_id", "workspace_id"),
+    ),
+    "case_tag_link": (
+        ParentScope("case", "case_id", "workspace_id"),
+        ParentScope("case_tag", "tag_id", "workspace_id"),
+    ),
+    "table_column": (ParentScope("tables", "table_id", "workspace_id"),),
+    "workflow_tag_link": (
+        ParentScope("workflow_tag", "tag_id", "workspace_id"),
+        ParentScope("workflow", "workflow_id", "workspace_id"),
+    ),
+    "role_scope": (ParentScope("role", "role_id", "organization_id"),),
+}
+
 SPECIAL_TENANT_POLICY_TABLES = frozenset(
     {
         "agent_tag_link",
         "skill_tag_link",
         "service_account_api_key",
         "service_account_scope",
+        "ownership",
+        *PARENT_SCOPED_TABLES,
     }
 )
+
+# Public tables that deliberately carry no tenant policy. Every other public
+# table must appear in a registry above; tests check the migrated catalog.
+_PLATFORM_TABLE = "Platform-wide row shared by every tenant; no tenant column."
+_AUTH_TABLE = (
+    "Authentication state read before a tenant context exists; access is"
+    " enforced by the auth layer."
+)
+RLS_EXEMPT_TABLES: dict[str, str] = {
+    "robot_key_registry": (
+        "SOC-wide registry of every robot and SOC public key ever issued. The"
+        " key-id uniqueness check must see all tenants, and rows hold public key"
+        " material only."
+    ),
+    "alembic_version": "Migration bookkeeping; the runtime role can only read it.",
+    "organization": (
+        "The tenant root itself. Login, org discovery and invitations resolve"
+        " organizations before an org context exists."
+    ),
+    "user": _AUTH_TABLE,
+    "access_token": _AUTH_TABLE,
+    "oauth_account": _AUTH_TABLE,
+    "saml_request_data": _AUTH_TABLE,
+    "tier": _PLATFORM_TABLE,
+    "platform_settings": _PLATFORM_TABLE,
+    "platform_secret": _PLATFORM_TABLE,
+    "platform_registry_repository": _PLATFORM_TABLE,
+    "platform_registry_version": _PLATFORM_TABLE,
+    "platform_registry_action": _PLATFORM_TABLE,
+    "platform_registry_index": _PLATFORM_TABLE,
+}
 
 # Workspace and oauth_state carry custom policy SQL. scope and agent_catalog
 # both have nullable organization_id and allow shared platform-owned rows.
@@ -520,6 +592,77 @@ def disable_skill_tag_link_table_rls() -> str:
     return f"""
         DROP POLICY IF EXISTS {policy_name("skill_tag_link")} ON "skill_tag_link";
         ALTER TABLE "skill_tag_link" DISABLE ROW LEVEL SECURITY;
+    """
+
+
+_TENANT_SETTINGS = {
+    "workspace_id": "app.current_workspace_id",
+    "organization_id": "app.current_org_id",
+}
+
+
+def _parent_scope_condition(table: str, parent: ParentScope) -> str:
+    setting = _TENANT_SETTINGS[parent.tenant_column]
+    return f"""
+                EXISTS (
+                    SELECT 1
+                    FROM "{parent.table}" AS parent
+                    WHERE parent.id = "{table}".{parent.fk_column}
+                      AND parent.{parent.tenant_column} = NULLIF(current_setting('{setting}', true), '')::uuid
+                )"""
+
+
+def enable_parent_scoped_table_rls(table: str) -> str:
+    """Scope a table without tenant columns through its parent rows."""
+    if (parents := PARENT_SCOPED_TABLES.get(table)) is None:
+        raise ValueError("Unknown parent-scoped table")
+    condition = "\n                AND".join(
+        _parent_scope_condition(table, parent) for parent in parents
+    )
+    return f"""
+        ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY;
+
+        CREATE POLICY {policy_name(table)} ON "{table}"
+            FOR ALL
+            USING (
+                current_setting('{RLS_BYPASS_VAR}', true) = '{RLS_BYPASS_ON}'
+                OR ({condition}
+                )
+            )
+            WITH CHECK (
+                current_setting('{RLS_BYPASS_VAR}', true) = '{RLS_BYPASS_ON}'
+                OR ({condition}
+                )
+            );
+    """
+
+
+def enable_ownership_table_rls() -> str:
+    """Scope ownership rows to the tenant or user that owns the resource.
+
+    Rows have no tenant column; ``owner_id`` holds an organization, workspace
+    or user id depending on the row.
+    """
+    predicate = f"""
+                current_setting('{RLS_BYPASS_VAR}', true) = '{RLS_BYPASS_ON}'
+                OR owner_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid
+                OR owner_id = NULLIF(current_setting('app.current_workspace_id', true), '')::uuid
+                OR owner_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+    """
+    return f"""
+        ALTER TABLE "ownership" ENABLE ROW LEVEL SECURITY;
+
+        CREATE POLICY {policy_name("ownership")} ON "ownership"
+            FOR ALL
+            USING ({predicate})
+            WITH CHECK ({predicate});
+    """
+
+
+def disable_table_rls(table: str) -> str:
+    return f"""
+        DROP POLICY IF EXISTS {policy_name(table)} ON "{table}";
+        ALTER TABLE "{table}" DISABLE ROW LEVEL SECURITY;
     """
 
 

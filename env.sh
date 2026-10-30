@@ -198,11 +198,36 @@ dotenv_replace "AUTOSECOPS__POSTGRES_PASSWORD" "$postgres_password" "$env_file"
 dotenv_replace "TEMPORAL__POSTGRES_PASSWORD" "$temporal_postgres_password" "$env_file"
 dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 
-# Prompt user for new IP address and strip http:// or https://
+# The services connect as a non-owner role so tenant row-level security
+# applies; migrations create it with this password. Always random: no local
+# tooling logs in as it.
+echo -e "${YELLOW}Generating the database runtime role password...${NC}"
+db_runtime_password=$(openssl rand -hex 24)
+dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$db_runtime_password" "$env_file"
+
+# Prompt for the public address. Keep a typed http:// or https:// scheme.
+# Without one, production mode uses https:// for any host but a loopback
+# address, so session cookies are marked Secure; development mode uses http://.
+is_loopback_host() {
+    case "$1" in
+        localhost | *.localhost | 127.* | "[::1]") return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 while true; do
     read -p "Set \`PUBLIC_APP_URL\` environment variable to (default: localhost): " new_ip
-    new_ip=$(sed -E 's/^\s*.*:\/\///g' <<< $new_ip)
+    # Trim whitespace and any trailing slash.
+    new_ip=$(sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s#/+$##' <<< "$new_ip")
+    scheme=""
+    if [[ "$new_ip" =~ ^([A-Za-z][A-Za-z0-9+.-]*)://(.*)$ ]]; then
+        scheme=$(tr '[:upper:]' '[:lower:]' <<< "${BASH_REMATCH[1]}")
+        new_ip="${BASH_REMATCH[2]}"
+        if [ "$scheme" != "http" ] && [ "$scheme" != "https" ]; then
+            echo -e "${RED}Use an http:// or https:// address, or type the host without a scheme.${NC}"
+            continue
+        fi
+    fi
     new_ip=${new_ip:-localhost}
 
     if [ "$new_ip" != "0.0.0.0" ]; then
@@ -216,21 +241,30 @@ done
 if [[ "$new_ip" =~ ^([^:]+)(:([0-9]+))?$ ]]; then
     hostname="${BASH_REMATCH[1]}"
     port="${BASH_REMATCH[3]}"
-
-    # If port is specified, update PUBLIC_APP_PORT
-    if [ -n "$port" ]; then
-        app_port="$port"
-        base_url="http://${hostname}:${port}"
-    else
-        # No port specified, use default port 80 (or keep existing PUBLIC_APP_PORT)
-        app_port=""
-        base_url="http://${hostname}"
-    fi
 else
     # Fallback if regex doesn't match
     hostname="$new_ip"
-    app_port=""
-    base_url="http://${hostname}"
+    port=""
+fi
+
+if [ -z "$scheme" ]; then
+    if [ "$env_mode" = "production" ] && ! is_loopback_host "$hostname"; then
+        scheme="https"
+    else
+        scheme="http"
+    fi
+fi
+
+base_url="${scheme}://${hostname}${port:+:${port}}"
+# Caddy serves plain HTTP on PUBLIC_APP_PORT. With https://, the port in the
+# URL belongs to the TLS endpoint in front of Caddy, so leave PUBLIC_APP_PORT.
+app_port=""
+if [ "$scheme" = "http" ] && [ -n "$port" ]; then
+    app_port="$port"
+fi
+if [ "$scheme" = "https" ]; then
+    echo -e "${YELLOW}Using ${base_url}. Terminate TLS in Caddy or a load balancer: https://docs.singularityrd.com/self-hosting/tls${NC}"
+    echo -e "${YELLOW}To serve plain HTTP instead, rerun ./env.sh and type http://${hostname}${port:+:${port}}.${NC}"
 fi
 
 public_app_url="$base_url"
@@ -283,8 +317,11 @@ fi
 dotenv_replace "AUTOSECOPS__DB_SSLMODE" "$ssl_mode" "$env_file"
 dotenv_replace "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL" "$superadmin_email" "$env_file"
 
-# Allow the local frontend dev server and the public app URL.
-new_origins="http://localhost:3000,${public_app_url}"
+# Allow the public app URL, plus the local frontend dev server in development.
+new_origins="${public_app_url}"
+if [ "$env_mode" = "development" ]; then
+    new_origins="http://localhost:3000,${public_app_url}"
+fi
 # Remove duplicate entries and leading/trailing commas
 new_origins=$(echo "$new_origins" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/^,//;s/,$//')
 dotenv_replace "AUTOSECOPS__ALLOW_ORIGINS" "$new_origins" "$env_file"

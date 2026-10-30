@@ -36,12 +36,15 @@ locals {
     AUTOSECOPS__LITELLM_BASE_URL = local.internal_litellm_url
   }
 
-  # AutoSecOps Postgres env vars
+  # AutoSecOps Postgres env vars. Services connect as the non-owner
+  # AUTOSECOPS__DB_RUNTIME_USER (password: the AUTOSECOPS__DB_RUNTIME_PASSWORD
+  # ECS secret) so tenant RLS applies; migrations keep the master user.
   autosecops_db_configs = {
     AUTOSECOPS__DB_USER              = "postgres"
     AUTOSECOPS__DB_PORT              = "5432"
     AUTOSECOPS__DB_NAME              = "postgres" # Hardcoded in RDS resource configs
     AUTOSECOPS__DB_PASS__ARN         = data.aws_secretsmanager_secret_version.autosecops_db_password.arn
+    AUTOSECOPS__DB_RUNTIME_USER      = "autosecops_app"
     AUTOSECOPS__DB_MAX_OVERFLOW      = var.db_max_overflow
     AUTOSECOPS__DB_POOL_SIZE         = var.db_pool_size
     AUTOSECOPS__DB_POOL_TIMEOUT      = var.db_pool_timeout
@@ -65,6 +68,7 @@ locals {
     AUTOSECOPS__AWS_ASSUME_ROLE_PRINCIPAL_ARN           = aws_iam_role.executor_task.arn
     AUTOSECOPS__FEATURE_FLAGS                           = var.feature_flags
     AUTOSECOPS__EE_MULTI_TENANT                         = var.ee_multi_tenant
+    AUTOSECOPS__RLS_MODE                                = var.rls_mode
     AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED             = var.context_compression_enabled
     AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB        = var.context_compression_threshold_kb
     AUTOSECOPS__RESULT_EXTERNALIZATION_ENABLED          = var.result_externalization_enabled

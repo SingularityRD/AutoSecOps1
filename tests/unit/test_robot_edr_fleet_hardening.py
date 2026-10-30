@@ -24,7 +24,7 @@ from sqlalchemy import func, select
 
 from autosecops import config
 from autosecops.audit.enums import AuditEventStatus
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import (
     Organization,
     RobotFleetProfileDraft,
@@ -97,7 +97,7 @@ async def other_soc(svc_organization: Organization) -> AsyncIterator[Soc]:
 
 
 async def _trust(soc: Soc, root: wire.SigningKey) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await soc.fleet(soc.alice, session).add_trust_root(
             FleetTrustRootCreate(public_key=wire.public_key_file(root.public_key))
         )
@@ -111,7 +111,7 @@ async def test_unverified_list_with_huge_serial_cannot_block_real_lists(
 ) -> None:
     _robot_uuid, sim = await enrolled(soc, robot_api)
     root, attacker = new_key(), new_key()
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         # No trust root configured: nothing can be published.
         with pytest.raises(AutoSecOpsValidationError, match="trust root"):
@@ -119,7 +119,7 @@ async def test_unverified_list_with_huge_serial_cannot_block_real_lists(
                 FleetRevocationCreate(revocation_list=revocation_list(root))
             )
     await _trust(soc, root)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         # A list signed by anything else never sets the serial floor.
         with pytest.raises(AutoSecOpsValidationError, match="trust root"):
@@ -141,7 +141,7 @@ async def test_unverified_list_with_huge_serial_cannot_block_real_lists(
 async def test_trust_roots_need_robot_trust(soc: Soc) -> None:
     root = new_key()
     no_trust = soc.alice.model_copy(update={"scopes": FLEET_SCOPES - {"robot:trust"}})
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AutoSecOpsAuthorizationError):
             await soc.fleet(no_trust, session).add_trust_root(
                 FleetTrustRootCreate(public_key=root.public_key.hex())
@@ -161,7 +161,7 @@ async def test_withdrawing_a_bad_list_takes_two_people(
     _robot_uuid, sim = await enrolled(soc, robot_api)
     root = new_key()
     await _trust(soc, root)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         good = await service.publish_revocation_list(
             FleetRevocationCreate(revocation_list=revocation_list(root, serial=2))
@@ -179,7 +179,7 @@ async def test_withdrawing_a_bad_list_takes_two_people(
             await soc.fleet(soc.service, session).confirm_revocation_withdrawal(bad.id)
     path = "/robot-edr/v2/fleet/revocations/ugv-x1"
     assert json.loads((await signed_get(robot_api, sim, path)).content)["serial"] == 900
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         withdrawn = await soc.fleet(soc.bob, session).confirm_revocation_withdrawal(
             bad.id
         )
@@ -198,7 +198,7 @@ async def test_withdrawing_a_bad_list_takes_two_people(
 async def test_blackbox_keys_cannot_be_added_manually(soc: Soc) -> None:
     await add_robot(soc, "ugv-201")
     for role in (soc.alice, soc.service):
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             with pytest.raises(AutoSecOpsValidationError, match="enrollment"):
                 await RobotsService(session, role=role).create_key(
                     RobotKeyCreate(
@@ -216,7 +216,7 @@ async def test_evidence_keyring_is_newest_first_and_keeps_the_current_key(
     await setup_keys(soc)
     sims = [await enroll(soc, robot_api, robot_uuid) for _ in range(18)]
     # A black-box key that did not come from enrollment is never offered.
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(
             RobotKey(
                 workspace_id=soc.workspace.id,
@@ -227,7 +227,7 @@ async def test_evidence_keyring_is_newest_first_and_keeps_the_current_key(
             )
         )
         await session.commit()
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         evidence = RobotEvidenceService(session, role=soc.service)
         # 18 keys are valid for an open range: refused, never truncated.
         with pytest.raises(AutoSecOpsValidationError, match="16"):
@@ -242,7 +242,7 @@ async def test_evidence_keyring_is_newest_first_and_keeps_the_current_key(
 
     # Spread the enrollments over days: key i signed during day i.
     base = datetime(2026, 1, 1, tzinfo=UTC)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         for day, sim in enumerate(sims):
             key = await session.scalar(
                 select(RobotKey).where(RobotKey.key_id == sim.blackbox.key_id)
@@ -256,7 +256,7 @@ async def test_evidence_keyring_is_newest_first_and_keeps_the_current_key(
     def ms(days: float) -> int:
         return int((base + timedelta(days=days)).timestamp() * 1000)
 
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         evidence = RobotEvidenceService(session, role=soc.service)
         window = await evidence.blackbox_key_files(
             "ugv-101", from_ms=ms(10.5), to_ms=ms(12.5)
@@ -291,7 +291,7 @@ async def test_approval_key_secrets_cannot_be_imported(soc: Soc) -> None:
             "secret_hex": secret.seed.hex(),
         }
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AutoSecOpsValidationError, match="never imported"):
             await soc.fleet(soc.alice, session).create_approval_key(
                 FleetSocKeyCreate(
@@ -303,7 +303,7 @@ async def test_approval_key_secrets_cannot_be_imported(soc: Soc) -> None:
 
 
 async def test_approval_key_activation_takes_a_second_platform_user(soc: Soc) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         alice = soc.fleet(soc.alice, session)
         created = await alice.create_approval_key(
             FleetSocKeyCreate(
@@ -339,7 +339,7 @@ async def test_offline_approval_key_signs_a_prepared_approval(
 ) -> None:
     robot_uuid = await add_robot(soc, "ugv-101")
     held = new_key()  # Held by an operator; its secret never reaches the SOC.
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         alice = soc.fleet(soc.alice, session)
         await alice.create_fleet_key(FleetSocKeyCreate(kind=FleetSocKeyKind.FLEET))
         offline = await alice.create_approval_key(
@@ -353,7 +353,7 @@ async def test_offline_approval_key_signs_a_prepared_approval(
         await soc.fleet(soc.bob, session).activate_approval_key(offline)
     sim = await enroll(soc, robot_api, robot_uuid)
     profile, sig = _locked_profile("ugv-101")
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         alice = soc.fleet(soc.alice, session)
         offered = await alice.set_offer(
             robot_uuid, FleetOfferUpdate(profile=profile, signature=sig)
@@ -373,7 +373,7 @@ async def test_offline_approval_key_signs_a_prepared_approval(
 
     path = f"/robot-edr/v2/fleet/profiles/approvals/{offered.digest[7:]}"
     assert (await signed_get(robot_api, sim, path)).status_code == 404
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         alice = soc.fleet(soc.alice, session)
         with pytest.raises(AutoSecOpsValidationError, match="does not verify"):
             await alice.submit_approval_signature(
@@ -403,7 +403,7 @@ async def test_manual_keys_are_unique_across_the_soc(
 ) -> None:
     _robot_uuid, sim = await enrolled(soc, robot_api)
     await add_robot(other_soc, "ugv-301")
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         fleet_key = next(
             k
             for k in await soc.fleet(soc.alice, session).list_soc_keys()
@@ -411,7 +411,7 @@ async def test_manual_keys_are_unique_across_the_soc(
         )
     fleet_public = wire.parse_key_file(fleet_key.public_key_file).public_key
     for public in (sim.finding.public_key, fleet_public):
-        async with get_async_session_context_manager() as session:
+        async with get_async_session_bypass_rls_context_manager() as session:
             with pytest.raises(RobotConflictError):
                 await RobotsService(session, role=other_soc.alice).create_key(
                     RobotKeyCreate(
@@ -422,7 +422,7 @@ async def test_manual_keys_are_unique_across_the_soc(
                 )
     # A deleted key keeps its id: it is never registered again.
     reused = new_key()
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         robots = RobotsService(session, role=other_soc.alice)
         created = await robots.create_key(
             RobotKeyCreate(
@@ -432,7 +432,7 @@ async def test_manual_keys_are_unique_across_the_soc(
             )
         )
         await robots.delete_key(created)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(RobotConflictError):
             await soc.fleet(soc.alice, session).create_fleet_key(
                 FleetSocKeyCreate(
@@ -497,7 +497,7 @@ async def test_values_above_int64_are_refused_not_500(
     root = new_key()
     await _trust(soc, root)
     profile, sig = _locked_profile("ugv-101", version=MAX_STORED_INT + 1)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         with pytest.raises(AutoSecOpsValidationError, match="2\\^63"):
             await service.publish_revocation_list(
@@ -609,7 +609,7 @@ async def test_drafts_per_robot_are_capped(
         response = await signed_post(robot_api, sim, path, body)
         assert response.status_code == 200, response.text
         digests.append(response.json()["digest"])
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         kept = (
             await session.scalars(
                 select(RobotFleetProfileDraft.digest).where(
@@ -627,7 +627,7 @@ async def test_ring_min_version_never_drops(
     soc: Soc, robot_api: httpx.AsyncClient
 ) -> None:
     robot_uuid, _sim = await enrolled(soc, robot_api)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         await service.set_ring(
             robot_uuid, FleetRingUpdate(ring=0, min_version="0.10.0")
@@ -647,7 +647,7 @@ async def test_ring_min_version_never_drops(
 
 
 async def test_contract_test_keys_are_never_real_soc_keys(soc: Soc) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = soc.fleet(soc.alice, session)
         with pytest.raises(AutoSecOpsValidationError, match="test key"):
             await service.create_fleet_key(
@@ -707,7 +707,7 @@ async def test_enrollment_replays_and_refusals_are_audited(
 
 
 async def test_soc_key_rows_without_a_seed_are_offline_only(soc: Soc) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         with pytest.raises(AutoSecOpsValidationError, match="public_key_file"):
             await soc.fleet(soc.alice, session).create_approval_key(
                 FleetSocKeyCreate(

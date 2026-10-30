@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -434,6 +435,95 @@ def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> N
     assert f"secret_string = var.{tf_var}" in secrets
     iam = (ecs / "iam.tf").read_text()
     assert f"aws_secretsmanager_secret.{tf_var}[*].arn" in iam
+
+
+DB_RUNTIME_ROLE_COMPOSE_SERVICES = (
+    "api",
+    "worker",
+    "executor",
+    "agent-worker",
+    "litellm",
+    "agent-executor",
+    "mcp",
+)
+
+
+def _compose_service_body(source: str, service: str) -> str | None:
+    match = re.search(
+        rf"(?ms)^  {service}:\n(?P<body>.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)", source
+    )
+    return match.group("body") if match else None
+
+
+def test_db_runtime_role_env_is_wired_to_compose() -> None:
+    """Every Compose service with a DB URI gets the runtime role and RLS mode."""
+    user = "AUTOSECOPS__DB_RUNTIME_USER: ${AUTOSECOPS__DB_RUNTIME_USER:-autosecops_app}"
+    password = "AUTOSECOPS__DB_RUNTIME_PASSWORD: ${AUTOSECOPS__DB_RUNTIME_PASSWORD:-}"
+    rls_mode = "AUTOSECOPS__RLS_MODE: ${AUTOSECOPS__RLS_MODE:-enforce}"
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        source = path.read_text().replace(" # Sensitive", "")
+        services_with_db = {
+            name
+            for name in re.findall(r"(?m)^  ([a-z][a-z0-9_-]*):\n", source)
+            if "AUTOSECOPS__DB_URI:" in (_compose_service_body(source, name) or "")
+        }
+        assert services_with_db == {*DB_RUNTIME_ROLE_COMPOSE_SERVICES, "migrations"}
+        for service in services_with_db:
+            body = _compose_service_body(source, service) or ""
+            assert user in body, f"{path.name}: {service}"
+            assert password in body, f"{path.name}: {service}"
+            # Migrations run as the owner; the mode only matters to services.
+            assert (rls_mode in body) == (service != "migrations"), (
+                f"{path.name}: {service}"
+            )
+
+
+def test_db_runtime_role_is_wired_to_fargate() -> None:
+    fargate = REPO_ROOT / "deployments/fargate"
+    ecs = fargate / "modules/ecs"
+    locals_tf = (ecs / "locals.tf").read_text()
+    assert re.search(r'AUTOSECOPS__DB_RUNTIME_USER\s*=\s*"autosecops_app"', locals_tf)
+    assert re.search(r"AUTOSECOPS__RLS_MODE\s*=\s*var\.rls_mode\n", locals_tf)
+    # The password is an ECS secret, never task-definition environment.
+    assert not re.search(r"^\s*AUTOSECOPS__DB_RUNTIME_PASSWORD\s*=", locals_tf, re.M)
+    secrets_tf = (ecs / "secrets.tf").read_text()
+    assert 'name      = "AUTOSECOPS__DB_RUNTIME_PASSWORD"' in secrets_tf
+    assert "local.db_runtime_password_secret,\n  ]" in secrets_tf
+    assert "secrets     = local.migrations_secrets" in (ecs / "ecs-api.tf").read_text()
+    assert (
+        "aws_secretsmanager_secret.db_runtime_password.arn"
+        in (ecs / "iam.tf").read_text()
+    )
+    assert re.search(
+        r"rls_mode\s*=\s*var\.rls_mode\n", (fargate / "main.tf").read_text()
+    )
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            r'variable "rls_mode" \{[^}]*default\s*=\s*"enforce"',
+            (fargate / tf).read_text(),
+        ), tf
+
+
+def test_db_runtime_password_is_generated_by_env_sh() -> None:
+    assert (
+        'dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD"'
+        in (REPO_ROOT / "env.sh").read_text()
+    )
+
+
+def test_rls_and_runtime_role_code_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Code stays on `off` and the owner role unless deployments opt in."""
+    try:
+        with monkeypatch.context() as env:
+            env.delenv("AUTOSECOPS__RLS_MODE", raising=False)
+            env.setenv("AUTOSECOPS__DB_RUNTIME_USER", "")
+            env.setenv("AUTOSECOPS__DB_RUNTIME_PASSWORD", "")
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.AUTOSECOPS__RLS_MODE == reloaded.RLSMode.OFF
+            assert reloaded.AUTOSECOPS__DB_RUNTIME_USER == "autosecops_app"
+            assert reloaded.AUTOSECOPS__DB_RUNTIME_PASSWORD is None
+    finally:
+        importlib.reload(autosecops_config)
 
 
 def test_fargate_autosecops_containers_use_registry_credentials() -> None:
@@ -1077,6 +1167,7 @@ ENV_EXAMPLE_GENERATED_SECRETS = (
     "AUTOSECOPS__POSTGRES_PASSWORD",
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
+    "AUTOSECOPS__DB_RUNTIME_PASSWORD",
 )
 WEAK_DEFAULT_CREDENTIALS = {
     "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},
@@ -1124,6 +1215,78 @@ def test_temporal_ui_image_is_pinned() -> None:
         for image in images:
             assert "latest" not in image, f"{path.name} pins temporalio/ui to latest"
             assert re.fullmatch(r"\$\{TEMPORAL__UI_VERSION:-\d+\.\d+\.\d+\}", image)
+
+
+def _temporal_postgres_service(text: str) -> str:
+    match = re.search(
+        r"^  temporal_postgres_db:\n((?:    .*\n|\n)+)", text, re.MULTILINE
+    )
+    assert match, "no temporal_postgres_db service"
+    return match.group(1)
+
+
+def test_temporal_postgres_matches_core_postgres_base() -> None:
+    """The Temporal DB runs the same digest-pinned PostgreSQL 16 base as the core DB."""
+    images = json.loads((REPO_ROOT / "deployments/postgres/images.json").read_text())
+    base = images["trixie"]["base"]
+    assert re.fullmatch(r"postgres:16\.\d+-trixie@sha256:[0-9a-f]{64}", base)
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        service = _temporal_postgres_service(path.read_text())
+        assert f"    image: ${{TEMPORAL__POSTGRES_IMAGE:-{base}}}\n" in service, (
+            f"{path.name}: temporal_postgres_db must default to {base}"
+        )
+        # Existing PostgreSQL 13 volumes stop with upgrade steps, not a FATAL.
+        assert "PG_VERSION" in service
+        assert "updating#upgrade-the-temporal-database" in service
+        assert "exec docker-entrypoint.sh postgres" in service
+        assert "temporal-db:/var/lib/postgresql/data" in service
+
+
+def test_temporal_server_version_matches_across_targets() -> None:
+    versions: dict[str, str] = {}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        matches = re.findall(
+            r"temporalio/auto-setup\}?:\$\{TEMPORAL__VERSION:-([\d.]+)\}",
+            path.read_text(),
+        )
+        assert len(matches) == 1, f"{path.name} has no pinned Temporal server"
+        versions[path.name] = matches[0]
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        text = (REPO_ROOT / "deployments/fargate" / tf).read_text()
+        match = re.search(
+            r'variable "temporal_server_image_tag" \{[^}]*default\s*=\s*"([^"]+)"',
+            text,
+        )
+        assert match, f"{tf} has no temporal_server_image_tag default"
+        versions[f"fargate/{tf}"] = match.group(1)
+    assert len(set(versions.values())) == 1, f"Temporal versions drifted: {versions}"
+
+
+def _run_env_migration(tmp_path: Path, old_env: str) -> str:
+    for name in ("env-migration.sh", ".env.example"):
+        (tmp_path / name).write_text((REPO_ROOT / name).read_text())
+    (tmp_path / ".env").write_text(old_env)
+    subprocess.run(
+        ["bash", "env-migration.sh"],
+        cwd=tmp_path,
+        input="n\ny\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return (tmp_path / ".env").read_text()
+
+
+def test_env_migration_keeps_temporal_postgres_image_pin(tmp_path: Path) -> None:
+    pinned = _run_env_migration(
+        tmp_path,
+        "AUTOSECOPS__APP_ENV=production\nTEMPORAL__POSTGRES_IMAGE=postgres:13\n",
+    )
+    assert re.search(r"^TEMPORAL__POSTGRES_IMAGE=postgres:13$", pinned, re.MULTILINE)
+    assert re.search(r"^AUTOSECOPS__APP_ENV=production$", pinned, re.MULTILINE)
+
+    unpinned = _run_env_migration(tmp_path, "AUTOSECOPS__APP_ENV=production\n")
+    assert "TEMPORAL__POSTGRES_IMAGE" not in unpinned
 
 
 def test_redis_service_runs_pinned_valkey() -> None:

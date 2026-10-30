@@ -34,7 +34,8 @@ from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES, VIEWER_SCOPES
 from autosecops.cases.enums import CaseEventType, CasePriority, CaseSeverity
 from autosecops.cases.service import CaseFieldsService
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.contexts import ctx_role
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import (
     Case,
     CaseEvent,
@@ -136,14 +137,14 @@ async def _new_workspace(org_id: uuid.UUID) -> Workspace:
         name=f"robot-edr-{uuid.uuid4().hex[:8]}",
         organization_id=org_id,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(workspace)
         await session.commit()
     return workspace
 
 
 async def _drop_workspace(workspace_id: uuid.UUID) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(delete(Workspace).where(Workspace.id == workspace_id))
         await session.commit()
 
@@ -178,7 +179,7 @@ def admin_role(ws: Workspace, scopes: frozenset[str] = ADMIN_SCOPES) -> Role:
 async def register_robot(
     ws: Workspace, robot_id: str, *, require_sig: bool = False
 ) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await RobotsService(session, role=admin_role(ws)).create_robot(
             RobotCreate(
                 robot_id=robot_id,
@@ -197,7 +198,7 @@ async def register_key(
     key_id: str | None = None,
     expires_at: datetime | None = None,
 ) -> uuid.UUID:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         created = await RobotsService(session, role=admin_role(ws)).create_key(
             RobotKeyCreate(
                 role=role,
@@ -242,7 +243,7 @@ async def uplink(workspace: Workspace) -> RoboKey:
 
 
 async def _findings(ws: Workspace) -> list[RobotFinding]:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         return list(
             (
                 await session.scalars(
@@ -254,14 +255,14 @@ async def _findings(ws: Workspace) -> list[RobotFinding]:
 
 async def _case(case_id: uuid.UUID | None) -> Case:
     assert case_id is not None
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         case = await session.scalar(select(Case).where(Case.id == case_id))
         assert case is not None
         return case
 
 
 async def _case_event_types(case_id: uuid.UUID) -> list[CaseEventType]:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         rows = await session.scalars(
             select(CaseEvent.type).where(CaseEvent.case_id == case_id)
         )
@@ -325,7 +326,7 @@ async def test_created_updated_duplicate_and_replay(
     assert CaseEventType.CASE_CREATED in events
     assert CaseEventType.FIELDS_CHANGED in events
 
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         fields = await CaseFieldsService(
             session, role=admin_role(workspace)
         ).get_fields(case)
@@ -360,7 +361,7 @@ async def test_custom_fields_are_created_once(
     for label in ("a", "b"):
         response = await post_batch(client, uplink, [line(synth_finding(label=label))])
         assert response.json()["created"] == 1
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         schema = await CaseFieldsService(
             session, role=admin_role(workspace)
         ).get_field_schema()
@@ -479,12 +480,12 @@ async def test_site_scoped_and_origin_vouching_relays(
 ) -> None:
     await register_robot(workspace, "ugv-001")  # site range-north
     await register_robot(workspace, "ugv-sig", require_sig=True)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotsService(session, role=admin_role(workspace))
         await service.create_robot(RobotCreate(robot_id="ugv-far", site="range-south"))
     site_relay = key(f"site-relay-{workspace.id}")
     diode = key(f"diode-{workspace.id}")
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotsService(session, role=admin_role(workspace))
         await service.create_key(
             RobotKeyCreate(
@@ -543,7 +544,7 @@ async def test_out_of_order_events(
     assert case.severity == CaseSeverity.CRITICAL
     assert case.payload is not None
     assert case.payload["robodr"]["occurrence_count"] == 3
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         events = (
             await session.scalars(
                 select(RobotFindingEvent.event_uid).where(
@@ -590,7 +591,7 @@ def _mixed_lines() -> list[bytes]:
 async def _case_state(ws: Workspace) -> dict[str, Any]:
     """Every finding of ``ws`` with its case, case fields and case events."""
     state: dict[str, Any] = {}
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         fields_service = CaseFieldsService(session, role=admin_role(ws))
         for finding in await _findings(ws):
             case = await _case(finding.case_id)
@@ -669,7 +670,7 @@ async def test_one_batch_equals_its_lines_one_by_one(
     assert batched["rejected"][0]["code"] == singles[3]["rejected"][0]["code"]
 
     assert await _case_state(workspace) == await _case_state(other_workspace)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         numbers = (
             await session.scalars(
                 select(Case.case_number)
@@ -713,7 +714,7 @@ async def test_a_deleted_case_is_reopened(
     again = synth_finding(label="reopen", count=2)
     assert (await post_batch(client, uplink, [line(first)])).json()["created"] == 1
     [finding] = await _findings(workspace)
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(delete(Case).where(Case.id == finding.case_id))
         await session.commit()
     response = (await post_batch(client, uplink, [line(again), line(again)])).json()
@@ -742,7 +743,7 @@ async def test_authentication_failures_are_401_and_audited(
     expired = key(f"expired-{workspace.id}")
     finding_only = key(f"finding-only-{workspace.id}")
     revoked_id = await register_key(workspace, revoked, RobotKeyRole.UPLINK, "ugv-001")
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotsService(session, role=admin_role(workspace))
         revoked_key, _ = await service.get_key(revoked_id)
         await service.revoke_key(revoked_key)
@@ -954,7 +955,7 @@ async def test_failed_batch_leaves_nothing_behind(
     with pytest.raises(RuntimeError):
         await post_batch(client, uplink, lines, batch_id="atomic")
     assert await _findings(workspace) == []
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         cases = await session.scalar(
             select(func.count())
             .select_from(Case)
@@ -967,7 +968,7 @@ async def test_failed_batch_leaves_nothing_behind(
 
 
 async def test_old_batches_are_purged(workspace: Workspace, uplink: RoboKey) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         key_row = await session.scalar(
             select(RobotKey).where(RobotKey.key_id == uplink.key_id)
         )
@@ -984,7 +985,7 @@ async def test_old_batches_are_purged(workspace: Workspace, uplink: RoboKey) -> 
         )
         await session.commit()
     assert await ingest_module.purge_expired_batches() >= 1
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         assert (
             await session.scalar(
                 select(RobotIngestBatch).where(RobotIngestBatch.batch_id == "ancient")
@@ -1024,7 +1025,7 @@ async def test_cases_are_tagged_robodr(
 ) -> None:
     for label in ("tag-a", "tag-b"):
         await post_batch(client, uplink, [line(synth_finding(label=label))])
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         tags = (
             await session.execute(
                 select(CaseTag.ref, func.count(CaseTagLink.case_id))
@@ -1135,7 +1136,14 @@ async def mgmt(
     app = FastAPI()
     app.include_router(management_router)
     role_dependency = get_args(WorkspaceActorRouteRole)[1].dependency
-    app.dependency_overrides[role_dependency] = lambda: holder.role
+
+    async def _role() -> Role:
+        # Like the real dependency, bind the role so request sessions carry
+        # its tenant context.
+        ctx_role.set(holder.role)
+        return holder.role
+
+    app.dependency_overrides[role_dependency] = _role
 
     async def _denied(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": str(exc)})
