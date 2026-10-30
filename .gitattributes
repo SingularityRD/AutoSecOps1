@@ -3,3 +3,10 @@
 
 # Shell scripts run in Linux containers and WSL2; CRLF line endings break them.
 *.sh text eol=lf
+
+# Files consumed inside Linux builds keep LF on Windows checkouts too: CRLF
+# makes `git apply` reject the nsjail patch and breaks shebang scripts.
+*.patch text eol=lf
+Dockerfile* text eol=lf
+*.Dockerfile text eol=lf
+scripts/cluster text eol=lf
