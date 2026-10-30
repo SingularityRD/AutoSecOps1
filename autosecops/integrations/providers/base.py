@@ -7,6 +7,7 @@ import secrets
 import socket
 from abc import ABC
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from json import JSONDecodeError
 from typing import Any, ClassVar, Self
 from urllib.parse import urlparse, urlunparse
@@ -35,6 +36,7 @@ from autosecops.network import (
     is_disallowed_address,
     validate_resolved_addresses,
 )
+from autosecops.outbound import create_outbound_http_client
 
 _OAUTH_AUTHORIZATION_SERVER_WELL_KNOWN = "/.well-known/oauth-authorization-server"
 
@@ -211,32 +213,6 @@ def _validate_oauth_resolved_addresses(infos: Sequence[SocketInfo]) -> None:
         raise ValueError("OAuth endpoint host is not allowed") from exc
 
 
-def validate_oauth_endpoint_resolves_public(
-    url: str, base_domain: str | None = None
-) -> None:
-    """Validate URL and require DNS resolution to public IP addresses."""
-
-    validate_oauth_endpoint(url, base_domain=base_domain)
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    if not hostname:
-        raise ValueError(f"OAuth endpoint must include a hostname: {url}")
-    port = parsed.port or 443
-    try:
-        infos = [
-            SocketInfo(*info)
-            for info in socket.getaddrinfo(
-                hostname,
-                port,
-                type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_TCP,
-            )
-        ]
-    except socket.gaierror as exc:
-        raise ValueError("OAuth endpoint host could not be resolved") from exc
-    _validate_oauth_resolved_addresses(infos)
-
-
 async def validate_oauth_endpoint_resolves_public_async(
     url: str, base_domain: str | None = None
 ) -> None:
@@ -262,6 +238,36 @@ async def validate_oauth_endpoint_resolves_public_async(
     except socket.gaierror as exc:
         raise ValueError("OAuth endpoint host could not be resolved") from exc
     _validate_oauth_resolved_addresses(infos)
+
+
+async def _send_oauth_request(
+    method: str, url: str, *, json_body: dict[str, Any] | None = None
+) -> httpx.Response:
+    """Send an OAuth discovery or registration request to a caller-chosen host.
+
+    The outbound client checks every resolved address against the egress policy
+    and dials the checked address, so DNS cannot change between check and
+    connect. Private hosts need ``AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS``.
+    """
+    validate_oauth_endpoint(url, allow_private_hosts=True)
+    try:
+        async with create_outbound_http_client() as client:
+            if json_body is None:
+                return await client.get(url, timeout=10.0)
+            return await client.post(url, json=json_body, timeout=10.0)
+    except DisallowedUrlError as exc:
+        raise ValueError("OAuth endpoint host is not allowed") from exc
+
+
+def _fetch_oauth_discovery_response_sync(url: str) -> httpx.Response:
+    """Run a guarded discovery GET from synchronous provider initialization.
+
+    The guarded client is async-only. A worker thread owns a fresh event loop,
+    so this also works when the caller is already inside a running loop.
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(lambda: asyncio.run(_send_oauth_request("GET", url)))
+        return future.result()
 
 
 class CustomOAuthProviderMixin:
@@ -450,10 +456,7 @@ class BaseOAuthProvider(ABC):
     ) -> DCRResponse:
         """Send a dynamic registration request asynchronously."""
 
-        await validate_oauth_endpoint_resolves_public_async(endpoint)
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(endpoint, json=payload, timeout=10.0)
+        response = await _send_oauth_request("POST", endpoint, json_body=payload)
         response.raise_for_status()
         return DCRResponse.model_validate(response.json())
 
@@ -940,41 +943,39 @@ class MCPAuthProvider(BaseMCPProvider, AuthorizationCodeOAuthProvider):
 
         try:
             # Synchronous discovery during initialization
-            validate_oauth_endpoint_resolves_public(discovery_url)
-            with httpx.Client() as client:
-                response = client.get(discovery_url, timeout=10.0)
-                response.raise_for_status()
-                metadata = OAuthServerMetadata.from_json(response.json())
-                if metadata is None or not metadata.is_complete:
-                    raise ValueError("OAuth discovery document is missing endpoints")
-                auth_endpoint = metadata.authorization_endpoint
-                token_endpoint = metadata.token_endpoint
-                if auth_endpoint is None or token_endpoint is None:
-                    raise ValueError("OAuth discovery document is missing endpoints")
-                token_methods = metadata.token_endpoint_auth_methods_supported
+            response = _fetch_oauth_discovery_response_sync(discovery_url)
+            response.raise_for_status()
+            metadata = OAuthServerMetadata.from_json(response.json())
+            if metadata is None or not metadata.is_complete:
+                raise ValueError("OAuth discovery document is missing endpoints")
+            auth_endpoint = metadata.authorization_endpoint
+            token_endpoint = metadata.token_endpoint
+            if auth_endpoint is None or token_endpoint is None:
+                raise ValueError("OAuth discovery document is missing endpoints")
+            token_methods = metadata.token_endpoint_auth_methods_supported
 
-                # Validate discovered endpoints for security
-                base_domain = urlparse(base_url).hostname
-                self._validate_discovered_oauth_endpoint(auth_endpoint, base_domain)
-                self._validate_discovered_oauth_endpoint(token_endpoint, base_domain)
+            # Validate discovered endpoints for security
+            base_domain = urlparse(base_url).hostname
+            self._validate_discovered_oauth_endpoint(auth_endpoint, base_domain)
+            self._validate_discovered_oauth_endpoint(token_endpoint, base_domain)
 
-                registration_endpoint = metadata.registration_endpoint
-                if registration_endpoint:
-                    self._validate_discovered_oauth_endpoint(
-                        registration_endpoint, base_domain
-                    )
-
-                self.logger.info(
-                    "Discovered OAuth endpoints",
-                    provider=self.id,
+            registration_endpoint = metadata.registration_endpoint
+            if registration_endpoint:
+                self._validate_discovered_oauth_endpoint(
+                    registration_endpoint, base_domain
                 )
-                return OAuthDiscoveryResult(
-                    authorization_endpoint=auth_endpoint,
-                    token_endpoint=token_endpoint,
-                    token_methods=token_methods,
-                    scopes_supported=metadata.scopes_supported,
-                    registration_endpoint=registration_endpoint,
-                )
+
+            self.logger.info(
+                "Discovered OAuth endpoints",
+                provider=self.id,
+            )
+            return OAuthDiscoveryResult(
+                authorization_endpoint=auth_endpoint,
+                token_endpoint=token_endpoint,
+                token_methods=token_methods,
+                scopes_supported=metadata.scopes_supported,
+                registration_endpoint=registration_endpoint,
+            )
         except Exception as e:
             # Check if subclass provides fallback endpoints
             if self._fallback_auth_endpoint and self._fallback_token_endpoint:
@@ -1041,9 +1042,7 @@ class MCPAuthProvider(BaseMCPProvider, AuthorizationCodeOAuthProvider):
         discovery_url = oauth_authorization_server_metadata_urls(base_url)[0]
 
         try:
-            await validate_oauth_endpoint_resolves_public_async(discovery_url)
-            async with httpx.AsyncClient() as client:
-                response = await client.get(discovery_url, timeout=10.0)
+            response = await _send_oauth_request("GET", discovery_url)
             response.raise_for_status()
             metadata = OAuthServerMetadata.from_json(response.json())
             if metadata is None or not metadata.is_complete:
