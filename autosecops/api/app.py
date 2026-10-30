@@ -98,6 +98,7 @@ from autosecops.api.lifespan import (
     freeze_startup_heap_after,
     unfreeze_startup_heap,
 )
+from autosecops.api.openapi import install_openapi_component_schemas
 from autosecops.auth.credentials import authenticated_user_only, require_superuser
 from autosecops.auth.dependencies import (
     require_any_auth_type_enabled,
@@ -773,6 +774,7 @@ def create_app(**kwargs) -> FastAPI:
         **kwargs,
     )
     install_api_docs(app)
+    install_openapi_component_schemas(app)
     app.state.logger = logger
 
     # Routers

@@ -451,8 +451,6 @@ import type {
   DeleteCustomProviderResponse,
   DisableModelData,
   DisableModelResponse,
-  EditorFieldSchemaData,
-  EditorFieldSchemaResponse,
   EditorListActionsData,
   EditorListActionsResponse,
   EditorListFunctionsData,
@@ -11225,28 +11223,6 @@ export const editorValidateExpression = (
     },
     body: data.requestBody,
     mediaType: "application/json",
-    errors: {
-      422: "Validation Error",
-    },
-  })
-}
-
-/**
- * Field Schema
- * @param data The data for the request.
- * @param data.workspaceId
- * @returns EditorComponent Successful Response
- * @throws ApiError
- */
-export const editorFieldSchema = (
-  data: EditorFieldSchemaData
-): CancelablePromise<EditorFieldSchemaResponse> => {
-  return __request(OpenAPI, {
-    method: "GET",
-    url: "/workspaces/{workspace_id}/editor/field-schema",
-    path: {
-      workspace_id: data.workspaceId,
-    },
     errors: {
       422: "Validation Error",
     },

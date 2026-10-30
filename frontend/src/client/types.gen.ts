@@ -17248,12 +17248,6 @@ export type EditorValidateExpressionData = {
 
 export type EditorValidateExpressionResponse = ExpressionValidationResponse
 
-export type EditorFieldSchemaData = {
-  workspaceId: string
-}
-
-export type EditorFieldSchemaResponse = EditorComponent
-
 export type RegistryRepositoriesSyncRegistryRepositoryData = {
   repositoryId: string
   requestBody?: RegistryRepositorySync | null
@@ -25348,21 +25342,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: ExpressionValidationResponse
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/editor/field-schema": {
-    get: {
-      req: EditorFieldSchemaData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: EditorComponent
         /**
          * Validation Error
          */
