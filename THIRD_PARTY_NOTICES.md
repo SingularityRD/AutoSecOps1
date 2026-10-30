@@ -287,7 +287,7 @@ hand.
 | starlette | 1.3.1 | BSD-3-Clause |
 | std-uritemplate | 2.0.12 | Apache Software License |
 | tavily-python | 0.7.6 | MIT License |
-| temporalio | 1.34.0 | MIT |
+| temporalio | 1.35.0 | MIT |
 | tenacity | 8.3.0 | Apache Software License |
 | text-unidecode | 1.3 | Artistic License / GNU General Public License (GPL) / GNU General Public License v2 or later (GPLv2+) |
 | tiktoken | 0.14.0 | MIT License |
@@ -30589,7 +30589,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### temporalio 1.34.0
+### temporalio 1.35.0
 
 - License: MIT
 - Homepage: https://github.com/temporalio/sdk-python
