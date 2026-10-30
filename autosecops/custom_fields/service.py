@@ -10,7 +10,7 @@ from sqlalchemy.schema import CreateSchema, CreateTable, DropSchema
 
 from autosecops.auth.types import Role
 from autosecops.custom_fields.schemas import CustomFieldCreate, CustomFieldUpdate
-from autosecops.db.locks import derive_lock_key_from_parts, pg_advisory_lock
+from autosecops.db.locks import derive_lock_key_from_parts, pg_advisory_xact_lock
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkspaceUUID
 from autosecops.service import BaseWorkspaceService
@@ -121,14 +121,13 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
             self.service_name,
             self._table,
         )
-        async with pg_advisory_lock(self.session, lock_key):
-            await self.session.execute(
-                CreateSchema(self.schema_name, if_not_exists=True)
-            )
-            await self.session.execute(
-                CreateTable(self._table_definition(), if_not_exists=True)
-            )
-            await self._enable_workspace_rls_for_base_table()
+        # Held until the caller's transaction ends, so a waiter sees committed DDL.
+        await pg_advisory_xact_lock(self.session, lock_key)
+        await self.session.execute(CreateSchema(self.schema_name, if_not_exists=True))
+        await self.session.execute(
+            CreateTable(self._table_definition(), if_not_exists=True)
+        )
+        await self._enable_workspace_rls_for_base_table()
         self._schema_initialized = True
 
     async def _ensure_schema_ready(self) -> None:
