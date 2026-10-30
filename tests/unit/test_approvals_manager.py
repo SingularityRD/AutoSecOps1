@@ -27,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops.agent.approvals.enums import ApprovalStatus
 from autosecops.agent.common.stream_types import ToolCallContent
 from autosecops.auth.types import Role
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import (
+    get_async_session_bypass_rls_context_manager,
+)
 from autosecops.db.models import AgentSession, Approval, User
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -804,7 +806,7 @@ class TestApplyApprovalDecisionsConcurrency:
         both_started = asyncio.Barrier(2)
 
         # Commit the agent session globally so independent connections satisfy the FK.
-        async with get_async_session_context_manager() as setup:
+        async with get_async_session_bypass_rls_context_manager() as setup:
             setup.add(
                 AgentSession(
                     id=session_id,
@@ -854,7 +856,7 @@ class TestApplyApprovalDecisionsConcurrency:
             errors = [r for r in results if isinstance(r, BaseException)]
             assert not errors, f"concurrent applies raised: {errors}"
 
-            async with get_async_session_context_manager() as verify:
+            async with get_async_session_bypass_rls_context_manager() as verify:
                 rows = (
                     (
                         await verify.execute(
@@ -871,7 +873,7 @@ class TestApplyApprovalDecisionsConcurrency:
                 assert len(rows) == 1
                 assert rows[0].tool_name == "unknown"
         finally:
-            async with get_async_session_context_manager() as cleanup:
+            async with get_async_session_bypass_rls_context_manager() as cleanup:
                 await cleanup.execute(
                     delete(Approval).where(
                         Approval.workspace_id == svc_role.workspace_id,

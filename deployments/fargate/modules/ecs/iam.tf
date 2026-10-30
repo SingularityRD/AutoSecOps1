@@ -148,6 +148,7 @@ resource "aws_iam_policy" "secrets_access" {
           var.saml_idp_metadata_url_arn,
           var.temporal_api_key_arn,
           aws_secretsmanager_secret.redis_url.arn,
+          aws_secretsmanager_secret.db_runtime_password.arn,
           var.autosecops_registry_credentials_arn,
           ]),
           aws_secretsmanager_secret.sentry_dsn[*].arn,

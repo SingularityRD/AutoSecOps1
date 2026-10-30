@@ -40,7 +40,7 @@ from autosecops import config
 from autosecops.audit.service import AuditService
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import (
     Organization,
     Robot,
@@ -127,7 +127,7 @@ async def _new_workspace(org_id: uuid.UUID) -> Workspace:
     ws = Workspace(
         id=uuid.uuid4(), name=f"fleet-{uuid.uuid4().hex[:8]}", organization_id=org_id
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(ws)
         await session.commit()
     return ws
@@ -135,7 +135,7 @@ async def _new_workspace(org_id: uuid.UUID) -> Workspace:
 
 async def _drop_workspace(ws: Workspace) -> None:
     """Drop the case's SOC, and forget the vectors' keys (each case is fresh)."""
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(delete(Workspace).where(Workspace.id == ws.id))
         await session.execute(
             delete(RobotKeyRegistry).where(
@@ -154,7 +154,7 @@ async def _robot(session: Any, ws: Workspace, robot_id: str) -> Robot:
 
 async def _setup_case(ws: Workspace, setup: dict[str, Any]) -> None:
     """The SOC keys, the case's tokens and its publications (served verbatim)."""
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotFleetService(session, role=_admin(ws))
         for kind, path in (
             (FleetSocKeyKind.FLEET, "keys/soc.key"),

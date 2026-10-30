@@ -29,7 +29,7 @@ from autosecops import config
 from autosecops.audit.service import AuditService
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES
-from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import Organization, Workspace
 from autosecops.robot_edr import ingest as ingest_module
 from autosecops.robot_edr import rate_limit
@@ -70,14 +70,14 @@ async def _new_workspace(org_id: uuid.UUID) -> Workspace:
     ws = Workspace(
         id=uuid.uuid4(), name=f"vectors-{uuid.uuid4().hex[:8]}", organization_id=org_id
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         session.add(ws)
         await session.commit()
     return ws
 
 
 async def _drop_workspace(ws: Workspace) -> None:
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(delete(Workspace).where(Workspace.id == ws.id))
         await session.commit()
 
@@ -91,7 +91,7 @@ async def _register_manifest_workspace(ws: Workspace) -> None:
         organization_id=ws.organization_id,
         scopes=ADMIN_SCOPES,
     )
-    async with get_async_session_context_manager() as session:
+    async with get_async_session_bypass_rls_context_manager() as session:
         service = RobotsService(session, role=role)
         for robot in MANIFEST["workspace"]["robots"]:
             await service.create_robot(

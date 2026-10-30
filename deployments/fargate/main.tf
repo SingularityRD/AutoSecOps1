@@ -84,6 +84,7 @@ module "ecs" {
   feature_flags                                 = var.feature_flags
   license_key                                   = var.license_key
   ee_multi_tenant                               = var.ee_multi_tenant
+  rls_mode                                      = var.rls_mode
   context_compression_enabled                   = var.context_compression_enabled
   context_compression_threshold_kb              = var.context_compression_threshold_kb
   temporal_payload_encryption_enabled           = var.temporal_payload_encryption_enabled

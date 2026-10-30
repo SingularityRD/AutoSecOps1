@@ -38,6 +38,60 @@ services:
 
 In production, prefer managed services (e.g., Amazon RDS, ElastiCache) over self-hosted PostgreSQL and Redis: they handle encryption at rest, automated backups, and credential rotation.
 
+## Database roles and tenant isolation
+
+AutoSecOps uses two PostgreSQL roles:
+
+- The owner role (`AUTOSECOPS__POSTGRES_USER`, the Helm `externalPostgres.auth.username`, or the RDS master user on Fargate) owns the schema and runs migrations.
+- The runtime role (`autosecops_app` by default) is the login every other service uses: API, workers, executors, agent services, LiteLLM, and MCP.
+
+PostgreSQL applies row-level security only to roles that neither own the table nor have `SUPERUSER` or `BYPASSRLS`. With the runtime role and `AUTOSECOPS__RLS_MODE=enforce`, every database session carries the caller's organization and workspace, and PostgreSQL withholds other tenants' rows even when an application check slips. Platform superusers, startup tasks, background consumers, and migrations set an explicit, audited bypass.
+
+The migrations step creates the runtime role after `alembic upgrade head` and re-applies its grants on every upgrade:
+
+- `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`, with the password from `AUTOSECOPS__DB_RUNTIME_PASSWORD`.
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE` on the `public` tables and default privileges for tables that later migrations add, plus `REFERENCES` on `case` for case field tables. It can read `alembic_version` but not change it.
+- `CREATE` on the database and ownership of the per-workspace `tables_*` and `custom_fields_*` schemas, which the services create and alter at runtime. Those tables force row-level security, so the policy applies to their owner too.
+
+The owner role needs `CREATEROLE` (the bundled PostgreSQL superuser and the RDS master user have it). If your DBA manages roles instead, create the role and grant it to the owner before you upgrade, then set the same password in AutoSecOps:
+
+```sql
+CREATE ROLE autosecops_app LOGIN PASSWORD '<openssl rand -hex 24>'
+  NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+GRANT autosecops_app TO <owner role>;
+GRANT CREATE ON DATABASE <database> TO autosecops_app;
+```
+
+When `AUTOSECOPS__DB_RUNTIME_PASSWORD` is empty, migrations skip the role and every service keeps connecting as the owner. AutoSecOps still runs, but row-level security is inactive and each service logs a warning.
+
+### Enable isolation on an existing install
+
+1. Generate a password with `openssl rand -hex 24`.
+2. Set it for your deployment:
+   - Docker Compose: `AUTOSECOPS__DB_RUNTIME_PASSWORD=<password>` in `.env`.
+   - Kubernetes: `externalPostgres.auth.runtimePassword`, or a `runtime-password` key in `externalPostgres.auth.existingSecret`.
+   - Fargate: nothing; Terraform generates the password and stores it in Secrets Manager.
+3. Upgrade as usual. Migrations provision the role before the services restart.
+4. Verify isolation, as below.
+
+### Verify isolation
+
+The API logs its posture at startup:
+
+```bash
+docker compose logs api | grep "RLS posture"
+# RLS posture | {'rls_mode': 'enforce', 'db_role': 'autosecops_app', 'rls_isolation_active': True, ...}
+```
+
+`rls_isolation_active` is `True` only when the mode is `enforce` and the service connects as a role that row-level security binds. A warning with `False` names the role in use. To confirm from PostgreSQL, list the service connections and the runtime role's attributes as the owner:
+
+```sql
+SELECT usename, application_name FROM pg_stat_activity WHERE datname = current_database();
+SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'autosecops_app';
+```
+
+Service connections show `autosecops_app`, and both attributes are `false`. Set `AUTOSECOPS__RLS_MODE=off` only to roll back a regression; `off` and `shadow` set the bypass on every session.
+
 ## Platform secrets
 
 AutoSecOps requires four cryptographic secrets, plus an optional keyring if you enable Temporal payload encryption.
