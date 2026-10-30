@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
+from autosecops import config
 from autosecops.auth.credentials import AuthenticatedUserOnly
 from autosecops.auth.dependencies import OrgActorRole, OrgUserRole
 from autosecops.auth.schemas import SessionRead, UserUpdate
@@ -29,6 +30,13 @@ from autosecops.identifiers import SessionID, UserID
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationGrant
 from autosecops.invitations.service import InvitationService
+from autosecops.licensing.schemas import LicenseNoticeRead
+from autosecops.licensing.service import (
+    ensure_license_deployment_loaded,
+    get_license_state,
+    license_days_remaining,
+    license_notice_level,
+)
 from autosecops.organization.schemas import (
     MemberAccessTrace,
     OrgDomainRead,
@@ -200,6 +208,33 @@ async def get_organization_entitlements(
 
     tier_service = TierService(session)
     return await tier_service.get_effective_entitlements(role.organization_id)
+
+
+@router.get("/license-notice", response_model=LicenseNoticeRead)
+@require_scope("org:settings:update")
+async def get_organization_license_notice(*, role: OrgActorRole) -> LicenseNoticeRead:
+    """Get the license expiry notice shown to organization administrators.
+
+    Only single-tenant installs, where the license controls the product,
+    report a notice. In multi-tenant mode, organization administrators are
+    tenants of the operator and never see the operator's license.
+    """
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
+        return LicenseNoticeRead()
+    await ensure_license_deployment_loaded()
+    state = get_license_state(log=False)
+    now = datetime.now(UTC)
+    if (level := license_notice_level(state, now)) is None:
+        return LicenseNoticeRead()
+    claims = state.claims
+    return LicenseNoticeRead(
+        level=level,
+        status=state.status,
+        plan=claims.plan if claims else None,
+        expires_at=claims.expires_at if claims else None,
+        grace_ends_at=state.grace_ends_at,
+        days_remaining=license_days_remaining(state, now),
+    )
 
 
 @router.get("/members/me", response_model=OrgMemberDetail)
