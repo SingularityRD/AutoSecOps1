@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped
 from autosecops.audit.logger import audit_log
 from autosecops.auth.schemas import UserCreate, UserRole
 from autosecops.auth.users import get_user_db_context, get_user_manager_context
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
@@ -66,6 +67,8 @@ class AdminUserService(BasePlatformService):
             await self.session.commit()
         except IntegrityError as e:
             await self.session.rollback()
+            if not is_unique_violation(e, "ix_user_email"):
+                raise
             raise ValueError(f"User with email {params.email} already exists") from e
 
         await self.session.refresh(user)

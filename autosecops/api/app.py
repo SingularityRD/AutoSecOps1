@@ -38,7 +38,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from pydantic_core import to_jsonable_python
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
@@ -87,6 +86,7 @@ from autosecops.api.common import (
     http_exception_handler,
     query_overflow_exception_handler,
     query_timeout_exception_handler,
+    serialize_validation_errors,
     table_row_exception_handler,
     without_inputs,
 )
@@ -470,7 +470,11 @@ def _install_scim_exception_handlers(app: FastAPI) -> None:
         if status_code is None:
             return await _unexpected(request, exc)
         return scim_error_response(
-            status_code=status_code, detail="The request was rejected."
+            status_code=status_code,
+            detail="The request was rejected.",
+            scim_type=(
+                "invalidValue" if status_code == status.HTTP_400_BAD_REQUEST else None
+            ),
         )
 
     app.add_exception_handler(Exception, _unexpected)
@@ -513,8 +517,7 @@ def validation_exception_handler(request: Request, exc: Exception) -> Response:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": str(exc)},
         )
-    errors = exc.errors()
-    ser_errors = _orjson_safe(to_jsonable_python(errors, fallback=str))
+    ser_errors = _orjson_safe(serialize_validation_errors(exc.errors()))
     logger.error(
         "API Model Validation error",
         method=request.method,
@@ -927,6 +930,7 @@ def create_app(**kwargs) -> FastAPI:
         AuthPoolExhaustedError,
         auth_pool_exhausted_exception_handler,
     )
+    app.add_exception_handler(DBAPIError, database_exception_handler)
     app.add_exception_handler(AutoSecOpsException, autosecops_exception_handler)
     app.add_exception_handler(TableRowError, table_row_exception_handler)
     app.add_exception_handler(FormError, form_error_handler)
@@ -952,7 +956,6 @@ def create_app(**kwargs) -> FastAPI:
     )
     app.add_exception_handler(ScopeDeniedError, scope_denied_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
-    app.add_exception_handler(DBAPIError, database_exception_handler)
     # SCIM paths answer with the spec's error envelope, so their handlers wrap
     # the app-wide ones rather than replacing them.
     _install_scim_exception_handlers(app)

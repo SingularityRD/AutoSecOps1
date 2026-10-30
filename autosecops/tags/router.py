@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import WorkflowTag
 from autosecops.identifiers import TagID
 from autosecops.tags.schemas import TagCreate, TagRead, TagUpdate
@@ -59,12 +60,17 @@ async def create_tag(
     try:
         return await service.create_tag(tag)
     except ValueError as e:
-        # Raised by the service when a tag with the same slug already exists.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Tag already exists",
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(
+            e,
+            "uq_workflow_tag_name_workspace",
+            "uq_workflow_tag_ref_workspace",
+        ):
+            raise
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Tag already exists",
@@ -92,6 +98,12 @@ async def update_tag(
     try:
         return await service.update_tag(tag, tag_update)
     except IntegrityError as e:
+        if not is_unique_violation(
+            e,
+            "uq_workflow_tag_name_workspace",
+            "uq_workflow_tag_ref_workspace",
+        ):
+            raise
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Tag already exists",

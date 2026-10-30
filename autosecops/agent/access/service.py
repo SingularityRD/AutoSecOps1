@@ -23,6 +23,7 @@ from autosecops.agent.catalog.schemas import (
 from autosecops.agent.default_model import resolve_org_default_model
 from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import (
     AgentCatalog,
     AgentCustomProvider,
@@ -91,11 +92,13 @@ class AgentModelAccessService(BaseOrgService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            pgcode = getattr(getattr(err, "orig", None), "pgcode", None)
-            if pgcode == "23505":
+            if is_unique_violation(
+                err, "uq_agent_model_access_organization_workspace_catalog"
+            ):
                 raise AutoSecOpsValidationError(
                     f"Model access for catalog {catalog_id} already enabled"
                 ) from err
+            pgcode = getattr(getattr(err, "orig", None), "pgcode", None)
             if pgcode == "23503":
                 raise AutoSecOpsNotFoundError(
                     f"Catalog {catalog_id} or workspace {workspace_id} not found"

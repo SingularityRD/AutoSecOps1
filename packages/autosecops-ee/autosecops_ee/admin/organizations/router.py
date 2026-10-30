@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from autosecops import config
 from autosecops.auth.credentials import SuperuserRole, SuperuserStepUpRole
 from autosecops.db.dependencies import AsyncDBSessionBypass
+from autosecops.db.errors import is_unique_violation
 from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
@@ -157,6 +158,8 @@ async def create_organization_invitation(
         ) from e
     except IntegrityError as e:
         # Race: a concurrent request already inserted a pending row for this email.
+        if not is_unique_violation(e, "ix_invitation_org_email_pending_unique"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An invitation already exists for this email",
