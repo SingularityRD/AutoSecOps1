@@ -402,6 +402,7 @@ def test_the_validator_catalog_matches_the_registry_catalog() -> None:
         set(registry_catalog.CATALOG_BASE)
         | set(registry_catalog.CATALOG_2_1)
         | set(registry_catalog.CATALOG_2_2)
+        | set(registry_catalog.CATALOG_2_3)
         | {"robot.correlate.site_specific", "robot.unknown.rule"}
     )
     for rule_id in sorted(rules):
@@ -410,6 +411,8 @@ def test_the_validator_catalog_matches_the_registry_catalog() -> None:
             ("2.1.0", 1),
             ("2.2.0", 2),
             ("2.3.1", 3),
+            ("2.4.0", 4),
+            ("02.3.0", 3),
         ):
             expected = registry_catalog.rule_info_for_contract(rule_id, 2, minor)
             assert validator.rule_info_for_contract(rule_id, version) == _registry_info(
@@ -439,3 +442,34 @@ def test_the_validator_selects_the_2_2_delivery_catalog_by_minor() -> None:
     # A 2.2 message keeps the 2.1 entries.
     flood = validator.rule_info_for_contract("robot.ros2.discovery_flood", "2.2.0")
     assert flood.data_source == "ros2_dds_discovery"
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "data_source"),
+    [
+        ("robot.gateway.trajectory_rejected", "ros2_motion_commands"),
+        ("robot.seal.erased", "robodr_delivery"),
+        ("robot.unitree.webrtc_unknown_controller", "ros2_motion_commands"),
+    ],
+)
+def test_the_validator_selects_the_2_3_blocks_by_minor(
+    rule_id: str, data_source: str
+) -> None:
+    expected = _registry_info(registry_catalog.CATALOG_2_3[rule_id])
+    for version in ("2.3.0", "2.3.4"):
+        info = validator.rule_info_for_contract(rule_id, version)
+        assert info == expected
+        assert info.data_source == data_source
+        assert info.techniques == ()
+    # 2.0 to 2.2 producers report the generic entry for it.
+    for version in ("2.0.0", "2.1.0", "2.2.0"):
+        generic = validator.rule_info_for_contract(rule_id, version)
+        assert generic == _registry_info(registry_catalog.GENERIC)
+    # A 2.3 message keeps the 2.2 entries.
+    refused = validator.rule_info_for_contract("robot.deliver.refused", "2.3.0")
+    assert refused.title == "Delivery refused"
+
+
+def test_the_validator_catalog_file_has_every_2_3_id() -> None:
+    raw = validator._catalog()["catalog_2_3"]
+    assert set(raw) == set(registry_catalog.CATALOG_2_3)

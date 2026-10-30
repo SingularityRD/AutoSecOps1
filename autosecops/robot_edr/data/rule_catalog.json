@@ -1,5 +1,5 @@
 {
- "_origin": "Extracted from SingularityRD robodr crates/robodr-ocsf/src/builder.rs (rule_info_for_contract), findings contract 2.2.0. Regenerate when the producer catalog changes.",
+ "_origin": "Extracted from SingularityRD robodr crates/robodr-ocsf/src/builder.rs (rule_info_for_contract), findings contract 2.3.0. Regenerate when the producer catalog changes.",
  "catalog_1_0": {
   "robot.motion.angular_over_envelope": {
    "data_source": "ros2_motion_commands",
@@ -1038,6 +1038,128 @@
    "desc": "The unit's newest deployment or its site trust file expired without a fresh one arriving: updates or revocations may be withheld from the unit.",
    "techniques": [],
    "title": "No fresh deployment or trust file"
+  }
+ },
+ "catalog_2_3": {
+  "robot.gateway.findings_dropped": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway had more distinct findings in one reporting period than it can hold; some were counted but not reported individually.",
+   "techniques": [],
+   "title": "In-path gateway findings lost"
+  },
+  "robot.gateway.fragmented_command": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway suppressed a fragmented, key-only or non-standard RTPS sample of an enforced motion channel, or of a writer it could not classify; such a sample cannot be decided in place.",
+   "techniques": [],
+   "title": "Fragmented motion command blocked by the in-path gateway"
+  },
+  "robot.gateway.port_bypass_risk": {
+   "data_source": "ros2_motion_commands",
+   "desc": "DDS discovery announced a locator on a UDP port the in-path motion gateway does not inspect: commands sent there would reach the robot unchecked until the gateway's port ranges are fixed.",
+   "techniques": [],
+   "title": "Motion traffic may bypass the in-path gateway"
+  },
+  "robot.gateway.restriction_changed": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A restrict_motion restriction was applied, changed, lifted or expired on the in-path motion gateway. Informational: the evidence trail of the robot's effective motion limits.",
+   "techniques": [],
+   "title": "Motion restriction changed on the in-path gateway"
+  },
+  "robot.gateway.sequence_jump": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway held back a sample whose RTPS sequence number jumped far past the writer's stream until the writer confirmed it: a forged high sequence number could otherwise make the robot drop the genuine commands.",
+   "techniques": [],
+   "title": "Motion command sequence jump held back"
+  },
+  "robot.gateway.trajectory_rejected": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway suppressed a ROS 2 joint trajectory or FollowJointTrajectory goal that was outside the channel's bounds: an unknown or repeated joint name, a non-finite value, time not increasing, too many points or too long, or a position, velocity, acceleration or effort beyond its joint limit. It never reached the robot.",
+   "techniques": [],
+   "title": "Joint trajectory blocked by the in-path gateway"
+  },
+  "robot.gateway.trajectory_time_scaled": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway forwarded a ROS 2 joint trajectory slowed down in place, because its velocities or accelerations exceeded the channel's limits; the path is unchanged.",
+   "techniques": [],
+   "title": "Joint trajectory slowed down by the in-path gateway"
+  },
+  "robot.gateway.undecodable_command": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway could not decode a sample of an enforced motion channel strictly (truncated, non-canonical or unsupported encoding) and decided it as an integrity failure: it was suppressed or replaced by the firewall's substitute.",
+   "techniques": [],
+   "title": "Undecodable motion command blocked by the in-path gateway"
+  },
+  "robot.gateway.writer_binding_conflict": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The in-path motion gateway received samples under an authorised writer's GUID from another source address or MAC than the one the writer's stream is bound to, while the bound side was live: a spoofing attempt, suppressed.",
+   "techniques": [],
+   "title": "Authorised motion writer seen from another address"
+  },
+  "robot.seal.erased": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's sealing keys were cryptographically erased (the TPM erase epoch moved on, or the fallback key and volume keyslots were destroyed), with the trigger named in the finding. Every sealed package on the unit is permanently unreadable; recovery is re-enrolment and re-delivery.",
+   "techniques": [],
+   "title": "Crypto-erase of delivered software executed"
+  },
+  "robot.seal.lease_expired": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's site lease for unsealing delivered software expired: sealed packages become unavailable after its next reboot until a fresh lease is issued.",
+   "techniques": [],
+   "title": "Site lease expired"
+  },
+  "robot.seal.tamper": {
+   "data_source": "robodr_delivery",
+   "desc": "An enclosure tamper input or another crypto-erase trigger fired on the unit; a crypto-erase of its sealing keys follows.",
+   "techniques": [],
+   "title": "Enclosure tamper or erase trigger fired"
+  },
+  "robot.seal.unseal_failed": {
+   "data_source": "robodr_delivery",
+   "desc": "The unit's TPM refused to release the key of a sealed (encrypted) delivered package: the boot measurements do not match the signed PCR policy, the policy was revoked, or the unit's sealing keys were crypto-erased. The package stays unreadable on the unit; RoboDR detection keeps running.",
+   "techniques": [],
+   "title": "Unit could not unseal delivered software"
+  },
+  "robot.unitree.webrtc_concurrent_sessions": {
+   "data_source": "ros2_motion_commands",
+   "desc": "More WebRTC sessions with the robot were established at the same time than the site allows: a second controller next to the operator's.",
+   "techniques": [],
+   "title": "More concurrent WebRTC control sessions than allowed"
+  },
+  "robot.unitree.webrtc_controller_mac_mismatch": {
+   "data_source": "ros2_motion_commands",
+   "desc": "WebRTC traffic to the robot came from a listed controller's IP address but with another source MAC than the one it is bound to: another host may be using the controller's address.",
+   "techniques": [],
+   "title": "Listed WebRTC controller seen with another link-layer address"
+  },
+  "robot.unitree.webrtc_media_without_signalling": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A WebRTC session with the robot was established without any signalling on the watched link: it was signalled over another path (Wi-Fi, a relay) or by an unknown method.",
+   "techniques": [],
+   "title": "WebRTC session without observed signalling"
+  },
+  "robot.unitree.webrtc_new_peer": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A host opened a WebRTC session with the robot for the first time while no controller list is configured. Informational for learning the controllers; list them to turn unlisted peers into unknown-controller findings.",
+   "techniques": [],
+   "title": "New WebRTC peer of the robot"
+  },
+  "robot.unitree.webrtc_relayed_session": {
+   "data_source": "ros2_motion_commands",
+   "desc": "The robot exchanges WebRTC traffic through a TURN relay or with a peer outside the local networks: a remote control path (for example a cloud relay) that bypasses the local controller list.",
+   "techniques": [],
+   "title": "Remote WebRTC session through a relay"
+  },
+  "robot.unitree.webrtc_session_in_denied_window": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A WebRTC session with the robot was attempted or active during a time window in which the site policy allows none.",
+   "techniques": [],
+   "title": "WebRTC control session during a denied window"
+  },
+  "robot.unitree.webrtc_unknown_controller": {
+   "data_source": "ros2_motion_commands",
+   "desc": "A host that is not a listed controller signalled, started or established a WebRTC session with the robot (Go2 app channel). The session content is encrypted and not inspected; the finding names the peer and its flows so the session can be quarantined.",
+   "techniques": [],
+   "title": "WebRTC control session from an unlisted host"
   }
  },
  "correlate_generic": {
