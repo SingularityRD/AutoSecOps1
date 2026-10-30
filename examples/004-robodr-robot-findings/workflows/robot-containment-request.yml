@@ -8,13 +8,13 @@
 #    (`tools.robodr.check_action_policy`: catalog action, and morphology:
 #    robot_safe_pause, robot_request_safe_state and robot_rollback_config only
 #    for wheeled_mobile, arm, aerial or other, never rollback_config on a
-#    quadruped), and comments the `request_id` and `request_digest` on the
-#    case. Nothing is sent.
+#    quadruped), and comments the `request_id`, `request_digest`, robot id
+#    and action on the case. Nothing is sent.
 # 2. The requester submits the "Robot action sign-off" form with
 #    `robodr_decision: request`, and one approver (two different people for
 #    robot_safe_pause, robot_request_safe_state and robot_rollback_config,
 #    never the requester) submits it with `robodr_decision: approve`, each
-#    with that `request_id` and `request_digest`.
+#    with that `request_id`, `request_digest`, robot id and action.
 # 3. Run it again with the same action inputs, the `request_id`, and the
 #    submission ids. `tools.robodr.request_action` reads the submissions back
 #    from the platform, takes every identity from them (no input names a
@@ -214,6 +214,8 @@ definition:
 
           - `robodr_request_id`: `${{ ACTIONS.prepare.result.request_id }}`
           - `robodr_request_digest`: `${{ ACTIONS.prepare.result.request_digest }}`
+          - `robodr_robot_id`: `${{ ACTIONS.prepare.result.robot_id }}`
+          - `robodr_action`: `${{ ACTIONS.prepare.result.wire_name }}`
 
           The requester submits it once with `robodr_decision` = `request`.
           ${{ ACTIONS.prepare.result.required_approvals }} other person(s)

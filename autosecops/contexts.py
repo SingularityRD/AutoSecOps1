@@ -31,9 +31,12 @@ __all__ = [
     "ctx_session",
     "ctx_request_audit",
     "ctx_agent_session_id",
+    "ctx_executor_provenance",
+    "ctx_service_account_api_key_id",
     "ctx_logical_time",
     "get_env",
     "RequestAuditContext",
+    "ExecutorProvenance",
 ]
 
 
@@ -46,6 +49,31 @@ class RequestAuditContext:
     """Normalized client family/version, safe to forward to audit sinks."""
     raw_user_agent: str | None = None
     """Verbatim User-Agent header, bounded in length."""
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutorProvenance:
+    """Run identity from a verified executor token, for audit attribution.
+
+    Set only by executor-token authentication. Every value comes from the
+    signed token, never from a request body, so an audit event built from it
+    names the run that acted.
+    """
+
+    workflow_id: str
+    """The token's ``wf_id`` claim: the workflow the run belongs to."""
+    run_id: str
+    """The token's ``wf_exec_id`` claim, which carries the Temporal run id."""
+    execution_id: str | None = None
+    """The workflow execution id (``wf-...:exec-...``), when the token has it."""
+    trigger_type: str | None = None
+    """How the execution started (manual, scheduled, webhook, case, form)."""
+    execution_origin: str | None = None
+    """The trusted entry point: ``workflow`` or ``agent``."""
+    root_action: str | None = None
+    """The registry action the executor ran."""
+    agent_session_id: uuid.UUID | None = None
+    """The verified agent session, for an agent's tool call."""
 
 
 ctx_run: ContextVar[RunContext | None] = ContextVar("run", default=None)
@@ -64,6 +92,16 @@ ctx_agent_session_id: ContextVar[uuid.UUID | None] = ContextVar(
     "agent-session-id", default=None
 )
 """Verified agent session associated with the current request, if any."""
+
+ctx_executor_provenance: ContextVar[ExecutorProvenance | None] = ContextVar(
+    "executor-provenance", default=None
+)
+"""Run identity of a verified executor token on the current request, if any."""
+
+ctx_service_account_api_key_id: ContextVar[uuid.UUID | None] = ContextVar(
+    "service-account-api-key-id", default=None
+)
+"""The service-account API key that authenticated the current request, if any."""
 
 ctx_logical_time: ContextVar[datetime | None] = ContextVar("logical-time", default=None)
 """Current logical time = time_anchor + elapsed workflow time. Used by FN.now()."""

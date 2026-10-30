@@ -14,7 +14,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,8 @@ import pytest
 from sqlalchemy import delete, update
 
 from autosecops import config
-from autosecops.audit.service import AuditService
+from autosecops.audit.enums import AuditEventActor, AuditEventStatus
+from autosecops.audit.service import AuditService, AuditWriteError
 from autosecops.audit.types import AuditEvent
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import ADMIN_SCOPES
@@ -59,6 +60,7 @@ MANIFEST = (VECTORS / "evidence" / "manifest.json").read_bytes()
 MANIFEST_SIG = (VECTORS / "evidence" / "manifest.sig").read_text()
 BUNDLE = (VECTORS / "evidence" / "bundle.rbbx").read_bytes()
 FINDING_KEY = json.loads((VECTORS / "keys" / "finding.key.pub").read_text())
+SERVICE_ACCOUNT_ID = uuid.UUID("5a5a5a5a-0000-4000-8000-000000000001")
 
 
 @pytest.fixture(autouse=True)
@@ -74,22 +76,41 @@ def robot_edr_entitled(monkeypatch: pytest.MonkeyPatch) -> None:
 @dataclass
 class AuditCapture:
     events: list[AuditEvent] = field(default_factory=list)
+    refuse: bool = False
+    """Simulate a configured sink that does not accept the event."""
+    no_sink: bool = False
+    """Simulate a deployment with no audit sink configured."""
 
 
 @pytest.fixture(autouse=True)
 def audit_capture(monkeypatch: pytest.MonkeyPatch) -> AuditCapture:
     capture = AuditCapture()
 
-    async def _webhook(self: AuditService) -> str:
-        return "https://audit.invalid/hook"
+    async def _webhook(self: AuditService) -> str | None:
+        return None if capture.no_sink else "https://audit.invalid/hook"
 
     async def _post(
         self: AuditService, *, webhook_url: str, payload: AuditEvent
+    ) -> bool:
+        """Best-effort (background) delivery."""
+        if capture.refuse:
+            return False
+        capture.events.append(payload)
+        return True
+
+    async def _write(
+        self: AuditService, *, webhook_url: str, payload: AuditEvent
     ) -> None:
+        """Strict delivery: the sink confirms the event, or it is refused."""
+        if capture.refuse:
+            raise AuditWriteError(
+                "the audit sink did not accept it: HTTPStatusError 500"
+            )
         capture.events.append(payload)
 
     monkeypatch.setattr(AuditService, "_get_webhook_url", _webhook)
     monkeypatch.setattr(AuditService, "_post_event", _post)
+    monkeypatch.setattr(AuditService, "_write_event", _write)
     return capture
 
 
@@ -106,8 +127,18 @@ async def storage(minio_bucket: str, monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 def _role(ws: Workspace, user_id: uuid.UUID | None = None) -> Role:
+    """A person, or else a service account (an auditable non-person actor)."""
+    if user_id is None:
+        return Role(
+            type="service_account",
+            service_id="autosecops-api",
+            workspace_id=ws.id,
+            organization_id=ws.organization_id,
+            service_account_id=SERVICE_ACCOUNT_ID,
+            scopes=ADMIN_SCOPES,
+        )
     return Role(
-        type="user" if user_id else "service",
+        type="user",
         service_id="autosecops-api",
         workspace_id=ws.id,
         organization_id=ws.organization_id,
@@ -353,7 +384,13 @@ from autosecops.authz.scopes import (  # noqa: E402
     SERVICE_PRINCIPAL_SCOPES,
     WORKSPACE_OPERATIONAL_SCOPES,
 )
+from autosecops.identifiers.workflow import WorkflowUUID  # noqa: E402
 from autosecops.robot_edr import evidence_router  # noqa: E402
+from autosecops.workflow.executions.enums import TriggerType  # noqa: E402
+
+WORKFLOW_ID = uuid.UUID("0f0f0f0f-1111-4222-8333-444444444444")
+RUN_ID = "7d7d7d7d-5555-4666-8777-888888888888"
+EXECUTION_ID = f"{WorkflowUUID.from_uuid(WORKFLOW_ID).short()}/exec-synthetic1"
 
 
 def _executor_token(
@@ -361,17 +398,42 @@ def _executor_token(
     *,
     user_id: uuid.UUID | None = None,
     service_id: Any = "autosecops-executor",
+    trigger_type: TriggerType | None = TriggerType.SCHEDULED,
+    root_action: str = "tools.robodr.download_evidence_export",
+    agent_session_id: uuid.UUID | None = None,
+    run_id: str | None = None,
 ) -> str:
     """The token a workflow run's action gets, minted as the executor does."""
     return mint_executor_token(
         workspace_id=ws.id,
         user_id=user_id,
         service_id=service_id,
-        execution_origin="workflow",
-        root_action="tools.robodr.download_evidence_export",
-        wf_id="wf-evidence",
-        wf_exec_id="wf-evidence/exec-1",
+        execution_origin="agent" if agent_session_id else "workflow",
+        root_action=root_action,
+        agent_session_id=agent_session_id,
+        wf_id=str(WORKFLOW_ID),
+        wf_exec_id=run_id or RUN_ID,
+        execution_id=EXECUTION_ID,
+        trigger_type=trigger_type,
     )
+
+
+def _run_data(
+    *,
+    trigger_type: str | None = "scheduled",
+    service_id: str = "autosecops-executor",
+    root_action: str = "tools.robodr.download_evidence_export",
+) -> dict[str, Any]:
+    """The run identity an executor-attributed event carries."""
+    return {
+        "workflow_id": str(WORKFLOW_ID),
+        "run_id": RUN_ID,
+        "execution_id": EXECUTION_ID,
+        "trigger_type": trigger_type,
+        "execution_origin": "workflow",
+        "root_action": root_action,
+        "executor_service_id": service_id,
+    }
 
 
 @pytest.fixture
@@ -404,9 +466,8 @@ async def test_the_executor_reaches_every_evidence_route(
             "export_id": EXPORT_ID,
         },
     )
-    # Accepted (and logged); an audit event names a person, and this
-    # unattributed run has none.
-    assert access.status_code == 204, access.text
+    # Accepted and audited: this unattributed (scheduled) run is the actor.
+    assert access.status_code == 200, access.text
 
     keys = await gateway.get(
         f"/internal/robot-edr/robots/{ROBOT_ID}/blackbox-keys", headers=headers
@@ -504,10 +565,18 @@ async def test_an_attributed_viewer_reads_evidence_audited(
         },
         json={"robot_id": ROBOT_ID, "operation": "list"},
     )
-    assert response.status_code == 204, response.text
+    assert response.status_code == 200, response.text
     assert looked_up == [user_id]
     [event] = [e for e in audit_capture.events if e.resource_type == "robot_evidence"]
-    assert event.data == {"robot_id": ROBOT_ID, "export_id": None, "operation": "list"}
+    # The run acted; the person who started it is named, not credited.
+    assert event.actor_type == AuditEventActor.WORKFLOW
+    assert event.actor_id == WORKFLOW_ID
+    assert event.data == _run_data() | {
+        "initiated_by_user_id": str(user_id),
+        "robot_id": ROBOT_ID,
+        "export_id": None,
+        "operation": "list",
+    }
 
 
 def test_robot_read_is_not_an_operational_scope_of_every_service() -> None:
@@ -791,3 +860,869 @@ def test_bundle_base64_is_capped_before_decoding(
     assert cap == 4 * -(-config.AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES // 3)
     with pytest.raises(ValidationError):
         _request(bundle_base64="A" * (cap + 4))
+
+
+# --------------------------------------------------------------------------- #
+# Runs without a person are audited, and named (audit gap: non-human actors)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+async def bare_workspace(
+    svc_organization: Organization,
+) -> AsyncGenerator[Workspace, None]:
+    """A workspace without the fixed vector key (safe to run in parallel)."""
+    ws = Workspace(
+        id=uuid.uuid4(),
+        name=f"evidence-bare-{uuid.uuid4().hex[:8]}",
+        organization_id=svc_organization.id,
+    )
+    async with get_async_session_context_manager() as session:
+        session.add(ws)
+        await session.commit()
+    yield ws
+    async with get_async_session_context_manager() as session:
+        await session.execute(delete(Workspace).where(Workspace.id == ws.id))
+        await session.commit()
+
+
+from sqlalchemy import func, select  # noqa: E402
+
+from autosecops.contexts import ctx_service_account_api_key_id  # noqa: E402
+from autosecops.db.models import (  # noqa: E402
+    FormSubmission,
+    Robot,
+    RobotActionAudit,
+    RobotEvidenceExport,
+    User,
+)
+from autosecops.robot_edr.schemas import RobotCreate as _RobotCreate  # noqa: E402
+from tests import _forms_utils  # noqa: E402
+
+AGENT_SESSION_ID = uuid.UUID("9a9a9a9a-aaaa-4bbb-8ccc-dddddddddddd")
+
+
+def _evidence_events(capture: AuditCapture) -> list[AuditEvent]:
+    return [e for e in capture.events if e.resource_type == "robot_evidence"]
+
+
+@pytest.mark.parametrize(
+    "trigger_type", [TriggerType.SCHEDULED, TriggerType.WEBHOOK, None]
+)
+async def test_an_unattended_run_is_the_audited_actor_of_an_evidence_read(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    trigger_type: TriggerType | None,
+) -> None:
+    # A schedule, webhook or subflow run has no person: the event names the
+    # workflow, its run and execution and how it was triggered, all from the
+    # signed executor token. It used to be dropped (no auditable actor).
+    token = _executor_token(bare_workspace, trigger_type=trigger_type)
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "robot_id": ROBOT_ID,
+            "operation": "download_export",
+            "export_id": EXPORT_ID,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"audit_log": "written"}
+    [event] = _evidence_events(audit_capture)
+    assert event.status == AuditEventStatus.ATTEMPT
+    assert event.actor_type == AuditEventActor.WORKFLOW
+    assert event.actor_id == WORKFLOW_ID
+    assert event.workspace_id == bare_workspace.id
+    assert event.action == "read"
+    expected = _run_data(trigger_type=trigger_type.value if trigger_type else None)
+    assert event.data == {k: v for k, v in expected.items() if v is not None} | {
+        "robot_id": ROBOT_ID,
+        "export_id": EXPORT_ID,
+        "operation": "download_export",
+    }
+
+
+async def test_an_agent_session_is_the_audited_actor_of_an_evidence_read(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    token = _executor_token(
+        bare_workspace,
+        service_id="autosecops-mcp",
+        trigger_type=None,
+        root_action="tools.robodr.list_evidence",
+        agent_session_id=AGENT_SESSION_ID,
+    )
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"robot_id": ROBOT_ID, "operation": "list"},
+    )
+    assert response.status_code == 200, response.text
+    [event] = _evidence_events(audit_capture)
+    assert event.actor_type == AuditEventActor.AGENT
+    assert event.actor_id == AGENT_SESSION_ID
+    assert event.data is not None
+    assert event.data["agent_session_id"] == str(AGENT_SESSION_ID)
+    assert event.data["execution_origin"] == "agent"
+    assert event.data["executor_service_id"] == "autosecops-mcp"
+    # An agent's tool call runs in a one-off tool workflow whose ids are
+    # generated per call: they name nothing, so they are not recorded.
+    assert not {"workflow_id", "run_id", "execution_id"} & event.data.keys()
+
+
+async def test_an_evidence_read_the_sink_does_not_take_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # Fail closed: the route answers an error, so the registry action reads
+    # nothing from the robot (it was a 204 with the event silently lost).
+    audit_capture.refuse = True
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json={"robot_id": ROBOT_ID, "operation": "list"},
+    )
+    assert response.status_code == 500, response.text
+    assert response.json()["type"] == "AuditWriteError"
+
+
+async def test_an_unattended_store_is_audited_before_and_after(
+    workspace: Workspace,
+    case: Case,
+    storage: str,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+) -> None:
+    response = await gateway.post(
+        f"/internal/robot-edr/cases/{case.id}/evidence",
+        headers={"Authorization": f"Bearer {_executor_token(workspace)}"},
+        json=_request().model_dump(mode="json"),
+    )
+    assert response.status_code == 201, response.text
+    attempt, success = _evidence_events(audit_capture)
+    assert (attempt.status, success.status) == (
+        AuditEventStatus.ATTEMPT,
+        AuditEventStatus.SUCCESS,
+    )
+    for event in (attempt, success):
+        assert event.action == "create"
+        assert event.actor_type == AuditEventActor.WORKFLOW
+        assert event.actor_id == WORKFLOW_ID
+        assert event.data is not None
+        assert event.data["trigger_type"] == "scheduled"
+        assert event.data["case_id"] == str(case.id)
+    assert success.data is not None and "evidence_id" in success.data
+
+
+async def _stored_exports(ws: Workspace) -> int:
+    async with get_async_session_context_manager() as session:
+        count = await session.scalar(
+            select(func.count())
+            .select_from(RobotEvidenceExport)
+            .where(RobotEvidenceExport.workspace_id == ws.id)
+        )
+    return int(count or 0)
+
+
+async def test_a_store_the_sink_does_not_take_stores_nothing(
+    workspace: Workspace,
+    case: Case,
+    storage: str,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+) -> None:
+    audit_capture.refuse = True
+    response = await gateway.post(
+        f"/internal/robot-edr/cases/{case.id}/evidence",
+        headers={"Authorization": f"Bearer {_executor_token(workspace)}"},
+        json=_request().model_dump(mode="json"),
+    )
+    assert response.status_code == 500, response.text
+    assert await _stored_exports(workspace) == 0
+    assert await _list_attachments(workspace, case) == []
+
+
+async def test_a_caller_with_no_auditable_actor_cannot_read_evidence(
+    bare_workspace: Workspace, audit_capture: AuditCapture
+) -> None:
+    # An internal service role that names no one (and is no executor run).
+    role = Role(
+        type="service",
+        service_id="autosecops-api",
+        workspace_id=bare_workspace.id,
+        organization_id=bare_workspace.organization_id,
+        scopes=ADMIN_SCOPES,
+    )
+    async with get_async_session_context_manager() as session:
+        with pytest.raises(AuditWriteError, match="auditable actor"):
+            await RobotEvidenceService(session, role=role).record_access(
+                EvidenceAccessRequest(robot_id=ROBOT_ID, operation="list")
+            )
+    assert _evidence_events(audit_capture) == []
+
+
+async def test_a_service_account_store_names_its_api_key(
+    workspace: Workspace, case: Case, storage: str, audit_capture: AuditCapture
+) -> None:
+    api_key_id = uuid.uuid4()
+    token = ctx_service_account_api_key_id.set(api_key_id)
+    try:
+        await _store(workspace, case, _request())
+    finally:
+        ctx_service_account_api_key_id.reset(token)
+    attempt, _ = _evidence_events(audit_capture)
+    assert attempt.actor_type == AuditEventActor.SERVICE_ACCOUNT
+    assert attempt.actor_id == SERVICE_ACCOUNT_ID
+    assert attempt.data is not None
+    assert attempt.data["api_key_id"] == str(api_key_id)
+    assert attempt.data["service_account_id"] == str(SERVICE_ACCOUNT_ID)
+
+
+# --- robot registry changes fail closed, and name the API key ---------------------
+
+
+async def test_a_robot_change_the_sink_does_not_take_is_refused(
+    bare_workspace: Workspace, audit_capture: AuditCapture
+) -> None:
+    audit_capture.refuse = True
+    async with get_async_session_context_manager() as session:
+        with pytest.raises(AuditWriteError):
+            await RobotsService(session, role=_role(bare_workspace)).create_robot(
+                _RobotCreate(robot_id="ugv-unaudited")
+            )
+        robot = await session.scalar(
+            select(Robot).where(
+                Robot.workspace_id == bare_workspace.id,
+                Robot.robot_id == "ugv-unaudited",
+            )
+        )
+    assert robot is None
+
+
+async def test_a_robot_change_by_an_unnamed_service_is_refused(
+    bare_workspace: Workspace, audit_capture: AuditCapture
+) -> None:
+    role = Role(
+        type="service",
+        service_id="autosecops-api",
+        workspace_id=bare_workspace.id,
+        organization_id=bare_workspace.organization_id,
+        scopes=ADMIN_SCOPES,
+    )
+    async with get_async_session_context_manager() as session:
+        with pytest.raises(AuditWriteError, match="auditable actor"):
+            await RobotsService(session, role=role).create_robot(
+                _RobotCreate(robot_id="ugv-unnamed")
+            )
+
+
+async def test_a_service_account_robot_change_names_its_api_key(
+    bare_workspace: Workspace, audit_capture: AuditCapture
+) -> None:
+    api_key_id = uuid.uuid4()
+    token = ctx_service_account_api_key_id.set(api_key_id)
+    try:
+        async with get_async_session_context_manager() as session:
+            await RobotsService(session, role=_role(bare_workspace)).create_robot(
+                _RobotCreate(robot_id="ugv-keyed")
+            )
+    finally:
+        ctx_service_account_api_key_id.reset(token)
+    events = [e for e in audit_capture.events if e.resource_type == "robot"]
+    assert [e.status for e in events] == [
+        AuditEventStatus.ATTEMPT,
+        AuditEventStatus.SUCCESS,
+    ]
+    for event in events:
+        assert event.actor_type == AuditEventActor.SERVICE_ACCOUNT
+        assert event.data is not None
+        assert event.data["api_key_id"] == str(api_key_id)
+
+
+# --- robot action requests and reverts (tools.robodr.request/revert_action) -------
+
+DIGEST = hashlib.sha256(b"synthetic signed-off request").hexdigest()
+REQUEST_ID = "robot_restrict_motion:ugv-007:00112233aabbccdd"
+
+
+@dataclass
+class Signoff:
+    request_submission_id: uuid.UUID
+    approval_submission_ids: list[uuid.UUID]
+    requester: uuid.UUID
+    approvers: list[uuid.UUID]
+
+
+async def _platform_user() -> uuid.UUID:
+    user = User(
+        email=f"signoff-{uuid.uuid4().hex[:12]}@example.com",
+        hashed_password="hashed_password_for_testing",
+        is_active=True,
+        is_verified=True,
+        is_superuser=False,
+    )
+    async with get_async_session_context_manager() as session:
+        session.add(user)
+        await session.commit()
+        return user.id
+
+
+async def _signoff(
+    ws: Workspace,
+    *,
+    approvers: int = 1,
+    request_id: str = REQUEST_ID,
+    digest: str = DIGEST,
+    robot_id: str = ROBOT_ID,
+    action: str | None = "robot_restrict_motion",
+    approvals_on_another_form: bool = False,
+    approver_is_requester: bool = False,
+) -> Signoff:
+    """A sign-off form's submissions, as the platform recorded them.
+
+    ``action=None`` is a revert's sign-off (the action it undoes is the
+    robot's word, not on the form).
+    """
+    requester = await _platform_user()
+    leads = [
+        requester if approver_is_requester else await _platform_user()
+        for _ in range(approvers)
+    ]
+    answers: dict[str, str] = {
+        "robodr_request_id": request_id,
+        "robodr_request_digest": digest,
+        "robodr_robot_id": robot_id,
+    }
+    if action is not None:
+        answers["robodr_action"] = action
+    async with get_async_session_context_manager() as session:
+        workflow = await _forms_utils.create_workflow(session, ws.id)
+        form = await _forms_utils.create_form(session, workflow)
+        approval_form = form
+        if approvals_on_another_form:
+            other = await _forms_utils.create_workflow(session, ws.id)
+            approval_form = await _forms_utils.create_form(session, other)
+
+        async def submit(on: Any, user_id: uuid.UUID, decision: str) -> uuid.UUID:
+            submission = await _forms_utils.create_submission(
+                session,
+                on,
+                user_id=user_id,
+                answers=answers | {"robodr_decision": decision},
+            )
+            return submission.id
+
+        request_sid = await submit(form, requester, "request")
+        approval_sids = [await submit(approval_form, lead, "approve") for lead in leads]
+    return Signoff(request_sid, approval_sids, requester, leads)
+
+
+def _action_body(signoff: Signoff, **overrides: Any) -> dict[str, Any]:
+    return {
+        "robot_id": ROBOT_ID,
+        "request_id": REQUEST_ID,
+        "operation": "request_action",
+        "robot_action": "robot_restrict_motion",
+        "request_digest": DIGEST,
+        "request_submission_id": str(signoff.request_submission_id),
+        "approval_submission_ids": [str(s) for s in signoff.approval_submission_ids],
+        "phase": "attempt",
+    } | overrides
+
+
+def _action_events(capture: AuditCapture) -> list[AuditEvent]:
+    return [e for e in capture.events if e.resource_type == "robot_action"]
+
+
+async def _attempt(
+    gateway: AsyncClient, ws: Workspace, signoff: Signoff, **overrides: Any
+) -> str:
+    """Write the attempt of a robot action call; its stored attempt id."""
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(ws)}"},
+        json=_action_body(signoff, **overrides),
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["attempt_id"]
+
+
+async def test_an_unattended_robot_action_names_the_run_and_the_signoff(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace, approvers=2)
+    token = _executor_token(bare_workspace, root_action="tools.robodr.request_action")
+    headers = {"Authorization": f"Bearer {token}"}
+    attempt = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers=headers,
+        json=_action_body(signoff),
+    )
+    assert attempt.status_code == 200, attempt.text
+    assert attempt.json()["audit_log"] == "written"
+    attempt_id = attempt.json()["attempt_id"]
+    answered = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers=headers,
+        json=_action_body(
+            signoff,
+            phase="answered",
+            outcome="recorded_not_executed",
+            applied=False,
+            attempt_id=attempt_id,
+        ),
+    )
+    assert answered.status_code == 200, answered.text
+    assert answered.json() == {"attempt_id": attempt_id, "audit_log": "written"}
+
+    first, second = _action_events(audit_capture)
+    assert (first.status, second.status) == (
+        AuditEventStatus.ATTEMPT,
+        AuditEventStatus.SUCCESS,
+    )
+    assert first.action == second.action == "request"
+    assert first.actor_type == AuditEventActor.WORKFLOW
+    assert first.actor_id == WORKFLOW_ID
+    assert first.workspace_id == bare_workspace.id
+    assert first.data == _run_data(root_action="tools.robodr.request_action") | {
+        "robot_id": ROBOT_ID,
+        "request_id": REQUEST_ID,
+        "operation": "request_action",
+        "robot_action": "robot_restrict_motion",
+        "request_digest": DIGEST,
+        "requested_by_user_id": str(signoff.requester),
+        "approved_by_user_ids": [str(u) for u in signoff.approvers],
+        "request_submission_id": str(signoff.request_submission_id),
+        "approval_submission_ids": [str(s) for s in signoff.approval_submission_ids],
+        "action_audit_id": attempt_id,
+    }
+    assert second.data is not None
+    assert second.data["outcome"] == "recorded_not_executed"
+    assert second.data["is_applied"] is False
+    assert second.data["action_audit_id"] == attempt_id
+    assert second.data["requested_by_user_id"] == str(signoff.requester)
+
+
+async def test_a_failed_robot_revert_is_audited_as_a_failure(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace, action=None)
+    attempt_id = await _attempt(
+        gateway, bare_workspace, signoff, operation="revert_action"
+    )
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(
+            signoff,
+            operation="revert_action",
+            phase="failed",
+            failure_reason="ControlPlaneError",
+            attempt_id=attempt_id,
+        ),
+    )
+    assert response.status_code == 200, response.text
+    _, event = _action_events(audit_capture)
+    assert event.action == "revert"
+    assert event.status == AuditEventStatus.FAILURE
+    assert event.data is not None
+    assert event.data["failure_reason"] == "ControlPlaneError"
+
+
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ({"request_digest": "0" * 64}, "differs in robodr_request_digest"),
+        ({"request_id": "robot_restrict_motion:ugv-007:ffff"}, "robodr_request_id"),
+        ({"robot_id": "ugv-008"}, "differs in robodr_robot_id"),
+        ({"robot_action": "robot_quarantine_node"}, "differs in robodr_action"),
+        ({"approval_submission_ids": "request"}, "named twice"),
+        ({"approval_submission_ids": "unknown"}, "not in this workspace"),
+    ],
+)
+async def test_a_robot_action_audit_that_misstates_the_signoff_is_refused(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    change: dict[str, Any],
+    match: str,
+) -> None:
+    # The people come from the platform's records, never from the body: a
+    # body that names another request, digest or submission is refused (and
+    # the registry action then sends nothing).
+    signoff = await _signoff(bare_workspace)
+    match change.get("approval_submission_ids"):
+        case "request":
+            change = {"approval_submission_ids": [str(signoff.request_submission_id)]}
+        case "unknown":
+            change = {"approval_submission_ids": [str(uuid.uuid4())]}
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff, **change),
+    )
+    assert response.status_code == 400, response.text
+    assert match in response.text
+    assert _action_events(audit_capture) == []
+
+
+async def test_a_robot_action_signoff_from_another_workspace_is_refused(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    svc_organization: Organization,
+) -> None:
+    other = Workspace(
+        id=uuid.uuid4(),
+        name=f"evidence-other-{uuid.uuid4().hex[:8]}",
+        organization_id=svc_organization.id,
+    )
+    async with get_async_session_context_manager() as session:
+        session.add(other)
+        await session.commit()
+    try:
+        foreign = await _signoff(other)
+        response = await gateway.post(
+            "/internal/robot-edr/actions/audit",
+            headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+            json=_action_body(foreign),
+        )
+        assert response.status_code == 400, response.text
+        assert "not in this workspace" in response.text
+        assert _action_events(audit_capture) == []
+    finally:
+        async with get_async_session_context_manager() as session:
+            await session.execute(delete(Workspace).where(Workspace.id == other.id))
+            await session.commit()
+
+
+async def test_a_robot_action_signed_off_by_a_service_account_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    async with get_async_session_context_manager() as session:
+        await session.execute(
+            update(FormSubmission)
+            .where(FormSubmission.id == signoff.approval_submission_ids[0])
+            .values(submitted_by_user_id=None)
+        )
+        await session.commit()
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 400, response.text
+    assert "not submitted by a platform user" in response.text
+
+
+async def test_a_robot_action_the_sink_does_not_take_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    audit_capture.refuse = True
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 500, response.text
+    assert response.json()["type"] == "AuditWriteError"
+
+
+async def test_the_robot_action_audit_route_needs_an_executor_token(
+    bare_workspace: Workspace, gateway: AsyncClient
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit", json=_action_body(signoff)
+    )
+    assert response.status_code == 401
+
+
+def test_the_action_gateway_serves_the_robot_action_audit_route() -> None:
+    routes = {
+        (method, route.path)
+        for route in iter_effective_api_routes(create_gateway_app())
+        for method in route.methods
+    }
+    assert ("POST", "/internal/robot-edr/actions/audit") in routes
+
+
+# --- the attempt is checked like the registry checks it (review F3) -----------
+
+
+async def test_a_robot_action_signoff_older_than_24_hours_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    async with get_async_session_context_manager() as session:
+        await session.execute(
+            update(FormSubmission)
+            .where(FormSubmission.id == signoff.approval_submission_ids[0])
+            .values(created_at=datetime.now(UTC) - timedelta(hours=24, minutes=1))
+        )
+        await session.commit()
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 400, response.text
+    assert "older than 24 hours" in response.text
+    assert _action_events(audit_capture) == []
+
+
+async def test_a_robot_action_signoff_from_two_forms_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace, approvals_on_another_form=True)
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 400, response.text
+    assert "same form" in response.text
+    assert _action_events(audit_capture) == []
+
+
+async def test_a_requester_approving_through_another_submission_is_refused(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # Two distinct submissions, one person: not a second person's approval.
+    signoff = await _signoff(bare_workspace, approver_is_requester=True)
+    assert signoff.request_submission_id not in signoff.approval_submission_ids
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 400, response.text
+    assert "different platform users" in response.text
+    assert _action_events(audit_capture) == []
+
+
+async def test_an_attempt_cannot_cite_an_attempt_id(
+    bare_workspace: Workspace, gateway: AsyncClient
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff, attempt_id=str(uuid.uuid4())),
+    )
+    assert response.status_code == 422, response.text
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"attempt_id": "unknown"},
+        {"robot_id": "ugv-008"},
+        {"robot_action": "robot_quarantine_node"},
+        {"request_digest": "0" * 64},
+        {"approval_submission_ids": "reordered"},
+        {"run_id": "another-run"},
+    ],
+)
+async def test_an_outcome_must_match_its_audited_attempt(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    change: dict[str, Any],
+) -> None:
+    # An outcome with no audited attempt behind it, for another robot or
+    # action than was attempted, or from another run, is not recorded.
+    signoff = await _signoff(bare_workspace, approvers=2)
+    attempt_id = await _attempt(gateway, bare_workspace, signoff)
+    body = _action_body(
+        signoff,
+        phase="answered",
+        outcome="applied",
+        applied=True,
+        attempt_id=attempt_id,
+    )
+    token = _executor_token(bare_workspace)
+    match change:
+        case {"attempt_id": "unknown"}:
+            body["attempt_id"] = str(uuid.uuid4())
+        case {"approval_submission_ids": "reordered"}:
+            body["approval_submission_ids"].reverse()
+        case {"run_id": run_id}:
+            token = _executor_token(bare_workspace, run_id=run_id)
+        case _:
+            body |= change
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {token}"},
+        json=body,
+    )
+    assert response.status_code == 400, response.text
+    assert "no open audited attempt" in response.text
+    assert [e.status for e in _action_events(audit_capture)] == [
+        AuditEventStatus.ATTEMPT
+    ]
+
+
+async def test_an_outcome_is_recorded_once(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    attempt_id = await _attempt(gateway, bare_workspace, signoff)
+    headers = {"Authorization": f"Bearer {_executor_token(bare_workspace)}"}
+    answered = _action_body(
+        signoff,
+        phase="answered",
+        outcome="applied",
+        applied=True,
+        attempt_id=attempt_id,
+    )
+    failed = _action_body(
+        signoff, phase="failed", failure_reason="TimeoutError", attempt_id=attempt_id
+    )
+    first = await gateway.post(
+        "/internal/robot-edr/actions/audit", headers=headers, json=answered
+    )
+    assert first.status_code == 200, first.text
+    for again in (answered, failed):
+        response = await gateway.post(
+            "/internal/robot-edr/actions/audit", headers=headers, json=again
+        )
+        assert response.status_code == 400, response.text
+    assert len(_action_events(audit_capture)) == 2
+
+
+async def test_an_attempt_the_sink_refuses_is_not_stored(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    signoff = await _signoff(bare_workspace)
+    audit_capture.refuse = True
+    response = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=_action_body(signoff),
+    )
+    assert response.status_code == 500, response.text
+    async with get_async_session_context_manager() as session:
+        stored = await session.scalar(
+            select(func.count())
+            .select_from(RobotActionAudit)
+            .where(RobotActionAudit.workspace_id == bare_workspace.id)
+        )
+    assert stored == 0
+
+
+# --- no sink, identifier fields, evidence phases (review F2, F4, F8) ----------
+
+
+async def test_an_audit_with_no_sink_is_reported_as_such(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # Not refused (no sink is a deployment choice), never reported as written.
+    audit_capture.no_sink = True
+    headers = {"Authorization": f"Bearer {_executor_token(bare_workspace)}"}
+    access = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers=headers,
+        json={"robot_id": ROBOT_ID, "operation": "list"},
+    )
+    assert access.status_code == 200, access.text
+    assert access.json() == {"audit_log": "no_sink"}
+    signoff = await _signoff(bare_workspace)
+    action = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers=headers,
+        json=_action_body(signoff),
+    )
+    assert action.status_code == 200, action.text
+    assert action.json()["audit_log"] == "no_sink"
+
+
+async def test_schema_valid_ids_are_written_as_given(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    # `token:`/`secret:` prefixes match the free-text credential patterns;
+    # the event used to drop them and still report success.
+    request_id = "token:rq-0001"
+    signoff = await _signoff(bare_workspace, request_id=request_id)
+    headers = {"Authorization": f"Bearer {_executor_token(bare_workspace)}"}
+    action = await gateway.post(
+        "/internal/robot-edr/actions/audit",
+        headers=headers,
+        json=_action_body(signoff, request_id=request_id),
+    )
+    assert action.status_code == 200, action.text
+    access = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers=headers,
+        json={
+            "robot_id": ROBOT_ID,
+            "operation": "download_export",
+            "export_id": "secret:e1",
+        },
+    )
+    assert access.status_code == 200, access.text
+    [action_event] = _action_events(audit_capture)
+    [access_event] = _evidence_events(audit_capture)
+    assert action_event.data is not None and access_event.data is not None
+    assert action_event.data["request_id"] == request_id
+    assert access_event.data["export_id"] == "secret:e1"
+
+
+@pytest.mark.parametrize(
+    ("operation", "phase", "action", "status"),
+    [
+        ("download_export", "succeeded", "read", AuditEventStatus.SUCCESS),
+        ("list", "failed", "read", AuditEventStatus.FAILURE),
+        ("delete_export", "attempt", "delete", AuditEventStatus.ATTEMPT),
+        ("delete_export", "succeeded", "delete", AuditEventStatus.SUCCESS),
+    ],
+)
+async def test_evidence_access_is_audited_before_and_after(
+    bare_workspace: Workspace,
+    gateway: AsyncClient,
+    audit_capture: AuditCapture,
+    operation: str,
+    phase: str,
+    action: str,
+    status: AuditEventStatus,
+) -> None:
+    body: dict[str, Any] = {
+        "robot_id": ROBOT_ID,
+        "operation": operation,
+        "export_id": None if operation == "list" else EXPORT_ID,
+        "phase": phase,
+    }
+    if phase == "failed":
+        body["failure_reason"] = "EvidenceError"
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json=body,
+    )
+    assert response.status_code == 200, response.text
+    # Closing events are best effort: handed to background delivery.
+    assert response.json()["audit_log"] == (
+        "written" if phase == "attempt" else "queued"
+    )
+    [event] = _evidence_events(audit_capture)
+    assert (event.action, event.status) == (action, status)
+    assert event.data is not None
+    assert event.data["operation"] == operation
+    if phase == "failed":
+        assert event.data["failure_reason"] == "EvidenceError"
+
+
+async def test_a_closing_evidence_event_the_sink_refuses_is_not_an_error(
+    bare_workspace: Workspace, gateway: AsyncClient, audit_capture: AuditCapture
+) -> None:
+    audit_capture.refuse = True
+    response = await gateway.post(
+        "/internal/robot-edr/evidence/access",
+        headers={"Authorization": f"Bearer {_executor_token(bare_workspace)}"},
+        json={"robot_id": ROBOT_ID, "operation": "list", "phase": "succeeded"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"audit_log": "failed"}

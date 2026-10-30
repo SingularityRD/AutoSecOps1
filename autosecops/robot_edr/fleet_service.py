@@ -287,7 +287,7 @@ class RobotFleetService(BaseWorkspaceService):
         return [soc_key_read(row) for row in rows]
 
     @require_scope("robot:enroll")
-    @audit_log(resource_type="robot_fleet", action="create")
+    @audit_log(resource_type="robot_fleet", action="create", fail_closed=True)
     async def create_fleet_key(self, params: FleetSocKeyCreate) -> RobotFleetSocKey:
         """Generate or import the fleet key (tokens, answers, ring information).
 
@@ -324,7 +324,7 @@ class RobotFleetService(BaseWorkspaceService):
         )
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="create")
+    @audit_log(resource_type="robot_fleet", action="create", fail_closed=True)
     async def create_approval_key(self, params: FleetSocKeyCreate) -> RobotFleetSocKey:
         """Register an offline approval key, or generate an online one.
 
@@ -433,13 +433,13 @@ class RobotFleetService(BaseWorkspaceService):
         return row
 
     @require_scope("robot:enroll")
-    @audit_log(resource_type="robot_fleet", action="update")
+    @audit_log(resource_type="robot_fleet", action="update", fail_closed=True)
     async def activate_fleet_key(self, row: RobotFleetSocKey) -> RobotFleetSocKey:
         """Switch fleet signing to a pending key (install it on every unit first)."""
         return await self._activate(row, FleetSocKeyKind.FLEET)
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="update")
+    @audit_log(resource_type="robot_fleet", action="update", fail_closed=True)
     async def activate_approval_key(self, row: RobotFleetSocKey) -> RobotFleetSocKey:
         """Switch approval signing to a pending key: a second person's step.
 
@@ -607,7 +607,7 @@ class RobotFleetService(BaseWorkspaceService):
     # --- tokens (§3.1) -------------------------------------------------------------
 
     @require_scope("robot:enroll")
-    @audit_log(resource_type="robot_fleet", action="create")
+    @audit_log(resource_type="robot_fleet", action="create", fail_closed=True)
     async def issue_token(
         self, robot_uuid: uuid.UUID, params: FleetTokenCreate
     ) -> FleetTokenIssued:
@@ -673,7 +673,7 @@ class RobotFleetService(BaseWorkspaceService):
         return row
 
     @require_scope("robot:enroll")
-    @audit_log(resource_type="robot_fleet", action="revoke")
+    @audit_log(resource_type="robot_fleet", action="revoke", fail_closed=True)
     async def revoke_token(
         self, robot_uuid: uuid.UUID, token_uuid: uuid.UUID
     ) -> FleetTokenRead:
@@ -698,7 +698,7 @@ class RobotFleetService(BaseWorkspaceService):
     # --- profile offer (§6.2) ------------------------------------------------------
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_fleet", action="publish")
+    @audit_log(resource_type="robot_fleet", action="publish", fail_closed=True)
     async def set_offer(
         self, robot_uuid: uuid.UUID, params: FleetOfferUpdate
     ) -> FleetOfferRead:
@@ -754,7 +754,7 @@ class RobotFleetService(BaseWorkspaceService):
         return self.role.user_id
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="create")
+    @audit_log(resource_type="robot_fleet", action="create", fail_closed=True)
     async def request_approval(
         self, robot_uuid: uuid.UUID, params: FleetApprovalCreate
     ) -> FleetApprovalRead:
@@ -821,7 +821,7 @@ class RobotFleetService(BaseWorkspaceService):
         return robot, row
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="approve")
+    @audit_log(resource_type="robot_fleet", action="approve", fail_closed=True)
     async def approve(
         self, robot_uuid: uuid.UUID, approval_uuid: uuid.UUID
     ) -> FleetApprovalRead:
@@ -885,7 +885,7 @@ class RobotFleetService(BaseWorkspaceService):
         return approval_read(row)
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="approve")
+    @audit_log(resource_type="robot_fleet", action="approve", fail_closed=True)
     async def submit_approval_signature(
         self,
         robot_uuid: uuid.UUID,
@@ -934,7 +934,7 @@ class RobotFleetService(BaseWorkspaceService):
         return approval_read(row)
 
     @require_scope("robot:approve")
-    @audit_log(resource_type="robot_fleet", action="cancel")
+    @audit_log(resource_type="robot_fleet", action="cancel", fail_closed=True)
     async def cancel_approval(
         self, robot_uuid: uuid.UUID, approval_uuid: uuid.UUID
     ) -> FleetApprovalRead:
@@ -952,7 +952,7 @@ class RobotFleetService(BaseWorkspaceService):
     # --- ring (§7) ------------------------------------------------------------------
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_fleet", action="publish")
+    @audit_log(resource_type="robot_fleet", action="publish", fail_closed=True)
     async def set_ring(
         self, robot_uuid: uuid.UUID, params: FleetRingUpdate
     ) -> FleetRingRead:
@@ -1037,7 +1037,7 @@ class RobotFleetService(BaseWorkspaceService):
         )
 
     @require_scope("robot:update")
-    @audit_log(resource_type="robot_fleet", action="publish")
+    @audit_log(resource_type="robot_fleet", action="publish", fail_closed=True)
     async def publish_revocation_list(
         self, params: FleetRevocationCreate
     ) -> FleetRevocationRead:
@@ -1142,7 +1142,7 @@ class RobotFleetService(BaseWorkspaceService):
         return row
 
     @require_scope("robot:trust")
-    @audit_log(resource_type="robot_fleet", action="withdraw")
+    @audit_log(resource_type="robot_fleet", action="withdraw", fail_closed=True)
     async def request_revocation_withdrawal(
         self, list_uuid: uuid.UUID, params: FleetRevocationWithdraw
     ) -> FleetRevocationRead:
@@ -1171,7 +1171,7 @@ class RobotFleetService(BaseWorkspaceService):
         return _revocation_read(row)
 
     @require_scope("robot:trust")
-    @audit_log(resource_type="robot_fleet", action="withdraw")
+    @audit_log(resource_type="robot_fleet", action="withdraw", fail_closed=True)
     async def confirm_revocation_withdrawal(
         self, list_uuid: uuid.UUID
     ) -> FleetRevocationRead:
@@ -1211,7 +1211,7 @@ class RobotFleetService(BaseWorkspaceService):
         return [_trust_root_read(row) for row in rows]
 
     @require_scope("robot:trust")
-    @audit_log(resource_type="robot_fleet", action="create")
+    @audit_log(resource_type="robot_fleet", action="create", fail_closed=True)
     async def add_trust_root(self, params: FleetTrustRootCreate) -> FleetTrustRootRead:
         """Trust a robodr-commission trust root for this workspace's lists.
 
@@ -1236,7 +1236,7 @@ class RobotFleetService(BaseWorkspaceService):
         return _trust_root_read(row)
 
     @require_scope("robot:trust")
-    @audit_log(resource_type="robot_fleet", action="revoke")
+    @audit_log(resource_type="robot_fleet", action="revoke", fail_closed=True)
     async def revoke_trust_root(self, root_uuid: uuid.UUID) -> FleetTrustRootRead:
         """Stop trusting a root for new lists (published lists stay)."""
         await self.require_entitlement(Entitlement.ROBOT_EDR)

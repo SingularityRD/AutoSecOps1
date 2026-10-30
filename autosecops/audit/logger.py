@@ -10,7 +10,7 @@ from typing import Any, Concatenate, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.audit.enums import AuditEventStatus
-from autosecops.audit.service import AuditService
+from autosecops.audit.service import AuditService, AuditWriteError
 from autosecops.audit.types import (
     AuditAction,
     AuditMetadata,
@@ -85,6 +85,7 @@ def audit_log[**P, R](
     resource_id_attr: str | None = None,
     attempt_metadata: AuditAttemptMetadataFn[P] | None = None,
     terminal_metadata: AuditTerminalMetadataFn[R, P] | None = None,
+    fail_closed: bool = False,
 ) -> Callable[
     [Callable[P, Awaitable[R]]],
     Callable[P, Awaitable[R]],
@@ -140,6 +141,12 @@ def audit_log[**P, R](
             parameter spelling fails pyright's name check against P. Only
             ``resource_id``, ``data``, and ``status`` are used in this phase. If
             it raises, the terminal event uses the fields already derived.
+        fail_closed: Refuse the operation unless its ``ATTEMPT`` event is
+            written: a caller with no auditable actor, or a configured sink
+            whose delivery cannot be resolved or is shed, raises
+            :class:`AuditWriteError` before the function runs. Use it for
+            privileged changes. Terminal events stay best-effort, since the
+            operation has already happened by then.
 
     Returns:
         A decorator that preserves the wrapped function's signature and return
@@ -182,6 +189,11 @@ def audit_log[**P, R](
             )
 
             if role is None or role.actor_id is None:
+                if fail_closed:
+                    raise AuditWriteError(
+                        f"Refusing {resource_type} {action}: the caller is not an "
+                        "auditable actor"
+                    )
                 return await func(*args, **kwargs)
 
             raw_session = getattr(service, "session", None)
@@ -238,8 +250,16 @@ def audit_log[**P, R](
                         resource_id=resource_id,
                         status=AuditEventStatus.ATTEMPT,
                         data=dict(event_data) if event_data is not None else None,
+                        strict=fail_closed,
                     )
+                except AuditWriteError:
+                    raise
                 except Exception as exc:
+                    if fail_closed:
+                        raise AuditWriteError(
+                            f"Refusing {resource_type} {event_action}: the audit "
+                            f"event could not be written ({type(exc).__name__})"
+                        ) from exc
                     logger.warning(
                         "Audit attempt log failed",
                         error=redact_sensitive_text(str(exc), redact_emails=True),

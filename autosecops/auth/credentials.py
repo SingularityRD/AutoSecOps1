@@ -36,7 +36,7 @@ from autosecops.auth.api_keys import (
     parse_managed_api_key,
     verify_api_key,
 )
-from autosecops.auth.executor_tokens import verify_executor_token
+from autosecops.auth.executor_tokens import known_trigger_type, verify_executor_token
 from autosecops.auth.ip_allowlist_enforcement import (
     enforce_org_ip_allowlist,
     enforce_platform_admin_ip_allowlist,
@@ -50,7 +50,13 @@ from autosecops.auth.users import (
 from autosecops.authz.controls import has_scope
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.authz.service import workspace_membership_exists
-from autosecops.contexts import ctx_agent_session_id, ctx_role
+from autosecops.contexts import (
+    ExecutorProvenance,
+    ctx_agent_session_id,
+    ctx_executor_provenance,
+    ctx_role,
+    ctx_service_account_api_key_id,
+)
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.engine import AuthSession, get_async_session_auth_context_manager
 from autosecops.db.models import (
@@ -436,6 +442,7 @@ async def _authenticate_api_key(
         record.last_used_at = datetime.now(UTC)
         session.add(record)
         await session.commit()
+        ctx_service_account_api_key_id.set(record.id)
         return Role(
             type="service_account",
             service_id="autosecops-api",
@@ -755,6 +762,17 @@ async def _authenticate_executor(
             )
 
     ctx_agent_session_id.set(token_payload.agent_session_id)
+    ctx_executor_provenance.set(
+        ExecutorProvenance(
+            workflow_id=token_payload.wf_id,
+            run_id=token_payload.wf_exec_id,
+            execution_id=token_payload.execution_id,
+            trigger_type=known_trigger_type(token_payload.trigger_type),
+            execution_origin=token_payload.execution_origin,
+            root_action=token_payload.root_action,
+            agent_session_id=token_payload.agent_session_id,
+        )
+    )
     return role
 
 
@@ -808,8 +826,11 @@ async def _role_dependency(
     """
     # Authentication dependencies may be called more than once in one async
     # context in tests and internal callers. Only a verified executor token may
-    # repopulate this value below.
+    # repopulate these values below; only a verified service-account API key
+    # may repopulate the key id.
     ctx_agent_session_id.set(None)
+    ctx_executor_provenance.set(None)
+    ctx_service_account_api_key_id.set(None)
 
     # Dispatch to appropriate auth handler
     role: Role | None = None
@@ -1530,6 +1551,8 @@ async def authenticated_user_only(
     SuperuserRole for routes that need platform admin access.
     """
     ctx_agent_session_id.set(None)
+    ctx_executor_provenance.set(None)
+    ctx_service_account_api_key_id.set(None)
     role = Role(
         type="user",
         user_id=user.id,

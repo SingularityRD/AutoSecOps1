@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError, model_validator
 from autosecops import config
 from autosecops.auth.secrets import get_service_key
 from autosecops.identifiers import InternalServiceID, SessionID, UserID, WorkspaceID
+from autosecops.workflow.executions.enums import TriggerType
 
 ExecutionOrigin = Literal["agent", "workflow"]
 """Trusted entry point that initiated an executor action."""
@@ -40,6 +41,15 @@ class ExecutorTokenPayload(BaseModel):
     agent_session_id: SessionID | None = None
     wf_id: str
     wf_exec_id: str
+    execution_id: str | None = None
+    """The workflow execution id; ``wf_exec_id`` carries the run id."""
+    trigger_type: str | None = None
+    """How the execution started, for audit attribution.
+
+    Kept as the raw claim, not a ``TriggerType``: an executor that knows a
+    newer trigger type must not invalidate the whole token on an API that
+    does not (a rolling deploy). :func:`known_trigger_type` reads it.
+    """
 
     @model_validator(mode="after")
     def validate_agent_session_provenance(self) -> Self:
@@ -53,6 +63,28 @@ class ExecutorTokenPayload(BaseModel):
         return self
 
 
+UNKNOWN_TRIGGER_TYPE = "unknown"
+"""What :func:`known_trigger_type` reports for a trigger type it does not know."""
+
+
+def known_trigger_type(claim: str | None) -> str | None:
+    """The token's trigger type, or ``"unknown"`` for a value this API lacks.
+
+    Args:
+        claim: The verified token's ``trigger_type`` claim.
+
+    Returns:
+        A ``TriggerType`` value, ``"unknown"``, or ``None`` when the token
+        names none.
+    """
+    if claim is None:
+        return None
+    try:
+        return TriggerType(claim).value
+    except ValueError:
+        return UNKNOWN_TRIGGER_TYPE
+
+
 def mint_executor_token(
     *,
     workspace_id: WorkspaceID,
@@ -63,6 +95,8 @@ def mint_executor_token(
     agent_session_id: SessionID | None = None,
     wf_id: str,
     wf_exec_id: str,
+    execution_id: str | None = None,
+    trigger_type: TriggerType | None = None,
     ttl_seconds: int | None = None,
 ) -> str:
     """Create a signed executor JWT scoped to a specific workflow execution."""
@@ -93,6 +127,10 @@ def mint_executor_token(
         payload["root_action"] = root_action
     if agent_session_id is not None:
         payload["agent_session_id"] = str(agent_session_id)
+    if execution_id is not None:
+        payload["execution_id"] = execution_id
+    if trigger_type is not None:
+        payload["trigger_type"] = trigger_type.value
 
     return jwt.encode(payload, get_service_key(), algorithm="HS256")
 

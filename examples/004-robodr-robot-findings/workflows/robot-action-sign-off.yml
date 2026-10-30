@@ -11,10 +11,12 @@
 #   different people for robot_safe_pause, robot_request_safe_state,
 #   robot_rollback_config and their reverts), none of them the requester,
 #
-# all for the same `robodr_request_id` and `robodr_request_digest` (from
-# `tools.robodr.prepare_action_request` or `prepare_revert_request`), from
-# this form, by platform users, within 24 hours. Workflows and agents cannot
-# submit a form, so only people can sign off.
+# all for the same `robodr_request_id`, `robodr_request_digest` and
+# `robodr_robot_id` (and, for a request, `robodr_action`), as
+# `tools.robodr.prepare_action_request` or `prepare_revert_request` return
+# them in `signoff_answers`, from this form, by platform users, within 24
+# hours. The platform checks the same before it records the call. Workflows
+# and agents cannot submit a form, so only people can sign off.
 #
 # The run itself only records the sign-off; it never contacts a robot.
 definition:
@@ -31,6 +33,15 @@ definition:
       robodr_request_digest:
         type: str
         description: The request_digest shown in the sign-off request comment.
+      robodr_robot_id:
+        type: str
+        description: The robot_id shown in the sign-off request comment.
+      robodr_action:
+        type: str
+        description: >-
+          The action (wire name, e.g. robot_quarantine_node) shown in the
+          sign-off request comment. Leave empty to sign off a revert.
+        default: ""
       robodr_decision:
         type: str
         enum:
@@ -50,6 +61,8 @@ definition:
         value:
           request_id: ${{ TRIGGER.robodr_request_id }}
           request_digest: ${{ TRIGGER.robodr_request_digest }}
+          robot_id: ${{ TRIGGER.robodr_robot_id }}
+          action: ${{ TRIGGER.robodr_action }}
           decision: ${{ TRIGGER.robodr_decision }}
   returns:
     request_id: ${{ ACTIONS.signoff.result.request_id }}

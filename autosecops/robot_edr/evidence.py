@@ -31,6 +31,7 @@ import hashlib
 import json
 import re
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Final, Literal
 
@@ -45,13 +46,13 @@ from autosecops_registry.integrations.robodr_evidence import (
 from sqlalchemy import func, or_, select
 
 from autosecops import config
-from autosecops.audit.enums import AuditEventStatus
-from autosecops.audit.service import AuditService
+from autosecops.audit.enums import AuditEventStatus, AuditWriteResult
 from autosecops.cases.attachments.schemas import CaseAttachmentCreate
 from autosecops.cases.attachments.service import ROBODR_EVIDENCE_PREFIX
 from autosecops.cases.service import CasesService
 from autosecops.db.models import Robot, RobotEvidenceExport, RobotKey
 from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
+from autosecops.robot_edr.audit import write_robot_edr_audit
 from autosecops.robot_edr.evidence_storage import (
     BUNDLE_OBJECT,
     MANIFEST_OBJECT,
@@ -62,6 +63,7 @@ from autosecops.robot_edr.evidence_storage import (
 from autosecops.robot_edr.fleet_wire import public_key_file
 from autosecops.robot_edr.schemas import (
     EvidenceAccessRequest,
+    EvidenceAccessResponse,
     EvidenceStoreRequest,
     EvidenceStoreResponse,
 )
@@ -77,6 +79,12 @@ _SKEW: Final = timedelta(milliseconds=300_000)
 _EVIDENCE_LOCK_NAMESPACE: Final = 0x524F424F44520001  # "ROBODR" + 1
 _REPORT_TEXT_RE: Final = re.compile(r"[!-~]{1,128}")
 _HEX64_RE: Final = re.compile(r"[0-9a-f]{64}")
+_ACCESS_PHASES: Final = {
+    "attempt": (AuditEventStatus.ATTEMPT, True),
+    "succeeded": (AuditEventStatus.SUCCESS, False),
+    "failed": (AuditEventStatus.FAILURE, False),
+}
+"""Evidence access phase: its audit status and whether it fails closed."""
 
 
 def _decode(value: str, what: str) -> bytes:
@@ -370,6 +378,15 @@ class RobotEvidenceService(BaseWorkspaceService):
             ).encode("ascii")
         except (ValueError, UnicodeEncodeError) as exc:
             raise AutoSecOpsValidationError(str(exc)) from exc
+        # Fail closed: nothing is stored that the audit log does not show
+        # being attempted, by whoever (a person, a workflow run, an agent).
+        audit_data = {
+            "robot_id": params.robot_id,
+            "export_id": params.export_id,
+            "case_id": str(case.id),
+            "operation": "store_evidence",
+        }
+        await self._audit("create", AuditEventStatus.ATTEMPT, audit_data, strict=True)
         await self._reserve_quota(len(bundle))
 
         # Objects first (each under a fresh, never-reused key), then the rows
@@ -417,12 +434,9 @@ class RobotEvidenceService(BaseWorkspaceService):
             raise
         await self._audit(
             "create",
-            {
-                "robot_id": params.robot_id,
-                "export_id": params.export_id,
-                "case_id": str(case.id),
-                "operation": "store_evidence",
-            },
+            AuditEventStatus.SUCCESS,
+            audit_data | {"evidence_id": str(evidence_id)},
+            strict=False,
         )
         return EvidenceStoreResponse(
             attachment_id=attachment.id,
@@ -476,30 +490,49 @@ class RobotEvidenceService(BaseWorkspaceService):
                 await delete_evidence_objects([prefix])
             raise
 
-    async def record_access(self, params: EvidenceAccessRequest) -> None:
-        """Write the audit event for an evidence read by a workflow."""
+    async def record_access(
+        self, params: EvidenceAccessRequest
+    ) -> EvidenceAccessResponse:
+        """Write the audit event for one phase of an evidence read or delete.
+
+        The ``attempt`` comes before the registry action contacts the robot
+        and fails closed: it reads or deletes nothing unless this succeeds.
+        ``succeeded`` and ``failed`` follow it, best effort.
+
+        Raises:
+            AuditWriteError: The attempt could not be written.
+        """
         await self.require_entitlement(Entitlement.ROBOT_EDR)
-        await self._audit(
-            "read",
-            {
-                "robot_id": params.robot_id,
-                "export_id": params.export_id,
-                "operation": params.operation,
-            },
+        status, strict = _ACCESS_PHASES[params.phase]
+        data: dict[str, str | None] = {
+            "robot_id": params.robot_id,
+            "export_id": params.export_id,
+            "operation": params.operation,
+        }
+        if params.phase == "failed":
+            data["failure_reason"] = params.failure_reason
+        result = await self._audit(
+            "delete" if params.operation == "delete_export" else "read",
+            status,
+            data,
+            strict=strict,
         )
+        return EvidenceAccessResponse(audit_log=result.value)
 
     async def _audit(
-        self, action: Literal["create", "read"], data: dict[str, str | None]
-    ) -> None:
-        self.logger.info("RoboDR evidence access", action=action, **data)
-        try:
-            await AuditService(self.session, role=self.role).create_event(
-                resource_type="robot_evidence",
-                action=action,
-                status=AuditEventStatus.SUCCESS,
-                data=dict(data),
-            )
-        except Exception as exc:  # audit delivery is best-effort, like ingest's
-            self.logger.warning(
-                "RoboDR evidence audit event failed", error_type=type(exc).__name__
-            )
+        self,
+        action: Literal["create", "read", "delete"],
+        status: AuditEventStatus,
+        data: Mapping[str, str | None],
+        *,
+        strict: bool,
+    ) -> AuditWriteResult:
+        return await write_robot_edr_audit(
+            self.session,
+            self.role,
+            resource_type="robot_evidence",
+            action=action,
+            status=status,
+            data=data,
+            strict=strict,
+        )

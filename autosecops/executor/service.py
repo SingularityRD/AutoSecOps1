@@ -143,6 +143,8 @@ def _mint_action_executor_token(input: RunActionInput, role: Role) -> str:
         ),
         wf_id=str(input.run_context.wf_id),
         wf_exec_id=str(input.run_context.wf_run_id),
+        execution_id=str(input.run_context.wf_exec_id),
+        trigger_type=input.run_context.trigger_type,
     )
 
 

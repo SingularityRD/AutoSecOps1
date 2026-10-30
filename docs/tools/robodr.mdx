@@ -172,7 +172,7 @@ Default: `null`.
 
 Action ID: `tools.robodr.download_evidence_export`
 
-Download an evidence export chunk by chunk (resuming after transient faults), verify it as robodr.control-plane §11.6 requires (answer signatures, manifest signature, chunk and bundle SHA-256, every black-box record's hash, signature and chain under the robot's black-box keyring, and the result against the manifest) and store the verified bundle for the case. Nothing that fails verification is stored. Read-only for the robot; audit-logged.
+Download an evidence export chunk by chunk (resuming after transient faults), verify it as robodr.control-plane §11.6 requires (answer signatures, manifest signature, chunk and bundle SHA-256, every black-box record's hash, signature and chain under the robot's black-box keyring, and the result against the manifest) and store the verified bundle for the case. Nothing that fails verification is stored. Read-only for the robot unless delete_after_download; audit-logged.
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
@@ -702,7 +702,7 @@ Allowed values: `prompt`, `markdown`.
 
 Action ID: `tools.robodr.request_action`
 
-Send one signed-off catalog action request (robot_restrict_motion, robot_quarantine_node, robot_isolate_network, robot_record_evidence, robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a robot's control plane over mutual TLS. Refuses unless platform form submissions prove the requester and one approver (two for the two-person actions), all different platform users, signed off this exact request. The robot judges it against its safety state and may refuse it. recorded_not_executed, refused and failed are reported as not applied; pending is not yet in force; in_force is the robot's own word (verified and not held after a reboot). A robot_quarantine_node in force reports containment: full (contained), partial, guid_only (GUID-prefix drop only, not IP-contained) or unknown; only full is contained.
+Send one signed-off catalog action request (robot_restrict_motion, robot_quarantine_node, robot_isolate_network, robot_record_evidence, robot_safe_pause, robot_request_safe_state, robot_rollback_config) to a robot's control plane over mutual TLS. Refuses unless platform form submissions prove the requester and one approver (two for the two-person actions), all different platform users, signed off this exact request. The robot judges it against its safety state and may refuse it. recorded_not_executed, refused and failed are reported as not applied; pending is not yet in force; in_force is the robot's own word (verified and not held after a reboot). A robot_quarantine_node in force reports containment: full (contained), partial, guid_only (GUID-prefix drop only, not IP-contained) or unknown; only full is contained. Recorded by the platform (the run, requester and approvers) before it is sent; refused if the configured audit sink does not confirm it. audit_log says written (sink confirmed) or no_sink (no audit sink configured: platform log only).
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 
@@ -864,7 +864,7 @@ Default: `null`.
 
 Action ID: `tools.robodr.revert_action`
 
-Ask a robot to revert a signed-off action request. Needs the same platform sign-off as a request (two approvers to revert a two-person action such as robot_safe_pause). request_safe_state, rollback_config and record_evidence are not reversible (refused, not_reversible); a request that never took effect answers not_applied; an executed one answers pending, then reverted.
+Ask a robot to revert a signed-off action request. Needs the same platform sign-off as a request (two approvers to revert a two-person action such as robot_safe_pause). request_safe_state, rollback_config and record_evidence are not reversible (refused, not_reversible); a request that never took effect answers not_applied; an executed one answers pending, then reverted. Recorded by the platform before it is sent; refused if the configured audit sink does not confirm it. audit_log says written (sink confirmed) or no_sink (no audit sink configured: platform log only).
 
 <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
 

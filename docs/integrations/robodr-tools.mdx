@@ -110,7 +110,7 @@ The robot judges every request against its current safety state and may refuse i
 | `tools.robodr.revert_action` | Yes | Platform sign-off, enforced by the action |
 | `tools.robodr.list_evidence` | No | None. Audit-logged |
 | `tools.robodr.create_evidence_export` | No (the robot records the export in its black box) | None. Audit-logged |
-| `tools.robodr.download_evidence_export` | No | None. Audit-logged |
+| `tools.robodr.download_evidence_export` | Only with `delete_after_download`, which deletes the export on the robot | None. Audit-logged |
 
 ### How "no robot action is autonomous" is enforced
 
@@ -119,14 +119,14 @@ The proof is submissions of a sign-off form, which the action reads back from Au
 No action input names a person.
 
 1. `prepare_action_request` (or `prepare_revert_request`) validates the request and returns its `request_id` and `request_digest`: a SHA-256 over the robot id, request id, action, parameters, `ttl_seconds`, `reason`, and `source` (for a revert: robot id, request id, and `reason`).
-2. The requester submits the "Robot action sign-off" [form](/automations/triggers/forms) with that `robodr_request_id` and `robodr_request_digest` and `robodr_decision` = `request`.
+2. The requester submits the "Robot action sign-off" [form](/automations/triggers/forms) with the `signoff_answers` the prepare action returned (`robodr_request_id`, `robodr_request_digest`, `robodr_robot_id`, and for a request `robodr_action`) and `robodr_decision` = `request`.
 3. Each approver submits the same form with `robodr_decision` = `approve`.
 4. You call `request_action` (or `revert_action`) with the same request inputs, the `request_id`, `request_submission_id`, and `approval_submission_ids`.
 
 The action fetches every submission and refuses with `SignoffError`, before it signs anything, unless:
 
 - a platform user submitted each one (a service account submission does not count, and workflows and agents cannot submit forms);
-- all come from the same form, carry this request's `request_id` and `request_digest` and the right `robodr_decision`, and are at most 24 hours old;
+- all come from the same form, carry this request's `request_id`, `request_digest`, robot id (and, for a request, action) and the right `robodr_decision`, and are at most 24 hours old;
 - no approver is the requester, and every approver is a different platform user, compared by user id;
 - there is one approver, or two for `robot_safe_pause`, `robot_request_safe_state`, `robot_rollback_config`, and the revert of any of them. `revert_action` reads the stored request from the robot to learn which action it reverts.
 
@@ -135,6 +135,26 @@ The request sent to the robot carries the requester's identifier as `requested_b
 
 The actions also keep `requires_approval`, so an agent's call pauses in the [agent inbox](/agents/human-in-the-loop). The sign-off check does not depend on that pause: a workflow step that calls the action directly, or an agent with tool approval turned off, still needs the sign-off submissions.
 Both actions need the forms feature.
+
+AutoSecOps records every request and revert as a `robot_action` [audit event](/audit-logs/organization) (`request` or `revert`) before the action signs it.
+AutoSecOps checks the sign-off submissions again itself (same form, at most 24 hours old, this request, digest, robot and action, different people), names the run that sent it, reads the requester and approvers from those submissions, and stores the attempt.
+If AutoSecOps refuses the call, or your audit webhook does not answer with a 2xx within 15 seconds, the action raises `ActionAuditError` and sends nothing to the robot.
+After the robot answers, a `SUCCESS` event records its status, or a `FAILURE` event records the error type, also when the call was cancelled or the answer could not be read.
+That event must cite the stored attempt and come from the same run, and it is accepted once.
+
+The result reports what became of the events:
+
+| Field | Values |
+| --- | --- |
+| `audit_log` | `written` (your audit webhook confirmed the event), `no_sink` (no audit webhook is configured, so the event is only in the AutoSecOps service log), `unconfirmed` (an older AutoSecOps API that does not say) |
+| `audit_logged` | `true` only when `audit_log` is `written` |
+| `outcome_audit_log` | The same for the closing event, or `failed` when it could not be recorded (the robot has already acted) |
+
+Without an audit webhook, AutoSecOps still sends robot actions and writes their events only to its service log.
+Configure an [audit webhook](/audit-logs/organization) to keep an audit trail you control; `audit_log` then reads `written`.
+
+Evidence reads work the same way: `list_evidence`, `create_evidence_export` and `download_evidence_export` record the read before they contact the robot and refuse when it is not recorded, then record its end (`SUCCESS` or `FAILURE`) on a best-effort basis.
+`download_evidence_export` with `delete_after_download` records the delete (a `robot_evidence` `delete` event) before it sends it; if AutoSecOps does not record it, the export stays on the robot and the result reports `deleted: false` with `delete_audit_log: refused`.
 
 `request_action` accepts these catalog actions and validates their parameters before it reads a sign-off or sends anything:
 
@@ -275,7 +295,8 @@ The bundle sits outside the case attachment limits; `AUTOSECOPS__ROBOT_EDR_MAX_E
 
 Exporting evidence changes nothing on the robot, so the evidence actions need no sign-off.
 AutoSecOps writes every evidence call to the [audit log](/audit-logs/organization) as a `robot_evidence` event, and the robot records each export in its black box.
-AutoSecOps records the call before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+AutoSecOps records the call, naming the run that made it, before anything is read from the robot: if it cannot, the evidence call fails and reads nothing.
+Storing evidence for a case is recorded the same way before anything is stored.
 A workflow run may read evidence and store it in a case; a run that a person started reads it only when that person has the `robot:read` scope.
 
 ## Humanoid and quadruped safety
