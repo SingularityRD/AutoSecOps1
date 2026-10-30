@@ -75,6 +75,8 @@ module "ecs" {
   outbound_allowed_private_cidrs                = var.outbound_allowed_private_cidrs
   outbound_proxy_url                            = var.outbound_proxy_url
   outbound_no_proxy                             = var.outbound_no_proxy
+  sandbox_pypi_index_url                        = var.sandbox_pypi_index_url
+  sandbox_pypi_extra_index_urls                 = var.sandbox_pypi_extra_index_urls
   audit_trusted_proxy_cidrs                     = var.audit_trusted_proxy_cidrs
   log_level                                     = var.log_level
   log_format                                    = var.log_format

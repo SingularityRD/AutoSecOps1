@@ -245,6 +245,18 @@ variable "outbound_no_proxy" {
   default     = ""
 }
 
+variable "sandbox_pypi_index_url" {
+  type        = string
+  description = "PyPI index for sandbox package installs (Python script dependencies and custom registry sync), such as an internal mirror. Empty uses https://pypi.org/simple."
+  default     = ""
+}
+
+variable "sandbox_pypi_extra_index_urls" {
+  type        = string
+  description = "Comma-separated extra PyPI index URLs for sandbox package installs."
+  default     = ""
+}
+
 variable "audit_trusted_proxy_cidrs" {
   type        = string
   description = "Comma-separated CIDRs the API treats as its own proxy hops when resolving audit client IPs. Empty uses the built-in private-range default."

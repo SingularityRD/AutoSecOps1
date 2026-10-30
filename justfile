@@ -120,6 +120,11 @@ gen-functions-docs:
 gen-notices:
 	uv run python scripts/third_party_notices.py
 
+# Build the air-gapped install bundle for a release from this checkout.
+# Example: just offline-bundle 1.2.3 --dry-run
+offline-bundle version *args:
+	uv run python scripts/offline_bundle.py --version {{version}} {{args}}
+
 # Validate a PR title against .github/commit-conventions.toml
 check-pr-title $title:
 	PR_TITLE="$title" uv run python scripts/check_pr_title.py
