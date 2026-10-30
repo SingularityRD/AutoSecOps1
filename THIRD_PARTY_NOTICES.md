@@ -230,7 +230,7 @@ hand.
 | ptyprocess | 0.7.0 | ISC License (ISCL) |
 | pwdlib | 0.3.0 | MIT License |
 | py-key-value-aio | 0.4.5 | Apache-2.0 |
-| pyasn1 | 0.6.4 | BSD-2-Clause |
+| pyasn1 | 0.6.5 | BSD-2-Clause |
 | pyasn1_modules | 0.4.2 | BSD License |
 | pycparser | 3.0 | BSD-3-Clause |
 | pycryptodome | 3.23.0 | BSD License / Public Domain |
@@ -24479,7 +24479,7 @@ Apache License
    limitations under the License.
 ```
 
-### pyasn1 0.6.4
+### pyasn1 0.6.5
 
 - License: BSD-2-Clause
 - Homepage: https://github.com/pyasn1/pyasn1
