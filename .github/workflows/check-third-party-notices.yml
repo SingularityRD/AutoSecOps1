@@ -1,0 +1,65 @@
+name: Check third-party notices
+
+# Fails when THIRD_PARTY_NOTICES.md or frontend/THIRD_PARTY_NOTICES.md no
+# longer lists exactly the production packages in uv.lock and
+# frontend/pnpm-lock.yaml. The check reads the lockfiles only: it installs no
+# project dependencies and runs no project code beyond the generator script.
+# Fix a failure with `just gen-notices` and commit the regenerated files.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - uv.lock
+      - pyproject.toml
+      - packages/*/pyproject.toml
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+      - THIRD_PARTY_NOTICES.md
+      - frontend/THIRD_PARTY_NOTICES.md
+      - scripts/third_party_notices.py
+      - .github/workflows/check-third-party-notices.yml
+  pull_request:
+    branches: ["main", "staging"]
+    paths:
+      - uv.lock
+      - pyproject.toml
+      - packages/*/pyproject.toml
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+      - THIRD_PARTY_NOTICES.md
+      - frontend/THIRD_PARTY_NOTICES.md
+      - scripts/third_party_notices.py
+      - .github/workflows/check-third-party-notices.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: third-party-notices-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  notices:
+    name: Notices match lockfiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.4"
+          enable-cache: false
+
+      - name: Compare notices with the lockfiles
+        run: |
+          set -euo pipefail
+          uv run --no-project --python 3.12 \
+            --with pyyaml==6.0.3 --with packaging==26.3 \
+            python scripts/third_party_notices.py --check-lockfiles

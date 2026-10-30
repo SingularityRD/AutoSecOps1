@@ -173,3 +173,52 @@ def test_python_notices_list_bundled_programs() -> None:
     for program in generator.ui_programs():
         row = f"| {program.name} | {program.version} | {program.license} |"
         assert row in FRONTEND_NOTICES.read_text(), REGENERATE
+
+
+def test_notices_list_exactly_the_locked_packages() -> None:
+    """No missing rows and no stale rows, read from the lockfiles alone."""
+    generator = _load_generator()
+    assert generator.lockfile_drift() == [], REGENERATE
+
+
+def test_frontend_requirements_follow_production_tree_only() -> None:
+    generator = _load_generator()
+    shipped = {_norm(name) for name, _ in generator.frontend_requirements()}
+    dev_only = json.loads((ROOT / "frontend" / "package.json").read_text()).get(
+        "devDependencies", {}
+    )
+    production = json.loads((ROOT / "frontend" / "package.json").read_text())[
+        "dependencies"
+    ]
+    assert {_norm(name) for name in production} <= shipped
+    # A dev-only tool that nothing in production depends on stays out.
+    assert any(_norm(name) not in shipped for name in dev_only)
+    assert _norm("@img/sharp-wasm32") not in shipped
+    assert _norm("@img/sharp-linuxmusl-arm64") in shipped
+
+
+def test_lockfile_drift_reports_missing_and_stale_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    generator = _load_generator()
+    python = tmp_path / "THIRD_PARTY_NOTICES.md"
+    frontend = tmp_path / "frontend" / "THIRD_PARTY_NOTICES.md"
+    frontend.parent.mkdir()
+    table = "| Package | Version | License |\n|---|---|---|\n"
+    python.write_text(table + "| requests | 2.0.0 | Apache-2.0 |\n\n## Next\n")
+    frontend.write_text(table + "| left-pad | 1.0.0 | MIT |\n")
+    monkeypatch.setattr(generator, "REPO", tmp_path)
+    monkeypatch.setattr(generator, "PYTHON_OUTPUT", python)
+    monkeypatch.setattr(generator, "FRONTEND_OUTPUT", frontend)
+    monkeypatch.setattr(
+        generator,
+        "python_requirements",
+        lambda: [("Requests", "2.0.0"), ("idna", "3.0")],
+    )
+    monkeypatch.setattr(generator, "frontend_requirements", list)
+
+    assert generator.lockfile_drift() == [
+        "THIRD_PARTY_NOTICES.md is missing idna 3.0",
+        "frontend/THIRD_PARTY_NOTICES.md lists left-pad 1.0.0, "
+        "which the lockfile no longer ships",
+    ]
