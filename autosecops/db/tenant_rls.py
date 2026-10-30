@@ -215,6 +215,8 @@ RLS_EXEMPT_TABLES: dict[str, str] = {
     "access_token": _AUTH_TABLE,
     "oauth_account": _AUTH_TABLE,
     "saml_request_data": _AUTH_TABLE,
+    "webauthn_credential": _AUTH_TABLE,
+    "mfa_recovery_code": _AUTH_TABLE,
     "tier": _PLATFORM_TABLE,
     "platform_settings": _PLATFORM_TABLE,
     "platform_secret": _PLATFORM_TABLE,

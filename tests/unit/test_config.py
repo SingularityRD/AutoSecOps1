@@ -440,6 +440,7 @@ def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> N
 DB_RUNTIME_ROLE_COMPOSE_SERVICES = (
     "api",
     "worker",
+    "background-worker",
     "executor",
     "agent-worker",
     "litellm",
