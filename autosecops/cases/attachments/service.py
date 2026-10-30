@@ -73,6 +73,36 @@ class CaseAttachmentService(BaseWorkspaceService):
         """Centralized accessor for the attachments blob bucket."""
         return config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS
 
+    async def _lock_blob(self, sha256: str) -> None:
+        """Serialize writers of one content-addressed blob until commit.
+
+        The key is the content hash alone, so every workspace and organization
+        holding the same bytes shares the object. Uploads and deletes take this
+        lock so a delete cannot remove a blob another upload just reused.
+        """
+        await self.session.execute(
+            select(
+                func.pg_advisory_xact_lock(func.hashtext(f"attachment-blob:{sha256}"))
+            )
+        )
+
+    async def _blob_still_referenced(self, file: File) -> bool:
+        """Whether a live file other than ``file`` still stores this blob.
+
+        Files are deduplicated per workspace, but the blob key is shared by
+        every workspace and organization that uploaded the same content.
+        """
+        other = await self.session.scalar(
+            select(File.id)
+            .where(
+                File.sha256 == file.sha256,
+                File.id != file.id,
+                File.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        return other is not None
+
     @staticmethod
     def _storage_key_for(sha256: str) -> str:
         """Build the canonical storage key for an attachment content hash."""
@@ -353,6 +383,7 @@ class CaseAttachmentService(BaseWorkspaceService):
                 "be uploaded again as an attachment"
             )
         file = None if robodr_evidence else next(iter(existing_files), None)
+        await self._lock_blob(sha256)
 
         restored = False
         if not file:
@@ -580,24 +611,43 @@ class CaseAttachmentService(BaseWorkspaceService):
                 "You don't have permission to delete this attachment"
             )
 
-        # Soft delete the file
-        attachment.file.deleted_at = datetime.now(UTC)
+        file = attachment.file
+        await self._lock_blob(file.sha256)
+        # The workspace deduplicates identical uploads into one file, so other
+        # cases may attach it too. Detach it from this case only.
+        shared_with_other_cases = await self.session.scalar(
+            select(CaseAttachment.id)
+            .where(
+                CaseAttachment.file_id == file.id,
+                CaseAttachment.id != attachment.id,
+            )
+            .limit(1)
+        )
+        if shared_with_other_cases is not None:
+            await self.session.delete(attachment)
+        else:
+            # Soft delete the file
+            file.deleted_at = datetime.now(UTC)
 
-        # Delete from blob storage
+        # Delete from blob storage unless another live file stores the same
+        # content, in this workspace's other cases or in another workspace.
         storage_key = attachment.storage_path
-        try:
-            await blob.delete_file(
-                key=storage_key,
-                bucket=self.attachments_bucket,
-            )
-        except Exception as e:
-            # Log but don't fail - we've already marked as deleted
-            logger.error(
-                "Failed to delete file from blob storage",
-                attachment_id=attachment_id,
-                storage_key=storage_key,
-                error=str(e),
-            )
+        if shared_with_other_cases is None and not await self._blob_still_referenced(
+            file
+        ):
+            try:
+                await blob.delete_file(
+                    key=storage_key,
+                    bucket=self.attachments_bucket,
+                )
+            except Exception as e:
+                # Log but don't fail - we've already marked as deleted
+                logger.error(
+                    "Failed to delete file from blob storage",
+                    attachment_id=attachment_id,
+                    storage_key=storage_key,
+                    error=str(e),
+                )
 
         # Record deletion event
         await self._emit_case_event(
