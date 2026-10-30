@@ -39,7 +39,10 @@ Events can continue to reach the old endpoint for up to 30 seconds after an endp
 
 | Resource type | Action | Description |
 | --- | --- | --- |
-| `auth` | `sign_in` | A user signed in. |
+| `auth` | `reset` | A password reset presented an invalid or already-used token. |
+| `auth` | `sign_in` | A user signed in (`SUCCESS`), or a sign-in was refused (`FAILURE`, with `data.failure_reason`). |
+| `auth` | `sign_out` | A user signed out. |
+| `auth` | `throttle` | A client tripped an authentication rate limit; `data.operation` names the rule. |
 | `organization` | `create` | An organization was provisioned. |
 | `organization` | `delete` | An organization was deleted. |
 | `organization` | `update` | An organization was reconfigured. |
@@ -61,9 +64,21 @@ Events can continue to reach the old endpoint for up to 30 seconds after an endp
 | `user` | `delete` | A platform user account was deleted. |
 | `user` | `demote` | Superuser access was withdrawn from a user. |
 | `user` | `promote` | A user was granted superuser access. |
+| `user` | `request` | A password reset was requested (`data.operation` is `password_reset_requested`). |
+| `user` | `reset` | A password was reset with a reset token. |
+| `user` | `update` | A password was changed by its holder (`password_change`) or set by a platform administrator (`admin_password_set`). |
 
 An organization-scoped sign-in emits `auth` `sign_in` to this sink and to that organization's sink.
-A superuser login that carries no organization context reaches this sink only.
+A sign-in without organization context belongs to an organization when the account is a member of exactly one; superusers and members of several organizations reach this sink only.
+Sign-out, password, and refused sign-in events for a known account follow the same rule.
+A password set by a platform administrator always reaches this sink only.
+
+`ANONYMOUS` events reach this sink only. AutoSecOps records them when a request names no known account: a sign-in with an unknown email, an invalid reset token, or a tripped rate limit. Their `actor_id` is a keyed pseudonym of the submitted email, so you can correlate repeated attempts against one email without the email itself reaching the sink.
+AutoSecOps audits only the request that first trips a rate limit in its window, so a flood of refused requests writes one event per client and rule.
+
+`data.failure_reason` on a refused sign-in is one of `invalid_credentials`, `unknown_account`, `inactive_account`, `auth_policy`, `ip_not_allowed`, `rate_limited`, `expired`, or `invalid_token`.
+The client sees the same bad-credentials response for each, so the audit stream is the only place the reasons differ.
+No event carries a password, token, or submitted email.
 
 ## Event payload
 

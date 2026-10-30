@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from autosecops import config
 from autosecops.api.app import app as api_app
+from autosecops.auth import audit as auth_audit
 from autosecops.auth import credentials
 from autosecops.auth import rate_limit as rl
 
@@ -50,6 +51,18 @@ async def redis_client(
     monkeypatch.setattr(config, "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", True)
     yield client
     await client.aclose()
+
+
+@pytest.fixture(autouse=True)
+def throttle_events(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """Capture rate-limit audit events instead of resolving a real sink."""
+    events: list[dict[str, Any]] = []
+
+    async def fake_emit(**kwargs: Any) -> None:
+        events.append(kwargs)
+
+    monkeypatch.setattr(rl, "emit_anonymous_auth_event", fake_emit)
+    return events
 
 
 def _limits(monkeypatch: pytest.MonkeyPatch, **limits: int) -> None:
@@ -368,3 +381,82 @@ async def test_successful_api_key_auth_is_not_counted(
             is role
         )
     assert await redis_client.keys("auth:rate_limit:*") == []
+
+
+# === Audit === #
+
+
+@pytest.mark.anyio
+async def test_only_the_tripping_login_is_audited(
+    redis_client: aioredis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    throttle_events: list[dict[str, Any]],
+) -> None:
+    """A flood of refused requests writes one audit event per window."""
+    _limits(monkeypatch, LOGIN_PER_IP=100, LOGIN_PER_ACCOUNT=2)
+    async with _client(_app()) as client:
+        statuses = [
+            (await _login(client, "Member@example.com")).status_code for _ in range(6)
+        ]
+
+    assert statuses == [200, 200, 429, 429, 429, 429]
+    assert throttle_events == [
+        {
+            "identifier": "member@example.com",
+            "action": "throttle",
+            "data": {"operation": "login_account", "failure_reason": "rate_limited"},
+        }
+    ]
+
+
+@pytest.mark.anyio
+async def test_api_key_lockout_is_audited_once(
+    redis_client: aioredis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    throttle_events: list[dict[str, Any]],
+) -> None:
+    _limits(monkeypatch, API_KEY_FAILURES_PER_IP=2)
+    monkeypatch.setattr(
+        credentials,
+        "_authenticate_api_key",
+        AsyncMock(side_effect=credentials.UNAUTHORIZED_EXCEPTION),
+    )
+
+    for _ in range(4):
+        with pytest.raises(HTTPException):
+            await credentials._authenticate_api_key_rate_limited(
+                request=_request(), api_key="tc_org_sk_bad", workspace_id=None
+            )
+
+    assert throttle_events == [
+        {
+            "identifier": None,
+            "action": "throttle",
+            "data": {
+                "operation": "api_key_failures_ip",
+                "failure_reason": "rate_limited",
+            },
+        }
+    ]
+
+
+@pytest.mark.anyio
+async def test_throttle_audit_failure_still_refuses(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A broken audit sink must not turn a 429 into an admitted request."""
+    _limits(monkeypatch, LOGIN_PER_IP=1, LOGIN_PER_ACCOUNT=100)
+    monkeypatch.setattr(
+        rl, "emit_anonymous_auth_event", auth_audit.emit_anonymous_auth_event
+    )
+    monkeypatch.setattr(
+        auth_audit.AuditService,
+        "with_session",
+        Mock(side_effect=RuntimeError("audit sink unavailable")),
+    )
+    async with _client(_app()) as client:
+        first = await _login(client, "member@example.com")
+        second = await _login(client, "member@example.com")
+
+    assert first.status_code == 200
+    assert second.status_code == status.HTTP_429_TOO_MANY_REQUESTS

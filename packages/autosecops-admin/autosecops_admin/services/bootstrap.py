@@ -21,6 +21,7 @@ from autosecops.auth.users import (
     get_user_db_context,
     get_user_manager_context,
     lookup_user_by_email,
+    revoke_user_sessions,
 )
 from autosecops.authz.membership import ensure_member
 from autosecops.db.engine import get_async_session_bypass_rls_context_manager
@@ -301,6 +302,9 @@ async def _ensure_platform_superuser(
         existing.is_verified = True
         existing.is_superuser = True
         existing.role = UserRole.ADMIN
+        # A break-glass password reset must also end every session someone
+        # else may hold for this account.
+        await revoke_user_sessions(session, existing.id)
         return existing, False
 
     user = User(
@@ -333,6 +337,7 @@ async def _get_or_create_local_user(
         existing.is_active = True
         existing.is_verified = True
         existing.role = UserRole.BASIC
+        await revoke_user_sessions(session, existing.id)
         return existing, False
 
     user = User(

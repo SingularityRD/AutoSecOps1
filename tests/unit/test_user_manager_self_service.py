@@ -9,12 +9,19 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from fastapi import Request
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users.db import SQLAlchemyUserDatabase
-from fastapi_users.exceptions import InvalidPasswordException
+from fastapi_users.exceptions import (
+    InvalidPasswordException,
+    InvalidResetPasswordToken,
+)
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops.audit.enums import AuditEventStatus
+from autosecops.auth import users as users_module
+from autosecops.auth.audit import drain_auth_audit_tasks
 from autosecops.auth.schemas import UserUpdate
 from autosecops.auth.types import Role
 from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
@@ -33,6 +40,25 @@ def _role(*, superuser: bool = False, user_id: uuid.UUID | None = None) -> Role:
         is_platform_superuser=superuser,
         scopes=frozenset({"*"}) if superuser else frozenset(),
     )
+
+
+@pytest.fixture(autouse=True)
+def audit_events(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """Capture auth audit events instead of resolving a real sink."""
+    events: list[dict[str, Any]] = []
+
+    async def fake_user_event(**kwargs: Any) -> None:
+        events.append({"kind": "user", **kwargs})
+
+    async def fake_anonymous_event(**kwargs: Any) -> None:
+        events.append({"kind": "anonymous", **kwargs})
+
+    monkeypatch.setattr(users_module, "emit_user_auth_event", fake_user_event)
+    monkeypatch.setattr(users_module, "emit_anonymous_auth_event", fake_anonymous_event)
+    monkeypatch.setattr(
+        users_module, "single_organization_for_audit", AsyncMock(return_value=None)
+    )
+    return events
 
 
 @pytest.fixture
@@ -57,6 +83,8 @@ def user() -> User:
             id=uuid.uuid4(),
             email="member@example.com",
             hashed_password=PasswordHelper().hash(OLD_PASSWORD),
+            is_active=True,
+            is_superuser=False,
         ),
     )
 
@@ -130,28 +158,54 @@ async def test_profile_update_does_not_need_current_password(
 
 @pytest.mark.anyio
 async def test_superuser_patch_user_sets_password_without_current_password(
-    manager: UserManager, user_db: AsyncMock, user: User
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    audit_events: list[dict[str, Any]],
 ) -> None:
     """`PATCH /users/{id}` is superuser-only and passes safe=False."""
     ctx_role.set(_role(superuser=True, user_id=user.id))
 
-    await manager.update(UserUpdate(password=NEW_PASSWORD), user, safe=False)
+    await manager.update(
+        UserUpdate(password=NEW_PASSWORD),
+        user,
+        safe=False,
+        request=_request_with_session("current-session"),
+    )
 
     assert "hashed_password" in user_db.update.await_args.args[1]
-    user_db.session.execute.assert_not_awaited()
+    # Their own account: the other sessions end, the requesting one stays.
+    user_db.session.execute.assert_awaited_once()
+    user_db.session.commit.assert_awaited_once()
+    [event] = audit_events
+    assert event["data"]["operation"] == "password_change"
+    assert event["actor_user_id"] == user.id
 
 
 @pytest.mark.anyio
 async def test_platform_superuser_sets_member_password_without_current_password(
-    manager: UserManager, user_db: AsyncMock, user: User
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    audit_events: list[dict[str, Any]],
 ) -> None:
     """The org member route updates another account with safe=True."""
-    ctx_role.set(_role(superuser=True))
+    admin = _role(superuser=True)
+    ctx_role.set(admin)
 
     await manager.update(UserUpdate(password=NEW_PASSWORD), user, safe=True)
 
     assert "hashed_password" in user_db.update.await_args.args[1]
-    user_db.session.execute.assert_not_awaited()
+    user_db.session.execute.assert_awaited_once()
+    user_db.session.commit.assert_awaited_once()
+    [event] = audit_events
+    assert event["user_id"] == user.id
+    assert event["actor_user_id"] == admin.user_id
+    assert event["resource_type"] == "user"
+    assert event["action"] == "update"
+    assert event["organization_id"] is None
+    assert event["data"]["operation"] == "admin_password_set"
+    assert event["data"]["changed_fields"] == ["password"]
 
 
 @pytest.mark.anyio
@@ -279,3 +333,241 @@ async def test_auth_token_hooks_never_log_the_token(
     assert len(manager.logger.mock_calls) == 2
     assert reset_token not in logged
     assert verify_token not in logged
+
+
+async def _seed_user_with_sessions(
+    session: AsyncSession, *, token_count: int
+) -> tuple[User, list[str], str]:
+    user = User(
+        id=uuid.uuid4(),
+        email=f"sessions-{uuid.uuid4().hex}@example.com",
+        hashed_password=PasswordHelper().hash(OLD_PASSWORD),
+    )
+    bystander_user = User(
+        id=uuid.uuid4(),
+        email=f"bystander-{uuid.uuid4().hex}@example.com",
+        hashed_password="unused",
+    )
+    session.add_all([user, bystander_user])
+    await session.flush()
+    tokens = [uuid.uuid4().hex for _ in range(token_count)]
+    bystander = uuid.uuid4().hex
+    session.add_all(
+        [AccessToken(token=token, user_id=user.id) for token in tokens]
+        + [AccessToken(token=bystander, user_id=bystander_user.id)]
+    )
+    await session.commit()
+    return user, tokens, bystander
+
+
+async def _remaining_tokens(session: AsyncSession, tokens: list[str]) -> set[str]:
+    result = await session.execute(
+        select(AccessToken).where(
+            AccessToken.token.in_(tokens)  # pyright: ignore[reportAttributeAccessIssue]
+        )
+    )
+    return {access_token.token for access_token in result.scalars().all()}
+
+
+@pytest.mark.anyio
+async def test_revoke_user_sessions_keeps_only_the_named_token(
+    session: AsyncSession,
+) -> None:
+    """The helper the admin CLI's break-glass reset also uses."""
+    user, tokens, bystander = await _seed_user_with_sessions(session, token_count=3)
+
+    revoked = await users_module.revoke_user_sessions(
+        session, user.id, keep_token=tokens[0]
+    )
+    await session.commit()
+
+    assert revoked == 2
+    assert await _remaining_tokens(session, [*tokens, bystander]) == {
+        tokens[0],
+        bystander,
+    }
+    assert await users_module.revoke_user_sessions(session, user.id) == 1
+
+
+@pytest.mark.anyio
+async def test_admin_password_set_revokes_every_session(
+    session: AsyncSession, audit_events: list[dict[str, Any]]
+) -> None:
+    """A password an admin sets locks out whoever holds the old sessions."""
+    user, tokens, bystander = await _seed_user_with_sessions(session, token_count=2)
+    ctx_role.set(_role(superuser=True))
+    manager = UserManager(SQLAlchemyUserDatabase(session, User))
+
+    await manager.update(
+        UserUpdate(password=NEW_PASSWORD),
+        user,
+        safe=True,
+        # A cookie on the admin's request must not shield a member session.
+        request=_request_with_session(tokens[0]),
+    )
+
+    assert await _remaining_tokens(session, [*tokens, bystander]) == {bystander}
+    assert audit_events[-1]["data"]["revoked_session_count"] == 2
+
+
+@pytest.mark.anyio
+async def test_password_reset_revokes_every_session(
+    session: AsyncSession, audit_events: list[dict[str, Any]]
+) -> None:
+    user, tokens, bystander = await _seed_user_with_sessions(session, token_count=3)
+    manager = UserManager(SQLAlchemyUserDatabase(session, User))
+
+    await manager.on_after_reset_password(
+        user, request=_request_with_session(tokens[0])
+    )
+
+    assert await _remaining_tokens(session, [*tokens, bystander]) == {bystander}
+    [event] = audit_events
+    assert event["kind"] == "user"
+    assert event["resource_type"] == "user"
+    assert event["action"] == "reset"
+    assert event["user_id"] == user.id
+    assert event["data"] == {
+        "operation": "password_reset",
+        "revoked_session_count": 3,
+    }
+
+
+@pytest.mark.anyio
+async def test_reset_with_invalid_token_is_audited_and_refused(
+    manager: UserManager, audit_events: list[dict[str, Any]]
+) -> None:
+    with pytest.raises(InvalidResetPasswordToken):
+        await manager.reset_password("not-a-token", NEW_PASSWORD)
+
+    [event] = audit_events
+    assert event["kind"] == "anonymous"
+    assert event["identifier"] is None
+    assert event["action"] == "reset"
+    assert event["data"]["failure_reason"] == "invalid_token"
+
+
+@pytest.mark.anyio
+async def test_forgot_password_request_is_audited_without_the_token(
+    manager: UserManager, user: User, audit_events: list[dict[str, Any]]
+) -> None:
+    token = "reset-token-" + uuid.uuid4().hex
+
+    await manager.on_after_forgot_password(user, token)
+
+    [event] = audit_events
+    assert event["action"] == "request"
+    assert event["data"] == {"operation": "password_reset_requested"}
+    assert token not in repr(audit_events)
+
+
+def _login_form(email: str, password: str) -> OAuth2PasswordRequestForm:
+    return OAuth2PasswordRequestForm(username=email, password=password)
+
+
+@pytest.mark.anyio
+async def test_login_with_unknown_email_is_audited_anonymously(
+    manager: UserManager,
+    user_db: AsyncMock,
+    audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    email = "nobody@example.com"
+    password = "guessed-password-123"
+    user_db.get_by_email.return_value = None
+    lookup = AsyncMock(return_value=None)
+    monkeypatch.setattr(users_module, "_lookup_user_for_audit", lookup)
+
+    assert await manager.authenticate(_login_form(email, password)) is None
+    await drain_auth_audit_tasks()
+
+    lookup.assert_awaited_once_with(email)
+
+    [event] = audit_events
+    assert event["kind"] == "anonymous"
+    assert event["identifier"] == email
+    assert event["action"] == "sign_in"
+    assert event["data"] == {
+        "auth_method": "basic",
+        "failure_reason": "unknown_account",
+    }
+    assert password not in repr(audit_events)
+
+
+@pytest.mark.anyio
+async def test_login_with_wrong_password_is_audited_for_the_account(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_db.get_by_email.return_value = user
+    monkeypatch.setattr(
+        users_module, "_lookup_user_for_audit", AsyncMock(return_value=user)
+    )
+
+    assert (
+        await manager.authenticate(_login_form(user.email, "wrong-password-000"))
+        is None
+    )
+    await drain_auth_audit_tasks()
+
+    [event] = audit_events
+    assert event["kind"] == "user"
+    assert event["user_id"] == user.id
+    assert event["resource_type"] == "auth"
+    assert event["status"] == AuditEventStatus.FAILURE
+    assert event["data"] == {
+        "auth_method": "basic",
+        "failure_reason": "invalid_credentials",
+    }
+    assert "wrong-password-000" not in repr(audit_events)
+
+
+@pytest.mark.anyio
+async def test_login_to_inactive_account_is_refused_and_audited(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    audit_events: list[dict[str, Any]],
+) -> None:
+    cast(Any, user).is_active = False
+    user_db.get_by_email.return_value = user
+
+    assert await manager.authenticate(_login_form(user.email, OLD_PASSWORD)) is None
+
+    [event] = audit_events
+    assert event["data"]["failure_reason"] == "inactive_account"
+
+
+@pytest.mark.anyio
+async def test_login_audit_failure_does_not_change_the_outcome(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing org lookup for the audit event must not change a login."""
+    monkeypatch.setattr(
+        users_module,
+        "single_organization_for_audit",
+        AsyncMock(side_effect=RuntimeError("database unavailable")),
+    )
+    monkeypatch.setattr(
+        UserManager, "_is_local_password_login_allowed", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(UserManager, "_enforce_login_ip_allowlist", AsyncMock())
+    monkeypatch.setattr(
+        users_module,
+        "_lookup_user_for_audit",
+        AsyncMock(side_effect=RuntimeError("database unavailable")),
+    )
+    user_db.get_by_email.return_value = user
+
+    assert await manager.authenticate(_login_form(user.email, OLD_PASSWORD)) is user
+    assert (
+        await manager.authenticate(_login_form(user.email, "wrong-password-000"))
+        is None
+    )
+    await drain_auth_audit_tasks()

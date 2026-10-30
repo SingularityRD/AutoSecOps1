@@ -55,6 +55,8 @@ AuditAction = Literal[
     "revoke",
     "resend",
     "sign_in",
+    "sign_out",
+    "throttle",
     "connect",
     "sync",
     "promote",

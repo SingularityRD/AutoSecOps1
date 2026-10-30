@@ -44,6 +44,7 @@ from autosecops.audit.types import (
     AuditMetadata,
     AuditWebhookConfig,
 )
+from autosecops.auth import users as users_module
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.auth.users import UserManager
 from autosecops.authz.scopes import ADMIN_SCOPES
@@ -711,14 +712,29 @@ async def test_on_after_login_with_org_context_fans_out_to_that_org(
 
 
 @pytest.mark.anyio
-async def test_auth_success_audit_skips_platform_scoped_auth_for_non_superusers(
+async def test_auth_success_audit_records_unscoped_non_superuser_in_platform_sink(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A sign-in no single organization owns still reaches the platform sink."""
     user = MagicMock()
     user.id = uuid.uuid4()
     user.is_superuser = False
-    with_session = MagicMock()
-    monkeypatch.setattr(AuditService, "with_session", with_session)
+    calls: list[dict[str, object]] = []
+
+    @asynccontextmanager
+    async def fake_with_session(
+        role: Role | PlatformRole | None = None,
+        *,
+        session=None,
+        audit_sink=None,
+    ):
+        class FakeAuditService:
+            async def create_event(self, **kwargs):
+                calls.append({"role": role, "audit_sink": audit_sink})
+
+        yield FakeAuditService()
+
+    monkeypatch.setattr(AuditService, "with_session", fake_with_session)
     manager = UserManager.__new__(UserManager)
 
     await manager._emit_auth_success_audit(
@@ -727,7 +743,52 @@ async def test_auth_success_audit_skips_platform_scoped_auth_for_non_superusers(
         org_ids=set(),
     )
 
-    with_session.assert_not_called()
+    assert [call["audit_sink"] for call in calls] == ["platform"]
+    assert isinstance(calls[0]["role"], PlatformRole)
+
+
+@pytest.mark.anyio
+async def test_on_after_login_attributes_single_org_member_to_that_org(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A context-less login by a one-organization member is that org's event."""
+    org_id = uuid.uuid4()
+    user = MagicMock()
+    user.id = uuid.uuid4()
+    user.is_superuser = False
+    calls: list[dict[str, object]] = []
+
+    @asynccontextmanager
+    async def fake_with_session(
+        role: Role | PlatformRole | None = None,
+        *,
+        session=None,
+        audit_sink=None,
+    ):
+        class FakeAuditService:
+            async def create_event(self, **kwargs):
+                calls.append({"role": role, "audit_sink": audit_sink})
+
+        yield FakeAuditService()
+
+    monkeypatch.setattr(AuditService, "with_session", fake_with_session)
+    monkeypatch.setattr(
+        users_module,
+        "single_organization_for_audit",
+        AsyncMock(return_value=org_id),
+    )
+    manager = UserManager.__new__(UserManager)
+    manager.logger = MagicMock()
+    manager.user_db = MagicMock()
+    manager.user_db.update = AsyncMock()
+
+    await manager.on_after_login(user, request=None, response=None)
+
+    assert [call["audit_sink"] for call in calls] == ["platform", "organization"]
+    for call in calls:
+        role = call["role"]
+        assert isinstance(role, Role)
+        assert role.organization_id == org_id
 
 
 @pytest.mark.anyio
