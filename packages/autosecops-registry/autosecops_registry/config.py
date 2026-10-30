@@ -42,6 +42,23 @@ AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES = int(
     os.environ.get("AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES") or 64 * 1024 * 1024
 )
 
+# python_lambda resource limits. Lambdas run inside shared executor processes,
+# so each evaluation gets a step, allocation and wall-clock budget.
+AUTOSECOPS__LAMBDA_MAX_STEPS = int(
+    os.environ.get("AUTOSECOPS__LAMBDA_MAX_STEPS") or 1_000_000
+)
+"""Maximum comprehension iterations and nested lambda calls per evaluation."""
+
+AUTOSECOPS__LAMBDA_MAX_ALLOCATION_BYTES = int(
+    os.environ.get("AUTOSECOPS__LAMBDA_MAX_ALLOCATION_BYTES") or 64 * 1024 * 1024
+)
+"""Approximate bytes one lambda evaluation may build or render in total."""
+
+AUTOSECOPS__LAMBDA_TIMEOUT_SECONDS = float(
+    os.environ.get("AUTOSECOPS__LAMBDA_TIMEOUT_SECONDS") or 2
+)
+"""Maximum wall-clock seconds one lambda evaluation may run."""
+
 # S3 concurrency limit
 AUTOSECOPS__S3_CONCURRENCY_LIMIT = int(
     os.environ.get("AUTOSECOPS__S3_CONCURRENCY_LIMIT", 10)
