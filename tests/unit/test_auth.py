@@ -87,10 +87,19 @@ async def test_authenticated_client_role_headers(
 def test_cookie_secure_derived_from_public_api_url(
     monkeypatch, public_api_url, expected
 ):
-    monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", public_api_url)
-    reloaded = importlib.reload(users_mod)
-    assert reloaded.cookie_transport.cookie_secure is expected
-    # Ensure the internal API URL never gates the Secure flag on its own.
-    monkeypatch.setattr(config, "AUTOSECOPS__API_URL", "http://api-service:8000")
-    reloaded = importlib.reload(users_mod)
-    assert reloaded.cookie_transport.cookie_secure is expected
+    # Reloading re-executes the module in place, replacing its classes (such
+    # as InvalidEmailException) with new objects. Restore the original
+    # namespace afterwards so later tests on this worker see the same classes
+    # they imported.
+    original_namespace = dict(users_mod.__dict__)
+    try:
+        monkeypatch.setattr(config, "AUTOSECOPS__PUBLIC_API_URL", public_api_url)
+        reloaded = importlib.reload(users_mod)
+        assert reloaded.cookie_transport.cookie_secure is expected
+        # Ensure the internal API URL never gates the Secure flag on its own.
+        monkeypatch.setattr(config, "AUTOSECOPS__API_URL", "http://api-service:8000")
+        reloaded = importlib.reload(users_mod)
+        assert reloaded.cookie_transport.cookie_secure is expected
+    finally:
+        users_mod.__dict__.clear()
+        users_mod.__dict__.update(original_namespace)

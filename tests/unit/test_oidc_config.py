@@ -1,7 +1,9 @@
 """Tests for platform OIDC client configuration."""
 
+import dataclasses
 import importlib
 import logging
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +13,7 @@ from httpx_oauth.exceptions import GetIdEmailError, GetProfileError
 from autosecops import config
 from autosecops.auth.enums import AuthType
 from autosecops.auth.oidc import (
+    OIDCProviderConfig,
     PlatformOpenID,
     create_platform_oauth_client,
     oidc_auth_type_enabled,
@@ -204,3 +207,48 @@ async def test_platform_openid_keeps_get_id_email_error_contract() -> None:
     ):
         with pytest.raises(GetIdEmailError):
             await client.get_id_email("token")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("email_verified", ["1", "True", " true ", "verified"])
+async def test_platform_openid_only_rejects_an_explicit_false_string(
+    email_verified: str,
+) -> None:
+    """Only the string "false" (any case or padding) marks an email unverified.
+
+    Other strings, including ones that sort before "false" such as "1", keep
+    the email; a looser comparison would lock out verified users.
+    """
+    client = _platform_client()
+    profile = {
+        "sub": "user-sub",
+        "email": "user@example.com",
+        "email_verified": email_verified,
+    }
+    with patch.object(PlatformOpenID, "get_profile", return_value=profile):
+        assert await client.get_id_email("token") == ("user-sub", "user@example.com")
+
+
+@pytest.mark.anyio
+async def test_platform_openid_rejects_padded_false_string() -> None:
+    client = _platform_client()
+    profile = {"sub": "s", "email": "owner@example.com", "email_verified": " False "}
+    with patch.object(PlatformOpenID, "get_profile", return_value=profile):
+        assert await client.get_id_email("token") == ("s", None)
+
+
+def test_oidc_provider_config_is_immutable() -> None:
+    oidc_config = OIDCProviderConfig(
+        issuer="https://auth.example.com",
+        client_id="id",
+        client_secret="secret",
+        scopes=("openid",),
+    )
+    assert (
+        oidc_config.discovery_endpoint
+        == "https://auth.example.com/.well-known/openid-configuration"
+    )
+    # Typed as Any so the checker lets the test attempt the forbidden write.
+    writable: Any = oidc_config
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        writable.issuer = "https://attacker.example"
