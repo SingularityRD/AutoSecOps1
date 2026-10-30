@@ -16783,6 +16783,8 @@ export const $EffectiveEntitlements = {
       title: "Robot EDR",
       description:
         "Whether workspaces may register robots and ingest RoboDR findings",
+      default: false,
+    },
     agent_runtime_preview: {
       type: "boolean",
       title: "Agent runtime preview",
@@ -16969,6 +16971,7 @@ export const $Entitlement = {
     "forms",
     "tunnels",
     "robot_edr",
+    "agent_runtime_preview",
   ],
   title: "Entitlement",
   description: "Available feature entitlements.",
@@ -17059,6 +17062,7 @@ export const $EntitlementsDict = {
       title: "Robot EDR",
       description:
         "Whether workspaces may register robots and ingest RoboDR findings",
+    },
     agent_runtime_preview: {
       type: "boolean",
       title: "Agent runtime preview",
@@ -28008,6 +28012,45 @@ export const $Page_ExternalGroupRead_ = {
   title: "Page[ExternalGroupRead]",
 } as const
 
+export const $Page_FleetRevocationRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/FleetRevocationRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[FleetRevocationRead]",
+} as const
+
 export const $Page_GitTagInfo_ = {
   properties: {
     items: {
@@ -28045,6 +28088,84 @@ export const $Page_GitTagInfo_ = {
   type: "object",
   required: ["items"],
   title: "Page[GitTagInfo]",
+} as const
+
+export const $Page_RobotKeyRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotKeyRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotKeyRead]",
+} as const
+
+export const $Page_RobotRead_ = {
+  properties: {
+    items: {
+      items: {
+        $ref: "#/components/schemas/RobotRead",
+      },
+      type: "array",
+      title: "Items",
+    },
+    next_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Next Cursor",
+      description: "Next-page cursor",
+    },
+    prev_cursor: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Prev Cursor",
+      description: "Previous-page cursor",
+    },
+  },
+  type: "object",
+  required: ["items"],
+  title: "Page[RobotRead]",
 } as const
 
 export const $Page_SecretStoreRead_ = {

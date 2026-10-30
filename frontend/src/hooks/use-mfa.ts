@@ -12,7 +12,7 @@ import {
   type WebAuthnCredentialRead,
 } from "@/client"
 import { toast } from "@/components/ui/use-toast"
-import { getApiErrorDetail, type AutoSecOpsApiError } from "@/lib/errors"
+import { type AutoSecOpsApiError, getApiErrorDetail } from "@/lib/errors"
 import { useMutation, useQuery, useQueryClient } from "@/lib/query"
 import { MFA_STATUS_QUERY_KEY } from "@/lib/webauthn"
 
@@ -22,15 +22,16 @@ export const MFA_CREDENTIALS_QUERY_KEY = ["auth", "mfa-credentials"]
 export function useMfaPolicy(scope: "organization" | "platform") {
   const queryClient = useQueryClient()
   const queryKey = ["mfa-policy", scope]
-  const { data: policy, isLoading } = useQuery<MfaPolicyRead, AutoSecOpsApiError>(
-    {
-      queryKey,
-      queryFn: async () =>
-        scope === "platform"
-          ? await adminGetMfaSettings()
-          : await settingsGetMfaPolicy(),
-    }
-  )
+  const { data: policy, isLoading } = useQuery<
+    MfaPolicyRead,
+    AutoSecOpsApiError
+  >({
+    queryKey,
+    queryFn: async () =>
+      scope === "platform"
+        ? await adminGetMfaSettings()
+        : await settingsGetMfaPolicy(),
+  })
   const { mutateAsync: updatePolicy, isPending } = useMutation<
     MfaPolicyRead,
     AutoSecOpsApiError,

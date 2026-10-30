@@ -4999,6 +4999,7 @@ export type EffectiveEntitlements = {
    * Whether workspaces may register robots and ingest RoboDR findings
    */
   robot_edr?: boolean
+  /**
    * Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions
    */
   agent_runtime_preview?: boolean
@@ -5092,6 +5093,7 @@ export type Entitlement =
   | "forms"
   | "tunnels"
   | "robot_edr"
+  | "agent_runtime_preview"
 
 /**
  * TypedDict for tier entitlements stored in JSONB.
@@ -5159,6 +5161,7 @@ export type EntitlementsDict = {
    * Whether workspaces may register robots and ingest RoboDR findings
    */
   robot_edr?: boolean
+  /**
    * Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions
    */
   agent_runtime_preview?: boolean
@@ -8569,8 +8572,44 @@ export type Page_ExternalGroupRead_ = {
   prev_cursor?: string | null
 }
 
+export type Page_FleetRevocationRead_ = {
+  items: Array<FleetRevocationRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
 export type Page_GitTagInfo_ = {
   items: Array<GitTagInfo>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
+export type Page_RobotKeyRead_ = {
+  items: Array<RobotKeyRead>
+  /**
+   * Next-page cursor
+   */
+  next_cursor?: string | null
+  /**
+   * Previous-page cursor
+   */
+  prev_cursor?: string | null
+}
+
+export type Page_RobotRead_ = {
+  items: Array<RobotRead>
   /**
    * Next-page cursor
    */
@@ -21680,6 +21719,10 @@ export type $OpenApiTs = {
          */
         200: WorkflowDslPublishResult
         /**
+         * Bad Request
+         */
+        400: WorkspaceSyncExportError
+        /**
          * Validation Error
          */
         422: HTTPValidationError
@@ -21740,6 +21783,10 @@ export type $OpenApiTs = {
          */
         200: WorkspaceSyncExportResult
         /**
+         * Bad Request
+         */
+        400: WorkspaceSyncExportError
+        /**
          * Validation Error
          */
         422: HTTPValidationError
@@ -21755,6 +21802,10 @@ export type $OpenApiTs = {
          */
         200: WorkspaceSyncExportPreview
         /**
+         * Bad Request
+         */
+        400: WorkspaceSyncExportError
+        /**
          * Validation Error
          */
         422: HTTPValidationError
@@ -21769,6 +21820,213 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: PullResult
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations": {
+    post: {
+      req: WorkflowsCreateSyncOperationData
+      res: {
+        /**
+         * Successful Response
+         */
+        202: SyncOperationRead
+        /**
+         * Bad Request
+         */
+        400: SyncOperationError
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Conflict
+         */
+        409: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: SyncOperationError
+      }
+    }
+    get: {
+      req: WorkflowsListSyncOperationsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: Page_SyncOperationRead_
+        /**
+         * Bad Request
+         */
+        400: SyncOperationError
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}": {
+    get: {
+      req: WorkflowsGetSyncOperationData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: SyncOperationRead
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: SyncOperationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/apply": {
+    post: {
+      req: WorkflowsApplySyncOperationData
+      res: {
+        /**
+         * Successful Response
+         */
+        202: SyncOperationRead
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Conflict
+         */
+        409: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: SyncOperationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/retry": {
+    post: {
+      req: WorkflowsRetrySyncOperationData
+      res: {
+        /**
+         * Successful Response
+         */
+        202: SyncOperationRead
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Conflict
+         */
+        409: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+        /**
+         * Service Unavailable
+         */
+        503: SyncOperationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs": {
+    get: {
+      req: WorkflowsListSyncDiffsData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: SyncDiffPage
+        /**
+         * Bad Request
+         */
+        400: SyncOperationError
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Gone
+         */
+        410: SyncOperationError
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs/{index}": {
+    get: {
+      req: WorkflowsGetSyncDiffData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: PullResourceDiff
+        /**
+         * Forbidden
+         */
+        403: ScopeDeniedResponse | SyncOperationError
+        /**
+         * Not Found
+         */
+        404: SyncOperationError
+        /**
+         * Gone
+         */
+        410: SyncOperationError
         /**
          * Validation Error
          */
@@ -22133,10 +22391,6 @@ export type $OpenApiTs = {
          */
         200: TunnelRead
         /**
-         * Bad Request
-         */
-        400: WorkspaceSyncExportError
-        /**
          * Validation Error
          */
         422: HTTPValidationError
@@ -22193,10 +22447,6 @@ export type $OpenApiTs = {
          */
         200: ScheduleRead
         /**
-         * Bad Request
-         */
-        400: WorkspaceSyncExportError
-        /**
          * Validation Error
          */
         422: HTTPValidationError
@@ -22211,10 +22461,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: Array<ScheduleRead>
-        /**
-         * Bad Request
-         */
-        400: WorkspaceSyncExportError
         /**
          * Validation Error
          */
@@ -22236,215 +22482,6 @@ export type $OpenApiTs = {
         422: HTTPValidationError
       }
     }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations": {
-    post: {
-      req: WorkflowsCreateSyncOperationData
-      res: {
-        /**
-         * Successful Response
-         */
-        202: SyncOperationRead
-        /**
-         * Bad Request
-         */
-        400: SyncOperationError
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Conflict
-         */
-        409: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-        /**
-         * Service Unavailable
-         */
-        503: SyncOperationError
-      }
-    }
-    get: {
-      req: WorkflowsListSyncOperationsData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: Page_SyncOperationRead_
-        /**
-         * Bad Request
-         */
-        400: SyncOperationError
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}": {
-    get: {
-      req: WorkflowsGetSyncOperationData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: SyncOperationRead
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-        /**
-         * Service Unavailable
-         */
-        503: SyncOperationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/apply": {
-    post: {
-      req: WorkflowsApplySyncOperationData
-      res: {
-        /**
-         * Successful Response
-         */
-        202: SyncOperationRead
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Conflict
-         */
-        409: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-        /**
-         * Service Unavailable
-         */
-        503: SyncOperationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/retry": {
-    post: {
-      req: WorkflowsRetrySyncOperationData
-      res: {
-        /**
-         * Successful Response
-         */
-        202: SyncOperationRead
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Conflict
-         */
-        409: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-        /**
-         * Service Unavailable
-         */
-        503: SyncOperationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs": {
-    get: {
-      req: WorkflowsListSyncDiffsData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: SyncDiffPage
-        /**
-         * Bad Request
-         */
-        400: SyncOperationError
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Gone
-         */
-        410: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs/{index}": {
-    get: {
-      req: WorkflowsGetSyncDiffData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: PullResourceDiff
-        /**
-         * Forbidden
-         */
-        403: ScopeDeniedResponse | SyncOperationError
-        /**
-         * Not Found
-         */
-        404: SyncOperationError
-        /**
-         * Gone
-         */
-        410: SyncOperationError
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/secrets/aws": {
     post: {
       req: SchedulesUpdateScheduleData
       res: {
