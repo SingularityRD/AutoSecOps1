@@ -1484,6 +1484,14 @@ def inprocess_api_server(
     monkeysession.setenv("AUTOSECOPS__PUBLIC_API_URL", f"{api_url}/api")
 
     api_env = os.environ.copy()
+    # Other helpers call load_dotenv() after env_sandbox, which can restore the
+    # .env runtime password. The API process must follow the same credentials
+    # as this session: the runtime role exists only in the opt-in run.
+    if TEST_DB_RUNTIME_ROLE:
+        api_env["AUTOSECOPS__DB_RUNTIME_PASSWORD"] = TEST_DB_RUNTIME_PASSWORD
+    else:
+        api_env.pop("AUTOSECOPS__DB_RUNTIME_PASSWORD", None)
+    api_env.pop("AUTOSECOPS__DB_RUNTIME_USER", None)
     api_env["AUTOSECOPS__API_URL"] = api_url
     api_env["AUTOSECOPS__PUBLIC_API_URL"] = f"{api_url}/api"
 
