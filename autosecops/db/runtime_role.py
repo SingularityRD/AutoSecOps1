@@ -37,6 +37,11 @@ WORKSPACE_SCHEMA_PATTERN = r"^(tables|custom_fields)_ws_[0-9A-Za-z]+$"
 
 RUNTIME_TABLE_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE"
 RUNTIME_SEQUENCE_PRIVILEGES = "USAGE, SELECT"
+RUNTIME_REFERENCED_TABLES = ("case",)
+"""Public tables that runtime-created workspace tables reference by foreign key.
+
+The per-workspace ``custom_fields_*.case_fields`` table references ``case``.
+"""
 
 
 class RuntimeRoleError(RuntimeError):
@@ -199,6 +204,13 @@ class _Provisioner:
                 sequence_privs, self._role
             )
         )
+        # Workspace tables the services create point foreign keys at these.
+        for table in RUNTIME_REFERENCED_TABLES:
+            self._exec(
+                sql.SQL("GRANT REFERENCES ON TABLE public.{} TO {}").format(
+                    _ident(table), self._role
+                )
+            )
         # Only migrations may record the schema version.
         self._exec(
             sql.SQL(
