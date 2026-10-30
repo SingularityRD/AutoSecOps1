@@ -50,7 +50,7 @@ PostgreSQL applies row-level security only to roles that neither own the table n
 The migrations step creates the runtime role after `alembic upgrade head` and re-applies its grants on every upgrade:
 
 - `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`, with the password from `AUTOSECOPS__DB_RUNTIME_PASSWORD`.
-- `SELECT`, `INSERT`, `UPDATE`, `DELETE` on the `public` tables and default privileges for tables that later migrations add. It can read `alembic_version` but not change it.
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE` on the `public` tables and default privileges for tables that later migrations add, plus `REFERENCES` on `case` for case field tables. It can read `alembic_version` but not change it.
 - `CREATE` on the database and ownership of the per-workspace `tables_*` and `custom_fields_*` schemas, which the services create and alter at runtime. Those tables force row-level security, so the policy applies to their owner too.
 
 The owner role needs `CREATEROLE` (the bundled PostgreSQL superuser and the RDS master user have it). If your DBA manages roles instead, create the role and grant it to the owner before you upgrade, then set the same password in AutoSecOps:
