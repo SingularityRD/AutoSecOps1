@@ -517,7 +517,7 @@ class RegistrySyncRunner:
             # BatchMode=yes prevents SSH from prompting for input (passphrase, etc.)
             # which would cause the subprocess to hang indefinitely
             git_env["GIT_SSH_COMMAND"] = (
-                f"ssh -i {ssh_key_path} -o StrictHostKeyChecking=no -o BatchMode=yes"
+                f"ssh -F /dev/null -i {ssh_key_path} -o StrictHostKeyChecking=no -o BatchMode=yes"
             )
 
         # Timeout for git operations (clone, fetch, checkout)

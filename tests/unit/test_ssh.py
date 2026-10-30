@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from autosecops.process_env import tool_subprocess_env
 from autosecops.ssh import (
     SshEnv,
     add_host_to_known_hosts_sync,
@@ -107,10 +108,11 @@ async def test_temporary_ssh_agent_uses_private_socket_and_exact_cleanup_env(
     start_call, stop_call = run.call_args_list
     assert start_call.args[0] == ["ssh-agent", "-s", "-a", str(socket_path)]
     assert stop_call.args[0] == ["ssh-agent", "-k"]
-    assert stop_call.kwargs["env"] == {
-        "SSH_AUTH_SOCK": str(socket_path),
-        "SSH_AGENT_PID": "4321",
-    }
+    assert stop_call.kwargs["env"] == tool_subprocess_env(
+        {"SSH_AUTH_SOCK": str(socket_path), "SSH_AGENT_PID": "4321"}
+    )
+    # The agent outlives the call, so it starts without platform credentials.
+    assert start_call.kwargs["env"] == tool_subprocess_env()
 
 
 def test_add_ssh_key_applies_lifetime_and_destination_constraint(
@@ -149,7 +151,7 @@ def test_add_ssh_key_applies_lifetime_and_destination_constraint(
         input="fake-private-key\n",
         capture_output=True,
         text=True,
-        env=env.to_dict(),
+        env=tool_subprocess_env(env.to_dict()),
         check=False,
         timeout=30.0,
     )

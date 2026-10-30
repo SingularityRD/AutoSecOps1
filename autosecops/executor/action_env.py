@@ -9,9 +9,11 @@ The action runner then adds the run's SDK context and executor token.
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Iterable, Mapping
 from functools import cache
+from pathlib import Path
 
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
@@ -20,25 +22,40 @@ from autosecops import config
 from autosecops.logger import logger
 from autosecops.process_env import BASE_ENV_NAMES, select_env
 
-ACTION_ENV_ALLOWED_NAMES = BASE_ENV_NAMES | frozenset(
+AWS_NON_SECRET_ENV_NAMES = frozenset(
     {
-        # Non-secret settings that autosecops_registry reads at import time.
-        "AUTOSECOPS__MAX_FILE_SIZE_BYTES",
-        "AUTOSECOPS__MAX_UPLOAD_FILES_COUNT",
-        "AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES",
-        "AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES",
-        "AUTOSECOPS__LAMBDA_MAX_STEPS",
-        "AUTOSECOPS__LAMBDA_MAX_ALLOCATION_BYTES",
-        "AUTOSECOPS__LAMBDA_TIMEOUT_SECONDS",
-        "AUTOSECOPS__S3_CONCURRENCY_LIMIT",
-        "AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY",
-        "AUTOSECOPS__AGENT_MAX_RETRIES",
-        "AUTOSECOPS__AGENT_MAX_TOOL_CALLS",
-        "AUTOSECOPS__AGENT_MAX_REQUESTS",
-        "AUTOSECOPS__EXECUTOR_URL",
-        # Process cap the trusted minimal runner applies before action code.
-        "AUTOSECOPS__SANDBOX_RLIMIT_NPROC",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+        "AWS_CA_BUNDLE",
+        "AWS_USE_FIPS_ENDPOINT",
+        "AWS_STS_REGIONAL_ENDPOINTS",
     }
+)
+"""AWS client settings that hold no credentials, so actions may inherit them."""
+
+ACTION_ENV_ALLOWED_NAMES = (
+    BASE_ENV_NAMES
+    | AWS_NON_SECRET_ENV_NAMES
+    | frozenset(
+        {
+            # Non-secret settings that autosecops_registry reads at import time.
+            "AUTOSECOPS__MAX_FILE_SIZE_BYTES",
+            "AUTOSECOPS__MAX_UPLOAD_FILES_COUNT",
+            "AUTOSECOPS__MAX_AGGREGATE_UPLOAD_SIZE_BYTES",
+            "AUTOSECOPS__ROBOT_EDR_MAX_EVIDENCE_BYTES",
+            "AUTOSECOPS__LAMBDA_MAX_STEPS",
+            "AUTOSECOPS__LAMBDA_MAX_ALLOCATION_BYTES",
+            "AUTOSECOPS__LAMBDA_TIMEOUT_SECONDS",
+            "AUTOSECOPS__S3_CONCURRENCY_LIMIT",
+            "AUTOSECOPS__DUCKDB_EXTENSION_DIRECTORY",
+            "AUTOSECOPS__AGENT_MAX_RETRIES",
+            "AUTOSECOPS__AGENT_MAX_TOOL_CALLS",
+            "AUTOSECOPS__AGENT_MAX_REQUESTS",
+            "AUTOSECOPS__EXECUTOR_URL",
+            # Process cap the trusted minimal runner applies before action code.
+            "AUTOSECOPS__SANDBOX_RLIMIT_NPROC",
+        }
+    )
 )
 """Executor environment variables copied into every direct-mode action.
 
@@ -90,6 +107,8 @@ def is_passthrough_denied(name: str) -> bool:
     """
     if not _ENV_NAME_PATTERN.fullmatch(name):
         return True
+    if name in AWS_NON_SECRET_ENV_NAMES:
+        return False
     upper = name.upper()
     if upper.startswith(PASSTHROUGH_DENIED_PREFIXES):
         return True
@@ -139,6 +158,23 @@ def _internal_db_endpoint_env() -> dict[str, str]:
     if port:
         env["AUTOSECOPS__DB_PORT"] = str(port)
     return env
+
+
+def local_registry_import_paths() -> list[str]:
+    """Return import roots for custom actions in local-repository mode.
+
+    Local-repository mode installs the mounted repository into
+    ``PYTHONUSERBASE`` and imports it from there and from the mount. Only
+    action subprocesses get these paths: privileged processes never import
+    from directories that action code can write.
+
+    Returns:
+        The import roots, or an empty list when local-repository mode is off.
+    """
+    if not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
+        return []
+    user_base = os.environ.get("PYTHONUSERBASE") or str(Path.home() / ".local")
+    return [user_base, config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH]
 
 
 def build_direct_action_env(

@@ -37,7 +37,7 @@ from autosecops.executor.registry_artifact_budget import (
     plan_registry_artifact_evictions,
 )
 from autosecops.logger import logger
-from autosecops.process_env import tool_subprocess_env
+from autosecops.process_env import tool_subprocess_env, trusted_path
 from autosecops.sandbox.utils import communicate_process_group
 
 __all__ = (
@@ -1368,7 +1368,7 @@ class RegistryArtifactCacheStorage:
 
     async def _unmount(self, mount_dir: Path) -> bool:
         """Unmount a SquashFS artifact directory, releasing its loop device."""
-        umount = shutil.which("umount")
+        umount = shutil.which("umount", path=trusted_path())
         if umount is None:
             return False
         proc = await asyncio.create_subprocess_exec(

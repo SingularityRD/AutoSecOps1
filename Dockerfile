@@ -337,7 +337,7 @@ ENV PYTHONPATH="/home/apiuser/.local"
 RUN mkdir -p /home/apiuser/.local/bin && ln -s $(which uv) /home/apiuser/.local/bin/uv
 
 EXPOSE $PORT
-CMD ["sh", "-c", "python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT --reload"]
+CMD ["sh", "-c", "exec python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT --reload"]
 
 # ====================
 # Stage 7: Development registry manifest
@@ -376,44 +376,53 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 RUN chown -R 1001:1001 /var/lib/autosecops/sandbox-cache && \
     chmod -R 755 /var/lib/autosecops/sandbox-cache
 
-ENV PYTHONUSERBASE="/home/apiuser/.local"
+# PYTHONUSERBASE is only the install target for local-repository mode; no
+# platform process imports from it or runs binaries from it, because direct-mode
+# action code runs as apiuser and can write there. PYTHONNOUSERSITE keeps the
+# user site directory off every interpreter's sys.path.
+ENV PYTHONUSERBASE="/home/apiuser/.local" PYTHONNOUSERSITE=1
 ENV UV_CACHE_DIR="/home/apiuser/.cache/uv"
-ENV PYTHONPATH="/home/apiuser/.local"
-ENV PATH="/home/apiuser/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ENV PATH="/usr/local/bin:/usr/bin:/bin"
 ENV TMPDIR="/home/apiuser/.cache/tmp" TEMP="/home/apiuser/.cache/tmp" TMP="/home/apiuser/.cache/tmp"
 
-RUN mkdir -p /app/.scripts && chown -R apiuser:apiuser /app
-
-# Switch to non-root user
-USER apiuser
+# Application code and the virtualenv are built as root and stay read-only to
+# apiuser, so action code cannot replace modules or the interpreter that the
+# executor, the action runner, or other tenants' actions load.
+RUN mkdir -p /app/.scripts
 
 # Install third-party dependencies only, so this layer is reused until uv.lock or
 # pyproject.toml change. --frozen because uv cannot validate the lockfile
 # without workspace member sources; the final sync below runs with --locked.
-RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
+RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-workspace --no-dev --no-editable
+    UV_CACHE_DIR=/root/.cache/uv uv sync --frozen --no-install-workspace --no-dev --no-editable
 
-COPY --chown=apiuser:apiuser ./autosecops /app/autosecops
-COPY --chown=apiuser:apiuser ./packages /app/packages
+COPY ./autosecops /app/autosecops
+COPY ./packages /app/packages
 COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/autosecops/copilot-skills/
-COPY --chown=apiuser:apiuser ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
-COPY --chown=apiuser:apiuser ./alembic /app/alembic
+COPY ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
+COPY ./alembic /app/alembic
 
-RUN --mount=type=cache,target=/home/apiuser/.cache/uv,uid=1001,gid=1001 \
-    uv sync --locked --no-dev --no-editable
+RUN --mount=type=cache,target=/root/.cache/uv \
+    UV_CACHE_DIR=/root/.cache/uv uv sync --locked --no-dev --no-editable && \
+    /app/.venv/bin/python -m compileall -q /app/autosecops /app/packages && \
+    ln -s /app/autosecops/agent/litellm_config.yaml /app/litellm_config.yaml
 
-ENV PATH="/app/.venv/bin:/home/apiuser/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ENV PATH="/app/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
-RUN ln -sf $(which uv) /home/apiuser/.local/bin/uv
+# Switch to non-root user
+USER apiuser
 
 # ====================
 # Stage 11: Production registry manifest
 # ====================
 FROM production-app AS registry-manifest
 
+# /app is root-owned; the generated metadata is copied out read-only.
+USER root
 RUN /app/.venv/bin/python -m autosecops.registry.sync.prebuild
+USER apiuser
 
 # ====================
 # Stage 12: Production target
@@ -422,7 +431,7 @@ FROM production-app AS production
 
 # Carry only the generated builtin registry metadata in the image so platform
 # registry startup can update the DB without rediscovering actions on the hot path.
-COPY --from=registry-manifest --chown=apiuser:apiuser /app/.registry-artifacts /app/.registry-artifacts
+COPY --from=registry-manifest /app/.registry-artifacts /app/.registry-artifacts
 
 # Ship the Docker Compose install files with the image so self-hosted installs
 # and upgrades extract them from the exact release they pull (see
@@ -450,4 +459,5 @@ COPY ./deployments/fargate /opt/autosecops/fargate/
 RUN nsjail --help > /dev/null 2>&1 && echo "nsjail available"
 
 EXPOSE $PORT
-CMD ["sh", "-c", "python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT"]
+# exec makes uvicorn PID 1, so no shell holding the environment outlives it.
+CMD ["sh", "-c", "exec python3 -m uvicorn autosecops.api.app:app --host $HOST --port $PORT"]

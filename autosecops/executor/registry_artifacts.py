@@ -63,7 +63,7 @@ from autosecops.executor.registry_artifact_storage import (
     validate_cache_entry_path,
 )
 from autosecops.logger import logger
-from autosecops.process_env import tool_subprocess_env
+from autosecops.process_env import tool_subprocess_env, trusted_path
 from autosecops.registry.artifact_keys import parse_s3_uri
 from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.sandbox.utils import communicate_process_group
@@ -481,7 +481,7 @@ class SquashfsArtifact(RegistryArtifact):
         its scratch directory. Otherwise a live extractor could recreate
         scratch after cleanup, outside startup-sweep discovery.
         """
-        unsquashfs = shutil.which("unsquashfs")
+        unsquashfs = shutil.which("unsquashfs", path=trusted_path())
         if unsquashfs is None:
             raise RuntimeError("unsquashfs command is not installed")
 
@@ -510,7 +510,7 @@ class SquashfsArtifact(RegistryArtifact):
         allocation_unit: int,
     ) -> int:
         """Return an allocated-size bound for an extracted SquashFS image."""
-        unsquashfs = shutil.which("unsquashfs")
+        unsquashfs = shutil.which("unsquashfs", path=trusted_path())
         if unsquashfs is None:
             raise RuntimeError("unsquashfs command is not installed")
 

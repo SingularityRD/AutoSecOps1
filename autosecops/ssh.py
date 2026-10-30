@@ -20,6 +20,7 @@ from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
 from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.secrets.schemas import SSHKeyTarget
 from autosecops.secrets.service import SecretsService
 
@@ -84,6 +85,9 @@ async def temporary_ssh_agent(
                 text=True,
                 check=True,
                 timeout=10.0,
+                # The agent outlives this call; it must not hold platform
+                # credentials in an environment readable through /proc.
+                env=tool_subprocess_env(),
             )
             stdout = result.stdout
             stderr = result.stderr
@@ -123,7 +127,7 @@ async def temporary_ssh_agent(
                 ["ssh-agent", "-k"],
                 capture_output=True,
                 text=True,
-                env=env.to_dict(),
+                env=tool_subprocess_env(env.to_dict()),
                 check=False,
                 timeout=10.0,
             )
@@ -214,7 +218,7 @@ def add_host_to_known_hosts_sync(url: str, env: SshEnv) -> None:
             cmd,
             capture_output=True,
             text=True,
-            env=env.to_dict(),
+            env=tool_subprocess_env(env.to_dict()),
             check=False,
             timeout=30.0,  # Prevent indefinite hang if network is unavailable
         )
@@ -290,7 +294,7 @@ def add_ssh_key_to_agent_sync(
             input=key_with_newline,
             capture_output=True,
             text=True,
-            env=env.to_dict(),
+            env=tool_subprocess_env(env.to_dict()),
             check=False,
             timeout=30.0,  # Prevent indefinite hang
         )

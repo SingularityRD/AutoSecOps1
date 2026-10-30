@@ -127,6 +127,9 @@ def new_sandbox_runner() -> SandboxedWorkflowRunner:
 
 async def main(shutdown_event: asyncio.Event | None = None) -> None:
     """Run the ExecutorWorker."""
+    # Idempotent; the entrypoint already did this before importing actions.
+    # Refuse to run actions from a process they could inspect.
+    protect_process_from_inspection()
     with executor_lifecycle() as readiness:
         if shutdown_event is None:
             shutdown_event = asyncio.Event()

@@ -25,6 +25,7 @@ import asyncio
 import json
 import sys
 from collections import defaultdict
+from pathlib import Path
 from uuid import UUID
 
 from pydantic import UUID4
@@ -227,6 +228,7 @@ async def load_and_serialize_preinstalled_actions(
     commit_sha: str | None = None,
     validate: bool = False,
     organization_id: UUID4 | None = None,
+    site_dir: Path | None = None,
 ) -> SyncResultSuccess:
     """Import a package installed by ``Repository.install_from_origin``.
 
@@ -237,6 +239,7 @@ async def load_and_serialize_preinstalled_actions(
         commit_sha: The commit the installation resolved to.
         validate: Whether to validate template actions.
         organization_id: Organization the sync runs for.
+        site_dir: The installation's ``--target`` directory.
 
     Returns:
         SyncResultSuccess containing actions, commit_sha, and validation_errors.
@@ -246,7 +249,7 @@ async def load_and_serialize_preinstalled_actions(
     if origin == DEFAULT_REGISTRY_ORIGIN:
         await repo.load_from_origin()
     else:
-        await repo.import_installed_origin(package_name)
+        await repo.import_installed_origin(package_name, site_dir=site_dir)
     logger.info(
         "Installed registry package imported",
         origin=origin,
@@ -281,6 +284,11 @@ def _parse_args() -> argparse.Namespace:
         "--repository-id",
         required=True,
         help="The UUID of the repository in the database.",
+    )
+    parser.add_argument(
+        "--site-dir",
+        default=None,
+        help="The installation's --target directory to import from.",
     )
     parser.add_argument(
         "--commit-sha",
@@ -319,6 +327,7 @@ async def main() -> int:
             commit_sha=args.commit_sha,
             validate=args.validate,
             organization_id=organization_id,
+            site_dir=Path(args.site_dir) if args.site_dir else None,
         )
         # Output result as JSON to stdout using Pydantic serialization
         print(result.model_dump_json(), file=sys.stdout)

@@ -354,8 +354,10 @@ class TestActionRunner:
             mock_proc = AsyncMock()
             mock_proc.returncode = 0
             mock_proc.communicate = AsyncMock(return_value=(success_response, b""))
+            spawned.append(mock_proc)
             return mock_proc
 
+        spawned: list[AsyncMock] = []
         with patch(
             "asyncio.create_subprocess_exec",
             side_effect=create_subprocess_exec_side_effect,
@@ -370,6 +372,12 @@ class TestActionRunner:
             )
 
         assert result == {"data": "test"}
+        # The token travels on stdin, never in the readable process environment.
+        assert "AUTOSECOPS__EXECUTOR_TOKEN" not in captured_env
+        payload = orjson.loads(spawned[0].communicate.await_args.kwargs["input"])
+        assert payload["runtime_env"] == {
+            "AUTOSECOPS__EXECUTOR_TOKEN": "test-executor-token"
+        }
         assert captured_env["AUTOSECOPS__API_URL"] == config.AUTOSECOPS__API_URL
         assert captured_env["AUTOSECOPS__WORKSPACE_ID"] == resolved_context.workspace_id
         assert captured_env["AUTOSECOPS__WORKFLOW_ID"] == resolved_context.workflow_id
@@ -381,7 +389,6 @@ class TestActionRunner:
             captured_env["AUTOSECOPS__ENVIRONMENT"]
             == mock_run_action_input.run_context.environment
         )
-        assert captured_env["AUTOSECOPS__EXECUTOR_TOKEN"] == "test-executor-token"
         assert "SENTRY_DSN" not in captured_env
         assert (
             captured_env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"]
@@ -810,7 +817,7 @@ class TestActionRunner:
         monkeypatch.setattr(
             action_runner.shutil,
             "which",
-            lambda name: "/usr/bin/setpriv" if name == "setpriv" else None,
+            lambda name, **_kwargs: "/usr/bin/setpriv" if name == "setpriv" else None,
         )
 
         with patch(
@@ -832,10 +839,13 @@ class TestActionRunner:
             "--inh-caps=-all",
             "--ambient-caps=-all",
         ]
-        assert captured_args[-5] == action_runner.sys.executable
-        assert captured_args[-4] == "-I"
-        assert captured_args[-3].endswith("process_supervisor.py")
-        assert captured_args[-2] == action_runner.sys.executable
+        assert captured_args[-7] == action_runner.sys.executable
+        assert captured_args[-6] == "-I"
+        assert captured_args[-5].endswith("process_supervisor.py")
+        # The runner also starts isolated, so writable import roots cannot
+        # run code before it protects itself.
+        assert captured_args[-4] == action_runner.sys.executable
+        assert captured_args[-3:-1] == ["-I", "-B"]
         assert captured_args[-1].endswith("minimal_runner.py")
         communication_call = mock_process_group_communication.await_args
         assert communication_call is not None

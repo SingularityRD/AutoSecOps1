@@ -15,6 +15,8 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
+from pathlib import Path
 
 from pydantic import UUID4, ValidationError
 
@@ -25,6 +27,7 @@ from autosecops.exceptions import RegistryError
 from autosecops.executor.action_env import ACTION_ENV_ALLOWED_NAMES
 from autosecops.logger import logger
 from autosecops.process_env import select_env
+from autosecops.process_hardening import protect_process_from_inspection
 from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.registry.repository import Repository
 from autosecops.registry.sync.schemas import (
@@ -32,6 +35,11 @@ from autosecops.registry.sync.schemas import (
     SyncResultError,
     SyncResultSuccess,
 )
+from autosecops.sandbox.utils import communicate_process_group
+from autosecops.settings.service import get_setting
+
+MIN_DISCOVERY_TIMEOUT_SECONDS = 30.0
+"""Discovery budget when installation used up most of the sync timeout."""
 
 REGISTRY_DISCOVERY_ENV_NAMES = ACTION_ENV_ALLOWED_NAMES | frozenset(
     {
@@ -81,10 +89,12 @@ async def fetch_actions_from_subprocess(
     timeout: float = 300.0,
     organization_id: UUID4 | None = None,
 ) -> SyncResultSuccess:
-    """Run the sync CLI script in a subprocess and parse its JSON output.
+    """Install a repository here, then discover its actions in a subprocess.
 
-    This function invokes `python -m autosecops.registry.sync` with the given
-    parameters, captures stdout (JSON result), and logs stderr.
+    Installation needs settings, SSH keys and the database, so it runs in this
+    process. ``python -m autosecops.registry.sync.entrypoint`` then imports the
+    installed package without platform credentials; its stdout carries the
+    JSON result and its stderr the logs.
 
     Args:
         origin: The repository origin (e.g., "autosecops_registry", "local", or git URL).
@@ -92,15 +102,22 @@ async def fetch_actions_from_subprocess(
         commit_sha: Optional commit SHA to checkout (for remote repos).
         validate: Whether to validate template actions.
         git_repo_package_name: Optional override for the git repository package name.
-        timeout: Maximum time to wait for the subprocess (default: 5 minutes).
+        timeout: Seconds for installation and discovery together (default: 5
+            minutes). Discovery always gets at least
+            ``MIN_DISCOVERY_TIMEOUT_SECONDS``.
         organization_id: Optional organization ID for accessing org-scoped secrets (e.g., SSH keys).
 
     Returns:
         SyncResultSuccess containing parsed actions, commit SHA, and any errors.
 
     Raises:
-        RegistryError: If the subprocess fails or returns invalid JSON.
+        RegistryError: If installation times out, or the subprocess fails or
+            returns invalid JSON. Installation errors keep their own types,
+            such as ``RegistryDependencyConflictError``.
     """
+    # Repository code runs in children of this process. Whichever service runs
+    # the sync (executor or API), keep it unreadable to them through /proc.
+    protect_process_from_inspection()
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     role = Role(
@@ -109,79 +126,110 @@ async def fetch_actions_from_subprocess(
         organization_id=organization_id,
         scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
     )
-
-    if origin == DEFAULT_REGISTRY_ORIGIN:
-        package_name = DEFAULT_REGISTRY_ORIGIN
-        resolved_commit_sha = commit_sha
-    else:
-        logger.info("Installing registry repository", origin=origin)
-        try:
-            async with asyncio.timeout_at(deadline):
-                installation = await Repository(
-                    origin=origin,
-                    role=role,
-                    package_name_override=git_repo_package_name,
-                ).install_from_origin(commit_sha=commit_sha)
-        except TimeoutError:
-            raise RegistryError(
-                f"Sync subprocess timed out after {timeout}s for {origin!r}"
-            ) from None
-        except Exception as e:
-            # Surface the same typed error the sync subprocess reported before
-            # installation moved out of it.
-            raise SyncResultError.from_exception(e).to_exception() from e
-        package_name = installation.package_name
-        resolved_commit_sha = installation.commit_sha
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "autosecops.registry.sync.entrypoint",
-        "--origin",
-        origin,
-        "--package-name",
-        package_name,
-        "--repository-id",
-        str(repository_id),
-    ]
-    if resolved_commit_sha is not None:
-        cmd.extend(["--commit-sha", resolved_commit_sha])
-    if validate:
-        cmd.append("--validate")
-    if organization_id is not None:
-        cmd.extend(["--organization-id", str(organization_id)])
-
-    logger.info(
-        "Starting sync subprocess",
-        origin=origin,
-        repository_id=str(repository_id),
-        commit_sha=resolved_commit_sha,
-        organization_id=str(organization_id) if organization_id else None,
+    should_validate = validate or bool(
+        await get_setting(
+            "app_registry_validation_enabled",
+            role=role,
+            default=False,
+        )
     )
 
+    # Each sync installs into its own directory, which only the discovery
+    # subprocess imports from and which is removed afterwards.
+    with tempfile.TemporaryDirectory(prefix="autosecops-registry-") as target:
+        site_dir: Path | None = None
+        if origin == DEFAULT_REGISTRY_ORIGIN:
+            package_name = DEFAULT_REGISTRY_ORIGIN
+            resolved_commit_sha = commit_sha
+        else:
+            logger.info("Installing registry repository", origin=origin)
+            scope = asyncio.timeout_at(deadline)
+            try:
+                async with scope:
+                    installation = await Repository(
+                        origin=origin,
+                        role=role,
+                        package_name_override=git_repo_package_name,
+                    ).install_from_origin(
+                        commit_sha=commit_sha, target_dir=Path(target)
+                    )
+            except TimeoutError:
+                if not scope.expired():
+                    raise
+                raise RegistryError(
+                    f"Registry install timed out after {timeout}s for {origin!r}"
+                ) from None
+            package_name = installation.package_name
+            resolved_commit_sha = installation.commit_sha
+            site_dir = installation.site_dir
+
+        cmd = [
+            sys.executable,
+            # No user site directory and no working directory on sys.path.
+            "-s",
+            "-P",
+            "-m",
+            "autosecops.registry.sync.entrypoint",
+            "--origin",
+            origin,
+            "--package-name",
+            package_name,
+            "--repository-id",
+            str(repository_id),
+        ]
+        if site_dir is not None:
+            cmd.extend(["--site-dir", str(site_dir)])
+        if resolved_commit_sha is not None:
+            cmd.extend(["--commit-sha", resolved_commit_sha])
+        if should_validate:
+            cmd.append("--validate")
+        if organization_id is not None:
+            cmd.extend(["--organization-id", str(organization_id)])
+
+        logger.info(
+            "Starting sync subprocess",
+            origin=origin,
+            repository_id=str(repository_id),
+            commit_sha=resolved_commit_sha,
+            organization_id=str(organization_id) if organization_id else None,
+        )
+        budget = max(deadline - loop.time(), MIN_DISCOVERY_TIMEOUT_SECONDS)
+        return await _run_discovery_subprocess(cmd, origin=origin, timeout=budget)
+
+
+async def _run_discovery_subprocess(
+    cmd: list[str], *, origin: str, timeout: float
+) -> SyncResultSuccess:
+    """Run the discovery CLI and parse its typed JSON result.
+
+    Args:
+        cmd: The discovery command.
+        origin: The repository origin, for logs and errors.
+        timeout: Seconds the subprocess may run before its process group is
+            killed.
+
+    Returns:
+        The parsed discovery result.
+
+    Raises:
+        RegistryError: If the subprocess fails, times out, or returns invalid
+            JSON.
+    """
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=registry_discovery_env(),
+        start_new_session=True,
     )
-
-    # Wait for completion with timeout
     try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(),
-            timeout=max(deadline - loop.time(), 0),
+        stdout_bytes, stderr_bytes = await communicate_process_group(
+            process, timeout=timeout
         )
     except TimeoutError:
-        process.kill()
-        await process.wait()
-        logger.error(
-            "Sync subprocess timed out",
-            origin=origin,
-            timeout=timeout,
-        )
+        logger.error("Sync subprocess timed out", origin=origin, timeout=timeout)
         raise RegistryError(
-            f"Sync subprocess timed out after {timeout}s for {origin!r}"
+            f"Sync subprocess timed out after {timeout:g}s for {origin!r}"
         ) from None
 
     # Decode outputs

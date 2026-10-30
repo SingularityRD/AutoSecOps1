@@ -86,6 +86,37 @@ def test_build_env_drops_platform_secrets(executor_environ: dict[str, str]) -> N
         assert env[name] == value
 
 
+def test_build_env_keeps_non_secret_aws_settings(
+    executor_environ: dict[str, str],
+) -> None:
+    environ = {
+        **executor_environ,
+        "AWS_REGION": "eu-west-1",
+        "AWS_DEFAULT_REGION": "eu-west-1",
+        "AWS_USE_FIPS_ENDPOINT": "true",
+    }
+
+    env = build_direct_action_env(environ)
+
+    assert env["AWS_REGION"] == "eu-west-1"
+    assert env["AWS_DEFAULT_REGION"] == "eu-west-1"
+    assert env["AWS_USE_FIPS_ENDPOINT"] == "true"
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+
+
+def test_build_env_strips_proxy_credentials(
+    executor_environ: dict[str, str],
+) -> None:
+    environ = {
+        **executor_environ,
+        "HTTPS_PROXY": "http://user:synthetic-proxy-pass@egress.test:3128",
+    }
+
+    env = build_direct_action_env(environ)
+
+    assert env["HTTPS_PROXY"] == "http://egress.test:3128"
+
+
 def test_build_env_passes_internal_db_endpoint_without_credentials(
     executor_environ: dict[str, str],
 ) -> None:
@@ -140,7 +171,7 @@ def test_passthrough_adds_allowed_names_and_refuses_secrets(
         "AUTOSECOPS__API_URL",
         "TRACECAT__DB_URI",
         "AWS_SECRET_ACCESS_KEY",
-        "AWS_REGION",
+        "AWS_PROFILE",
         "TEMPORAL__API_KEY",
         "SENTRY_DSN",
         "REDIS_URL",
@@ -158,7 +189,10 @@ def test_passthrough_denies_platform_and_credential_names(name: str) -> None:
     assert is_passthrough_denied(name)
 
 
-@pytest.mark.parametrize("name", ["CUSTOMER_REGION", "LOG_LEVEL", "KEYBOARD_LAYOUT"])
+@pytest.mark.parametrize(
+    "name",
+    ["CUSTOMER_REGION", "LOG_LEVEL", "KEYBOARD_LAYOUT", "AWS_REGION", "AWS_CA_BUNDLE"],
+)
 def test_passthrough_allows_plain_settings(name: str) -> None:
     assert not is_passthrough_denied(name)
 

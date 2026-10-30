@@ -6,7 +6,9 @@ import inspect
 import json
 import os
 import re
+import site
 import sys
+import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -38,7 +40,7 @@ from autosecops.expressions.validation import TemplateValidator
 from autosecops.git.utils import GitUrl, parse_git_url, resolve_git_ref
 from autosecops.logger import logger
 from autosecops.parse import safe_url
-from autosecops.process_env import tool_subprocess_env
+from autosecops.process_env import tool_subprocess_env, uv_subprocess_env
 from autosecops.registry.actions.bound import BoundRegistryAction
 from autosecops.registry.actions.schemas import TemplateAction
 from autosecops.registry.constants import (
@@ -57,6 +59,7 @@ from autosecops.registry.fields import (
 )
 from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 from autosecops.registry.repositories.service import RegistryReposService
+from autosecops.sandbox.utils import communicate_process_group
 from autosecops.settings.service import get_setting
 from autosecops.ssh import SshEnv, ssh_context
 
@@ -90,8 +93,6 @@ def ensure_custom_registry_path() -> None:
     Uses site.addsitedir() instead of sys.path.insert() to properly process
     .pth files from editable installs (uv pip install --editable).
     """
-    import site
-
     target = get_custom_registry_target()
     target_str = str(target)
     if target_str not in sys.path:
@@ -215,6 +216,8 @@ class RepositoryInstallation:
     """The importable package name."""
     commit_sha: str | None
     """The commit the origin resolved to, or None for local repositories."""
+    site_dir: Path
+    """The ``--target`` directory to import the package from."""
 
 
 class Repository:
@@ -398,12 +401,19 @@ class Repository:
             self._load_base_template_actions()
             return None
 
+        # In-process loading keeps the per-install target alive for the life of
+        # this process, because imported modules may load files from it lazily.
         installation = await self.install_from_origin(commit_sha=commit_sha)
-        await self.import_installed_origin(installation.package_name)
+        await self.import_installed_origin(
+            installation.package_name, site_dir=installation.site_dir
+        )
         return installation.commit_sha
 
     async def install_from_origin(
-        self, commit_sha: str | None = None
+        self,
+        commit_sha: str | None = None,
+        *,
+        target_dir: Path | None = None,
     ) -> RepositoryInstallation:
         """Install a custom registry package from its origin without importing it.
 
@@ -415,9 +425,14 @@ class Repository:
         Args:
             commit_sha: Commit to install for git origins. Resolved from the
                 configured ref when omitted.
+            target_dir: Empty directory to install a git origin into. A new
+                temporary directory, owned by the caller, is used when omitted.
+                Git origins never install into a directory on the import path
+                of platform processes. Local repositories always install into
+                ``PYTHONUSERBASE``, which direct-mode actions import from.
 
         Returns:
-            The installed package name and the commit the origin resolved to.
+            The installed package, its import root, and the resolved commit.
 
         Raises:
             RegistryError: If the origin is unsupported or cannot be installed.
@@ -425,16 +440,24 @@ class Repository:
         if self._origin == DEFAULT_REGISTRY_ORIGIN:
             raise RegistryError("The builtin registry is not installed from an origin")
         if self._origin == DEFAULT_LOCAL_REGISTRY_ORIGIN:
-            return await self._install_local_repository()
+            return await self._install_local_repository(commit_sha=commit_sha)
         if self._origin.startswith("git+ssh://"):
-            return await self._install_git_repository(commit_sha=commit_sha)
+            if target_dir is None:
+                target_dir = Path(tempfile.mkdtemp(prefix="autosecops-registry-"))
+            return await self._install_git_repository(
+                commit_sha=commit_sha, target_dir=target_dir
+            )
         raise RegistryError(f"Unsupported origin: {self._origin}.")
 
-    async def import_installed_origin(self, package_name: str) -> None:
+    async def import_installed_origin(
+        self, package_name: str, *, site_dir: Path | None = None
+    ) -> None:
         """Import a package installed by ``install_from_origin`` and register it.
 
         Args:
             package_name: The installed package to import.
+            site_dir: The installation's import root. Defaults to the
+                ``PYTHONUSERBASE`` target that local repositories use.
 
         Raises:
             RegistryError: If the origin is unsupported.
@@ -447,14 +470,18 @@ class Repository:
             origin_label = safe_url(self._origin)
         else:
             raise RegistryError(f"Unsupported origin: {self._origin}.")
-        module = await self._load_repository(origin_label, package_name)
+        module = await self._load_repository(
+            origin_label, package_name, site_dir=site_dir
+        )
         logger.info(
             "Imported and reloaded repository",
             module_name=module.__name__,
             package_name=package_name,
         )
 
-    async def _install_local_repository(self) -> RepositoryInstallation:
+    async def _install_local_repository(
+        self, commit_sha: str | None = None
+    ) -> RepositoryInstallation:
         """Install the local repository in editable mode to the custom target."""
         # The local repo doesn't have to be a git repo, but it should be a directory
         if not config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
@@ -482,27 +509,18 @@ class Repository:
 
         dot_git = repo_path.joinpath(".git")
         package_name = repo_path.name
-        if dot_git.exists():
+        if dot_git.exists() and commit_sha is None:
             # Use the repository directory name as the package name
             logger.debug(
                 "Using local git repository",
                 repo_path=str(repo_path),
                 package_name=package_name,
             )
-            process = await asyncio.create_subprocess_exec(
-                "git",
-                "rev-parse",
-                "HEAD",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env={"GIT_DIR": dot_git.as_posix()},
-                cwd=repo_path.as_posix(),
+            logger.debug(
+                "Local repository commit",
+                commit_sha=await _local_head_commit(repo_path),
             )
-            stdout, _ = await process.communicate()
-            if process.returncode != 0:
-                raise RegistryError("Failed to get current commit SHA")
-            logger.debug("Local repository commit", commit_sha=stdout.decode().strip())
-        else:
+        elif not dot_git.exists():
             logger.info("Local repository is not a git repository, skipping commit SHA")
 
         # Install the package in editable mode to the custom registry target.
@@ -521,19 +539,10 @@ class Repository:
             target=str(target_dir),
         )
 
-        cmd = ["uv", "pip", "install", "--refresh", "--editable"]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            repo_path.as_posix(),
-            *extra_args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            # Build backends run repository code: no platform credentials.
-            env=tool_subprocess_env(),
+        returncode, error_message = await _run_uv_pip_install(
+            ["--refresh", "--editable", repo_path.as_posix(), *extra_args]
         )
-        _, stderr = await process.communicate()
-        if process.returncode != 0:
-            error_message = stderr.decode().strip()
+        if returncode != 0:
             # Check for dependency conflicts
             conflicts = parse_dependency_conflicts(error_message)
             if conflicts:
@@ -546,10 +555,12 @@ class Repository:
                 )
             raise RegistryError(f"Failed to install local repository: {error_message}")
         # Local repositories report no commit SHA.
-        return RepositoryInstallation(package_name=package_name, commit_sha=None)
+        return RepositoryInstallation(
+            package_name=package_name, commit_sha=None, site_dir=target_dir
+        )
 
     async def _install_git_repository(
-        self, commit_sha: str | None
+        self, commit_sha: str | None, target_dir: Path
     ) -> RepositoryInstallation:
         """Install a git+ssh repository to the custom target."""
         logger.info("Loading UDFs from origin", origin=self._origin)
@@ -589,12 +600,18 @@ class Repository:
 
         logger.debug("Git URL", git_url=git_url)
         commit_sha = await self._install_remote_repository(
-            git_url=git_url, commit_sha=commit_sha
+            git_url=git_url, commit_sha=commit_sha, target_dir=target_dir
         )
-        return RepositoryInstallation(package_name=package_name, commit_sha=commit_sha)
+        return RepositoryInstallation(
+            package_name=package_name, commit_sha=commit_sha, site_dir=target_dir
+        )
 
     async def _install_remote_repository(
-        self, git_url: GitUrl, commit_sha: str | None = None
+        self,
+        git_url: GitUrl,
+        commit_sha: str | None = None,
+        *,
+        target_dir: Path | None = None,
     ) -> str:
         """Install the remote repository into the filesystem and return the commit sha."""
 
@@ -614,14 +631,20 @@ class Repository:
                 commit_sha = git_url.ref
             elif commit_sha is None:
                 commit_sha = await resolve_git_ref(url, ref=git_url.ref, env=env)
-            await install_remote_repository(url, commit_sha=commit_sha, env=env)
+            await install_remote_repository(
+                url, commit_sha=commit_sha, env=env, target_dir=target_dir
+            )
         return commit_sha
 
-    async def _load_repository(self, repo_url: str, module_name: str) -> ModuleType:
+    async def _load_repository(
+        self, repo_url: str, module_name: str, *, site_dir: Path | None = None
+    ) -> ModuleType:
         """Load repository module into memory.
         Args:
             repo_url (str): The URL of the repository
             module_name (str): The name of the Python module to import
+            site_dir: The installation's import root. Defaults to the
+                ``PYTHONUSERBASE`` custom registry target.
 
         Returns:
             ModuleType: The imported Python module containing the actions
@@ -629,10 +652,14 @@ class Repository:
         Raises:
             ImportError: If there is an error importing the module
         """
-        # Ensure the custom registry target is in sys.path before importing.
+        # Ensure the install target is in sys.path before importing.
         # This is required because packages are installed to --target dir,
         # which is separate from the main autosecops venv.
-        ensure_custom_registry_path()
+        if site_dir is None:
+            ensure_custom_registry_path()
+        elif str(site_dir) not in sys.path:
+            # addsitedir also processes .pth files from editable installs.
+            site.addsitedir(str(site_dir))
 
         try:
             logger.info("Importing repository module", module_name=module_name)
@@ -1135,22 +1162,92 @@ async def ensure_base_repository(
         logger.info("Base registry repository already exists", origin=origin)
 
 
+async def _local_head_commit(repo_path: Path) -> str | None:
+    """Return the HEAD commit of a local checkout for logging, if git can tell.
+
+    Best effort: the mount may be owned by another user, so the checkout is
+    marked safe for this one invocation and a failure only skips the log.
+    """
+    process = await asyncio.create_subprocess_exec(
+        "git",
+        "rev-parse",
+        "HEAD",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=tool_subprocess_env(
+            {
+                "GIT_DIR": repo_path.joinpath(".git").as_posix(),
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "safe.directory",
+                "GIT_CONFIG_VALUE_0": repo_path.as_posix(),
+            }
+        ),
+        cwd=repo_path.as_posix(),
+        start_new_session=True,
+    )
+    stdout, _ = await communicate_process_group(process)
+    if process.returncode != 0:
+        logger.warning("Could not read the local repository commit")
+        return None
+    return stdout.decode().strip()
+
+
+async def _run_uv_pip_install(
+    args: list[str], *, extra_env: dict[str, str] | None = None
+) -> tuple[int, str]:
+    """Run ``uv pip install`` in its own process group with a private cache.
+
+    uv runs repository build backends, so the process gets no platform
+    credentials, a cache no other install shares, and is killed with its whole
+    process group if the caller times out or is cancelled.
+
+    Args:
+        args: Arguments after ``uv pip install``.
+        extra_env: Variables to set for this invocation, such as an SSH agent.
+
+    Returns:
+        The exit code and the decoded stderr.
+    """
+    with tempfile.TemporaryDirectory(prefix="autosecops-uv-cache-") as cache_dir:
+        process = await asyncio.create_subprocess_exec(
+            "uv",
+            "pip",
+            "install",
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=uv_subprocess_env(Path(cache_dir), extra_env),
+            start_new_session=True,
+        )
+        _, stderr = await communicate_process_group(process)
+    returncode = process.returncode
+    return (returncode if returncode is not None else -1), stderr.decode().strip()
+
+
 async def install_remote_repository(
-    repo_url: str, commit_sha: str, env: SshEnv
+    repo_url: str,
+    commit_sha: str,
+    env: SshEnv,
+    *,
+    target_dir: Path | None = None,
 ) -> None:
-    """Install a remote repository to the custom registry target directory.
+    """Install a remote repository into a ``--target`` directory.
 
     Uses `uv pip install --target` instead of `uv add` to isolate custom
     registry dependencies from the main autosecops virtual environment.
     This prevents dependency conflicts between autosecops and user repositories.
+
+    Args:
+        repo_url: The git remote to install.
+        commit_sha: The commit to install.
+        env: SSH agent environment for the clone.
+        target_dir: Directory to install into. Defaults to the
+            ``PYTHONUSERBASE`` custom registry target.
     """
     logger.info("Loading remote repository", url=repo_url, commit_sha=commit_sha)
 
-    target_dir = get_custom_registry_target()
-    cmd = [
-        "uv",
-        "pip",
-        "install",
+    target_dir = target_dir or get_custom_registry_target()
+    args = [
         "--python",
         sys.executable,
         "--target",
@@ -1158,20 +1255,12 @@ async def install_remote_repository(
         "--refresh",
         f"{repo_url}@{commit_sha}",
     ]
-    logger.debug(
-        "Installation command",
-        cmd=cmd,
-    )
+    logger.debug("Installation command", args=args)
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=tool_subprocess_env(env.to_dict()),
+        returncode, error_message = await _run_uv_pip_install(
+            args, extra_env=env.to_dict()
         )
-        _, stderr = await process.communicate()
-        if process.returncode != 0:
-            error_message = stderr.decode().strip()
+        if returncode != 0:
             logger.error(f"Failed to install repository: {error_message}")
             # Check for dependency conflicts
             conflicts = parse_dependency_conflicts(error_message)

@@ -37,7 +37,10 @@ from pydantic_core import to_json
 
 from autosecops import config
 from autosecops.contexts import ctx_secret_masks
-from autosecops.executor.action_env import build_direct_action_env
+from autosecops.executor.action_env import (
+    build_direct_action_env,
+    local_registry_import_paths,
+)
 from autosecops.executor.action_gateway.config import (
     ACTION_GATEWAY_SANDBOX_SOCKET,
     action_gateway_socket_path,
@@ -53,6 +56,7 @@ from autosecops.executor.secret_preprocessors import (
 )
 from autosecops.logger import logger
 from autosecops.outbound import TUNNEL_PROXY_ENV
+from autosecops.process_env import which_trusted
 from autosecops.sandbox.cgroup import sandbox_cgroup
 from autosecops.sandbox.exceptions import (
     raise_for_sandbox_error_code,
@@ -158,8 +162,12 @@ def _sandbox_failure_message(
 
 def _direct_subprocess_command(minimal_runner_path: Path) -> list[str]:
     """Build a contained direct-action command with privileges disabled."""
-    runner_command = [sys.executable, str(minimal_runner_path)]
-    setpriv = shutil.which("setpriv")
+    # Isolated mode (-I) ignores PYTHONPATH, the user site directory and the
+    # working directory, all of which action code can write; the runner adds
+    # the registry import roots itself. -B keeps bytecode out of those roots.
+    runner_command = [sys.executable, "-I", "-B", str(minimal_runner_path)]
+    # Only directories this user cannot write may supply setpriv.
+    setpriv = which_trusted("setpriv")
     if setpriv is None:
         raise RuntimeError("setpriv is required for direct action subprocess isolation")
 
@@ -458,19 +466,6 @@ class ActionRunner:
         """
         timeout = timeout or config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
-        # Prepare input JSON for subprocess
-        payload: dict[str, Any] = {"input": input, "role": role}
-        if resolved_context is not None:
-            payload["resolved_context"] = resolved_context
-            payload["secret_env"] = secret_projection.env
-            masks = ctx_secret_masks.get()
-            payload["secret_mask_values"] = sorted(masks.values) if masks else []
-        payload["timeout_seconds"] = timeout
-        input_json = to_json(payload)
-        # The runner times the function call; this only backstops startup and
-        # serialization around it.
-        hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
-
         # Actions start from an allowlist, never the executor's environment:
         # it carries platform credentials (DB URI, encryption and service keys).
         env = build_direct_action_env(
@@ -480,6 +475,11 @@ class ActionRunner:
         if env_vars:
             env.update(env_vars)
         env.pop(TUNNEL_PROXY_ENV, None)
+        # Credentials travel in the stdin payload, not the process environment,
+        # and the runner applies them only after it is protected from other
+        # same-user processes. A process's initial environment stays readable
+        # through /proc until then, and its supervisor's for its whole life.
+        runtime_env: dict[str, str] = {}
 
         # Ensure SDK context is available for registry actions executed by minimal_runner.
         if resolved_context is not None:
@@ -489,18 +489,36 @@ class ActionRunner:
             env["AUTOSECOPS__RUN_ID"] = resolved_context.run_id
             env["AUTOSECOPS__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
             env["AUTOSECOPS__ENVIRONMENT"] = input.run_context.environment
-            env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
             env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"] = str(action_gateway_socket_path())
+            runtime_env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
             if route := _tunnel_route(input, resolved_context):
-                env.update(tunnel_proxy_env(route[0]))
+                proxy_env = tunnel_proxy_env(route[0])
+                for name in proxy_env:
+                    env.pop(name, None)
+                runtime_env.update(proxy_env)
         elif effective_tunnel(input):
             raise TunnelRouteError("Tunneled actions require a resolved tunnel route")
+
+        # Prepare input JSON for subprocess
+        payload: dict[str, Any] = {"input": input, "role": role}
+        if resolved_context is not None:
+            payload["resolved_context"] = resolved_context
+            payload["secret_env"] = secret_projection.env
+            masks = ctx_secret_masks.get()
+            payload["secret_mask_values"] = sorted(masks.values) if masks else []
+        payload["runtime_env"] = runtime_env
+        payload["timeout_seconds"] = timeout
+        input_json = to_json(payload)
+        # The runner times the function call; this only backstops startup and
+        # serialization around it.
+        hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
 
         # Build PYTHONPATH with multiple registry paths (deterministic order)
         pythonpath_parts = [str(p) for p in registry_paths if p.exists()]
         existing_pythonpath = env.get("PYTHONPATH", "")
         if existing_pythonpath:
             pythonpath_parts.append(existing_pythonpath)
+        pythonpath_parts.extend(local_registry_import_paths())
         env["PYTHONPATH"] = ":".join(pythonpath_parts) if pythonpath_parts else ""
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 

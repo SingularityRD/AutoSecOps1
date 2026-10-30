@@ -808,6 +808,33 @@ def _action_display_name(action_impl: dict[str, Any] | None) -> str:
     return "<unknown>"
 
 
+def _add_isolated_import_roots() -> None:
+    """Apply PYTHONPATH by hand when the runner starts in isolated mode.
+
+    The direct backend starts the runner with ``python -I`` so that the user
+    site directory, the working directory and import hooks planted on
+    PYTHONPATH cannot run before the runner protects itself. Registry import
+    roots still arrive in PYTHONPATH and are added here, ahead of site-packages
+    as the interpreter would. Children of the action inherit PYTHONPATH as is.
+    """
+    if not sys.flags.isolated:
+        return
+    roots = [root for root in os.environ.get("PYTHONPATH", "").split(":") if root]
+    sys.path[0:0] = [root for root in roots if root not in sys.path]
+
+
+def _apply_runtime_env(input_data: Mapping[str, Any]) -> None:
+    """Set credentials the executor sent on stdin instead of in the environment.
+
+    The executor token and tunnel proxy URL stay out of the initial process
+    environment, which same-user processes can read through /proc until this
+    runner is protected. Call this only after ``_protect_from_other_actions``.
+    """
+    runtime_env = input_data.get("runtime_env") or {}
+    for key, value in runtime_env.items():
+        os.environ[str(key)] = str(value)
+
+
 def _protect_from_other_actions() -> None:
     """Refuse other same-user processes /proc access to this runner.
 
@@ -887,6 +914,7 @@ if __name__ == "__main__":
 
     _protect_from_other_actions()
     _enforce_nproc_limit()
+    _add_isolated_import_roots()
 
     # Determine input source: file (sandbox) or stdin (direct)
     input_path = Path("/work/input.json")
@@ -920,6 +948,8 @@ if __name__ == "__main__":
             sys.stdout.buffer.write(envelope)
             sys.stdout.buffer.flush()
         raise SystemExit(1) from None
+
+    _apply_runtime_env(input_data)
 
     # Run the action
     result = main_minimal(input_data)

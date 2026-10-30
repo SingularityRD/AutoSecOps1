@@ -23,6 +23,7 @@ from types import FrameType
 
 _PR_SET_CHILD_SUBREAPER = 36
 _PR_SET_PDEATHSIG = 1
+_PR_SET_DUMPABLE = 4
 _PARENT_POLL_INTERVAL_MS = 10
 
 
@@ -30,6 +31,45 @@ def _exit_code(wait_status: int) -> int:
     """Convert a wait status into a shell-compatible non-negative exit code."""
     code = os.waitstatus_to_exitcode(wait_status)
     return code if code >= 0 else 128 - code
+
+
+def _set_non_dumpable() -> None:
+    """Refuse other same-user processes /proc and ptrace access to this one.
+
+    The supervisor and its monitor share the action's Linux user and hold its
+    environment and stdio. Forked children inherit the flag; it resets on
+    execve, and the runner then sets it again for itself. The supervisor runs
+    with ``python -I`` and must not import AutoSecOps, so this duplicates
+    ``autosecops.process_hardening`` on purpose.
+    """
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = [
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    prctl.restype = ctypes.c_int
+    if prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0) != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(error_number, os.strerror(error_number))
+
+
+def _release_action_stdio() -> None:
+    """Point stdin and stdout at /dev/null once the action owns its copies.
+
+    Only the action reads the payload on stdin and writes the result on
+    stdout. Holding them here would keep the pipes open for anyone who could
+    reach them through this process.
+    """
+    devnull = os.open(os.devnull, os.O_RDWR)
+    try:
+        os.dup2(devnull, 0)
+        os.dup2(devnull, 1)
+    finally:
+        os.close(devnull)
 
 
 def _set_child_subreaper() -> None:
@@ -175,6 +215,7 @@ def _run_monitor(
         action_pid = os.fork()
         if action_pid == 0:
             _exec(command, control_fd)
+        _release_action_stdio()
 
         poller = select.poll()
         poller.register(control_fd, select.POLLIN | select.POLLHUP | select.POLLERR)
@@ -215,6 +256,8 @@ def supervise(command: Sequence[str]) -> int:
     if not command:
         raise ValueError("A supervised command is required")
 
+    # Before forking, so the monitor is protected from its first instruction.
+    _set_non_dumpable()
     # The monitor is intentionally visible as the action's parent. Make this
     # outer process a second subreaper so killing that monitor only reparents
     # the action tree here, where it is still killed and reaped before return.
@@ -259,6 +302,7 @@ def supervise(command: Sequence[str]) -> int:
         )
 
     os.close(control_read_fd)
+    _release_action_stdio()
     try:
         _, monitor_status = _waitpid(monitor_pid)
         return _exit_code(monitor_status)
