@@ -1,9 +1,12 @@
 """
 Subprocess utilities for running registry sync operations in isolation.
 
-This module provides helper functions to invoke the sync CLI script
-(autosecops.registry.sync) in a subprocess, preventing environment
-contamination from uv install and importlib.reload operations.
+The calling process installs the repository, which needs settings, SSH keys and
+the database. A subprocess then imports the installed package, which runs
+repository code. It receives an allowlisted environment without platform
+credentials, so repository code cannot read the database URI, encryption,
+service or signing keys, or cloud credentials. The subprocess also keeps
+importlib.reload side effects out of the calling process.
 """
 
 from __future__ import annotations
@@ -16,13 +19,57 @@ import sys
 from pydantic import UUID4, ValidationError
 
 from autosecops import config
+from autosecops.auth.types import Role
+from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.exceptions import RegistryError
+from autosecops.executor.action_env import ACTION_ENV_ALLOWED_NAMES
 from autosecops.logger import logger
+from autosecops.process_env import select_env
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.repository import Repository
 from autosecops.registry.sync.schemas import (
     SyncResultAdapter,
     SyncResultError,
     SyncResultSuccess,
 )
+
+REGISTRY_DISCOVERY_ENV_NAMES = ACTION_ENV_ALLOWED_NAMES | frozenset(
+    {
+        "AUTOSECOPS__APP_ENV",
+        "AUTOSECOPS__LOG_FORMAT",
+        "LOG_LEVEL",
+        "AUTOSECOPS__LOCAL_REPOSITORY_ENABLED",
+        "AUTOSECOPS__LOCAL_REPOSITORY_PATH",
+        "AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH",
+        "AUTOSECOPS__BUILTIN_REGISTRY_SOURCE_PATH",
+    }
+)
+"""Variables the registry discovery subprocess inherits. None are credentials."""
+
+
+def registry_discovery_env() -> dict[str, str]:
+    """Return the environment for the subprocess that imports repository code.
+
+    Returns:
+        Process plumbing, Python import roots, proxies, CA bundles and the
+        non-secret registry and logging settings. Platform credentials are
+        never included.
+    """
+    env = select_env(os.environ, names=REGISTRY_DISCOVERY_ENV_NAMES)
+    # Settings that may only have their code default in this process.
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
+        env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "true"
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_PATH:
+        env["AUTOSECOPS__LOCAL_REPOSITORY_PATH"] = str(
+            config.AUTOSECOPS__LOCAL_REPOSITORY_PATH
+        )
+    if config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH:
+        env["AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH"] = str(
+            config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH
+        )
+    if config.AUTOSECOPS__APP_ENV:
+        env["AUTOSECOPS__APP_ENV"] = config.AUTOSECOPS__APP_ENV
+    return env
 
 
 async def fetch_actions_from_subprocess(
@@ -54,26 +101,53 @@ async def fetch_actions_from_subprocess(
     Raises:
         RegistryError: If the subprocess fails or returns invalid JSON.
     """
-    # Build command arguments
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    role = Role(
+        type="service",
+        service_id="autosecops-service",
+        organization_id=organization_id,
+        scopes=SERVICE_PRINCIPAL_SCOPES["autosecops-service"],
+    )
+
+    if origin == DEFAULT_REGISTRY_ORIGIN:
+        package_name = DEFAULT_REGISTRY_ORIGIN
+        resolved_commit_sha = commit_sha
+    else:
+        logger.info("Installing registry repository", origin=origin)
+        try:
+            async with asyncio.timeout_at(deadline):
+                installation = await Repository(
+                    origin=origin,
+                    role=role,
+                    package_name_override=git_repo_package_name,
+                ).install_from_origin(commit_sha=commit_sha)
+        except TimeoutError:
+            raise RegistryError(
+                f"Sync subprocess timed out after {timeout}s for {origin!r}"
+            ) from None
+        except Exception as e:
+            # Surface the same typed error the sync subprocess reported before
+            # installation moved out of it.
+            raise SyncResultError.from_exception(e).to_exception() from e
+        package_name = installation.package_name
+        resolved_commit_sha = installation.commit_sha
+
     cmd = [
         sys.executable,
         "-m",
         "autosecops.registry.sync.entrypoint",
         "--origin",
         origin,
+        "--package-name",
+        package_name,
         "--repository-id",
         str(repository_id),
     ]
-
-    if commit_sha is not None:
-        cmd.extend(["--commit-sha", commit_sha])
-
+    if resolved_commit_sha is not None:
+        cmd.extend(["--commit-sha", resolved_commit_sha])
     if validate:
         cmd.append("--validate")
-
-    if git_repo_package_name is not None:
-        cmd.extend(["--git-repo-package-name", git_repo_package_name])
-
     if organization_id is not None:
         cmd.extend(["--organization-id", str(organization_id)])
 
@@ -81,42 +155,22 @@ async def fetch_actions_from_subprocess(
         "Starting sync subprocess",
         origin=origin,
         repository_id=str(repository_id),
-        commit_sha=commit_sha,
+        commit_sha=resolved_commit_sha,
         organization_id=str(organization_id) if organization_id else None,
     )
 
-    # Build environment for subprocess
-    # Inherit current environment and add autosecops-specific config
-    subprocess_env = os.environ.copy()
-
-    # Pass through critical config values as environment variables
-    # so the subprocess has access to them
-    if config.AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:
-        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_ENABLED"] = "true"
-    if config.AUTOSECOPS__LOCAL_REPOSITORY_PATH:
-        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_PATH"] = str(
-            config.AUTOSECOPS__LOCAL_REPOSITORY_PATH
-        )
-    if config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH:
-        subprocess_env["AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH"] = str(
-            config.AUTOSECOPS__LOCAL_REPOSITORY_CONTAINER_PATH
-        )
-    if config.AUTOSECOPS__APP_ENV:
-        subprocess_env["AUTOSECOPS__APP_ENV"] = config.AUTOSECOPS__APP_ENV
-
-    # Start the subprocess
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=subprocess_env,
+        env=registry_discovery_env(),
     )
 
     # Wait for completion with timeout
     try:
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
             process.communicate(),
-            timeout=timeout,
+            timeout=max(deadline - loop.time(), 0),
         )
     except TimeoutError:
         process.kill()

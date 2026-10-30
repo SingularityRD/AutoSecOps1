@@ -1,12 +1,14 @@
 """
-CLI script for loading a registry repository and serializing actions to JSON.
+CLI script for importing an installed registry package and serializing actions.
 
-This script is designed to run in a subprocess to isolate the potentially
-disruptive operations (uv install, importlib.reload, module loading) from
-the main API process.
+The executor installs a repository first (``Repository.install_from_origin``),
+which needs settings, SSH keys and the database. This script then imports the
+installed package, which runs repository code, in a subprocess that receives no
+platform credentials and never touches the database.
 
 Usage:
-    python -m autosecops.registry.sync --origin <origin> [--commit-sha <sha>]
+    python -m autosecops.registry.sync.entrypoint --origin <origin> \
+        --package-name <package> --repository-id <uuid> [--commit-sha <sha>]
 
 The script outputs a JSON object to stdout containing:
     - actions: List of serialized RegistryActionCreate objects
@@ -43,7 +45,6 @@ from autosecops.registry.sync.schemas import (
     SyncResultError,
     SyncResultSuccess,
 )
-from autosecops.settings.service import get_setting_cached
 
 
 def _create_service_role(organization_id: UUID4 | None) -> Role:
@@ -218,15 +219,63 @@ async def load_and_serialize_installed_actions(
     )
 
 
-async def main() -> int:
-    """Main entry point for the CLI script."""
+async def load_and_serialize_preinstalled_actions(
+    *,
+    origin: str,
+    package_name: str,
+    repository_id: UUID4,
+    commit_sha: str | None = None,
+    validate: bool = False,
+    organization_id: UUID4 | None = None,
+) -> SyncResultSuccess:
+    """Import a package installed by ``Repository.install_from_origin``.
+
+    Args:
+        origin: The repository origin.
+        package_name: The installed package to import.
+        repository_id: The UUID of the repository in the database.
+        commit_sha: The commit the installation resolved to.
+        validate: Whether to validate template actions.
+        organization_id: Organization the sync runs for.
+
+    Returns:
+        SyncResultSuccess containing actions, commit_sha, and validation_errors.
+    """
+    role = _create_service_role(organization_id)
+    repo = Repository(origin=origin, role=role, package_name_override=package_name)
+    if origin == DEFAULT_REGISTRY_ORIGIN:
+        await repo.load_from_origin()
+    else:
+        await repo.import_installed_origin(package_name)
+    logger.info(
+        "Installed registry package imported",
+        origin=origin,
+        package_name=package_name,
+        num_actions=len(repo.store),
+    )
+    return await _serialize_loaded_repository(
+        repo=repo,
+        role=role,
+        origin=origin,
+        repository_id=repository_id,
+        resolved_commit_sha=commit_sha,
+        validate=validate,
+    )
+
+
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Load a registry repository and serialize actions to JSON."
+        description="Import an installed registry package and serialize actions to JSON."
     )
     parser.add_argument(
         "--origin",
         required=True,
         help="The repository origin (e.g., 'autosecops_registry', 'local', or a git URL).",
+    )
+    parser.add_argument(
+        "--package-name",
+        required=True,
+        help="The installed Python package to import.",
     )
     parser.add_argument(
         "--repository-id",
@@ -236,12 +285,7 @@ async def main() -> int:
     parser.add_argument(
         "--commit-sha",
         default=None,
-        help="Optional commit SHA to checkout (for remote repos).",
-    )
-    parser.add_argument(
-        "--git-repo-package-name",
-        default=None,
-        help="Optional Python package name for git repositories.",
+        help="The commit the installation resolved to.",
     )
     parser.add_argument(
         "--validate",
@@ -251,54 +295,31 @@ async def main() -> int:
     parser.add_argument(
         "--organization-id",
         default=None,
-        help="Optional organization ID for accessing org-scoped secrets (e.g., SSH keys).",
+        help="Organization the sync runs for.",
     )
+    return parser.parse_args()
 
-    args = parser.parse_args()
 
+async def main() -> int:
+    """Main entry point for the CLI script."""
+    args = _parse_args()
     try:
-        # Parse repository ID as UUID
         repository_id = UUID(args.repository_id)
+        organization_id = UUID(args.organization_id) if args.organization_id else None
     except ValueError as e:
-        logger.error("Invalid repository ID", error=str(e))
-        print(
-            json.dumps({"error": f"Invalid repository ID: {e}"}),
-            file=sys.stdout,
-        )
+        logger.error("Invalid identifier", error=str(e))
+        print(json.dumps({"error": f"Invalid identifier: {e}"}), file=sys.stdout)
         return 1
 
-    # Parse organization ID if provided
-    organization_id: UUID | None = None
-    if args.organization_id:
-        try:
-            organization_id = UUID(args.organization_id)
-        except ValueError as e:
-            logger.error("Invalid organization ID", error=str(e))
-            print(
-                json.dumps({"error": f"Invalid organization ID: {e}"}),
-                file=sys.stdout,
-            )
-            return 1
-
     try:
-        # Check if validation is enabled via settings (can override --validate flag)
-        should_validate: bool = bool(
-            args.validate
-            or await get_setting_cached(
-                "app_registry_validation_enabled",
-                default=False,
-            )
-        )
-
-        result = await load_and_serialize_actions(
+        result = await load_and_serialize_preinstalled_actions(
             origin=args.origin,
+            package_name=args.package_name,
             repository_id=repository_id,
             commit_sha=args.commit_sha,
-            git_repo_package_name=args.git_repo_package_name,
-            validate=should_validate,
+            validate=args.validate,
             organization_id=organization_id,
         )
-
         # Output result as JSON to stdout using Pydantic serialization
         print(result.model_dump_json(), file=sys.stdout)
         return 0
