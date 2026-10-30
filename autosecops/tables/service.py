@@ -314,6 +314,11 @@ class BaseTablesService(BaseWorkspaceService):
         await conn.execute(
             sa.DDL("ALTER TABLE %s ENABLE ROW LEVEL SECURITY", full_table_name)
         )
+        # The runtime role creates and therefore owns workspace tables; FORCE
+        # applies the workspace policy to the owner as well.
+        await conn.execute(
+            sa.DDL("ALTER TABLE %s FORCE ROW LEVEL SECURITY", full_table_name)
+        )
         await conn.execute(
             sa.DDL(
                 f"DROP POLICY IF EXISTS {DYNAMIC_WORKSPACE_RLS_POLICY} ON %s",

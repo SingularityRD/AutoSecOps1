@@ -144,6 +144,7 @@ from autosecops.contexts import ctx_role
 from autosecops.db.dependencies import AsyncDBSessionBypass
 from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
+    log_rls_posture,
 )
 from autosecops.db.exceptions import AuthPoolExhaustedError
 from autosecops.db.rls import set_rls_context_from_role
@@ -351,7 +352,7 @@ async def lifespan(app: FastAPI):
         "Feature flags",
         feature_flags=[f.value for f in config.AUTOSECOPS__FEATURE_FLAGS],
     )
-    logger.info("RLS mode", rls_mode=config.AUTOSECOPS__RLS_MODE.value)
+    await log_rls_posture()
     log_license_startup()
     # Last start-up step: once the start-up registry sync and catalog load
     # finish, everything alive lives for the process, so take it out of full

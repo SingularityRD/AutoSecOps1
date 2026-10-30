@@ -375,6 +375,25 @@ AUTOSECOPS__DB_SSLMODE = os.environ.get("AUTOSECOPS__DB_SSLMODE", "require")
 AUTOSECOPS__DB_PASS__ARN = os.environ.get("AUTOSECOPS__DB_PASS__ARN")
 """(AWS only) ARN of the secret to connect to the database with."""
 
+DEFAULT_DB_RUNTIME_USER = "autosecops_app"
+AUTOSECOPS__DB_RUNTIME_USER = (
+    os.environ.get("AUTOSECOPS__DB_RUNTIME_USER") or DEFAULT_DB_RUNTIME_USER
+)
+"""Non-owner login role the services connect as so tenant RLS policies apply.
+
+The migrations step creates it as NOSUPERUSER NOBYPASSRLS and grants it DML on
+the application tables. The owner credentials above stay in use for migrations.
+"""
+AUTOSECOPS__DB_RUNTIME_PASSWORD = (
+    os.environ.get("AUTOSECOPS__DB_RUNTIME_PASSWORD") or None
+)
+"""Password of the runtime role. Unset keeps every service on the owner role.
+
+When unset, services connect with the owner credentials, which PostgreSQL
+exempts from row-level security, so tenant isolation relies on application
+filters alone.
+"""
+
 AUTOSECOPS__DB_MAX_OVERFLOW = int(os.environ.get("AUTOSECOPS__DB_MAX_OVERFLOW") or 60)
 """The maximum number of connections to allow in the pool."""
 AUTOSECOPS__DB_POOL_SIZE = int(os.environ.get("AUTOSECOPS__DB_POOL_SIZE") or 10)
@@ -1766,7 +1785,13 @@ except ValueError:
         RLSMode.OFF.value,
     )
     AUTOSECOPS__RLS_MODE = RLSMode.OFF
-"""Runtime RLS enforcement mode (off|shadow|enforce)."""
+"""Runtime RLS enforcement mode (off|shadow|enforce).
+
+The code default stays `off` so tests and ad hoc scripts that connect as the
+table owner keep bypass semantics. The shipped Compose, Helm and Fargate
+deployments set `enforce`, which only isolates tenants when the services
+connect as the runtime role (`AUTOSECOPS__DB_RUNTIME_PASSWORD`).
+"""
 
 
 # === Agent config === #
