@@ -28,13 +28,18 @@ from autosecops.auth.users import (
     get_user_db_context,
     get_user_manager_context,
 )
-from autosecops.authz.controls import has_scope, require_scope
+from autosecops.authz.controls import (
+    ensure_can_grant_scopes,
+    has_scope,
+    require_scope,
+)
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.authz.membership import (
     drop_workspace_membership_mirror,
     lock_role_changes,
 )
 from autosecops.authz.scopes import ORG_MEMBER_ROLE_SLUG
+from autosecops.authz.service import query_effective_scopes, resolve_granter_scopes
 from autosecops.db.models import (
     AccessToken,
     ExternalGroup,
@@ -205,6 +210,15 @@ class OrgService(BaseOrgService):
         if idp_managed and not allow_idp_managed:
             raise AutoSecOpsConflictError(
                 "Member is managed by the identity provider; deprovision them there."
+            )
+        if not allow_idp_managed and not self.role.is_platform_superuser:
+            # Removal revokes every organization-wide role the member holds, so
+            # it follows the grant ceiling: an admin cannot remove an owner.
+            ensure_can_grant_scopes(
+                await resolve_granter_scopes(self.session, self.role),
+                await query_effective_scopes(
+                    self.session, user.id, self.organization_id, None
+                ),
             )
 
         await self.session.execute(
@@ -860,11 +874,21 @@ class OrgService(BaseOrgService):
             User: The updated user object.
 
         Raises:
-            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be updated.
+            AutoSecOpsAuthorizationError: If the user is a superuser and cannot be
+                updated, or a caller other than a platform superuser sets the
+                member's password or email.
         """
         user = await self.get_member(user_id)
         if user.is_superuser:
             raise AutoSecOpsAuthorizationError("Cannot update superuser")
+        # Credentials belong to the account, which can span organizations, so
+        # an organization admin setting them would take the account over.
+        if not self.role.is_platform_superuser and (
+            params.model_fields_set & {"password", "email"}
+        ):
+            raise AutoSecOpsAuthorizationError(
+                "Cannot change another member's password or email"
+            )
         async with self._manager() as user_manager:
             updated_user = await user_manager.update(
                 user_update=params, user=user, safe=True

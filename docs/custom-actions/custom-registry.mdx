@@ -71,6 +71,8 @@ You must have the "Organization Admin" role to add and manage the custom registr
 
     Set the remote repository URL, repository package name, and allowed Git domains, then click "Save repository settings".
     The remote repository URL is a pip URL of the form `git+ssh://git@github.com/your-org/your-repo.git`.
+    Append `@<branch>` to sync from a branch other than the default, for example `git+ssh://git@github.com/your-org/your-repo.git@release`.
+    For a Git server on a non-standard SSH port, put the port in the URL (`git+ssh://git@git.example.com:2222/your-org/your-repo.git`) and add `host:port` (`git.example.com:2222`) to the allowed Git domains.
     The package name is the name of the Python package in the repository, e.g. `custom_actions`.
 
     <Frame>
@@ -140,7 +142,7 @@ To fix it:
 
 <AccordionGroup>
   <Accordion title="Does AutoSecOps support self-hosted Git repositories?">
-    Yes. AutoSecOps works with Gitlab and GitHub Enterprise.
+    Yes. AutoSecOps clones the registry over SSH, so it works with any Git server that accepts an Ed25519 deploy key, including GitLab, GitHub Enterprise, Bitbucket, and Gitea.
   </Accordion>
 
   <Accordion title="Can I rename my custom Python package name?">

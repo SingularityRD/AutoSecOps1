@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
+from autosecops.exceptions import AutoSecOpsCredentialsError
 from autosecops.logger import logger
 from autosecops.secrets.schemas import SSHKeyTarget
 from autosecops.secrets.service import SecretsService
@@ -36,6 +37,11 @@ __all__ = [
     "ssh_context",
     "get_git_ssh_command",
 ]
+
+
+INVALID_SSH_KEY_MESSAGE = (
+    "Invalid SSH key: AutoSecOps supports only unencrypted Ed25519 private keys."
+)
 
 
 @dataclass
@@ -264,7 +270,7 @@ def add_ssh_key_to_agent_sync(
         paramiko.Ed25519Key.from_private_key(StringIO(key_with_newline))
     except paramiko.SSHException as e:
         logger.error(f"Invalid SSH key: {str(e)}")
-        raise
+        raise AutoSecOpsCredentialsError(INVALID_SSH_KEY_MESSAGE) from e
 
     try:
         cmd = ["ssh-add"]

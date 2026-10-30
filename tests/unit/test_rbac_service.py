@@ -2119,3 +2119,174 @@ class TestRoleLevelGuard:
 
         with pytest.raises(AutoSecOpsValidationError, match="pending invitations"):
             await service.delete_role(target_id)
+
+
+async def _assign_directly(
+    session: AsyncSession, org: Organization, user: User, role: DBRole
+) -> UserRoleAssignment:
+    """Grant a role the way an owner would, outside the caller's ceiling."""
+    assignment = UserRoleAssignment(
+        organization_id=org.id, user_id=user.id, workspace_id=None, role_id=role.id
+    )
+    session.add(assignment)
+    await session.commit()
+    return assignment
+
+
+async def _group_with_role(
+    session: AsyncSession, org: Organization, user: User, role: DBRole
+) -> tuple[Group, GroupRoleAssignment]:
+    """A group holding ``role`` org-wide, with ``user`` as a manual member."""
+    group = Group(name=f"privileged-{uuid.uuid4().hex[:8]}", organization_id=org.id)
+    session.add(group)
+    await session.flush()
+    assignment = GroupRoleAssignment(
+        organization_id=org.id, group_id=group.id, workspace_id=None, role_id=role.id
+    )
+    session.add_all(
+        [
+            assignment,
+            GroupMember(group_id=group.id, user_id=user.id, organization_id=org.id),
+        ]
+    )
+    await session.commit()
+    return group, assignment
+
+
+@pytest.mark.anyio
+class TestRevocationCeiling:
+    """Revoking a role follows the same ceiling as granting it.
+
+    Otherwise an organization admin could strip an owner's role, which the
+    owner-only ``org:owner:assign`` scope exists to prevent.
+    """
+
+    async def test_delete_user_assignment_rejects_unheld_role(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+        privileged_role: DBRole,
+    ):
+        assignment = await _assign_directly(session, org, user, privileged_role)
+        service = RBACService(session, role=role)
+
+        with pytest.raises(
+            AutoSecOpsAuthorizationError,
+            match="Cannot grant scopes not held by the caller",
+        ):
+            await service.delete_user_assignment(assignment.id)
+
+        assert (await _org_assignment(session, user.id)).role_id == privileged_role.id
+
+    async def test_update_user_assignment_rejects_demoting_unheld_role(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+        privileged_role: DBRole,
+    ):
+        assignment = await _assign_directly(session, org, user, privileged_role)
+        service = RBACService(session, role=role)
+        lesser = await create_org_role(service, name="Lesser Role")
+
+        with pytest.raises(
+            AutoSecOpsAuthorizationError,
+            match="Cannot grant scopes not held by the caller",
+        ):
+            await service.update_user_assignment(assignment.id, role_id=lesser.id)
+
+        assert (await _org_assignment(session, user.id)).role_id == privileged_role.id
+
+    @pytest.mark.parametrize("change", ["remove", "replace"])
+    async def test_replace_user_assignments_rejects_revoking_unheld_role(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+        privileged_role: DBRole,
+        change: str,
+    ):
+        await _assign_directly(session, org, user, privileged_role)
+        # The failed edit rolls back and expires loaded objects.
+        user_id, privileged_id = user.id, privileged_role.id
+        service = RBACService(session, role=role)
+        params = await _replacement(service, user_id)
+        if change == "remove":
+            params.assignments = []
+        else:
+            lesser = await create_org_role(service, name="Lesser Role")
+            params.assignments = [UserRoleAssignmentSpec(role_id=lesser.id)]
+
+        with pytest.raises(
+            AutoSecOpsAuthorizationError,
+            match="Cannot grant scopes not held by the caller",
+        ):
+            await service.replace_user_assignments(params)
+
+        assert (await _org_assignment(session, user_id)).role_id == privileged_id
+
+    async def test_group_role_assignment_changes_reject_unheld_role(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+        privileged_role: DBRole,
+    ):
+        _, assignment = await _group_with_role(session, org, user, privileged_role)
+        service = RBACService(session, role=role)
+        lesser = await create_org_role(service, name="Lesser Role")
+
+        with pytest.raises(AutoSecOpsAuthorizationError):
+            await service.update_group_role_assignment(assignment.id, role_id=lesser.id)
+        with pytest.raises(AutoSecOpsAuthorizationError):
+            await service.delete_group_role_assignment(assignment.id)
+
+        stored = await session.get(GroupRoleAssignment, assignment.id)
+        assert stored is not None
+        assert stored.role_id == privileged_role.id
+
+    async def test_group_membership_removal_rejects_unheld_role(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+        privileged_role: DBRole,
+    ):
+        group, _ = await _group_with_role(session, org, user, privileged_role)
+        service = RBACService(session, role=role)
+
+        with pytest.raises(AutoSecOpsAuthorizationError):
+            await service.remove_group_member(group.id, user.id)
+        with pytest.raises(AutoSecOpsAuthorizationError):
+            await service.delete_group(group.id)
+
+        member = await session.scalar(
+            select(GroupMember).where(
+                GroupMember.group_id == group.id, GroupMember.user_id == user.id
+            )
+        )
+        assert member is not None
+
+    async def test_revoking_a_held_role_still_succeeds(
+        self,
+        session: AsyncSession,
+        role: Role,
+        org: Organization,
+        user: User,
+    ):
+        service = RBACService(session, role=role)
+        assignable = await create_org_role(service, name="Assignable Role")
+        assignment = await _assign_directly(session, org, user, assignable)
+        group, _ = await _group_with_role(session, org, user, assignable)
+
+        await service.remove_group_member(group.id, user.id)
+        await service.delete_group(group.id)
+        await service.delete_user_assignment(assignment.id)
+
+        assert await session.get(UserRoleAssignment, assignment.id) is None

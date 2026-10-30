@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any, NamedTuple
 
 import yaml
@@ -433,15 +433,16 @@ def _parse_yaml_resource[ModelT: BaseModel](
             )
         )
     except ValidationError as e:
+        # Never echo the file content back: a rejected secret or variable file
+        # can hold the very value material that validation refuses.
+        errors = e.errors(include_url=False, include_input=False)
         diagnostics.append(
             PullDiagnostic(
                 workflow_path=path,
                 workflow_title=_resource_title(yaml_data),
                 error_type="validation",
-                message=f"Validation error: {str(e)}",
-                details={
-                    "validation_errors": serializable_validation_errors(e.errors())
-                },
+                message=f"Validation error: {_validation_summary(errors)}",
+                details={"validation_errors": serializable_validation_errors(errors)},
             )
         )
     except Exception as e:
@@ -454,6 +455,16 @@ def _parse_yaml_resource[ModelT: BaseModel](
                 details={"error": str(e)},
             )
         )
+
+
+def _validation_summary(errors: Sequence[Any]) -> str:
+    """Summarize validation errors by location and message, without inputs."""
+    parts: list[str] = []
+    for error in errors:
+        location = ".".join(str(part) for part in error.get("loc", ()))
+        message = error.get("msg", "invalid value")
+        parts.append(f"{location}: {message}" if location else message)
+    return "; ".join(parts)
 
 
 def _resource_title(data: dict[str, Any] | None) -> str | None:

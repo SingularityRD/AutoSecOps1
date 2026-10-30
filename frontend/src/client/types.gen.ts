@@ -28098,10 +28098,6 @@ export type $OpenApiTs = {
         200: {
           [key: string]: string
         }
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
       }
     }
   }

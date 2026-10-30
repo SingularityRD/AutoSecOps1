@@ -1048,6 +1048,8 @@ def validate_email(
 ) -> None:
     # Safety: This is already a validated email, so we can split on the first @
     _, domain = email.split("@", 1)
+    # Domains are case-insensitive; the config list is stored lowercase.
+    domain = domain.lower()
     if allowed_domains and domain not in allowed_domains:
         raise InvalidEmailException()
     logger.info("Validated email with domain", domain=domain)

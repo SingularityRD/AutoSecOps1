@@ -25,6 +25,7 @@ import aiofiles
 import autosecops_registry
 
 from autosecops import config
+from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.logger import logger
 from autosecops.storage import blob
 
@@ -504,6 +505,14 @@ async def build_artifact_from_path(
     )
 
 
+def _remote_url_without_ref(git_url: str) -> str:
+    """Return ``git_url`` without AutoSecOps' trailing ``@ref`` selector."""
+    match = GIT_SSH_URL_REGEX.match(git_url)
+    if match is None or match.group("ref") is None:
+        return git_url
+    return git_url[: match.start("ref") - 1]
+
+
 async def build_artifact_from_git(
     git_url: str,
     commit_sha: str,
@@ -536,7 +545,8 @@ async def build_artifact_from_git(
     ) as clone_dir:
         clone_path = Path(clone_dir)
 
-        clone_url = git_url.replace("git+ssh://", "ssh://")
+        # The ``@ref`` suffix selects a branch; the commit is checked out below.
+        clone_url = _remote_url_without_ref(git_url).replace("git+ssh://", "ssh://", 1)
 
         logger.info(
             "Cloning repository for SquashFS venv build",

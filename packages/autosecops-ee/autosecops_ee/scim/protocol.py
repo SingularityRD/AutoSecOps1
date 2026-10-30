@@ -380,6 +380,12 @@ async def patch_user(
             )
         for key, value in values.items():
             attribute = key.strip().lower().removeprefix(f"{ScimSchema.USER.lower()}:")
+            # Accepted but not stored, matching PUT, so profile syncs don't fail.
+            if _is_unstored_user_attribute(attribute):
+                continue
+            if attribute == "id":
+                _require_own_id(value, external_user.id)
+                continue
             if operation.op == "remove":
                 raise AutoSecOpsValidationError(
                     "Removing user attributes is unsupported"
@@ -403,9 +409,6 @@ async def patch_user(
                     )
                 external_id = value
                 continue
-            # Accepted but not stored, matching PUT, so profile syncs don't fail.
-            if attribute == "displayname" or re.match(r"^name(?:$|\.)", attribute):
-                continue
             if attribute != "active":
                 raise AutoSecOpsValidationError("Unsupported user PATCH path")
             parsed = _coerce_bool(value)
@@ -421,6 +424,35 @@ async def patch_user(
     await _apply_active(session, role=role, external_user=external_user, active=active)
     await _commit_if_connected(session, role)
     return _user_resource(external_user, user)
+
+
+# Core User profile attributes AutoSecOps does not store. Providers push them
+# by default (Entra maps title and phoneNumbers out of the box), and PUT already
+# ignores them, so PATCH accepts them too rather than failing the sync.
+_UNSTORED_USER_ATTRIBUTE = re.compile(
+    r"^(?:displayname|nickname|profileurl|title|usertype|preferredlanguage|locale"
+    r"|timezone|name|phonenumbers|addresses|ims|photos|x509certificates)"
+    r"(?:$|[.\[])"
+)
+_ENTERPRISE_USER_SCHEMA = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:user"
+
+
+def _is_unstored_user_attribute(attribute: str) -> bool:
+    """Whether a lowercased PATCH path names a profile attribute we ignore."""
+    return (
+        _UNSTORED_USER_ATTRIBUTE.match(attribute) is not None
+        or attribute == _ENTERPRISE_USER_SCHEMA
+        or attribute.startswith(f"{_ENTERPRISE_USER_SCHEMA}:")
+    )
+
+
+def _require_own_id(value: Any, resource_id: UUID) -> None:
+    """Accept a resource's own ``id`` in a PATCH value, which Okta echoes back.
+
+    ``id`` is read-only, so any other value is rejected.
+    """
+    if not isinstance(value, str) or value.strip().lower() != str(resource_id):
+        raise AutoSecOpsValidationError("id is read-only")
 
 
 def _primary_email_value(value: Any) -> Any:
@@ -706,6 +738,10 @@ async def patch_group(
             attribute = (
                 attribute.strip().lower().removeprefix(f"{ScimSchema.GROUP.lower()}:")
             )
+            if attribute == "id" and operation.op != "remove":
+                # Okta's group rename sends {"id": ..., "displayName": ...}.
+                _require_own_id(value, group.id)
+                continue
             if attribute == "displayname":
                 if (
                     operation.op == "remove"

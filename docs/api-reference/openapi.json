@@ -35558,15 +35558,14 @@
           "organization"
         ],
         "summary": "Github Webhook",
-        "description": "Handle GitHub webhook events.\n\nDeliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the\nwebhook secret stored in the GitHub App credentials.",
+        "description": "Handle GitHub webhook events.\n\nDeliveries must carry a valid ``X-Hub-Signature-256`` HMAC made with the\nwebhook secret stored in the GitHub App credentials. The signature is\nchecked against the raw body before the body is parsed.",
         "operationId": "vcs-github_webhook",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "additionalProperties": true,
-                "type": "object",
-                "title": "Payload"
+                "type": "object"
               }
             }
           },
@@ -35583,16 +35582,6 @@
                   },
                   "type": "object",
                   "title": "Response Vcs-Github Webhook"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }

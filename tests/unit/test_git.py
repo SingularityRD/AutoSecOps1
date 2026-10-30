@@ -253,6 +253,26 @@ class TestResolveGitRef:
         assert mock_run_git.call_count == 2
 
     @pytest.mark.anyio
+    async def test_resolve_tag_falls_back_when_branch_lookup_is_empty(self):
+        """``ls-remote`` exits 0 with no output for a missing branch: try the ref."""
+        mock_run_git = AsyncMock(
+            side_effect=[
+                (0, "", ""),  # refs/heads/v1.0 does not exist
+                (0, "jkl012\trefs/tags/v1.0\n", ""),
+            ]
+        )
+
+        with patch("autosecops.git.utils.run_git", mock_run_git):
+            sha = await resolve_git_ref(
+                "git+ssh://git@github.com/myorg/myrepo.git",
+                ref="v1.0",
+                env=SshEnv(ssh_agent_pid="123456", ssh_auth_sock="/tmp/auth.sock"),
+            )
+
+        assert sha == "jkl012"
+        assert mock_run_git.await_args_list[1].args[0][-1] == "v1.0"
+
+    @pytest.mark.anyio
     async def test_resolve_ref_failure(self):
         """Test resolving ref that fails."""
         mock_run_git = AsyncMock(
