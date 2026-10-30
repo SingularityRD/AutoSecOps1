@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import license_tool
@@ -27,6 +28,7 @@ from cryptography.hazmat.primitives.serialization import (
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped
 
 from autosecops import config
 from autosecops.admin.license import router as admin_license_router
@@ -623,7 +625,8 @@ def seats_full(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def _user_exists(session: AsyncSession, email: str) -> bool:
-    stmt = select(func.count()).select_from(User).where(User.email == email)
+    user_email = cast(Mapped[str], User.email)
+    stmt = select(func.count()).select_from(User).where(user_email == email)
     return bool(await session.scalar(stmt))
 
 
