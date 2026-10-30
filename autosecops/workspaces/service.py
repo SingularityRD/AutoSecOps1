@@ -28,6 +28,7 @@ from autosecops.exceptions import (
     AutoSecOpsValidationError,
 )
 from autosecops.identifiers import UserID, WorkspaceID
+from autosecops.licensing.enforcement import enforce_workspace_limit
 from autosecops.service import BaseOrgService
 from autosecops.tiers.entitlements import check_entitlement
 from autosecops.tiers.enums import Entitlement
@@ -160,6 +161,7 @@ class WorkspaceService(BaseOrgService):
             await check_entitlement(
                 self.session, self.role, Entitlement.MULTI_WORKSPACE
             )
+            await enforce_workspace_limit(self.session)
 
         workspace = Workspace(name=name, organization_id=self.organization_id)
         if override_id:
