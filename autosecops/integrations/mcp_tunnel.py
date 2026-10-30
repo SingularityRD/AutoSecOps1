@@ -157,10 +157,13 @@ def mcp_oauth_tunnel_proxy() -> str | None:
 
 
 def create_mcp_oauth_http_client() -> httpx.AsyncClient:
-    """HTTP client for MCP OAuth metadata and registration requests."""
-    if proxy := mcp_oauth_tunnel_proxy():
-        return create_outbound_http_client(tunnel_proxy=proxy)
-    return httpx.AsyncClient()
+    """HTTP client for MCP OAuth metadata and registration requests.
+
+    Without a tunnel the shared outbound client applies the egress policy to
+    every resolved address and dials the checked one, so private hosts need
+    ``AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS``.
+    """
+    return create_outbound_http_client(tunnel_proxy=mcp_oauth_tunnel_proxy())
 
 
 def mcp_oauth_client_transport() -> dict[str, object]:

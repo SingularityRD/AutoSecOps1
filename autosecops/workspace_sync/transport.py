@@ -32,6 +32,8 @@ from autosecops.db.models import User
 from autosecops.exceptions import AutoSecOpsNotFoundError, AutoSecOpsValidationError
 from autosecops.feature_flags import FeatureFlag, is_feature_enabled
 from autosecops.git.types import GitUrl
+from autosecops.network import DisallowedUrlError
+from autosecops.outbound import create_outbound_http_client, resolve_outbound_addresses
 from autosecops.registry.repositories.schemas import GitBranchInfo, GitCommitInfo
 from autosecops.service import BaseWorkspaceService
 from autosecops.sync import CommitInfo, PushStatus
@@ -1226,8 +1228,14 @@ class GitLabWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
         ).get_gitlab_token_credentials()
 
     def _client(self, credentials: GitLabTokenCredentials) -> httpx.AsyncClient:
-        """Build an authenticated GitLab REST API client."""
-        return httpx.AsyncClient(
+        """Build an authenticated GitLab REST API client.
+
+        The instance URL is organization-configured, so requests go through the
+        outbound client: every resolved address must pass the egress policy,
+        and the token never leaves the configured origin.
+        """
+        return create_outbound_http_client(
+            origin_url=credentials.base_url,
             base_url=f"{credentials.base_url}/api/v4",
             headers={"PRIVATE-TOKEN": credentials.token.get_secret_value()},
             timeout=30.0,
@@ -1586,6 +1594,11 @@ class GitLabWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
         """Return a GitLab response, raising structured API errors."""
         try:
             response = await client.request(method, path, **kwargs)
+        except DisallowedUrlError as e:
+            raise GitLabError(
+                "GitLab instance URL is not allowed. Private addresses must be "
+                "allowlisted by the operator."
+            ) from e
         except httpx.HTTPError as e:
             raise GitLabError(f"GitLab API request failed: {str(e)}") from e
         if response.status_code >= 400:
@@ -1892,6 +1905,12 @@ class BitbucketWorkspaceSyncTransport(BaseWorkspaceSyncTransport):
         return pr.links.html.href, pr.id, False
 
 
+_DATA_CENTER_HOST_NOT_ALLOWED = (
+    "Bitbucket Data Center instance URL is not allowed. Private addresses must "
+    "be allowlisted by the operator."
+)
+
+
 class BitbucketDataCenterWorkspaceSyncTransport(BitbucketWorkspaceSyncTransport):
     """Data Center REST adapter with the same isolated Git/snapshot implementation."""
 
@@ -1913,12 +1932,21 @@ class BitbucketDataCenterWorkspaceSyncTransport(BitbucketWorkspaceSyncTransport)
             raise BitbucketError(
                 "Repository must match the configured Data Center instance and project/repository path"
             )
+        # The instance URL is organization-configured. Git runs as a separate
+        # process that resolves the host itself, so apply the egress policy
+        # before any Git or REST traffic; the outbound client then re-checks
+        # and pins every REST connection.
+        try:
+            await resolve_outbound_addresses(base.host, base.port or 443)
+        except DisallowedUrlError as e:
+            raise BitbucketError(_DATA_CENTER_HOST_NOT_ALLOWED) from e
         with TemporaryDirectory(prefix="autosecops-bitbucket-dc-") as directory:
             git = BitbucketGit(
                 directory, credentials.token, credential_url=str(base), bearer=True
             )
             await git.initialize()
-            async with httpx.AsyncClient(
+            async with create_outbound_http_client(
+                origin_url=str(base),
                 base_url=base.join("rest/api/1.0/"),
                 headers={
                     "Authorization": f"Bearer {credentials.token.get_secret_value()}"
@@ -1956,7 +1984,10 @@ class BitbucketDataCenterWorkspaceSyncTransport(BitbucketWorkspaceSyncTransport)
             or target.fragment
         ):
             raise BitbucketError("Invalid Data Center API URL")
-        response = await client.request(method, target, params=params, json=body)
+        try:
+            response = await client.request(method, target, params=params, json=body)
+        except DisallowedUrlError as e:
+            raise BitbucketError(_DATA_CENTER_HOST_NOT_ALLOWED) from e
         if not response.is_success:
             raise BitbucketError(
                 f"Bitbucket Data Center API request failed (HTTP {response.status_code})"

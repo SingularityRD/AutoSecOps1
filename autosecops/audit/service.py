@@ -70,10 +70,8 @@ from autosecops.db.models import PlatformSetting, ServiceAccount, User
 from autosecops.exceptions import AutoSecOpsServiceError
 from autosecops.identifiers import OrganizationID
 from autosecops.logger import logger
-from autosecops.network import (
-    DisallowedUrlError,
-    validate_url_resolves_public_async,
-)
+from autosecops.network import DisallowedUrlError
+from autosecops.outbound import create_outbound_http_client
 from autosecops.sanitization import redact_sensitive_text
 from autosecops.secrets.encryption import decrypt_value
 from autosecops.service import BaseService
@@ -222,7 +220,9 @@ async def _deliver(delivery: _AuditDelivery, *, raise_on_failure: bool = False) 
                 with attempt:
                     attempts = attempt.retry_state.attempt_number
                     response = None
-                    async with httpx.AsyncClient(
+                    # Org admins choose the sink URL: the outbound client
+                    # dials only addresses that pass the egress policy.
+                    async with create_outbound_http_client(
                         timeout=10.0,
                         verify=_delivery_ssl_context(delivery.verify_ssl),
                     ) as client:
@@ -591,34 +591,30 @@ class AuditService(BaseService):
             ),
         )
 
+        event = cls._build_test_event(
+            sink=sink, organization_id=organization_id, role=role
+        )
+        delivery = cls._assemble_delivery(config=config, payload=event)
+        headers = {
+            key: value
+            for key, value in (delivery.headers or {}).items()
+            if key.lower() != _TEST_HEADER.lower()
+        }
+        headers[_TEST_HEADER] = "true"
+
         try:
             async with asyncio.timeout(_AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS):
-                # A probe is a caller-controlled request that echoes the
-                # receiver's status, so an unresolved-to-public URL would be an
-                # internal-network oracle. Reject before any connection; the
-                # error carries no address.
-                try:
-                    await validate_url_resolves_public_async(webhook_url)
-                except DisallowedUrlError as exc:
-                    raise AuditWebhookUrlNotAllowedError from exc
-
-                event = cls._build_test_event(
-                    sink=sink, organization_id=organization_id, role=role
-                )
-                delivery = cls._assemble_delivery(config=config, payload=event)
-
-                headers = {
-                    key: value
-                    for key, value in (delivery.headers or {}).items()
-                    if key.lower() != _TEST_HEADER.lower()
-                }
-                headers[_TEST_HEADER] = "true"
-
                 # Probes share the process-wide socket budget with live
                 # delivery; one that cannot get a slot within the wall clock
                 # times out instead of queueing without bound.
                 async with _get_post_semaphore():
-                    async with httpx.AsyncClient(
+                    # A probe is a caller-controlled request that echoes the
+                    # receiver's status, so a non-public target would be an
+                    # internal-network oracle. The outbound client checks every
+                    # resolved address and dials the checked one, so DNS cannot
+                    # change between check and connect. The wall clock above
+                    # bounds resolution as well as the request.
+                    async with create_outbound_http_client(
                         timeout=_AUDIT_WEBHOOK_TEST_TIMEOUT_SECONDS,
                         verify=delivery.verify_ssl,
                     ) as client:
@@ -632,6 +628,9 @@ class AuditService(BaseService):
                         ) as response:
                             ok = response.is_success
                             receiver_status_code = response.status_code
+        except (DisallowedUrlError, httpx.InvalidURL) as exc:
+            # The error carries no address or URL.
+            raise AuditWebhookUrlNotAllowedError from exc
         except (TimeoutError, httpx.TimeoutException) as exc:
             logger.warning(
                 "Audit webhook test timed out",
