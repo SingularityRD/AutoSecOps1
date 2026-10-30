@@ -628,6 +628,7 @@ class DSLWorkflow:
             environment=self.runtime_config.environment,
             logical_time=self.time_anchor,
             tunnel=self.runtime_config.tunnel,
+            trigger_type=get_trigger_type(wf_info),
         )
         ctx_run.set(self.run_context)
 

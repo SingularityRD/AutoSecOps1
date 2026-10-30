@@ -27,6 +27,7 @@ from autosecops.identifiers.workflow import AnyWorkflowID, WorkflowUUID
 from autosecops.registry.lock.types import RegistryLock
 from autosecops.secrets.constants import DEFAULT_SECRETS_ENVIRONMENT
 from autosecops.storage.object import InlineObject, StoredObject
+from autosecops.workflow.executions.enums import TriggerType
 
 SLUG_PATTERN = r"^[a-z0-9_]+$"
 ACTION_TYPE_PATTERN = r"^[a-z0-9_.]+$"
@@ -468,6 +469,8 @@ class RunContext(BaseModel):
     """The logical start time for the workflow run."""
     tunnel: str | None = None
     """The workflow's default tunnel name, if any."""
+    trigger_type: TriggerType | None = None
+    """How the execution started; carried into the executor token for audits."""
 
     @field_validator("wf_id", mode="before")
     @classmethod
