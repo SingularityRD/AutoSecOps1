@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import entry_points
 
 from autosecops import config
+from autosecops.agent.backends.constants import AGENT_BACKEND_ENTRY_POINT_GROUP
 from autosecops.licensing import keys
 from autosecops.licensing.service import get_license_state
 from autosecops.logger import logger
@@ -22,6 +24,16 @@ DEFAULT_LIMITS = EffectiveLimits(
     max_concurrent_actions=None,
 )
 
+
+def has_installed_agent_backend() -> bool:
+    """Whether a package registers an agent backend besides the built-in one.
+
+    The built-in backend is not an entry point, so any registration is extra.
+    Entry points are read without loading them to keep this import cheap.
+    """
+    return bool(entry_points(group=AGENT_BACKEND_ENTRY_POINT_GROUP))
+
+
 BASELINE_ENTITLEMENTS = EffectiveEntitlements(
     custom_registry=True,
     git_sync=False,
@@ -38,7 +50,8 @@ BASELINE_ENTITLEMENTS = EffectiveEntitlements(
     forms=False,
     tunnels=False,
     robot_edr=False,
-    agent_runtime_preview=False,
+    # Installing an agent backend package is how a deployment opts in.
+    agent_runtime_preview=has_installed_agent_backend(),
 )
 """Free entitlements every single-tenant install gets without a license.
 
@@ -66,7 +79,6 @@ _LEGACY_ENTITLEMENT_FLAGS: dict[str, Entitlement] = {
     "rbac": Entitlement.RBAC_ADDONS,
     "agent-channels": Entitlement.AGENT_CHANNELS,
     "forms": Entitlement.FORMS,
-    "agent-runtime": Entitlement.AGENT_RUNTIME_PREVIEW,
 }
 
 

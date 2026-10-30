@@ -17,6 +17,7 @@ from autosecops.config import (
     env_ports,
     env_proxy_url,
 )
+from autosecops.feature_flags.enums import FeatureFlag
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "autosecops" / "config.py"
@@ -721,14 +722,15 @@ def test_bound_env_uses_default_for_empty_string(
     assert result == 10
 
 
-def test_agent_runtime_feature_flag_is_loaded_from_environment(
+def test_removed_agent_runtime_feature_flag_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Deployments that still set the removed flag keep starting."""
     try:
         with monkeypatch.context() as env:
-            env.setenv("AUTOSECOPS__FEATURE_FLAGS", "agent-runtime")
+            env.setenv("AUTOSECOPS__FEATURE_FLAGS", "agent-runtime,forms")
             reloaded_config = importlib.reload(autosecops_config)
-            assert reloaded_config.AUTOSECOPS__FEATURE_FLAGS == {"agent-runtime"}
+            assert reloaded_config.AUTOSECOPS__FEATURE_FLAGS == {FeatureFlag.FORMS}
     finally:
         importlib.reload(autosecops_config)
 

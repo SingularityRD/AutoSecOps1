@@ -6,10 +6,14 @@ single-tenant installs. Paid entitlements now come only from a signed license
 confirm the legacy flags no longer change it.
 """
 
+from importlib.metadata import EntryPoint
+
 import pytest
 
 from autosecops import config
+from autosecops.agent.backends.constants import AGENT_BACKEND_ENTRY_POINT_GROUP
 from autosecops.tiers import defaults as tier_defaults
+from autosecops.tiers.defaults import has_installed_agent_backend
 
 _FALSE_BY_DEFAULT = {
     "git_sync": False,
@@ -68,3 +72,20 @@ def test_legacy_feature_flags_do_not_grant_entitlements(
     entitlements = tier_defaults.get_single_tenant_entitlements()
 
     assert entitlements == tier_defaults.BASELINE_ENTITLEMENTS
+
+
+def test_has_installed_agent_backend_reads_entry_point_group(monkeypatch) -> None:
+    groups: list[str] = []
+
+    def fake_entry_points(*, group: str) -> list[EntryPoint]:
+        groups.append(group)
+        return [EntryPoint(name="extra", value="pkg:factory", group=group)]
+
+    monkeypatch.setattr(tier_defaults, "entry_points", fake_entry_points)
+
+    assert has_installed_agent_backend() is True
+    assert groups == [AGENT_BACKEND_ENTRY_POINT_GROUP]
+
+    monkeypatch.setattr(tier_defaults, "entry_points", lambda *, group: [])
+
+    assert has_installed_agent_backend() is False

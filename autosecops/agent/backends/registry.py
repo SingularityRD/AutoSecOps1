@@ -10,10 +10,10 @@ from typing import Any
 from temporalio import workflow
 
 from autosecops.agent.backends.base import AgentBackend
+from autosecops.agent.backends.constants import AGENT_BACKEND_ENTRY_POINT_GROUP
 from autosecops.agent.backends.types import SessionHistoryAdapter
 from autosecops.exceptions import AutoSecOpsValidationError
 
-AGENT_BACKEND_ENTRY_POINT_GROUP = "autosecops.agent_backends"
 DEFAULT_AGENT_BACKEND = "oss"
 
 
