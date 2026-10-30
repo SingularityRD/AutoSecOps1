@@ -13,7 +13,7 @@ The chart does not bundle stateful services. Bring your own:
 | Service | Requirement |
 | :------ | :---------- |
 | PostgreSQL | 15 or newer, with the `vector` (pgvector) extension available |
-| Redis | 7 or newer |
+| Redis | 7 or newer, or a Redis-compatible server such as Valkey |
 | Object storage | AWS S3 or an S3-compatible store (MinIO, Ceph, R2) |
 | Temporal | Self-hosted Temporal server or Temporal Cloud |
 

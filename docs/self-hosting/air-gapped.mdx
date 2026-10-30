@@ -78,7 +78,7 @@ The bundle carries these images. `images.txt` records the digest each one was pi
 | `temporalio/auto-setup` | `TEMPORAL__IMAGE_REPOSITORY` | — |
 | `temporalio/ui` | `TEMPORAL__UI_IMAGE_REPOSITORY` | — |
 | `cgr.dev/chainguard/minio` | `AUTOSECOPS__MINIO_IMAGE` | — |
-| `redis` | `AUTOSECOPS__REDIS_IMAGE` | — |
+| `valkey/valkey` (the `redis` service) | `AUTOSECOPS__REDIS_IMAGE` | — |
 
 `*_IMAGE_REPOSITORY` variables take a repository without a tag; the tag comes from `AUTOSECOPS__IMAGE_TAG`, `TEMPORAL__VERSION`, or `TEMPORAL__UI_VERSION`. The other variables take a full image reference.
 
@@ -142,7 +142,7 @@ docker login registry.example.internal
 # Docker Compose: add to the .env next to docker-compose.yml
 AUTOSECOPS__IMAGE_REPOSITORY=registry.example.internal/autosecops/singularityrd/autosecops
 AUTOSECOPS__UI_IMAGE_REPOSITORY=registry.example.internal/autosecops/singularityrd/autosecops-ui
-AUTOSECOPS__REDIS_IMAGE=registry.example.internal/autosecops/redis:7-alpine@sha256:...
+AUTOSECOPS__REDIS_IMAGE=registry.example.internal/autosecops/valkey/valkey:8.1.10-alpine@sha256:...
 
 # Helm: save as registry-values.yaml and pass it with -f
 image:

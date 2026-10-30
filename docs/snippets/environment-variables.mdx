@@ -171,7 +171,7 @@ Docker Compose selects every image through these variables. Set them to serve th
 | `AUTOSECOPS__PGVECTOR_IMAGE` | `ghcr.io/singularityrd/autosecops-postgres:2` | Core PostgreSQL image with pgvector. |
 | `AUTOSECOPS__CADDY_IMAGE` | `caddy:2.10.2-alpine` | Caddy reverse proxy image. |
 | `AUTOSECOPS__MINIO_IMAGE` | `cgr.dev/chainguard/minio:latest@sha256:…` | MinIO image. |
-| `AUTOSECOPS__REDIS_IMAGE` | `redis:7-alpine` | Redis image. |
+| `AUTOSECOPS__REDIS_IMAGE` | `valkey/valkey:8.1.10-alpine@sha256:…` | Image for the `redis` service. The default is Valkey, a BSD-3-Clause, Redis-compatible server. |
 | `TEMPORAL__POSTGRES_IMAGE` | `postgres:13` | Temporal database image. |
 | `TEMPORAL__IMAGE_REPOSITORY` | `temporalio/auto-setup` | Temporal server image repository, without a tag. The tag is `TEMPORAL__VERSION`. |
 | `TEMPORAL__UI_IMAGE_REPOSITORY` | `temporalio/ui` | Temporal UI image repository, without a tag. The tag is `TEMPORAL__UI_VERSION`. |
