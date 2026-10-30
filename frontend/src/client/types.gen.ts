@@ -12535,6 +12535,10 @@ export type UserUpdate = {
   settings?: {
     [key: string]: unknown
   } | null
+  /**
+   * Required when a user changes their own password.
+   */
+  current_password?: string | null
 }
 
 export type ValidationDetail = {

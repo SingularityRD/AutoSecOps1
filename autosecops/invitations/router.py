@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from autosecops.auth.credentials import AuthenticatedUserOnly, OptionalUserDep
 from autosecops.auth.dependencies import OrgUserRole
+from autosecops.auth.rate_limit import limit_invitation_token
 from autosecops.auth.users import current_active_user
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession, AsyncDBSessionBypass
@@ -105,7 +106,7 @@ async def create_invitation(
     return read
 
 
-@router.post("/accept")
+@router.post("/accept", dependencies=[Depends(limit_invitation_token)])
 async def accept_invitation(
     *,
     role: AuthenticatedUserOnly,
@@ -199,7 +200,11 @@ async def list_my_pending_invitations(
     return pending_invitations
 
 
-@router.get("/token/{token}", response_model=InvitationReadMinimal)
+@router.get(
+    "/token/{token}",
+    response_model=InvitationReadMinimal,
+    dependencies=[Depends(limit_invitation_token)],
+)
 async def get_invitation_by_token(
     *,
     user: OptionalUserDep = None,
