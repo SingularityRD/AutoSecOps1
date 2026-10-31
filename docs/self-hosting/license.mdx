@@ -153,13 +153,30 @@ The license API reports `multi_tenant_requested` and `multi_tenant_mode` (`off`,
 ## Clock protection
 
 AutoSecOps resists turning the system clock back to keep an expired license working.
-It records the latest time it has observed in the database, at most once an hour, and evaluates license expiry against the later of that time and the system clock.
-When the system clock is more than 15 minutes behind the recorded time, AutoSecOps logs an error, and the `License` page shows a `System clock moved backwards` alert.
-The license API reports the recorded time as `clock_high_water`, and the rollback as `clock_rollback_detected_at` and `clock_rollback_seconds`.
+It records the latest time it trusts in the database, at most once an hour, and evaluates license expiry against the later of that time and the system clock.
+When the system clock is more than 15 minutes behind the recorded time, AutoSecOps logs an error, and the `License` page shows a `System clock moved backwards` alert on every `api` replica until the clock catches up.
+The license API reports the recorded time as `clock_high_water`, the rollback as `clock_rollback_detected_at` (when it was first detected) and `clock_rollback_seconds` (how far behind the clock is now), and the last reset as `clock_last_reset_at`.
+
+A clock reading that jumps ahead is not recorded at once, so a host whose clock is briefly wrong at boot, before NTP corrects it, does not push license time into the future:
+
+- A process trusts a new clock reading only after the system clock has agreed with its own elapsed-time counter for 5 minutes.
+- A reading more than a day ahead of the recorded time is recorded only after it has stayed steady for an hour, which covers a restart after a long outage.
 
 Keep every host's clock synchronized with NTP.
-If a host clock was once set far into the future and then corrected, license time stays at the future time until real time catches up, so the license can look expired early.
-Contact [info@singularityrd.com](mailto:info@singularityrd.com) if that happens; do not edit the recorded time yourself.
+
+### Reset the recorded time
+
+If a host clock still pushed the recorded time into the future, so the license looks expired early, a superuser can reset it to the current time after fixing NTP on every host. Use the admin CLI (the `autosecops` command in the `autosecops-admin` package):
+
+```bash
+autosecops license clock-reset
+```
+
+The command calls `POST /api/admin/license/clock/reset`, which needs a recent security key verification.
+The API refuses the reset unless the recorded time is more than 15 minutes ahead of its clock, and only after its own clock has been steady for 5 minutes.
+Every reset is written to the platform audit log first, and refused if that write fails; it is also logged and reported as `clock_last_reset_at`.
+Other services follow the reset within an hour, or at their next restart.
+Do not edit the recorded time in the database yourself.
 
 ## Third-party notices
 

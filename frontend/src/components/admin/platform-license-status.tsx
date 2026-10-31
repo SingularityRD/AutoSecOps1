@@ -101,11 +101,12 @@ function ClockRollbackAlert({ license }: { license: LicenseRead }) {
       <AlertTriangleIcon className="size-4" />
       <AlertTitle>System clock moved backwards</AlertTitle>
       <AlertDescription>
-        At {formatDate(license.clock_rollback_detected_at)} the system clock was{" "}
-        {formatDuration(seconds)} behind the latest time this deployment
-        observed ({formatDate(license.clock_high_water)}). License expiry is
-        evaluated against the latest observed time. Fix the host clock (NTP) on
-        every node.
+        Since {formatDate(license.clock_rollback_detected_at)} the system clock
+        has been behind the latest time this deployment recorded (
+        {formatDate(license.clock_high_water)}); it is {formatDuration(seconds)}{" "}
+        behind now. License expiry is evaluated against the recorded time. Fix
+        the host clock (NTP) on every node. If the recorded time itself is
+        wrong, reset it with <code>autosecops license clock-reset</code>.
       </AlertDescription>
     </Alert>
   )
