@@ -52,7 +52,11 @@ with workflow.unsafe.imports_passed_through():
     )
     from autosecops.storage.blob import close_storage_client_cache
     from autosecops.storage.collection import CollectionActivities
-    from autosecops.temporal.worker_lifecycle import run_worker_entrypoint
+    from autosecops.temporal.worker_lifecycle import (
+        run_worker_entrypoint,
+        temporal_worker_readiness_check,
+        worker_readiness,
+    )
     from autosecops.tiers.activities import TierActivities
     from autosecops.workflow.management.definitions import (
         get_workflow_definition_activity,
@@ -171,21 +175,26 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
                 SearchIndexDispatcher,
             ]
 
+            temporal_worker = Worker(
+                client,
+                task_queue=task_queue,
+                activities=activities,
+                workflows=workflows,
+                workflow_runner=new_sandbox_runner(),
+                interceptors=interceptors,
+                disable_eager_activity_execution=config.TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION,
+                activity_executor=executor,
+                max_concurrent_activities=max_concurrent_activities,
+                max_concurrent_workflow_tasks=max_concurrent_workflow_tasks,
+                graceful_shutdown_timeout=timedelta(seconds=30),
+            )
             async with (
-                Worker(
-                    client,
-                    task_queue=task_queue,
-                    activities=activities,
-                    workflows=workflows,
-                    workflow_runner=new_sandbox_runner(),
-                    interceptors=interceptors,
-                    disable_eager_activity_execution=config.TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION,
-                    activity_executor=executor,
-                    max_concurrent_activities=max_concurrent_activities,
-                    max_concurrent_workflow_tasks=max_concurrent_workflow_tasks,
-                    graceful_shutdown_timeout=timedelta(seconds=30),
-                ),
+                temporal_worker,
                 search_schedule_lifespan(client, task_queue),
+                # LIFO exit removes readiness before Temporal drains.
+                worker_readiness(
+                    check=temporal_worker_readiness_check(temporal_worker, client)
+                ),
             ):
                 logger.info(
                     "Worker started, ctrl+c to exit",

@@ -57,7 +57,11 @@ with workflow.unsafe.imports_passed_through():
         initialize_worker_sentry_from_environment,
     )
     from autosecops.storage.blob import close_storage_client_cache
-    from autosecops.temporal.worker_lifecycle import run_worker_entrypoint
+    from autosecops.temporal.worker_lifecycle import (
+        run_worker_entrypoint,
+        temporal_worker_readiness_check,
+        worker_readiness,
+    )
 
 
 def new_sandbox_runner() -> SandboxedWorkflowRunner:
@@ -150,7 +154,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
                 StdioMCPProbeWorkflow,
             ]
 
-            async with Worker(
+            temporal_worker = Worker(
                 client,
                 task_queue=config.AUTOSECOPS__AGENT_QUEUE,
                 activities=activities,
@@ -161,6 +165,13 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
                 disable_eager_activity_execution=config.TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION,
                 activity_executor=executor,
                 graceful_shutdown_timeout=timedelta(seconds=30),
+            )
+            async with (
+                temporal_worker,
+                # LIFO exit removes readiness before Temporal drains.
+                worker_readiness(
+                    check=temporal_worker_readiness_check(temporal_worker, client)
+                ),
             ):
                 logger.info("AgentWorker started, ctrl+c to exit")
                 await shutdown_event.wait()
