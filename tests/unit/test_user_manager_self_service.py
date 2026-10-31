@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import uuid
 from collections.abc import AsyncIterator
@@ -618,11 +619,36 @@ async def test_forgot_password_request_is_audited_without_the_token(
     token = "reset-token-" + uuid.uuid4().hex
 
     await manager.on_after_forgot_password(user, token)
+    await drain_auth_audit_tasks()
 
     [event] = audit_events
     assert event["action"] == "request"
     assert event["data"] == {"operation": "password_reset_requested"}
     assert token not in repr(audit_events)
+
+
+@pytest.mark.anyio
+async def test_forgot_password_audit_runs_off_the_request_path(
+    manager: UserManager, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A registered email must not answer slower than an unknown one."""
+    release = asyncio.Event()
+    finished: list[uuid.UUID] = []
+
+    async def slow_audit(**kwargs: Any) -> None:
+        await release.wait()
+        finished.append(kwargs["user_id"])
+
+    monkeypatch.setattr(users_module, "emit_user_auth_event", slow_audit)
+
+    await asyncio.wait_for(
+        manager.on_after_forgot_password(user, "reset-token"), timeout=1
+    )
+    assert finished == []
+
+    release.set()
+    await drain_auth_audit_tasks()
+    assert finished == [user.id]
 
 
 def _login_form(email: str, password: str) -> OAuth2PasswordRequestForm:

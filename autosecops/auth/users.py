@@ -897,12 +897,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 "Blocked password reset request by auth policy",
                 user_id=str(user.id),
             )
-            await self._audit_credential_event(
-                user,
-                action="request",
-                operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
-                status=AuditEventStatus.FAILURE,
-                failure_reason=AuthAuditFailureReason.AUTH_POLICY,
+            # Off the request path, like every forgot-password audit, so the
+            # response time cannot tell a registered email from an unknown one.
+            spawn_auth_audit_task(
+                self._audit_credential_event(
+                    user,
+                    action="request",
+                    operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
+                    status=AuditEventStatus.FAILURE,
+                    failure_reason=AuthAuditFailureReason.AUTH_POLICY,
+                )
             )
             return
         await super().forgot_password(user, request)
@@ -913,10 +917,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # NOTE(security): Never log the token. It is a bearer credential that
         # resets the account password, and logs reach far more readers.
         self.logger.info("Password reset requested", user_id=str(user.id))
-        await self._audit_credential_event(
-            user,
-            action="request",
-            operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
+        # Off the request path: an unknown email returns at once, so audit
+        # work here would make registered accounts measurably slower.
+        spawn_auth_audit_task(
+            self._audit_credential_event(
+                user,
+                action="request",
+                operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
+            )
         )
 
     async def reset_password(
