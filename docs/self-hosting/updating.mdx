@@ -57,8 +57,9 @@ You can upgrade across several versions at once. The migrations apply every inte
     Copy the environment variables migration script `env-migration.sh`, the
     `env.sh` helper, and the template `.env.example` into your deployment
     directory, then run the script. It backs up your `.env`, adds any new or
-    changed variables, and sets the [Redis password](#redis-password) when
-    `.env` has none. `./env.sh --check` then confirms no placeholder remains.
+    changed variables, and generates the database runtime role password and
+    the [Redis password](#redis-password) when `.env` has none.
+    `./env.sh --check` then confirms no placeholder remains.
 
     ```bash
     cp autosecops-<version>/env-migration.sh autosecops-<version>/env.sh autosecops-<version>/.env.example .
@@ -80,17 +81,11 @@ You can upgrade across several versions at once. The migrations apply every inte
 
     If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to `<version>`.
   </Step>
-  <Step title="Set the database runtime role password">
-    Installs created before the runtime role have an empty
-    `AUTOSECOPS__DB_RUNTIME_PASSWORD` after the migration script. Set it so the
-    services connect as `autosecops_app` and tenant row-level security applies:
-
-    ```bash
-    sed -i "s/^AUTOSECOPS__DB_RUNTIME_PASSWORD=.*/AUTOSECOPS__DB_RUNTIME_PASSWORD=$(openssl rand -hex 24)/" .env
-    ```
-
-    Left empty, AutoSecOps keeps working as the owner role, logs a warning,
-    and row-level security stays inactive.
+  <Step title="Check your override file">
+    If you have a `docker-compose.override.yml`, check it against
+    [Resource limits and log rotation](#resource-limits-and-log-rotation)
+    before you restart. A `mem_limit`, `cpus`, or `pids_limit` setting there
+    stops `docker compose up`.
   </Step>
   <Step title="Pull the images and restart">
     ```bash
@@ -112,9 +107,19 @@ The bundled Redis (Valkey) requires a password from the release that adds `REDIS
 - Both reuse the password from `REDIS_URL` when it has one, so installs that added a password to `REDIS_URL` by hand keep it. Otherwise they generate one. Remove any `redis` `command` override with `--requirepass` from `docker-compose.override.yml`: the `redis` service now sets the password itself.
 - Without `REDIS_PASSWORD`, `docker compose up` stops with `REDIS_PASSWORD is not set. Run ./env.sh --upgrade`. With the `.env.example` placeholder, the `redis` container exits with the same instruction.
 - Redis keeps its data: the password does not change the `valkey-data` volume. `docker compose up -d` recreates `redis` and every service with the new setting.
-- If `REDIS_URL` points to an external Redis without a password, the services now send `REDIS_PASSWORD` to it and the connection fails. Enable authentication on that Redis and put its password in `REDIS_URL`, which takes precedence.
+- If `REDIS_URL` points to an external Redis without a password, both scripts also add `REDIS_CLIENT_PASSWORD=` (empty) to `.env` and print a warning. The services then keep connecting to that Redis without a password, as before the upgrade. Without that line they would send `REDIS_PASSWORD`, which a Redis without authentication rejects. Prefer enabling authentication on that Redis: put its password in `REDIS_URL`, which takes precedence, and remove `REDIS_CLIENT_PASSWORD`.
 
-The same release adds [memory limits](/self-hosting/docker-compose#resource-limits) and [log rotation](/self-hosting/docker-compose#log-rotation) to every Compose service. A service that used more memory than its new limit before the upgrade restarts with `OOMKilled: true` in `docker inspect`; raise its `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` in `.env`. `docker compose up -d` recreates the containers, which applies both.
+## Database runtime role password
+
+`./env-migration.sh` and `./env.sh --upgrade` generate `AUTOSECOPS__DB_RUNTIME_PASSWORD` when `.env` has none or still has the `.env.example` placeholder. On the next start, the `migrations` service creates the `autosecops_app` role with it, or resets the role's password, and the services connect as that role, so tenant row-level security applies. An `.env` that sets it to an empty value on purpose keeps it empty: AutoSecOps then runs as the owner role, logs a warning, and row-level security stays inactive.
+
+## Resource limits and log rotation
+
+The release that adds `REDIS_PASSWORD` also adds [memory limits](/self-hosting/docker-compose#resource-limits) and [log rotation](/self-hosting/docker-compose#log-rotation) to every Compose service. `docker compose up -d` recreates the containers, which applies both. Check these before you restart:
+
+- A service that used more memory than its new limit before the upgrade restarts with `OOMKilled: true` in `docker inspect`; raise its `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` in `.env`. Redis now refuses writes with `OOM command not allowed` at 75% of its limit instead of growing without bound; raise `AUTOSECOPS__REDIS_MEMORY_LIMIT` if its dataset is larger.
+- The limits live under `deploy.resources.limits`. A `deploy.resources.limits` block in `docker-compose.override.yml`, as earlier versions of [Scaling action throughput](/self-hosting/scaling) suggested, keeps working: Compose merges it over the defaults. A `mem_limit`, `cpus`, or `pids_limit` setting on the same service stops `docker compose up` with `can't set distinct values on 'mem_limit' and 'deploy.resources.limits.memory'`. Remove it and set the value through `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` and `AUTOSECOPS__<SERVICE>_CPU_LIMIT` in `.env`, or through `deploy.resources.limits`.
+- Every service now sets the `json-file` log driver, which overrides `log-driver` in the Docker daemon's `daemon.json`. If the daemon ships container logs to journald, syslog, a collector, or a SIEM, add the [daemon log driver override](/self-hosting/docker-compose#log-rotation) before you restart, or those logs stop reaching it.
 
 On Kubernetes, the chart now refuses an inline `externalRedis.auth.url` without a password. Add the password to the URL, or set `externalRedis.auth.allowUnauthenticated: true` to keep an unauthenticated Redis.
 

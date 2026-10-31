@@ -563,10 +563,11 @@ api:
       labelSelector:
         matchLabels:
           app.kubernetes.io/name: autosecops
+          app.kubernetes.io/instance: autosecops
           app.kubernetes.io/component: api
 ```
 
-Repeat for `worker`, `executor`, `agentWorker`, `agentExecutor`, `backgroundWorker`, `mcp`, `litellm`, and `ui`, with the matching `app.kubernetes.io/component` label (`agent-worker`, `background-worker`, and so on). PostgreSQL, Redis, and Temporal run outside the chart, so make them highly available on their own platform.
+Set `app.kubernetes.io/instance` to your release name, so pods of another release in the same namespace do not count toward the skew. Repeat for `worker`, `executor`, `agentWorker`, `agentExecutor`, `backgroundWorker`, `mcp`, `litellm`, and `ui`, with the matching `app.kubernetes.io/component` label (`agent-worker`, `background-worker`, and so on). PostgreSQL, Redis, and Temporal run outside the chart, so make them highly available on their own platform.
 
 ## Minimum resources
 
