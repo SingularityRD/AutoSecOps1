@@ -1263,6 +1263,22 @@ AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE = float(
 Covers sandbox startup, imports, and result serialization around the timed
 function call, which the action runner enforces itself."""
 
+AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH = tuple(
+    name
+    for raw_name in (
+        os.environ.get("AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH") or ""
+    ).split(",")
+    if (name := raw_name.strip())
+)
+"""Extra executor environment variables that direct-mode actions may read.
+
+Direct-mode action subprocesses receive only an allowlisted environment. This
+comma-separated list of names adds operator-chosen, non-secret variables to it.
+Platform settings (``AUTOSECOPS__*``), cloud and service credentials, and names
+that look like credentials (``*_KEY``, ``*_SECRET``, ``*_PASSWORD``,
+``*_TOKEN``, and similar) are always refused. Store secrets as workspace
+secrets instead."""
+
 # === Action Gateway === #
 AUTOSECOPS__ACTION_GATEWAY_SOCKET = (
     os.environ.get("AUTOSECOPS__ACTION_GATEWAY_SOCKET")
@@ -1988,6 +2004,25 @@ NsJail isolation on that worker is controlled separately by
 AUTOSECOPS__EXECUTOR_BACKEND.
 
 When False, uses the existing subprocess approach from the API service.
+"""
+
+AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE = (
+    os.environ.get("AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE") or None
+)
+"""Path to an operator-supplied known_hosts file for registry git hosts.
+
+Each registry sync copies it into its private known_hosts file. Hosts listed
+here are verified against these keys; any other host's key is scanned on first
+use (trust on first use) for that sync only. Mount the file read-only.
+"""
+
+AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS = env_bool(
+    "AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS", default=False
+)
+"""Refuse registry git hosts that AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE does not list.
+
+When False (default), an unlisted host's key is scanned on first use for that
+sync. When True, such a sync fails instead of trusting a scanned key.
 """
 
 AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT = int(

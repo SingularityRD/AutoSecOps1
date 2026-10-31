@@ -14,6 +14,7 @@ from opentelemetry import metrics
 
 from autosecops import config
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.sandbox.utils import communicate_process_group
 
 SQUASHFS_MOUNT_OPTIONS = "loop,ro,nodev,nosuid"
@@ -152,6 +153,7 @@ async def _sync_loop_device_nodes() -> LoopDeviceSyncResult:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            env=tool_subprocess_env(),
         )
     except OSError as error:
         raise LoopDeviceSyncCommandError(
@@ -219,6 +221,7 @@ async def mount_squashfs(image_path: Path, target_dir: Path) -> None:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 start_new_session=True,
+                env=tool_subprocess_env(),
             )
         except (FileNotFoundError, PermissionError) as error:
             raise SquashfsMountUnavailableError(

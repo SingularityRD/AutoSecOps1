@@ -43,7 +43,15 @@ from autosecops.sandbox.types import (
     SandboxNetworkRequest,
 )
 from autosecops.sandbox.wrapper import INSTALL_SCRIPT, WRAPPER_SCRIPT
-from autosecops.ssh import add_ssh_key_to_agent, temporary_ssh_agent
+from autosecops.ssh import (
+    UnknownGitHostError,
+    add_ssh_key_to_agent,
+    ensure_host_key_scan_allowed,
+    known_hosts_lists,
+    known_hosts_token,
+    seed_known_hosts,
+    temporary_ssh_agent,
+)
 
 _INSTALL_CACHE_KEY = "0" * 16
 _KEYSCAN_TIMEOUT_SECONDS = 30
@@ -420,7 +428,26 @@ class RegistrySyncSandbox:
         target: _ValidatedGitSshTarget,
         work_dir: Path,
     ) -> Path:
-        """Acquire hashed SSH host keys in a networked jail without credentials."""
+        """Build this sync's private known_hosts for one git host.
+
+        Starts from the operator's pinned keys. A pinned host is never
+        scanned; any other host is scanned in a networked jail without
+        credentials, unless strict known_hosts mode refuses it.
+        """
+        ssh_dir = work_dir / "registry-ssh"
+        ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
+        ssh_dir.chmod(0o700)
+        known_hosts_path = ssh_dir / "known_hosts"
+        seed_known_hosts(known_hosts_path)
+        if await asyncio.to_thread(
+            known_hosts_lists, known_hosts_path, target.host, target.port
+        ):
+            return known_hosts_path
+        try:
+            ensure_host_key_scan_allowed(known_hosts_token(target.host, target.port))
+        except UnknownGitHostError as exc:
+            raise RegistryError(str(exc)) from exc
+
         keyscan_dir = work_dir / "sandbox-keyscan"
         keyscan_dir.mkdir(parents=True, exist_ok=True)
         (keyscan_dir / "keyscan.py").write_text(_KEYSCAN_SCRIPT, encoding="utf-8")
@@ -457,16 +484,9 @@ class RegistrySyncSandbox:
         if not isinstance(result.output, str) or not result.output.strip():
             raise RegistryError("Sandboxed SSH host key scan returned no host keys")
 
-        ssh_dir = work_dir / "registry-ssh"
-        ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
-        ssh_dir.chmod(0o700)
-        known_hosts_path = ssh_dir / "known_hosts"
-        known_hosts_path.touch(mode=0o600, exist_ok=False)
         output = result.output
-        known_hosts_path.write_text(
-            output if output.endswith("\n") else f"{output}\n",
-            encoding="utf-8",
-        )
+        with known_hosts_path.open("a", encoding="utf-8") as file:
+            file.write(output if output.endswith("\n") else f"{output}\n")
         known_hosts_path.chmod(0o600)
         return known_hosts_path
 
