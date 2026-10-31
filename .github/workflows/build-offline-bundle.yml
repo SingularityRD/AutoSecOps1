@@ -137,7 +137,7 @@ jobs:
           exit "$fail"
 
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -239,7 +239,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -302,7 +302,7 @@ jobs:
       # Checksums, signatures, and the public key only: never the archive or
       # any image.
       - name: Upload checksums and signatures
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: autosecops-offline-${{ steps.version.outputs.version }}-checksums
           path: |
