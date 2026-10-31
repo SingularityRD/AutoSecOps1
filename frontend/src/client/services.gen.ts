@@ -126,6 +126,8 @@ import type {
   AdminUpdateSecuritySettingsResponse,
   AdminUpdateTierData,
   AdminUpdateTierResponse,
+  AdminVerifyUserEmailData,
+  AdminVerifyUserEmailResponse,
   AgentChannelsCreateChannelTokenData,
   AgentChannelsCreateChannelTokenResponse,
   AgentChannelsDeleteChannelTokenData,
@@ -11177,6 +11179,29 @@ export const adminPromoteToSuperuser = (
   return __request(OpenAPI, {
     method: "POST",
     url: "/admin/users/{user_id}/promote",
+    path: {
+      user_id: data.userId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Verify User Email
+ * Mark a user's email address verified.
+ * @param data The data for the request.
+ * @param data.userId
+ * @returns AdminUserRead Successful Response
+ * @throws ApiError
+ */
+export const adminVerifyUserEmail = (
+  data: AdminVerifyUserEmailData
+): CancelablePromise<AdminVerifyUserEmailResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/admin/users/{user_id}/verify",
     path: {
       user_id: data.userId,
     },

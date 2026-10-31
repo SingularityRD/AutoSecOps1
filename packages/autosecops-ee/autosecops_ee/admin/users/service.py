@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped
 
 from autosecops.audit.logger import audit_log
+from autosecops.auth.email_verification import clear_verification_email
 from autosecops.auth.schemas import UserCreate, UserRole
 from autosecops.auth.users import get_user_db_context, get_user_manager_context
 from autosecops.db.errors import is_unique_violation
@@ -111,6 +112,27 @@ class AdminUserService(BasePlatformService):
         )
         await self.session.commit()
         await self.session.refresh(user)
+        return AdminUserRead.model_validate(user)
+
+    @audit_log(resource_type="user", action="verify", resource_id_attr="user_id")
+    async def verify_user_email(self, user_id: uuid.UUID) -> AdminUserRead:
+        """Mark a user's email verified on an administrator's word.
+
+        For deployments without SMTP, or a user who cannot receive the email.
+        Grants no membership, as the emailed link would not. Idempotent.
+
+        Raises:
+            AutoSecOpsNotFoundError: If the user does not exist.
+        """
+        stmt = select(User).where(cast(Mapped[uuid.UUID], User.id) == user_id)
+        user = (await self.session.execute(stmt)).scalar_one_or_none()
+        if not user:
+            raise AutoSecOpsNotFoundError(f"User {user_id} not found")
+        if not user.is_verified:
+            user.is_verified = True
+            await clear_verification_email(self.session, user.id)
+            await self.session.commit()
+            await self.session.refresh(user)
         return AdminUserRead.model_validate(user)
 
     @audit_log(resource_type="user", action="demote", resource_id_attr="user_id")

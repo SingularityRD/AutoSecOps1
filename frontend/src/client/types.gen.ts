@@ -17576,6 +17576,12 @@ export type AdminPromoteToSuperuserData = {
 
 export type AdminPromoteToSuperuserResponse = AdminUserRead
 
+export type AdminVerifyUserEmailData = {
+  userId: string
+}
+
+export type AdminVerifyUserEmailResponse = AdminUserRead
+
 export type AdminDemoteFromSuperuserData = {
   userId: string
 }
@@ -25916,6 +25922,21 @@ export type $OpenApiTs = {
   "/admin/users/{user_id}/promote": {
     post: {
       req: AdminPromoteToSuperuserData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: AdminUserRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/admin/users/{user_id}/verify": {
+    post: {
+      req: AdminVerifyUserEmailData
       res: {
         /**
          * Successful Response
