@@ -33,6 +33,7 @@ from autosecops.agent.common.exceptions import (
 from autosecops.agent.diagnostics import LLMErrorDiagnostics
 from autosecops.agent.error_policy import (
     MAX_UNCLASSIFIED_DETAIL_CHARS,
+    agent_approval_persistence_failed,
     agent_executor_protocol_failed,
     agent_executor_timed_out,
     agent_executor_unclassified,
@@ -158,6 +159,12 @@ def test_legacy_executor_unavailable_kind_deserializes_as_unclassified() -> None
             lambda error: agent_session_initialization_failed(error, retryable=False),
             RuntimeErrorOwner.PLATFORM,
             RuntimeErrorKind.AGENT_SESSION_INITIALIZATION_FAILED,
+            RetryDisposition.NON_RETRYABLE,
+        ),
+        (
+            agent_approval_persistence_failed,
+            RuntimeErrorOwner.PLATFORM,
+            RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED,
             RetryDisposition.NON_RETRYABLE,
         ),
         (

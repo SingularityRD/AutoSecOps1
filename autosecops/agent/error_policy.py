@@ -267,6 +267,22 @@ def agent_session_initialization_failed(
     )
 
 
+def agent_approval_persistence_failed(
+    error: BaseException | None = None,
+) -> RuntimeErrorClassification:
+    """Classify a permanent failure to record a tool approval request or decision.
+
+    The run fails closed: a tool call whose approval state cannot be recorded
+    must neither execute nor leave the run waiting indefinitely.
+    """
+    return RuntimeErrorClassification.platform(
+        kind=RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED,
+        message="AutoSecOps could not record the tool approval",
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
+        cause=error,
+    )
+
+
 def user_agent_execution_failed(
     error: BaseException | None = None,
     *,

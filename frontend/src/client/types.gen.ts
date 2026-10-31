@@ -9817,6 +9817,7 @@ export type RuntimeErrorKind =
   | "agent.configuration.invalid"
   | "agent.preparation.failed"
   | "agent.session.initialization_failed"
+  | "agent.approval.persistence_failed"
   | "agent.llm.gateway_auth_failed"
   | "agent.llm.provider_auth_failed"
   | "agent.llm.budget_exceeded"

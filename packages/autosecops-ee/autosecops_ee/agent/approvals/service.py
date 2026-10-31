@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Executable, func, null, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.exc import DataError, DBAPIError, IntegrityError
 from temporalio import activity, workflow
 from temporalio.client import WorkflowExecution, WorkflowExecutionStatus, WorkflowHandle
 
 from autosecops.agent.aliases import build_agent_alias
 from autosecops.agent.approvals.enums import ApprovalStatus
 from autosecops.agent.common.stream_types import ToolCallContent
-from autosecops.agent.error_policy import agent_session_initialization_failed
+from autosecops.agent.error_policy import agent_approval_persistence_failed
 from autosecops.agent.mcp.metadata import strip_proxy_tool_metadata
 from autosecops.agent.schemas import AgentOutput
 from autosecops.agent.types import (
@@ -825,6 +825,65 @@ def _normalize_approval_args(payload: ToolApprovalPayload) -> dict[str, Any] | N
     return approval_args
 
 
+@dataclass(frozen=True, slots=True)
+class _DatabaseErrorDiagnostics:
+    """Parameter-free facts about a database error that are safe to log.
+
+    SQLSTATE and constraint, table, and column names identify the failure
+    without echoing bound values, unlike the driver's error message.
+    """
+
+    error_type: str
+    sqlstate: str | None
+    constraint_name: str | None
+    table_name: str | None
+    column_name: str | None
+
+
+def _first_str_attr(sources: Sequence[object], *names: str) -> str | None:
+    """Return the first string attribute named ``names`` across ``sources``.
+
+    ``getattr`` is required here: asyncpg exposes ``sqlstate`` and the
+    diagnostic names directly on its exception, psycopg exposes ``pgcode``
+    and a ``diag`` block, and SQLAlchemy's adapter wraps either one, so no
+    single static type describes them.
+    """
+    for source in sources:
+        for name in names:
+            value = getattr(source, name, None)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
+_PERMANENT_SQLSTATE_CLASSES = frozenset({"22", "23"})
+"""SQLSTATE classes that fail the same way on every retry of the same input.
+
+Class 22 is a data exception (for example 22P05, a NUL character JSONB cannot
+store) and class 23 is an integrity constraint violation. Other classes, such
+as connection failures (08) or serialization failures (40), may succeed when
+retried.
+"""
+
+
+def _database_error_diagnostics(exc: DBAPIError) -> _DatabaseErrorDiagnostics:
+    """Extract loggable diagnostics from a SQLAlchemy database error."""
+    sources: list[object] = []
+    current: object = exc.orig
+    while current is not None and len(sources) < 4:
+        sources.append(current)
+        if (diag := getattr(current, "diag", None)) is not None:
+            sources.append(diag)
+        current = current.__cause__ if isinstance(current, BaseException) else None
+    return _DatabaseErrorDiagnostics(
+        error_type=type(exc).__name__,
+        sqlstate=_first_str_attr(sources, "sqlstate", "pgcode"),
+        constraint_name=_first_str_attr(sources, "constraint_name"),
+        table_name=_first_str_attr(sources, "table_name"),
+        column_name=_first_str_attr(sources, "column_name"),
+    )
+
+
 async def _execute_approval_write(
     service: ApprovalService,
     stmt: Executable,
@@ -836,33 +895,55 @@ async def _execute_approval_write(
     """Execute and commit an approval write, failing fast on permanent errors.
 
     Approval activities run with Temporal's default (unbounded) retry policy.
-    Integrity and data errors are deterministic for a given input, for example
-    when the agent session row was deleted while the run waited, so retrying
-    them would hang the run indefinitely with no signal to the user. They are
-    raised as a non-retryable classified error instead, which fails the turn
-    and surfaces the session error. Transient errors (connection loss,
-    timeouts) still propagate unchanged and are retried.
+    Integrity and data errors (SQLAlchemy's ``IntegrityError``/``DataError``,
+    or any driver error in SQLSTATE class 22 or 23, which the asyncpg dialect
+    may surface as a bare ``DBAPIError``) are deterministic for a given input.
+    Examples are an agent session row deleted while the run waited, a deleted
+    reviewer account, or a tool argument holding a NUL character that JSONB
+    rejects. Retrying them would hang the run indefinitely with no signal to
+    the user, so they are raised as a non-retryable classified error instead,
+    which fails the turn and surfaces the error on the session. Transient
+    errors (connection loss, timeouts) still propagate unchanged and are
+    retried.
 
     The replacement error is raised after the ``except`` block exits so the
     original database error, whose message can echo bound parameters such as
-    tool arguments, is never chained into Temporal workflow history.
+    tool arguments, is never chained into Temporal workflow history. Only its
+    parameter-free diagnostics are logged.
+
+    Args:
+        service: The approval service whose session runs the write.
+        stmt: The write statement.
+        session_id: The agent session, for logging.
+        tool_call_ids: Tool call IDs the statement targets.
+        operation: Activity name, for logging.
     """
-    permanent_error_type: str | None = None
+    diagnostics: _DatabaseErrorDiagnostics | None = None
     try:
         await service.session.execute(stmt)
         await service.session.commit()
-    except (IntegrityError, DataError) as exc:
+    except DBAPIError as exc:
+        exc_diagnostics = _database_error_diagnostics(exc)
+        sqlstate_class = (exc_diagnostics.sqlstate or "")[:2]
+        if not (
+            isinstance(exc, IntegrityError | DataError)
+            or sqlstate_class in _PERMANENT_SQLSTATE_CLASSES
+        ):
+            # Transient: let Temporal retry with the original error.
+            raise
         await service.session.rollback()
-        permanent_error_type = type(exc).__name__
-    if permanent_error_type is None:
+        diagnostics = exc_diagnostics
+    if diagnostics is None:
         return
     logger.error(
         "Approval persistence failed with a non-retryable database error",
         operation=operation,
         session_id=str(session_id),
         tool_call_ids=tool_call_ids,
-        error_type=permanent_error_type,
+        error_type=diagnostics.error_type,
+        sqlstate=diagnostics.sqlstate,
+        constraint_name=diagnostics.constraint_name,
+        table_name=diagnostics.table_name,
+        column_name=diagnostics.column_name,
     )
-    raise_application_error_from_classification(
-        agent_session_initialization_failed(retryable=False)
-    )
+    raise_application_error_from_classification(agent_approval_persistence_failed())

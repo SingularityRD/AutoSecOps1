@@ -23,6 +23,7 @@ from autosecops_ee.agent.activities import (
 from autosecops_ee.agent.approvals.service import ApprovalManager, ApprovalService
 from autosecops_ee.agent.context import AgentContext
 from sqlalchemy import delete, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio.exceptions import ApplicationError
 
@@ -111,7 +112,9 @@ def _record_input(
 
 def _assert_permanent_failure(error: ApplicationError) -> None:
     assert error.non_retryable is True
-    assert error.type == RuntimeErrorKind.AGENT_SESSION_INITIALIZATION_FAILED.value
+    assert error.type == RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED.value
+    # The session sees an approval error, not a session-initialization error.
+    assert "session" not in error.message
     # The database error echoes bound parameters (tool arguments may hold
     # sensitive values); it must not travel into Temporal history.
     assert error.__cause__ is None
@@ -229,6 +232,34 @@ class TestRecordApprovalRequestsCommitted:
         assert row.decision is None
         assert row.updated_at >= decided.updated_at
 
+    async def test_nul_byte_in_args_fails_fast_with_diagnostics(
+        self, svc_role: Role, committed_session_id: uuid.UUID
+    ) -> None:
+        """JSONB rejects NUL; the failure is permanent and diagnosable."""
+        with (
+            patch("autosecops_ee.agent.approvals.service.logger") as mock_logger,
+            pytest.raises(ApplicationError) as exc_info,
+        ):
+            await ApprovalManager.record_approval_requests(
+                _record_input(
+                    svc_role,
+                    committed_session_id,
+                    ToolApprovalPayload(
+                        tool_call_id="call_nul",
+                        tool_name="tool",
+                        args={"token": "secret-value\u0000"},
+                    ),
+                )
+            )
+
+        _assert_permanent_failure(exc_info.value)
+        assert await _rows_by_tool_call(svc_role, committed_session_id) == {}
+        log_kwargs = mock_logger.error.call_args.kwargs
+        # 22P05 untranslatable_character. The asyncpg dialect raises a bare
+        # DBAPIError for it, so classification must rely on the SQLSTATE.
+        assert log_kwargs["sqlstate"] == "22P05"
+        assert "secret-value" not in repr(mock_logger.error.call_args)
+
     async def test_retry_is_idempotent(
         self, svc_role: Role, committed_session_id: uuid.UUID
     ) -> None:
@@ -302,6 +333,46 @@ class TestApplyApprovalDecisionsCommitted:
 
         _assert_permanent_failure(exc_info.value)
 
+    async def test_deleted_reviewer_fails_fast_with_constraint_name(
+        self, svc_role: Role, committed_session_id: uuid.UUID
+    ) -> None:
+        """A reviewer deleted during the wait violates the approved_by FK."""
+        await ApprovalManager.record_approval_requests(
+            _record_input(
+                svc_role,
+                committed_session_id,
+                ToolApprovalPayload(tool_call_id="call_fk", tool_name="tool"),
+            )
+        )
+
+        with (
+            patch("autosecops_ee.agent.approvals.service.logger") as mock_logger,
+            pytest.raises(ApplicationError) as exc_info,
+        ):
+            await ApprovalManager.apply_approval_decisions(
+                ApplyApprovalResultsActivityInputs(
+                    role=svc_role,
+                    session_id=committed_session_id,
+                    decisions=[
+                        ApprovalDecisionPayload(
+                            tool_call_id="call_fk",
+                            approved=True,
+                            decision=True,
+                            approved_by=uuid.uuid4(),
+                        )
+                    ],
+                )
+            )
+
+        _assert_permanent_failure(exc_info.value)
+        log_kwargs = mock_logger.error.call_args.kwargs
+        assert log_kwargs["error_type"] == "IntegrityError"
+        assert log_kwargs["sqlstate"] == "23503"
+        assert log_kwargs["constraint_name"]
+        assert log_kwargs["table_name"] == "approval"
+        row = (await _rows_by_tool_call(svc_role, committed_session_id))["call_fk"]
+        assert row.status == ApprovalStatus.PENDING
+
     async def test_transient_errors_stay_retryable(
         self, svc_role: Role, committed_session_id: uuid.UUID
     ) -> None:
@@ -325,6 +396,28 @@ class TestApplyApprovalDecisionsCommitted:
                     ],
                 )
             )
+
+    async def test_unclassified_driver_errors_stay_retryable(
+        self, svc_role: Role, committed_session_id: uuid.UUID
+    ) -> None:
+        """A driver error outside SQLSTATE classes 22/23 is retried."""
+        driver_error = DBAPIError("INSERT ...", None, ConnectionError("reset"))
+
+        async def boom(*_args: Any, **_kwargs: Any) -> None:
+            raise driver_error
+
+        with (
+            patch.object(AsyncSession, "execute", boom),
+            pytest.raises(DBAPIError) as exc_info,
+        ):
+            await ApprovalManager.record_approval_requests(
+                _record_input(
+                    svc_role,
+                    committed_session_id,
+                    ToolApprovalPayload(tool_call_id="call_x", tool_name="tool"),
+                )
+            )
+        assert exc_info.value is driver_error
 
 
 async def _run_activity_inline(
