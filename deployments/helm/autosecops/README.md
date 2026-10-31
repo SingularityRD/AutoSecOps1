@@ -85,6 +85,7 @@ leftover keys from other charts fail early.
 | `externalPostgres`, `externalRedis`, `externalS3`, `externalTemporal` | Connection settings and credentials for the external services. |
 | `serviceAccount`, `<component>.serviceAccount` | Shared and per-component service accounts, with annotations for IRSA. |
 | `<component>.*` | Replicas, resources, probes, HPA, PDB, scheduling, extra env and volumes. |
+| `workerProbes` | Default exec startup, readiness, and liveness probes for the Temporal workers. A component's own probe replaces the matching default. |
 | `migrations` | `alembic upgrade head` Job, run as a `pre-install,pre-upgrade` hook by default. |
 | `metrics` | Opt-in API metrics port, `prometheus.io/*` scrape annotations, and optional Prometheus Operator PodMonitor/ServiceMonitor. Metrics ports are never on a public Service or the ingress. |
 | `ingress` | One Ingress with the Caddyfile routing: `/api` to api, MCP routes to mcp, `/` to ui. |
@@ -134,7 +135,13 @@ The API, MCP, LiteLLM, and UI use HTTP probes. The Temporal workers (`worker`,
 HTTP, so their default probes run `python -m autosecops.temporal.healthcheck`:
 liveness checks a marker file the worker's event loop refreshes every 10
 seconds, and readiness checks a marker that stays fresh only while the worker
-is polling Temporal. Readiness gates rolling updates.
+is polling Temporal. Readiness gates rolling updates. The markers live in an
+in-memory `emptyDir` at `/var/run/autosecops`, so the probes also work with a
+read-only root filesystem.
+
+The defaults are in `workerProbes`. A probe set on a component, such as
+`worker.readinessProbe`, replaces the matching default rather than merging into
+it. Set a `workerProbes` entry to `null` to drop that probe for every worker.
 
 Metrics are off by default. `autosecops.temporal.metrics.enabled` starts the
 Temporal SDK Prometheus exporter in every worker; `metrics.api.enabled` serves

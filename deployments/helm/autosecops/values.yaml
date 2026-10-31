@@ -451,22 +451,16 @@ api:
   extraVolumes: []
   extraVolumeMounts: []
 
-worker:
-  enabled: true
-  replicaCount: 2
-  resources:
-    requests:
-      cpu: "2"
-      memory: 4Gi
-    limits:
-      memory: 4Gi
-  # -- DSL worker concurrency (`TEMPORAL__*`). Lower on small CPU allocations.
-  threadpoolMaxWorkers: 100
-  maxConcurrentActivities: 100
-  maxConcurrentWorkflowTasks: 100
-  # -- Exec probes on the marker files the worker keeps fresh (see
-  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
-  # event loop; readiness tracks Temporal polling and gates rollouts.
+# -- Default probes for the Temporal workers (worker, backgroundWorker,
+# executor, agentWorker, agentExecutor), which serve no HTTP. They run
+# `python -m autosecops.temporal.healthcheck` against marker files the worker
+# keeps fresh in an in-memory emptyDir at /var/run/autosecops. Liveness
+# restarts a worker whose event loop stalled for more than 120s (`--max-age`)
+# plus `failureThreshold x periodSeconds`; readiness tracks Temporal polling and
+# gates rollouts. A probe set on a component (for example
+# `worker.readinessProbe`) replaces the matching default; set a default here to
+# null to drop it for every worker.
+workerProbes:
   startupProbe:
     exec:
       command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
@@ -482,9 +476,28 @@ worker:
   livenessProbe:
     exec:
       command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 20
+    periodSeconds: 30
     timeoutSeconds: 10
     failureThreshold: 3
+
+worker:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      memory: 4Gi
+  # -- DSL worker concurrency (`TEMPORAL__*`). Lower on small CPU allocations.
+  threadpoolMaxWorkers: 100
+  maxConcurrentActivities: 100
+  maxConcurrentWorkflowTasks: 100
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -527,27 +540,11 @@ backgroundWorker:
       memory: 1Gi
     limits:
       memory: 2Gi
-  # -- Exec probes on the marker files the worker keeps fresh (see
-  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
-  # event loop; readiness tracks Temporal polling and gates rollouts.
-  startupProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 30
-  readinessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
-    periodSeconds: 15
-    timeoutSeconds: 10
-    failureThreshold: 2
-  livenessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 3
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -591,27 +588,11 @@ executor:
   forEachMaxConcurrency: 4
   registryCacheMaxEntries: 64
   registryCacheMaxBytes: 10737418240
-  # -- Exec probes on the marker files the worker keeps fresh (see
-  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
-  # event loop; readiness tracks Temporal polling and gates rollouts.
-  startupProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 30
-  readinessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
-    periodSeconds: 15
-    timeoutSeconds: 10
-    failureThreshold: 2
-  livenessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 3
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -649,27 +630,11 @@ agentWorker:
       memory: 4Gi
   maxConcurrentActivities: 100
   threadpoolMaxWorkers: 100
-  # -- Exec probes on the marker files the worker keeps fresh (see
-  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
-  # event loop; readiness tracks Temporal polling and gates rollouts.
-  startupProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 30
-  readinessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
-    periodSeconds: 15
-    timeoutSeconds: 10
-    failureThreshold: 2
-  livenessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 3
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -716,27 +681,11 @@ agentExecutor:
   gracefulShutdownTimeout: null
   # -- Pod grace period. Defaults to `gracefulShutdownTimeout + 60`.
   terminationGracePeriodSeconds: null
-  # -- Exec probes on the marker files the worker keeps fresh (see
-  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
-  # event loop; readiness tracks Temporal polling and gates rollouts.
-  startupProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 30
-  readinessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
-    periodSeconds: 15
-    timeoutSeconds: 10
-    failureThreshold: 2
-  livenessProbe:
-    exec:
-      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 3
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -943,10 +892,6 @@ ui:
   extraVolumes: []
   extraVolumeMounts: []
 
-# Ingress with the same routing as the Docker Compose Caddyfile:
-#   /api        -> api   (FastAPI serves under the /api root path)
-#   /mcp and MCP OAuth/discovery routes -> mcp (when mcp.enabled)
-#   /           -> ui
 metrics:
   # -- Add `prometheus.io/scrape`, `port`, and `path` annotations to pods that
   # serve metrics (the API with `metrics.api.enabled`, workers with
@@ -974,6 +919,10 @@ metrics:
     # -- Extra labels, for example the Prometheus `serviceMonitorSelector`.
     labels: {}
 
+# Ingress with the same routing as the Docker Compose Caddyfile:
+#   /api        -> api   (FastAPI serves under the /api root path)
+#   /mcp and MCP OAuth/discovery routes -> mcp (when mcp.enabled)
+#   /           -> ui
 ingress:
   enabled: false
   # -- IngressClass name, e.g. `nginx`, `alb`, `traefik`.

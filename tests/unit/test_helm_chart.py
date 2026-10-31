@@ -340,6 +340,60 @@ def test_temporal_workers_have_exec_health_probes(values_file: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_operator_worker_probe_replaces_the_default() -> None:
+    """A component probe replaces the default; merging would render two handlers."""
+    documents = _rendered_documents(
+        "-f",
+        str(CHART_DIR / "ci/full-values.yaml"),
+        "--set",
+        "worker.readinessProbe.tcpSocket.port=9090",
+        "--set",
+        "worker.readinessProbe.periodSeconds=5",
+        "--set",
+        "workerProbes.livenessProbe=null",
+    )
+    container = _deployment(documents, "worker")["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+    assert container["readinessProbe"] == {
+        "tcpSocket": {"port": 9090},
+        "periodSeconds": 5,
+    }
+    assert "exec" in container["startupProbe"]
+    for component in WORKER_COMPONENTS:
+        worker = _deployment(documents, component)["spec"]["template"]["spec"][
+            "containers"
+        ][0]
+        assert "livenessProbe" not in worker
+    other = _deployment(documents, "executor")["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+    assert other["readinessProbe"]["exec"]["command"][-1] == "ready"
+    assert "tcpSocket" not in other["readinessProbe"]
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_worker_health_dir_is_writable_with_read_only_root_filesystem() -> None:
+    documents = _rendered_documents(
+        "-f",
+        str(CHART_DIR / "ci/full-values.yaml"),
+        "--set",
+        "containerSecurityContext.readOnlyRootFilesystem=true",
+    )
+    for component in WORKER_COMPONENTS:
+        pod = _deployment(documents, component)["spec"]["template"]["spec"]
+        mounts = {
+            mount["name"]: mount for mount in pod["containers"][0]["volumeMounts"]
+        }
+        assert mounts["worker-health"]["mountPath"] == "/var/run/autosecops"
+        assert not mounts["worker-health"].get("readOnly", False)
+        volumes = {volume["name"]: volume for volume in pod["volumes"]}
+        assert volumes["worker-health"]["emptyDir"]["medium"] == "Memory"
+    api = _deployment(documents, "api")["spec"]["template"]["spec"]
+    assert "worker-health" not in {volume["name"] for volume in api.get("volumes", [])}
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
 def test_metrics_are_off_by_default() -> None:
     documents = _rendered_documents("-f", str(CHART_DIR / "ci/minimal-values.yaml"))
     for doc in documents:

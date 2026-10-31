@@ -923,6 +923,33 @@
       },
       "additionalProperties": false
     },
+    "workerProbes": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "startupProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "readinessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "livenessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "worker": {
       "type": "object",
       "properties": {

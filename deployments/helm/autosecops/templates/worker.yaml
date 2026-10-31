@@ -18,7 +18,7 @@ env:
   {{- include "autosecops.env.metrics" . | nindent 2 }}
   {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "worker") | nindent 2 }}
   {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
-{{ include "autosecops.probes" $v }}
+{{ include "autosecops.workerProbes" (dict "root" . "values" $v) }}
 {{- end }}
 
 {{- if .Values.worker.enabled }}
@@ -28,6 +28,7 @@ env:
     "pullPolicy" .Values.image.pullPolicy
     "container" (include "autosecops.worker.container" .)
     "backend" true
+    "workerHealth" true
     "extraPodAnnotations" (include "autosecops.metricsPodAnnotations" .)
   ) $ctx) }}
 {{ include "autosecops.componentExtras" $ctx }}
