@@ -89,7 +89,8 @@ autosecops:
       # -- Accept IdP-initiated SAML responses.
       allowUnsolicited: false
 
-  # Invitation email over SMTP. The password lives in the core secret
+  # Invitation and email verification email over SMTP. Without it, password
+  # self-registration is refused. The password lives in the core secret
   # (`smtpPassword`). Delivery is enabled only when every value is set.
   smtp:
     host: ""

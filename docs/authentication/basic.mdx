@@ -47,21 +47,27 @@ How an account gets verified depends on how it was created:
 | How the account was created | Verified | Why |
 | :-------------------------- | :------- | :-- |
 | Self-registration at `POST /auth/register` | After the user opens the emailed link | Nobody has vouched for the address. |
-| Registration through an invitation link, for the invited email | On creation | An organization admin chose the address, and the link was sent to it. |
+| Registration through an invitation link, for the invited email | On creation, as an invitation sign-up | The organization vouched for the address by inviting it. Its admins can copy the link, so this does not prove the registrant controls the mailbox (see below). |
 | First registration of `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` | On creation | The operator configured that exact address. A later registration of the same address must verify. |
 | Created by a superadmin, the admin CLI, OIDC, SAML, or SCIM | On creation | The admin or identity provider vouches for the address. OIDC sign-ins that report `email_verified: false` are rejected. |
 
 Verification links are signed with `USER_AUTH_SECRET`, bound to the account and its current email, valid for `AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS` (default one hour), and spent once the account is verified. AutoSecOps never stores or logs a link: the email sender mints it when it sends. Each account gets at most one email per minute, and the request and verify endpoints are [rate limited](/self-hosting/environment-variables). Every verification writes a `user.verify` event to the platform audit log with the method that proved the address.
 
-The emailed link opens `/verify-email`, which submits the token only when the user clicks `Verify email`, so mail scanners that open links cannot verify an account.
+The emailed link opens `/verify-email`, which asks for the account password and submits it with the token when the user clicks `Verify email`. Mail scanners that open links cannot verify an account. Verifying sets the password to the one entered, which can be the password chosen at sign-up, and signs out every session and revokes every MCP credential of the account. Whoever registered an address chose its password, and that need not be the owner of the mailbox: binding the password to the link means the owner who opens it ends up with the account, and whoever registered someone else's address is locked out.
 
-If an OIDC, SAML, or SCIM identity resolves to an unverified password account with the same email, AutoSecOps verifies the account, replaces its password with a random one, and revokes its sessions. Whoever registered the address first cannot keep a password on an account the identity provider has proven belongs to someone else.
+If an OIDC, SAML, or SCIM identity resolves by email to a password account whose mailbox nobody proved, AutoSecOps verifies the account through the identity provider, replaces its password with a random one, and revokes its sessions and MCP credentials. That covers unverified accounts and invitation sign-ups, since anyone who could read the invitation link could have registered the address. Whoever registered the address first cannot keep a password on an account the identity provider has proven belongs to someone else. Accounts verified before email verification shipped are treated as proven and are linked without a password change.
+
+An account at `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` becomes a superadmin only once that address is proven: the first-user bootstrap, an identity provider, or the emailed link. Registering it through an invitation link, or registering it without verifying, does not grant superadmin.
+
+### Email changes
+
+Only a superadmin can change an account's email, through `PATCH /users/{user_id}` or their own `PATCH /users/me`. A verified account stays verified, since the superadmin vouches for the new address, and the change is recorded as a `user.verify` audit event with the method `admin`. An unverified account stays unverified, and the verification email goes to the new address. A link sent to the old address stops working.
 
 ### Without SMTP
 
 Verification emails need the [SMTP settings](/self-hosting/environment-variables). Without them:
 
-- `POST /auth/register` refuses self-registration with `403` and the code `self_registration_unavailable`. Invitation links and the first superadmin registration still work.
+- `POST /auth/register` refuses self-registration with `403` and the code `self_registration_unavailable`. Invitation links and the first superadmin registration still work. The sign-up page stays visible because invitation sign-ups use it; an uninvited registrant sees the refusal after submitting.
 - A superadmin marks an account verified with `Mark email verified` in the account's menu on `/admin/users`, or with `POST /admin/users/{user_id}/verify`. Confirm out of band that the person controls the address first.
 
 ### API
@@ -73,14 +79,14 @@ curl https://<host>/api/auth/request-verify-token \
   --header "Content-Type: application/json" \
   --data '{"email": "user@example.com"}'
 
-# Submit the token from the emailed link.
+# Submit the token from the emailed link with the account password.
 curl https://<host>/api/auth/verify \
   --request POST \
   --header "Content-Type: application/json" \
-  --data '{"token": "<TOKEN>"}'
+  --data '{"token": "<TOKEN>", "password": "<PASSWORD>"}'
 ```
 
-`POST /auth/verify` returns `400` with `VERIFY_USER_BAD_TOKEN` for an invalid, expired, or superseded token, and `VERIFY_USER_ALREADY_VERIFIED` once the account is verified.
+`POST /auth/verify` returns `400` with `VERIFY_USER_BAD_TOKEN` for an invalid, expired, or superseded token or a deactivated account, `VERIFY_USER_ALREADY_VERIFIED` once the account is verified, and `{"code": "VERIFY_USER_INVALID_PASSWORD", "reason": ...}` when the password fails the password policy. A refused password leaves the account unchanged and the link usable.
 
 ## Change password
 

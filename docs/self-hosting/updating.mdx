@@ -249,7 +249,9 @@ Releases with email verification require a verified email for password sign-in. 
 
 - A new self-registration must open an emailed link before it can sign in. Invitation links, the first superadmin, superadmin-created accounts, and SSO and SCIM accounts are verified on creation. See [email verification](/authentication/basic#email-verification).
 - Without the SMTP settings, `POST /auth/register` refuses self-registration with `403`. Configure SMTP to keep open sign-up, or invite users instead.
-- An account that self-registered while the old version was still serving, during a rolling upgrade, starts unverified. It requests a new email from the sign-in page, or a superadmin marks it verified.
+- An account created while the old version was still serving, during a rolling upgrade, starts unverified. That includes invitation sign-ups, which the old version did not mark verified. The user requests a new email from the sign-in page, or, without SMTP, a superadmin marks the account verified in `/admin/users`.
+- Opening an emailed verification link now asks for the account password and sets it. `POST /auth/verify` takes `{"token", "password"}`; a client that sends only the token gets `422`.
+- A superadmin changing an account's email no longer unverifies it.
 - `AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION` no longer has an effect. Remove it from your environment.
 
 The migration verified accounts that self-registered under the old policy without proving their address. If your deployment allowed open sign-up, review those accounts in `/admin/users` and delete any you do not recognize.
