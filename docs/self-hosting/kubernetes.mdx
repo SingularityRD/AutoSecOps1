@@ -14,7 +14,8 @@ It deploys the AutoSecOps services and connects them to PostgreSQL, Redis, objec
 | Component | Kubernetes resources |
 | :-------- | :------------------- |
 | `api`, `ui`, `mcp`, `litellm` | Deployment and ClusterIP Service each |
-| `worker`, `executor`, `agent-worker`, `agent-executor` | Deployment each |
+| `worker`, `background-worker`, `executor`, `agent-worker`, `agent-executor` | Deployment each, with exec health probes |
+| Metrics | Optional `prometheus.io/*` annotations, PodMonitor, or ServiceMonitor. See [Monitoring](/self-hosting/monitoring) |
 | Database migrations | Job that runs `alembic upgrade head` before every install and upgrade |
 | Routing | Optional Ingress with the same paths as the Docker Compose Caddyfile |
 | Scaling | Optional HorizontalPodAutoscaler and PodDisruptionBudget per component |
@@ -563,7 +564,7 @@ The chart sets no CPU limits, so pods can burst above their requests. Override `
 
 ## Observability
 
-Set `autosecops.temporal.metrics.enabled: true` to expose Temporal SDK metrics on port `9090` of the worker, executor, agent-worker, and agent-executor pods. The chart adds `prometheus.io/scrape`, `prometheus.io/port`, and `prometheus.io/path` annotations for Prometheus or Grafana Alloy to discover.
+Set `autosecops.temporal.metrics.enabled: true` to expose Temporal SDK metrics on port `9090` of the worker, background-worker, executor, agent-worker, and agent-executor pods, and `metrics.api.enabled: true` to serve API metrics on port `9100` of the API pods. The chart adds `prometheus.io/scrape`, `prometheus.io/port`, and `prometheus.io/path` annotations for Prometheus or Grafana Alloy to discover, and can create a PodMonitor or ServiceMonitor. See [Monitoring](/self-hosting/monitoring) for the metrics, probes, and suggested alerts.
 
 ```yaml
 autosecops:

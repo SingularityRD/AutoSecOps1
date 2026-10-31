@@ -101,6 +101,18 @@ Set every SMTP value on `api` to email organization invitations and [email verif
 | `TEMPORAL__CLUSTER_NAMESPACE` | `default` | Temporal namespace. |
 | `TEMPORAL__API_KEY` | | API key for Temporal Cloud. Leave empty for self-hosted Temporal. |
 
+### Monitoring
+
+These settings are off by default and not in `.env.example`. See [Monitoring](/self-hosting/monitoring).
+
+| Variable | Default | Description |
+| :------- | :------ | :---------- |
+| `AUTOSECOPS__API_METRICS_ENABLED` | `false` | Serve API Prometheus metrics at `/metrics` on a separate listener. Set it on `api`. Caddy and the Helm ingress never route to this listener. |
+| `AUTOSECOPS__API_METRICS_HOST` | `0.0.0.0` | IP address the API metrics listener binds to. Use `127.0.0.1` for a scraper in the same container network namespace. |
+| `AUTOSECOPS__API_METRICS_PORT` | `9100` | Port of the API metrics listener. Do not publish it. |
+| `TEMPORAL__METRICS_PORT` | | Port of the Temporal SDK Prometheus exporter in each worker. Empty disables it. Set it on `worker`, `background-worker`, `executor`, `agent-worker`, and `agent-executor`. |
+| `TEMPORAL__METRICS_HOST` | `0.0.0.0` | IP address the Temporal SDK exporter binds to. |
+
 ### Executor
 
 | Variable | Default | Description |

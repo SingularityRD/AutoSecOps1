@@ -29,6 +29,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
       AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+      # Opt-in Prometheus metrics on an internal port; never publish it.
+      AUTOSECOPS__API_METRICS_ENABLED: ${AUTOSECOPS__API_METRICS_ENABLED:-false}
+      AUTOSECOPS__API_METRICS_PORT: ${AUTOSECOPS__API_METRICS_PORT:-9100}
+      AUTOSECOPS__API_METRICS_HOST: ${AUTOSECOPS__API_METRICS_HOST:-0.0.0.0}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -145,6 +149,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
       AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+      # Opt-in Temporal SDK Prometheus metrics; blank disables them.
+      TEMPORAL__METRICS_PORT: ${TEMPORAL__METRICS_PORT:-}
+      TEMPORAL__METRICS_HOST: ${TEMPORAL__METRICS_HOST:-0.0.0.0}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -223,6 +230,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # Fresh only while the worker polls Temporal; see autosecops/temporal/healthcheck.py.
+      test: ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
   background-worker:
     image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
@@ -239,6 +253,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
       AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+      # Opt-in Temporal SDK Prometheus metrics; blank disables them.
+      TEMPORAL__METRICS_PORT: ${TEMPORAL__METRICS_PORT:-}
+      TEMPORAL__METRICS_HOST: ${TEMPORAL__METRICS_HOST:-0.0.0.0}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -309,6 +326,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # Fresh only while the worker polls Temporal; see autosecops/temporal/healthcheck.py.
+      test: ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
   executor:
     image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
@@ -332,6 +356,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
       AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+      # Opt-in Temporal SDK Prometheus metrics; blank disables them.
+      TEMPORAL__METRICS_PORT: ${TEMPORAL__METRICS_PORT:-}
+      TEMPORAL__METRICS_HOST: ${TEMPORAL__METRICS_HOST:-0.0.0.0}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -435,6 +462,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    healthcheck:
+      # Fresh only while the worker polls Temporal; see autosecops/temporal/healthcheck.py.
+      test: ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
   agent-worker:
       image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
@@ -448,6 +482,9 @@ services:
         LOG_LEVEL: ${LOG_LEVEL}
         AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
         AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+        # Opt-in Temporal SDK Prometheus metrics; blank disables them.
+        TEMPORAL__METRICS_PORT: ${TEMPORAL__METRICS_PORT:-}
+        TEMPORAL__METRICS_HOST: ${TEMPORAL__METRICS_HOST:-0.0.0.0}
         OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
         OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
         OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -526,6 +563,13 @@ services:
           condition: service_healthy
         minio:
           condition: service_healthy
+      healthcheck:
+        # Fresh only while the worker polls Temporal; see autosecops/temporal/healthcheck.py.
+        test: ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "ready"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 120s
 
   litellm:
     image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}
@@ -587,6 +631,9 @@ services:
         LOG_LEVEL: ${LOG_LEVEL}
         AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
         AUTOSECOPS__PLATFORM_OTEL_ENABLED: ${AUTOSECOPS__PLATFORM_OTEL_ENABLED:-false}
+        # Opt-in Temporal SDK Prometheus metrics; blank disables them.
+        TEMPORAL__METRICS_PORT: ${TEMPORAL__METRICS_PORT:-}
+        TEMPORAL__METRICS_HOST: ${TEMPORAL__METRICS_HOST:-0.0.0.0}
         OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
         OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
         OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
@@ -696,6 +743,13 @@ services:
           condition: service_healthy
         minio:
           condition: service_healthy
+      healthcheck:
+        # Fresh only while the worker polls Temporal; see autosecops/temporal/healthcheck.py.
+        test: ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "ready"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 120s
 
   mcp:
     image: ${AUTOSECOPS__IMAGE_REPOSITORY:-ghcr.io/singularityrd/autosecops}:${AUTOSECOPS__IMAGE_TAG:-1.0.0}

@@ -28,6 +28,7 @@ resource "aws_ecs_task_definition" "agent_worker_task_definition" {
       }
       environment = local.agent_worker_env
       secrets     = local.agent_worker_secrets
+      healthCheck = local.worker_health_check
     }, local.autosecops_repository_credentials)
   ])
 }

@@ -28,6 +28,7 @@ resource "aws_ecs_task_definition" "background_worker_task_definition" {
       }
       environment = local.background_worker_env
       secrets     = local.worker_secrets
+      healthCheck = local.worker_health_check
     }, local.autosecops_repository_credentials)
   ])
 }
