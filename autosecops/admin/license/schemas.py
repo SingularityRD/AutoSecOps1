@@ -14,6 +14,7 @@ from autosecops.licensing.types import (
     LicenseNoticeLevel,
     LicensePlan,
     LicenseStatus,
+    MultiTenantMode,
 )
 from autosecops.tiers.enums import Entitlement
 
@@ -76,3 +77,43 @@ class LicenseRead(BaseModel):
         description="Deployment ID the license is bound to, if any",
     )
     error: LicenseErrorCode | None = Field(default=None)
+    multi_tenant_requested: bool = Field(
+        default=False,
+        description="Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+    )
+    multi_tenant_mode: MultiTenantMode = Field(
+        default=MultiTenantMode.OFF,
+        description="Whether this deployment runs multi-tenant. 'lapsed' means"
+        " the license that grants multi_tenant expired past its grace period:"
+        " existing organizations keep working, while creating organizations and"
+        " changing tiers are blocked until a renewed license is installed",
+    )
+    clock_high_water: datetime | None = Field(
+        default=None,
+        description="Latest trusted time this deployment has recorded. License"
+        " expiry is evaluated against the later of this and the system clock",
+    )
+    clock_rollback_detected_at: datetime | None = Field(
+        default=None,
+        description="When an AutoSecOps process first saw the system clock"
+        " behind the high-water mark by more than the tolerance. Null once the"
+        " clock has caught up",
+    )
+    clock_rollback_seconds: int | None = Field(
+        default=None,
+        description="How many seconds the system clock of the answering API"
+        " replica is behind the high-water mark now. Null when it is not",
+    )
+    clock_last_reset_at: datetime | None = Field(
+        default=None,
+        description="When a superuser last reset the high-water mark through"
+        " POST /admin/license/clock/reset",
+    )
+
+
+class LicenseClockResetRead(BaseModel):
+    """Result of resetting the license clock high-water mark."""
+
+    clock_high_water: datetime = Field(
+        description="The new high-water mark: this API replica's current time",
+    )

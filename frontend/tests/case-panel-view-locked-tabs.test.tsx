@@ -204,9 +204,9 @@ describe("CasePanelView entitlement-locked tabs", () => {
     fireEvent.click(tasksTab)
 
     expect(screen.getByRole("dialog")).toBeInTheDocument()
-    expect(screen.getByText("Enterprise only")).toBeInTheDocument()
+    expect(screen.getByText("Team plan feature")).toBeInTheDocument()
     expect(
-      screen.getByText("Case tasks are only available on enterprise plans.")
+      screen.getByText("Case tasks need the Team plan or higher.")
     ).toBeInTheDocument()
     // Blocked press: no navigation, panel stays on the default.
     expect(mockReplace).not.toHaveBeenCalled()
@@ -249,7 +249,7 @@ describe("CasePanelView entitlement-locked tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Sub-cases" }))
 
     expect(
-      screen.getByText("Sub-cases are only available on enterprise plans.")
+      screen.getByText("Sub-cases need the Team plan or higher.")
     ).toBeInTheDocument()
     expect(mockReplace).not.toHaveBeenCalled()
     expect(screen.getByTestId("panel-content")).toHaveTextContent("description")

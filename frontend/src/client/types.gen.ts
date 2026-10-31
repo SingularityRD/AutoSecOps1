@@ -7295,6 +7295,16 @@ export type LibrarySkillSourceRead = {
 export type kind = "upstream" | "local"
 
 /**
+ * Result of resetting the license clock high-water mark.
+ */
+export type LicenseClockResetRead = {
+  /**
+   * The new high-water mark: this API replica's current time
+   */
+  clock_high_water: string
+}
+
+/**
  * Why a license key failed verification.
  */
 export type LicenseErrorCode =
@@ -7436,6 +7446,30 @@ export type LicenseRead = {
    */
   license_deployment_id?: string | null
   error?: LicenseErrorCode | null
+  /**
+   * Whether AUTOSECOPS__EE_MULTI_TENANT=true is set
+   */
+  multi_tenant_requested?: boolean
+  /**
+   * Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed
+   */
+  multi_tenant_mode?: MultiTenantMode
+  /**
+   * Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock
+   */
+  clock_high_water?: string | null
+  /**
+   * When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up
+   */
+  clock_rollback_detected_at?: string | null
+  /**
+   * How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not
+   */
+  clock_rollback_seconds?: number | null
+  /**
+   * When a superuser last reset the high-water mark through POST /admin/license/clock/reset
+   */
+  clock_last_reset_at?: string | null
 }
 
 /**
@@ -8292,6 +8326,11 @@ export type ModelUsage = {
   canonicalModel?: string
   provider?: string
 }
+
+/**
+ * Whether this deployment runs multi-tenant, and under what license.
+ */
+export type MultiTenantMode = "off" | "active" | "lapsed"
 
 /**
  * The negation of one filter.
@@ -9961,6 +10000,7 @@ export type RuntimeErrorKind =
   | "agent.configuration.invalid"
   | "agent.preparation.failed"
   | "agent.session.initialization_failed"
+  | "agent.approval.persistence_failed"
   | "agent.llm.gateway_auth_failed"
   | "agent.llm.provider_auth_failed"
   | "agent.llm.budget_exceeded"
@@ -17598,6 +17638,8 @@ export type AdminAgentListPlatformCatalogResponse = AgentCatalogListResponse
 
 export type AdminLicenseGetLicenseResponse = LicenseRead
 
+export type AdminLicenseResetLicenseClockResponse = LicenseClockResetRead
+
 export type AdminMaintenanceStartCaseAgentSessionInteractionBackfillResponse =
   CaseAgentSessionInteractionBackfillStartResponse
 
@@ -17736,12 +17778,6 @@ export type EditorValidateExpressionData = {
 }
 
 export type EditorValidateExpressionResponse = ExpressionValidationResponse
-
-export type EditorFieldSchemaData = {
-  workspaceId: string
-}
-
-export type EditorFieldSchemaResponse = EditorComponent
 
 export type RegistryRepositoriesSyncRegistryRepositoryData = {
   repositoryId: string
@@ -25988,6 +26024,16 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/admin/license/clock/reset": {
+    post: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: LicenseClockResetRead
+      }
+    }
+  }
   "/admin/maintenance/case-agent-session-interactions/backfill": {
     post: {
       res: {
@@ -26206,21 +26252,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: ExpressionValidationResponse
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/editor/field-schema": {
-    get: {
-      req: EditorFieldSchemaData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: EditorComponent
         /**
          * Validation Error
          */

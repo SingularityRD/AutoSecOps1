@@ -28,6 +28,8 @@ BUILDERS: list[Callable[[str], Callable[[Any], Any]]] = [
     registry_build_safe_lambda,
 ]
 FAST_SECONDS = 0.5
+"""CPU budget for a rejection. It is measured as this thread's CPU time, not
+wall time, so a busy CI runner that deschedules the test cannot fail it."""
 
 
 @pytest.fixture(params=BUILDERS, ids=["autosecops", "registry"])
@@ -41,10 +43,10 @@ def _fails_fast(
     argument: object = None,
     match: str | None = None,
 ) -> None:
-    started = time.monotonic()
+    started = time.thread_time()
     with pytest.raises(ValueError, match=match):
         builder(lambda_str)(argument)
-    assert time.monotonic() - started < FAST_SECONDS
+    assert time.thread_time() - started < FAST_SECONDS
 
 
 @pytest.mark.parametrize(

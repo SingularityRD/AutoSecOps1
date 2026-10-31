@@ -16,6 +16,7 @@ import {
 import { useEntitlements } from "@/hooks/use-entitlements"
 import { useWorkspaceDetails } from "@/hooks/use-workspace"
 import { useCaseDropdownDefinitions } from "@/lib/hooks"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
 export function DropdownsView() {
@@ -43,14 +44,14 @@ export function DropdownsView() {
     return <CenteredSpinner />
   }
 
-  // Show enterprise-only message if feature is not enabled
+  // Show the plan upgrade message if the feature is not enabled
   if (!caseAddonsEnabled) {
     return (
       <div className="size-full overflow-auto">
         <div className="container flex h-full max-w-[1000px] items-center justify-center py-8">
           <EntitlementRequiredEmptyState
-            title="Enterprise only"
-            description="Case dropdowns are only available on enterprise plans."
+            title={planFeatureTitle("case_addons")}
+            description={`Case dropdowns need the ${planLabel("case_addons")} or higher.`}
           >
             <Button
               variant="link"

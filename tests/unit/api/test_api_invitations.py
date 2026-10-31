@@ -12,6 +12,8 @@ from pydantic import TypeAdapter
 from sqlalchemy.exc import NoResultFound
 
 from autosecops.api.app import app
+from autosecops.auth.crypto import hash_bearer_token
+from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import Role
 from autosecops.auth.users import current_active_user
 from autosecops.db.engine import get_async_session
@@ -19,6 +21,7 @@ from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationE
 from autosecops.invitations import router as invitations_router
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate, InvitationGrant
+from autosecops.secrets.encryption import encrypt_value
 
 
 @pytest.mark.anyio
@@ -38,8 +41,11 @@ async def test_list_my_pending_invitations_success(
         email="alice@example.com",
     )
     organization_id = uuid.uuid4()
+    raw_token = "invitation-token-123"
     mock_invitation = SimpleNamespace(
-        token="invitation-token-123",
+        token=hash_bearer_token(raw_token),
+        token_hashed=True,
+        encrypted_token=encrypt_value(raw_token.encode(), key=get_db_encryption_key()),
         organization_id=organization_id,
         expires_at=datetime.now(UTC) + timedelta(days=7),
         created_at=datetime.now(UTC),
@@ -68,7 +74,8 @@ async def test_list_my_pending_invitations_success(
     assert response.status_code == status.HTTP_200_OK
     payload = response.json()
     assert len(payload) == 1
-    assert payload[0]["token"] == mock_invitation.token
+    # The response carries the raw token, never the stored digest.
+    assert payload[0]["token"] == raw_token
     assert payload[0]["organization_id"] == str(organization_id)
     assert payload[0]["organization_name"] == "Acme Security"
     assert payload[0]["inviter_name"] == "Alice Admin"

@@ -16,7 +16,10 @@ from autosecops.agent.common.exceptions import (
     UserMCPDiscoveryUnavailableError,
 )
 from autosecops.agent.sandbox.config import AgentResourceLimits
-from autosecops.exceptions import RegistryLockAmbiguousActionError
+from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
+    RegistryLockAmbiguousActionError,
+)
 from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
@@ -64,6 +67,22 @@ def invalid_agent_configuration(
 # Caps for user-configured names echoed in messages, bounding their size.
 _MAX_MESSAGE_NAME_LENGTH = 64
 _MAX_MESSAGE_ACTION_NAMES = 5
+
+
+def ambiguous_agent_model(
+    error: AgentCatalogModelAmbiguousError,
+) -> RuntimeErrorClassification:
+    """Classify a model name that matches several enabled catalog models."""
+    return RuntimeErrorClassification.user(
+        kind=RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
+        message=(
+            f"Model '{_message_name(error.model_name)}' from provider "
+            f"'{_message_name(error.model_provider)}' matches several enabled "
+            "models; select a specific catalog model in the agent configuration"
+        ),
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
+        cause=error,
+    )
 
 
 def _message_name(name: str) -> str:
@@ -264,6 +283,38 @@ def agent_session_initialization_failed(
             RetryDisposition.RETRYABLE if retryable else RetryDisposition.NON_RETRYABLE
         ),
         cause=error,
+    )
+
+
+def agent_approval_persistence_failed(
+    error: BaseException | None = None,
+) -> RuntimeErrorClassification:
+    """Classify a permanent failure to record a tool approval request or decision.
+
+    The run fails closed: a tool call whose approval state cannot be recorded
+    must neither execute nor leave the run waiting indefinitely.
+    """
+    return RuntimeErrorClassification.platform(
+        kind=RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED,
+        message="AutoSecOps could not record the tool approval",
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
+        cause=error,
+    )
+
+
+def agent_approval_decision_conflict() -> RuntimeErrorClassification:
+    """Classify a re-request of a tool call ID that already has a decision.
+
+    Approval rows are the record of who authorized a tool action. Resetting a
+    decided row would erase that record, so the run fails closed instead.
+    """
+    return RuntimeErrorClassification.platform(
+        kind=RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED,
+        message=(
+            "AutoSecOps refused to overwrite a recorded tool approval decision "
+            "because the model reused a tool call ID"
+        ),
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
     )
 
 

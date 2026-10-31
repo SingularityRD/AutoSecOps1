@@ -23645,6 +23645,21 @@ export const $LibrarySkillSourceRead = {
     "Library group, maintainer, and optional upstream location of a skill.",
 } as const
 
+export const $LicenseClockResetRead = {
+  properties: {
+    clock_high_water: {
+      type: "string",
+      format: "date-time",
+      title: "Clock High Water",
+      description: "The new high-water mark: this API replica's current time",
+    },
+  },
+  type: "object",
+  required: ["clock_high_water"],
+  title: "LicenseClockResetRead",
+  description: "Result of resetting the license clock high-water mark.",
+} as const
+
 export const $LicenseErrorCode = {
   type: "string",
   enum: [
@@ -24032,6 +24047,73 @@ export const $LicenseRead = {
           type: "null",
         },
       ],
+    },
+    multi_tenant_requested: {
+      type: "boolean",
+      title: "Multi Tenant Requested",
+      description: "Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+      default: false,
+    },
+    multi_tenant_mode: {
+      $ref: "#/components/schemas/MultiTenantMode",
+      description:
+        "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed",
+      default: "off",
+    },
+    clock_high_water: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock High Water",
+      description:
+        "Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock",
+    },
+    clock_rollback_detected_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Detected At",
+      description:
+        "When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up",
+    },
+    clock_rollback_seconds: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Seconds",
+      description:
+        "How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not",
+    },
+    clock_last_reset_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Last Reset At",
+      description:
+        "When a superuser last reset the high-water mark through POST /admin/license/clock/reset",
     },
   },
   type: "object",
@@ -26812,6 +26894,14 @@ export const $ModelUsage = {
 
 Keys match the TypeScript SDK's \`\`ModelUsage\`\` shape (camelCase), since
 the value is passed through verbatim from the CLI's \`\`modelUsage\`\` field.`,
+} as const
+
+export const $MultiTenantMode = {
+  type: "string",
+  enum: ["off", "active", "lapsed"],
+  title: "MultiTenantMode",
+  description:
+    "Whether this deployment runs multi-tenant, and under what license.",
 } as const
 
 export const $NotClause = {
@@ -32484,6 +32574,7 @@ export const $RuntimeErrorKind = {
     "agent.configuration.invalid",
     "agent.preparation.failed",
     "agent.session.initialization_failed",
+    "agent.approval.persistence_failed",
     "agent.llm.gateway_auth_failed",
     "agent.llm.provider_auth_failed",
     "agent.llm.budget_exceeded",

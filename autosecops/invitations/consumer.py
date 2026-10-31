@@ -22,6 +22,10 @@ from autosecops.db.models import (
 from autosecops.email.transport import EmailDeliveryError, SMTPTransport
 from autosecops.invitations.email import InvitationGrantLine, invitation_email
 from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import (
+    InvitationTokenUnrecoverableError,
+    reveal_stored_invitation_token,
+)
 from autosecops.logger import logger
 
 POLL_INTERVAL_SECONDS: Final = 2.0
@@ -116,6 +120,8 @@ async def _deliver_next(session: AsyncSession, transport: SMTPTransport) -> _Out
             Invitation.id,
             Invitation.email,
             Invitation.token,
+            Invitation.token_hashed,
+            Invitation.encrypted_token,
             Invitation.email_attempts,
             Organization.name,
         )
@@ -125,9 +131,42 @@ async def _deliver_next(session: AsyncSession, transport: SMTPTransport) -> _Out
         await session.commit()
         return _Outcome.IDLE
 
-    invitation_id, email, token, attempts, organization_name = row.tuple()
+    (
+        invitation_id,
+        email,
+        stored_token,
+        token_hashed,
+        encrypted_token,
+        attempts,
+        organization_name,
+    ) = row.tuple()
     # Build the message inside the claim transaction: a failure here rolls the
     # claim back, since nothing has been sent yet.
+    try:
+        token = await reveal_stored_invitation_token(
+            session,
+            invitation_id=invitation_id,
+            token=stored_token,
+            token_hashed=token_hashed,
+            encrypted_token=encrypted_token,
+        )
+    except InvitationTokenUnrecoverableError:
+        # Retrying cannot help, and rolling the claim back would hand this row
+        # to the next poll again, stalling every invitation behind it. Park it
+        # at the attempt cap so only a resend re-enters it.
+        await session.execute(
+            update(Invitation)
+            .where(Invitation.id == invitation_id)
+            .values(email_claimed_at=None, email_attempts=MAX_EMAIL_ATTEMPTS)
+        )
+        await session.commit()
+        logger.exception(
+            "Invitation email skipped: its stored token cannot be decrypted with "
+            "the configured database encryption key. Revoke the invitation and "
+            "invite the user again",
+            invitation_id=str(invitation_id),
+        )
+        return _Outcome.HANDLED
     grants = await load_invitation_grants(session, invitation_id)
     message = invitation_email(
         to=email,
