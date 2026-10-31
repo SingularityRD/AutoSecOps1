@@ -7,10 +7,17 @@ ports:
   - name: http
     containerPort: 8000
     protocol: TCP
+  {{- if .Values.metrics.api.enabled }}
+  # Internal only: the Service and ingress expose `http`, never `metrics`.
+  - name: metrics
+    containerPort: {{ .Values.metrics.api.port }}
+    protocol: TCP
+  {{- end }}
 {{ include "autosecops.backendEnvFrom" . }}
 env:
   - name: AUTOSECOPS__SERVICE_NAME
     value: api
+  {{- include "autosecops.env.apiMetrics" . | nindent 2 }}
   - name: AUTOSECOPS__ALLOW_ORIGINS
     value: {{ .Values.urls.allowOrigins | default (include "autosecops.publicAppUrl" .) | quote }}
   - name: AUTOSECOPS__AUTH_TYPES
@@ -92,6 +99,7 @@ env:
     "container" (include "autosecops.api.container" .)
     "backend" true
     "automountToken" .Values.tunnels.enabled
+    "extraPodAnnotations" (include "autosecops.apiMetricsPodAnnotations" .)
   ) $ctx) }}
 ---
 {{ include "autosecops.service" $ctx }}

@@ -17,7 +17,11 @@ from autosecops.observability.otel import (
 )
 from autosecops.observability.sentry import initialize_worker_sentry_from_environment
 from autosecops.storage.blob import close_storage_client_cache
-from autosecops.temporal.worker_lifecycle import run_worker_entrypoint
+from autosecops.temporal.worker_lifecycle import (
+    run_worker_entrypoint,
+    temporal_worker_readiness_check,
+    worker_readiness,
+)
 from autosecops.workspace_sync.operations.activities import (
     workspace_sync_apply,
     workspace_sync_fail,
@@ -46,7 +50,7 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
         cleanup.callback(shutdown_platform_tracing)
         cleanup.push_async_callback(close_storage_client_cache)
         client = await get_temporal_client()
-        async with Worker(
+        temporal_worker = Worker(
             client,
             task_queue=config.AUTOSECOPS__BACKGROUND_QUEUE,
             workflows=[WorkspaceSyncWorkflow, WorkspaceSyncLifecycleWorkflow],
@@ -65,6 +69,13 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
             max_concurrent_activities=config.AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES,
             disable_eager_activity_execution=True,
             graceful_shutdown_timeout=timedelta(seconds=30),
+        )
+        async with (
+            temporal_worker,
+            # LIFO exit removes readiness before Temporal drains.
+            worker_readiness(
+                check=temporal_worker_readiness_check(temporal_worker, client)
+            ),
         ):
             logger.info("Background worker started")
             await shutdown_event.wait()

@@ -120,6 +120,10 @@ mcp:
 ui:
   podDisruptionBudget:
     enabled: true
+metrics:
+  api:
+    enabled: true
+
 ingress:
   enabled: true
   className: nginx

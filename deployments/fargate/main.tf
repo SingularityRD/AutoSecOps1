@@ -90,6 +90,8 @@ module "ecs" {
   temporal_payload_encryption_enabled           = var.temporal_payload_encryption_enabled
   temporal_payload_encryption_cache_ttl_seconds = var.temporal_payload_encryption_cache_ttl_seconds
   temporal_payload_encryption_cache_max_items   = var.temporal_payload_encryption_cache_max_items
+  metrics_enabled                               = var.metrics_enabled
+  metrics_scraper_security_group_ids            = var.metrics_scraper_security_group_ids
   result_externalization_enabled                = var.result_externalization_enabled
   collection_manifests_enabled                  = var.collection_manifests_enabled
   result_externalization_threshold_bytes        = var.result_externalization_threshold_bytes
