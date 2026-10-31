@@ -30,6 +30,13 @@ os.environ.setdefault(
     )
     or "test-service-key",
 )
+# The Compose Redis requires a password. autosecops.config reads
+# REDIS_PASSWORD at import, so take it from .env before that import, or the
+# shared RedisClient pool connects unauthenticated.
+if _redis_password := dotenv_values(Path(__file__).resolve().parents[1] / ".env").get(
+    "REDIS_PASSWORD"
+):
+    os.environ.setdefault("REDIS_PASSWORD", _redis_password)
 
 import aioboto3
 import autosecops_registry.integrations.aws_boto3 as boto3_module
