@@ -156,9 +156,31 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
 
         await self.initialize_workspace_schema()
 
-    async def drop_workspace_schema(self) -> None:
-        """Drop the workspace schema and all contained objects."""
+    async def _lock_referenced_tables(self) -> None:
+        """Lock the shared tables the workspace table references, in name order."""
+        referenced = {
+            constraint.referred_table
+            for constraint in self._table_definition().foreign_key_constraints
+        }
+        if not referenced:
+            return
+        preparer = self.session.get_bind().dialect.identifier_preparer
+        tables = ", ".join(sorted(preparer.format_table(table) for table in referenced))
+        await self.session.execute(
+            sa.text(f"LOCK TABLE {tables} IN ACCESS EXCLUSIVE MODE")
+        )
 
+    async def drop_workspace_schema(self) -> None:
+        """Drop the workspace schema and all contained objects.
+
+        Dropping a table with a foreign key needs an ACCESS EXCLUSIVE lock on
+        the shared table it references, such as ``"case"``. Writers lock the
+        shared table first and then cascade into every workspace's table, so
+        the drop takes the shared lock up front instead of after locking its
+        own table, which would deadlock with those writers.
+        """
+
+        await self._lock_referenced_tables()
         await self.session.execute(
             DropSchema(self.schema_name, cascade=True, if_exists=True)
         )
