@@ -23,7 +23,7 @@ The [GitHub release](https://github.com/SingularityRD/AutoSecOps1/releases) list
 
 ## Notifications
 
-SingularityRD sends a security advisory from [info@singularityrd.com](mailto:info@singularityrd.com) to the technical and security contacts on file for your deployment. An advisory states:
+SingularityRD sends a security advisory from [info@singularityrd.com](mailto:info@singularityrd.com) to the technical and security contacts on file for your deployment, and publishes it as a GitHub security advisory on the AutoSecOps repository. An advisory states:
 
 - The affected versions and deployment options
 - The severity and, where one exists, the CVE
@@ -34,13 +34,13 @@ Allow-list `info@singularityrd.com`, and write to it whenever your contacts chan
 
 ## Timelines
 
-SingularityRD aims to meet these targets, measured from the moment it confirms a vulnerability. They are targets, not guarantees; your support agreement takes precedence where it states different terms.
+SingularityRD patches every [supported release train](/self-hosting/support-policy) within these times, measured from the moment it confirms a vulnerability. Your support agreement takes precedence where it states different terms.
 
 | Severity | Patched release available | Advisory sent | Apply the patch within |
 | --- | --- | --- | --- |
-| Critical | 72 hours | With the release, plus an early warning with a mitigation when one exists | 72 hours |
-| High | 7 days | With the release | 7 days |
-| Medium | 30 days | With the release | 30 days |
+| Critical | 7 days | With the release, plus an early warning with a mitigation when one exists | 72 hours of the release |
+| High | 30 days | With the release | 7 days of the release |
+| Medium | The next scheduled release | With the release | 30 days of the release |
 | Low | The next scheduled release | In the release notes | Your next maintenance window |
 
 SingularityRD publishes the fix for an actively exploited vulnerability as soon as it is ready, regardless of these targets.
@@ -79,6 +79,8 @@ Take a backup before you start, even though a patch runs no migrations. See [Bac
     2. Verify it before it enters the disconnected network, then again inside it:
 
        ```bash
+       cosign verify-blob --key /path/to/cosign.pub --insecure-ignore-tlog=true \
+         --signature autosecops-offline-1.4.3.tar.zst.sha256.sig autosecops-offline-1.4.3.tar.zst.sha256
        sha256sum -c autosecops-offline-1.4.3.tar.zst.sha256
        tar -xf autosecops-offline-1.4.3.tar.zst
        cd autosecops-offline-1.4.3
@@ -113,6 +115,7 @@ The AutoSecOps images include their own operating system packages and Python and
 
 ## Related pages
 
+- See [Support policy](/self-hosting/support-policy) for which release trains receive patches and for how long.
 - See [Updating AutoSecOps](/self-hosting/updating) for the full upgrade steps and the post-upgrade checks.
 - See [Backup and restore](/self-hosting/backup-restore) for the backup to take before you patch.
 - See [Air-gapped installation](/self-hosting/air-gapped#verify-the-bundle) for verifying an offline bundle's checksums and signature.

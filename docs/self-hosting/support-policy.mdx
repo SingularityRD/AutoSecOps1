@@ -1,0 +1,77 @@
+---
+title: Support policy
+description: "Which AutoSecOps release trains receive fixes, how long each minor version is supported, security response timelines, and the deployment targets and dependency versions SingularityRD supports."
+keywords: ["support policy", "end of life", "EOL", "release train", "supported versions", "lifecycle", "SLA"]
+---
+
+## Release trains
+
+A release train is one minor version and its patches: the `1.4` train is `1.4.0`, `1.4.1`, `1.4.2`, and so on. Versions follow `MAJOR.MINOR.PATCH`; see [Updating AutoSecOps](/self-hosting/updating) for what each kind of release contains.
+
+SingularityRD supports the latest two minor release trains. Each minor version is supported for 12 months after its `.0` release. A train leaves support at whichever comes first:
+
+- Its 12-month anniversary.
+- The release of the second minor version after it. When `1.6.0` ships, `1.4` leaves support and `1.5` and `1.6` remain.
+
+| Train state | Security fixes | Bug fixes | New features |
+| --- | --- | --- | --- |
+| Newest minor | Yes | Yes | Yes, in the next minor |
+| Previous minor | Yes | Critical bugs only | No |
+| End of life | No | No | No |
+
+A supported train receives fixes as patch releases. Patch releases never contain database migrations, so applying one needs no data migration and you can roll it back by changing the image tag.
+
+Prereleases (`-alpha.N`, `-rc.N`) and `nightly-*` builds are for evaluation only. They receive no support and must not run production workloads.
+
+## End-of-life dates
+
+The end-of-life date of a train is its `.0` release date plus 12 months, unless a second newer minor ships earlier. Each release's notes state the end-of-life date of every train it affects, and the [changelog](/self-hosting/changelog) lists them.
+
+To stay supported, upgrade at least once a year and within the window above. You can upgrade across several minor versions at once; read the release notes of every version you skip.
+
+## Security response
+
+SingularityRD patches confirmed vulnerabilities on every supported train within these times, measured from confirmation of the report:
+
+| Severity | Patched release on every supported train |
+| --- | --- |
+| Critical | 7 days |
+| High | 30 days |
+| Medium | The next scheduled release |
+| Low | The next scheduled release |
+
+An actively exploited vulnerability is fixed as soon as a fix is ready, regardless of these times. Your support agreement takes precedence where it states different terms. See [Security patches](/self-hosting/security-patches) for how patches and advisories reach you and how to roll a patch out.
+
+## Advisories and reporting
+
+- Security advisories go by email from [info@singularityrd.com](mailto:info@singularityrd.com) to the technical and security contacts on file, and SingularityRD publishes them as GitHub security advisories on the AutoSecOps repository.
+- Report a vulnerability privately to [info@singularityrd.com](mailto:info@singularityrd.com?subject=Security) with "Security" in the subject, or through a private GitHub security advisory. Never open a public issue for a security problem.
+- For support requests, attach a [support bundle](/self-hosting/support-bundle).
+
+## Supported deployment targets
+
+SingularityRD supports these deployment targets and dependency versions for every supported train. Running outside them is possible, but SingularityRD may ask you to reproduce a problem on a supported combination.
+
+| Target | Supported versions |
+| --- | --- |
+| [Kubernetes](/self-hosting/kubernetes) with the AutoSecOps Helm chart | Kubernetes 1.27 or later (1.30 or later for the tunnel admission policy) that is still within its upstream or vendor support; Helm 3.12 or later |
+| [Docker Compose](/self-hosting/docker-compose) | Docker Engine 26.0 or later and Docker Compose 2.29 or later on a 64-bit Linux host |
+| [AWS Fargate](/self-hosting/aws-fargate) with the bundled Terraform stack | The Terraform and AWS provider versions the stack itself requires |
+| [Air-gapped](/self-hosting/air-gapped) | Any of the targets above, installed from a signed offline bundle |
+
+| Dependency | Supported versions |
+| --- | --- |
+| PostgreSQL (AutoSecOps database) | 15 or later with [pgvector](/self-hosting/pgvector). Docker Compose ships PostgreSQL 16 |
+| Redis | Redis 7 or later, or a compatible server such as Valkey 8 |
+| Temporal | 1.29 or later, or Temporal Cloud |
+| S3 storage | Amazon S3, or an S3-compatible service such as MinIO |
+| CPU architecture | `linux/amd64` and `linux/arm64` |
+
+Kubernetes is the recommended target for production. Run the dependencies on versions that their own maintainers still support.
+
+## Related pages
+
+- See [Security patches](/self-hosting/security-patches) for how a fix is published and how fast to apply it.
+- See [Updating AutoSecOps](/self-hosting/updating) for the upgrade steps that keep you on a supported train.
+- See [Changelog](/self-hosting/changelog) for what each release changed and its upgrade notes.
+- See [Production hardening](/self-hosting/production-hardening) for the settings a supported production deployment should have.
