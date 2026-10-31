@@ -91,10 +91,14 @@ from autosecops.integrations.mcp_validation import (
 from autosecops.integrations.schemas import MCPToolSummary
 from autosecops.logger import logger
 from autosecops.registry.lock.service import RegistryLockService
+from autosecops.secrets.masking import SecretMaskCollector
 
 _TOKEN_TOOL_CACHE_MAX_SIZE = 256
 _USER_MCP_DISCOVERY_CACHE_TTL_SECONDS = 45.0
 _USER_MCP_DISCOVERY_CACHE_MAX_SIZE = 512
+_MIN_MASKED_CREDENTIAL_LENGTH = 8
+"""Shorter integration values (``true``, ``Bearer``) are not masked: they
+would garble ordinary tool output and are not credentials."""
 
 
 class _UserMCPDiscoveryCacheKey(NamedTuple):
@@ -515,6 +519,43 @@ async def _resolve_user_mcp_config(
     return config
 
 
+def _user_mcp_credential_values(
+    resolved: MCPHttpServerConfig | _StdioMCPTarget,
+) -> list[str]:
+    """Return the credential values a user MCP integration was resolved with.
+
+    HTTP integrations carry credentials as header values, stdio ones as their
+    environment. Each value is masked whole and, for ``Bearer <token>`` style
+    values, word by word.
+    """
+    if isinstance(resolved, _StdioMCPTarget):
+        raw_values = list((resolved.env or {}).values())
+    else:
+        raw_values = list((resolved.get("headers") or {}).values())
+    values: set[str] = set()
+    for value in raw_values:
+        if not isinstance(value, str):
+            continue
+        for candidate in (value, *value.split()):
+            if len(candidate) >= _MIN_MASKED_CREDENTIAL_LENGTH:
+                values.add(candidate)
+    return sorted(values)
+
+
+def _mask_user_mcp_credentials(text: str, credentials: list[str]) -> str:
+    """Mask an integration's own credentials in its tool output.
+
+    A user MCP server that echoes its Authorization header or environment
+    would otherwise hand the credential to the model, the session transcript
+    and anything a prompt-injected agent can send it to.
+    """
+    if not credentials:
+        return text
+    collector = SecretMaskCollector()
+    collector.observe(credentials)
+    return collector.redact(text)
+
+
 async def _call_stdio_mcp_tool(
     target: _StdioMCPTarget,
     tool_name: str,
@@ -534,7 +575,10 @@ async def _call_stdio_mcp_tool(
         )
     except StdioMCPRunnerUnsupportedError as e:
         raise ToolError(str(e)) from None
-    text = flatten_mcp_content_blocks(result.content)
+    text = _mask_user_mcp_credentials(
+        flatten_mcp_content_blocks(result.content),
+        _user_mcp_credential_values(target),
+    )
     if result.isError:
         raise ToolError(text or f"User MCP tool '{tool_name}' failed")
     return text
@@ -933,9 +977,8 @@ async def _execute_user_mcp(
 
         # Flattened text is already a string; dumps would quote-wrap it and
         # double-escape it on the CLI stdout leg.
-        if isinstance(result, str):
-            return result
-        return json.dumps(result, default=str)
+        text = result if isinstance(result, str) else json.dumps(result, default=str)
+        return _mask_user_mcp_credentials(text, _user_mcp_credential_values(resolved))
     except ToolError:
         raise
     except Exception as e:

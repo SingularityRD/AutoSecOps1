@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import uuid
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -1925,3 +1926,122 @@ def test_stdio_env_never_appears_in_repr() -> None:
     assert "repr-secret" not in repr(snapshot)
     assert "repr-secret" not in repr(target)
     assert target.env == env
+
+
+_ECHOED_TOKEN = "synthetic-echoed-token-0123456789"
+
+
+def _http_claims_with_headers(headers: dict[str, str]) -> MCPTokenClaims:
+    return _build_claims(
+        allowed_actions=["mcp__Echo__whoami"],
+        user_mcp_servers=[
+            UserMCPServerClaim(
+                name="Echo", url="https://mcp.example.test/mcp", headers=headers
+            )
+        ],
+    )
+
+
+@pytest.mark.anyio
+async def test_user_mcp_result_masks_the_integrations_own_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A server echoing its Authorization header must not hand it to the model."""
+    mock_client = AsyncMock()
+    mock_client.call_tool.return_value = (
+        f"you sent: Authorization: Bearer {_ECHOED_TOKEN}\n"
+        f'json: {{"token": "{_ECHOED_TOKEN}"}}'
+    )
+    monkeypatch.setattr(trusted_server, "UserMCPClient", lambda _: mock_client)
+
+    result = await trusted_server._execute_user_mcp(
+        "Echo",
+        "whoami",
+        {},
+        _http_claims_with_headers({"Authorization": f"Bearer {_ECHOED_TOKEN}"}),
+    )
+
+    assert _ECHOED_TOKEN not in result
+    assert "***" in result
+    assert result.startswith("you sent: Authorization: ***")
+
+
+@pytest.mark.anyio
+async def test_user_mcp_structured_result_is_masked_after_serialization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_client = AsyncMock()
+    mock_client.call_tool.return_value = {"echo": {"api_key": _ECHOED_TOKEN}}
+    monkeypatch.setattr(trusted_server, "UserMCPClient", lambda _: mock_client)
+
+    result = await trusted_server._execute_user_mcp(
+        "Echo", "whoami", {}, _http_claims_with_headers({"X-Api-Key": _ECHOED_TOKEN})
+    )
+
+    assert result == '{"echo": {"api_key": "***"}}'
+
+
+@pytest.mark.anyio
+async def test_user_mcp_result_keeps_short_non_secret_header_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_client = AsyncMock()
+    mock_client.call_tool.return_value = "enabled: true, mode: Bearer"
+    monkeypatch.setattr(trusted_server, "UserMCPClient", lambda _: mock_client)
+
+    result = await trusted_server._execute_user_mcp(
+        "Echo",
+        "whoami",
+        {},
+        _http_claims_with_headers({"X-Enabled": "true", "Authorization": "Bearer"}),
+    )
+
+    assert result == "enabled: true, mode: Bearer"
+
+
+class _LongEnvStdioPresetService(_StdioPresetService):
+    async def resolve_stdio_mcp_integration(
+        self, integration_id: uuid.UUID, *, resolve_env: bool
+    ) -> StdioMCPIntegrationSnapshot | None:
+        snapshot = await super().resolve_stdio_mcp_integration(
+            integration_id, resolve_env=resolve_env
+        )
+        if snapshot is None or not resolve_env:
+            return snapshot
+        return dataclasses.replace(
+            snapshot, env={"API_TOKEN": _ECHOED_TOKEN, "LOG_LEVEL": "debug"}
+        )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("is_error", [False, True], ids=["result", "error"])
+async def test_stdio_mcp_output_masks_the_server_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    stdio_runner: _FakeStdioRunner,
+    is_error: bool,
+) -> None:
+    monkeypatch.setattr(AgentPresetService, "with_session", _LongEnvStdioPresetService)
+    stdio_runner.result = CallToolResult(
+        content=[
+            TextContent(type="text", text=f"debug: token={_ECHOED_TOKEN}"),
+        ],
+        isError=is_error,
+    )
+    claims = _build_claims(
+        allowed_actions=["mcp__files__read"],
+        user_mcp_servers=[UserMCPServerClaim(name="files", id=_STDIO_INTEGRATION_ID)],
+    )
+
+    if is_error:
+        with pytest.raises(ToolError) as exc_info:
+            await trusted_server._execute_user_mcp("files", "read", {}, claims)
+        text = str(exc_info.value)
+    else:
+        text = await trusted_server._execute_user_mcp("files", "read", {}, claims)
+
+    # The runner still receives the real environment.
+    assert stdio_runner.calls[0][1] == {
+        "API_TOKEN": _ECHOED_TOKEN,
+        "LOG_LEVEL": "debug",
+    }
+    assert text == "debug: token=***"
