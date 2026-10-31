@@ -277,7 +277,7 @@ API tokens are hashed one-way:
 - AutoSecOps returns the raw token once, at creation, and keeps a short preview prefix so you can identify it later.
 - Rotate a lost token to replace it.
 
-Browser session cookies and invitation links carry random 256-bit or longer tokens. AutoSecOps stores only their SHA-256 digest and looks a presented token up by digest, so a database backup, a replica, or a database account yields no usable session or invitation link. Changing your password signs out your other sessions.
+Browser session cookies and invitation links carry random 256-bit or longer tokens. AutoSecOps stores only their SHA-256 digest and looks a presented token up by digest, so a database backup, a replica, or a database account yields no usable session or invitation link. Tokens issued before an installation upgraded to this behavior stay stored as before until they expire, after at most 7 days by default. Changing your password signs out your other sessions.
 
 <Warning>
   **AutoSecOps stores MCP commands and URLs in cleartext**

@@ -6699,8 +6699,9 @@ class Invitation(InvitationMixin, TimestampMixin, Base):
         nullable=True,
         doc=(
             "Raw token encrypted with the database encryption key, so the email "
-            "outbox and copy-link actions can rebuild the link. NULL for rows "
-            "hashed by the migration, which get a fresh token when next revealed."
+            "outbox and copy-link actions can rebuild the link. NULL for raw rows "
+            "written before hashing, and for rows a contract migration hashes, "
+            "which get a fresh token when next revealed."
         ),
     )
     # The invitation row is its own delivery outbox: a NULL claim means unsent

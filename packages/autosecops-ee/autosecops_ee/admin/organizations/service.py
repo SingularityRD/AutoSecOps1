@@ -313,7 +313,7 @@ class AdminOrgService(BasePlatformService):
         """Get the raw token for a platform-created organization invitation."""
         invitation = await self._get_platform_invitation(org_id, invitation_id)
         token = await reveal_invitation_token(self.session, invitation)
-        # Persist a token issued to a row hashed during upgrade.
+        # Persist a token issued to a row hashed by migration.
         await self.session.commit()
         return AdminOrgInvitationTokenRead(token=token)
 
