@@ -147,16 +147,16 @@ async def reset_user_mfa(
 ) -> None:
     """Remove a user's security keys and recovery codes after they lose access.
 
-    A lost key may be in someone else's hands, so every login session and MCP
-    credential of the account also ends, as on a password reset. If a policy
-    still requires MFA, the user must register a new key at their next
-    sign-in.
+    If a policy still requires MFA, the user must register a new key at their
+    next sign-in.
     """
     if await session.get(User, user_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     removed = await MfaService(session).reset_user_mfa(user_id)
+    # A lost key may be in someone else's hands, so every login session and
+    # MCP credential of the account also ends, as on a password reset.
     revocation = await revoke_all_user_credentials(user_id, revoked_by=role.user_id)
     logger.info(
         "Platform admin reset user MFA",
