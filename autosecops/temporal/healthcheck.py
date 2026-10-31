@@ -26,7 +26,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final, Literal
 
-# Keep these paths off volumes: Kubernetes container replacement must clear them.
+# Keep these paths off persistent volumes: container replacement must clear them.
+# The Helm chart mounts an in-memory emptyDir here so the markers stay writable
+# with a read-only root filesystem; a stale mtime guards against a marker left
+# by a previous container in the same pod.
 HEALTH_DIR: Final = Path("/var/run/autosecops")
 WORKER_ALIVE_FILE: Final = HEALTH_DIR / "worker-alive"
 WORKER_READY_FILE: Final = HEALTH_DIR / "worker-ready"
@@ -34,8 +37,13 @@ WORKER_READY_FILE: Final = HEALTH_DIR / "worker-ready"
 HEALTH_REFRESH_INTERVAL_SECONDS: Final = 10.0
 """How often a worker refreshes its marker files."""
 
-DEFAULT_LIVE_MAX_AGE_SECONDS: Final = 60.0
-"""Liveness tolerates several missed refreshes before reporting a wedged loop."""
+DEFAULT_LIVE_MAX_AGE_SECONDS: Final = 120.0
+"""Liveness tolerates a long stall before reporting a wedged loop.
+
+A failed liveness probe restarts the container and aborts every activity on
+it, so a slow synchronous call in an async activity must not trip it. Kubernetes
+adds ``failureThreshold x periodSeconds`` on top of this limit.
+"""
 
 DEFAULT_READY_MAX_AGE_SECONDS: Final = 30.0
 """Readiness drops after a couple of missed refreshes."""

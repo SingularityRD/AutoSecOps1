@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -200,21 +201,28 @@ async def test_readiness_treats_check_errors_and_hangs_as_not_ready(
 
 
 @pytest.mark.anyio
-async def test_temporal_readiness_requires_running_worker_and_healthy_frontend() -> (
+async def test_temporal_readiness_requires_running_worker_and_reachable_namespace() -> (
     None
 ):
     worker = Mock(is_running=True)
-    client = Mock()
-    client.service_client.check_health = AsyncMock(return_value=True)
-    check = temporal_worker_readiness_check(worker, client)
+    client = Mock(namespace="test-namespace")
+    client.workflow_service.describe_namespace = AsyncMock()
+    check = temporal_worker_readiness_check(worker, client, timeout=3)
 
     assert await check() is True
-    client.service_client.check_health.assert_awaited_once()
+    client.workflow_service.describe_namespace.assert_awaited_once()
+    call = client.workflow_service.describe_namespace.await_args
+    assert call is not None
+    (request,), kwargs = call
+    assert request.namespace == "test-namespace"
+    assert kwargs == {"retry": False, "timeout": timedelta(seconds=3)}
 
-    client.service_client.check_health.return_value = False
-    assert await check() is False
+    # An RPC failure propagates; the refresh loop logs it and drops readiness.
+    client.workflow_service.describe_namespace.side_effect = RuntimeError("down")
+    with pytest.raises(RuntimeError):
+        await check()
 
     worker.is_running = False
-    client.service_client.check_health.reset_mock()
+    client.workflow_service.describe_namespace.reset_mock()
     assert await check() is False
-    client.service_client.check_health.assert_not_awaited()
+    client.workflow_service.describe_namespace.assert_not_awaited()

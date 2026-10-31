@@ -8,6 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Protocol
 
+from temporalio.api.workflowservice.v1 import DescribeNamespaceRequest
 from temporalio.client import Client
 from temporalio.worker import Worker
 
@@ -103,16 +104,22 @@ def temporal_worker_readiness_check(
     """Build a check that passes while ``worker`` polls a reachable Temporal.
 
     A running worker has validated its namespace and started its pollers; a
-    fatal poller error stops it. The frontend health check confirms the
-    connection is still usable between task polls.
+    fatal poller error stops it. Between task polls, ``DescribeNamespace`` on
+    the worker's namespace confirms the connection and its credentials still
+    work. Unlike the gRPC health service, every Temporal frontend serves it,
+    including Temporal Cloud namespace endpoints with API-key or mTLS auth, and
+    the worker already needs it to start.
     """
 
     async def check() -> bool:
         if not worker.is_running:
             return False
-        return await client.service_client.check_health(
-            timeout=timedelta(seconds=timeout)
+        await client.workflow_service.describe_namespace(
+            DescribeNamespaceRequest(namespace=client.namespace),
+            retry=False,
+            timeout=timedelta(seconds=timeout),
         )
+        return True
 
     return check
 
