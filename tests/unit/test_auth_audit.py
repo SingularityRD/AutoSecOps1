@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -248,4 +249,59 @@ async def test_background_audit_task_runs_and_is_released(
 
     [call] = audit_calls
     assert call["resource_id"] == user_id
+    assert not auth_audit._pending_audit_tasks
+
+
+@pytest.mark.anyio
+async def test_background_audit_is_bounded_and_drops_past_the_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A credential-stuffing flood cannot queue unbounded audit work."""
+    monkeypatch.setattr(auth_audit, "MAX_PENDING_AUTH_AUDIT_TASKS", 5)
+    monkeypatch.setattr(auth_audit, "MAX_CONCURRENT_AUTH_AUDIT_WRITERS", 2)
+    monkeypatch.setattr(auth_audit, "_writer_slots", None)
+    dropped_before = auth_audit.dropped_auth_audit_task_count()
+    release = asyncio.Event()
+    running = 0
+    peak = 0
+
+    async def writer() -> None:
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await release.wait()
+        running -= 1
+
+    dropped_writers = []
+    results = []
+    for _ in range(8):
+        coro = writer()
+        results.append(auth_audit.spawn_auth_audit_task(coro))
+        if not results[-1]:
+            dropped_writers.append(coro)
+    await asyncio.sleep(0)
+
+    assert results == [True] * 5 + [False] * 3
+    assert auth_audit.dropped_auth_audit_task_count() == dropped_before + 3
+    # Dropped writers are closed, so they never run or warn as never awaited.
+    assert all(coro.cr_frame is None for coro in dropped_writers)
+    assert peak == 2
+
+    release.set()
+    assert await auth_audit.drain_auth_audit_tasks() == 0
+    assert peak == 2
+    assert not auth_audit._pending_audit_tasks
+
+
+@pytest.mark.anyio
+async def test_drain_cancels_audit_tasks_left_at_the_timeout() -> None:
+    """Shutdown waits a bounded time, then cancels and reports what is left."""
+    never = asyncio.Event()
+
+    async def stuck_writer() -> None:
+        await never.wait()
+
+    assert auth_audit.spawn_auth_audit_task(stuck_writer())
+
+    assert await auth_audit.drain_auth_audit_tasks(timeout=0.05) == 1
     assert not auth_audit._pending_audit_tasks

@@ -77,29 +77,110 @@ class CredentialOperation(StrEnum):
     """A platform administrator set another account's password."""
 
 
+MAX_PENDING_AUTH_AUDIT_TASKS = 256
+"""Background audit writers queued or running at once; more are dropped."""
+
+MAX_CONCURRENT_AUTH_AUDIT_WRITERS = 4
+"""Background audit writers holding database sessions at once.
+
+Each writer opens its sessions one at a time, so this bounds how much of the
+connection pool a flood of refused logins can take from real requests.
+"""
+
+AUTH_AUDIT_DRAIN_TIMEOUT_SECONDS = 5.0
+"""Longest the API waits at shutdown for background audit writers."""
+
+_DROP_LOG_EVERY = 100
+
 # Strong references to in-flight audit tasks; done callbacks release them.
 _pending_audit_tasks: set[asyncio.Task[None]] = set()
+_dropped_audit_tasks = 0
+# asyncio.Semaphore binds to the loop it is first awaited on, so keep one per
+# running loop (one in production; a fresh one per test).
+_writer_slots: tuple[asyncio.AbstractEventLoop, asyncio.Semaphore] | None = None
 
 
-def spawn_auth_audit_task(coro: Coroutine[Any, Any, None]) -> None:
+def _writer_semaphore() -> asyncio.Semaphore:
+    global _writer_slots
+    loop = asyncio.get_running_loop()
+    if _writer_slots is None or _writer_slots[0] is not loop:
+        _writer_slots = (loop, asyncio.Semaphore(MAX_CONCURRENT_AUTH_AUDIT_WRITERS))
+    return _writer_slots[1]
+
+
+async def _run_bounded(coro: Coroutine[Any, Any, None]) -> None:
+    async with _writer_semaphore():
+        await coro
+
+
+def dropped_auth_audit_task_count() -> int:
+    """How many background audit events were dropped because the queue was full."""
+    return _dropped_audit_tasks
+
+
+def spawn_auth_audit_task(coro: Coroutine[Any, Any, None]) -> bool:
     """Run an audit writer off the request path.
 
     For refusals whose audit work would otherwise make the response time
     depend on the refusal reason. The task inherits the request's context,
     so the client IP and user agent still reach the event.
 
+    At most :data:`MAX_CONCURRENT_AUTH_AUDIT_WRITERS` writers run at once and
+    at most :data:`MAX_PENDING_AUTH_AUDIT_TASKS` wait, so a credential
+    stuffing flood cannot starve real requests of database connections.
+    Past that the event is dropped, counted, and logged.
+
     Args:
         coro: A best-effort writer from this module; it must not raise.
+
+    Returns:
+        True when the writer was scheduled, False when it was dropped.
     """
-    task = asyncio.get_running_loop().create_task(coro)
+    global _dropped_audit_tasks
+    if len(_pending_audit_tasks) >= MAX_PENDING_AUTH_AUDIT_TASKS:
+        coro.close()
+        _dropped_audit_tasks += 1
+        if _dropped_audit_tasks % _DROP_LOG_EVERY == 1:
+            logger.warning(
+                "Dropped auth audit events: background audit queue is full",
+                dropped_total=_dropped_audit_tasks,
+                max_pending=MAX_PENDING_AUTH_AUDIT_TASKS,
+            )
+        return False
+    task = asyncio.get_running_loop().create_task(_run_bounded(coro))
     _pending_audit_tasks.add(task)
     task.add_done_callback(_pending_audit_tasks.discard)
+    return True
 
 
-async def drain_auth_audit_tasks() -> None:
-    """Wait for every in-flight background audit task (tests and shutdown)."""
+async def drain_auth_audit_tasks(timeout: float | None = None) -> int:
+    """Wait for in-flight background audit tasks (tests and shutdown).
+
+    Args:
+        timeout: Seconds to wait before cancelling what is left; ``None``
+            waits until every task finishes.
+
+    Returns:
+        How many tasks were still pending at the timeout and were cancelled.
+    """
+    deadline = None if timeout is None else asyncio.get_running_loop().time() + timeout
     while _pending_audit_tasks:
-        await asyncio.gather(*_pending_audit_tasks, return_exceptions=True)
+        remaining = (
+            None if deadline is None else deadline - asyncio.get_running_loop().time()
+        )
+        if remaining is not None and remaining <= 0:
+            break
+        await asyncio.wait(set(_pending_audit_tasks), timeout=remaining)
+    abandoned = list(_pending_audit_tasks)
+    if abandoned:
+        logger.warning(
+            "Cancelled auth audit events still pending at shutdown",
+            cancelled=len(abandoned),
+        )
+        for task in abandoned:
+            task.cancel()
+        await asyncio.gather(*abandoned, return_exceptions=True)
+    return len(abandoned)
 
 
 def anonymous_actor_id(identifier: str | None) -> uuid.UUID:
