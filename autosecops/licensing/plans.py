@@ -25,8 +25,9 @@ FREE_ENTITLEMENTS: frozenset[Entitlement] = frozenset(
 )
 """Entitlements every single-tenant install gets without a license.
 
-Must match the enabled keys of ``autosecops.tiers.defaults.BASELINE_ENTITLEMENTS``;
-a unit test enforces it.
+Must match the enabled keys of ``autosecops.tiers.defaults.BASELINE_ENTITLEMENTS``,
+apart from ``agent_runtime_preview``, which the baseline enables only when an
+agent backend package is installed; a unit test enforces it.
 """
 
 TEAM_ENTITLEMENTS: frozenset[PlanGrant] = frozenset(

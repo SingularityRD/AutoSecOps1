@@ -436,7 +436,7 @@ export function useMentions({
   // Scopes and entitlements resolve after mount, so a trigger typed during the
   // cold load is discarded as `unavailable` and nothing would look at it again
   // until the next keystroke -- a user who types `@` and waits would see
-  // neither the list nor the Enterprise row. Rescan once access settles. The
+  // neither the list nor the plan upgrade row. Rescan once access settles. The
   // key guard keeps `syncSession` changing identity from re-entering this.
   const lastAccessStateRef = useRef(`${agents}:${workflows}`)
   useEffect(() => {

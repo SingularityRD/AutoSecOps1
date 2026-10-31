@@ -43,6 +43,9 @@ def test_free_entitlements_match_the_single_tenant_baseline() -> None:
         for key, enabled in BASELINE_ENTITLEMENTS.model_dump().items()
         if enabled
     }
+    # The baseline turns this on only when an agent backend package is
+    # installed, so it depends on the environment, not on the plan.
+    baseline.discard(Entitlement.AGENT_RUNTIME_PREVIEW)
     assert baseline == FREE_ENTITLEMENTS
 
 

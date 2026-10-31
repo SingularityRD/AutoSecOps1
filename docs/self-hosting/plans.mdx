@@ -28,12 +28,14 @@ To buy or change a plan, contact [info@singularityrd.com](mailto:info@singularit
 | [Custom roles, groups, and SCIM](/manage-platform/custom-roles) | `rbac_addons` | Business | - | - | Yes | Yes | Yes |
 | [Vector search in tables](/automations/tables#vector-search) | `semantic_search` | Business | - | - | Yes | Yes | Yes |
 | Watchtower agent monitoring | `watchtower` | Business | - | - | Yes | Yes | Yes |
+| Agent runtime preview: agent backends other than the built-in one | `agent_runtime_preview` | Enterprise | - | - | - | Yes | Yes |
 | [Robot EDR](/tools/robodr) | `robot_edr` | Enterprise | - | - | - | Yes | Yes |
 | [Tunnels](/manage-platform/tunnels) | `tunnels` | Enterprise | - | - | - | Yes | Yes |
 | [Multi-tenant mode](/self-hosting/license#multi-tenant-deployments) | `multi_tenant` | MSSP | - | - | - | - | Yes |
 
 Enterprise includes every entitlement, including ones added in later releases.
 MSSP adds the `multi_tenant` deployment grant to Enterprise.
+`agent_runtime_preview` also turns on without a license when a package that registers an agent backend is installed.
 A Pilot license includes the Enterprise entitlements for 60 days.
 
 ## Default license term

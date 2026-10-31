@@ -71,6 +71,10 @@ GRANT_DOCS: dict[PlanGrant, tuple[str, str | None]] = {
     Entitlement.WATCHTOWER: ("Watchtower agent monitoring", None),
     Entitlement.TUNNELS: ("Tunnels", "/manage-platform/tunnels"),
     Entitlement.ROBOT_EDR: ("Robot EDR", "/tools/robodr"),
+    Entitlement.AGENT_RUNTIME_PREVIEW: (
+        "Agent runtime preview: agent backends other than the built-in one",
+        None,
+    ),
     LicenseGrant.MULTI_TENANT: (
         "Multi-tenant mode",
         "/self-hosting/license#multi-tenant-deployments",
@@ -152,6 +156,8 @@ def render() -> str:
             "Enterprise includes every entitlement, including ones added in later"
             " releases.",
             "MSSP adds the `multi_tenant` deployment grant to Enterprise.",
+            "`agent_runtime_preview` also turns on without a license when a"
+            " package that registers an agent backend is installed.",
             "A Pilot license includes the Enterprise entitlements for"
             f" {plan_duration(LicensePlan.PILOT).days} days.",
             "",

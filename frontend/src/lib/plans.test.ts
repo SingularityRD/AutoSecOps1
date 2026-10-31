@@ -17,6 +17,10 @@ describe("plan labels", () => {
       .filter(([, plan]) => plan === "Enterprise")
       .map(([entitlement]) => entitlement)
       .sort()
-    expect(enterpriseOnly).toEqual(["robot_edr", "tunnels"])
+    expect(enterpriseOnly).toEqual([
+      "agent_runtime_preview",
+      "robot_edr",
+      "tunnels",
+    ])
   })
 })

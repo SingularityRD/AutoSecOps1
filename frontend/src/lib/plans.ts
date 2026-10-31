@@ -23,6 +23,7 @@ export const ENTITLEMENT_MINIMUM_PLAN: Record<Entitlement, PlanName> = {
   rbac_addons: "Business",
   semantic_search: "Business",
   watchtower: "Business",
+  agent_runtime_preview: "Enterprise",
   robot_edr: "Enterprise",
   tunnels: "Enterprise",
 }
