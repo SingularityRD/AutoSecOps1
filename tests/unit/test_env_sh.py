@@ -204,3 +204,14 @@ def test_env_sh_check_warns_when_production_payloads_are_plaintext(
 
     assert result.returncode == 0, result.stdout
     assert "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED is not true" in result.stdout
+
+
+@requires_env_sh
+@pytest.mark.parametrize("production", [True, False])
+def test_env_sh_generates_redis_password(tmp_path: Path, production: bool) -> None:
+    # Development mode too: the development Compose Redis requires it when set.
+    env = _run_env_sh(tmp_path, production=production, public_host="")
+    assert len(env["REDIS_PASSWORD"]) == 48
+    assert not env["REDIS_PASSWORD"].startswith("change-me-")
+    # Compose clients send it separately, so REDIS_URL keeps no credentials.
+    assert env["REDIS_URL"] == "redis://${REDIS_HOST}:${REDIS_PORT}"

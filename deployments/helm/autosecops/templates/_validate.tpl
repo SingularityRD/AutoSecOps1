@@ -19,6 +19,9 @@ is missing or settings conflict. Rendered from configmap.yaml.
 {{- end -}}
 {{- if not .Values.externalRedis.auth.existingSecret -}}
 {{- $_ = required "externalRedis.auth.url is required unless externalRedis.auth.existingSecret is set, e.g. rediss://:password@redis:6379" .Values.externalRedis.auth.url -}}
+{{- if and (not .Values.externalRedis.auth.allowUnauthenticated) (not (regexMatch "^rediss?://[^@/]*:[^@/]+@" .Values.externalRedis.auth.url)) -}}
+{{- fail "externalRedis.auth.url has no password, e.g. rediss://:password@redis:6379. Enable Redis authentication, or set externalRedis.auth.allowUnauthenticated=true to accept it" -}}
+{{- end -}}
 {{- end -}}
 {{- if and (not .Values.externalS3.auth.existingSecret) (or .Values.externalS3.auth.accessKeyId .Values.externalS3.auth.secretAccessKey) -}}
 {{- $_ = required "externalS3.auth.secretAccessKey is required when externalS3.auth.accessKeyId is set" .Values.externalS3.auth.secretAccessKey -}}

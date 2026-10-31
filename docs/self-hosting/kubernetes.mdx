@@ -231,6 +231,8 @@ externalRedis:
 
 The `url` key holds a full Redis connection string, e.g. `rediss://:password@redis.example.internal:6379`. Use `rediss://` for TLS.
 
+Run Redis with authentication. The chart refuses an inline `externalRedis.auth.url` without a password; set `externalRedis.auth.allowUnauthenticated: true` only for a Redis that nothing else can reach. The chart cannot inspect a URL stored in `existingSecret`, so keep the password in that URL too.
+
 ### S3
 
 ```yaml
@@ -549,6 +551,29 @@ executor:
 
 When autoscaling is enabled, the chart leaves `replicaCount` out of the Deployment. Add `<component>.podDisruptionBudget.enabled: true` to keep replicas available during node drains.
 
+## High availability
+
+Every component accepts `podDisruptionBudget`, `affinity`, and `topologySpreadConstraints`. For a deployment that survives a node or zone failure, run at least two replicas of each stateless component, enable its PodDisruptionBudget, and spread its pods across zones:
+
+```yaml
+api:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: autosecops
+          app.kubernetes.io/instance: autosecops
+          app.kubernetes.io/component: api
+```
+
+Set `app.kubernetes.io/instance` to your release name, so pods of another release in the same namespace do not count toward the skew. Repeat for `worker`, `executor`, `agentWorker`, `agentExecutor`, `backgroundWorker`, `mcp`, `litellm`, and `ui`, with the matching `app.kubernetes.io/component` label (`agent-worker`, `background-worker`, and so on). PostgreSQL, Redis, and Temporal run outside the chart, so make them highly available on their own platform.
+
 ## Minimum resources
 
 The default requests and limits match the AWS Fargate task sizes.
@@ -565,6 +590,8 @@ The default requests and limits match the AWS Fargate task sizes.
 | MCP | 1 | 2Gi | 2Gi | 1 |
 
 The chart sets no CPU limits, so pods can burst above their requests. Override `<component>.resources` to fit your cluster.
+
+The kubelet rotates container logs (`containerLogMaxSize` and `containerLogMaxFiles` in the kubelet configuration), so the chart sets no log rotation of its own. Ship logs to your cluster's log pipeline for retention.
 
 ## Observability
 

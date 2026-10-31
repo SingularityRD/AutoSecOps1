@@ -667,6 +667,17 @@ variable "ui_memory" {
   default = "2048"
 }
 
+variable "ui_desired_count" {
+  type        = number
+  description = "Desired number of UI (Next.js) tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.ui_desired_count >= 1 && floor(var.ui_desired_count) == var.ui_desired_count
+    error_message = "ui_desired_count must be a positive integer."
+  }
+}
+
 variable "api_cpu" {
   type    = string
   default = "1024"
@@ -991,6 +1002,17 @@ variable "caddy_memory" {
   default = "512"
 }
 
+variable "caddy_desired_count" {
+  type        = number
+  description = "Desired number of Caddy reverse proxy tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.caddy_desired_count >= 1 && floor(var.caddy_desired_count) == var.caddy_desired_count
+    error_message = "caddy_desired_count must be a positive integer."
+  }
+}
+
 ### MCP Service
 
 variable "litellm_cpu" {
@@ -1184,6 +1206,28 @@ variable "redis_node_type" {
   type        = string
   description = "ElastiCache Redis node type"
   default     = "cache.t4g.small"
+}
+
+variable "redis_num_cache_clusters" {
+  type        = number
+  description = "ElastiCache nodes in the Redis replication group. 2 or more adds replicas in other Availability Zones with automatic failover; 1 is a single node."
+  default     = 1
+
+  validation {
+    condition     = var.redis_num_cache_clusters >= 1 && var.redis_num_cache_clusters <= 6 && floor(var.redis_num_cache_clusters) == var.redis_num_cache_clusters
+    error_message = "redis_num_cache_clusters must be an integer from 1 to 6."
+  }
+}
+
+variable "log_retention_in_days" {
+  type        = number
+  description = "Days CloudWatch Logs keeps the ECS task logs. CloudWatch rotates and expires them; 0 keeps them forever."
+  default     = 30
+
+  validation {
+    condition     = contains([0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653], var.log_retention_in_days)
+    error_message = "log_retention_in_days must be a CloudWatch Logs retention value: 0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, or 3653."
+  }
 }
 
 variable "background_queue" {

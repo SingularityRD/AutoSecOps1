@@ -105,6 +105,10 @@ Every credential supports either a chart-created Secret (values) or an
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `<fullname>-pangolin-credentials` | `apiKey` |
 
+The Redis `url` must carry a password, e.g. `rediss://:password@redis:6379`:
+the chart refuses an inline URL without one unless
+`externalRedis.auth.allowUnauthenticated` is `true`.
+
 Temporal payload encryption is on by default, so the core Secret also needs
 `temporalPayloadEncryptionKeyring` unless you set
 `autosecops.temporal.payloadEncryption.keyringArn`. Generate it once and keep

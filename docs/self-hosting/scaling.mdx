@@ -41,7 +41,7 @@ Host totals add roughly 8 vCPU and 16 GiB for the API, worker, UI, Temporal, bot
 
 | Target | Executor replicas | `MAX_CONCURRENT_ACTIVITIES` | In-flight actions | Executor vCPU / RAM | Host total (approx.) | Postgres `max_connections` | Evidence |
 | :----- | ----------------: | --------------------------: | ----------------: | :------------------ | :------------------- | -------------------------: | :------- |
-| Default settings | 1 | 32 | 32 | Unlimited (shares host) | 8 vCPU / 16 GiB | 100 | ~3–5 actions/s on an 8-core host |
+| Default settings | 1 | 32 | 32 | Unlimited CPU (shares host) / 8 GiB | 8 vCPU / 16 GiB | 100 | ~3–5 actions/s on an 8-core host |
 | 8 actions/s | 3 | 32 | 96 | 12 vCPU / 12 GiB | 20 vCPU / 32 GiB | 200 | Measured: 8.4–8.5 actions/s (with 8 admitted per replica) |
 | 16 actions/s | 6 | 32 | 192 | 24 vCPU / 24 GiB | 32 vCPU / 48 GiB | 300 | Projected |
 | 32 actions/s | 12 | 32 | 384 | 48 vCPU / 48 GiB | 56 vCPU / 80 GiB | 400 | Projected |
@@ -79,17 +79,21 @@ Above that, [convert to Docker Swarm](/self-hosting/docker-compose#convert-to-do
     If executor logs show pool timeouts, lower `AUTOSECOPS__EXECUTOR_FOR_EACH_MAX_CONCURRENCY` to 1 or lower `AUTOSECOPS__EXECUTOR_MAX_CONCURRENT_ACTIVITIES` to 8 rather than raising the pool, because the validated 8 + 8 pool is what the `max_connections` column budgets for.
   </Step>
   <Step title="Pin executor resources and Postgres pools">
-    Create `docker-compose.override.yml` next to `docker-compose.yml`.
+    Set the executor and PostgreSQL limits in `.env`. Compose applies the executor limits to every replica:
+
+    ```bash
+    AUTOSECOPS__EXECUTOR_CPU_LIMIT=4
+    AUTOSECOPS__EXECUTOR_MEMORY_LIMIT=4g
+    AUTOSECOPS__POSTGRES_DB_CPU_LIMIT=2
+    AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT=4g
+    ```
+
+    Then create `docker-compose.override.yml` next to `docker-compose.yml` for the pool and `max_connections` settings.
     Compose merges it automatically.
 
     ```yaml
     services:
       executor:
-        deploy:
-          resources:
-            limits:
-              cpus: "4"
-              memory: 4G
         environment:
           AUTOSECOPS__DB_POOL_SIZE: 8
           AUTOSECOPS__DB_MAX_OVERFLOW: 8
@@ -97,11 +101,6 @@ Above that, [convert to Docker Swarm](/self-hosting/docker-compose#convert-to-do
 
       postgres_db:
         command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=1GB"]
-        deploy:
-          resources:
-            limits:
-              cpus: "2"
-              memory: 4G
     ```
 
     Use the `max_connections` value from the table.

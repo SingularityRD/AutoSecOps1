@@ -47,6 +47,7 @@ from autosecops.authz.controls import has_scope
 from autosecops.authz.enums import OrgRole, WorkspaceRole
 from autosecops.config import (
     AUTOSECOPS__PUBLIC_APP_URL,
+    REDIS_PASSWORD,
     REDIS_URL,
 )
 from autosecops.contexts import ctx_role
@@ -1098,7 +1099,9 @@ def _create_oidc_auth() -> OIDCProxy:
     # Build Redis-backed storage for OAuth state (client registrations,
     # auth codes, tokens, transactions) so state survives restarts and
     # is shared across MCP replicas.
-    redis_client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)
+    redis_client = AsyncRedis.from_url(
+        REDIS_URL, password=REDIS_PASSWORD, decode_responses=True
+    )
     redis_store = RedisStore(client=redis_client)
     prefixed_store = PrefixCollectionsWrapper(redis_store, prefix="mcp")
     if config.AUTOSECOPS__DB_ENCRYPTION_KEY:

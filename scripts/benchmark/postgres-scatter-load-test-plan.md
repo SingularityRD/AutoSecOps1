@@ -187,10 +187,13 @@ The implementation includes the following:
    ```yaml
    services:
      postgres_db:
-       cpus: "1.0"
-       mem_limit: 1g
+       deploy:
+         resources:
+           limits:
+             cpus: "1.0"
+             memory: 1g
+             pids: 256
        memswap_limit: 1g
-       pids_limit: 256
        command:
          - postgres
          - -c
