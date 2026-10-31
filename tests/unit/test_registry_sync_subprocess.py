@@ -274,8 +274,26 @@ async def test_fetch_actions_does_not_relabel_inner_timeouts(mocker) -> None:
         mocker.AsyncMock(side_effect=TimeoutError("git ls-remote timed out")),
     )
 
-    with pytest.raises(TimeoutError, match="git ls-remote timed out"):
+    with pytest.raises(RegistryError) as exc_info:
         await fetch_actions_from_subprocess(origin=GIT_ORIGIN, repository_id=uuid4())
+
+    assert "git ls-remote timed out" in str(exc_info.value)
+    assert "Registry install timed out" not in str(exc_info.value)
+
+
+@pytest.mark.anyio
+async def test_fetch_actions_reports_untyped_install_errors_as_registry_errors(
+    mocker,
+) -> None:
+    failure = RuntimeError("Failed to install repository: fatal: bad ref")
+    mocker.patch.object(
+        Repository, "install_from_origin", mocker.AsyncMock(side_effect=failure)
+    )
+
+    with pytest.raises(RegistryError, match="fatal: bad ref") as exc_info:
+        await fetch_actions_from_subprocess(origin=GIT_ORIGIN, repository_id=uuid4())
+
+    assert exc_info.value.__cause__ is failure
 
 
 @pytest.mark.anyio

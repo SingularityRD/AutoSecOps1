@@ -23,7 +23,11 @@ from pydantic import UUID4, ValidationError
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
-from autosecops.exceptions import RegistryError
+from autosecops.exceptions import (
+    AutoSecOpsCredentialsError,
+    EntitlementRequired,
+    RegistryError,
+)
 from autosecops.executor.action_env import ACTION_ENV_ALLOWED_NAMES
 from autosecops.logger import logger
 from autosecops.process_env import select_env
@@ -39,7 +43,8 @@ from autosecops.sandbox.utils import communicate_process_group
 from autosecops.settings.service import get_setting
 
 MIN_DISCOVERY_TIMEOUT_SECONDS = 30.0
-"""Discovery budget when installation used up most of the sync timeout."""
+"""Seconds discovery may always run, even when installation used up the sync
+timeout. The discovery timeout error reports the budget it actually had."""
 
 REGISTRY_DISCOVERY_ENV_NAMES = ACTION_ENV_ALLOWED_NAMES | frozenset(
     {
@@ -153,12 +158,18 @@ async def fetch_actions_from_subprocess(
                     ).install_from_origin(
                         commit_sha=commit_sha, target_dir=Path(target)
                     )
-            except TimeoutError:
-                if not scope.expired():
-                    raise
-                raise RegistryError(
-                    f"Registry install timed out after {timeout}s for {origin!r}"
-                ) from None
+            except TimeoutError as e:
+                if scope.expired():
+                    raise RegistryError(
+                        f"Registry install timed out after {timeout:g}s for {origin!r}"
+                    ) from None
+                raise RegistryError(f"Failed to install {origin!r}: {e}") from e
+            except (RegistryError, AutoSecOpsCredentialsError, EntitlementRequired):
+                # Typed errors keep their type, e.g. dependency conflicts.
+                raise
+            except Exception as e:
+                # Callers map RegistryError to a client error with this reason.
+                raise RegistryError(f"Failed to install {origin!r}: {e}") from e
             package_name = installation.package_name
             resolved_commit_sha = installation.commit_sha
             site_dir = installation.site_dir
@@ -229,7 +240,7 @@ async def _run_discovery_subprocess(
     except TimeoutError:
         logger.error("Sync subprocess timed out", origin=origin, timeout=timeout)
         raise RegistryError(
-            f"Sync subprocess timed out after {timeout:g}s for {origin!r}"
+            f"Registry discovery timed out after {timeout:g}s for {origin!r}"
         ) from None
 
     # Decode outputs

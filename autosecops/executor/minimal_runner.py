@@ -22,6 +22,7 @@ import os
 import re
 import resource
 import signal
+import stat
 import sys
 import threading
 import time
@@ -70,6 +71,9 @@ except ImportError:
 
     JSON_OUTPUT_IS_BYTES = True
 
+
+RUNNER_READY = b"\x06"
+"""Byte the runner sends on a socket stdin once it is protected and ready."""
 
 # Static config (read once at module load, immutable)
 _API_URL = os.environ.get("AUTOSECOPS__API_URL", "http://api:8000")
@@ -823,6 +827,18 @@ def _add_isolated_import_roots() -> None:
     sys.path[0:0] = [root for root in roots if root not in sys.path]
 
 
+def _signal_ready_for_payload() -> None:
+    """Ask the executor for the payload once this runner is protected.
+
+    The direct backend hands the runner a socket as stdin and sends the
+    payload only after this byte arrives, so nothing secret sits in a channel
+    while the runner is still readable by other same-user processes. Pipes
+    and files (the nsjail backend) need no handshake.
+    """
+    if stat.S_ISSOCK(os.fstat(0).st_mode):
+        os.write(0, RUNNER_READY)
+
+
 def _apply_runtime_env(input_data: Mapping[str, Any]) -> None:
     """Set credentials the executor sent on stdin instead of in the environment.
 
@@ -929,6 +945,7 @@ if __name__ == "__main__":
             input_data = json_loads(input_path.read_bytes())
             use_file_io = True
         else:
+            _signal_ready_for_payload()
             input_bytes = sys.stdin.buffer.read()
             input_data = json_loads(input_bytes)
             use_file_io = False

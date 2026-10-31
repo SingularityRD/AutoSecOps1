@@ -400,7 +400,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY ./autosecops /app/autosecops
 COPY ./packages /app/packages
-COPY --from=plugin-skills --chown=apiuser:apiuser /skills/ /var/lib/autosecops/copilot-skills/
+COPY --from=plugin-skills /skills/ /var/lib/autosecops/copilot-skills/
 COPY ./pyproject.toml ./uv.lock ./.python-version ./README.md ./LICENSE ./THIRD_PARTY_NOTICES.md ./alembic.ini /app/
 COPY ./alembic /app/alembic
 

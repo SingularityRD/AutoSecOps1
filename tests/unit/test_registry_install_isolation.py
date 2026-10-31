@@ -188,8 +188,8 @@ async def test_remote_install_targets_given_directory_without_credentials(
 
 
 @pytest.mark.anyio
-async def test_git_install_uses_a_fresh_target_by_default(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_remote_install_needs_a_caller_owned_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     seen: list[Path | None] = []
 
@@ -203,13 +203,16 @@ async def test_git_install_uses_a_fresh_target_by_default(
 
     monkeypatch.setattr(Repository, "_install_remote_repository", install)
     monkeypatch.setattr(registry_repository, "get_setting", no_setting)
-
-    installation = await Repository(
+    repo = Repository(
         origin="git+ssh://git@github.com/example-org/registry.git", role=_role()
-    ).install_from_origin()
+    )
+
+    # No silent temporary directory that nobody removes.
+    with pytest.raises(ValueError, match="target_dir"):
+        await repo.install_from_origin()
+
+    installation = await repo.install_from_origin(target_dir=tmp_path)
 
     assert installation.commit_sha == "c" * 40
-    assert seen == [installation.site_dir]
-    assert installation.site_dir.name.startswith("autosecops-registry-")
-    assert installation.site_dir != registry_repository.get_custom_registry_target()
-    installation.site_dir.rmdir()
+    assert seen == [tmp_path]
+    assert installation.site_dir == tmp_path

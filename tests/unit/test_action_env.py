@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from autosecops import config
+from autosecops import config, process_env
 from autosecops.auth.types import Role
 from autosecops.authz.scopes import SERVICE_PRINCIPAL_SCOPES
 from autosecops.dsl.common import create_default_execution_context
@@ -83,7 +83,42 @@ def test_build_env_drops_platform_secrets(executor_environ: dict[str, str]) -> N
     assert not secret_values & set(env.values())
     assert not any("synthetic-db-pass" in value for value in env.values())
     for name, value in REQUIRED_BASE.items():
-        assert env[name] == value
+        if name != "PATH":
+            assert env[name] == value
+    _assert_trusted_search_path(env["PATH"], REQUIRED_BASE["PATH"])
+
+
+def test_build_env_drops_writable_path_entries(
+    executor_environ: dict[str, str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writable = tmp_path / "writable-bin"
+    writable.mkdir()
+    system = tmp_path / "system" / "bin"
+    system.mkdir(parents=True)
+    monkeypatch.setattr(process_env.os, "geteuid", lambda: 1001)
+    monkeypatch.setattr(
+        process_env.os, "access", lambda path, _mode: Path(path) == writable
+    )
+    environ = {**executor_environ, "PATH": f"{writable}:{system}"}
+
+    env = build_direct_action_env(environ)
+
+    assert env["PATH"] == str(system)
+
+
+def _assert_trusted_search_path(path: str, inherited: str) -> None:
+    """Every kept entry was inherited and is not writable by this user."""
+    if path == os.devnull:
+        return
+    entries = path.split(os.pathsep)
+    assert set(entries) <= set(inherited.split(os.pathsep)) | set(
+        process_env.DEFAULT_TRUSTED_PATH.split(os.pathsep)
+    )
+    if os.geteuid() != 0:
+        for entry in entries:
+            assert not os.access(entry, os.W_OK), entry
 
 
 def test_build_env_keeps_non_secret_aws_settings(
@@ -339,7 +374,9 @@ async def test_direct_action_cannot_read_platform_secrets(
     assert isinstance(result, dict), result
     for name in PLATFORM_SECRETS:
         assert result[name] is None, name
-    assert result["PATH"] == os.environ["PATH"]
+    # Only directories this user cannot write; the interpreter is found by
+    # absolute path, never through PATH.
+    _assert_trusted_search_path(result["PATH"], os.environ["PATH"])
     assert result["HOME"] == os.environ["HOME"]
     assert result["PYTHONPATH"].split(":")[0] == str(probe_registry)
     assert result["CUSTOMER_REGION"] == "eu-west"

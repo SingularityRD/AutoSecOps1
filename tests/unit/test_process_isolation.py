@@ -74,6 +74,43 @@ def _ancestors():
     return pids
 
 
+def _read_nonblocking(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as exc:
+        return "denied:" + type(exc).__name__
+    try:
+        data = os.read(fd, 1 << 20)
+    except BlockingIOError:
+        data = b""
+    except OSError as exc:
+        return "denied:" + type(exc).__name__
+    finally:
+        os.close(fd)
+    return "leaked" if SECRET.encode() in data else "readable"
+
+
+def watch_startups(seconds):
+    # Race every new action process for its payload while it starts up.
+    mine = _ancestors()
+    deadline = time.monotonic() + seconds
+    seen = {}
+    while time.monotonic() < deadline:
+        for entry in Path("/proc").iterdir():
+            if not entry.name.isdecimal() or int(entry.name) in mine:
+                continue
+            try:
+                cmdline = (entry / "cmdline").read_bytes()
+            except OSError:
+                continue
+            if b"minimal_runner.py" not in cmdline and b"process_supervisor.py" not in cmdline:
+                continue
+            outcomes = seen.setdefault(entry.name, set())
+            outcomes.add("stdin:" + _read_nonblocking(entry / "fd" / "0"))
+            outcomes.add("environ:" + _read(entry / "environ"))
+    return {pid: sorted(outcomes) for pid, outcomes in seen.items()}
+
+
 def attack_other_actions():
     mine = _ancestors()
     outcome = {}
@@ -182,8 +219,20 @@ async def concurrent():
     return {"victim": await victim, "attacker": attacker}
 
 
+async def startup_race():
+    attacker = asyncio.create_task(run("watch_startups", {"seconds": 8}, {}))
+    await asyncio.sleep(2)
+    victims = [
+        await run("wait", {"seconds": 0}, {"VICTIM_KEY": os.environ["AUTOSECOPS__SYNTHETIC_PLATFORM_KEY"]})
+        for _ in range(5)
+    ]
+    return {"victims": victims, "attacker": await attacker}
+
+
 if mode == "concurrent":
     result = asyncio.run(concurrent())
+elif mode == "startup":
+    result = asyncio.run(startup_race())
 else:
     pid = os.getpid()
     targets = {
@@ -389,3 +438,26 @@ def test_registry_code_cannot_read_the_syncing_process(work_dir: Path) -> None:
 
     assert str(result["parent_environ"]).startswith("denied:")
     assert result["pid1_environ"] != "leaked"
+
+
+def test_action_cannot_read_another_actions_payload_during_startup(
+    work_dir: Path,
+) -> None:
+    """The payload is never in a channel another action can open.
+
+    Before the runner protects itself it is briefly readable through /proc, so
+    the payload (workspace secrets) arrives over a socket, which /proc cannot
+    open, and only after the runner reports that it is ready.
+    """
+    result = _run_executor(work_dir, "startup")
+
+    assert result["victims"] == ["victim-finished"] * 5
+    attacker = result["attacker"]
+    assert isinstance(attacker, dict), attacker
+    assert attacker, "the attacker never saw a victim process start"
+    for pid, outcomes in attacker.items():
+        assert not any(outcome.endswith("leaked") for outcome in outcomes), (
+            pid,
+            outcomes,
+        )
+        assert "stdin:readable" not in outcomes, (pid, outcomes)

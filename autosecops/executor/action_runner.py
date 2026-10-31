@@ -17,9 +17,11 @@ Key features:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import os
 import shutil
+import socket
 import sys
 import tempfile
 import time
@@ -45,6 +47,7 @@ from autosecops.executor.action_gateway.config import (
     ACTION_GATEWAY_SANDBOX_SOCKET,
     action_gateway_socket_path,
 )
+from autosecops.executor.minimal_runner import RUNNER_READY
 from autosecops.executor.registry_artifacts import RegistryArtifactCache
 from autosecops.executor.schemas import (
     ExecutorActionErrorInfo,
@@ -158,6 +161,33 @@ def _sandbox_failure_message(
                 return message
             masked_tail = apply_masks_object(tail, masks=mask_values)
             return f"{message}. Workload stderr (tail):\n{masked_tail}"
+
+
+async def _send_payload_when_ready(
+    payload_socket: socket.socket, payload: bytes, *, timeout: float
+) -> None:
+    """Send the runner its payload once it reports that it is protected.
+
+    Args:
+        payload_socket: The executor's end of the runner's stdin socket.
+        payload: The serialized payload, including secrets.
+        timeout: Seconds the runner may take to become ready.
+    """
+    loop = asyncio.get_running_loop()
+    payload_socket.setblocking(False)
+    try:
+        async with asyncio.timeout(timeout):
+            ready = await loop.sock_recv(payload_socket, len(RUNNER_READY))
+    except TimeoutError:
+        logger.error("Action runner did not become ready", timeout=timeout)
+        payload_socket.shutdown(socket.SHUT_RDWR)
+        return
+    if ready != RUNNER_READY:
+        # The runner exited or misbehaved; it gets no payload.
+        payload_socket.shutdown(socket.SHUT_RDWR)
+        return
+    await loop.sock_sendall(payload_socket, payload)
+    payload_socket.shutdown(socket.SHUT_WR)
 
 
 def _direct_subprocess_command(minimal_runner_path: Path) -> list[str]:
@@ -545,19 +575,38 @@ class ActionRunner:
         )
 
         start_time = time.monotonic()
-        proc = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-            start_new_session=True,
+        # The payload (workspace secrets, executor token) travels over a socket
+        # rather than a pipe: same-user code can open a dumpable process's pipe
+        # through /proc/<pid>/fd, but never a socket. The runner asks for the
+        # payload only after it has protected itself.
+        payload_socket, runner_socket = socket.socketpair()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command,
+                stdin=runner_socket.fileno(),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                start_new_session=True,
+            )
+        except BaseException:
+            payload_socket.close()
+            raise
+        finally:
+            runner_socket.close()
+        payload_task = asyncio.create_task(
+            _send_payload_when_ready(
+                payload_socket,
+                input_json,
+                timeout=min(
+                    hard_timeout, config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+                ),
+            )
         )
 
         try:
             stdout, stderr = await communicate_process_group(
                 proc,
-                input=input_json,
                 timeout=hard_timeout,
                 terminate=terminate_supervised_process,
             )
@@ -585,6 +634,11 @@ class ActionRunner:
                 filename="<subprocess>",
                 function="execute_action",
             )
+        finally:
+            payload_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await payload_task
+            payload_socket.close()
         # Check for subprocess crash
         if proc.returncode != 0:
             logger.error(

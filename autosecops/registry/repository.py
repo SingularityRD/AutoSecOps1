@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
 import importlib
 import inspect
 import json
 import os
 import re
+import shutil
 import site
 import sys
 import tempfile
@@ -401,9 +403,13 @@ class Repository:
             self._load_base_template_actions()
             return None
 
-        # In-process loading keeps the per-install target alive for the life of
-        # this process, because imported modules may load files from it lazily.
-        installation = await self.install_from_origin(commit_sha=commit_sha)
+        # In-process loading keeps the per-install target until this process
+        # exits, because imported modules may load files from it lazily.
+        target_dir = Path(tempfile.mkdtemp(prefix="autosecops-registry-"))
+        atexit.register(shutil.rmtree, target_dir, ignore_errors=True)
+        installation = await self.install_from_origin(
+            commit_sha=commit_sha, target_dir=target_dir
+        )
         await self.import_installed_origin(
             installation.package_name, site_dir=installation.site_dir
         )
@@ -425,10 +431,10 @@ class Repository:
         Args:
             commit_sha: Commit to install for git origins. Resolved from the
                 configured ref when omitted.
-            target_dir: Empty directory to install a git origin into. A new
-                temporary directory, owned by the caller, is used when omitted.
-                Git origins never install into a directory on the import path
-                of platform processes. Local repositories always install into
+            target_dir: Empty directory, owned and removed by the caller, to
+                install a remote origin into. Required for remote origins,
+                which never install into a directory on the import path of
+                platform processes. Local repositories always install into
                 ``PYTHONUSERBASE``, which direct-mode actions import from.
 
         Returns:
@@ -443,7 +449,7 @@ class Repository:
             return await self._install_local_repository(commit_sha=commit_sha)
         if self._origin.startswith("git+ssh://"):
             if target_dir is None:
-                target_dir = Path(tempfile.mkdtemp(prefix="autosecops-registry-"))
+                raise ValueError("Remote origins need a target_dir the caller removes")
             return await self._install_git_repository(
                 commit_sha=commit_sha, target_dir=target_dir
             )

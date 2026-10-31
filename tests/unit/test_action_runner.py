@@ -124,6 +124,20 @@ class TestActionRunner:
         monkeypatch.setattr(action_runner.shutil, "which", which)
 
     @pytest.fixture(autouse=True)
+    def sent_payloads(self, monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+        """Record payloads instead of waiting for a mocked runner's handshake."""
+        sent: list[dict[str, Any]] = []
+        real_send = action_runner._send_payload_when_ready
+
+        def send(payload_socket: Any, payload: bytes, *, timeout: float) -> Any:
+            # Recorded when the runner schedules the send, before any await.
+            sent.append(orjson.loads(payload))
+            return real_send(payload_socket, payload, timeout=timeout)
+
+        monkeypatch.setattr(action_runner, "_send_payload_when_ready", send)
+        return sent
+
+    @pytest.fixture(autouse=True)
     def mock_process_group_communication(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> AsyncMock:
@@ -313,6 +327,7 @@ class TestActionRunner:
         mock_run_action_input,
         mock_role,
         monkeypatch: pytest.MonkeyPatch,
+        sent_payloads: list[dict[str, Any]],
     ):
         """Test direct subprocess execution sets SDK auth/context env vars."""
         monkeypatch.setenv("SENTRY_DSN", "https://public@example.com/1")
@@ -374,7 +389,7 @@ class TestActionRunner:
         assert result == {"data": "test"}
         # The token travels on stdin, never in the readable process environment.
         assert "AUTOSECOPS__EXECUTOR_TOKEN" not in captured_env
-        payload = orjson.loads(spawned[0].communicate.await_args.kwargs["input"])
+        payload = sent_payloads[0]
         assert payload["runtime_env"] == {
             "AUTOSECOPS__EXECUTOR_TOKEN": "test-executor-token"
         }
@@ -458,6 +473,7 @@ class TestActionRunner:
         mock_run_action_input: RunActionInput,
         mock_role: Role,
         monkeypatch: pytest.MonkeyPatch,
+        sent_payloads: list[dict[str, Any]],
     ) -> None:
         runner = ActionRunner(cache_dir=temp_cache_dir)
         base_dir = temp_cache_dir / "base"
@@ -474,7 +490,9 @@ class TestActionRunner:
             timeout: float | None = None,
             terminate: object = None,
         ) -> tuple[bytes, bytes]:
-            captured["payload"] = orjson.loads(input or b"{}")
+            # The payload goes over the stdin socket, never through communicate.
+            assert input is None
+            await asyncio.sleep(0)
             captured["timeout"] = timeout
             return orjson.dumps({"success": True, "result": "ok"}), b""
 
@@ -493,7 +511,7 @@ class TestActionRunner:
             )
 
         assert result == "ok"
-        assert captured["payload"]["timeout_seconds"] == 900.0
+        assert sent_payloads[0]["timeout_seconds"] == 900.0
         assert captured["timeout"] == 960.0
 
     @pytest.mark.anyio

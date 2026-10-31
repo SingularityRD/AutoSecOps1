@@ -143,18 +143,22 @@ def trusted_path(path: str | None = None) -> str:
         path: Search path to filter. Defaults to this process's ``PATH``.
 
     Returns:
-        The trusted entries in their original order, or a system default when
-        none remain.
+        The trusted entries in their original order, or else the trusted
+        entries of a system default, which may be empty.
     """
     raw = path if path is not None else os.environ.get("PATH", "")
     if os.geteuid() == 0:
         return raw or DEFAULT_TRUSTED_PATH
-    entries = [
+    return _trusted_entries(raw) or _trusted_entries(DEFAULT_TRUSTED_PATH)
+
+
+def _trusted_entries(path: str) -> str:
+    """Keep the absolute search-path entries this user cannot write."""
+    return os.pathsep.join(
         entry
-        for entry in raw.split(os.pathsep)
+        for entry in path.split(os.pathsep)
         if entry and os.path.isabs(entry) and _is_trusted_directory(Path(entry))
-    ]
-    return os.pathsep.join(entries) or DEFAULT_TRUSTED_PATH
+    )
 
 
 def which_trusted(name: str) -> str | None:
@@ -195,7 +199,8 @@ def select_env(
         if name in allowed or name.startswith(prefixes)
     }
     if "PATH" in env:
-        env["PATH"] = trusted_path(env["PATH"])
+        # An empty PATH would make exec search the working directory.
+        env["PATH"] = trusted_path(env["PATH"]) or os.devnull
     for name in PROXY_ENV_NAMES & env.keys():
         env[name] = strip_url_credentials(env[name])
     return env

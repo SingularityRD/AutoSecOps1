@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import suppress
 
 from autosecops.concurrency import rejoin_future_through_cancellation
+from autosecops.process_env import tool_subprocess_env
 
 _PID_NAMESPACE_AVAILABLE: bool | None = None
 _PID_NAMESPACE_PROBE_ERROR: str | None = None
@@ -146,6 +147,7 @@ async def pid_namespace_available() -> bool:
             "true",
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=tool_subprocess_env(),
         )
         await asyncio.wait_for(probe.wait(), timeout=2)
         _PID_NAMESPACE_AVAILABLE = probe.returncode == 0

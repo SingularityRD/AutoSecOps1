@@ -34,13 +34,30 @@ def test_trusted_path_drops_directories_the_user_can_write(
     assert path == str(system)
 
 
-def test_trusted_path_falls_back_to_system_directories(
+def test_trusted_path_falls_back_to_trusted_system_directories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = "/home/apiuser"
+    monkeypatch.setattr(process_env.os, "geteuid", lambda: 1001)
+    monkeypatch.setattr(
+        process_env.os, "access", lambda path, _mode: str(path).startswith(home)
+    )
+    monkeypatch.setattr(process_env.Path, "resolve", lambda self, strict=False: self)
+
+    assert trusted_path(f"{home}/.local/bin") == process_env.DEFAULT_TRUSTED_PATH
+
+
+def test_trusted_path_is_empty_when_even_system_directories_are_writable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(process_env.os, "geteuid", lambda: 1001)
     monkeypatch.setattr(process_env.os, "access", lambda _path, _mode: True)
 
-    assert trusted_path("/home/apiuser/.local/bin") == process_env.DEFAULT_TRUSTED_PATH
+    assert trusted_path("/home/apiuser/.local/bin") == ""
+    # A restricted environment never gets an empty PATH, which would make
+    # exec search the working directory.
+    monkeypatch.setenv("PATH", "/home/apiuser/.local/bin")
+    assert tool_subprocess_env()["PATH"] == os.devnull
 
 
 @pytest.mark.parametrize(
