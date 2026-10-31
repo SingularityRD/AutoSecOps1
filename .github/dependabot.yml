@@ -13,8 +13,9 @@
 # scope.
 #
 # Base images are pinned as `name:tag@sha256:<digest>` in every Dockerfile.
-# Dependabot refreshes the digest (and the tag, within the same release line)
-# so OS security patches still reach the images.
+# Dependabot refreshes the digest and patch-level tags so OS security patches
+# still reach the images. A tag that changes the runtime (Python 3.12 to 3.13,
+# uv 0.13 to 0.14, or any major) is ignored and needs its own migration PR.
 version: 2
 
 updates:
@@ -69,6 +70,13 @@ updates:
       # runtime and needs a deliberate, tested migration PR instead.
       - dependency-name: "*"
         update-types: [version-update:semver-major]
+      # Python's minor version is the interpreter (3.12 to 3.13), and uv is
+      # 0.x, so its minor bumps can change resolution. Both must match
+      # requires-python and the uv version CI pins, so they move deliberately.
+      - dependency-name: "python"
+        update-types: [version-update:semver-minor]
+      - dependency-name: "ghcr.io/astral-sh/uv"
+        update-types: [version-update:semver-minor]
     groups:
       base-images:
         patterns: ["*"]

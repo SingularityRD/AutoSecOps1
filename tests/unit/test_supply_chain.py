@@ -124,3 +124,24 @@ def test_dependabot_titles_pass_the_pr_title_check(ecosystem: str) -> None:
         report = check_title(title, conventions)
         assert report.ok, (title, [v.code for v in report.violations])
 
+
+def test_dependabot_ignores_runtime_changing_base_image_tags() -> None:
+    config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
+    (docker,) = [u for u in config["updates"] if u["package-ecosystem"] == "docker"]
+    ignored = {
+        (rule["dependency-name"], update_type)
+        for rule in docker["ignore"]
+        for update_type in rule["update-types"]
+    }
+    assert ("*", "version-update:semver-major") in ignored
+    # python:3.12 -> 3.13 and uv 0.13 -> 0.14 are minor tag bumps that change
+    # the interpreter or resolver; the grouped PR must carry only digest and
+    # patch refreshes.
+    assert ("python", "version-update:semver-minor") in ignored
+    assert ("ghcr.io/astral-sh/uv", "version-update:semver-minor") in ignored
+    images = {
+        image.split(":")[0]
+        for name in DOCKERFILES
+        for image in _external_images(ROOT / name)
+    }
+    assert {"python", "ghcr.io/astral-sh/uv"} <= images
