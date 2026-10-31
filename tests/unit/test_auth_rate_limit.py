@@ -316,8 +316,13 @@ async def test_api_auth_routes_are_rate_limited(
     _limits(monkeypatch, **{setting: 1})
     await rl.consume(rule(), PUBLIC_CLIENT[0])
 
-    async with _client(api_app) as client:
-        response = await client.request(method, path, **kwargs)
+    try:
+        async with _client(api_app) as client:
+            response = await client.request(method, path, **kwargs)
+    finally:
+        # Reset the built middleware stack so later tests in this worker can
+        # still add middleware to the shared app.
+        api_app.middleware_stack = None
 
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert "Retry-After" in response.headers
