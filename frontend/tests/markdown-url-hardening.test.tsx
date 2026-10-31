@@ -201,6 +201,31 @@ describe("chat markdown URL hardening", () => {
     ])("blocks a %s image", (src) => {
       expectBlockedImage(runPipeline(getPlugins(), image(src)))
     })
+
+    it.each(["script", "iframe", "object", "form"])(
+      "removes a raw %s element",
+      (tagName) => {
+        const node = runPipeline(getPlugins(), {
+          type: "element",
+          tagName,
+          properties: {},
+          children: [text("alert(1)")],
+        })
+        expect(JSON.stringify(node ?? null)).not.toContain(`"${tagName}"`)
+      }
+    )
+
+    it("strips event handler and style attributes", () => {
+      const node = runPipeline(getPlugins(), {
+        type: "element",
+        tagName: "span",
+        properties: { onClick: "alert(1)", style: "position:fixed" },
+        children: [text("hello")],
+      })
+      expect(node.tagName).toBe("span")
+      expect(node.properties?.onClick).toBeUndefined()
+      expect(node.properties?.style).toBeUndefined()
+    })
   })
 
   it("runs exactly one URL hardening step, with our options", () => {
