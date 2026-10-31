@@ -5,18 +5,20 @@ import { apiJson, cleanup } from "./utils/api"
 import { freshEmail } from "./utils/auth"
 
 test.describe("organization members", () => {
-  test("owner invites a member with an organization role", async ({
+  test("owner invites a member with the least privileged role", async ({
     page,
   }, testInfo) => {
     const email = freshEmail(testInfo.title)
     const roles = await apiJson<RoleList>(page.request.get("/api/rbac/roles"))
-    // The invite must use the least privileged preset organization role. Do
-    // not fall back to a broader role: a missing preset is a seed regression.
-    const role = roles.items.find((item) => item.slug === "organization-member")
+    // Organization membership itself (organization-member) is implicit and
+    // not grantable, so the narrowest role an invite can carry is the
+    // workspace-viewer preset. Do not fall back to a broader role: a missing
+    // preset is a seed regression.
+    const role = roles.items.find((item) => item.slug === "workspace-viewer")
     if (!role) {
       throw new Error(
-        "Preset organization role 'organization-member' is missing from " +
-          `/api/rbac/roles (found: ${
+        "Preset role 'workspace-viewer' is missing from /api/rbac/roles " +
+          `(found: ${
             roles.items.map((item) => item.slug).join(", ") || "none"
           })`
       )
