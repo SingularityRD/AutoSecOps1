@@ -67,7 +67,10 @@ async def db_api_client(
     # Reuse the production handlers so domain errors map to real status codes.
     app.exception_handlers.update(api_app.exception_handlers)
 
-    def _current_role() -> Role:
+    # Async, like production ``role_dependency``: FastAPI runs sync
+    # dependencies in a worker thread on a copied context, so a ``ctx_role``
+    # set there would never reach the endpoint.
+    async def _current_role() -> Role:
         ctx_role.set(caller.role)
         return caller.role
 
