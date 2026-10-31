@@ -50,7 +50,7 @@ Requests for that subagent go directly to `https://child-litellm.example`. Reque
 
 AutoSecOps resolves passthrough credentials from the custom provider selected by the agent's model configuration. If a root agent and subagent use different passthrough providers, each route uses its own provider credentials.
 
-An agent configuration can name a model by `model_provider` and `model_name` without a `catalog_id`, for example in an `ai.agent` action. AutoSecOps then uses the workspace's `agent-<provider>-credentials` secret when it exists. Otherwise AutoSecOps uses the model enabled for the workspace that matches `model_provider` and `model_name`, preferring your organization's models over AutoSecOps catalog models, and binds the run to that model's credentials.
+An agent configuration can name a model by `model_provider` and `model_name` without a `catalog_id`, for example in an `ai.agent` action. AutoSecOps then uses the workspace's `agent-<provider>-credentials` secret when it exists. Otherwise AutoSecOps uses the model enabled for the workspace that matches `model_provider` and `model_name`, preferring your organization's models over AutoSecOps catalog models, and binds the run to that model's credentials. Before you roll out or roll back a release that changes this lookup, read [Agent workers during a rolling upgrade](/self-hosting/updating#agent-workers-during-a-rolling-upgrade).
 
 Managed LiteLLM requests keep the sandbox's managed gateway token.
 
