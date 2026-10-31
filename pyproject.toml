@@ -227,7 +227,6 @@ filterwarnings = [
     # Sync tests inherit autouse async fixtures such as `test_db_engine` in
     # tests/conftest.py. pytest 8 never ran them; pytest 9 errors instead.
     # Keep the pytest 8 behavior until those fixtures skip sync tests.
-    "ignore:.*requested an async fixture:pytest.PytestRemovedIn9Warning",
 ]
 markers = [
     "anyio: marks tests as requiring the anyio pytest plugin",

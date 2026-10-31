@@ -480,7 +480,18 @@ def monkeysession(request: pytest.FixtureRequest):
 
 
 @pytest.fixture(autouse=True, scope="function")
-async def test_db_engine():
+def test_db_engine(request: pytest.FixtureRequest) -> Any:
+    """Give each async test a fresh engine; a no-op for sync tests."""
+    # pytest 9.1 fails a sync test that depends on an async fixture, and the
+    # anyio plugin only runs async fixtures for tests using `anyio_backend`.
+    # Sync tests never ran the engine fixture body, so keep skipping it.
+    if "anyio_backend" not in request.fixturenames:
+        return None
+    return request.getfixturevalue("_async_test_db_engine")
+
+
+@pytest.fixture(scope="function")
+async def _async_test_db_engine():
     """Ensure a fresh async engine for each test.
 
     This fixture creates a new engine for each test function and disposes it
