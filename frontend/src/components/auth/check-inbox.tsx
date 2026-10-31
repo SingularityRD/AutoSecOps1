@@ -49,9 +49,9 @@ export function CheckInbox({ email, onBack }: CheckInboxProps) {
         account if this deployment cannot send email.
       </p>
       {state === "sent" && (
-        <p role="status">
+        <output className="block">
           If your account still needs verification, a new email is on its way.
-        </p>
+        </output>
       )}
       {state === "rate_limited" && (
         <p role="alert" className="text-destructive">
