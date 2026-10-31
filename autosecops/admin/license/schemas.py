@@ -89,16 +89,30 @@ class LicenseRead(BaseModel):
     )
     clock_high_water: datetime | None = Field(
         default=None,
-        description="Latest time this deployment has observed. License expiry"
-        " is evaluated against the later of this and the system clock",
+        description="Latest trusted time this deployment has recorded. License"
+        " expiry is evaluated against the later of this and the system clock",
     )
     clock_rollback_detected_at: datetime | None = Field(
         default=None,
-        description="System clock reading when this API process last saw the"
-        " clock behind the high-water mark by more than the tolerance",
+        description="When an AutoSecOps process first saw the system clock"
+        " behind the high-water mark by more than the tolerance. Null once the"
+        " clock has caught up",
     )
     clock_rollback_seconds: int | None = Field(
         default=None,
-        description="How many seconds the system clock was behind the"
-        " high-water mark at that reading",
+        description="How many seconds the system clock of the answering API"
+        " replica is behind the high-water mark now. Null when it is not",
+    )
+    clock_last_reset_at: datetime | None = Field(
+        default=None,
+        description="When a superuser last reset the high-water mark through"
+        " POST /admin/license/clock/reset",
+    )
+
+
+class LicenseClockResetRead(BaseModel):
+    """Result of resetting the license clock high-water mark."""
+
+    clock_high_water: datetime = Field(
+        description="The new high-water mark: this API replica's current time",
     )

@@ -23645,6 +23645,21 @@ export const $LibrarySkillSourceRead = {
     "Library group, maintainer, and optional upstream location of a skill.",
 } as const
 
+export const $LicenseClockResetRead = {
+  properties: {
+    clock_high_water: {
+      type: "string",
+      format: "date-time",
+      title: "Clock High Water",
+      description: "The new high-water mark: this API replica's current time",
+    },
+  },
+  type: "object",
+  required: ["clock_high_water"],
+  title: "LicenseClockResetRead",
+  description: "Result of resetting the license clock high-water mark.",
+} as const
+
 export const $LicenseErrorCode = {
   type: "string",
   enum: [
@@ -24057,7 +24072,7 @@ export const $LicenseRead = {
       ],
       title: "Clock High Water",
       description:
-        "Latest time this deployment has observed. License expiry is evaluated against the later of this and the system clock",
+        "Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock",
     },
     clock_rollback_detected_at: {
       anyOf: [
@@ -24071,7 +24086,7 @@ export const $LicenseRead = {
       ],
       title: "Clock Rollback Detected At",
       description:
-        "System clock reading when this API process last saw the clock behind the high-water mark by more than the tolerance",
+        "When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up",
     },
     clock_rollback_seconds: {
       anyOf: [
@@ -24084,7 +24099,21 @@ export const $LicenseRead = {
       ],
       title: "Clock Rollback Seconds",
       description:
-        "How many seconds the system clock was behind the high-water mark at that reading",
+        "How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not",
+    },
+    clock_last_reset_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Last Reset At",
+      description:
+        "When a superuser last reset the high-water mark through POST /admin/license/clock/reset",
     },
   },
   type: "object",

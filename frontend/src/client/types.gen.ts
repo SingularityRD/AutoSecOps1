@@ -7295,6 +7295,16 @@ export type LibrarySkillSourceRead = {
 export type kind = "upstream" | "local"
 
 /**
+ * Result of resetting the license clock high-water mark.
+ */
+export type LicenseClockResetRead = {
+  /**
+   * The new high-water mark: this API replica's current time
+   */
+  clock_high_water: string
+}
+
+/**
  * Why a license key failed verification.
  */
 export type LicenseErrorCode =
@@ -7445,17 +7455,21 @@ export type LicenseRead = {
    */
   multi_tenant_mode?: MultiTenantMode
   /**
-   * Latest time this deployment has observed. License expiry is evaluated against the later of this and the system clock
+   * Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock
    */
   clock_high_water?: string | null
   /**
-   * System clock reading when this API process last saw the clock behind the high-water mark by more than the tolerance
+   * When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up
    */
   clock_rollback_detected_at?: string | null
   /**
-   * How many seconds the system clock was behind the high-water mark at that reading
+   * How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not
    */
   clock_rollback_seconds?: number | null
+  /**
+   * When a superuser last reset the high-water mark through POST /admin/license/clock/reset
+   */
+  clock_last_reset_at?: string | null
 }
 
 /**
@@ -17623,6 +17637,8 @@ export type AdminAgentListPlatformCatalogResponse = AgentCatalogListResponse
 
 export type AdminLicenseGetLicenseResponse = LicenseRead
 
+export type AdminLicenseResetLicenseClockResponse = LicenseClockResetRead
+
 export type AdminMaintenanceStartCaseAgentSessionInteractionBackfillResponse =
   CaseAgentSessionInteractionBackfillStartResponse
 
@@ -26010,6 +26026,16 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: LicenseRead
+      }
+    }
+  }
+  "/admin/license/clock/reset": {
+    post: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: LicenseClockResetRead
       }
     }
   }

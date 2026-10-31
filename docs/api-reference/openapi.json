@@ -44661,6 +44661,33 @@
           }
         }
       }
+    },
+    "/admin/license/clock/reset": {
+      "post": {
+        "tags": [
+          "admin:license"
+        ],
+        "summary": "Reset License Clock",
+        "description": "Reset the license clock high-water mark to this replica's current time.\n\nRecovery for a host clock that pushed the mark into the future. Allowed only\nwhile the mark is ahead of the system clock and after this replica has seen\na steady clock for a few minutes. Every reset is audited and recorded.",
+        "operationId": "admin:license-reset_license_clock",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseClockResetRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -67611,7 +67638,7 @@
               }
             ],
             "title": "Clock High Water",
-            "description": "Latest time this deployment has observed. License expiry is evaluated against the later of this and the system clock"
+            "description": "Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock"
           },
           "clock_rollback_detected_at": {
             "anyOf": [
@@ -67624,7 +67651,7 @@
               }
             ],
             "title": "Clock Rollback Detected At",
-            "description": "System clock reading when this API process last saw the clock behind the high-water mark by more than the tolerance"
+            "description": "When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up"
           },
           "clock_rollback_seconds": {
             "anyOf": [
@@ -67636,7 +67663,20 @@
               }
             ],
             "title": "Clock Rollback Seconds",
-            "description": "How many seconds the system clock was behind the high-water mark at that reading"
+            "description": "How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not"
+          },
+          "clock_last_reset_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Last Reset At",
+            "description": "When a superuser last reset the high-water mark through POST /admin/license/clock/reset"
           }
         },
         "type": "object",
@@ -94561,6 +94601,22 @@
         ],
         "title": "MultiTenantMode",
         "description": "Whether this deployment runs multi-tenant, and under what license."
+      },
+      "LicenseClockResetRead": {
+        "properties": {
+          "clock_high_water": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Clock High Water",
+            "description": "The new high-water mark: this API replica's current time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clock_high_water"
+        ],
+        "title": "LicenseClockResetRead",
+        "description": "Result of resetting the license clock high-water mark."
       }
     },
     "securitySchemes": {
