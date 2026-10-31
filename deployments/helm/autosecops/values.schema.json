@@ -926,6 +926,33 @@
       },
       "additionalProperties": false
     },
+    "workerProbes": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "startupProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "readinessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "livenessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "worker": {
       "type": "object",
       "properties": {
@@ -2277,6 +2304,78 @@
         },
         "cspConnectSrcOrigins": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "scrapeAnnotations": {
+          "type": "boolean"
+        },
+        "api": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "not": {
+                "const": 8000
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "podMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "interval": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$"
+            },
+            "scrapeTimeout": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "interval": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$"
+            },
+            "scrapeTimeout": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

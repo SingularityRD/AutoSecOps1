@@ -13,6 +13,7 @@ from autosecops_admin import __version__
 from autosecops_admin.commands import (
     admin,
     auth,
+    license,
     migrate,
     orgs,
     registry,
@@ -65,6 +66,7 @@ app.add_typer(registry.app, name="registry", help="Registry management commands.
 app.add_typer(settings.app, name="settings", help="Platform settings commands.")
 app.add_typer(migrate.app, name="migrate", help="Database migration commands.")
 app.add_typer(tiers.app, name="tiers", help="Tier management commands.")
+app.add_typer(license.app, name="license", help="License commands.")
 
 
 if __name__ == "__main__":

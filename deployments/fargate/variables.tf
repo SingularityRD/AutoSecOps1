@@ -451,6 +451,20 @@ variable "temporal_payload_encryption_cache_max_items" {
   default     = 4096
 }
 
+### Metrics
+
+variable "metrics_enabled" {
+  type        = bool
+  description = "Serve Prometheus metrics: API metrics on port 9100 and Temporal SDK metrics on port 9090 of every worker task. Off by default; never routed through the ALB or Caddy."
+  default     = false
+}
+
+variable "metrics_scraper_security_group_ids" {
+  type        = list(string)
+  description = "Security groups of the Prometheus or ADOT collector allowed to scrape ports 9090 and 9100 on AutoSecOps tasks. Empty binds the metrics listeners to 127.0.0.1, reachable only from a sidecar in the same task."
+  default     = []
+}
+
 ### Secret ARNs
 
 variable "autosecops_db_encryption_key_arn" {

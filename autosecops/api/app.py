@@ -99,6 +99,10 @@ from autosecops.api.lifespan import (
     unfreeze_startup_heap,
 )
 from autosecops.api.openapi import install_openapi_component_schemas
+from autosecops.auth.audit import (
+    AUTH_AUDIT_DRAIN_TIMEOUT_SECONDS,
+    drain_auth_audit_tasks,
+)
 from autosecops.auth.credentials import (
     authenticated_user_only,
     require_superuser,
@@ -173,6 +177,7 @@ from autosecops.exceptions import (
     AutoSecOpsValidationError,
     EntitlementRequired,
     LicenseLimitExceeded,
+    MultiTenantLicenseLapsed,
     ScopeDeniedError,
 )
 from autosecops.feature_flags import FeatureFlag, FlagLike, is_feature_enabled
@@ -192,7 +197,12 @@ from autosecops.integrations.router import (
 )
 from autosecops.invitations.consumer import start_invitation_email_consumer
 from autosecops.invitations.router import router as invitations_router
+from autosecops.licensing.clock import refresh_license_clock
 from autosecops.licensing.deployment import ensure_deployment_id
+from autosecops.licensing.multi_tenant import (
+    check_multi_tenant_license_on_startup,
+    run_license_monitor,
+)
 from autosecops.licensing.service import check_multi_tenant_deployment_binding
 from autosecops.logger import logger
 from autosecops.mcp.oidc import router as mcp_oidc_router
@@ -203,6 +213,8 @@ from autosecops.middleware import (
     RequestLoggingMiddleware,
 )
 from autosecops.middleware.security import SecurityHeadersMiddleware
+from autosecops.observability.api_metrics import PrometheusMiddleware, get_api_metrics
+from autosecops.observability.metrics_server import MetricsServer
 from autosecops.observability.otel import (
     TRACE_ID_HEADER,
     TRACE_SAMPLED_HEADER,
@@ -303,7 +315,14 @@ async def lifespan(app: FastAPI):
     # Load the deployment ID before anything evaluates the license, so a
     # license bound to this installation verifies from the first request.
     await ensure_deployment_id()
+    # Load the license clock high-water mark so a rolled-back system clock
+    # cannot revive an expired license from the first request on.
+    await refresh_license_clock()
     check_multi_tenant_deployment_binding()
+    # Refuse to start rather than strand tenants in single-tenant mode, and
+    # warn when multi-tenant mode runs on a lapsed license.
+    async with get_async_session_bypass_rls_context_manager() as session:
+        await check_multi_tenant_license_on_startup(session)
 
     await ensure_default_organization()
 
@@ -353,6 +372,7 @@ async def lifespan(app: FastAPI):
         name="case_duration_sync_consumer",
     )
     supervisor.spawn_stoppable(run_file_expiry, name="form_file_expiry")
+    supervisor.spawn_stoppable(run_license_monitor, name="license_monitor")
 
     if kubernetes_enabled():
         supervisor.spawn_stoppable(
@@ -381,10 +401,28 @@ async def lifespan(app: FastAPI):
         name="startup_heap_freeze",
         kind="finite",
     )
+    metrics_server: MetricsServer | None = None
+    if config.AUTOSECOPS__API_METRICS_ENABLED:
+        metrics_server = MetricsServer(
+            get_api_metrics().registry.render,
+            host=config.AUTOSECOPS__API_METRICS_HOST,
+            port=config.AUTOSECOPS__API_METRICS_PORT,
+        )
+        await metrics_server.start()
     logger.info("API startup complete")
 
     yield
 
+    if metrics_server is not None:
+        await metrics_server.stop()
+    # Auth audit events (refused logins, reset requests) are written off the
+    # request path. Give them a short bounded window, inside the task drain
+    # budget, before they are cancelled and the loss is logged.
+    await drain_auth_audit_tasks(
+        timeout=min(
+            AUTH_AUDIT_DRAIN_TIMEOUT_SECONDS, config.AUTOSECOPS__API_TASK_DRAIN_TIMEOUT
+        )
+    )
     await supervisor.drain()
     unfreeze_startup_heap()
     await close_storage_client_cache()
@@ -608,6 +646,29 @@ def license_limit_exception_handler(request: Request, exc: Exception) -> Respons
             "type": "LicenseLimitExceeded",
             "message": str(exc),
             "detail": exc.detail,
+        },
+    )
+
+
+def multi_tenant_license_lapsed_exception_handler(
+    request: Request, exc: Exception
+) -> Response:
+    """Handle MultiTenantLicenseLapsed with a 403 that names the lapsed grant."""
+    logger.warning(
+        "Change blocked: the multi-tenant license lapsed",
+        path=request.url.path,
+    )
+    if is_scim_path(request):
+        return scim_error_response(
+            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
+        )
+    detail = exc.detail if isinstance(exc, MultiTenantLicenseLapsed) else None
+    return ORJSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+            "type": "MultiTenantLicenseLapsed",
+            "message": str(exc),
+            "detail": detail,
         },
     )
 
@@ -1013,6 +1074,9 @@ def create_app(**kwargs) -> FastAPI:
     )
     app.add_exception_handler(EntitlementRequired, entitlement_exception_handler)
     app.add_exception_handler(LicenseLimitExceeded, license_limit_exception_handler)
+    app.add_exception_handler(
+        MultiTenantLicenseLapsed, multi_tenant_license_lapsed_exception_handler
+    )
     # Registered before ScopeDeniedError for readability only; Starlette dispatches
     # on the exception MRO, so the subclass handler still wins.
     app.add_exception_handler(
@@ -1037,6 +1101,9 @@ def create_app(**kwargs) -> FastAPI:
         expose_headers=[TRACE_ID_HEADER, TRACE_SAMPLED_HEADER],
     )
     instrument_fastapi_app(app, service_name="autosecops-api")
+    if config.AUTOSECOPS__API_METRICS_ENABLED:
+        # Outermost, so the duration covers every other middleware.
+        app.add_middleware(PrometheusMiddleware, metrics=get_api_metrics().http)
 
     logger.info(
         "App started",

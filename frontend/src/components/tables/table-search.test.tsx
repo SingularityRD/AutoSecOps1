@@ -203,23 +203,23 @@ test("read permissions gate all authenticated status requests", async () => {
   expect(screen.queryByText(/vector search/)).not.toBeInTheDocument()
 })
 
-test("without the entitlement the badge opens the Enterprise only dialog", async () => {
+test("without the entitlement the badge opens the Business plan dialog", async () => {
   mockHasEntitlement.mockReturnValue(false)
   setup(provide(<TableSearchBadge />))
-  const badge = await screen.findByLabelText("Semantic search: Enterprise only")
+  const badge = await screen.findByLabelText("Semantic search: Business plan")
   fireEvent.pointerEnter(badge)
   expect(screen.queryByText(/Model:/)).not.toBeInTheDocument()
   fireEvent.click(badge)
   const dialog = await screen.findByRole("dialog")
-  expect(dialog).toHaveTextContent("Enterprise only")
+  expect(dialog).toHaveTextContent("Business plan feature")
   expect(dialog).toHaveTextContent(
-    "Semantic search is only available on enterprise plans."
+    "Semantic search needs the Business plan or higher."
   )
   expect(tablesGetTableSearch).not.toHaveBeenCalled()
   expect(searchGetEmbeddingConfiguration).not.toHaveBeenCalled()
 })
 
-test("without the entitlement the column menu item opens the Enterprise only dialog", async () => {
+test("without the entitlement the column menu item opens the Business plan dialog", async () => {
   mockHasEntitlement.mockReturnValue(false)
   permissions.delete("table:update")
   setup(menus())
@@ -228,7 +228,7 @@ test("without the entitlement the column menu item opens the Enterprise only dia
   expect(item).not.toHaveAttribute("data-disabled")
   fireEvent.click(item)
   const dialog = await screen.findByRole("dialog")
-  expect(dialog).toHaveTextContent("Enterprise only")
+  expect(dialog).toHaveTextContent("Business plan feature")
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
   expect(tablesSelectTableSearchColumn).not.toHaveBeenCalled()
   expect(tablesGetTableSearch).not.toHaveBeenCalled()

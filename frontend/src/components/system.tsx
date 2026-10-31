@@ -11,8 +11,7 @@ type SystemMessageKind = (typeof SYSTEM_MSG_KINDS)[number]
 const SYSTEM_MSG_MAP: Record<SystemMessageKind, React.ReactNode> = {
   "beta-ee-contact-us": (
     <>
-      This feature is in Beta and may be promoted to an enterprise-only feature.
-      Please{" "}
+      This feature is in Beta and may move to a paid plan. Please{" "}
       <a
         href={CONTACT_US_URL}
         className="underline hover:text-sky-800 dark:hover:text-sky-100 inline-flex items-center gap-1"

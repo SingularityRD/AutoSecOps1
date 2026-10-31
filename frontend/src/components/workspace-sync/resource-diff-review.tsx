@@ -398,6 +398,7 @@ function ResourceChangeIcon({
     <Tooltip>
       <TooltipTrigger asChild>
         <span
+          role="img"
           aria-label={meta.label}
           className={cn(
             "inline-flex size-5 shrink-0 items-center justify-center",

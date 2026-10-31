@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,9 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.auth import credentials
 from autosecops.auth.api_keys import generate_managed_api_key
+from autosecops.auth.audit import AuthAuditFailureReason
 from autosecops.auth.credentials import _authenticate_api_key
 from autosecops.authz.seeding import seed_system_scopes
 from autosecops.contexts import ctx_service_account_api_key_id
+from autosecops.db import engine as engine_module
 from autosecops.db.models import (
     Organization,
     Scope,
@@ -61,6 +65,7 @@ async def _service_account_key(
     organization_id: uuid.UUID,
     workspace_id: uuid.UUID | None,
     scope_names: tuple[str, ...],
+    expires_at: datetime | None = None,
 ) -> tuple[ServiceAccount, str]:
     """Persist a service account with one API key and return the raw key."""
     await seed_system_scopes(session)
@@ -84,6 +89,7 @@ async def _service_account_key(
             hashed=generated.hashed,
             salt=generated.salt_b64,
             preview=generated.preview(),
+            expires_at=expires_at,
         )
     )
     await session.commit()
@@ -150,6 +156,7 @@ async def test_authenticate_api_key_cold_workspace_cache_uses_one_auth_checkout(
     record = SimpleNamespace(
         id=uuid.uuid4(),
         revoked_at=None,
+        expires_at=None,
         salt=generated.salt_b64,
         hashed=generated.hashed,
         service_account=service_account,
@@ -377,3 +384,116 @@ async def test_workspace_service_account_key_can_bind_workspace_for_actor_org_ro
     assert role.organization_id == organization.id
     assert role.workspace_id == workspace.id
     assert role.scopes == frozenset({"workspace:read"})
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_is_refused_and_audited(
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    organization = await _org(session)
+    service_account, api_key = await _service_account_key(
+        session,
+        organization_id=organization.id,
+        workspace_id=None,
+        scope_names=("org:read",),
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    @asynccontextmanager
+    async def _auth_pool_session():
+        # Mark the auth pool held, as the real accessor does.
+        token = engine_module._ctx_auth_pool_session.set(session)
+        try:
+            yield session
+        finally:
+            engine_module._ctx_auth_pool_session.reset(token)
+
+    monkeypatch.setattr(
+        credentials, "get_async_session_auth_context_manager", _auth_pool_session
+    )
+    events: list[dict[str, Any]] = []
+
+    async def fake_emit(**kwargs: Any) -> None:
+        # The audit writer takes a main-pool session, which the engine refuses
+        # while the auth pool is held, so it must run after its release.
+        assert engine_module._ctx_auth_pool_session.get() is None
+        events.append(kwargs)
+
+    monkeypatch.setattr(credentials, "emit_api_key_rejected_event", fake_emit)
+    first_in_window = AsyncMock(side_effect=[True, False])
+    monkeypatch.setattr(
+        credentials, "first_expired_api_key_refusal_in_window", first_in_window
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _authenticate_api_key(api_key=api_key, workspace_id=None)
+    assert exc_info.value.status_code == 401
+    # A client that keeps polling is refused every time, audited once.
+    with pytest.raises(HTTPException) as exc_info:
+        await _authenticate_api_key(api_key=api_key, workspace_id=None)
+    assert exc_info.value.status_code == 401
+    assert isinstance(exc_info.value, credentials.ExpiredApiKeyError)
+    record = (
+        await session.execute(
+            select(ServiceAccountApiKey).where(
+                ServiceAccountApiKey.service_account_id == service_account.id
+            )
+        )
+    ).scalar_one()
+    assert record.last_used_at is None
+    assert events == [
+        {
+            "organization_id": organization.id,
+            "workspace_id": None,
+            "service_account_id": service_account.id,
+            "api_key_id": record.id,
+            "failure_reason": AuthAuditFailureReason.EXPIRED,
+        }
+    ]
+    first_in_window.assert_awaited_with(record.id)
+
+
+@pytest.mark.anyio
+async def test_unexpired_api_key_authenticates(
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    organization = await _org(session)
+    service_account, api_key = await _service_account_key(
+        session,
+        organization_id=organization.id,
+        workspace_id=None,
+        scope_names=("org:read",),
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    _use_auth_session(monkeypatch, session)
+
+    role = await _authenticate_api_key(api_key=api_key, workspace_id=None)
+
+    assert role is not None
+    assert role.service_account_id == service_account.id
+
+
+@pytest.mark.anyio
+async def test_wrong_secret_for_expired_key_is_not_audited(
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only a caller holding the secret can make an expiry event."""
+    organization = await _org(session)
+    _, api_key = await _service_account_key(
+        session,
+        organization_id=organization.id,
+        workspace_id=None,
+        scope_names=("org:read",),
+        expires_at=datetime.now(UTC) - timedelta(days=1),
+    )
+    _use_auth_session(monkeypatch, session)
+    emit = AsyncMock()
+    monkeypatch.setattr(credentials, "emit_api_key_rejected_event", emit)
+
+    with pytest.raises(HTTPException):
+        await _authenticate_api_key(api_key=api_key[:-4] + "XXXX", workspace_id=None)
+
+    emit.assert_not_awaited()

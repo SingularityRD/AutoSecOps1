@@ -42,6 +42,8 @@ After your password or SSO sign-in, AutoSecOps opens `/mfa` and asks for your ke
 
 If you've lost your key, select `Use a recovery code` and enter one of your saved codes.
 
+If you've lost your key and your recovery codes, ask a platform administrator to reset your MFA. The reset removes your security keys and recovery codes, signs you out everywhere, and revokes your MCP personal access tokens and refresh tokens, because a lost key may be in someone else's hands. Register a new key at your next sign-in.
+
 ## Require MFA for an organization
 
 An organization administrator with `org:settings:update` can turn on `Require security key` under Multi-factor authentication at `/organization/settings/security`. You must have registered a key yourself before you can turn it on.

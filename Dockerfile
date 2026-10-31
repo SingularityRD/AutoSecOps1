@@ -1,7 +1,7 @@
 # ====================
 # Stage 1: Build nsjail from source
 # ====================
-FROM debian:bookworm-slim AS nsjail-builder
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS nsjail-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 # Pin NsJail 4.0 source with the in-process NSTUN policy backend.
@@ -45,7 +45,7 @@ RUN npm install --global --no-fund --no-audit npm@11.21.1 && \
     npm --version && \
     npm cache clean --force
 
-FROM python:3.12-slim-bookworm AS sandbox-rootfs
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS sandbox-rootfs
 
 ARG TARGETARCH
 ARG DUCKDB_VERSION=1.4.3
@@ -119,8 +119,8 @@ RUN set -eu; \
     duckdb --version; \
     test "$(duckdb -csv -noheader -c "SELECT count(*) FROM duckdb_extensions() WHERE extension_name IN ('json', 'httpfs', 'inet', 'fts') AND installed AND loaded;")" = "4"
 
-COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /usr/local/bin/uv
-COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uvx /usr/local/bin/uvx
+COPY --from=ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b /uvx /usr/local/bin/uvx
 COPY --from=node-bin /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-bin /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
@@ -135,8 +135,8 @@ ENV HOME=/tmp PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # ====================
 # Stage 3: Shared base with runtime dependencies
 # ====================
-FROM python:3.12-slim-bookworm AS base
-COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /uvx /usr/local/bin/
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS base
+COPY --from=ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b /uv /uvx /usr/local/bin/
 
 ENV HOST=0.0.0.0 PORT=8000
 
@@ -442,6 +442,7 @@ COPY --from=registry-manifest /app/.registry-artifacts /app/.registry-artifacts
 COPY --chmod=0755 ./env.sh ./env-migration.sh \
     ./scripts/backup_compose.sh \
     ./scripts/restore_compose.sh \
+    ./scripts/support_bundle.sh \
     /opt/autosecops/install/
 COPY --chmod=0644 \
     ./docker-compose.yml \

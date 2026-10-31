@@ -14,11 +14,14 @@ import yaml
 import autosecops.config as autosecops_config
 from autosecops.config import (
     bound_env,
+    env_bind_host,
     env_bool,
     env_networks,
     env_no_proxy,
+    env_port,
     env_ports,
     env_proxy_url,
+    format_bind_address,
 )
 from autosecops.feature_flags.enums import FeatureFlag
 
@@ -1916,3 +1919,170 @@ def test_fargate_ha_example_is_valid_and_redundant() -> None:
         r'variable "redis_num_cache_clusters" \{[^}]*default\s*=\s*1\n',
         root_variables,
     )
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_env_port_uses_default_when_unset_or_blank(
+    monkeypatch: pytest.MonkeyPatch, value: str | None
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_PORT", raising=False)
+    else:
+        monkeypatch.setenv("TEST_PORT", value)
+    assert env_port("TEST_PORT", default=9100) == 9100
+
+
+@pytest.mark.parametrize("value", ["0", "65536", "-1", "http", "80,81"])
+def test_env_port_rejects_invalid_ports(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("TEST_PORT", value)
+    with pytest.raises(ValueError, match="TEST_PORT must be a port number"):
+        env_port("TEST_PORT", default=9100)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, "0.0.0.0"),
+        ("", "0.0.0.0"),
+        (" 127.0.0.1 ", "127.0.0.1"),
+        ("::", "::"),
+        ("[::1]", "::1"),
+    ],
+)
+def test_env_bind_host_parses_ip_literals(
+    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: str
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_HOST", raising=False)
+    else:
+        monkeypatch.setenv("TEST_HOST", value)
+    assert env_bind_host("TEST_HOST", default="0.0.0.0") == expected
+
+
+@pytest.mark.parametrize("value", ["localhost", "metrics.example.com", "0.0.0.0:9100"])
+def test_env_bind_host_rejects_hostnames(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("TEST_HOST", value)
+    with pytest.raises(ValueError, match="TEST_HOST must be an IP address"):
+        env_bind_host("TEST_HOST", default="0.0.0.0")
+
+
+def test_format_bind_address_brackets_ipv6() -> None:
+    assert format_bind_address("0.0.0.0", 9090) == "0.0.0.0:9090"
+    assert format_bind_address("::", 9090) == "[::]:9090"
+
+
+def test_metrics_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    try:
+        with monkeypatch.context() as env:
+            for name in (
+                "AUTOSECOPS__API_METRICS_ENABLED",
+                "AUTOSECOPS__API_METRICS_HOST",
+                "AUTOSECOPS__API_METRICS_PORT",
+                "TEMPORAL__METRICS_HOST",
+                "TEMPORAL__METRICS_PORT",
+            ):
+                env.delenv(name, raising=False)
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.AUTOSECOPS__API_METRICS_ENABLED is False
+            assert reloaded.AUTOSECOPS__API_METRICS_PORT == 9100
+            assert reloaded.TEMPORAL__METRICS_PORT is None
+    finally:
+        importlib.reload(autosecops_config)
+
+
+TEMPORAL_WORKER_COMPOSE_SERVICES = (
+    "worker",
+    "background-worker",
+    "executor",
+    "agent-worker",
+    "agent-executor",
+)
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_temporal_workers_have_readiness_healthchecks(path: Path) -> None:
+    services = yaml.safe_load(path.read_text())["services"]
+    for name in TEMPORAL_WORKER_COMPOSE_SERVICES:
+        service = services[name]
+        assert service["healthcheck"]["test"] == [
+            "CMD",
+            "python",
+            "-m",
+            "autosecops.temporal.healthcheck",
+            "ready",
+        ], name
+        assert service["environment"]["TEMPORAL__METRICS_PORT"] == (
+            "${TEMPORAL__METRICS_PORT:-}"
+        ), name
+        # Without the passthrough, a loopback bind set in .env would be ignored.
+        assert service["environment"]["TEMPORAL__METRICS_HOST"] == (
+            "${TEMPORAL__METRICS_HOST:-0.0.0.0}"
+        ), name
+        assert "9090" not in str(service.get("ports", [])), name
+    api = services["api"]
+    assert api["environment"]["AUTOSECOPS__API_METRICS_ENABLED"] == (
+        "${AUTOSECOPS__API_METRICS_ENABLED:-false}"
+    )
+    assert api["environment"]["AUTOSECOPS__API_METRICS_HOST"] == (
+        "${AUTOSECOPS__API_METRICS_HOST:-0.0.0.0}"
+    )
+    assert "9100" not in str(api.get("ports", []))
+
+
+@pytest.mark.parametrize(
+    "task_file",
+    [
+        "ecs-worker.tf",
+        "ecs-background-worker.tf",
+        "ecs-executor.tf",
+        "ecs-agent-worker.tf",
+        "ecs-agent-executor.tf",
+    ],
+)
+def test_fargate_temporal_workers_have_health_checks(task_file: str) -> None:
+    ecs_dir = REPO_ROOT / "deployments" / "fargate" / "modules" / "ecs"
+    assert (
+        "healthCheck = local.worker_health_check" in (ecs_dir / task_file).read_text()
+    )
+    locals_source = (ecs_dir / "locals.tf").read_text()
+    assert (
+        'command     = ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "live"]'
+        in locals_source
+    )
+
+
+def test_fargate_metrics_are_opt_in_and_scoped_to_scrapers() -> None:
+    fargate = REPO_ROOT / "deployments" / "fargate"
+    ecs_dir = fargate / "modules" / "ecs"
+    locals_source = (ecs_dir / "locals.tf").read_text()
+    for name in (
+        "TEMPORAL__METRICS_PORT",
+        "TEMPORAL__METRICS_HOST",
+        "AUTOSECOPS__API_METRICS_ENABLED",
+        "AUTOSECOPS__API_METRICS_PORT",
+        "AUTOSECOPS__API_METRICS_HOST",
+    ):
+        assert name in locals_source, name
+    # Every Temporal worker env merges the metrics env; the background worker
+    # derives from worker_env.
+    assert locals_source.count("local.autosecops_worker_metrics_env,") == 4
+    assert locals_source.count("local.autosecops_api_metrics_env,") == 1
+    # No scraper security group: loopback only, for a sidecar in the task.
+    assert (
+        'length(var.metrics_scraper_security_group_ids) > 0 ? "0.0.0.0" : "127.0.0.1"'
+        in locals_source
+    )
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        source = (fargate / tf).read_text()
+        assert 'variable "metrics_enabled"' in source, tf
+        assert 'variable "metrics_scraper_security_group_ids"' in source, tf
+    main = (fargate / "main.tf").read_text()
+    assert "metrics_enabled                               = var.metrics_enabled" in main
+    security_groups = (ecs_dir / "security_groups.tf").read_text()
+    assert "security_groups = var.metrics_scraper_security_group_ids" in security_groups

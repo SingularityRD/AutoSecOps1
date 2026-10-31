@@ -38,6 +38,7 @@ from autosecops.db.models import (
     AgentCatalog,
     AgentChannelToken,
     AgentCustomProvider,
+    Invitation,
     MCPIntegration,
     MCPRefreshToken,
     OAuthIntegration,
@@ -83,6 +84,7 @@ ENCRYPTED_COLUMNS: Final[tuple[EncryptedColumn, ...]] = (
     EncryptedColumn(WorkspaceTunnel.encrypted_gateway_key),
     EncryptedColumn(RobotFleetSocKey.encrypted_seed),
     EncryptedColumn(RobotFleetToken.encrypted_nonce),
+    EncryptedColumn(Invitation.encrypted_token),
     EncryptedColumn(
         OrganizationSetting.value, only_if=OrganizationSetting.is_encrypted.is_(True)
     ),

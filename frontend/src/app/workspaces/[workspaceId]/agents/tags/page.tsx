@@ -6,6 +6,7 @@ import { EntitlementRequiredEmptyState } from "@/components/entitlement-required
 import { CenteredSpinner } from "@/components/loading/spinner"
 import { Button } from "@/components/ui/button"
 import { useEntitlements } from "@/hooks/use-entitlements"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 
 export default function AgentTagsPage() {
   const { hasEntitlement, isLoading } = useEntitlements()
@@ -18,8 +19,8 @@ export default function AgentTagsPage() {
       <div className="size-full overflow-auto">
         <div className="container flex h-full max-w-[1000px] items-center justify-center py-8">
           <EntitlementRequiredEmptyState
-            title="Enterprise only"
-            description="Agent tags are only available on enterprise plans."
+            title={planFeatureTitle("agent_addons")}
+            description={`Agent tags need the ${planLabel("agent_addons")} or higher.`}
           >
             <Button
               variant="link"

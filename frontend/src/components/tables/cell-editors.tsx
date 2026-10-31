@@ -347,6 +347,7 @@ function MultiSelectCellEditor({
         <button
           type="button"
           role="combobox"
+          aria-expanded={open}
           className="flex h-8 w-full items-center justify-between bg-transparent px-3 text-xs outline-none"
         >
           <span className="truncate text-left">

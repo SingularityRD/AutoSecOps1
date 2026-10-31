@@ -18,12 +18,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/use-toast"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 
 function isTextColumn(column: TableColumnRead) {
   return column.type.toUpperCase() === "TEXT"
 }
 
-/** Enterprise only dialog shown when an unentitled org opens semantic search. */
+/** Plan upgrade dialog shown when an unentitled org opens semantic search. */
 export function TableSearchLockedModal({
   open,
   onOpenChange,
@@ -35,8 +36,8 @@ export function TableSearchLockedModal({
     <LockedFeatureModal
       open={open}
       onOpenChange={onOpenChange}
-      title="Enterprise only"
-      description="Semantic search is only available on enterprise plans."
+      title={planFeatureTitle("semantic_search")}
+      description={`Semantic search needs the ${planLabel("semantic_search")} or higher.`}
       bullets={[]}
     />
   )

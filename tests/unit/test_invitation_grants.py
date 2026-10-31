@@ -52,6 +52,7 @@ from autosecops.invitations.service import (
     accept_invitation_for_user,
     find_invitation_by_token,
     get_pending_invitation_for_email,
+    reveal_invitation_token,
 )
 from autosecops.organization.router import list_org_members
 from autosecops.organization.service import OrgService
@@ -788,7 +789,9 @@ class TestAcceptInvitationGrants:
         )
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await _assignments(session, invitee.id, org.id) == {
@@ -823,7 +826,9 @@ class TestAcceptInvitationGrants:
         )
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await _assignments(session, invitee.id, org.id) == {
@@ -857,7 +862,9 @@ class TestAcceptInvitationGrants:
         )
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await _assignments(session, invitee.id, org.id) == {
@@ -905,7 +912,9 @@ class TestAcceptInvitationGrants:
         await session.commit()
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assignments = await _assignments(session, invitee.id, org.id)
@@ -946,7 +955,9 @@ class TestAcceptInvitationGrants:
         await session.commit()
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assignments = await _assignments(session, invitee.id, org.id)
@@ -977,7 +988,9 @@ class TestAcceptInvitationGroups:
         )
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await session.get(GroupMember, (invitee.id, group.id)) is not None
@@ -1013,7 +1026,9 @@ class TestAcceptInvitationGroups:
         await session.commit()
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         count = await session.scalar(
@@ -1051,7 +1066,9 @@ class TestAcceptInvitationGroups:
         await session.commit()
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await session.get(GroupMember, (invitee.id, group_id)) is None
@@ -1093,7 +1110,9 @@ class TestAcceptInvitationGroups:
         await session.commit()
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await session.get(GroupMember, (invitee.id, group.id)) is None
@@ -1125,7 +1144,9 @@ class TestAcceptInvitationGroups:
         )
 
         await accept_invitation_for_user(
-            session, user_id=invitee.id, token=invitation.token
+            session,
+            user_id=invitee.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert await session.get(GroupMember, (invitee.id, group.id)) is None
@@ -1163,12 +1184,17 @@ class TestSamlEnforcedAcceptance:
 
         if via_sso:
             await accept_invitation_for_user(
-                session, user_id=invitee.id, token=invitation.token, via_sso=True
+                session,
+                user_id=invitee.id,
+                token=await reveal_invitation_token(session, invitation),
+                via_sso=True,
             )
         else:
             with pytest.raises(AutoSecOpsAuthorizationError, match="SSO"):
                 await accept_invitation_for_user(
-                    session, user_id=invitee.id, token=invitation.token
+                    session,
+                    user_id=invitee.id,
+                    token=await reveal_invitation_token(session, invitation),
                 )
         await session.refresh(invitation)
         assert invitation.status == (
@@ -1255,7 +1281,7 @@ class TestGrantlessInvitation:
                 ],
             )
         )
-        token = invitation.token
+        token = await reveal_invitation_token(session, invitation)
         invitation_id = invitation.id
 
         invitee = User(
@@ -1356,7 +1382,7 @@ class TestGrantRoleDeletion:
                 ],
             )
         )
-        token = invitation.token
+        token = await reveal_invitation_token(session, invitation)
         invitation_id = invitation.id
 
         invitee = User(
@@ -1466,7 +1492,9 @@ async def test_accept_rejects_grant_at_wrong_role_level(
     ]
     session.add(invitation)
     await session.commit()
-    token, user_id, org_id = invitation.token, invitee.id, org.id
+    token = await reveal_invitation_token(session, invitation)
+    await session.commit()
+    invitation_id, user_id, org_id = invitation.id, invitee.id, org.id
 
     with pytest.raises(
         AutoSecOpsAuthorizationError, match="can only be assigned organization-wide"
@@ -1476,6 +1504,6 @@ async def test_accept_rejects_grant_at_wrong_role_level(
 
     assert await _assignments(session, user_id, org_id) == {}
     status = await session.scalar(
-        select(Invitation.status).where(Invitation.token == token)
+        select(Invitation.status).where(Invitation.id == invitation_id)
     )
     assert status == InvitationStatus.PENDING

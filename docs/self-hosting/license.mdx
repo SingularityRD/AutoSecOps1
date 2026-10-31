@@ -69,7 +69,7 @@ curl -H "Authorization: Bearer <superuser-token>" \
   https://autosecops.yourdomain.com/api/admin/license
 ```
 
-The response includes `status`, `plan`, `customer`, `expires_at`, `grace_ends_at`, `days_remaining`, `limits`, `usage` (active users, workspaces, and organizations), and `deployment_id`.
+The response includes `status`, `plan`, `customer`, `expires_at`, `grace_ends_at`, `days_remaining`, `limits`, `usage` (active users, workspaces, and organizations), `deployment_id`, `multi_tenant_mode`, and the clock protection fields described in [Clock protection](#clock-protection).
 The `api` service also logs the license status at startup.
 
 | Status | Meaning | Paid entitlements |
@@ -128,12 +128,63 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 ## Multi-tenant deployments
 
 Multi-tenant mode needs both `AUTOSECOPS__EE_MULTI_TENANT=true` and a license key that grants `multi_tenant`.
-The license must be valid or in its grace period when each service starts.
+The license must verify on this installation when each service starts; after it expires, see [When a multi-tenant license lapses](#when-a-multi-tenant-license-lapses).
 In multi-tenant mode, AutoSecOps resolves entitlements from the tiers that platform admins assign to organizations, and the license key's other entitlements do not apply.
 
-If `AUTOSECOPS__EE_MULTI_TENANT=true` is set without such a license, the `api` service logs an error at startup and every service runs single-tenant, with entitlements from the license key as described above.
+If `AUTOSECOPS__EE_MULTI_TENANT=true` is set and the license key does not list `multi_tenant` (no key, a key without the grant, or a key that fails verification), every service runs single-tenant, with entitlements from the license key as described above, and the `api` service logs an error at startup.
+If the database already holds more than one organization, the `api` service refuses to start instead, because single-tenant mode would cut every organization but the default one off from sign-in. Restore the multi-tenant license key on every service to start it again.
 Services evaluate the `multi_tenant` grant at startup, so restart them after you install or replace the key.
 If a license that grants `multi_tenant` is bound to a different deployment ID, the `api` service refuses to start.
+
+### When a multi-tenant license lapses
+
+A multi-tenant deployment does not drop its tenants the moment its license expires.
+While the license is in its 14-day grace period, nothing changes.
+After the grace period, the deployment keeps running multi-tenant for 30 more days in a degraded, `lapsed` mode:
+
+- Existing organizations keep working, with the tiers platform admins assigned to them, including SSO and organization selection.
+- Creating an organization returns `403` with the type `MultiTenantLicenseLapsed` and `detail.action` `create_organization`.
+- Creating, changing, or deleting a tier, and changing an organization's tier assignment, return `403` with the type `MultiTenantLicenseLapsed` and `detail.action` `manage_tiers`, because tiers decide each organization's entitlements.
+- The expired license's `max_users` and `max_workspaces` limits apply to new users and workspaces.
+- The `api` service logs a `MULTI-TENANT LICENSE LAPSED` error at startup and every hour, with the time `lapsed` mode ends.
+- The `License` page in the admin console shows a `Multi-tenant license lapsed` alert, and the license API reports `multi_tenant_mode: "lapsed"`.
+
+When the 30 days end, the `api` service refuses to start until a renewed key is installed.
+
+`lapsed` mode is only for a deployment that ran multi-tenant under the same license while it was valid or in grace.
+While multi-tenant mode is licensed, the `api` service records that in the database at startup and every hour.
+If you start a deployment that never ran multi-tenant under the configured license (for example, a fresh install with an expired key), the `api` service refuses to start; install a valid key, or unset `AUTOSECOPS__EE_MULTI_TENANT` to run single-tenant.
+
+Install a renewed key that grants `multi_tenant` and restart the services to leave `lapsed` mode.
+The license API reports `multi_tenant_requested` and `multi_tenant_mode` (`off`, `active`, or `lapsed`) on every deployment.
+
+## Clock protection
+
+AutoSecOps resists turning the system clock back to keep an expired license working.
+It records the latest time it trusts in the database, at most once an hour, and evaluates license expiry against the later of that time and the system clock.
+When the system clock is more than 15 minutes behind the recorded time, AutoSecOps logs an error, and the `License` page shows a `System clock moved backwards` alert on every `api` replica until the clock catches up.
+The license API reports the recorded time as `clock_high_water`, the rollback as `clock_rollback_detected_at` (when it was first detected) and `clock_rollback_seconds` (how far behind the clock is now), and the last reset as `clock_last_reset_at`.
+
+A clock reading that jumps ahead is not recorded at once, so a host whose clock is briefly wrong at boot, before NTP corrects it, does not push license time into the future:
+
+- A process trusts a new clock reading only after the system clock has agreed with its own elapsed-time counter for 5 minutes.
+- A reading more than a day ahead of the recorded time is recorded only after it has stayed steady for an hour, which covers a restart after a long outage.
+
+Keep every host's clock synchronized with NTP.
+
+### Reset the recorded time
+
+If a host clock still pushed the recorded time into the future, so the license looks expired early, a superuser can reset it to the current time after fixing NTP on every host. Use the admin CLI (the `autosecops` command in the `autosecops-admin` package):
+
+```bash
+autosecops license clock-reset
+```
+
+The command calls `POST /api/admin/license/clock/reset`, which needs a recent security key verification.
+The API refuses the reset unless the recorded time is more than 15 minutes ahead of its clock, and only after its own clock has been steady for 5 minutes.
+Every reset is written to the platform audit log first, and refused if that write fails; it is also logged and reported as `clock_last_reset_at`.
+Other services follow the reset within an hour, or at their next restart.
+Do not edit the recorded time in the database yourself.
 
 ## Third-party notices
 
@@ -156,5 +207,6 @@ docker rm aso-notices
 
 ## Related pages
 
+- See [Plans and entitlements](/self-hosting/plans) for the entitlements each plan includes.
 - See [Environment variables](/self-hosting/environment-variables) for every setting you can pass alongside the license key.
 - See [Updating](/self-hosting/updating) before you upgrade a deployment that used feature flags for paid features.

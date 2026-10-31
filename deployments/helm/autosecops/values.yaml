@@ -151,9 +151,10 @@ autosecops:
 
   temporal:
     metrics:
-      # -- Expose Temporal SDK Prometheus metrics on worker, executor,
-      # agent-worker, and agent-executor pods, with `prometheus.io/*` scrape
-      # annotations.
+      # -- Expose Temporal SDK Prometheus metrics on worker,
+      # background-worker, executor, agent-worker, and agent-executor pods
+      # (`TEMPORAL__METRICS_PORT`). See `metrics` for scrape annotations and
+      # Prometheus Operator monitors.
       enabled: false
       port: 9090
     payloadEncryption:
@@ -455,6 +456,35 @@ api:
   extraVolumes: []
   extraVolumeMounts: []
 
+# -- Default probes for the Temporal workers (worker, backgroundWorker,
+# executor, agentWorker, agentExecutor), which serve no HTTP. They run
+# `python -m autosecops.temporal.healthcheck` against marker files the worker
+# keeps fresh in an in-memory emptyDir at /var/run/autosecops. Liveness
+# restarts a worker whose event loop stalled for more than 120s (`--max-age`)
+# plus `failureThreshold x periodSeconds`; readiness tracks Temporal polling and
+# gates rollouts. A probe set on a component (for example
+# `worker.readinessProbe`) replaces the matching default; set a default here to
+# null to drop it for every worker.
+workerProbes:
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+
 worker:
   enabled: true
   replicaCount: 2
@@ -468,6 +498,11 @@ worker:
   threadpoolMaxWorkers: 100
   maxConcurrentActivities: 100
   maxConcurrentWorkflowTasks: 100
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -510,6 +545,11 @@ backgroundWorker:
       memory: 1Gi
     limits:
       memory: 2Gi
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -553,6 +593,11 @@ executor:
   forEachMaxConcurrency: 4
   registryCacheMaxEntries: 64
   registryCacheMaxBytes: 10737418240
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -590,6 +635,11 @@ agentWorker:
       memory: 4Gi
   maxConcurrentActivities: 100
   threadpoolMaxWorkers: 100
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -636,6 +686,11 @@ agentExecutor:
   gracefulShutdownTimeout: null
   # -- Pod grace period. Defaults to `gracefulShutdownTimeout + 60`.
   terminationGracePeriodSeconds: null
+  # -- Probes that replace the matching `workerProbes` default for this
+  # component. A probe set here is used as is, never merged with the default.
+  startupProbe: {}
+  readinessProbe: {}
+  livenessProbe: {}
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -841,6 +896,33 @@ ui:
   extraEnv: []
   extraVolumes: []
   extraVolumeMounts: []
+
+metrics:
+  # -- Add `prometheus.io/scrape`, `port`, and `path` annotations to pods that
+  # serve metrics (the API with `metrics.api.enabled`, workers with
+  # `autosecops.temporal.metrics.enabled`).
+  scrapeAnnotations: true
+  api:
+    # -- Serve API Prometheus metrics on a separate container port. The API
+    # Service and ingress never expose it; scrape it from inside the cluster.
+    enabled: false
+    port: 9100
+  podMonitor:
+    # -- Create a Prometheus Operator PodMonitor for every pod that serves
+    # metrics. Needs the monitoring.coreos.com CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Extra labels, for example the Prometheus `podMonitorSelector`.
+    labels: {}
+  serviceMonitor:
+    # -- Create headless metrics Services and a Prometheus Operator
+    # ServiceMonitor. Needs the monitoring.coreos.com CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Extra labels, for example the Prometheus `serviceMonitorSelector`.
+    labels: {}
 
 # Ingress with the same routing as the Docker Compose Caddyfile:
 #   /api        -> api   (FastAPI serves under the /api root path)

@@ -4,6 +4,7 @@ export const SubscriptIcon = React.memo(
   ({ className, ...props }: React.SVGProps<SVGSVGElement>) => {
     return (
       <svg
+        aria-hidden="true"
         width="24"
         height="24"
         className={className}

@@ -9,6 +9,9 @@ templates. Each component file passes a dict with:
   container   YAML for the container fields after name/image (command, env, ports, probes, ...)
   backend     true for containers that read the shared backend config (ConfigMap, Postgres CA)
   sandboxed   true for privileged nsjail pods (root, privileged, unconfined)
+  workerHealth true for Temporal workers: mounts an in-memory emptyDir at
+              /var/run/autosecops for the health marker files, so they stay
+              writable with containerSecurityContext.readOnlyRootFilesystem
   automountToken, terminationGracePeriodSeconds, strategy, extraPodAnnotations: optional
 */}}
 
@@ -122,8 +125,12 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- $pgCa := and .backend $root.Values.externalPostgres.tls.caCert }}
-          {{- if or $pgCa $v.extraVolumeMounts }}
+          {{- if or $pgCa .workerHealth $v.extraVolumeMounts }}
           volumeMounts:
+            {{- if .workerHealth }}
+            - name: worker-health
+              mountPath: /var/run/autosecops
+            {{- end }}
             {{- if $pgCa }}
             - name: postgres-ca
               mountPath: /etc/autosecops/postgres-ca
@@ -133,8 +140,14 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- if or $pgCa $v.extraVolumes }}
+      {{- if or $pgCa .workerHealth $v.extraVolumes }}
       volumes:
+        {{- if .workerHealth }}
+        - name: worker-health
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        {{- end }}
         {{- if $pgCa }}
         - name: postgres-ca
           configMap:
@@ -279,6 +292,22 @@ readinessProbe:
 {{- with .livenessProbe }}
 livenessProbe:
   {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Probes for a Temporal worker. A probe set in the component values replaces the
+matching `workerProbes` default instead of merging into it, so an operator's
+tcpSocket or httpGet probe never renders next to the default exec handler.
+Expects dict root, values.
+*/}}
+{{- define "autosecops.workerProbes" -}}
+{{- $defaults := .root.Values.workerProbes | default dict -}}
+{{- range $kind := list "startupProbe" "readinessProbe" "livenessProbe" }}
+{{- with (get $.values $kind) | default (get $defaults $kind) }}
+{{ $kind }}:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end }}
 {{- end }}
 

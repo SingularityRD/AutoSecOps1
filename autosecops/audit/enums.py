@@ -17,6 +17,13 @@ class AuditEventActor(StrEnum):
     """
     AGENT = "AGENT"
     """An agent session acting through the executor (``actor_id``: the session)."""
+    ANONYMOUS = "ANONYMOUS"
+    """An unauthenticated caller that no known account or credential matched.
+
+    ``actor_id`` is a keyed pseudonym of the account identifier the request
+    named (stable per identifier, not reversible without the server secret),
+    or the nil UUID when the request named none.
+    """
 
 
 class AuditEventStatus(StrEnum):

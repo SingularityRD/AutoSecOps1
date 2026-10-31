@@ -1,12 +1,42 @@
 name: Build offline bundle
 
 # Builds the air-gapped install bundle (scripts/offline_bundle.py) for a
-# published release and uploads it as a workflow artifact. A bundle is several
-# GB, above the 2 GB limit for a single GitHub release asset, so it stays a
-# workflow artifact instead of a release asset.
+# published release, signs it, and uploads it to an owner-configured private
+# S3 bucket.
+#
+# The bundle holds every AutoSecOps image, so it is never uploaded as a
+# workflow artifact: artifacts of a public repository are downloadable by
+# anyone with the link. Only the archive checksum, the bundle's SHA256SUMS,
+# the public key, and their signatures become a workflow artifact; they
+# identify the bundle without carrying any of it.
+#
+# The job refuses to run unless both a signing key and the private
+# destination are configured. Configuration lives in the protected
+# `offline-bundle` environment (give it required reviewers):
+#
+#   Variables
+#     OFFLINE_BUNDLE_S3_URI          s3://bucket/prefix; the bundle lands under
+#                                    <prefix>/<version>/ and an existing
+#                                    version is never overwritten
+#     OFFLINE_BUNDLE_AWS_ROLE_ARN    IAM role whose trust policy accepts this
+#                                    repository's OIDC token for the
+#                                    `offline-bundle` environment only
+#     OFFLINE_BUNDLE_AWS_REGION      region of the bucket (and KMS key)
+#     OFFLINE_BUNDLE_S3_KMS_KEY_ARN  optional customer-managed KMS key for
+#                                    object encryption; without it the
+#                                    bucket's default encryption applies
+#     OFFLINE_BUNDLE_COSIGN_KMS_KEY  optional awskms:// signing key URI
+#   Secrets, used when OFFLINE_BUNDLE_COSIGN_KMS_KEY is not set
+#     OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY  cosign-encrypted private key (PEM)
+#     OFFLINE_BUNDLE_COSIGN_PASSWORD     its password
+#
+# docs/self-hosting/air-gapped.mdx documents the AWS setup.
 #
 # Dispatch it from the release tag with the same tag as input: the bundle's
-# Compose files, chart, and image list come from that checkout.
+# Compose files, chart, and image list come from that checkout. GitHub runs
+# the tag's own copy of this file, so the job refuses a tag whose copy differs
+# from the default branch: an older tag never runs an older publishing policy.
+# Re-cut such a release (a new patch tag) to get a bundle.
 on:
   workflow_dispatch:
     inputs:
@@ -24,17 +54,19 @@ concurrency:
 
 jobs:
   bundle:
-    name: Build and upload bundle
+    name: Build, sign, and upload bundle
     if: >-
       contains(
         fromJSON(vars.TRUSTED_CI_ACTORS_JSON || '[]'),
         github.triggering_actor || github.actor
       )
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 110
+    environment: offline-bundle
     permissions:
       contents: read
       packages: read # pull the AutoSecOps images from ghcr.io
+      id-token: write # exchange a GitHub OIDC token for the AWS upload and KMS role
     steps:
       - name: Validate release tag
         id: version
@@ -56,11 +88,79 @@ jobs:
           fi
           echo "version=$INPUT_TAG" >> "$GITHUB_OUTPUT"
 
+      # Fail in seconds, before pulling several GB, when the bundle could not
+      # be signed or would have nowhere private to go.
+      - name: Require signing and a private destination
+        id: config
+        env:
+          S3_URI: ${{ vars.OFFLINE_BUNDLE_S3_URI }}
+          AWS_ROLE_ARN: ${{ vars.OFFLINE_BUNDLE_AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.OFFLINE_BUNDLE_AWS_REGION }}
+          S3_KMS_KEY_ARN: ${{ vars.OFFLINE_BUNDLE_S3_KMS_KEY_ARN }}
+          KMS_KEY: ${{ vars.OFFLINE_BUNDLE_COSIGN_KMS_KEY }}
+          # Only presence is tested; secret values never reach this step.
+          HAS_PRIVATE_KEY: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY != '' }}
+          HAS_PASSWORD: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          if ! [[ "$S3_URI" =~ ^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9](/[A-Za-z0-9._-]+)*/?$ ]]; then
+            echo '::error::Set OFFLINE_BUNDLE_S3_URI (s3://bucket/prefix) in the offline-bundle environment.'
+            fail=1
+          fi
+          if ! [[ "$AWS_ROLE_ARN" =~ ^arn:aws(-[a-z]+)*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
+            echo '::error::Set OFFLINE_BUNDLE_AWS_ROLE_ARN to the IAM role this environment may assume.'
+            fail=1
+          fi
+          if ! [[ "$AWS_REGION" =~ ^[a-z]{2}(-[a-z]+)+-[0-9]+$ ]]; then
+            echo '::error::Set OFFLINE_BUNDLE_AWS_REGION (for example eu-central-1).'
+            fail=1
+          fi
+          if [[ -n "$S3_KMS_KEY_ARN" ]] &&
+            ! [[ "$S3_KMS_KEY_ARN" =~ ^arn:aws(-[a-z]+)*:kms:[a-z]{2}(-[a-z]+)+-[0-9]+:[0-9]{12}:(key/[0-9a-f-]{36}|key/mrk-[0-9a-f]{32}|alias/[A-Za-z0-9/_-]+)$ ]]; then
+            echo '::error::OFFLINE_BUNDLE_S3_KMS_KEY_ARN must be a KMS key or alias ARN.'
+            fail=1
+          fi
+          if [[ -n "$KMS_KEY" ]]; then
+            if ! [[ "$KMS_KEY" =~ ^awskms://[A-Za-z0-9:/._-]+$ ]]; then
+              echo '::error::OFFLINE_BUNDLE_COSIGN_KMS_KEY must be an awskms:// key URI.'
+              fail=1
+            fi
+            echo "signer=kms" >> "$GITHUB_OUTPUT"
+          elif [[ "$HAS_PRIVATE_KEY" == true && "$HAS_PASSWORD" == true ]]; then
+            echo "signer=key" >> "$GITHUB_OUTPUT"
+          else
+            echo '::error::An unsigned bundle is never published. Set OFFLINE_BUNDLE_COSIGN_KMS_KEY, or both OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY and OFFLINE_BUNDLE_COSIGN_PASSWORD.'
+            fail=1
+          fi
+          exit "$fail"
+
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      # GitHub ran this tag's copy of the workflow. Refuse it unless it is the
+      # reviewed copy on the default branch, so an older tag cannot publish
+      # under an older policy (for example without signing or this
+      # environment's reviewers).
+      - name: Refuse an outdated workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          WORKFLOW: .github/workflows/build-offline-bundle.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(gh api "repos/${REPOSITORY}/contents/${WORKFLOW}?ref=${DEFAULT_BRANCH}" --jq .sha)
+          actual=$(git rev-parse "HEAD:${WORKFLOW}")
+          if [[ -z "$expected" || "$expected" != "$actual" ]]; then
+            echo "::error::This tag's ${WORKFLOW} differs from ${DEFAULT_BRANCH}. Re-cut the release as a new patch tag to build its bundle."
+            exit 1
+          fi
 
       # The runner image keeps about 14 GB free; the images, their saved
       # archives, and the compressed bundle need more.
@@ -77,6 +177,67 @@ jobs:
           version: "0.13.4"
           enable-cache: false
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
+
+      # One session covers the build (KMS signing happens at its end) and the
+      # upload, so the role's maximum session duration must be at least 2h.
+      - name: Assume the bundle publishing role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.OFFLINE_BUNDLE_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.OFFLINE_BUNDLE_AWS_REGION }}
+          role-session-name: offline-bundle-${{ github.run_id }}
+          role-duration-seconds: 7200
+
+      - name: Refuse to overwrite a published bundle
+        env:
+          S3_URI: ${{ vars.OFFLINE_BUNDLE_S3_URI }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          path="${S3_URI#s3://}"
+          bucket="${path%%/*}"
+          prefix=''
+          [[ "$path" == */* ]] && prefix="${path#*/}"
+          prefix="${prefix%/}"
+          key_prefix="${prefix:+$prefix/}${VERSION}/"
+          # An access error fails this step; only an empty listing passes.
+          existing=$(aws s3api list-objects-v2 --bucket "$bucket" \
+            --prefix "$key_prefix" --max-items 1 \
+            --query 'Contents[0].Key' --output text)
+          if [[ "$existing" != None ]]; then
+            echo "::error::s3://${bucket}/${key_prefix} already holds a bundle. Bundles are immutable; remove it deliberately first."
+            exit 1
+          fi
+
+      - name: Prepare the signing key
+        env:
+          SIGNER: ${{ steps.config.outputs.signer }}
+          KMS_KEY: ${{ vars.OFFLINE_BUNDLE_COSIGN_KMS_KEY }}
+          PRIVATE_KEY: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          keys="$RUNNER_TEMP/signing"
+          mkdir -p "$keys"
+          if [[ "$SIGNER" == kms ]]; then
+            key_ref="$KMS_KEY"
+          else
+            key_ref="$keys/cosign.key"
+            printf '%s\n' "$PRIVATE_KEY" > "$key_ref"
+          fi
+          cosign public-key --key "$key_ref" > "$keys/cosign.pub"
+          {
+            echo "OFFLINE_BUNDLE_COSIGN_KEY=$key_ref"
+            echo "OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY=$keys/cosign.pub"
+          } >> "$GITHUB_ENV"
+
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -84,24 +245,71 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build bundle
+      - name: Build and sign bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          COSIGN_PASSWORD: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
           uv run --no-project --with pyyaml==6.0.3 \
             python scripts/offline_bundle.py --version "$VERSION" \
-            --output-dir "$RUNNER_TEMP/bundle"
+            --require-signature --output-dir "$RUNNER_TEMP/bundle"
           ls -l "$RUNNER_TEMP/bundle"
 
-      - name: Upload bundle
+      - name: Verify the signatures
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/bundle"
+          for file in autosecops-offline-"$VERSION".tar.*.sha256 "autosecops-offline-$VERSION.SHA256SUMS"; do
+            cosign verify-blob --key "$OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY" \
+              --insecure-ignore-tlog=true --signature "$file.sig" "$file"
+          done
+          sha256sum -c autosecops-offline-"$VERSION".tar.*.sha256
+
+      - name: Upload bundle to the private bucket
+        env:
+          S3_URI: ${{ vars.OFFLINE_BUNDLE_S3_URI }}
+          S3_KMS_KEY_ARN: ${{ vars.OFFLINE_BUNDLE_S3_KMS_KEY_ARN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          destination="${S3_URI%/}/${VERSION}/"
+          # `--sse aws:kms` without a key ID would pick the AWS-managed aws/s3
+          # key over the bucket's customer-managed default, so name the key or
+          # send no encryption header and let the bucket default apply.
+          encryption=()
+          if [[ -n "$S3_KMS_KEY_ARN" ]]; then
+            encryption=(--sse aws:kms --sse-kms-key-id "$S3_KMS_KEY_ARN")
+          fi
+          cd "$RUNNER_TEMP/bundle"
+          cp "$OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY" "autosecops-offline-$VERSION.cosign.pub"
+          for file in autosecops-offline-"$VERSION"*; do
+            [[ -f "$file" ]] || continue
+            aws s3 cp --only-show-errors "${encryption[@]}" "$file" "$destination$file"
+          done
+          aws s3 ls "$destination"
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/signing"
+
+      # Checksums, signatures, and the public key only: never the archive or
+      # any image.
+      - name: Upload checksums and signatures
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: autosecops-offline-${{ steps.version.outputs.version }}
+          name: autosecops-offline-${{ steps.version.outputs.version }}-checksums
           path: |
-            ${{ runner.temp }}/bundle/autosecops-offline-*.tar.*
+            ${{ runner.temp }}/bundle/autosecops-offline-*.sha256
+            ${{ runner.temp }}/bundle/autosecops-offline-*.sha256.sig
+            ${{ runner.temp }}/bundle/autosecops-offline-*.SHA256SUMS
+            ${{ runner.temp }}/bundle/autosecops-offline-*.SHA256SUMS.sig
+            ${{ runner.temp }}/bundle/autosecops-offline-*.cosign.pub
           if-no-files-found: error
-          # The archive is already compressed.
-          compression-level: 0
-          retention-days: 30
+          retention-days: 90

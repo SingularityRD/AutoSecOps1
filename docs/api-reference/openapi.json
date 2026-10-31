@@ -23217,7 +23217,7 @@
           "settings"
         ],
         "summary": "Update Security Settings",
-        "description": "Update the organization IP allowlist.\n\nEnabling a non-empty allowlist that excludes the caller's own IP is\nrejected so an admin cannot lock themselves out of the organization.",
+        "description": "Update the organization IP allowlist and API key lifetime limit.\n\nEnabling a non-empty allowlist that excludes the caller's own IP is\nrejected so an admin cannot lock themselves out of the organization.",
         "operationId": "settings-update_security_settings",
         "requestBody": {
           "content": {
@@ -44617,6 +44617,33 @@
             }
           }
         }
+      }
+    },
+    "/admin/license/clock/reset": {
+      "post": {
+        "tags": [
+          "admin:license"
+        ],
+        "summary": "Reset License Clock",
+        "description": "Reset the license clock high-water mark to this replica's current time.\n\nRecovery for a host clock that pushed the mark into the future. Allowed only\nwhile the mark is ahead of the system clock and after this replica has seen\na steady clock for a few minutes. Every reset is audited and recorded.",
+        "operationId": "admin:license-reset_license_clock",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseClockResetRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
       }
     }
   },
@@ -67545,6 +67572,68 @@
                 "type": "null"
               }
             ]
+          },
+          "multi_tenant_requested": {
+            "type": "boolean",
+            "title": "Multi Tenant Requested",
+            "description": "Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+            "default": false
+          },
+          "multi_tenant_mode": {
+            "$ref": "#/components/schemas/MultiTenantMode",
+            "description": "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed",
+            "default": "off"
+          },
+          "clock_high_water": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock High Water",
+            "description": "Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock"
+          },
+          "clock_rollback_detected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Rollback Detected At",
+            "description": "When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up"
+          },
+          "clock_rollback_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Rollback Seconds",
+            "description": "How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not"
+          },
+          "clock_last_reset_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Last Reset At",
+            "description": "When a superuser last reset the high-water mark through POST /admin/license/clock/reset"
           }
         },
         "type": "object",
@@ -77885,6 +77974,17 @@
             },
             "type": "array",
             "title": "Ip Allowlists"
+          },
+          "service_account_api_key_max_ttl_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Account Api Key Max Ttl Days"
           }
         },
         "type": "object",
@@ -77911,6 +78011,20 @@
             "maxItems": 100,
             "title": "Ip Allowlists",
             "description": "Named groups of allowed IP addresses or CIDR ranges."
+          },
+          "service_account_api_key_max_ttl_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3650.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Account Api Key Max Ttl Days",
+            "description": "Longest lifetime, in days, of a newly issued service account API key. Keys issued without an expiry get this lifetime. Keys issued before the limit was set keep their expiry. Null sets no limit."
           }
         },
         "type": "object",
@@ -78013,6 +78127,11 @@
             "title": "Active",
             "default": 0
           },
+          "expired": {
+            "type": "integer",
+            "title": "Expired",
+            "default": 0
+          },
           "revoked": {
             "type": "integer",
             "title": "Revoked",
@@ -78030,6 +78149,19 @@
             "minLength": 1,
             "title": "Name",
             "default": "Primary"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum."
           }
         },
         "type": "object",
@@ -78138,6 +78270,19 @@
             ],
             "title": "Revoked At"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the key stops authenticating. Null: it never expires."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -78194,6 +78339,19 @@
             "minLength": 1,
             "title": "Initial Key Name",
             "default": "Primary"
+          },
+          "initial_key_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Key Expires At",
+            "description": "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum."
           }
         },
         "type": "object",
@@ -94460,6 +94618,32 @@
         ],
         "title": "WorkspaceSyncExportRequest",
         "description": "Request to commit selected workspace resources to a Git branch."
+      },
+      "MultiTenantMode": {
+        "type": "string",
+        "enum": [
+          "off",
+          "active",
+          "lapsed"
+        ],
+        "title": "MultiTenantMode",
+        "description": "Whether this deployment runs multi-tenant, and under what license."
+      },
+      "LicenseClockResetRead": {
+        "properties": {
+          "clock_high_water": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Clock High Water",
+            "description": "The new high-water mark: this API replica's current time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clock_high_water"
+        ],
+        "title": "LicenseClockResetRead",
+        "description": "Result of resetting the license clock high-water mark."
       }
     },
     "securitySchemes": {

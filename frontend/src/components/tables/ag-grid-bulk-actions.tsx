@@ -1,7 +1,7 @@
 "use client"
 
 import { PencilIcon, Trash2 } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback, useId, useState } from "react"
 import { useForm } from "react-hook-form"
 import type { TableColumnRead } from "@/client"
 import { useScopeCheck } from "@/components/auth/scope-guard"
@@ -187,6 +187,7 @@ function BulkEditDialog({
   batchUpdateRowsIsPending: boolean
   clearSelection: () => void
 }) {
+  const columnFieldId = useId()
   const [selectedColumn, setSelectedColumn] = useState<string>("")
   const form = useForm<Record<string, unknown>>({
     defaultValues: {},
@@ -233,9 +234,11 @@ function BulkEditDialog({
         <DialogBody>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Column</label>
+              <label htmlFor={columnFieldId} className="text-sm font-medium">
+                Column
+              </label>
               <Select value={selectedColumn} onValueChange={setSelectedColumn}>
-                <SelectTrigger>
+                <SelectTrigger id={columnFieldId}>
                   <SelectValue placeholder="Select a column" />
                 </SelectTrigger>
                 <SelectContent>

@@ -163,6 +163,13 @@ Removing something takes three PRs, usually across three releases:
   are `build(deps):` and land under Dependencies.
 - Reserve `security(deps):` for Critical unauthenticated remote-code-execution
   advisories. Security stays a drop-everything section only if it is rare.
+- Every PR that changes `uv.lock` or `frontend/pnpm-lock.yaml` also commits
+  the regenerated `THIRD_PARTY_NOTICES.md` and
+  `frontend/THIRD_PARTY_NOTICES.md`: run `just gen-notices` after
+  `uv sync --all-packages` and `pnpm install --dir frontend`. Dependabot PRs
+  fail the notices check until then, on purpose; check out the bot branch,
+  regenerate, and push a `build(deps): regenerate third-party notices`
+  commit. See the Dependencies section of `CONTRIBUTING.md`.
 
 ## Labels
 

@@ -22,6 +22,9 @@ on:
       - env.sh
       - Caddyfile
       - scripts/postgres/**
+      # The Compose worker healthchecks run these modules.
+      - autosecops/temporal/healthcheck.py
+      - autosecops/temporal/worker_lifecycle.py
       - .github/workflows/compose-smoke.yml
   pull_request:
     branches: [ "main", "staging" ]
@@ -38,6 +41,9 @@ on:
       - env.sh
       - Caddyfile
       - scripts/postgres/**
+      # The Compose worker healthchecks run these modules.
+      - autosecops/temporal/healthcheck.py
+      - autosecops/temporal/worker_lifecycle.py
       - .github/workflows/compose-smoke.yml
 
 permissions:
@@ -142,6 +148,38 @@ jobs:
           echo
           # /info reads the database, so it also proves migrations ran.
           curl -fsS http://localhost/api/info | jq -e '.version | length > 0'
+
+      - name: Wait for Temporal worker healthchecks
+        run: |
+          set -euo pipefail
+          # The worker healthcheck passes only while the worker polls Temporal
+          # (autosecops/temporal/healthcheck.py). This exercises the real image:
+          # the marker directory permissions, the probe on PATH, and the
+          # readiness RPC against the bundled Temporal. start_period is 120s.
+          deadline=$((SECONDS + 420))
+          while :; do
+            pending=""
+            for service in worker executor; do
+              health=$(docker compose ps --format json "$service" | jq -rs 'flatten | .[0].Health // "missing"')
+              if [ "$health" = "unhealthy" ]; then
+                echo "::error::$service healthcheck is unhealthy" >&2
+                docker inspect --format '{{json .State.Health}}' "$(docker compose ps -q "$service")" | jq . >&2
+                exit 1
+              fi
+              if [ "$health" != "healthy" ]; then
+                pending="$pending $service=$health"
+              fi
+            done
+            if [ -z "$pending" ]; then
+              echo "worker and executor are healthy"
+              break
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::Timed out waiting for healthy workers:$pending" >&2
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Check services stayed up
         run: |
